@@ -915,12 +915,14 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
 
       return Arrays.equals(getDigest(), that.getDigest())
           && getSize() == that.getSize()
-          && getLocationIndex() == that.getLocationIndex();
+          && getLocationIndex() == that.getLocationIndex()
+          && inMemoryOutput == that.inMemoryOutput;
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(getDigest()), getSize(), getLocationIndex());
+      return HashCodes.hashObjects(
+          Arrays.hashCode(getDigest()), getSize(), getLocationIndex(), inMemoryOutput);
     }
 
     @Override
@@ -1167,7 +1169,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    * for invalidation purposes.
    */
   private static final class UnresolvedSymlinkArtifactValue extends FileArtifactValue {
+    @SuppressWarnings("SkyValueEqualsIgnoresField")
     private final String symlinkTarget;
+
     private final byte[] digest;
 
     private UnresolvedSymlinkArtifactValue(Path symlink) throws IOException {
@@ -1248,7 +1252,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   @AutoCodec
   @VisibleForSerialization
   public static final class InlineFileArtifactValue extends FileArtifactValue {
+    @SuppressWarnings("SkyValueEqualsIgnoresField")
     private final byte[] data;
+
     private final byte[] digest;
 
     InlineFileArtifactValue(byte[] data, byte[] digest) {

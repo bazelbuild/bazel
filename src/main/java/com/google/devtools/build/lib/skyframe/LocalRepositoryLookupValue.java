@@ -22,6 +22,7 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Objects;
 
 /**
  * A value that represents a local repository lookup result.
@@ -175,12 +176,12 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
       if (!(obj instanceof SuccessfulLocalRepositoryLookupValue other)) {
         return false;
       }
-      return repositoryName.equals(other.repositoryName);
+      return repositoryName.equals(other.repositoryName) && path.equals(other.path);
     }
 
     @Override
     public int hashCode() {
-      return repositoryName.hashCode();
+      return Objects.hash(repositoryName, path);
     }
   }
 

@@ -32,6 +32,7 @@ VERSION_SRCS = [
 java_library(
     name = "skyframe-objects",
     srcs = SKYFRAME_OBJECT_SRCS,
+    exported_plugins = ["//src/main/java/com/google/devtools/build/skyframe/errorprone"],
     visibility = ["//visibility:public"],
     deps = [
         ":version",
@@ -150,5 +151,7 @@ java_library_srcs(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/skyframe/errorprone:srcs",
+    ],
 )

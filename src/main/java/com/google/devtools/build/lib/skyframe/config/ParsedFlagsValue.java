@@ -146,7 +146,10 @@ public class ParsedFlagsValue implements SkyValue {
   }
 
   private final NativeAndStarlarkFlags flags;
+
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final OptionsParsingResult parsingResult;
+
   private final LoadingCache<BuildOptions, BuildConfigurationKey> mergeCache =
       Caffeine.newBuilder().weakKeys().build(this::mergeWithImpl);
 
