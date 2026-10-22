@@ -85,6 +85,9 @@ class StartupOptions {
   virtual blaze_util::Path GetExe(const blaze_util::Path &jvm,
                                   const std::string &jar_path) const;
 
+  // Returns the relative path to the server JAR within the install base.
+  virtual std::string GetServerJarFilename() const { return "A-server.jar"; }
+
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.
   virtual void AddJVMArgumentPrefix(const blaze_util::Path &javabase,
