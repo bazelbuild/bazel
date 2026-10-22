@@ -2458,6 +2458,7 @@ java_library(
         ":required_config_fragments_provider",
         ":required_fragments_util",
         ":resolved_toolchain_context",
+        ":runfiles",
         ":starlark/starlark_attribute_transition_provider",
         ":target_context",
         ":test/analysis_failure",
