@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValu
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -49,6 +50,14 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
   private static void assertMarkerFileEscaping(String testCase) {
     String escaped = RepoRecordedInput.escape(testCase);
     assertThat(RepoRecordedInput.unescape(escaped)).isEqualTo(testCase);
+  }
+
+  @Test
+  public void testRepositoryRoundTrip() throws Exception {
+    var input = new RepoRecordedInput.Repository(RepositoryName.create("+ext+repo"));
+
+    assertThat(input.toString()).startsWith("REPO:");
+    assertThat(RepoRecordedInput.parse(input.toString())).isEqualTo(input);
   }
 
   @Test
