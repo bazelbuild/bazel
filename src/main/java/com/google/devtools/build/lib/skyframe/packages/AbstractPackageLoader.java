@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -514,9 +513,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         /* usePooledInterning= */ false);
   }
 
-  protected abstract CrossRepositoryLabelViolationStrategy
-      getCrossRepositoryLabelViolationStrategy();
-
   protected abstract ImmutableList<BuildFileName> getBuildFilesByPriority();
 
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
@@ -563,7 +559,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.PACKAGE_LOOKUP,
             new PackageLookupFunction(
                 /* deletedPackages= */ new AtomicReference<>(ImmutableSet.of()),
-                getCrossRepositoryLabelViolationStrategy(),
                 getBuildFilesByPriority()))
         .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())

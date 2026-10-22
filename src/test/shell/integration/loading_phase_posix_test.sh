@@ -98,8 +98,6 @@ function run_test_glob_with_io_error() {
   chmod 000 $pkg/t/u
 
   bazel query "$option" "//$pkg/t:*" >& $TEST_log && fail "Expected failure"
-  # TODO(katre): when error message from ErrorDeterminingRepositoryException is
-  #  improved, add it here too.
   expect_log 'error globbing'
 
   chmod 755 $pkg/t/u

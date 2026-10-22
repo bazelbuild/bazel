@@ -204,7 +204,6 @@ import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMe
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -429,8 +428,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final SkyFunction ignoredSubdirectoriesFunction;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
-
-  private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
 
   private final ImmutableList<BuildFileName> buildFilesByPriority;
 
@@ -700,7 +697,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       SyscallCache syscallCache,
       ExternalFileAction externalFileAction,
       SkyFunction ignoredSubdirectoriesFunction,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
@@ -763,7 +759,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.externalFilesHelper =
         ExternalFilesHelper.create(
             pkgLocator, externalFileAction, directories, repoContentsCachePathSupplier);
-    this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.actionOnFilesystemErrorCodeLoadingBzlFile = actionOnFilesystemErrorCodeLoadingBzlFile;
@@ -807,8 +802,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.DIRECTORY_TREE_DIGEST, new DirectoryTreeDigestFunction());
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,
-        new PackageLookupFunction(
-            deletedPackages, crossRepositoryLabelViolationStrategy, buildFilesByPriority));
+        new PackageLookupFunction(deletedPackages, buildFilesByPriority));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.PROJECT, new ProjectFunction());
     map.put(SkyFunctions.PROJECT_FILES_LOOKUP, new ProjectFilesLookupFunction());
@@ -963,7 +957,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
         new ActionTemplateExpansionFunction(actionKeyContext));
-    map.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     map.put(
         SkyFunctions.REGISTERED_EXECUTION_PLATFORMS, new RegisteredExecutionPlatformsFunction());
     map.put(SkyFunctions.REGISTERED_TOOLCHAINS, new RegisteredToolchainsFunction());

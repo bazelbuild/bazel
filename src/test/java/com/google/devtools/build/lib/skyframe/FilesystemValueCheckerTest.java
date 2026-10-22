@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ModifiedOutputsReceiver;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -313,7 +312,6 @@ public final class FilesystemValueCheckerTest {
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
             new AtomicReference<>(ImmutableSet.of()),
-            CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
 
     differencer = new SequencedRecordingDifferencer();
