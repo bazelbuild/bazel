@@ -429,6 +429,57 @@ public class SandboxHelpersTest {
         .containsExactly("link.txt");
   }
 
+  @Test
+  public void contentMap_copyStagedFileIsNotReusedAsSymlinkWhenNowPlainInput() throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path source = scratch.file("/out/f.txt", "old copy");
+    PathFragment input = PathFragment.create("api/f.txt");
+    SandboxInputs asCopy =
+        new SandboxInputs(
+            ImmutableMap.of(input, source),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableSet.of(input));
+    SandboxInputs asPlain =
+        new SandboxInputs(
+            ImmutableMap.of(input, source),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableSet.of());
+    // As SymlinkedSandboxedSpawn would have staged it for the first run.
+    Path staged = workDir.getRelative(input);
+    staged.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.copyFile(source, staged);
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(workDir, asCopy, SandboxOutputs.getEmptyInstance());
+    long timestamp = clock.currentTimeMillis();
+    clock.advanceMillis(1);
+    // The directory's ctime has not changed, so it is not rescanned.
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+    Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    SandboxHelpers.populateInputsAndDirsToCreate(
+        ImmutableSet.of(),
+        inputsToCreate,
+        dirsToCreate,
+        asPlain.getFiles().keySet(),
+        SandboxOutputs.getEmptyInstance());
+
+    SandboxHelpers.cleanExisting(
+        workDir.getParentDirectory(),
+        asPlain,
+        inputsToCreate,
+        dirsToCreate,
+        workDir,
+        treeDeleter,
+        contents);
+
+    assertThat(staged.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(inputsToCreate).contains(input);
+  }
+
   private static ImmutableSortedMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {
     return Arrays.stream(inputs)
         .collect(

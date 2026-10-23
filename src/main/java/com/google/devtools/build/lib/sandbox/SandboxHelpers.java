@@ -851,6 +851,13 @@ public final class SandboxHelpers {
   }
 
   /**
+   * Recorded in {@link SandboxContents#fileMap} for a copy-staged regular file. It contains a NUL
+   * character, so it can never equal the target of a symlink.
+   */
+  private static final PathFragment COPY_STAGED_FILE =
+      PathFragment.createAlreadyNormalized("\0copy-staged");
+
+  /**
    * Computes a {@link SandboxContents} for the filesystem hierarchy rooted at {@code workDir}'s
    * parent directory, reflecting the expected inputs and outputs for a spawn.
    *
@@ -860,17 +867,21 @@ public final class SandboxHelpers {
   public static SandboxContents createContentMap(
       Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
     Map<PathFragment, SandboxContents> contentsMap = CompactHashMap.create();
-    // Copy-staged inputs are recorded like any other file. They are regular files on disk, so
-    // updateContentMap never keeps them, and cleanExisting never reuses them whatever is recorded.
+    // Copy-staged inputs are regular files on disk, not symlinks. They are recorded with a value
+    // that no symlink can have, so that they are never mistaken for a symlink with the right target
+    // when the same path is a plain input in a later run and its directory was not rescanned.
     for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
-      contentsMap
-          .get(parent)
-          .fileMap()
-          .put(
-              entry.getKey().getBaseName(),
-              entry.getValue() == null ? null : entry.getValue().asFragment());
+      PathFragment recorded;
+      if (entry.getValue() == null) {
+        recorded = null;
+      } else if (inputs.getCopyStagedFiles().contains(entry.getKey())) {
+        recorded = COPY_STAGED_FILE;
+      } else {
+        recorded = entry.getValue().asFragment();
+      }
+      contentsMap.get(parent).fileMap().put(entry.getKey().getBaseName(), recorded);
       addAllParents(contentsMap, parentWasPresent, parent);
     }
     for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {

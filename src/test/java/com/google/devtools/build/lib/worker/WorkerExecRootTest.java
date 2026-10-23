@@ -196,6 +196,40 @@ public class WorkerExecRootTest {
         .isEqualTo("copy contents");
   }
 
+  /**
+   * A path that was staged as a copy in the previous run and is a plain input now must not be
+   * reused from the in-memory record: the record has to differ from a symlink with the same target.
+   */
+  @Test
+  public void copyStagedLeftoverIsNotReusedAsSymlinkWithInMemoryTracking() throws Exception {
+    SandboxHelper copyRun =
+        new SandboxHelper(execRoot, workDir)
+            .addAndCreateCopyOutputInputFile("dir/f.txt", "out/f.txt", "old copy contents");
+    WorkerExecRoot workerExecRoot =
+        new WorkerExecRoot(workDir, ImmutableList.of(), /* useInMemoryTracking= */ true);
+    workerExecRoot.createFileSystem(
+        copyRun.getWorkerFiles(),
+        copyRun.getSandboxInputs(),
+        copyRun.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
+    Path staged = workDir.getRelative("dir/f.txt");
+    assertThat(staged.isSymbolicLink()).isFalse();
+
+    // Now the same path is an ordinary input, with the same target. The directory is untouched.
+    SandboxHelper plainRun =
+        new SandboxHelper(execRoot, workDir)
+            .addAndCreateInputFile("dir/f.txt", "out/f.txt", "new contents");
+    workerExecRoot.createFileSystem(
+        plainRun.getWorkerFiles(),
+        plainRun.getSandboxInputs(),
+        plainRun.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
+
+    assertThat(staged.isSymbolicLink()).isTrue();
+    assertThat(FileSystemUtils.readContent(staged, Charset.defaultCharset()))
+        .isEqualTo("new contents");
+  }
+
   @Test
   public void createsOutputDirs() throws Exception {
     SandboxHelper sandboxHelper =
