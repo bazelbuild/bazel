@@ -273,6 +273,34 @@ java_library(
     ],
 )
 
+java_library(
+    name = "action_concurrency_meter",
+    srcs = ["ActionConcurrencyMeter.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "action_log_buffer_path_generator",
+    srcs = ["ActionLogBufferPathGenerator.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -280,10 +308,8 @@ java_library(
         "AbstractAction.java",
         "ActionCacheChecker.java",
         "ActionCacheUtils.java",
-        "ActionConcurrencyMeter.java",
         "ActionContextMarker.java",
         "ActionKeyComputer.java",
-        "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
         "ActionTemplate.java",
         "ActionWithDiscoveredInputsState.java",
@@ -302,6 +328,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     exports = [
+        ":action_concurrency_meter",
         ":action_environment",
         ":action_events",
         ":action_exceptions",
@@ -309,6 +336,7 @@ java_library(
         ":action_input_map",
         ":action_input_prefetcher",
         ":action_key_context",
+        ":action_log_buffer_path_generator",
         ":changed_files_message",
         ":commandline",
         ":commandline_limits",
@@ -317,6 +345,7 @@ java_library(
         ":spawns",
     ],
     deps = [
+        ":action_concurrency_meter",
         ":action_environment",
         ":action_events",
         ":action_exceptions",
@@ -324,6 +353,7 @@ java_library(
         ":action_input",
         ":action_input_map",
         ":action_input_prefetcher",
+        ":action_log_buffer_path_generator",
         ":action_lookup_data",
         ":action_lookup_key",
         ":artifact_owner",
