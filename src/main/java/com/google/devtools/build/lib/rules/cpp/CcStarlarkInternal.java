@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -491,7 +492,8 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   /**
    * Returns whether the equal values {@code a} and {@code b} reference the same artifacts or
-   * artifacts that both have their generating action key set.
+   * artifacts that both have their generating action key set. Values of unsupported types are
+   * conservatively treated as not interchangeable.
    */
   private static boolean isInterchangeable(Object a, Object b) {
     if (a == b) {
@@ -514,7 +516,13 @@ public class CcStarlarkInternal implements StarlarkValue {
         }
         yield true;
       }
-      default -> true;
+      case SourceArtifact ignored -> true;
+      case String ignored -> true;
+      case Boolean ignored -> true;
+      case StarlarkInt ignored -> true;
+      case NoneType ignored -> true;
+      // Values of other types may reference artifacts.
+      default -> false;
     };
   }
 
