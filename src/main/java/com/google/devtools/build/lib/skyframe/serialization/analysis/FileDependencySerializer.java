@@ -850,6 +850,28 @@ final class FileDependencySerializer {
 
     @Override
     protected NodeDataInfo getValue() {
+      List<NodeInvalidationDataInfo> nodeDependencies = collectNodeDependencies();
+      ReducedDependencies reduced = reduce(nodeDependencies);
+      // Must precede the release below: unwrapping to a delegate boosts its reference count, and
+      // releasing first could drop the delegate's bitmap through a transient zero.
+      @Nullable NodeDataInfo unwrapped = tryUnwrap(reduced);
+      // The only release point, so no exit can strand a child's reference. It precedes publish so
+      // that child bitmaps are freed before the CPU-intensive compression and put.
+      releaseChildBitmaps(nodeDependencies);
+      if (unwrapped != null) {
+        counters.nodesWaitingForDeps.decrementAndGet();
+        return unwrapped;
+      }
+      return publish(reduced);
+    }
+
+    /**
+     * Returns the nested and remote children of {@link #node} that carry invalidation data.
+     *
+     * <p>These are every child that this handler takes a reference on, so all of them must be
+     * passed to {@link #releaseChildBitmaps}.
+     */
+    private List<NodeInvalidationDataInfo> collectNodeDependencies() {
       var nodeDependencies = new ArrayList<NodeInvalidationDataInfo>();
       for (int i = 0; i < node.analysisDependenciesCount(); i++) {
         switch (node.getAnalysisDependency(i)) {
@@ -860,11 +882,77 @@ final class FileDependencySerializer {
             }
           }
           case RemoteFileOpNode remoteNode -> nodeDependencies.add(registerDependency(remoteNode));
-          // Direct leaf files and listings are evaluated in the second walk below.
+          // Direct leaf files and listings are evaluated by reduce.
           case FileKey _, DirectoryListingKey _ -> {}
         }
       }
+      return nodeDependencies;
+    }
 
+    /**
+     * The dependencies of a node that survive transitive reduction. See {@code
+     * NodeDependencyHandler.reduce}.
+     *
+     * <p>Not a record: {@link #union} and {@link #writeStatuses} are still mutated by publication,
+     * so this does not have value semantics.
+     */
+    private static final class ReducedDependencies {
+      /** The node's leaf closure, final once reduction returns. */
+      private final RoaringBitmap union;
+
+      /**
+       * The retained nested and remote children, in {@link
+       * FileDependencySerializer#NODE_DEPENDENCY_COMPARATOR} order.
+       */
+      private final List<NodeInvalidationDataInfo> nodeDependencies;
+
+      /** The retained direct file keys, in dependency order. */
+      private final List<String> fileKeys;
+
+      /** The retained direct listing keys, in dependency order. */
+      private final List<String> listingKeys;
+
+      /** The retained source file key, if any. */
+      @Nullable private final String sourceFileKey;
+
+      private final boolean hasOpaqueDependencies;
+
+      /** Write statuses of every retained dependency, to which publication adds the node's own. */
+      private final WriteStatusBuilder writeStatuses;
+
+      private ReducedDependencies(
+          RoaringBitmap union,
+          List<NodeInvalidationDataInfo> nodeDependencies,
+          List<String> fileKeys,
+          List<String> listingKeys,
+          @Nullable String sourceFileKey,
+          boolean hasOpaqueDependencies,
+          WriteStatusBuilder writeStatuses) {
+        this.union = union;
+        this.nodeDependencies = nodeDependencies;
+        this.fileKeys = fileKeys;
+        this.listingKeys = listingKeys;
+        this.sourceFileKey = sourceFileKey;
+        this.hasOpaqueDependencies = hasOpaqueDependencies;
+        this.writeStatuses = writeStatuses;
+      }
+
+      /** Whether any direct file, listing or source leaf was retained. */
+      private boolean hasLeaves() {
+        return !fileKeys.isEmpty() || !listingKeys.isEmpty() || sourceFileKey != null;
+      }
+    }
+
+    /**
+     * Determines which dependencies of {@link #node} survive transitive reduction, and computes its
+     * leaf closure.
+     *
+     * <p>This is the only method that mutates the closure. Once it returns, {@link
+     * ReducedDependencies#union} is final.
+     *
+     * @param nodeDependencies the result of {@link #collectNodeDependencies}. Sorted in place.
+     */
+    private ReducedDependencies reduce(List<NodeInvalidationDataInfo> nodeDependencies) {
       var writeStatusBuilder = new WriteStatusBuilder();
       var union = new RoaringBitmap();
       var retainedNodeDependencies = new ArrayList<NodeInvalidationDataInfo>();
@@ -920,7 +1008,7 @@ final class FileDependencySerializer {
               }
             }
           }
-          // Composite and remote child nodes were evaluated in the first walk above.
+          // Composite and remote child nodes were evaluated by collectNodeDependencies.
           case AbstractNestedFileOpNodes _, RemoteFileOpNode _ -> {}
         }
       }
@@ -944,48 +1032,60 @@ final class FileDependencySerializer {
         }
       }
 
-      // Phase 3: Unary Unwrapping
-      if (retainedFileKeys.isEmpty() && retainedListingKeys.isEmpty() && sourceFileKey == null) {
-        // TODO(b/558805781): investigate whether the empty case is reachable in practice.
-        if (retainedNodeDependencies.isEmpty()) {
-          counters.nodesWaitingForDeps.decrementAndGet();
-          releaseChildBitmaps(nodeDependencies);
-          return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
-        }
-        // There are multiple ways that result could become unary here, even if `node` always has at
-        // least 2 children. The following may reduce child count.
-        // 1. Deduplication of children with the same fingerprint.
-        // 2. Constant references.
-        // 3. Transitive reduction, when one child's closure covers its siblings and direct leaves.
-        if (retainedNodeDependencies.size() == 1) {
-          // It ended up as a node wrapping another node. Discards the wrapper.
-          //
-          // TODO: b/364831651 - consider additional special casing for unary file or listing
-          // dependencies.
-          counters.nodesWaitingForDeps.decrementAndGet();
-          NodeInvalidationDataInfo delegate = retainedNodeDependencies.get(0);
-          // Boost delegate by this parent's incoming edges before decrements to prevent transient
-          // zero:
-          delegate.addReferences(this.node.getInDegree());
-          releaseChildBitmaps(nodeDependencies);
-          return delegate;
-        }
+      return new ReducedDependencies(
+          union,
+          retainedNodeDependencies,
+          retainedFileKeys,
+          retainedListingKeys,
+          sourceFileKey,
+          hasOpaqueDependencies,
+          writeStatusBuilder);
+    }
+
+    /**
+     * Phase 3: Unary Unwrapping. Returns what {@link #node} reduces to without being serialized
+     * itself, or null if it must be published.
+     */
+    @Nullable
+    private NodeDataInfo tryUnwrap(ReducedDependencies reduced) {
+      if (reduced.hasLeaves()) {
+        return null;
       }
+      List<NodeInvalidationDataInfo> retainedNodeDependencies = reduced.nodeDependencies;
+      // TODO(b/558805781): investigate whether the empty case is reachable in practice.
+      if (retainedNodeDependencies.isEmpty()) {
+        return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
+      }
+      // There are multiple ways that result could become unary here, even if `node` always has at
+      // least 2 children. The following may reduce child count.
+      // 1. Deduplication of children with the same fingerprint.
+      // 2. Constant references.
+      // 3. Transitive reduction, when one child's closure covers its siblings and direct leaves.
+      if (retainedNodeDependencies.size() != 1) {
+        return null;
+      }
+      // It ended up as a node wrapping another node. Discards the wrapper.
+      //
+      // TODO: b/364831651 - consider additional special casing for unary file or listing
+      // dependencies.
+      NodeInvalidationDataInfo delegate = retainedNodeDependencies.get(0);
+      // Boost delegate by this parent's incoming edges before decrements to prevent transient zero.
+      delegate.addReferences(this.node.getInDegree());
+      return delegate;
+    }
 
-      // Phase 4: Wire Serialization & Publication
-      // Free child bitmaps immediately before CPU-intensive compression and CAS put:
-      releaseChildBitmaps(nodeDependencies);
-
+    /** Phase 4: Wire Serialization & Publication. */
+    private NodeInvalidationDataInfo publish(ReducedDependencies reduced) {
       // File and listing keys were collected in dependency order, so sort them here.
-      var sortedFileKeys = retainedFileKeys.stream().sorted().distinct().toList();
-      var sortedListingKeys = retainedListingKeys.stream().sorted().distinct().toList();
+      var sortedFileKeys = reduced.fileKeys.stream().sorted().distinct().toList();
+      var sortedListingKeys = reduced.listingKeys.stream().sorted().distinct().toList();
       // Node dependencies are already ordered by NODE_DEPENDENCY_COMPARATOR, and that order alone
       // would be canonical with the Phase 2 key deduplication, except for RemoteFileOpNode. A
       // remote node has the same fingerprint as a local node with the same content, but is opaque,
       // so its cardinality is Integer.MAX_VALUE. When both forms reach this node, they do not sort
       // adjacently and both are retained. Sorting and deduplicating by key restores canonicity.
       var sortedNodeDependencies =
-          retainedNodeDependencies.stream()
+          reduced.nodeDependencies.stream()
               .map(NodeInvalidationDataInfo::cacheKey)
               .sorted()
               .distinct()
@@ -1000,7 +1100,11 @@ final class FileDependencySerializer {
 
       byte[] nodeBytes =
           computeNodeBytes(
-              sortedNodeDependencies, sortedFileKeys, sortedListingKeys, sourceFileKey, recorder);
+              sortedNodeDependencies,
+              sortedFileKeys,
+              sortedListingKeys,
+              reduced.sourceFileKey,
+              recorder);
       byte[] maybeCompressedBytes = nodeBytes;
       if (maybeCompressedBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
         maybeCompressedBytes = compressBytes(maybeCompressedBytes);
@@ -1018,10 +1122,11 @@ final class FileDependencySerializer {
             recorder, keyByteCount, maybeCompressedBytes.length, writeStatus);
       }
 
+      WriteStatusBuilder writeStatusBuilder = reduced.writeStatuses;
       writeStatusBuilder.add(writeStatus);
 
-      // Canonicalize the closure before it is retained. `union` takes its last mutation above, when
-      // the source leaf is added, so this is the first point at which it is safe.
+      // Canonicalize the closure before it is retained. `union` takes its last mutation in reduce,
+      // so it is safe at any point after.
       //
       // Both calls are needed and neither is useful alone. `runOptimize` converts ascending spans
       // into runs, which only pays off because leaf IDs are assigned by a depth-first walk; under
@@ -1031,6 +1136,7 @@ final class FileDependencySerializer {
       //
       // Trimming earlier, while the bitmap is still accumulating, would merely restart the doubling
       // sequence and accomplish nothing.
+      RoaringBitmap union = reduced.union;
       union.runOptimize();
       union.trim();
 
@@ -1038,7 +1144,7 @@ final class FileDependencySerializer {
           key,
           writeStatusBuilder.build(),
           union,
-          hasOpaqueDependencies,
+          reduced.hasOpaqueDependencies,
           /* initialReferences= */ node.getInDegree());
     }
 
