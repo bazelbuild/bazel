@@ -260,6 +260,19 @@ java_library(
     ],
 )
 
+java_library(
+    name = "changed_files_message",
+    srcs = ["ChangedFilesMessage.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/guava:collect",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -276,7 +289,6 @@ java_library(
         "ActionWithDiscoveredInputsState.java",
         "Actions.java",
         "BasicActionLookupValue.java",
-        "ChangedFilesMessage.java",
         "FailAction.java",
         "MapBasedActionGraph.java",
         "NotifyOnActionCacheHit.java",
@@ -297,6 +309,7 @@ java_library(
         ":action_input_map",
         ":action_input_prefetcher",
         ":action_key_context",
+        ":changed_files_message",
         ":commandline",
         ":commandline_limits",
         ":completion_context",
@@ -315,6 +328,7 @@ java_library(
         ":action_lookup_key",
         ":artifact_owner",
         ":artifacts",
+        ":changed_files_message",
         ":commandline",
         ":commandline_item",
         ":commandline_limits",
