@@ -196,6 +196,7 @@ public final class SkyframeActionExecutor {
   private Reporter reporter;
   private ImmutableMap<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
+  private ExtendedEventHandler progressEmittingEventHandler;
   private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
@@ -340,7 +341,21 @@ public final class SkyframeActionExecutor {
       boolean keepStateAfterBuild) {
     this.reporter = checkNotNull(reporter);
     this.executorEngine = checkNotNull(executor);
-    this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
+
+    var importantOutputHandler = executor.getContext(ImportantOutputHandler.class);
+    if (importantOutputHandler == null) {
+      this.progressEmittingEventHandler = reporter;
+      this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
+    } else {
+      // SpawnExecutedEvent is a progress event, but the ImportantOutputHandler relies on observing
+      // it for every executed spawn, so notify it regardless of whether progress events are
+      // suppressed.
+      this.progressEmittingEventHandler =
+          new SpawnExecutedNotifyingEventHandler(reporter, importantOutputHandler);
+      this.progressSuppressingEventHandler =
+          new SpawnExecutedNotifyingEventHandler(
+              new ProgressSuppressingEventHandler(reporter), importantOutputHandler);
+    }
 
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
 
@@ -507,6 +522,7 @@ public final class SkyframeActionExecutor {
     this.reporter = null;
     this.options = null;
     this.executorEngine = null;
+    this.progressEmittingEventHandler = null;
     this.progressSuppressingEventHandler = null;
     this.outputService = null;
     this.buildActionMap = null;
@@ -772,7 +788,7 @@ public final class SkyframeActionExecutor {
   }
 
   private ExtendedEventHandler selectEventHandler(boolean emitProgressEvents) {
-    return emitProgressEvents ? reporter : progressSuppressingEventHandler;
+    return emitProgressEvents ? progressEmittingEventHandler : progressSuppressingEventHandler;
   }
 
   private ActionExecutionContext getContext(

@@ -4684,8 +4684,43 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getTarget("//test:BUILD");
+    assertContainsEvent("Label() can only be used in .bzl files", ImmutableSet.of(EventKind.ERROR));
+  }
+
+  // Regression test for b/575861296.
+  @Test
+  public void testLabelRelativeInBuildFile() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        """
+        my_label = Label("//test:orig")
+        def make_targets(l1, l2):
+          native.filegroup(name = l1.name)
+          native.filegroup(name = l2.name)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':foo.bzl', 'my_label', 'make_targets')
+        make_targets(my_label.relative(':rel_target'), my_label.relative('//other:abs_target'))
+        """);
+
+    assertThat(getTarget("//test:rel_target")).isNotNull();
+    assertThat(getTarget("//test:abs_target")).isNotNull();
+
+    scratch.overwriteFile(
+        "test/BUILD",
+        """
+        load(':foo.bzl', 'my_label')
+        my_label.relative('@repo//other:target')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    invalidatePackages();
+    getTarget("//test:BUILD");
     assertContainsEvent(
-        "Label() can only be used during .bzl initialization (top-level evaluation)",
+        "Label.relative() with an argument containing a repository name can only be used in .bzl"
+            + " files",
         ImmutableSet.of(EventKind.ERROR));
   }
 

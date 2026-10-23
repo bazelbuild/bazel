@@ -68,12 +68,25 @@ EOF
 
 function set_up() {
   add_rules_java MODULE.bazel
+  add_rules_shell MODULE.bazel
 }
 
 #### TESTS #############################################################
 
 function test_compile_helloworld() {
-  write_hello_world_files
+  mkdir -p hello || fail "mkdir hello failed"
+  cat >hello/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(name = 'hello',
+  srcs = ['hello.sh'])
+EOF
+
+  cat >hello/hello.sh <<EOF
+#!/usr/bin/env bash
+echo "hello!"
+EOF
+  chmod +x hello/hello.sh
+
   bazel run --experimental_ui_debug_all_events --discard_analysis_cache hello:hello >&$TEST_log \
       || fail "Build failed"
   expect_log "Loading package: hello"

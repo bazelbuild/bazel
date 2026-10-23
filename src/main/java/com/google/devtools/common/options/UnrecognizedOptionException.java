@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.common.options;
 
-/** Exception indicating an attempt to access a repository which is not found or does not exist. */
-public class ErrorDeterminingRepositoryException extends NoSuchThingException {
-
-  public ErrorDeterminingRepositoryException(String message) {
-    super(message);
-  }
-
-  public ErrorDeterminingRepositoryException(String message, Throwable cause) {
-    super(message, cause);
+/** An exception that's thrown when the {@link OptionsParser} encounters an unrecognized option. */
+public class UnrecognizedOptionException extends OptionsParsingException {
+  public UnrecognizedOptionException(String argument, String suffix) {
+    super("Unrecognized option: " + argument + suffix, argument);
   }
 }

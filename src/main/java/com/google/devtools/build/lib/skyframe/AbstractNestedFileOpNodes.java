@@ -126,6 +126,59 @@ public abstract sealed class AbstractNestedFileOpNodes implements FileOpNodeOrFu
     this.serializationScratch = value;
   }
 
+  /**
+   * This node's longest-path depth, or a traversal sentinel while the walk is still running.
+   *
+   * <p>A node that no walked node depends on has depth {@link #TOP_DEPTH}, and every other node is
+   * one deeper than its deepest parent. That is, the depth is one more than the length of the
+   * longest path to the node from a top node, not the shortest. Every edge therefore points to a
+   * strictly greater depth, so visiting nodes deepest first places each node after all its
+   * dependencies.
+   *
+   * <p>Doubles as the traversal's visited marker. A separate visited set over the whole node
+   * population would cost tens of megabytes, which is the same order as the bitmap residency the
+   * traversal exists to reduce.
+   *
+   * <p>Not volatile: written only by the single-threaded walk in {@link
+   * com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpNodeMemoizingLookup}, which
+   * happens-before the serialization work that reads it.
+   */
+  private int longestPathDepth = UNDISCOVERED;
+
+  /** Sentinel for a node the traversal has not reached yet. Matches the default field value. */
+  private static final int UNDISCOVERED = 0;
+
+  /** The depth of a node that no walked node depends on. */
+  public static final int TOP_DEPTH = 1;
+
+  public int getLongestPathDepth() {
+    return longestPathDepth;
+  }
+
+  /**
+   * Marks this node visited, provisionally at the top depth.
+   *
+   * @return false if the node was already visited
+   */
+  public boolean markVisited() {
+    if (longestPathDepth != UNDISCOVERED) {
+      return false;
+    }
+    longestPathDepth = TOP_DEPTH;
+    return true;
+  }
+
+  /**
+   * Places this node at least one deeper than a parent at {@code parentDepth}.
+   *
+   * <p>The node must already have been visited.
+   */
+  public void placeBelow(int parentDepth) {
+    if (parentDepth >= longestPathDepth) {
+      longestPathDepth = parentDepth + 1;
+    }
+  }
+
   /** A set of {@link FileOpNode}s with no immediate source dependencies. */
   public static final class NestedFileOpNodes extends AbstractNestedFileOpNodes {
     private NestedFileOpNodes(FileOpNode[] analysisDependencies) {

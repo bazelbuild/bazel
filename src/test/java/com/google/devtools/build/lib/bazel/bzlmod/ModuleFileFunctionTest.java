@@ -53,9 +53,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
-import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -151,10 +149,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
-                        CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
@@ -194,6 +190,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
+    RegistryFunction.WATCHED_REGISTRIES.set(differencer, ImmutableSet.of());
   }
 
   @Test

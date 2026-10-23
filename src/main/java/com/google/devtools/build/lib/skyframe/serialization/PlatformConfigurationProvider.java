@@ -24,8 +24,28 @@ public interface PlatformConfigurationProvider {
   /** Returns the top-level platform label. */
   Label getTopLevelPlatformLabel();
 
-  /** Returns the baseline build options for the given platform label */
+  /**
+   * Returns the baseline build options for the given platform label.
+   *
+   * <p>Configurations are serialized as diffs against this baseline, and the baseline itself is not
+   * serialized. So every option in it must either be covered by the configuration checksum in
+   * {@code FrontierNodeVersion} or be the same in every build. Otherwise two builds that differ in
+   * that option would serialize keys to the same bytes and share cache entries.
+   */
   BuildOptions getBaseOptionsForPlatform(
+      Label platformLabel, boolean isExec, boolean trimTestOptions) throws SerializationException;
+
+  /**
+   * Returns this build's baseline build options for the given platform label.
+   *
+   * <p>For trimmed configurations this is the same as {@link #getBaseOptionsForPlatform}. Unlike
+   * that method, it doesn't replace anything for untrimmed configurations: it keeps this build's
+   * test options and full {@code --run_under}. Those are not covered by the configuration checksum
+   * in {@code FrontierNodeVersion}, but output directory mnemonics of untrimmed configurations are
+   * computed against them, so serialized keys of untrimmed configurations must also record how this
+   * baseline differs from {@link #getBaseOptionsForPlatform}.
+   */
+  BuildOptions getActualBaseOptionsForPlatform(
       Label platformLabel, boolean isExec, boolean trimTestOptions) throws SerializationException;
 
   /** Resolves the output directory mnemonic for the given configuration options. */

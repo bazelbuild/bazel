@@ -1108,6 +1108,64 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   @Test
+  public void labelFlagDepsRefineEnvironmentsLikeSelectDeps() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    writeDepsForSelectTests();
+    scratch.file(
+        "hello/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        label_flag(
+            name = 'backend',
+            build_setting_default = '//deps:dep_a')
+        cc_library(
+            name = 'lib',
+            srcs = [],
+            deps = [':backend'],
+            compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])
+        cc_library(
+            name = 'depender_a',
+            srcs = [],
+            deps = [':lib'],
+            restricted_to = ['//buildenv/foo:a'])
+        """);
+    // Valid because :backend resolves to //deps:dep_a, which refines :lib to //buildenv/foo:a.
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
+    assertThat(getConfiguredTarget("//hello:depender_a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void labelFlagDepsFailRefinedEnvironmentCheckWhenIncompatible() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    writeDepsForSelectTests();
+    scratch.file(
+        "hello/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        label_flag(
+            name = 'backend',
+            build_setting_default = '//deps:dep_a')
+        cc_library(
+            name = 'lib',
+            srcs = [],
+            deps = [':backend'],
+            compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])
+        cc_library(
+            name = 'depender_b',
+            srcs = [],
+            deps = [':lib'],
+            restricted_to = ['//buildenv/foo:b'])
+        """);
+    reporter.removeHandler(failFastHandler);
+    // Invalid because :backend resolves to //deps:dep_a, refining :lib to //buildenv/foo:a,
+    // which disqualifies :depender_b's required //buildenv/foo:b environment.
+    assertThat(getConfiguredTarget("//hello:depender_b")).isNull();
+    assertContainsEvent(
+        "//hello:depender_b: the current command line flags disqualify all supported environments");
+  }
+
+  @Test
   public void selectableOutputFileDepsTreatedLikeOtherDeps() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     writeDepsForSelectTests();

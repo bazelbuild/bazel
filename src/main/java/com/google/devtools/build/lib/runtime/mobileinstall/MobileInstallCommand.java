@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -70,7 +69,7 @@ import javax.annotation.Nullable;
 @Command(
     name = "mobile-install",
     buildPhase = EXECUTES,
-    options = {MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class},
+    options = {MobileInstallCommand.Options.class, AdbOptions.class},
     inheritsOptionsFrom = {BuildCommand.class},
     shortDescription = "Installs targets to mobile devices.",
     completion = "label",
@@ -215,7 +214,7 @@ public class MobileInstallCommand implements BlazeCommand {
     }
     ConfiguredTarget targetToRun = Iterables.getOnlyElement(successfulTargets);
     Options mobileInstallOptions = options.getOptions(Options.class);
-    WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
+    AdbOptions adbOptions = options.getOptions(AdbOptions.class);
 
     if (!mobileInstallOptions.getMobileInstallSupportedRules().isEmpty()) {
       String message =

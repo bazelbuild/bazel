@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -1405,5 +1406,88 @@ public class BlazeOptionHandlerTest {
         .containsExactly(
             "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_string=fromConf");
+  }
+
+  @Test
+  public void testParseOptions_startupOptionAfterCommand() throws Exception {
+    for (String flag :
+        ImmutableList.of(
+            "--host_jvm_args=-Xmx1g",
+            "--nobatch",
+            "--nohost_jvm_debug",
+            "--ignore_all_rc_files",
+            "--noignore_all_rc_files",
+            "--bazelrc=/somewhere/.bazelrc",
+            "--nosystem_rc")) {
+      String flagName = flag.contains("=") ? flag.substring(0, flag.indexOf('=')) : flag;
+      StoredEventHandler localEvents = new StoredEventHandler();
+      DetailedExitCode exitCode =
+          optionHandler.parseOptions(
+              ImmutableList.of("build", flag), localEvents, ImmutableList.builder());
+      assertThat(exitCode.isSuccess()).isFalse();
+      String expectedMessage =
+          String.format(
+              "Unrecognized option: %s (%s is a startup option and must appear before the"
+                  + " 'build' command)",
+              flag, flagName);
+      assertThat(exitCode.getFailureDetail().getMessage())
+          .isEqualTo("Error parsing options: " + expectedMessage);
+      assertThat(localEvents.getEvents())
+          .containsExactly(
+              Event.error(flag + " :: " + expectedMessage)
+                  .withTag(BlazeOptionHandler.BAD_OPTION_TAG));
+    }
+
+    // Separate-token argument (--host_jvm_args -Xmx1g) and command spellcheck suppression
+    // (--nobatch with BuildRequestOptions registered, which would otherwise suggest --nobuild).
+    BlazeOptionHandlerTestHelper helperWithBuildOptions =
+        new BlazeOptionHandlerTestHelper(
+            ImmutableList.of(
+                TestOptions.class,
+                CommonCommandOptions.class,
+                ClientOptions.class,
+                BuildRequestOptions.class),
+            /* allowResidue= */ true,
+            /* aliasFlag= */ null,
+            /* skipStarlarkPrefixes= */ true);
+    DetailedExitCode noEqualsExit =
+        optionHandler.parseOptions(
+            ImmutableList.of("build", "--host_jvm_args", "-Xmx1g"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(noEqualsExit.getFailureDetail().getMessage())
+        .isEqualTo(
+            "Error parsing options: Unrecognized option: --host_jvm_args (--host_jvm_args is a"
+                + " startup option and must appear before the 'build' command)");
+    DetailedExitCode spellcheckExit =
+        helperWithBuildOptions
+            .getOptionHandler()
+            .parseOptions(
+                ImmutableList.of("build", "--nobatch"),
+                helperWithBuildOptions.getEventHandler(),
+                ImmutableList.builder());
+    assertThat(spellcheckExit.getFailureDetail().getMessage())
+        .isEqualTo(
+            "Error parsing options: Unrecognized option: --nobatch (--nobatch is a startup"
+                + " option and must appear before the 'build' command)");
+  }
+
+  @Test
+  public void testParseOptions_nonStartupOrHiddenOptionAfterCommand() {
+    for (String flag :
+        ImmutableList.of(
+            "--completely_unknown_option=foo",
+            "--no",
+            "--nohost_jvm_args",
+            "--nobazelrc",
+            "--workspace_directory=/tmp")) {
+      StoredEventHandler localEvents = new StoredEventHandler();
+      DetailedExitCode exitCode =
+          optionHandler.parseOptions(
+              ImmutableList.of("build", flag), localEvents, ImmutableList.builder());
+      assertThat(exitCode.isSuccess()).isFalse();
+      assertThat(exitCode.getFailureDetail().getMessage())
+          .isEqualTo("Error parsing options: Unrecognized option: " + flag);
+    }
   }
 }

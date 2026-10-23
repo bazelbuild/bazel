@@ -64,7 +64,11 @@ public final class SkycacheUploadClient {
             compressionService,
             fingerprintValueService,
             fingerprintValueService.getExecutor(),
-            /* profileCollector= */ null);
+            /* profileCollector= */ null,
+            // This client uploads during computation, so there is no selection to walk and no node
+            // graph to number ahead of time. Leaf IDs are therefore assigned on demand, which means
+            // this path does not get the run-length compression that dense IDs enable.
+            LeafIdAssignment.lazy());
     this.writeStatuses =
         new SelectedEntrySerializer.SerializationStatus(fileDependencySerializer.getCounters());
     var serializationStats = new SelectedEntrySerializer.SerializationStats();

@@ -162,6 +162,15 @@ public interface ImportantOutputHandler extends ActionContext {
   /** Informs this handler of a param file that was materialized prior to action execution. */
   default void processParamFile(ParamFileActionInput paramFile) throws ImportantOutputException {}
 
+  /**
+   * Informs this handler that a spawn was executed.
+   *
+   * <p>Unlike a {@link com.google.common.eventbus.Subscribe subscription} to {@link
+   * SpawnExecutedEvent}, this is called for every executed spawn, even when the event is suppressed
+   * (e.g. for rewound actions).
+   */
+  default void spawnExecuted(SpawnExecutedEvent event) {}
+
   /** Represents an exception encountered during processing of important outputs. */
   final class ImportantOutputException extends Exception implements DetailedException {
     private final FailureDetail failureDetail;

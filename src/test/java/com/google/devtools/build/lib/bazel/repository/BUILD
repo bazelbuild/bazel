@@ -53,7 +53,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_state_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:local_repository_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_function",

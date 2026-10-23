@@ -45,6 +45,7 @@ public final class AspectCompleteEvent
     implements SkyValue, BuildEventWithOrderConstraint, EventReportingArtifacts {
   private final AspectKey aspectKey;
   private final NestedSet<Cause> rootCauses;
+  private final Collection<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups;
   private final boolean printToMasterLog;
@@ -58,6 +59,11 @@ public final class AspectCompleteEvent
     this.aspectKey = aspectKey;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
+    ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
+    for (Cause cause : this.rootCauses.toList()) {
+      postedAfterBuilder.add(cause.getIdProto());
+    }
+    this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
     this.artifactOutputGroups = artifactOutputGroups;
     this.printToMasterLog = printToMasterLog;
@@ -143,14 +149,7 @@ public final class AspectCompleteEvent
 
   @Override
   public Collection<BuildEventId> postedAfter() {
-    if (rootCauses.isEmpty()) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<BuildEventId> postedAfter = ImmutableList.builder();
-    for (Cause cause : rootCauses.toList()) {
-      postedAfter.add(cause.getIdProto());
-    }
-    return postedAfter.build();
+    return postedAfter;
   }
 
   @Override

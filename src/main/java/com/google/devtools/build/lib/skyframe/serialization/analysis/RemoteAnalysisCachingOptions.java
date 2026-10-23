@@ -19,14 +19,12 @@ import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** Options for caching analysis results remotely. */
@@ -165,17 +163,6 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "If true, Blaze will emit debug events for remote analysis caching.")
   public abstract boolean getEmitBepUploadEvents();
-
-  @Option(
-      name = "experimental_active_directories",
-      defaultValue = "",
-      effectTags = OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      help =
-          "Active directories for remote analysis caching. Specify as comma-separated"
-              + " workspace root-relative paths.")
-  public abstract List<String> getActiveDirectories();
 
   // This option has no consumers in Bazel; it is read by Google-internal code. Do not remove.
   @Option(

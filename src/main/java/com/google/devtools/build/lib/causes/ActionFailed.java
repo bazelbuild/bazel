@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.causes;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -67,6 +69,14 @@ public class ActionFailed implements Cause {
 
   @Override
   public BuildEventStreamProtos.BuildEventId getIdProto() {
-    return BuildEventIdUtil.actionCompleted(execPath, label, configurationChecksum);
+    ActionCompletedId.Builder actionId =
+        ActionCompletedId.newBuilder().setPrimaryOutput(execPath.toString());
+    if (label != null) {
+      actionId.setLabel(label.toString());
+    }
+    if (configurationChecksum != null) {
+      actionId.setConfiguration(ConfigurationId.newBuilder().setId(configurationChecksum));
+    }
+    return BuildEventId.newBuilder().setActionCompleted(actionId).build();
   }
 }

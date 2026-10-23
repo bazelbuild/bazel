@@ -22,10 +22,10 @@ import static com.google.devtools.build.lib.skyframe.serialization.proto.DataTyp
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EXECUTION_NODE;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -77,9 +77,8 @@ import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -186,6 +185,12 @@ final class SelectedEntrySerializer {
     private final AtomicLong analysisNodes = new AtomicLong(0);
     private final AtomicLong executionNodes = new AtomicLong(0);
 
+    // Wall times of the synchronous phases of uploadSelection. Written by uploadSelection before it
+    // returns and read by its caller afterwards, on the same thread.
+    private Duration materializeNodeGraphTime = Duration.ZERO;
+    private Duration computeLeafIdsAndUploadOrderTime = Duration.ZERO;
+    private Duration driveUploadsTime = Duration.ZERO;
+
     SerializationStats() {}
 
     void registerAnalysisNode() {
@@ -202,6 +207,24 @@ final class SelectedEntrySerializer {
 
     long executionNodes() {
       return executionNodes.get();
+    }
+
+    /** Parallel materialization of the node graph. */
+    Duration materializeNodeGraphTime() {
+      return materializeNodeGraphTime;
+    }
+
+    /** The leaf walk, longest-path depth assignment and upload ordering. */
+    Duration computeLeafIdsAndUploadOrderTime() {
+      return computeLeafIdsAndUploadOrderTime;
+    }
+
+    /**
+     * The loop that issues every upload. Node construction is synchronous within it, but writes are
+     * left outstanding, so it excludes the wait for writes to land.
+     */
+    Duration driveUploadsTime() {
+      return driveUploadsTime;
     }
   }
 
@@ -272,13 +295,22 @@ final class SelectedEntrySerializer {
     fileOpNodes.setMemoryReclamationParameters(
         selection, shouldDiscardMemory, shouldDiscardMemory ? packageRefcounts.keySet() : null);
 
+    var stopwatch = Stopwatch.createStarted();
     ImmutableList<Throwable> materializeErrors;
     try (var _ = Profiler.instance().profile("materializeNodeGraph")) {
       materializeErrors = fileOpNodes.materializeNodeGraph(selection);
     }
+    serializationStats.materializeNodeGraphTime = stopwatch.elapsed();
     if (!materializeErrors.isEmpty()) {
       return immediateFuture(materializeErrors);
     }
+
+    stopwatch.reset().start();
+    FileOpNodeMemoizingLookup.DenseLeafIdsAndUploadOrder dense;
+    try (var _ = Profiler.instance().profile("computeLeafIdsAndUploadOrder")) {
+      dense = fileOpNodes.computeLeafIdsAndUploadOrder(selection);
+    }
+    serializationStats.computeLeafIdsAndUploadOrderTime = stopwatch.elapsed();
 
     var fileDependencySerializer =
         new FileDependencySerializer(
@@ -287,7 +319,8 @@ final class SelectedEntrySerializer {
             compressionService,
             fileInvalidationWriter,
             fingerprintValueService.getExecutor(),
-            profileCollector);
+            profileCollector,
+            dense.leafIds());
     var writeStatuses = new SerializationStatus(fileDependencySerializer.getCounters());
     var serializer =
         new SelectedEntrySerializer(
@@ -306,23 +339,28 @@ final class SelectedEntrySerializer {
             serializationStats,
             emitUploadedEvents);
 
-    // A topological sort prevents the antipattern where one serializes a high level node, walks
+    if (shouldDiscardMemory) {
+      fileOpNodes.markDirectDepsCleared();
+      clearDirectDeps(graph);
+    }
+
+    // A topological order prevents the antipattern where one serializes a high level node, walks
     // its whole transitive closure, then serializes lower level nodes, thus revisiting the
     // transitive closure again.
     //
     // This doesn't help a lot when one only serializes a frontier or a small active set (since
     // the majority of the Skyframe graph is not serialized), but does help when serializing a
     // lot of nodes.
-    ImmutableList<SkyKey> sortedSelection = sortTopologically(selection, graph);
-
-    if (shouldDiscardMemory) {
-      fileOpNodes.markDirectDepsCleared();
-      clearDirectDeps(graph);
+    //
+    // The order is by the longest-path depth of each key's node, deepest first. See
+    // SelectionPartition.
+    stopwatch.reset().start();
+    try (var _ = Profiler.instance().profile("driveUploads")) {
+      for (SkyKey selectedKey : dense.uploadOrder()) {
+        serializer.upload(selectedKey);
+      }
     }
-
-    for (SkyKey selectedKey : sortedSelection) {
-      serializer.upload(selectedKey);
-    }
+    serializationStats.driveUploadsTime = stopwatch.elapsed();
 
     writeStatuses.finishRegistration();
     return writeStatuses;
@@ -956,40 +994,5 @@ final class SelectedEntrySerializer {
             }
           });
     }
-  }
-
-  /** Sorts {@code selection} topologically based on the edges in {@code graph}. */
-  private static ImmutableList<SkyKey> sortTopologically(
-      ImmutableSet<SkyKey> selection, InMemoryGraph graph) {
-    ArrayList<SkyKey> result = new ArrayList<>(selection.size());
-    Set<SkyKey> visited = Sets.newHashSetWithExpectedSize(selection.size());
-    for (SkyKey key : selection) {
-      if (visited.add(key)) {
-        dfs(key, selection, graph, visited, result);
-      }
-    }
-    return ImmutableList.copyOf(result);
-  }
-
-  private static void dfs(
-      SkyKey key,
-      ImmutableSet<SkyKey> selection,
-      InMemoryGraph graph,
-      Set<SkyKey> visited,
-      List<SkyKey> result) {
-    InMemoryNodeEntry entry = graph.getIfPresent(key);
-    if (entry == null) {
-      return;
-    }
-
-    for (SkyKey dep : entry.getDirectDeps()) {
-      // This is suboptimal when "selection" is non-contiguous, but makes it possible to avoid
-      // visiting the whole Skyframe graph when serializing just a frontier
-      if (selection.contains(dep) && visited.add(dep)) {
-        dfs(dep, selection, graph, visited, result);
-      }
-    }
-
-    result.add(key);
   }
 }

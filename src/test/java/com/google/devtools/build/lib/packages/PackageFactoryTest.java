@@ -494,6 +494,63 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testTargetSuggestionPrefersConsumingRuleOverSourceFile() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        """
+        fake_cc_library(
+            name = "core_lib",
+            srcs = [
+                "foo_bar.cc",
+                "sub/HelperUtil.cc",
+            ],
+        )
+        fake_cc_library(
+            name = "foo_baz",
+            srcs = ["foo_baz.cc"],
+        )
+        """);
+
+    Package pkg = getPackage("x");
+
+    NoSuchTargetException e =
+        assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("foo_bar"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:foo_bar': target 'foo_bar' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD (did you mean core_lib?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("helperutil"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:helperutil': target 'helperutil' not declared in package 'x'"
+                + " defined by /workspace/x/BUILD (did you mean core_lib?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("sub/HelperUtil"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:sub/HelperUtil': target 'sub/HelperUtil' not declared in package"
+                + " 'x' defined by /workspace/x/BUILD (did you mean core_lib?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("HelperUtil.cc"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:HelperUtil.cc': target 'HelperUtil.cc' not declared in package"
+                + " 'x' defined by /workspace/x/BUILD (did you mean core_lib?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("core_li"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:core_li': target 'core_li' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD (did you mean core_lib?)");
+  }
+
+  @Test
   public void testTestSuitesImplicitlyDependOnAllRulesInPackage() throws Exception {
     scratch.file(
         "x/foo_test.bzl",

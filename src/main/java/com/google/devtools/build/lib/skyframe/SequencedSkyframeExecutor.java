@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVer
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -171,7 +170,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
       SkyFunction ignoredSubdirectoriesFunction,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       boolean allowExternalRepositories,
       Supplier<Path> repoContentsCachePathSupplier,
@@ -194,7 +192,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         syscallCache,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         ignoredSubdirectoriesFunction,
-        crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         actionOnFilesystemErrorCodeLoadingBzlFile,
@@ -896,8 +893,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         .setActionOnFilesystemErrorCodeLoadingBzlFile(
             BazelSkyframeExecutorConstants.ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE)
         .setShouldUseRepoDotBazel(BazelSkyframeExecutorConstants.USE_REPO_DOT_BAZEL)
-        .setCrossRepositoryLabelViolationStrategy(
-            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
         .setBuildFilesByPriority(BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
         .setDiffCheckNotificationOptions(BAZEL_DIFF_CHECK_NOTIFICATION_OPTIONS);
   }
@@ -914,7 +909,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     FileSystem fileSystem;
     BlazeDirectories directories;
     ActionKeyContext actionKeyContext;
-    private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
     private ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile;
@@ -945,7 +939,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(fileSystem);
       Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(actionKeyContext);
-      Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
       Preconditions.checkNotNull(buildFilesByPriority);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(actionOnFilesystemErrorCodeLoadingBzlFile);
@@ -964,7 +957,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               extraSkyFunctions,
               Preconditions.checkNotNull(syscallCache),
               ignoredSubdirectoriesFunction,
-              crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
               allowExternalRepositories,
               repoContentsCachePathSupplier,
@@ -1058,13 +1050,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setRepoContentsCachePathSupplier(Supplier<Path> repoContentsCachePathSupplier) {
       this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setCrossRepositoryLabelViolationStrategy(
-        CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
-      this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
       return this;
     }
 

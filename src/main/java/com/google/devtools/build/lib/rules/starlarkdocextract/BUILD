@@ -24,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:runfiles",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:binary_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

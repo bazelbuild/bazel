@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.causes;
 
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -54,7 +53,12 @@ public class LabelCause implements Cause {
 
   @Override
   public BuildEventStreamProtos.BuildEventId getIdProto() {
-    return BuildEventIdUtil.unconfiguredLabelId(label);
+    return BuildEventStreamProtos.BuildEventId.newBuilder()
+        .setUnconfiguredLabel(
+            BuildEventStreamProtos.BuildEventId.UnconfiguredLabelId.newBuilder()
+                .setLabel(label.toString())
+                .build())
+        .build();
   }
 
   @Override

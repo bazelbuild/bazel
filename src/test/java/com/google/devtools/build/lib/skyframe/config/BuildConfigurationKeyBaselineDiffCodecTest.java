@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +65,12 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
 
       @Override
       public BuildOptions getBaseOptionsForPlatform(
+          Label platformLabel, boolean isExec, boolean trimTestOptions) {
+        return baselineOptions;
+      }
+
+      @Override
+      public BuildOptions getActualBaseOptionsForPlatform(
           Label platformLabel, boolean isExec, boolean trimTestOptions) {
         return baselineOptions;
       }
@@ -414,6 +423,12 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
           }
 
           @Override
+          public BuildOptions getActualBaseOptionsForPlatform(
+              Label platformLabel, boolean isExec, boolean trimTestOptions) {
+            return trimTestOptions ? trimmedBaseline : untrimmedBaseline;
+          }
+
+          @Override
           public String resolveMnemonic(BuildOptions options) {
             return "dummy-mnemonic";
           }
@@ -454,6 +469,13 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
 
           @Override
           public BuildOptions getBaseOptionsForPlatform(
+              Label platformLabel, boolean isExec, boolean trimTestOptions)
+              throws SerializationException {
+            throw new SerializationException("no baseline available");
+          }
+
+          @Override
+          public BuildOptions getActualBaseOptionsForPlatform(
               Label platformLabel, boolean isExec, boolean trimTestOptions)
               throws SerializationException {
             throw new SerializationException("no baseline available");
@@ -525,5 +547,218 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
     BuildConfigurationKey deserializedTwo =
         (BuildConfigurationKey) deserialize(codecsTwo, serializedTwo);
     assertThat(deserializedTwo).isEqualTo(execTargetKeyTwo);
+  }
+
+  // The tests below use the real DefaultPlatformConfigurationProvider to check that two builds
+  // whose top-level options differ only in test options (which FrontierNodeVersion does not cover)
+  // never serialize different untrimmed keys to the same bytes (b/570095568).
+
+  private static final Label TEST_PLATFORM = Label.parseCanonicalUnchecked("//test:platform");
+
+  private static BuildOptions createTopLevelOptions(String... args) throws Exception {
+    return BuildOptions.of(
+        ImmutableList.of(CoreOptions.class, PlatformOptions.class, TestOptions.class),
+        ImmutableList.<String>builder()
+            .add("--platforms=" + TEST_PLATFORM)
+            .add(args)
+            .build()
+            .toArray(new String[0]));
+  }
+
+  private static ObjectCodecs createCodecsWithDefaultProvider(BuildOptions topLevelOptions)
+      throws Exception {
+    return new ObjectCodecs(
+        createRegistry(),
+        createDependencies(
+            new DefaultPlatformConfigurationProvider(
+                TEST_PLATFORM, topLevelOptions, toExecOptions(topLevelOptions))));
+  }
+
+  /**
+   * Serializes the top-level key of each of two builds, each with its own provider, and checks that
+   * the bytes differ and that each build round-trips its own key and reconstructs the other build's
+   * key from the other build's bytes.
+   */
+  private static void assertTopLevelKeysSerializeDifferently(
+      BuildOptions optionsOne, BuildOptions optionsTwo) throws Exception {
+    BuildConfigurationKey keyOne = BuildConfigurationKey.create(optionsOne);
+    BuildConfigurationKey keyTwo = BuildConfigurationKey.create(optionsTwo);
+    ObjectCodecs codecsOne = createCodecsWithDefaultProvider(optionsOne);
+    ObjectCodecs codecsTwo = createCodecsWithDefaultProvider(optionsTwo);
+
+    ByteString serializedOne = codecsOne.serializeMemoized(keyOne);
+    ByteString serializedTwo = codecsTwo.serializeMemoized(keyTwo);
+
+    assertThat(serializedOne).isNotEqualTo(serializedTwo);
+    assertThat(deserialize(codecsOne, serializedOne)).isEqualTo(keyOne);
+    assertThat(deserialize(codecsTwo, serializedTwo)).isEqualTo(keyTwo);
+    // The test options travel in the diff, so a build reading the other build's bytes reconstructs
+    // the other build's test options rather than substituting its own.
+    assertThat(deserialize(codecsTwo, serializedOne)).isEqualTo(keyOne);
+    assertThat(deserialize(codecsOne, serializedTwo)).isEqualTo(keyTwo);
+  }
+
+  @Test
+  public void testFingerprint_differs_forUntrimmedKeysWhenOnlyTestOptionsDiffer() throws Exception {
+    // This is the configuration from the b/570095568 repro: a build with
+    // --experimental_cancel_concurrent_tests reading entries written by a build without it.
+    assertTopLevelKeysSerializeDifferently(
+        createTopLevelOptions(), createTopLevelOptions("--experimental_cancel_concurrent_tests"));
+  }
+
+  @Test
+  public void testFingerprint_differs_forUntrimmedKeysWhenTestArgsDiffer() throws Exception {
+    assertTopLevelKeysSerializeDifferently(
+        createTopLevelOptions("--test_arg=one"), createTopLevelOptions("--test_arg=two"));
+  }
+
+  @Test
+  public void testFingerprint_differs_forUntrimmedKeysWhenOnlyRunUnderCommandDiffers()
+      throws Exception {
+    // The trimmed configuration keeps only the --run_under label, so the label is covered by
+    // FrontierNodeVersion but the rest of the command is not.
+    assertTopLevelKeysSerializeDifferently(
+        createTopLevelOptions("--run_under=//tools:runner --one"),
+        createTopLevelOptions("--run_under=//tools:runner --two"));
+  }
+
+  @Test
+  public void testFingerprint_isIdentical_forTrimmedKeysWhenOnlyTestOptionsDiffer()
+      throws Exception {
+    BuildOptions optionsOne = createTopLevelOptions();
+    BuildOptions optionsTwo = createTopLevelOptions("--experimental_cancel_concurrent_tests");
+    BuildConfigurationKey trimmedKeyOne =
+        BuildConfigurationKey.create(TestTrimmingLogic.trim(optionsOne));
+    BuildConfigurationKey trimmedKeyTwo =
+        BuildConfigurationKey.create(TestTrimmingLogic.trim(optionsTwo));
+    assertThat(trimmedKeyOne).isEqualTo(trimmedKeyTwo);
+    ObjectCodecs codecsOne = createCodecsWithDefaultProvider(optionsOne);
+    ObjectCodecs codecsTwo = createCodecsWithDefaultProvider(optionsTwo);
+
+    ByteString serializedOne = codecsOne.serializeMemoized(trimmedKeyOne);
+    ByteString serializedTwo = codecsTwo.serializeMemoized(trimmedKeyTwo);
+
+    assertThat(serializedOne).isEqualTo(serializedTwo);
+    assertThat(deserialize(codecsOne, serializedOne)).isEqualTo(trimmedKeyOne);
+    assertThat(deserialize(codecsTwo, serializedTwo)).isEqualTo(trimmedKeyTwo);
+  }
+
+  @Test
+  public void testFingerprint_isIdentical_forUntrimmedKeysWithSameTestOptionsAcrossBaselines()
+      throws Exception {
+    // Builds that agree on test options still share untrimmed keys when their other options
+    // differ, since those differences are covered by FrontierNodeVersion.
+    BuildOptions optionsOne =
+        createTopLevelOptions("--compilation_mode=opt", "--test_arg=x", "--run_under=//tools:r -a");
+    BuildOptions optionsTwo =
+        createTopLevelOptions("--compilation_mode=dbg", "--test_arg=x", "--run_under=//tools:r -a");
+    BuildConfigurationKey keyOne = BuildConfigurationKey.create(optionsOne);
+    BuildConfigurationKey keyTwo = BuildConfigurationKey.create(optionsTwo);
+    ObjectCodecs codecsOne = createCodecsWithDefaultProvider(optionsOne);
+    ObjectCodecs codecsTwo = createCodecsWithDefaultProvider(optionsTwo);
+
+    ByteString serializedOne = codecsOne.serializeMemoized(keyOne);
+    ByteString serializedTwo = codecsTwo.serializeMemoized(keyTwo);
+
+    assertThat(serializedOne).isEqualTo(serializedTwo);
+    assertThat(deserialize(codecsOne, serializedOne)).isEqualTo(keyOne);
+    assertThat(deserialize(codecsTwo, serializedTwo)).isEqualTo(keyTwo);
+  }
+
+  @Test
+  public void testFingerprint_differs_forUntrimmedExecKeysWhenOnlyTestOptionsDiffer()
+      throws Exception {
+    BuildOptions optionsOne = createTopLevelOptions();
+    BuildOptions optionsTwo = createTopLevelOptions("--experimental_cancel_concurrent_tests");
+    BuildConfigurationKey execKeyOne = BuildConfigurationKey.create(toExecOptions(optionsOne));
+    BuildConfigurationKey execKeyTwo = BuildConfigurationKey.create(toExecOptions(optionsTwo));
+    ObjectCodecs codecsOne = createCodecsWithDefaultProvider(optionsOne);
+    ObjectCodecs codecsTwo = createCodecsWithDefaultProvider(optionsTwo);
+
+    ByteString serializedOne = codecsOne.serializeMemoized(execKeyOne);
+    ByteString serializedTwo = codecsTwo.serializeMemoized(execKeyTwo);
+
+    assertThat(serializedOne).isNotEqualTo(serializedTwo);
+    assertThat(deserialize(codecsTwo, serializedOne)).isEqualTo(execKeyOne);
+    assertThat(deserialize(codecsOne, serializedTwo)).isEqualTo(execKeyTwo);
+  }
+
+  // The tests below cover a configuration that is identical in two builds but reached differently:
+  // in one build it is the top-level configuration, in the other it comes from a transition that
+  // sets a test option to the value the first build sets on the command line. Its output directory
+  // mnemonic is computed against each build's own test options and therefore differs between the
+  // two builds, so they must not share its key.
+
+  /**
+   * Serializes {@code key} in two builds with the given top-level options and checks that the bytes
+   * differ, and that either build reconstructs the key from either build's bytes.
+   */
+  private static void assertSameKeySerializesDifferently(
+      BuildConfigurationKey key, BuildOptions topLevelOptionsOne, BuildOptions topLevelOptionsTwo)
+      throws Exception {
+    ObjectCodecs codecsOne = createCodecsWithDefaultProvider(topLevelOptionsOne);
+    ObjectCodecs codecsTwo = createCodecsWithDefaultProvider(topLevelOptionsTwo);
+
+    ByteString serializedOne = codecsOne.serializeMemoized(key);
+    ByteString serializedTwo = codecsTwo.serializeMemoized(key);
+
+    assertThat(serializedOne).isNotEqualTo(serializedTwo);
+    assertThat(deserialize(codecsOne, serializedOne)).isEqualTo(key);
+    assertThat(deserialize(codecsTwo, serializedTwo)).isEqualTo(key);
+    assertThat(deserialize(codecsTwo, serializedOne)).isEqualTo(key);
+    assertThat(deserialize(codecsOne, serializedTwo)).isEqualTo(key);
+  }
+
+  @Test
+  public void testFingerprint_differs_forTransitionedUntrimmedKeyWhenTopLevelTestOptionsDiffer()
+      throws Exception {
+    BuildOptions withFilter = createTopLevelOptions("--test_filter=Foo");
+    assertSameKeySerializesDifferently(
+        BuildConfigurationKey.create(withFilter), withFilter, createTopLevelOptions());
+  }
+
+  @Test
+  public void testFingerprint_differs_forTransitionedUntrimmedKeyWhenTopLevelRunUnderDiffers()
+      throws Exception {
+    BuildOptions withRunUnderArgs = createTopLevelOptions("--run_under=//tools:runner --one");
+    assertSameKeySerializesDifferently(
+        BuildConfigurationKey.create(withRunUnderArgs),
+        withRunUnderArgs,
+        createTopLevelOptions("--run_under=//tools:runner"));
+  }
+
+  @Test
+  public void testFingerprint_differs_forTransitionedUntrimmedExecKeyWhenTopLevelTestOptionsDiffer()
+      throws Exception {
+    BuildOptions withFilter = createTopLevelOptions("--test_filter=Foo");
+    assertSameKeySerializesDifferently(
+        BuildConfigurationKey.create(toExecOptions(withFilter)),
+        withFilter,
+        createTopLevelOptions());
+  }
+
+  @Test
+  public void testFingerprint_isIdentical_forTransitionedUntrimmedKeysWhenTopLevelTestOptionsMatch()
+      throws Exception {
+    // Both builds reach a configuration through a transition that sets test_filter, and agree on
+    // their own test options, so they compute the same output directory mnemonic for it relative to
+    // their baselines and may share it, even though their other top-level options differ.
+    BuildOptions topLevelOptionsOne = createTopLevelOptions("--compilation_mode=opt");
+    BuildOptions topLevelOptionsTwo = createTopLevelOptions("--compilation_mode=dbg");
+    BuildConfigurationKey keyOne =
+        BuildConfigurationKey.create(
+            createTopLevelOptions("--compilation_mode=opt", "--test_filter=Foo"));
+    BuildConfigurationKey keyTwo =
+        BuildConfigurationKey.create(
+            createTopLevelOptions("--compilation_mode=dbg", "--test_filter=Foo"));
+    ObjectCodecs codecsOne = createCodecsWithDefaultProvider(topLevelOptionsOne);
+    ObjectCodecs codecsTwo = createCodecsWithDefaultProvider(topLevelOptionsTwo);
+
+    ByteString serializedOne = codecsOne.serializeMemoized(keyOne);
+    ByteString serializedTwo = codecsTwo.serializeMemoized(keyTwo);
+
+    assertThat(serializedOne).isEqualTo(serializedTwo);
+    assertThat(deserialize(codecsOne, serializedOne)).isEqualTo(keyOne);
+    assertThat(deserialize(codecsTwo, serializedTwo)).isEqualTo(keyTwo);
   }
 }

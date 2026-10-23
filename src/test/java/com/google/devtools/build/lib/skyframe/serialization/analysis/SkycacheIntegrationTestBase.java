@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecked;
-import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -28,10 +27,8 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -65,7 +62,6 @@ import org.junit.rules.TestName;
 public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase
     implements SkycacheIntegrationTestHelpers {
 
-
   @Rule public TestName testName = new TestName();
 
   private final ClearCountingSyscallCache syscallCache = new ClearCountingSyscallCache();
@@ -76,171 +72,6 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
 
   protected void addUploadOptions() {
     addOptions(UPLOAD_MODE_OPTION);
-  }
-
-  @Test
-  public void expectCheckedInvalidConfiguration_withDuplicateActiveDirectories() throws Exception {
-    write("foo/BUILD", "filegroup(name='A', srcs = [])");
-    addUploadOptions();
-    addOptions("--experimental_active_directories=foo,foo");
-    InvalidConfigurationException e =
-        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Active directories configuration error: foo has already been explicitly marked as"
-                + " included. Current state: [included: [foo], excluded: []]");
-  }
-
-  @Test
-  public void noActiveDirectoriesOrProjectScl_fallsBackToFullSerialization() throws Exception {
-    write(
-        "foo/BUILD",
-        """
-        package_group(name = "empty")
-        """);
-    assertUploadSuccess("//foo:empty");
-    assertContainsEvent("No active directories were found. Falling back on full serialization.");
-  }
-
-  @Test
-  public void explicitEmptyActiveDirectoriesFlag_fallsBackToFullSerialization() throws Exception {
-    write("foo/BUILD", "filegroup(name='A', srcs = [])");
-    addOptions("--experimental_active_directories=");
-    assertUploadSuccess("//foo:A");
-    assertContainsEvent("No active directories were found. Falling back on full serialization.");
-  }
-
-  @Test
-  public void noActiveDirectoriesInProjectScl_fallsBackToFullSerialization() throws Exception {
-    write("foo/BUILD", "filegroup(name='A', srcs = [])");
-    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
-    write(
-        "foo/PROJECT.scl",
-"""
-load("//test:project_proto.scl", "project_pb2")
-project = project_pb2.Project.create(project_directories = []) # empty
-""");
-    assertUploadSuccess("//foo:A");
-    assertContainsEvent("No active directories were found. Falling back on full serialization.");
-  }
-
-  @Test
-  public void onlyExcludedDirectories_withActiveDirectoriesFlag_fallsBackToFullSerialization()
-      throws Exception {
-    write("foo/BUILD", "filegroup(name='A', srcs = [])");
-    addOptions("--experimental_active_directories=-foo");
-    assertUploadSuccess("//foo:A");
-    assertContainsEvent("No active directories were found. Falling back on full serialization.");
-  }
-
-  @Test
-  public void activeDirectoriesMatcher_activeDirectoriesFlag_takesPrecedenceOverProjectFile()
-      throws Exception {
-    // Tests that the result of the active directories matcher is the same regardless of whether
-    // the matcher is obtained from the active directories flag or the PROJECT.scl file.
-    setupScenarioWithConfiguredTargets();
-
-    writeProjectSclWithActiveDirs("foo");
-    addUploadOptions();
-    buildTarget("//foo:A");
-    var serializedKeysWithProjectScl =
-        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
-    assertThat(serializedKeysWithProjectScl).isNotEmpty();
-
-    getSkyframeExecutor().resetEvaluator();
-
-    addOptions("--experimental_active_directories=bar"); // overrides the PROJECT.scl file.
-    buildTarget("//foo:A");
-    var serializedKeysWithActiveDirectories =
-        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
-    assertThat(serializedKeysWithActiveDirectories).isNotEmpty();
-
-    assertThat(serializedKeysWithActiveDirectories).isNotEqualTo(serializedKeysWithProjectScl);
-    assertContainsEvent(
-        "Specifying --experimental_active_directories will override the active directories"
-            + " specified in the PROJECT.scl file");
-  }
-
-  @Test
-  public void activeDirectoriesMatcher_withProjectSclOrActiveDirectories_areEquivalent()
-      throws Exception {
-    // Tests that the result of the active directories matcher is the same regardless of whether
-    // the matcher is obtained from the active directories flag or the PROJECT.scl file.
-    setupScenarioWithConfiguredTargets();
-
-    writeProjectSclWithActiveDirs(
-        /* path= */ "foo",
-        /* activeDirs...= */
-        "foo");
-    addUploadOptions();
-    buildTarget("//foo:A");
-    int serializedNodesWithProjectScl =
-        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeysCount();
-    assertThat(serializedNodesWithProjectScl).isAtLeast(1);
-
-    getSkyframeExecutor().resetEvaluator();
-
-    addOptions("--experimental_active_directories=foo");
-    buildTarget("//foo:A");
-    int serializedNodesWithActiveDirectories =
-        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeysCount();
-    assertThat(serializedNodesWithActiveDirectories).isAtLeast(1);
-    assertThat(serializedNodesWithActiveDirectories).isEqualTo(serializedNodesWithProjectScl);
-  }
-
-  @Test
-  public void serializingFrontierWithProjectFile_hasNoError() throws Exception {
-    write(
-        "foo/BUILD",
-        """
-        package_group(name = "empty")
-        """);
-    writeProjectSclWithActiveDirs("foo");
-
-    addUploadOptions();
-    buildTarget("//foo:empty");
-  }
-
-  @Test
-  public void serializingWithMultipleTopLevelProjectFiles_hasError() throws Exception {
-    write(
-        "foo/BUILD",
-        """
-        package_group(name = "empty")
-        """);
-    writeProjectSclWithActiveDirs("foo");
-
-    write(
-        "bar/BUILD",
-        """
-        package_group(name = "empty")
-        """);
-    writeProjectSclWithActiveDirs("bar");
-
-    addUploadOptions();
-    LoadingFailedException exception =
-        assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
-    assertThat(exception).hasMessageThat().contains("This is a multi-project build");
-  }
-
-  @Test
-  public void serializingWithMultipleTargetsResolvingToSameProjectFile_hasNoError()
-      throws Exception {
-    write(
-        "foo/BUILD",
-        """
-        package_group(name = "empty")
-        """);
-    write(
-        "foo/bar/BUILD",
-        """
-        package_group(name = "empty")
-        """);
-    writeProjectSclWithActiveDirs("foo");
-
-    addUploadOptions();
-    buildTarget("//foo:empty", "//foo/bar:empty");
   }
 
   @Test
@@ -262,7 +93,6 @@ project = project_pb2.Project.create(project_directories = []) # empty
   }
 
   private void runSkymeldScenario() throws Exception {
-    writeProjectSclWithActiveDirs("foo");
     write(
         "foo/BUILD",
         """
@@ -390,8 +220,6 @@ file_count_aspect = aspect(
 )
 """);
 
-    writeProjectSclWithActiveDirs("bar", "foo");
-
     write(
         "foo/BUILD",
 """
@@ -439,8 +267,6 @@ genrule(
   public void errorOnWarmSkyframeUploadBuilds() throws Exception {
     setupScenarioWithConfiguredTargets();
 
-    writeProjectSclWithActiveDirs("foo");
-
     assertUploadSuccess("//foo:A");
     var exception = assertThrows(AbruptExitException.class, () -> buildTarget("//foo:A"));
     assertThat(exception).hasMessageThat().contains(BuildView.UPLOAD_BUILDS_MUST_BE_COLD);
@@ -449,8 +275,6 @@ genrule(
   @Test
   public void errorOnWarmSkyframeNoBuildUploadBuilds() throws Exception {
     setupScenarioWithConfiguredTargets();
-
-    writeProjectSclWithActiveDirs("foo");
 
     addOptions("--nobuild");
     assertUploadSuccess("//foo:A");
@@ -472,23 +296,8 @@ genrule(
   }
 
   @Test
-  public void cquery_succeedsAndDoesNotTriggerUploadWithProjectScl() throws Exception {
-    setupScenarioWithConfiguredTargets();
-    writeProjectSclWithActiveDirs("foo");
-    addUploadOptions();
-    runtimeWrapper.newCommand(CqueryCommand.class);
-    buildTarget("//foo:A");
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isEqualTo(0);
-  }
-
-  @Test
   public void testConfiguration_doesNotAffectSkyValueVersion() throws Exception {
     setupScenarioWithConfiguredTargets();
-    writeProjectSclWithActiveDirs("mytest");
     write("mytest/mytest.sh", "exit 0").setExecutable(true);
 
     write(
@@ -539,7 +348,6 @@ genrule(
   public void dumpUploadManifestOnlyMode_writesManifestToStdOut() throws Exception {
     setupScenarioWithConfiguredTargets();
     addOptions(DUMP_MANIFEST_MODE_OPTION);
-    writeProjectSclWithActiveDirs("foo");
 
     RecordingOutErr outErr = new RecordingOutErr();
     this.outErr = outErr;
@@ -551,22 +359,23 @@ genrule(
 """
 FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:C,
 FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:E,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:F,
 FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:H,
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:F,
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:A,
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:A,
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:B,
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:D,
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:G,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:I,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:A,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:A,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:B,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:D,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:G,
 """
             .lines()
             .collect(toImmutableList());
 
     expected.forEach(line -> assertThat(outErr.outAsLatin1()).contains(line));
 
-    // The additional line is from the additional --host_platforms analysis node, which has a
-    // different label internally and externally.
-    assertThat(outErr.outAsLatin1().lines()).hasSize(expected.size() + 1);
+    // The additional 5 lines are from the --host_platforms analysis nodes (host, cpu, arch, os),
+    // which have different labels internally and externally.
+    assertThat(outErr.outAsLatin1().lines()).hasSize(expected.size() + 5);
 
     // Nothing serialized
     assertThat(
@@ -618,112 +427,6 @@ filegroup(name = "I")
   }
 
   @Test
-  public void actionLookupKey_underTheFrontier_areNotUploaded() throws Exception {
-    setupGenruleGraph();
-    assertUploadSuccess("//A");
-    var serializedKeys =
-        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
-    ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
-
-    // Active set
-    assertThat(labels).contains(parseCanonicalUnchecked("//A"));
-
-    // Frontier
-    assertThat(labels)
-        .containsAtLeast(
-            parseCanonicalUnchecked("//C:C.txt"), // output file CT
-            parseCanonicalUnchecked("//E"));
-
-    // Under the frontier
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
-
-    // Different top level target
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
-  }
-
-  @Test
-  public void frontierSelectionSucceeds_forTopLevelGenruleConfiguredTargetWithUniqueName()
-      throws Exception {
-    setupGenruleGraph();
-    write(
-        "A/BUILD",
-        """
-        genrule(
-            name = "copy_of_A", # renamed
-            srcs = ["in.txt", "//C:C.txt", "//E"],
-            outs = ["A"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-    assertUploadSuccess("//A");
-    var serializedKeys =
-        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
-    ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
-
-    // Active set
-    assertThat(labels)
-        .containsAtLeast(
-            parseCanonicalUnchecked("//A"),
-            parseCanonicalUnchecked("//A:copy_of_A"),
-            parseCanonicalUnchecked("//A:in.txt"));
-
-    // Frontier
-    assertThat(labels)
-        .containsAtLeast(parseCanonicalUnchecked("//C:C.txt"), parseCanonicalUnchecked("//E"));
-
-    // Under the frontier
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
-
-    // Different top level target
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
-  }
-
-  @Test
-  public void dumpUploadManifestOnlyMode_forTopLevelGenruleConfiguredTarget() throws Exception {
-    setupGenruleGraph();
-    write(
-        "A/BUILD",
-        """
-        genrule(
-            name = "copy_of_A",
-            srcs = ["in.txt", "//C:C.txt", "//E"],
-            outs = ["A"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-
-    addOptions(DUMP_MANIFEST_MODE_OPTION);
-
-    RecordingOutErr outErr = new RecordingOutErr();
-    this.outErr = outErr;
-
-    buildTarget("//A");
-
-    // Note that there are two //A:A - one each for target and exec configuration. The
-    // BuildConfigurationKey is omitted because it's too specific, but we test for the
-    // exact number of entries in the manifest later, so the two //A:A configured targets will be
-    // counted correctly.
-    var expectedActiveSet =
-"""
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:copy_of_A, config=
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
-ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
-"""
-            .lines()
-            .collect(toImmutableList());
-
-    var actualActiveSet =
-        outErr.outAsLatin1().lines().filter(l -> l.startsWith("ACTIVE:")).collect(joining("\n"));
-
-    expectedActiveSet.forEach(line -> assertThat(actualActiveSet).contains(line));
-
-    assertThat(actualActiveSet.lines()).hasSize(expectedActiveSet.size());
-  }
-
-  @Test
   public void actionLookupData_ownedByActiveSet_areUploaded() throws Exception {
     setupGenruleGraph();
     assertUploadSuccess("//A");
@@ -732,25 +435,15 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
     var actionLookupDatas = filterKeys(serializedKeys, ActionLookupData.class);
     var owningLabels = getOwningLabels(actionLookupDatas);
 
-    // Active set
-    assertThat(owningLabels).contains(parseCanonicalUnchecked("//A"));
-
-    // Frontier
     assertThat(owningLabels)
-        .containsAtLeast(parseCanonicalUnchecked("//C"), parseCanonicalUnchecked("//E"));
-
-    // Under the frontier
-    assertThat(owningLabels).contains(parseCanonicalUnchecked("//D"));
+        .containsAtLeast(
+            parseCanonicalUnchecked("//A"),
+            parseCanonicalUnchecked("//C"),
+            parseCanonicalUnchecked("//D"),
+            parseCanonicalUnchecked("//E"));
 
     // Different top level target
     assertThat(owningLabels).doesNotContain(parseCanonicalUnchecked("//B"));
-  }
-
-  @Test
-  public void disjointDirectoriesWithCanonicalProject_uploadsSuccessfully() throws Exception {
-    setupGenruleGraph();
-    write("B/PROJECT.scl", "project = { \"actual\": \"//A:PROJECT.scl\" }");
-    assertUploadSuccess("//A", "//B");
   }
 
   protected final void setupGenruleGraph() throws IOException {
@@ -812,16 +505,6 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
             cmd = "cat $(SRCS) > $@",
         )
         """);
-    writeProjectSclWithActiveDirs("A");
-  }
-
-  protected static final void assertContainsExactlyPrefixes(
-      ImmutableList<String> strings, String... prefixes) {
-    Correspondence<String, String> prefixCorrespondence =
-        Correspondence.from(String::startsWith, "starts with");
-    for (String prefix : prefixes) {
-      assertThat(strings).comparingElementsUsing(prefixCorrespondence).contains(prefix);
-    }
   }
 
   protected static final void assertContainsPrefixes(
@@ -833,13 +516,6 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
     }
   }
 
-  protected static final void assertDoesNotContainPrefixes(
-      ImmutableList<String> strings, String... prefixes) {
-    Correspondence<String, String> prefixCorrespondence =
-        Correspondence.from(String::startsWith, "starts with");
-    assertThat(strings).comparingElementsUsing(prefixCorrespondence).containsNoneIn(prefixes);
-  }
-
   protected final ImmutableList<String> uploadManifest(String... targets) throws Exception {
     getSkyframeExecutor().resetEvaluator();
     addOptions(DUMP_MANIFEST_MODE_OPTION);
@@ -849,7 +525,7 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
     return outErr
         .outAsLatin1()
         .lines()
-        .filter(s -> s.startsWith("ACTIVE: ") || s.startsWith("FRONTIER_CANDIDATE:"))
+        .filter(s -> s.startsWith("FRONTIER_CANDIDATE:"))
         .collect(toImmutableList());
   }
 

@@ -28,7 +28,10 @@ java_library(
     deps = [
         ":paths_to_replace_utils",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
@@ -40,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:print_action_visitor",
+        "//src/main/java/com/google/devtools/build/lib/analysis:sh_toolchain",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
