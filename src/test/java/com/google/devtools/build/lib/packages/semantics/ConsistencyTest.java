@@ -186,7 +186,8 @@ public class ConsistencyTest {
         "--max_computation_steps=" + rand.nextLong(),
         "--max_bzl_file_size=" + rand.nextLong(),
         "--soft_max_bzl_file_size=" + rand.nextLong(),
-        "--bzl_file_size_limit_allowlist=//pkg:" + rand.nextInt() + ".allowlist.scl");
+        "--bzl_file_size_limit_allowlist=//pkg:" + rand.nextInt() + ".allowlist.scl",
+        "--nested_set_count_limit=" + rand.nextInt());
   }
 
   /**
@@ -238,6 +239,7 @@ public class ConsistencyTest {
         .set(
             BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST,
             "//pkg:" + rand.nextInt() + ".allowlist.scl")
+        .set(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT, rand.nextInt())
         .build();
   }
 

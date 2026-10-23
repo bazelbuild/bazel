@@ -113,7 +113,7 @@ public abstract sealed class NestedSet<E> {
     //
     // A future improvement might be to unify deserialization's interning with NestedSetInterner
     // (used by NestedSetBuilder).
-    return create(order, approxDepth, children);
+    return createWithoutCounting(order, approxDepth, children);
   }
 
   /**
@@ -147,6 +147,50 @@ public abstract sealed class NestedSet<E> {
    */
   final Object children;
 
+  /**
+   * Per-thread count of the non-empty {@link NestedSet}s constructed during the analysis of the
+   * rule or aspect currently running on this thread, used to enforce {@code
+   * --nested_set_count_limit}.
+   *
+   * <p>Set by {@link #beginTargetNestedSetCount} (only when the limit is enabled), read by {@link
+   * #getCurrentTargetNestedSetCount} and cleared by {@link #endTargetNestedSetCount}. A {@code
+   * null} value means nothing is being counted. The {@code int[1]} is a mutable box so that
+   * incrementing does not require a {@link ThreadLocal#set} call. Sets created for deserialization
+   * or by splitting/inspection helpers (via {@link #createWithoutCounting}) are not counted.
+   */
+  private static final ThreadLocal<int[]> TARGET_COUNTER = new ThreadLocal<>();
+
+  /**
+   * Starts counting newly constructed non-empty {@link NestedSet} instances on the current thread.
+   */
+  public static void beginTargetNestedSetCount() {
+    TARGET_COUNTER.set(new int[1]);
+  }
+
+  /**
+   * Returns the number of newly constructed non-empty {@link NestedSet} instances on the current
+   * thread since {@link #beginTargetNestedSetCount()} was called.
+   */
+  public static int getCurrentTargetNestedSetCount() {
+    int[] counter = TARGET_COUNTER.get();
+    return counter != null ? counter[0] : 0;
+  }
+
+  /** Stops counting {@link NestedSet} instances on the current thread. */
+  public static void endTargetNestedSetCount() {
+    TARGET_COUNTER.remove();
+  }
+
+  @SuppressWarnings("ReferenceEquality") // EMPTY_CHILDREN is a sentinel compared by identity.
+  private static void incrementTargetNestedSetCount(Object children) {
+    if (children != EMPTY_CHILDREN) {
+      int[] counter = TARGET_COUNTER.get();
+      if (counter != null) {
+        counter[0]++;
+      }
+    }
+  }
+
   @SuppressWarnings("EnumOrdinal") // Used to pack order and depth into a single int field.
   NestedSet(Order order, int depth, Object children) {
     this.depthAndOrder = (depth << 2) | order.ordinal();
@@ -166,10 +210,15 @@ public abstract sealed class NestedSet<E> {
     };
   }
 
-  static <E> NestedSet<E> create(Order order, int depth, Object children) {
+  static <E> NestedSet<E> createWithoutCounting(Order order, int depth, Object children) {
     return isNested(children)
         ? new Nested<>(order, depth, children)
         : new Flat<>(order, depth, children);
+  }
+
+  static <E> NestedSet<E> create(Order order, int depth, Object children) {
+    incrementTargetNestedSetCount(children);
+    return createWithoutCounting(order, depth, children);
   }
 
   static <E> NestedSet<E> create(
@@ -277,6 +326,7 @@ public abstract sealed class NestedSet<E> {
       finalChildren = NestedSetInterner.intern(children);
     }
 
+    incrementTargetNestedSetCount(finalChildren);
     return shallow
         ? new Flat<>(order, approxDepth, finalChildren)
         : new Nested<>(order, approxDepth, finalChildren);
@@ -751,7 +801,8 @@ public abstract sealed class NestedSet<E> {
     // Recursively split pieces. (The recursion affects only the root; it
     // does not traverse into successors.) In practice, maxDegree is large
     // enough that the recursion rarely does any work.
-    return NestedSet.<E>create(getOrder(), depth, pieces).splitIfExceedsMaximumSize(maxDegree);
+    return NestedSet.<E>createWithoutCounting(getOrder(), depth, pieces)
+        .splitIfExceedsMaximumSize(maxDegree);
   }
 
   /** Returns the list of this node's successors that are themselves non-leaf nodes. */
@@ -764,7 +815,7 @@ public abstract sealed class NestedSet<E> {
     for (Object c : array) {
       if (c instanceof Object[]) {
         int depth = getApproxDepth() - 1; // possible overapproximation
-        res.add(NestedSet.<E>create(getOrder(), depth, c));
+        res.add(NestedSet.<E>createWithoutCounting(getOrder(), depth, c));
       }
     }
     return res.build();

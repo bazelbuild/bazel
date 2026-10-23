@@ -170,6 +170,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     @Nullable private ConstraintSemantics<RuleContext> constraintSemantics;
 
     @Nullable private Label noExplicitMnemonicAllowlist;
+    @Nullable private String nestedSetCountLimitMessage;
 
     @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
@@ -569,7 +570,8 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
-          noExplicitMnemonicAllowlist);
+          noExplicitMnemonicAllowlist,
+          nestedSetCountLimitMessage);
     }
 
     @Override
@@ -585,6 +587,13 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     public Builder setNoExplicitMnemonicAllowlist(Label allowlist) {
       noExplicitMnemonicAllowlist = allowlist;
+      return this;
+    }
+
+    /** Sets text appended to the error emitted when a target exceeds the nested set limit. */
+    @CanIgnoreReturnValue
+    public Builder setNestedSetCountLimitMessage(String message) {
+      nestedSetCountLimitMessage = message;
       return this;
     }
   }
@@ -648,6 +657,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   private final ConstraintSemantics<RuleContext> constraintSemantics;
 
   @Nullable private final Label noExplicitMnemonicAllowlist;
+  @Nullable private final String nestedSetCountLimitMessage;
 
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
@@ -670,7 +680,8 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      @Nullable Label noExplicitMnemonicAllowlist) {
+      @Nullable Label noExplicitMnemonicAllowlist,
+      @Nullable String nestedSetCountLimitMessage) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -689,6 +700,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
     this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
+    this.nestedSetCountLimitMessage = nestedSetCountLimitMessage;
 
     ImmutableMap<String, Object> registeredBzlToplevels =
         createRegisteredBzlToplevels(starlarkAccessibleTopLevels, starlarkBootstraps);
@@ -844,6 +856,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public Optional<Label> getNoExplicitMnemonicAllowlist() {
     return Optional.ofNullable(noExplicitMnemonicAllowlist);
+  }
+
+  /** Returns text appended to the error emitted when a target exceeds the nested set limit. */
+  public Optional<String> getNestedSetCountLimitMessage() {
+    return Optional.ofNullable(nestedSetCountLimitMessage);
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */

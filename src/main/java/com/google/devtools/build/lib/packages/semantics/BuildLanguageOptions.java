@@ -538,6 +538,33 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract int getNestedSetDepthLimit();
 
   @Option(
+      name = "nested_set_count_limit",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "The maximum number of newly constructed non-empty nested sets (also known as depsets)"
+              + " that may be created during the analysis of a single target or aspect (values"
+              + " <= 0 mean no limit). The count includes nested sets created internally by"
+              + " Bazel (e.g. for actions, runfiles and providers), not only Starlark depset()"
+              + " calls.")
+  public abstract int getNestedSetCountLimit();
+
+  @Option(
+      name = "nested_set_count_limit_allowlist",
+      converter = CommaSeparatedNonEmptyOptionListConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Package specifications (e.g. //foo/bar for a single package, //foo/... for a subtree)"
+              + " exempt from --nested_set_count_limit. Exempt are targets in these packages,"
+              + " aspects applied to those targets, and Starlark aspects defined in these"
+              + " packages.")
+  public abstract List<String> getNestedSetCountLimitAllowlist();
+
+  @Option(
       name = "incompatible_disable_starlark_host_transitions",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -950,6 +977,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .set(SOFT_MAX_BZL_FILE_SIZE, getSoftMaxBzlFileSize())
             .set(BZL_FILE_SIZE_LIMIT_ALLOWLIST, getBzlFileSizeLimitAllowlist().strip())
             .set(NESTED_SET_DEPTH_LIMIT, getNestedSetDepthLimit())
+            .set(NESTED_SET_COUNT_LIMIT, getNestedSetCountLimit())
+            .set(NESTED_SET_COUNT_LIMIT_ALLOWLIST, getNestedSetCountLimitAllowlist())
             .setBool(
                 INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, getIncompatibleSymbolicMacroStrictAttrs())
             .setBool(
@@ -1217,4 +1246,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       FlagConstants.KNOWN_OVERSIZED_BZL_FILE_VALUE_EXAMPLE;
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
       new StarlarkSemantics.Key<>("nested_set_depth_limit", 3500);
+  public static final StarlarkSemantics.Key<Integer> NESTED_SET_COUNT_LIMIT =
+      new StarlarkSemantics.Key<>("nested_set_count_limit", 0);
+  public static final StarlarkSemantics.Key<List<String>> NESTED_SET_COUNT_LIMIT_ALLOWLIST =
+      new StarlarkSemantics.Key<>("nested_set_count_limit_allowlist", ImmutableList.of());
 }
