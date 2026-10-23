@@ -772,8 +772,7 @@ public final class MerkleTreeComputer {
       String currentParentString,
       int targetLength,
       @Nullable byte[][] discardScratch,
-      @Nullable Map<Object, Object> blobs)
-      throws IOException {
+      @Nullable Map<Object, Object> blobs) {
     long addedBytes = 0;
     for (int end = currentParentString.length(); end > targetLength; ) {
       Digest directoryBlobDigest =
@@ -794,8 +793,7 @@ public final class MerkleTreeComputer {
   private Digest computeDirectoryDigest(
       Directory directory,
       @Nullable byte[][] discardScratch,
-      @Nullable Map<Object, Object> blobs)
-      throws IOException {
+      @Nullable Map<Object, Object> blobs) {
     if (discardScratch == null) {
       byte[] directoryBlob = directory.toByteArray();
       Digest digest = digestUtil.compute(directoryBlob);
@@ -814,7 +812,12 @@ public final class MerkleTreeComputer {
     byte[] buf = discardScratch[0];
     // Bound the stream to size so that checkNoSpaceLeft ignores spare capacity in buf.
     CodedOutputStream out = CodedOutputStream.newInstance(buf, 0, size);
-    directory.writeTo(out);
+    try {
+      directory.writeTo(out);
+    } catch (IOException e) {
+      // writeTo throws only when the declared size does not match the bytes written.
+      throw new IllegalStateException(e);
+    }
     out.checkNoSpaceLeft();
     return digestUtil.compute(buf, 0, size);
   }
