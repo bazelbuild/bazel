@@ -301,13 +301,47 @@ java_library(
     ],
 )
 
+java_library(
+    name = "action_cache_checker",
+    srcs = [
+        "ActionCacheChecker.java",
+        "ActionCacheUtils.java",
+        "NotifyOnActionCacheHit.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        ":action_input",
+        ":action_input_map",
+        ":action_input_prefetcher",
+        ":artifacts",
+        ":file_metadata",
+        ":output_checker",
+        ":output_metadata_store",
+        ":package_roots",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:action_cache_java_proto",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
     srcs = [
         "AbstractAction.java",
-        "ActionCacheChecker.java",
-        "ActionCacheUtils.java",
         "ActionContextMarker.java",
         "ActionKeyComputer.java",
         "ActionLookupValue.java",
@@ -317,7 +351,6 @@ java_library(
         "BasicActionLookupValue.java",
         "FailAction.java",
         "MapBasedActionGraph.java",
-        "NotifyOnActionCacheHit.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
         "RunfilesTreeAction.java",
@@ -328,6 +361,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     exports = [
+        ":action_cache_checker",
         ":action_concurrency_meter",
         ":action_environment",
         ":action_events",
@@ -345,6 +379,7 @@ java_library(
         ":spawns",
     ],
     deps = [
+        ":action_cache_checker",
         ":action_concurrency_meter",
         ":action_environment",
         ":action_events",
