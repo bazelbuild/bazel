@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -476,10 +477,18 @@ public abstract sealed class RepoRecordedInput {
         return "ENOENT";
       }
       // Return the file content digest in hex. fileValue may or may not have the digest available.
-      byte[] digest = fileValue.realFileStateValue().getDigest();
+      var fileStateValue = fileValue.realFileStateValue();
+      byte[] digest = fileStateValue.getDigest();
       if (digest == null) {
         // Fast digest not available, or it would have been in the FileValue.
-        digest = fileValue.realRootedPath(rootedPath).asPath().getDigest();
+        var contentsProxy = fileStateValue.getContentsProxy();
+        var maybeStat =
+            contentsProxy != null
+                ? contentsProxy.toMetadataOnlyFileStatus(fileStateValue.getSize())
+                : null;
+        digest =
+            DigestUtils.manuallyComputeDigest(
+                fileValue.realRootedPath(rootedPath).asPath(), maybeStat);
       }
       return BaseEncoding.base16().lowerCase().encode(digest);
     }
