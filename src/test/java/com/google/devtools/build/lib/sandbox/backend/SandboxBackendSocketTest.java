@@ -108,6 +108,9 @@ public final class SandboxBackendSocketTest {
         "#!/bin/sh\n"
             + "for a in \"$@\"; do case $a in --socket=*) socket=${a#--socket=};; esac; done\n"
             + "[ \"$1\" = serve ] || exit 64\n"
+            + "echo $$ > \""
+            + tmp.resolve("pid")
+            + "\"\n"
             + "ln -s \""
             + tmp.resolve("s")
             + "\" \"$socket\"\n"
@@ -322,5 +325,34 @@ public final class SandboxBackendSocketTest {
     assertThat(cancelled.await(10, TimeUnit.SECONDS)).isTrue();
     assertThat(failure.get()).isInstanceOf(InterruptedException.class);
     assertThat(execRoot.getRelative("outputs/out.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void killingTheBackendProcess_failsTheCallInFlight() throws Exception {
+    var started = new CountDownLatch(1);
+    backend.setExecuteHandler((request, responses) -> started.countDown());
+    Spawn spawn = spawn("outputs/out.txt");
+    var result = new AtomicReference<SpawnResult>();
+    Thread thread =
+        new Thread(
+            () -> {
+              try {
+                result.set(runner.exec(spawn, context(spawn)));
+              } catch (Exception e) {
+                throw new AssertionError(e);
+              }
+            });
+    thread.start();
+    assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
+
+    // Only the process is killed, the server that answers on the socket stays up.
+    long pid = Long.parseLong(java.nio.file.Files.readString(tmp.resolve("pid")).trim());
+    assertThat(ProcessHandle.of(pid).orElseThrow().destroyForcibly()).isTrue();
+    thread.join(20_000);
+
+    assertThat(thread.isAlive()).isFalse();
+    assertThat(result.get().status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.get().getFailureMessage()).contains("sandbox backend 'sock' exited with status");
+    assertThat(session.isAlive()).isFalse();
   }
 }

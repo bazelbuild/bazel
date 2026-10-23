@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -101,6 +102,61 @@ public final class SandboxBackendSessionTest {
                     "bad", config(script.toString()), ImmutableMap.of(), digestUtil));
 
     assertThat(e).hasMessageThat().contains("exited with status 3");
+  }
+
+  private String rawScript(String name, String body) throws IOException {
+    Path script = dir.resolve(name);
+    Files.writeString(script, "#!/bin/sh\n" + body + "\n");
+    script.toFile().setExecutable(true);
+    return script.toString();
+  }
+
+  @Test
+  public void start_socketNeverCreated_timesOutKillsTheProcessAndReportsItsOutput()
+      throws Exception {
+    Path pidFile = dir.resolve("pid");
+    String binary = rawScript("silent", "echo $$ > " + pidFile + "\necho still-starting\nexec sleep 600");
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                SandboxBackendSession.start(
+                    "slow", config(binary), ImmutableMap.of(), digestUtil, Duration.ofSeconds(1)));
+
+    assertThat(e).hasMessageThat().contains("sandbox backend 'slow' didn't create its socket within 1 seconds");
+    assertThat(e).hasMessageThat().contains("still-starting");
+    long pid = Long.parseLong(Files.readString(pidFile).trim());
+    long deadline = System.nanoTime() + 20_000_000_000L;
+    while (ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false)
+        && System.nanoTime() < deadline) {
+      Thread.sleep(20);
+    }
+    assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false)).isFalse();
+  }
+
+  @Test
+  public void start_outputOfDeadBackendIsTruncatedToItsTail() throws Exception {
+    String binary =
+        rawScript(
+            "chatty",
+            "printf 'START-MARKER\\n'\n"
+                + "head -c 20000 /dev/zero | tr '\\0' x\n"
+                + "printf '\\nEND-MARKER\\n'\n"
+                + "exit 3");
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> SandboxBackendSession.start("chatty", config(binary), ImmutableMap.of(), digestUtil));
+
+    String message = e.getMessage();
+    assertThat(message).contains("exited with status 3");
+    assertThat(message).contains("END-MARKER");
+    assertThat(message).doesNotContain("START-MARKER");
+    // The 8 KiB of output and a short description.
+    assertThat(message.length()).isAtMost(8 * 1024 + 200);
+    assertThat(message.length()).isAtLeast(8 * 1024);
   }
 
   @Test

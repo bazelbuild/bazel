@@ -81,6 +81,7 @@ final class SandboxBackendSession implements AutoCloseable {
 
   private static final Duration STARTUP_TIMEOUT = Duration.ofSeconds(30);
   private static final Duration CAPABILITIES_TIMEOUT = Duration.ofSeconds(30);
+  private static final Duration OUTPUT_DRAIN_TIMEOUT = Duration.ofSeconds(1);
   private static final int OUTPUT_TAIL_LIMIT = 8 * 1024;
 
   private final String name;
@@ -203,6 +204,17 @@ final class SandboxBackendSession implements AutoCloseable {
       ImmutableMap<String, String> clientEnv,
       DigestUtil digestUtil)
       throws IOException, InterruptedException {
+    return start(name, config, clientEnv, digestUtil, STARTUP_TIMEOUT);
+  }
+
+  /** Like {@link #start(String, BackendConfig, ImmutableMap, DigestUtil)}, with a custom timeout. */
+  static SandboxBackendSession start(
+      String name,
+      BackendConfig config,
+      ImmutableMap<String, String> clientEnv,
+      DigestUtil digestUtil,
+      Duration startupTimeout)
+      throws IOException, InterruptedException {
     String binary = config.resolveBinary(clientEnv);
     if (binary == null) {
       throw new IOException(
@@ -227,7 +239,7 @@ final class SandboxBackendSession implements AutoCloseable {
               .start();
       session = new SandboxBackendSession(name, process, transport, transport::connect, digestUtil);
       session.watchProcess();
-      session.awaitReady();
+      session.awaitReady(startupTimeout);
       session.checkCapabilities();
       return session;
     } catch (IOException | InterruptedException | RuntimeException e) {
@@ -285,12 +297,20 @@ final class SandboxBackendSession implements AutoCloseable {
         new Thread(
             () -> {
               process.waitForUninterruptibly();
+              // The output is complete once the reader sees the end of the stream, unless a child
+              // of the backend keeps it open, in which case what was read so far has to do.
+              try {
+                reader.join(OUTPUT_DRAIN_TIMEOUT.toMillis());
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
               if (alive) {
-                alive = false;
+                // Set before alive is cleared, as whoever sees the backend dead reads it.
                 deathMessage =
                     String.format(
                         "sandbox backend '%s' exited with status %d%s",
                         name, process.exitValue(), formatTail());
+                alive = false;
                 logger.atWarning().log("%s", deathMessage);
                 // Fails all calls that are waiting for the backend.
                 releaseChannel();
@@ -307,19 +327,17 @@ final class SandboxBackendSession implements AutoCloseable {
     }
   }
 
-  private void awaitReady() throws IOException, InterruptedException {
-    long deadline = System.nanoTime() + STARTUP_TIMEOUT.toNanos();
+  private void awaitReady(Duration timeout) throws IOException, InterruptedException {
+    long deadline = System.nanoTime() + timeout.toNanos();
     while (!transport.isSocketCreated()) {
       if (!alive) {
-        // Give the reader a moment to collect the last output.
-        Thread.sleep(50);
         throw new IOException(deathMessage);
       }
       if (System.nanoTime() > deadline) {
         throw new IOException(
             String.format(
                 "sandbox backend '%s' didn't create its socket within %d seconds%s",
-                name, STARTUP_TIMEOUT.toSeconds(), formatTail()));
+                name, timeout.toSeconds(), formatTail()));
       }
       Thread.sleep(10);
     }
