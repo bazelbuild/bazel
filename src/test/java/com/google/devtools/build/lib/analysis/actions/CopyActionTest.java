@@ -44,12 +44,16 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.time.Instant;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -73,6 +77,11 @@ public class CopyActionTest extends BuildViewTestCase {
   }
 
   private void execute(CopyAction action) throws Exception {
+    execute(action, /* actionFileSystem= */ null);
+  }
+
+  private void execute(CopyAction action, @Nullable FileSystem actionFileSystem)
+      throws Exception {
     action.execute(
         new ActionExecutionContext(
             executor,
@@ -85,7 +94,7 @@ public class CopyActionTest extends BuildViewTestCase {
             /* fileOutErr= */ null,
             new StoredEventHandler(),
             /* clientEnv= */ ImmutableMap.of(),
-            /* actionFileSystem= */ null,
+            actionFileSystem,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE));
@@ -358,5 +367,48 @@ public class CopyActionTest extends BuildViewTestCase {
 
     assertThat(out.getPath().isDirectory()).isTrue();
     assertThat(out.getPath().getDirectoryEntries()).isEmpty();
+  }
+
+  /**
+   * The source may exist only in the action file system (an overlay or in-memory input), never on
+   * the host file system. It must be read through the action's path resolver.
+   */
+  @Test
+  public void localFile_isReadThroughActionFileSystem() throws Exception {
+    Artifact in = getBinArtifactWithNoOwner("in");
+    Artifact out = getBinArtifactWithNoOwner("sub/out");
+    FileSystem actionFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path actionIn = actionFs.getPath(in.getPath().asFragment());
+    actionIn.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(actionIn, UTF_8, "only in action fs");
+    assertThat(in.getPath().exists()).isFalse();
+    when(inputProvider.getInputMetadata(in))
+        .thenReturn(FileArtifactValue.createForNormalFile(DIGEST, null, 17));
+
+    execute(CopyAction.create(NULL_ACTION_OWNER, in, out, "Copying"), actionFs);
+
+    assertThat(FileSystemUtils.readContent(out.getPath(), UTF_8)).isEqualTo("only in action fs");
+    assertThat(out.getPath().isSymbolicLink()).isFalse();
+  }
+
+  @Test
+  public void localTree_childrenAreReadThroughActionFileSystem() throws Exception {
+    SpecialArtifact in = tree("in");
+    SpecialArtifact out = tree("out");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(in, "a/f");
+    FileSystem actionFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path actionChild = actionFs.getPath(child.getPath().asFragment());
+    actionChild.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(actionChild, UTF_8, "x");
+    when(inputProvider.getTreeMetadata(in))
+        .thenReturn(
+            TreeArtifactValue.newBuilder(in)
+                .putChild(child, FileArtifactValue.createForNormalFile(DIGEST, null, 1))
+                .build());
+
+    execute(CopyAction.create(NULL_ACTION_OWNER, in, out, "Copying"), actionFs);
+
+    assertThat(FileSystemUtils.readContent(out.getPath().getRelative("a/f"), UTF_8))
+        .isEqualTo("x");
   }
 }

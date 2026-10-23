@@ -130,7 +130,7 @@ public final class CopyAction extends AbstractAction {
       return;
     }
     // The output metadata store reads (and chmods) the copy when the metadata is requested.
-    copyLocalFile(input.getPath(), output.getPath());
+    copyLocalFile(ctx.getInputPath(input), output.getPath());
   }
 
   private void copyTree(ActionExecutionContext ctx, SpecialArtifact input, SpecialArtifact output)
@@ -151,7 +151,7 @@ public final class CopyAction extends AbstractAction {
       anyLocal = true;
       TreeFileArtifact outChild =
           TreeFileArtifact.createTreeOutput(output, child.getKey().getParentRelativePath());
-      copyLocalFile(child.getKey().getPath(), outChild.getPath());
+      copyLocalFile(ctx.getInputPath(child.getKey()), outChild.getPath());
     }
     if (!anyRemote) {
       // Nothing to inject: the output metadata store walks what was copied (and normalizes its
@@ -203,9 +203,15 @@ public final class CopyAction extends AbstractAction {
             source.isInMemoryOutput()));
   }
 
+  /**
+   * Copies a local file. The source is read through the action's path resolver, so that files that
+   * only exist in an overlay or action file system (e.g. repository contents served by a remote
+   * repo contents cache, or in-memory inputs) can be read. When that is the native file system,
+   * {@link FileSystemUtils#copyFile} clones. Otherwise it falls back to a stream copy. The
+   * destination is always written on the host file system.
+   */
   private static void copyLocalFile(Path from, Path to) throws IOException {
-    copyFileWithFallback(
-        from.forHostFileSystem(), to.forHostFileSystem(), FileSystemUtils::copyFile);
+    copyFileWithFallback(from, to.forHostFileSystem(), FileSystemUtils::copyFile);
   }
 
   /** A copy primitive, for testing the fallback. */
