@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.protobuf.ByteString;
@@ -646,6 +647,48 @@ public final class SandboxBackendSpawnRunnerTest {
 
     assertThat(context.getDigest().getHash())
         .isEqualTo(backend.executes.get(0).getActionDigest().getHash());
+  }
+
+  @Test
+  public void emptyFile_isNeverUploaded() throws Exception {
+    Path empty = staged.getRelative("empty");
+    FileSystemUtils.createEmptyFile(empty);
+    var remoteContext =
+        build.bazel.remote.execution.v2.RequestMetadata.getDefaultInstance();
+
+    session
+        .cache()
+        .uploadFile(
+            com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.create(
+                remoteContext),
+            digestUtil.compute(new byte[0]),
+            empty,
+            PathFragment.create("empty"),
+            /* force= */ true)
+        .get(10, TimeUnit.SECONDS);
+
+    assertThat(backend.writes).isEmpty();
+    assertThat(backend.stored).isEmpty();
+  }
+
+  @Test
+  public void nonEmptyFile_isUploadedAsItsUri() throws Exception {
+    Path file = staged.getRelative("file");
+    FileSystemUtils.writeContentAsLatin1(file, "abc");
+
+    session
+        .cache()
+        .uploadFile(
+            com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.create(
+                build.bazel.remote.execution.v2.RequestMetadata.getDefaultInstance()),
+            digestUtil.computeAsUtf8("abc"),
+            file,
+            PathFragment.create("file"),
+            /* force= */ true)
+        .get(10, TimeUnit.SECONDS);
+
+    assertThat(backend.stored.get(digestUtil.computeAsUtf8("abc").getHash()))
+        .isEqualTo(FileUriBlobs.encode(file.getPathString()));
   }
 
   @Test

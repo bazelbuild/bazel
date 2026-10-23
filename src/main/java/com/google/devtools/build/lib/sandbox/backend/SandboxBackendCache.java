@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.sandbox.backend;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.ChunkLocationMap;
 import com.google.devtools.build.lib.remote.RemoteExecutionCache;
@@ -55,6 +56,10 @@ final class SandboxBackendCache extends RemoteExecutionCache {
       Path path,
       PathFragment execPath,
       boolean force) {
+    // The same as in CombinedCache: the empty blob is known to every backend and never uploaded.
+    if (digest.getSizeBytes() == 0) {
+      return Futures.immediateVoidFuture();
+    }
     // All inputs have been prefetched, so the path is a path on the host file system.
     return client.uploadBlob(context, digest, new FileUriBlob(path), force);
   }
