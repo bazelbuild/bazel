@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataDigestUtils;
@@ -174,7 +174,7 @@ public interface ActionCache {
 
     /** Gets the metadata of an output tree. */
     @Nullable
-    public SerializableTreeArtifactValue getOutputTree(SpecialArtifact output) {
+    public SerializableTreeArtifactValue getOutputTree(TreeArtifact output) {
       checkState(!isCorrupted());
       return outputTreeMetadata.get(output.getExecPathString());
     }
@@ -438,15 +438,14 @@ public interface ActionCache {
 
       /** Adds an output tree. */
       @CanIgnoreReturnValue
-      public Builder addOutputTree(SpecialArtifact output, TreeArtifactValue metadata) {
+      public Builder addOutputTree(TreeArtifact output, TreeArtifactValue metadata) {
         return addOutputTree(output, metadata, /* saveTreeMetadata= */ false);
       }
 
       /** Adds an output tree. */
       @CanIgnoreReturnValue
       public Builder addOutputTree(
-          SpecialArtifact output, TreeArtifactValue metadata, boolean saveTreeMetadata) {
-        checkArgument(output.isTreeArtifact(), "artifact must be a tree artifact: %s", output);
+          TreeArtifact output, TreeArtifactValue metadata, boolean saveTreeMetadata) {
         String execPath = output.getExecPathString();
         if (saveTreeMetadata) {
           if (!metadata.getChildValues().isEmpty()

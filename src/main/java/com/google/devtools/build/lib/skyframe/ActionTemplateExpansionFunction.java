@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
@@ -101,7 +101,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
       ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
-      for (SpecialArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
+      for (TreeArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
         TreeArtifactValue treeArtifactValue =
             (TreeArtifactValue)
                 result.getOrThrow(inputTreeArtifact, ActionExecutionException.class);
@@ -192,7 +192,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
             actionTemplate,
             output,
             action);
-        SpecialArtifact outputTree =
+        Artifact outputTree =
             output.getParent().isSubTreeArtifact()
                 ? output.getParent().getParent()
                 : output.getParent();

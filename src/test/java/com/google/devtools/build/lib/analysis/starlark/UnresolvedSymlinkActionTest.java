@@ -23,8 +23,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
@@ -59,11 +58,10 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
   public final void setUp() throws Exception {
     ArtifactRoot binDir = targetConfig.getBinDirectory();
     outputArtifact =
-        SpecialArtifact.create(
+        UnresolvedSymlinkArtifact.create(
             binDir,
             binDir.getExecPath().getRelative("symlink"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.UNRESOLVED_SYMLINK);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     outputArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     output = outputArtifact.getPath();
     output.getParentDirectory().createDirectoryAndParents();

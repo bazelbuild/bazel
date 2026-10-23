@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
@@ -550,7 +550,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (!(input instanceof TreeFileArtifact treeFile)) {
       return null;
     }
-    SpecialArtifact treeArtifact = treeFile.getParent();
+    TreeArtifact treeArtifact = treeFile.getParent();
     FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
     if (treeMetadata == null) {
       // There are two cases where tree metadata is legitimately not available:
@@ -587,7 +587,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact treeFile) {
-      SpecialArtifact treeArtifact = treeFile.getParent();
+      TreeArtifact treeArtifact = treeFile.getParent();
       FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
       if (treeMetadata == null) {
         // There are two cases where tree metadata is legitimately not available:
@@ -959,9 +959,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         continue;
       }
 
-      if (output.isTreeArtifact()) {
+      if (output instanceof TreeArtifact treeOutput) {
         outputMetadataStore
-            .getTreeArtifactValue((SpecialArtifact) output)
+            .getTreeArtifactValue(treeOutput)
             .getChildValues()
             .forEach(
                 (child, childMetadata) -> {
