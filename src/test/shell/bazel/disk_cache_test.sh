@@ -128,6 +128,61 @@ EOF
   expect_log "(cached) PASSED"
 }
 
+function test_cache_directory_tag() {
+  local cache="${TEST_TMPDIR}/tagged-cache"
+  mkdir -p "$cache"
+  touch BUILD
+  local attempt
+  for attempt in 1 2; do
+    bazel build --disk_cache="$cache" //:BUILD > "$TEST_log" 2>&1 \
+      || fail "Build failed"
+    [[ -f "$cache/CACHEDIR.TAG" && ! -L "$cache/CACHEDIR.TAG" ]] \
+      || fail "Expected a regular cache directory tag"
+    assert_equals 'Signature: 8a477f597d28d172789f06886806bc55' \
+      "$(head -c 43 "$cache/CACHEDIR.TAG")"
+    rm "$cache/CACHEDIR.TAG"
+  done
+
+  echo 'keep this file' > "$cache/CACHEDIR.TAG"
+  bazel build --disk_cache="$cache" //:BUILD > "$TEST_log" 2>&1 \
+    || fail "Build failed"
+  assert_equals 'keep this file' "$(cat "$cache/CACHEDIR.TAG")"
+
+  rm "$cache/CACHEDIR.TAG"
+  mkdir "$cache/CACHEDIR.TAG"
+  bazel build --disk_cache="$cache" //:BUILD > "$TEST_log" 2>&1 \
+    || fail "Build failed"
+  [[ -d "$cache/CACHEDIR.TAG" ]] || fail "Tag directory replaced"
+  if ! is_windows; then
+    rmdir "$cache/CACHEDIR.TAG"
+    ln -s "$cache/missing" "$cache/CACHEDIR.TAG"
+    bazel build --disk_cache="$cache" //:BUILD > "$TEST_log" 2>&1 \
+      || fail "Build failed"
+    [[ -L "$cache/CACHEDIR.TAG" ]] || fail "Tag symlink replaced"
+    assert_not_exists "$cache/missing"
+  fi
+}
+
+function test_cache_directory_tag_does_not_exclude_workspace() {
+  create_new_workspace "${TEST_TMPDIR}/cache-safety/workspace"
+  touch BUILD
+  local workspace="$PWD"
+  mkdir subdir
+  cd subdir
+  local cache
+  for cache in "$workspace" "$(dirname "$workspace")"; do
+    bazel build --disk_cache="$cache" //:BUILD > "$TEST_log" 2>&1 \
+      || fail "Build failed"
+    assert_not_exists "$cache/CACHEDIR.TAG"
+  done
+  if ! is_windows; then
+    ln -s "$workspace" "${TEST_TMPDIR}/cache-workspace-alias"
+    bazel build --disk_cache="${TEST_TMPDIR}/cache-workspace-alias" \
+      //:BUILD > "$TEST_log" 2>&1 || fail "Build failed"
+    assert_not_exists "$workspace/CACHEDIR.TAG"
+  fi
+}
+
 function test_garbage_collection() {
   local -r CACHE_DIR="${TEST_TMPDIR}/cache"
   rm -rf "$CACHE_DIR"
@@ -140,6 +195,8 @@ function test_garbage_collection() {
   create_file_with_size_and_mtime "${CACHE_DIR}/ac/456"  1M "202401010200"
   create_file_with_size_and_mtime "${CACHE_DIR}/cas/abc" 1M "202401010300"
   create_file_with_size_and_mtime "${CACHE_DIR}/ac/def"  1M "202401010400"
+  printf 'Signature: 8a477f597d28d172789f06886806bc55\n' > "${CACHE_DIR}/CACHEDIR.TAG"
+  touch -t 202301010000 "${CACHE_DIR}/CACHEDIR.TAG"
 
   # Run a build and request an immediate garbage collection.
   # Note that this build doesn't write anything to the disk cache.
@@ -155,6 +212,8 @@ function test_garbage_collection() {
   assert_not_exists "${CACHE_DIR}/ac/456"
   assert_exists "${CACHE_DIR}/cas/abc"
   assert_exists "${CACHE_DIR}/ac/def"
+  assert_equals 'Signature: 8a477f597d28d172789f06886806bc55' \
+    "$(head -c 43 "${CACHE_DIR}/CACHEDIR.TAG")"
 }
 
 function create_file_with_size_and_mtime() {

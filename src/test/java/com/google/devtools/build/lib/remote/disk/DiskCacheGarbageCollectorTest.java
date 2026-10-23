@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
 import com.google.devtools.build.lib.testutil.ExternalFileSystemLock;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -179,6 +180,23 @@ public final class DiskCacheGarbageCollectorTest {
 
     assertThat(stats).isEqualTo(new CollectionStats(0, 0, 0, 0, false, Duration.ZERO));
     assertFilesExist("gc/foo", "tmp/foo");
+  }
+
+  @Test
+  public void preservesCacheDirectoryTag() throws Exception {
+    String tag = "Signature: 8a477f597d28d172789f06886806bc55\n";
+    FileSystemUtils.writeContentAsLatin1(rootDir.getChild("CACHEDIR.TAG"), tag);
+    rootDir.getChild("CACHEDIR.TAG").setLastModifiedTime(daysAgo(10).toEpochMilli());
+    writeFiles(
+        Entry.of("cas/123", kbytes(1), daysAgo(1)),
+        Entry.of("cas/CACHEDIR.TAG", kbytes(1), daysAgo(1)));
+
+    CollectionStats stats = runGarbageCollector(Optional.of(1L), Optional.of(days(1)));
+
+    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 2, kbytes(2), false, Duration.ZERO));
+    assertThat(FileSystemUtils.readContentAsLatin1(rootDir.getChild("CACHEDIR.TAG")))
+        .isEqualTo(tag.toCharArray());
+    assertFilesDoNotExist("cas/123", "cas/CACHEDIR.TAG");
   }
 
   @Test

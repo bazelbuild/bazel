@@ -1358,7 +1358,41 @@ static string GetCanonicalCwd() {
   return result;
 }
 
-static void PrepareDirectories(StartupOptions *startup_options) {
+// Best effort: never replace an existing tag or follow a tag symlink.
+static void CreateCacheDirectoryTag(const blaze_util::Path& directory,
+                                    const blaze_util::Path& workspace) {
+  const blaze_util::Path canonical = directory.Canonicalize();
+  if (canonical.IsEmpty()) {
+    return;
+  }
+  // A custom output directory may contain the source tree. Do not exclude it
+  // from backups, including when the output directory is a symlink.
+  for (blaze_util::Path ancestor = workspace;;
+       ancestor = ancestor.GetParent()) {
+    if (blaze_util::ArePathsEquivalent(canonical, ancestor)) {
+      return;
+    }
+    if (blaze_util::IsRootDirectory(ancestor)) {
+      break;
+    }
+  }
+  const blaze_util::Path tag = canonical.GetRelative("CACHEDIR.TAG");
+#if defined(_WIN32) || defined(__CYGWIN__)
+  FILE* file = _wfopen(tag.AsNativePath().c_str(), L"wbx");
+#else
+  FILE* file = fopen(tag.AsNativePath().c_str(), "wbx");
+#endif
+  if (file != nullptr) {
+    fputs("Signature: 8a477f597d28d172789f06886806bc55\n"
+          "# This directory contains Bazel build output and caches.\n"
+          "# https://bford.info/cachedir/\n",
+          file);
+    fclose(file);
+  }
+}
+
+static void PrepareDirectories(StartupOptions *startup_options,
+                               const blaze_util::Path& workspace) {
   blaze::CreateSecureDirectory(
       blaze_util::Path(startup_options->output_user_root));
 
@@ -1392,6 +1426,8 @@ static void PrepareDirectories(StartupOptions *startup_options) {
         << "Output base directory could not be canonicalized: "
         << GetLastErrorString();
   }
+  CreateCacheDirectoryTag(startup_options->output_user_root, workspace);
+  CreateCacheDirectoryTag(startup_options->output_base, workspace);
 }
 
 // Prepares the environment to be suitable to start a JVM.
@@ -1768,7 +1804,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   startup_options->UpdateConfiguration(
       install_md5, workspace, IsServerMode(option_processor->GetCommand()));
 
-  PrepareDirectories(startup_options);
+  PrepareDirectories(startup_options,
+                     blaze_util::Path(workspace.empty() ? cwd : workspace));
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
               *option_processor, *workspace_layout, workspace, build_label,

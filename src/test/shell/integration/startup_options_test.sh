@@ -110,4 +110,63 @@ function test_bazelrc_after_devnull_ignored() {
   expect_not_log "--definitely_invalid_config"
 }
 
+function assert_cache_directory_tag() {
+  local tag="$1/CACHEDIR.TAG"
+  [[ -f "$tag" && ! -L "$tag" ]] || fail "Expected a regular file: $tag"
+  assert_equals 'Signature: 8a477f597d28d172789f06886806bc55' "$(head -c 43 "$tag")"
+}
+
+function test_output_directory_tags() {
+  assert_cache_directory_tag "$(bazel info output_base 2> "$TEST_log")"
+  assert_cache_directory_tag "$bazel_root"
+
+  local root="${TEST_TMPDIR}/tagged-output"
+  mkdir -p "$root/user" "$root/base"
+  local attempt
+  for attempt in 1 2; do
+    bazel --batch --output_user_root="$root/user" --output_base="$root/base" \
+      info > "$TEST_log" 2>&1 || fail "info failed"
+    assert_cache_directory_tag "$root/user"
+    assert_cache_directory_tag "$root/base"
+    rm "$root/user/CACHEDIR.TAG" "$root/base/CACHEDIR.TAG"
+  done
+}
+
+function test_output_directory_tag_conflicts() {
+  local root="${TEST_TMPDIR}/tag-conflicts"
+  mkdir -p "$root/user" "$root/base/CACHEDIR.TAG"
+  echo 'keep this file' > "$root/user/CACHEDIR.TAG"
+  bazel --batch --output_user_root="$root/user" --output_base="$root/base" \
+    info > "$TEST_log" 2>&1 || fail "info failed"
+  assert_equals 'keep this file' "$(cat "$root/user/CACHEDIR.TAG")"
+  [[ -d "$root/base/CACHEDIR.TAG" ]] || fail "Tag directory replaced"
+
+  if ! is_windows; then
+    rm "$root/user/CACHEDIR.TAG"
+    ln -s "$root/missing" "$root/user/CACHEDIR.TAG"
+    bazel --batch --output_user_root="$root/user" --output_base="$root/base" \
+      info > "$TEST_log" 2>&1 || fail "info failed"
+    [[ -L "$root/user/CACHEDIR.TAG" ]] || fail "Tag symlink replaced"
+    assert_not_exists "$root/missing"
+  fi
+}
+
+function test_output_directory_tags_do_not_exclude_workspace() {
+  local option workspace root
+  for option in output_user_root output_base; do
+    create_new_workspace "${TEST_TMPDIR}/tag-safety-${option}/source/workspace"
+    workspace="$PWD"
+    for root in "$workspace" "$(dirname "$(dirname "$workspace")")"; do
+      bazel --batch "--${option}=$root" info > "$TEST_log" 2>&1 || fail "info failed"
+      assert_not_exists "$root/CACHEDIR.TAG"
+    done
+    if ! is_windows; then
+      ln -s "$workspace" "${TEST_TMPDIR}/alias-${option}"
+      bazel --batch "--${option}=${TEST_TMPDIR}/alias-${option}" info \
+        > "$TEST_log" 2>&1 || fail "info failed"
+      assert_not_exists "$workspace/CACHEDIR.TAG"
+    fi
+  done
+}
+
 run_suite "${PRODUCT_NAME} startup options test"
