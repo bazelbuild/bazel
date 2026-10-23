@@ -83,6 +83,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -184,6 +185,134 @@ public class ByteStreamUploaderTest {
 
     // This test should not have triggered any retries.
     Mockito.verifyNoInteractions(mockBackoff);
+  }
+
+  @Test
+  public void uploadWithoutRequiredDigestSize_streamsBytesThatDifferFromTheDigest() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            retrier,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+    byte[] blob = "the blob".getBytes(UTF_8);
+    byte[] streamed = "file:///a/path/that/is/longer/than/the/blob".getBytes(UTF_8);
+    Digest digest = DIGEST_UTIL.compute(blob);
+    Chunker chunker = Chunker.builder().setInput(streamed).setChunkSize(16).build();
+    var resourceName = new AtomicReference<String>();
+    var received = new ByteArrayOutputStream();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {
+                if (!writeRequest.getResourceName().isEmpty()) {
+                  resourceName.set(writeRequest.getResourceName());
+                }
+                received.writeBytes(writeRequest.getData().toByteArray());
+              }
+
+              @Override
+              public void onError(Throwable throwable) {}
+
+              @Override
+              public void onCompleted() {
+                // The number of bytes received, not the size of the blob.
+                streamObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(received.size()).build());
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    getFromFuture(
+        uploader.uploadBlobAsync(context, digest, chunker, /* requireDigestSize= */ false));
+
+    assertThat(received.toByteArray()).isEqualTo(streamed);
+    // The resource name is the one of the blob.
+    assertThat(resourceName.get()).endsWith("blobs/" + DigestUtil.toString(digest));
+  }
+
+  @Test
+  public void uploadWithoutRequiredDigestSize_stillChecksTheCommittedSize() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            retrier,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+    byte[] blob = "the blob".getBytes(UTF_8);
+    byte[] streamed = "file:///a/path/that/is/longer/than/the/blob".getBytes(UTF_8);
+    Digest digest = DIGEST_UTIL.compute(blob);
+    Chunker chunker = Chunker.builder().setInput(streamed).setChunkSize(16).build();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {}
+
+              @Override
+              public void onCompleted() {
+                // The size of the blob is not what has been streamed.
+                streamObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(blob.length).build());
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                getFromFuture(
+                    uploader.uploadBlobAsync(
+                        context, digest, chunker, /* requireDigestSize= */ false)));
+
+    assertThat(e).hasMessageThat().contains("write incomplete");
+  }
+
+  @Test
+  public void uploadWithRequiredDigestSize_rejectsChunkerOfOtherSize() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            retrier,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+    Digest digest = DIGEST_UTIL.compute("the blob".getBytes(UTF_8));
+    Chunker chunker = Chunker.builder().setInput("other size".getBytes(UTF_8)).build();
+
+    var e =
+        assertThrows(
+            Exception.class,
+            () ->
+                getFromFuture(
+                    uploader.uploadBlobAsync(
+                        context, digest, chunker, /* requireDigestSize= */ true)));
+
+    assertThat(e).hasMessageThat().contains("Expected chunker size of 8, got 10");
   }
 
   @Test

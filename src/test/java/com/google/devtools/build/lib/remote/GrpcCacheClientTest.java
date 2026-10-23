@@ -1802,6 +1802,18 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void downloadStreamedBytes_defaultImplementationThrows() {
+    // A client that doesn't override it, e.g. a disk cache, must not be used for streamed reads.
+    RemoteCacheClient client = Mockito.mock(RemoteCacheClient.class, Mockito.CALLS_REAL_METHODS);
+
+    assertThrows(
+        UnsupportedOperationException.class,
+        () ->
+            client.downloadStreamedBytes(
+                context, DIGEST_UTIL.computeAsUtf8("foo"), new ByteArrayOutputStream()));
+  }
+
+  @Test
   public void downloadStreamedBytes_emptyBlobReadsNothing() throws Exception {
     GrpcCacheClient client = newClient();
     var reads = new AtomicInteger();
