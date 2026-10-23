@@ -161,7 +161,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             }
             try {
               if (outputDirectoryHelper != null) {
-                outputDirectoryHelper.createOutputDirectory(dir, execRoot());
+                outputDirectoryHelper.createOutputDirectory(dir, execRoot().asFragment());
               } else {
                 dir.createDirectoryAndParents();
               }
