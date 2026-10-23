@@ -18,6 +18,7 @@ import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.semver.SemVer;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
@@ -35,6 +36,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
 import com.google.rpc.PreconditionFailure;
 import io.grpc.Metadata;
@@ -86,6 +88,11 @@ final class FakeBackend implements AutoCloseable {
   final AtomicInteger findMissingCalls = new AtomicInteger();
   private final Map<String, ByteString> readable = new ConcurrentHashMap<>();
   private volatile ExecuteHandler handler = (request, responses) -> {};
+  private static final Metadata.Key<byte[]> REQUEST_METADATA =
+      Metadata.Key.of(
+          "build.bazel.remote.execution.v2.requestmetadata-bin", Metadata.BINARY_BYTE_MARSHALLER);
+  /** The request metadata of each {@code Execute} call, as sent in its header. */
+  final List<RequestMetadata> executeMetadata = Collections.synchronizedList(new ArrayList<>());
   final AtomicInteger capabilitiesCalls = new AtomicInteger();
   private volatile ServerCapabilities capabilities = defaultCapabilities();
   private volatile Status capabilitiesError;
@@ -139,6 +146,17 @@ final class FakeBackend implements AutoCloseable {
                   Metadata headers,
                   ServerCallHandler<ReqT, RespT> next) {
                 rpcs.add(call.getMethodDescriptor().getFullMethodName());
+                if (call.getMethodDescriptor().getFullMethodName().endsWith("Execution/Execute")) {
+                  byte[] metadata = headers.get(REQUEST_METADATA);
+                  try {
+                    executeMetadata.add(
+                        metadata == null
+                            ? RequestMetadata.getDefaultInstance()
+                            : RequestMetadata.parseFrom(metadata));
+                  } catch (InvalidProtocolBufferException e) {
+                    throw new IllegalStateException(e);
+                  }
+                }
                 return next.startCall(call, headers);
               }
             })

@@ -74,6 +74,7 @@ java_test(
         "//third_party/java/grpc:netty",
         "//third_party/java/grpc:stub",
         "//third_party/java/guava:concurrent",
+        "//third_party/java/mockito",
         "//third_party/java/netty4:transport",
         "//third_party/java/netty4:transport_native_epoll",
         "//third_party/java/netty4:transport_native_kqueue",

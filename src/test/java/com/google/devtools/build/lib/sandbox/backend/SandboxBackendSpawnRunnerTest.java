@@ -25,12 +25,16 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.OutputSymlink;
+import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -39,6 +43,7 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -57,6 +62,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link SandboxBackendSpawnRunner} against a {@link FakeBackend}. */
 @RunWith(JUnit4.class)
@@ -64,7 +70,25 @@ public final class SandboxBackendSpawnRunnerTest {
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
-  private FileSystem fs;
+  /** A file system whose hard links can be made to fail, as they do across file systems. */
+  private static final class LinkingFileSystem extends DelegateFileSystem {
+    volatile boolean failHardLinks;
+
+    LinkingFileSystem(FileSystem delegate) {
+      super(delegate);
+    }
+
+    @Override
+    public void createHardLink(PathFragment linkPath, PathFragment originalPath)
+        throws IOException {
+      if (failHardLinks) {
+        throw new IOException("Invalid cross-device link");
+      }
+      super.createHardLink(linkPath, originalPath);
+    }
+  }
+
+  private LinkingFileSystem fs;
   private Path root;
   private Path execRoot;
   private Path staged;
@@ -77,7 +101,7 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Before
   public void setUp() throws Exception {
-    fs = FileSystems.getNativeFileSystem(DigestHashFunction.SHA256);
+    fs = new LinkingFileSystem(FileSystems.getNativeFileSystem(DigestHashFunction.SHA256));
     root = fs.getPath(java.nio.file.Files.createTempDirectory("sbk-test").toString());
     execRoot = root.getRelative("execroot/_main");
     execRoot.createDirectoryAndParents();
@@ -774,6 +798,390 @@ public final class SandboxBackendSpawnRunnerTest {
 
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.getFailureMessage()).contains("don't match");
+  }
+
+  private Command commandOf(int execute) throws Exception {
+    Action action =
+        Action.parseFrom(backend.stored.get(backend.executes.get(execute).getActionDigest().getHash()));
+    return Command.parseFrom(backend.stored.get(action.getCommandDigest().getHash()));
+  }
+
+  private Action actionOf(int execute) throws Exception {
+    return Action.parseFrom(
+        backend.stored.get(backend.executes.get(execute).getActionDigest().getHash()));
+  }
+
+  private static boolean sameFile(Path a, Path b) throws IOException {
+    return java.nio.file.Files.isSameFile(
+        java.nio.file.Path.of(a.getPathString()), java.nio.file.Path.of(b.getPathString()));
+  }
+
+  @Test
+  public void missingBlobs_retryLimitIsExhausted() throws Exception {
+    backend.setExecuteHandler((request, responses) -> FakeBackend.respondMissing(responses));
+    Spawn spawn = spawn("outputs/out.txt");
+    Context context = context(spawn);
+
+    SpawnResult result = runner.exec(spawn, context);
+
+    // The first run and 3 retries, then the spawn fails instead of looping.
+    assertThat(backend.executes).hasSize(4);
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("FAILED_PRECONDITION");
+    assertThat(context.isLockOutputFilesCalled()).isFalse();
+  }
+
+  @Test
+  public void symlinkOutputs_areCreatedWithoutFollowingTheirTargets() throws Exception {
+    SpawnResult result =
+        execWithResult(
+            ActionResult.newBuilder()
+                .addOutputSymlinks(
+                    OutputSymlink.newBuilder().setPath("outputs/link").setTarget("../a/target"))
+                .addOutputFileSymlinks(
+                    OutputSymlink.newBuilder().setPath("outputs/flink").setTarget("/abs/target"))
+                .addOutputDirectorySymlinks(
+                    OutputSymlink.newBuilder().setPath("outputs/dlink").setTarget("dangling"))
+                .build(),
+            "outputs/link",
+            "outputs/flink",
+            "outputs/dlink");
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(execRoot.getRelative("outputs/link").readSymbolicLink())
+        .isEqualTo(PathFragment.create("../a/target"));
+    assertThat(execRoot.getRelative("outputs/flink").readSymbolicLink())
+        .isEqualTo(PathFragment.create("/abs/target"));
+    assertThat(execRoot.getRelative("outputs/dlink").readSymbolicLink())
+        .isEqualTo(PathFragment.create("dangling"));
+  }
+
+  @Test
+  public void symlinkInTree_isCreated() throws Exception {
+    Digest file = stage("o1", "in tree");
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("f.txt").setDigest(file))
+                    .addSymlinks(
+                        SymlinkNode.newBuilder().setName("l").setTarget("/outside/anything")))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree.toByteArray());
+    backend.serve(treeDigest, tree.toByteString());
+
+    SpawnResult result =
+        execWithResult(
+            ActionResult.newBuilder()
+                .addOutputDirectories(
+                    OutputDirectory.newBuilder().setPath("outputs/tree").setTreeDigest(treeDigest))
+                .build(),
+            "outputs/tree");
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(execRoot.getRelative("outputs/tree/l").readSymbolicLink())
+        .isEqualTo(PathFragment.create("/outside/anything"));
+    assertThat(read("outputs/tree/f.txt")).isEqualTo("in tree");
+  }
+
+  private Spawn spawnRedirectingStdout() {
+    Artifact stdout = ActionsTestUtil.createArtifact(artifactRoot, "stdout.txt");
+    Spawn spawn =
+        new SpawnBuilder("cmd", "arg").withInputs(input).withOutputs(stdout, output("other.txt")).build();
+    Spawn spy = Mockito.spy(spawn);
+    Mockito.doReturn(stdout).when(spy).getStdout();
+    return spy;
+  }
+
+  private Artifact output(String name) {
+    return ActionsTestUtil.createArtifact(artifactRoot, name);
+  }
+
+  @Test
+  public void stdoutRedirectedIntoOutputFile_rawBytes() throws Exception {
+    Spawn spawn = spawnRedirectingStdout();
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().setStdoutRaw(ByteString.copyFromUtf8("said")).build()));
+    Context context = context(spawn);
+
+    SpawnResult result = runner.exec(spawn, context);
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(read("outputs/stdout.txt")).isEqualTo("said");
+    // The file that stdout goes to is not an output of the command, and nothing went to outErr.
+    assertThat(commandOf(0).getOutputPathsList()).containsExactly("outputs/other.txt");
+    assertThat(context.getFileOutErr().outAsLatin1()).isEmpty();
+  }
+
+  @Test
+  public void stdoutRedirectedIntoOutputFile_byDigestAsRealBytesAndAsUri() throws Exception {
+    ByteString contents = ByteString.copyFromUtf8("lots of output");
+    Digest digest = digestUtil.compute(contents);
+    backend.serve(digest, contents);
+    Spawn spawn = spawnRedirectingStdout();
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(responses, ActionResult.newBuilder().setStdoutDigest(digest).build()));
+
+    runner.exec(spawn, context(spawn));
+
+    assertThat(read("outputs/stdout.txt")).isEqualTo("lots of output");
+
+    Digest viaUri = stage("so", "via a staged file");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(responses, ActionResult.newBuilder().setStdoutDigest(viaUri).build()));
+
+    runner.exec(spawn, context(spawn));
+
+    assertThat(read("outputs/stdout.txt")).isEqualTo("via a staged file");
+  }
+
+  @Test
+  public void stdoutRedirectedIntoOutputFile_noOutputGivesEmptyFile() throws Exception {
+    Spawn spawn = spawnRedirectingStdout();
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(responses, ActionResult.getDefaultInstance()));
+
+    runner.exec(spawn, context(spawn));
+
+    assertThat(read("outputs/stdout.txt")).isEmpty();
+  }
+
+  @Test
+  public void stdoutAndStderrByDigest_goToTheOutErr() throws Exception {
+    ByteString out = ByteString.copyFromUtf8("big stdout");
+    ByteString err = ByteString.copyFromUtf8("big stderr");
+    backend.serve(digestUtil.compute(out), out);
+    Digest errDigest = stage("e", "big stderr");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder()
+                    .setStdoutDigest(digestUtil.compute(out))
+                    .setStderrDigest(errDigest)
+                    .build()));
+    Spawn spawn = spawn("outputs/out.txt");
+    Context context = context(spawn);
+
+    runner.exec(spawn, context);
+
+    assertThat(context.getFileOutErr().outAsLatin1()).isEqualTo("big stdout");
+    assertThat(context.getFileOutErr().errAsLatin1()).isEqualTo(err.toStringUtf8());
+  }
+
+  @Test
+  public void stagedFile_isHardLinked() throws Exception {
+    Digest out = stage("o1", "hello");
+
+    execWithResult(
+        ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build(),
+        "outputs/out.txt");
+
+    assertThat(sameFile(staged.getRelative("o1"), execRoot.getRelative("outputs/out.txt"))).isTrue();
+  }
+
+  @Test
+  public void failingHardLink_fallsBackToACopy() throws Exception {
+    Digest out = stage("o1", "hello");
+    fs.failHardLinks = true;
+
+    SpawnResult result =
+        execWithResult(
+            ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build(),
+            "outputs/out.txt");
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(read("outputs/out.txt")).isEqualTo("hello");
+    assertThat(sameFile(staged.getRelative("o1"), execRoot.getRelative("outputs/out.txt"))).isFalse();
+  }
+
+  @Test
+  public void executableStagedFile_isLinkedForExecutableOutputAndCopiedOtherwise() throws Exception {
+    Digest out = stage("o1", "#!/bin/sh");
+    staged.getRelative("o1").setExecutable(true);
+
+    execWithResult(
+        ActionResult.newBuilder()
+            .addOutputFiles(outputFile("outputs/run.sh", out).toBuilder().setIsExecutable(true))
+            .addOutputFiles(outputFile("outputs/data.txt", out))
+            .build(),
+        "outputs/run.sh",
+        "outputs/data.txt");
+
+    assertThat(execRoot.getRelative("outputs/run.sh").isExecutable()).isTrue();
+    assertThat(sameFile(staged.getRelative("o1"), execRoot.getRelative("outputs/run.sh"))).isTrue();
+    // A hard link shares the permissions, so the other one had to be a copy.
+    assertThat(execRoot.getRelative("outputs/data.txt").isExecutable()).isFalse();
+    assertThat(sameFile(staged.getRelative("o1"), execRoot.getRelative("outputs/data.txt"))).isFalse();
+    assertThat(staged.getRelative("o1").isExecutable()).isTrue();
+  }
+
+  @Test
+  public void emptyOutputs_areCreatedIncludingInATree() throws Exception {
+    Digest empty = digestUtil.compute(new byte[0]);
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("e").setDigest(empty).setIsExecutable(true)))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree.toByteArray());
+    backend.serve(treeDigest, tree.toByteString());
+
+    SpawnResult result =
+        execWithResult(
+            ActionResult.newBuilder()
+                .addOutputFiles(outputFile("outputs/empty.txt", empty))
+                .addOutputFiles(outputFile("outputs/empty.sh", empty).toBuilder().setIsExecutable(true))
+                .addOutputDirectories(
+                    OutputDirectory.newBuilder().setPath("outputs/tree").setTreeDigest(treeDigest))
+                .setStdoutDigest(empty)
+                .build(),
+            "outputs/empty.txt",
+            "outputs/empty.sh",
+            "outputs/tree");
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(execRoot.getRelative("outputs/empty.txt").getFileSize()).isEqualTo(0);
+    assertThat(execRoot.getRelative("outputs/empty.txt").isExecutable()).isFalse();
+    assertThat(execRoot.getRelative("outputs/empty.sh").isExecutable()).isTrue();
+    assertThat(execRoot.getRelative("outputs/tree/e").isExecutable()).isTrue();
+    // Only the tree itself is read.
+    assertThat(backend.rpcs).contains("google.bytestream.ByteStream/Read");
+  }
+
+  @Test
+  public void emptyOutputs_needNoRead() throws Exception {
+    Digest empty = digestUtil.compute(new byte[0]);
+
+    execWithResult(
+        ActionResult.newBuilder().addOutputFiles(outputFile("outputs/empty.txt", empty)).build(),
+        "outputs/empty.txt");
+
+    assertThat(backend.rpcs).doesNotContain("google.bytestream.ByteStream/Read");
+  }
+
+  @Test
+  public void actionAndCommand_carryPlatformAndAreNotCacheable() throws Exception {
+    Digest out = stage("o1", "hello");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build()));
+    Spawn spawn =
+        new SpawnBuilder("cmd", "arg")
+            .withInputs(input)
+            .withOutputs("outputs/out.txt")
+            .withCombinedExecProperties(ImmutableMap.of("network", "off"))
+            .build();
+
+    runner.exec(spawn, context(spawn));
+
+    Action action = actionOf(0);
+    assertThat(action.getDoNotCache()).isTrue();
+    assertThat(action.hasTimeout()).isFalse();
+    assertThat(action.getPlatform().getPropertiesList())
+        .containsExactly(
+            build.bazel.remote.execution.v2.Platform.Property.newBuilder()
+                .setName("network")
+                .setValue("off")
+                .build());
+    assertThat(commandOf(0).getPlatform()).isEqualTo(action.getPlatform());
+    assertThat(backend.executes.get(0).getDigestFunction())
+        .isEqualTo(build.bazel.remote.execution.v2.DigestFunction.Value.SHA256);
+  }
+
+  @Test
+  public void executeCall_carriesTheRequestMetadataHeader() throws Exception {
+    Digest out = stage("o1", "hello");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build()));
+    Spawn spawn =
+        new SpawnBuilder("cmd", "arg")
+            .withInputs(input)
+            .withOutputs("outputs/out.txt")
+            .withMnemonic("Mnemonic")
+            .withOwnerLabel("//pkg:target")
+            .build();
+
+    runner.exec(spawn, context(spawn));
+
+    build.bazel.remote.execution.v2.RequestMetadata metadata = backend.executeMetadata.get(0);
+    assertThat(metadata.getActionId()).isEqualTo(backend.executes.get(0).getActionDigest().getHash());
+    assertThat(metadata.getActionMnemonic()).isEqualTo("Mnemonic");
+    assertThat(metadata.getTargetId()).isEqualTo("//pkg:target");
+    assertThat(metadata.getToolInvocationId()).isEqualTo("command");
+    assertThat(metadata.getCorrelatedInvocationsId()).isEqualTo("build");
+    assertThat(metadata.getToolDetails().getToolName()).isEqualTo("bazel");
+    assertThat(metadata.getConfigurationId())
+        .isEqualTo(
+            com.google.common.base.Strings.nullToEmpty(
+                spawn.getResourceOwner().getOwner().getConfigurationChecksum()));
+  }
+
+  @Test
+  public void pathMapping_appliesToOutputPathsAndBack() throws Exception {
+    PathMapper mapper =
+        execPath ->
+            execPath.startsWith(PathFragment.create("outputs"))
+                ? PathFragment.create("mapped").getRelative(execPath.subFragment(1))
+                : execPath;
+    Digest out = stage("o1", "hello");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().addOutputFiles(outputFile("mapped/out.txt", out)).build()));
+    Spawn spawn =
+        new SpawnBuilder("cmd", "arg")
+            .withInputs(input)
+            .withOutputs("outputs/out.txt")
+            .setPathMapper(mapper)
+            .build();
+
+    SpawnResult result = runner.exec(spawn, context(spawn));
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(commandOf(0).getOutputPathsList()).containsExactly("mapped/out.txt");
+    // The output ends up at its real path.
+    assertThat(read("outputs/out.txt")).isEqualTo("hello");
+    assertThat(execRoot.getRelative("mapped").exists()).isFalse();
+  }
+
+  @Test
+  public void pathMapping_unmappedOutputPathIsNotDeclared() throws Exception {
+    PathMapper mapper =
+        execPath ->
+            execPath.startsWith(PathFragment.create("outputs"))
+                ? PathFragment.create("mapped").getRelative(execPath.subFragment(1))
+                : execPath;
+    Digest out = stage("o1", "hello");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build()));
+    Spawn spawn =
+        new SpawnBuilder("cmd", "arg")
+            .withInputs(input)
+            .withOutputs("outputs/out.txt")
+            .setPathMapper(mapper)
+            .build();
+
+    SpawnResult result = runner.exec(spawn, context(spawn));
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("didn't declare");
   }
 
   @Test
