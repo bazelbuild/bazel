@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkCallable;
 
@@ -39,4 +41,9 @@ public interface StarlarkSubruleApi extends StarlarkCallable {
   }
 
   Optional<String> getUserDefinedNameIfSubruleAttr(String attrName);
+
+  String getName();
+
+  @Nullable
+  Label getExtensionLabel();
 }
