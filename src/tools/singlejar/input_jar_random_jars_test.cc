@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <cstdio>
 #include <string>
 
 #include "src/tools/singlejar/input_jar.h"

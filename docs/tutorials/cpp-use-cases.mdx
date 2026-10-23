@@ -94,12 +94,13 @@ cc_library(
     name = "some_lib",
     srcs = ["some_lib.cc"],
     hdrs = ["include/some_lib.h"],
-    copts = ["-Ilegacy/some_lib/include"],
+    local_includes = ["include"],
 )
 ```
 
-This is especially useful for external dependencies, as their header files
-must otherwise be included with a `/` prefix.
+Paths in `local_includes` are relative to the package. To also make the
+include path available to targets that depend on `some_lib`, use the
+`includes` attribute instead.
 
 ## Include external libraries {#include-external-libraries}
 
@@ -131,10 +132,6 @@ Then create `./test/BUILD` file for your tests:
 cc_test(
     name = "hello-test",
     srcs = ["hello-test.cc"],
-    copts = [
-      "-Iexternal/gtest/googletest/include",
-      "-Iexternal/gtest/googletest",
-    ],
     deps = [
         "@googletest//:gtest_main",
         "//main:hello-greet",

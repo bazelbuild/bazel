@@ -175,7 +175,7 @@ cd workingDir && \\
               SET UNSET_ME_TOO=
               SET ENV_VAR=val
               SET ENV_VAR_WITH_SPACES=foo bar
-              /bin/bash -c 'echo hello && C:\\executable argv1 "arg w spaces"' %*
+              /bin/bash -c "echo hello && C:/executable argv1 'arg w spaces' \\"$@\\"" bash %*
             """);
   }
 

@@ -36,6 +36,7 @@ import net.starlark.java.syntax.Location;
  * should be annotated with {@link StarlarkMethod} with {@link StarlarkMethod#selfCall} set to true,
  * and with {@link StarlarkConstructor} for the info type it constructs.
  */
+// TODO: #27370 - Generate a ProviderType for builtin providers.
 @Immutable
 public abstract class BuiltinProvider<T extends Info> implements Provider {
   private final Key key;
@@ -100,18 +101,6 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   /** Returns the identifier of this provider. */
   public StarlarkProviderIdentifier id() {
     return StarlarkProviderIdentifier.forKey(key);
-  }
-
-  /**
-   * Implement this to mark that a built-in provider should be exported with certain name to
-   * Starlark. Broken: only works for rules, not for aspects. DO NOT USE FOR NEW CODE!
-   *
-   * @deprecated Use declared providers mechanism exclusively to expose providers to both native and
-   *     Starlark code.
-   */
-  @Deprecated
-  public interface WithLegacyStarlarkName {
-    String getStarlarkName();
   }
 
   /** A serializable reference to a {@link BuiltinProvider}. */

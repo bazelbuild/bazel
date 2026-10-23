@@ -245,7 +245,12 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Inputs: [")
           .append(
               inputs.toList().stream()
-                  .map(input -> internalToEscapedUnicode(input.getExecPathString()))
+                  .map(
+                      input ->
+                          internalToEscapedUnicode(
+                              input.isTreeArtifact()
+                                  ? input.getExecPathString() + " (TreeArtifact)"
+                                  : input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n");

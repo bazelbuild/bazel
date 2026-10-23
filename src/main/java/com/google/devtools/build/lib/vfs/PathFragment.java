@@ -71,37 +71,18 @@ public abstract sealed class PathFragment
    * <p>The ordering imposed by this comparator differs from that of {@link
    * #compareTo(PathFragment)} as it sorts {@code foo/bar-baz/quz} after {@code foo/bar/quz} - it
    * has the property that the children of a path are sorted directly after their parent.
-   *
-   * <p>Note that the ordering imposed by this comparator is <em>not</em> consistent with equals if
-   * applied to paths that differ only in case on Windows. Paths of artifacts in a single build are
-   * known to not be affected by this as Bazel ensures that there is only a single artifact per
-   * equivalence class of {@link PathFragment}.
    */
-  // TODO(bazel-team): Consider making this the default comparator for PathFragment and revisit the
-  //  choice to assume case sensitivity based on the host OS. Windows case sensitivity is
-  //  configurable on a per-directory basis:
-  //  https://learn.microsoft.com/en-us/windows/wsl/case-sensitivity
+  // TODO(bazel-team): Consider making this the default comparator for PathFragment.
   public static final Comparator<PathFragment> HIERARCHICAL_COMPARATOR =
       (p1, p2) -> {
-        // Bazel's Strings contain raw UTF-8 bytes (see StringEncoding), which can be compared
-        // byte-by-byte.
-        var b1 = StringUnsafe.getInternalStringBytes(p1.getPathString());
-        var b2 = StringUnsafe.getInternalStringBytes(p2.getPathString());
-        // This is based on String.compareTo for the case of two Latin-1 coders.
-        int k = Arrays.mismatch(b1, b2);
-        if (k == -1) {
-          return 0;
+        int k = p1.getCommonPrefixLength(p2);
+        String s1 = p1.normalizedPath;
+        String s2 = p2.normalizedPath;
+        if (k == s1.length() || k == s2.length()) {
+          return Integer.compare(s1.length(), s2.length());
         }
-        if (k >= b1.length) {
-          // b1 is a prefix of b2.
-          return -1;
-        }
-        if (k >= b2.length) {
-          // b2 is a prefix of b1.
-          return 1;
-        }
-        byte c1 = b1[k];
-        byte c2 = b2[k];
+        char c1 = s1.charAt(k);
+        char c2 = s2.charAt(k);
         if (c1 == '/') {
           // Sort a/b/c before a/b-c.
           return -1;
@@ -110,7 +91,7 @@ public abstract sealed class PathFragment
           // Sort a/b-c after a/b/c.
           return 1;
         }
-        return Byte.compareUnsigned(c1, c2);
+        return Character.compare(c1, c2);
       };
 
   private static final char ADDITIONAL_SEPARATOR_CHAR = OS.additionalSeparator();
@@ -145,7 +126,8 @@ public abstract sealed class PathFragment
 
   private static PathFragment makePathFragment(String normalizedPath, int driveStrLength) {
     return switch (driveStrLength) {
-      case 0 -> new RelativePathFragment(normalizedPath);
+      case 0 ->
+          normalizedPath.isEmpty() ? EMPTY_FRAGMENT : new RelativePathFragment(normalizedPath);
       case 1 -> new UnixStyleAbsolutePathFragment(normalizedPath);
       case 3 -> new WindowsStyleAbsolutePathFragment(normalizedPath);
       default ->
@@ -174,6 +156,32 @@ public abstract sealed class PathFragment
 
   public String getPathString() {
     return normalizedPath;
+  }
+
+  /**
+   * Returns the length of the case-sensitive common prefix of the two path strings.
+   *
+   * <p>The result is an index into {@link #getPathString()}, which uses Bazel's internal encoding.
+   * It may fall within a path segment or a multi-byte UTF-8 sequence. For example, the common
+   * prefix of {@code foo/bar} and {@code foo/baz} has length 6.
+   *
+   * <p>This operation does not allocate.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  public int getCommonPrefixLength(PathFragment other) {
+    if (normalizedPath == other.normalizedPath) {
+      return normalizedPath.length();
+    }
+    if (normalizedPath.isEmpty() || other.normalizedPath.isEmpty()) {
+      return 0;
+    }
+    // Bazel's Strings contain raw UTF-8 bytes (see StringEncoding), which can be compared
+    // byte-by-byte. Arrays.mismatch uses a JVM intrinsic to compare multiple bytes at a time.
+    int mismatch =
+        Arrays.mismatch(
+            StringUnsafe.getInternalStringBytes(normalizedPath),
+            StringUnsafe.getInternalStringBytes(other.normalizedPath));
+    return mismatch == -1 ? normalizedPath.length() : mismatch;
   }
 
   public final boolean isEmpty() {
@@ -256,6 +264,9 @@ public abstract sealed class PathFragment
     if (isEmpty() || other.isAbsolute()) {
       return other;
     }
+    if (other.isEmpty()) {
+      return this;
+    }
     // The path fragment is already normal, use cheaper normalization check.
     String otherStr = other.normalizedPath;
     return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
@@ -269,16 +280,16 @@ public abstract sealed class PathFragment
    */
   public PathFragment getRelative(String other) {
     Preconditions.checkNotNull(other);
-    return getRelative(other, OS.getDriveStrLength(other), OS.needsToNormalize(other));
-  }
-
-  private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
     if (isEmpty()) {
       return create(other);
     }
     if (other.isEmpty()) {
       return this;
     }
+    return getRelative(other, OS.getDriveStrLength(other), OS.needsToNormalize(other));
+  }
+
+  private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
     // This is an absolute path, simply return it
     if (otherDriveStrLength > 0) {
       String normalizedPath =
@@ -434,13 +445,23 @@ public abstract sealed class PathFragment
    */
   public boolean startsWithIgnoringCase(PathFragment other) {
     Preconditions.checkNotNull(other);
+    if (this == other) {
+      return true;
+    }
     // Drive strings are ASCII only and hence can be checked without conversion to Unicode.
-    if (getDriveStrLength() != other.getDriveStrLength()) {
+    int driveStrLength = getDriveStrLength();
+    if (driveStrLength != other.getDriveStrLength()) {
       return false;
     }
+    if (other.normalizedPath.length() == driveStrLength) {
+      return normalizedPath.regionMatches(true, 0, other.normalizedPath, 0, driveStrLength);
+    }
     // Convert to regular Unicode Java strings so that Unicode case mappings are applied correctly.
-    String normalizedPathUnicode = internalToUnicode(normalizedPath);
     String otherNormalizedPathUnicode = internalToUnicode(other.normalizedPath);
+    if (otherNormalizedPathUnicode.length() > normalizedPath.length()) {
+      return false;
+    }
+    String normalizedPathUnicode = internalToUnicode(normalizedPath);
     if (otherNormalizedPathUnicode.length() > normalizedPathUnicode.length()) {
       return false;
     }
@@ -449,7 +470,6 @@ public abstract sealed class PathFragment
       return false;
     }
     return normalizedPathUnicode.length() == otherNormalizedPathUnicode.length()
-        || other.normalizedPath.length() == getDriveStrLength()
         || normalizedPathUnicode.charAt(otherNormalizedPathUnicode.length()) == SEPARATOR_CHAR;
   }
 
@@ -503,8 +523,7 @@ public abstract sealed class PathFragment
   }
 
   /**
-   * Compares this path fragment to another path fragment as normalized strings, possibly ignoring
-   * casing based on the host OS.
+   * Compares this path fragment to another path fragment as normalized strings.
    *
    * <p>{@code dir/foo, dir/foo-bar/data.txt, dir/foo/data.txt} is sorted according to this method,
    * which is not consistent with viewing a path as a sequence of segments. See {@link
@@ -567,6 +586,9 @@ public abstract sealed class PathFragment
    * <p>This operation is O(N) on the length of the string.
    */
   public String getSegment(int index) {
+    if (index < 0) {
+      throw new IllegalArgumentException("Illegal segment index: " + index);
+    }
     int n = normalizedPath.length();
     int segmentCount = 0;
     int i;
@@ -586,7 +608,7 @@ public abstract sealed class PathFragment
       ++segmentCount;
     }
     int endi = i;
-    if (index < 0 || index >= segmentCount) {
+    if (index >= segmentCount) {
       throw new IllegalArgumentException("Illegal segment index: " + index);
     }
     return normalizedPath.substring(starti, endi);
@@ -665,6 +687,9 @@ public abstract sealed class PathFragment
       driveStrLength = this.getDriveStrLength();
       endi = Math.max(endi, driveStrLength);
     }
+    if (starti == 0 && endi == n) {
+      return this;
+    }
     return makePathFragment(normalizedPath.substring(starti, endi), driveStrLength);
   }
 
@@ -677,10 +702,17 @@ public abstract sealed class PathFragment
       throw new IllegalArgumentException(
           String.format("Invalid number of components (%d)", numComponents));
     }
-    if (numComponents >= this.segmentCount()) {
+    int n = normalizedPath.length();
+    int i = getDriveStrLength();
+    for (; i < n && numComponents > 0; ++i) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        --numComponents;
+      }
+    }
+    if (i >= n) {
       return EMPTY_FRAGMENT;
     }
-    return this.subFragment(numComponents);
+    return new RelativePathFragment(normalizedPath.substring(i));
   }
 
   /**

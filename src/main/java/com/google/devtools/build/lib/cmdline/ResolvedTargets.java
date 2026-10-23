@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -83,32 +82,17 @@ public final class ResolvedTargets<T> {
     return filteredTargets;
   }
 
-  /**
-   * Returns a builder using concurrent sets, as long as you don't call filter.
-   */
-  public static <T> ResolvedTargets.Builder<T> concurrentBuilder() {
-    return new ResolvedTargets.Builder<>(
-        Sets.<T>newConcurrentHashSet(),
-        Sets.<T>newConcurrentHashSet());
-  }
-
   public static <T> ResolvedTargets.Builder<T> builder() {
     return new ResolvedTargets.Builder<>();
   }
 
+  /** A builder for {@link ResolvedTargets}. */
   public static final class Builder<T> {
-    private Set<T> targets;
-    private Set<T> filteredTargets;
+    private Set<T> targets = new LinkedHashSet<>();
+    private final Set<T> filteredTargets = new LinkedHashSet<>();
     private volatile boolean hasError = false;
 
-    private Builder() {
-      this(new LinkedHashSet<>(), new LinkedHashSet<>());
-    }
-
-    private Builder(Set<T> targets, Set<T> filteredTargets) {
-      this.targets = targets;
-      this.filteredTargets = filteredTargets;
-    }
+    private Builder() {}
 
     public ResolvedTargets<T> build() {
       return new ResolvedTargets<>(targets, filteredTargets, hasError);

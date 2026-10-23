@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
@@ -21,10 +22,10 @@ import static com.google.devtools.build.lib.skyframe.serialization.proto.DataTyp
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EXECUTION_NODE;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -68,15 +69,16 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -183,6 +185,12 @@ final class SelectedEntrySerializer {
     private final AtomicLong analysisNodes = new AtomicLong(0);
     private final AtomicLong executionNodes = new AtomicLong(0);
 
+    // Wall times of the synchronous phases of uploadSelection. Written by uploadSelection before it
+    // returns and read by its caller afterwards, on the same thread.
+    private Duration materializeNodeGraphTime = Duration.ZERO;
+    private Duration computeLeafIdsAndUploadOrderTime = Duration.ZERO;
+    private Duration driveUploadsTime = Duration.ZERO;
+
     SerializationStats() {}
 
     void registerAnalysisNode() {
@@ -199,6 +207,24 @@ final class SelectedEntrySerializer {
 
     long executionNodes() {
       return executionNodes.get();
+    }
+
+    /** Parallel materialization of the node graph. */
+    Duration materializeNodeGraphTime() {
+      return materializeNodeGraphTime;
+    }
+
+    /** The leaf walk, longest-path depth assignment and upload ordering. */
+    Duration computeLeafIdsAndUploadOrderTime() {
+      return computeLeafIdsAndUploadOrderTime;
+    }
+
+    /**
+     * The loop that issues every upload. Node construction is synchronous within it, but writes are
+     * left outstanding, so it excludes the wait for writes to land.
+     */
+    Duration driveUploadsTime() {
+      return driveUploadsTime;
     }
   }
 
@@ -232,7 +258,7 @@ final class SelectedEntrySerializer {
   @Nullable private final ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
-  static QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
+  static ListenableFuture<ImmutableList<Throwable>> uploadSelection(
       InMemoryGraph graph,
       LongVersionGetter versionGetter,
       ObjectCodecs codecs,
@@ -268,6 +294,24 @@ final class SelectedEntrySerializer {
     }
     fileOpNodes.setMemoryReclamationParameters(
         selection, shouldDiscardMemory, shouldDiscardMemory ? packageRefcounts.keySet() : null);
+
+    var stopwatch = Stopwatch.createStarted();
+    ImmutableList<Throwable> materializeErrors;
+    try (var _ = Profiler.instance().profile("materializeNodeGraph")) {
+      materializeErrors = fileOpNodes.materializeNodeGraph(selection);
+    }
+    serializationStats.materializeNodeGraphTime = stopwatch.elapsed();
+    if (!materializeErrors.isEmpty()) {
+      return immediateFuture(materializeErrors);
+    }
+
+    stopwatch.reset().start();
+    FileOpNodeMemoizingLookup.DenseLeafIdsAndUploadOrder dense;
+    try (var _ = Profiler.instance().profile("computeLeafIdsAndUploadOrder")) {
+      dense = fileOpNodes.computeLeafIdsAndUploadOrder(selection);
+    }
+    serializationStats.computeLeafIdsAndUploadOrderTime = stopwatch.elapsed();
+
     var fileDependencySerializer =
         new FileDependencySerializer(
             versionGetter,
@@ -275,7 +319,9 @@ final class SelectedEntrySerializer {
             compressionService,
             fileInvalidationWriter,
             fingerprintValueService.getExecutor(),
-            profileCollector);
+            profileCollector,
+            dense.leafIds(),
+            /* releaseBitmaps= */ true);
     var writeStatuses = new SerializationStatus(fileDependencySerializer.getCounters());
     var serializer =
         new SelectedEntrySerializer(
@@ -294,18 +340,28 @@ final class SelectedEntrySerializer {
             serializationStats,
             emitUploadedEvents);
 
-    // A topological sort prevents the antipattern where one serializes a high level node, walks
+    if (shouldDiscardMemory) {
+      fileOpNodes.markDirectDepsCleared();
+      clearDirectDeps(graph);
+    }
+
+    // A topological order prevents the antipattern where one serializes a high level node, walks
     // its whole transitive closure, then serializes lower level nodes, thus revisiting the
     // transitive closure again.
     //
     // This doesn't help a lot when one only serializes a frontier or a small active set (since
     // the majority of the Skyframe graph is not serialized), but does help when serializing a
     // lot of nodes.
-    ImmutableList<SkyKey> sortedSelection = sortTopologically(selection, graph);
-
-    for (SkyKey selectedKey : sortedSelection) {
-      serializer.upload(selectedKey);
+    //
+    // The order is by the longest-path depth of each key's node, deepest first. See
+    // SelectionPartition.
+    stopwatch.reset().start();
+    try (var _ = Profiler.instance().profile("driveUploads")) {
+      for (SkyKey selectedKey : dense.uploadOrder()) {
+        serializer.upload(selectedKey);
+      }
     }
+    serializationStats.driveUploadsTime = stopwatch.elapsed();
 
     writeStatuses.finishRegistration();
     return writeStatuses;
@@ -342,7 +398,13 @@ final class SelectedEntrySerializer {
     this.emitUploadedEvents = emitUploadedEvents;
   }
 
-  public void upload(SkyKey key) throws InterruptedException {
+  /**
+   * Uploads one selected entry.
+   *
+   * <p>Private because it relies on {@link FileOpNodeMemoizingLookup#materializeNodeGraph} having
+   * run first, as {@link #uploadSelection} does.
+   */
+  private void upload(SkyKey key) throws InterruptedException {
     InMemoryNodeEntry entry = graph.getIfPresent(key);
     if (entry != null && entry.getValue() instanceof DeserializedSkyValue) {
       return;
@@ -357,7 +419,15 @@ final class SelectedEntrySerializer {
             throw new MissingSkyframeEntryException(actionLookupKey);
           }
           serializationStats.registerAnalysisNode();
-          uploadAnalysisEntry(actionLookupKey, entry.getValue(), entry.getDirectDeps());
+          // materializeNodeGraph already computed this key's node, so its direct deps are unused,
+          // and may have been cleared by clearDirectDeps. The async path, which runs before the
+          // node is committed, passes its deps via uploadAnalysisEntry instead.
+          uploadEntry(
+              actionLookupKey,
+              entry.getValue(),
+              actionLookupKey,
+              /* dependencyDeps= */ null,
+              entry.getMaxTransitiveSourceVersion());
         }
         case ActionLookupData lookupData -> {
           serializationStats.registerExecutionNode();
@@ -387,11 +457,14 @@ final class SelectedEntrySerializer {
    * Uploads an analysis phase entry to Skycache.
    *
    * <p>Direct deps must always be given.
+   *
+   * <p>If {@code mtsv} is given, it is stored along with the value in a {@link
+   * AnalysisValueWithMtsv}.
    */
   public void uploadAnalysisEntry(
-      ActionLookupKey key, SkyValue value, Iterable<SkyKey> directDeps) {
+      ActionLookupKey key, SkyValue value, Iterable<SkyKey> directDeps, @Nullable Version mtsv) {
     // For analysis phase entries, we register their own dependencies in the invalidation data
-    uploadEntry(key, value, key, directDeps);
+    uploadEntry(key, value, key, directDeps, mtsv);
   }
 
   /**
@@ -414,23 +487,14 @@ final class SelectedEntrySerializer {
       }
       value = entry.getValue();
     }
-    ActionLookupKey dependencyKey = getDependencyKey(key);
+    ActionLookupKey dependencyKey = FileOpNodeMemoizingLookup.getDependencyKey(key);
 
     // We don't pass directDeps in because the code must be tolerant to those not being available:
     // if we delete nodes as we upload them, the NodeEntry to dependencyKey might not be available
     // anymore. In this case, FileOpNodeMemoizingLookup will definitely contain an entry for it,
     // since creating one is a side effect of uploading. If we are not deleting them, it will do
     // a graph lookup anyway.
-    uploadEntry(key, value, dependencyKey, null);
-  }
-
-  private static ActionLookupKey getDependencyKey(SkyKey key) {
-    return switch (key) {
-      case ActionLookupData ald -> ald.getActionLookupKey();
-      case DerivedArtifact artifact -> artifact.getArtifactOwner();
-      case ActionLookupSummaryKey alsk -> alsk.argument();
-      default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
-    };
+    uploadEntry(key, value, dependencyKey, null, /* mtsv= */ null);
   }
 
   /**
@@ -442,13 +506,15 @@ final class SelectedEntrySerializer {
    * @param dependencyKey the {@link SkyKey} whose file system dependencies are to be used
    * @param dependencyDeps the dependencies to traverse. These should be the direct deps of {@code
    *     dependencyDeps}. If null, Skyframe will be asked for the deps of {@code key}
+   * @param mtsv the max transitive source version of the node, if applicable
    */
   private void uploadEntry(
       SkyKey key,
       SkyValue value,
       ActionLookupKey dependencyKey,
-      @Nullable Iterable<SkyKey> dependencyDeps) {
-    new UploadTask(key, value, dependencyKey, dependencyDeps).submit();
+      @Nullable Iterable<SkyKey> dependencyDeps,
+      @Nullable Version mtsv) {
+    new UploadTask(key, value, dependencyKey, dependencyDeps, mtsv).submit();
   }
 
   private final class UploadTask
@@ -457,7 +523,7 @@ final class SelectedEntrySerializer {
     private final SkyValue value;
     private final ActionLookupKey dependencyKey;
     @Nullable private final Iterable<SkyKey> dependencyDeps;
-    private final boolean isExecutionValue;
+    @Nullable private final Version mtsv;
 
     // Keys are always stored as fingerprints so their detailed profiles are omitted.
     private AsyncSerializationTask keyResultTask;
@@ -467,12 +533,13 @@ final class SelectedEntrySerializer {
         SkyKey key,
         SkyValue value,
         ActionLookupKey dependencyKey,
-        @Nullable Iterable<SkyKey> dependencyDeps) {
+        @Nullable Iterable<SkyKey> dependencyDeps,
+        @Nullable Version mtsv) {
       this.key = key;
       this.value = value;
       this.dependencyKey = dependencyKey;
       this.dependencyDeps = dependencyDeps;
-      this.isExecutionValue = isExecutionValue(key);
+      this.mtsv = mtsv;
     }
 
     void submit() {
@@ -496,9 +563,14 @@ final class SelectedEntrySerializer {
             codecs.serializeMemoizedAsync(
                 compressionService, fingerprintValueService, key, /* profileCollector= */ null);
         fingerprintValueService.getExecutor().execute(keyResultTask);
+
+        SkyValue valueToSerialize =
+            mtsv != null && key instanceof ActionLookupKey
+                ? new AnalysisValueWithMtsv(value, mtsv)
+                : value;
         this.valueResultTask =
             codecs.serializeMemoizedAsync(
-                compressionService, fingerprintValueService, value, profileCollector);
+                compressionService, fingerprintValueService, valueToSerialize, profileCollector);
         fingerprintValueService.getExecutor().execute(valueResultTask);
 
         keyResultTask.addListener(
@@ -511,7 +583,8 @@ final class SelectedEntrySerializer {
         // We pass a null value for execution entries to maintain the invariant that value is
         // non-null only for analysis entries.
         FileOpNodeOrFuture fileOpNodeOrFuture =
-            fileOpNodes.computeNode(dependencyKey, isExecutionValue ? null : value, dependencyDeps);
+            fileOpNodes.computeNode(
+                dependencyKey, isExecutionValue(key) ? null : value, dependencyDeps);
         switch (fileOpNodeOrFuture) {
           case FileOpNodeOrEmpty nodeOrEmpty -> onSuccess(nodeOrEmpty);
           case FutureFileOpNode future ->
@@ -651,7 +724,8 @@ final class SelectedEntrySerializer {
           }
 
           codedOut.writeEnumNoTag(
-              (isExecutionValue ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE).getNumber());
+              (isExecutionValue(key) ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE)
+                  .getNumber());
           node.cacheKey().writeTo(codedOut);
           writeStatuses.addWriteStatus(node.writeStatus());
           codedOut.writeRawBytes(valueResult.getObject());
@@ -903,38 +977,23 @@ final class SelectedEntrySerializer {
     return !(key instanceof ActionLookupKey);
   }
 
-  /** Sorts {@code selection} topologically based on the edges in {@code graph}. */
-  private static ImmutableList<SkyKey> sortTopologically(
-      ImmutableSet<SkyKey> selection, InMemoryGraph graph) {
-    ArrayList<SkyKey> result = new ArrayList<>(selection.size());
-    Set<SkyKey> visited = Sets.newHashSetWithExpectedSize(selection.size());
-    for (SkyKey key : selection) {
-      if (visited.add(key)) {
-        dfs(key, selection, graph, visited, result);
-      }
+  /**
+   * Clears the direct dep edges of every done node in {@code graph}.
+   *
+   * <p>Like deleting rdeps, this leaves the graph unfit for incremental builds, so it runs only
+   * when discarding memory. It is safe once the node graph is materialized and the upload order is
+   * computed: after that point, uploading reads only values, never Skyframe edges. Unlike deleting
+   * rdeps, clearing a node's deps is a single field write, so the pass costs little more than a
+   * walk over the graph.
+   */
+  private static void clearDirectDeps(InMemoryGraph graph) {
+    try (var _ = Profiler.instance().profile("clearDirectDeps")) {
+      graph.parallelForEach(
+          node -> {
+            if (node instanceof IncrementalInMemoryNodeEntry entry && entry.isDone()) {
+              entry.clearDirectDeps();
+            }
+          });
     }
-    return ImmutableList.copyOf(result);
-  }
-
-  private static void dfs(
-      SkyKey key,
-      ImmutableSet<SkyKey> selection,
-      InMemoryGraph graph,
-      Set<SkyKey> visited,
-      List<SkyKey> result) {
-    InMemoryNodeEntry entry = graph.getIfPresent(key);
-    if (entry == null) {
-      return;
-    }
-
-    for (SkyKey dep : entry.getDirectDeps()) {
-      // This is suboptimal when "selection" is non-contiguous, but makes it possible to avoid
-      // visiting the whole Skyframe graph when serializing just a frontier
-      if (selection.contains(dep) && visited.add(dep)) {
-        dfs(dep, selection, graph, visited, result);
-      }
-    }
-
-    result.add(key);
   }
 }

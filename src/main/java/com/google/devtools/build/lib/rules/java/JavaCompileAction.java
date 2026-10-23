@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -102,23 +101,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private static final ParamFileInfo PARAM_FILE_INFO =
       ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED).setUseAlways(true).build();
 
-  enum CompilationType {
-    JAVAC("Javac"),
-    // 'javac turbine' has been replaced by just 'turbine', but the mnemonic is unchanged for
-    // continuity in the blaze performance logs, and to distinguish direct classpath actions
-    // which use the 'Turbine' mnemonic.
-    // TODO(b/230333695): consider renaming to a more descriptive name
-    TURBINE("JavacTurbine");
-
-    final String mnemonic;
-
-    CompilationType(String mnemonic) {
-      this.mnemonic = mnemonic;
-    }
-  }
-
   private final NestedSet<Artifact> tools;
-  private final CompilationType compilationType;
+  private final String mnemonic;
+  private final boolean insertDependencies;
   private final ActionEnvironment env;
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
@@ -137,7 +122,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
 
   public JavaCompileAction(
-      CompilationType compilationType,
+      String mnemonic,
+      boolean insertDependencies,
       ActionOwner owner,
       NestedSet<Artifact> tools,
       OnDemandString progressMessage,
@@ -147,30 +133,20 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ImmutableSet<Artifact> outputs,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
-      ExtraActionInfoSupplier extraActionInfoSupplier,
+      @Nullable ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
       CommandLine flagLine,
       ImmutableList<CommandLine> extraCommandLineArgs,
       BuildConfigurationValue configuration,
       NestedSet<Artifact> dependencyArtifacts,
-      Artifact outputDepsProto,
+      @Nullable Artifact outputDepsProto,
       JavaClasspathMode classpathMode) {
     super(owner, allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts), outputs);
-    if (outputs.stream().anyMatch(Artifact::isTreeArtifact)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Unexpected tree artifact output(s): [%s] in JavaCompileAction for %s",
-              outputs.stream()
-                  .filter(Artifact::isTreeArtifact)
-                  .map(Artifact::getExecPathString)
-                  .collect(joining(",")),
-              owner.getLabel()));
-    }
     this.tools = tools;
-    this.compilationType = compilationType;
+    this.mnemonic = mnemonic;
+    this.insertDependencies = insertDependencies;
     this.env = env;
-    this.executionInfo =
-        configuration.modifiedExecutionInfo(executionInfo, compilationType.mnemonic);
+    this.executionInfo = configuration.modifiedExecutionInfo(executionInfo, mnemonic);
     this.executableLine = executableLine;
     this.flagLine = flagLine;
     this.extraCommandLineArgs = extraCommandLineArgs;
@@ -215,7 +191,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   @Override
   public String getMnemonic() {
-    return compilationType.mnemonic;
+    return mnemonic;
   }
 
   @Override
@@ -417,7 +393,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     Deps.Dependencies dependencies =
         readFullOutputDeps(primaryResults, actionExecutionContext, spawn.getPathMapper());
 
-    if (compilationType == CompilationType.TURBINE) {
+    if (insertDependencies) {
       actionExecutionContext
           .getContext(JavaCompileActionContext.class)
           .insertDependencies(outputDepsProto, dependencies);
@@ -433,8 +409,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           actionExecutionContext.getExecRoot(),
           actionExecutionContext.getPathResolver(),
           /* bulkDeleter= */ null,
-          // We don't create any tree artifacts anyway.
-          /* cleanupArchivedArtifacts= */ false);
+          /* cleanupArchivedArtifacts= */ configuration
+              .getOptions()
+              .get(CoreOptions.class)
+              .getArchivedArtifactsMnemonicsFilter()
+              .test(getMnemonic()));
     } catch (IOException e) {
       throw wrapIOException(e, "Failed to delete reduced action outputs");
     }
@@ -465,7 +444,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throw ActionExecutionException.fromExecException(e, this);
     }
 
-    if (compilationType == CompilationType.TURBINE) {
+    if (insertDependencies) {
       actionExecutionContext
           .getContext(JavaCompileActionContext.class)
           .insertDependencies(
@@ -746,25 +725,25 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     Deps.Dependencies executorJdeps =
         readExecutorJdeps(spawnResult, outputDepsProto, actionExecutionContext);
 
-    if (pathMapper.isNoop()) {
-      return executorJdeps;
-    }
-
     // No paths to rewrite.
     if (executorJdeps.getDependencyCount() == 0) {
       return executorJdeps;
     }
 
-    // For each of the action's generated inputs, revert its mapped path back to its original path.
+    // For each of the action's generated inputs, revert its mapped or root-relative path back to
+    // its original path.
     HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
-    HashSet<String> originalPaths = new HashSet<>();
+    HashMap<PathFragment, PathFragment> rootRelativeToOriginalPath = new HashMap<>();
     for (Artifact actionInput :
         Iterables.concat(actionInputs.toList(), additionalArtifactsForPathMapping.toList())) {
       if (actionInput.isSourceArtifact()) {
         continue;
       }
+      rootRelativeToOriginalPath.put(actionInput.getRootRelativePath(), actionInput.getExecPath());
+      if (pathMapper.isNoop()) {
+        continue;
+      }
       String mappedPath = pathMapper.getMappedExecPathString(actionInput);
-      originalPaths.add(actionInput.getExecPath().getPathString());
       PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
       if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
         // Multiple inputs from different configs map to the same path. This is allowed when they
@@ -775,31 +754,21 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     // Rewrite the .jdeps proto with full paths.
-    PathFragment outputRoot = outputDepsProto.getExecPath().subFragment(0, 1);
+    boolean modified = false;
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
       PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
-      PathFragment originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
-      // Source files, which do not lie under the output root, are not mapped. It is also possible
-      // that a jdeps file contains a reference to a transitive classpath element that isn't an
-      // input to the current action (see
-      // https://github.com/google/turbine/commit/f9f2decee04a3c651671f7488a7c9d7952df88c8), just an
-      // additional artifact marked for path mapping, and itself wasn't built with path mapping
-      // enabled (e .g. due to path collisions). In that case, the path will already be unmapped and
-      // we can leave it as is. For entirely unexpected paths, we still report an error.
-      if (originalPath == null
-          && pathOnExecutor.subFragment(0, 1).equals(outputRoot)
-          && !originalPaths.contains(pathOnExecutor.getPathString())) {
-        throw new IllegalStateException(
-            String.format(
-                "Missing original path for mapped path %s in %s%njdeps: %s%npath map: %s",
-                pathOnExecutor,
-                outputDepsProto.getExecPath(),
-                executorJdeps,
-                mappedToOriginalPath));
+      PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
+      if (originalPath == null && !pathMapper.isNoop()) {
+        originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
       }
-      dep.setPath(
-          originalPath == null ? pathOnExecutor.getPathString() : originalPath.getPathString());
+      if (originalPath != null && !originalPath.equals(pathOnExecutor)) {
+        dep.setPath(originalPath.getPathString());
+        modified = true;
+      }
+    }
+    if (!modified) {
+      return executorJdeps;
     }
     Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
 
@@ -841,7 +810,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ActionExecutionContext actionExecutionContext,
       PathMapper pathMapper)
       throws ActionExecutionException {
-    SpawnResult result = Iterables.getOnlyElement(results);
+    // SpawnStrategy guarantees that the first list entry exists and corresponds to the executed
+    // spawn (subsequent entries may come from tree artifact management or retries).
+    SpawnResult result = results.getFirst();
     try {
       return createFullOutputDeps(
           result,

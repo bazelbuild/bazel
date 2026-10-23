@@ -72,7 +72,11 @@ final class Eval {
   static Object execFunctionBody(StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
     fr.thread.checkInterrupt();
-    execStatements(fr, statements, /* indented= */ false);
+    if (fn(fr).isToplevel() && fr.thread.postAssignHook != null) {
+      execStatementsWithPostAssignHook(fr, statements);
+    } else {
+      execStatementsWithoutPostAssignHook(fr, statements);
+    }
     return fr.result;
   }
 
@@ -80,41 +84,54 @@ final class Eval {
     return (StarlarkFunction) fr.fn;
   }
 
-  private static TokenKind execStatements(
-      StarlarkThread.Frame fr, List<Statement> statements, boolean indented)
+  /**
+   * Executes top-level statements and invokes {@link StarlarkThread#postAssignHook} (or {@link
+   * StarlarkFunction#export}) after assignments and function definitions to support {@code
+   * BzlLoadFunction}'s export semantics.
+   *
+   * <p>{@link #execFunctionBody} only calls this for statements outside any function ({@code
+   * isToplevel}) when a {@code postAssignHook} is set. Nested blocks ({@code if}/{@code for}
+   * bodies) go through {@link #execStatementsWithoutPostAssignHook}, so their assignments are not
+   * exported; the resolver rejects such blocks at top level anyway.
+   */
+  private static void execStatementsWithPostAssignHook(
+      StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
-    boolean isToplevelFunction = fn(fr).isToplevel();
-
-    // Hot code path, good chance of short lists which don't justify the iterator overhead.
     for (int i = 0; i < statements.size(); i++) {
       Statement stmt = statements.get(i);
-      TokenKind flow = exec(fr, stmt);
-      if (flow != TokenKind.PASS) {
-        return flow;
+      if (exec(fr, stmt) != TokenKind.PASS) {
+        return;
       }
 
-      // Hack for BzlLoadFunction's "export" semantics.
-      // We enable it only for statements outside any function (isToplevelFunction)
-      // and outside any if- or for- statements (!indented).
-      if (isToplevelFunction && !indented && fr.thread.postAssignHook != null) {
-        if (stmt instanceof AssignmentStatement assign) {
-          for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
-            Object value = fn(fr).getGlobal(id.getBinding().getIndex());
-            // TODO(bazel-team): Instead of special casing StarlarkFunction, make it implement
-            // StarlarkExportable.
-            if (value instanceof StarlarkFunction func) {
-              // Optimization: The id token of a StarlarkFunction should be based on its global
-              // identifier when available. This enables an name-based lookup on deserialization.
-              func.export(fr.thread, id.getName());
-            } else {
-              fr.thread.postAssignHook.assign(id.getName(), id.getStartLocation(), value);
-            }
+      if (stmt instanceof AssignmentStatement assign) {
+        for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
+          Object value = fn(fr).getGlobal(id.getBinding().getIndex());
+          // TODO(bazel-team): Instead of special casing StarlarkFunction, make it implement
+          // StarlarkExportable.
+          if (value instanceof StarlarkFunction func) {
+            // Optimization: The id token of a StarlarkFunction should be based on its global
+            // identifier when available. This enables an name-based lookup on deserialization.
+            func.export(fr.thread, id.getName());
+          } else {
+            fr.thread.postAssignHook.assign(id.getName(), id.getStartLocation(), value);
           }
-        } else if (stmt instanceof DefStatement def) {
-          Identifier id = def.getIdentifier();
-          ((StarlarkFunction) fn(fr).getGlobal(id.getBinding().getIndex()))
-              .export(fr.thread, id.getName());
         }
+      } else if (stmt instanceof DefStatement def) {
+        Identifier id = def.getIdentifier();
+        ((StarlarkFunction) fn(fr).getGlobal(id.getBinding().getIndex()))
+            .export(fr.thread, id.getName());
+      }
+    }
+  }
+
+  private static TokenKind execStatementsWithoutPostAssignHook(
+      StarlarkThread.Frame fr, List<Statement> statements)
+      throws EvalException, InterruptedException {
+    // Hot code path, good chance of short lists which don't justify the iterator overhead.
+    for (int i = 0; i < statements.size(); i++) {
+      TokenKind flow = exec(fr, statements.get(i));
+      if (flow != TokenKind.PASS) {
+        return flow;
       }
     }
     return TokenKind.PASS;
@@ -138,25 +155,30 @@ final class Eval {
   private static TokenKind execFor(StarlarkThread.Frame fr, ForStatement node)
       throws EvalException, InterruptedException {
     Iterable<?> seq = evalAsIterable(fr, node.getCollection());
+    // size is -1 for non-Sequence iterables, which are iterated via their Iterator.
+    int size = seq instanceof Sequence<?> sequence ? sequence.size() : -1;
+    if (size == 0) {
+      return TokenKind.PASS;
+    }
     EvalUtils.addIterator(seq);
     try {
-      for (Object it : seq) {
-        assign(fr, node.getVars(), it);
-
-        switch (execStatements(fr, node.getBody(), /* indented= */ true)) {
-          case PASS:
-          case CONTINUE:
-            // Stay in loop.
-            fr.thread.checkInterrupt();
-            continue;
-          case BREAK:
-            // Finish loop, execute next statement after loop.
-            return TokenKind.PASS;
-          case RETURN:
-            // Finish loop, return from function.
-            return TokenKind.RETURN;
-          default:
-            throw new IllegalStateException("unreachable");
+      if (size > 0) {
+        Sequence<?> sequence = (Sequence<?>) seq;
+        @Nullable Object[] elems = getRawElemsArray(sequence);
+        // Note: `size` is sequence size, not elems.length (elems may have allocated but unused
+        // capacity).
+        for (int i = 0; i < size; i++) {
+          TokenKind flow = execForStep(fr, node, elems != null ? elems[i] : sequence.get(i));
+          if (flow != TokenKind.PASS) {
+            return flow == TokenKind.BREAK ? TokenKind.PASS : flow;
+          }
+        }
+      } else {
+        for (Object it : seq) {
+          TokenKind flow = execForStep(fr, node, it);
+          if (flow != TokenKind.PASS) {
+            return flow == TokenKind.BREAK ? TokenKind.PASS : flow;
+          }
         }
       }
     } catch (EvalException ex) {
@@ -166,6 +188,41 @@ final class Eval {
       EvalUtils.removeIterator(seq);
     }
     return TokenKind.PASS;
+  }
+
+  /**
+   * Executes one iteration of a for loop. Returns PASS to stay in the loop, BREAK to finish the
+   * loop, or RETURN to return from the enclosing function.
+   */
+  private static TokenKind execForStep(StarlarkThread.Frame fr, ForStatement node, Object it)
+      throws EvalException, InterruptedException {
+    assign(fr, node.getVars(), it);
+    TokenKind flow = execStatementsWithoutPostAssignHook(fr, node.getBody());
+    return switch (flow) {
+      case PASS, CONTINUE -> {
+        fr.thread.checkInterrupt();
+        yield TokenKind.PASS;
+      }
+      case BREAK, RETURN -> flow;
+      default -> throw new IllegalStateException("unreachable");
+    };
+  }
+
+  /**
+   * Returns the backing {@code Object[]} array of {@code seq} if it is stored directly as an array,
+   * or {@code null} if elements are stored inline (singleton tuples/lists) or computed dynamically
+   * (such as {@link RangeList}). Note that for {@link MutableStarlarkList}, the returned array's
+   * length may exceed {@code seq.size()}.
+   */
+  @Nullable
+  private static Object[] getRawElemsArray(Sequence<?> seq) {
+    if (seq instanceof RegularTuple tuple) {
+      return tuple.elems;
+    } else if (seq instanceof StarlarkList<?> list
+        && !(list instanceof ImmutableSingletonStarlarkList<?>)) {
+      return list.elems();
+    }
+    return null;
   }
 
   private static StarlarkFunction newFunction(StarlarkThread.Frame fr, Resolver.Function rfn)
@@ -203,7 +260,7 @@ final class Eval {
         // Typecheck the default value
         StarlarkType parameterType = functionType.getParameterTypeByPos(i);
         if (!TypeChecker.isValueSubtypeOf(
-            defaultValue, parameterType, fr.thread.getSemantics(), fn.getModule())) {
+            defaultValue, parameterType, fr.thread.getSemantics(), fr.thread.getTypeContext())) {
           throw Starlark.errorf(
               "%s(): parameter '%s' has default value of type '%s', declares '%s'",
               rfn.getName(),
@@ -251,9 +308,9 @@ final class Eval {
       throws EvalException, InterruptedException {
     boolean cond = Starlark.truth(eval(fr, node.getCondition()));
     if (cond) {
-      return execStatements(fr, node.getThenBlock(), /* indented= */ true);
+      return execStatementsWithoutPostAssignHook(fr, node.getThenBlock());
     } else if (node.getElseBlock() != null) {
-      return execStatements(fr, node.getElseBlock(), /* indented= */ true);
+      return execStatementsWithoutPostAssignHook(fr, node.getElseBlock());
     }
     return TokenKind.PASS;
   }

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -59,7 +58,7 @@ import javax.annotation.Nullable;
  *
  * <p>TODO(b/146554973): Change this implementation when that is addressed.
  *
- * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@link
+ * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@code
  * BinaryFileWriteAction}.
  */
 @Immutable // if fileContents is immutable
@@ -76,19 +75,23 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
    * Creates a FileWriteAction to write contents to the resulting artifact fileName in the genfiles
    * root underneath the package path.
    *
-   * @param ruleContext the ruleContext that will own the action of creating this file
+   * @param actionConstructionContext the context that will own the action of creating this file
    * @param fileName name of the file to create
    * @param contents data to write to file
    * @param executable flags that file should be marked executable
    * @return Artifact describing the file to create
    */
   public static Artifact createFile(
-      RuleContext ruleContext, String fileName, CharSequence contents, boolean executable) {
+      ActionConstructionContext actionConstructionContext,
+      String fileName,
+      CharSequence contents,
+      boolean executable) {
     Artifact scriptFileArtifact =
-        ruleContext.getPackageRelativeArtifact(fileName, ruleContext.getGenfilesDirectory());
-    ruleContext.registerAction(
+        actionConstructionContext.getPackageRelativeArtifact(
+            fileName, actionConstructionContext.getGenfilesDirectory());
+    actionConstructionContext.registerAction(
         FileWriteAction.create(
-            ruleContext,
+            actionConstructionContext,
             scriptFileArtifact,
             contents,
             executable,

@@ -40,10 +40,12 @@ class EvaluationTestCase {
 
   /**
    * Updates the semantics used to filter predeclared bindings, and carried by subsequently created
-   * threads. Causes a new StarlarkThread and Module to be created when next needed.
+   * threads. Also updated the file options to be consistent with the new semantics. Causes a new
+   * StarlarkThread and Module to be created when next needed.
    */
   public final void setSemantics(StarlarkSemantics semantics) {
     this.semantics = semantics;
+    this.fileOptions = semantics.updateFileOptions(fileOptions.toBuilder()).build();
 
     // Re-initialize the thread and module with the new semantics when needed.
     this.thread = null;

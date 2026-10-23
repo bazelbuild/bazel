@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -258,6 +259,17 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
         Profiler.setTraceProfilerService(null);
       }
     }
+  }
+
+  @Test
+  public void testNonAsciiFilenameInExceptionMessage() throws Exception {
+    Path file = absolutize(unicodeToInternal("nøn-ëxistent"));
+
+    IOException e = assertThrows(IOException.class, () -> file.stat());
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(unicodeToInternal("/nøn-ëxistent (No such file or directory)"));
   }
 
   @Test

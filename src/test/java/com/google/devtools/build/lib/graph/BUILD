@@ -16,6 +16,9 @@ filegroup(
 java_library(
     name = "GraphTests_lib",
     srcs = glob(["*.java"]),
+    javacopts = [
+        "-Xep:CompareToZero:OFF",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/graph",

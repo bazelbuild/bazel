@@ -18,6 +18,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/actions:srcs",
+        "//src/test/java/com/google/devtools/build/lib/actions/cache:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/test/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel:srcs",

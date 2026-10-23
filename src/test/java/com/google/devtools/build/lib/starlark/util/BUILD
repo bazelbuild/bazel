@@ -17,7 +17,7 @@ java_library(
     name = "util",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_config",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -33,8 +33,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:keep_going_option",
         "//src/main/java/com/google/devtools/build/lib/runtime:starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/runtime:ui_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",

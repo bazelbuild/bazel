@@ -64,7 +64,7 @@ fi
 #   exit 1
 # fi
 
-export APT_GPG_KEY_ID=$(gcloud storage cat gs://bazel-trusted-encrypted-secrets/release-key.gpg.id)
+export APT_GPG_KEY_ID=$(gcloud secrets versions access latest --secret="release-key-gpg-id" --project="bazel-public")
 
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
@@ -116,9 +116,8 @@ function generate_email() {
   fi
 }
 
-function get_release_page() {
-    echo "# $(get_full_release_notes)"'
-
+function get_release_page_notice() {
+    echo '
 _Notice_: Bazel installers contain binaries licensed under the GPLv2 with
 Classpath exception. Those installers should always be redistributed along with
 the source code.
@@ -135,6 +134,11 @@ _Security_: All our binaries are signed with our
 '
 }
 
+function get_release_page() {
+    echo "# $(get_full_release_notes)"
+    get_release_page_notice
+}
+
 # Deploy a github release using the official GitHub CLI (gh):
 #   https://cli.github.com/
 # This methods expects the following arguments:
@@ -143,6 +147,9 @@ _Security_: All our binaries are signed with our
 function release_to_github() {
   local artifact_dir="$1"
 
+  # GitHub release notes character limit.
+  local -r GITHUB_RELEASE_NOTES_MAX_CHARS=125000
+
   local release_name=$(get_release_name)
   local rc=$(get_release_candidate)
   local full_release_name=$(get_full_release_name)
@@ -150,8 +157,7 @@ function release_to_github() {
 
   if [ -n "${release_name}" ]; then
     local github_token
-    github_token="$(gcloud storage cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
-        gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
+    github_token="$(gcloud secrets versions access latest --secret="github-trusted-token" --project="bazel-public")"
 
     local latest_flag="true"
     local prerelease_flag=""
@@ -183,9 +189,32 @@ function release_to_github() {
     # Use a subshell so that the EXIT trap for temp file cleanup does not
     # affect the outer script's traps.
     (
+      export LC_ALL=C.UTF-8
       notes_file="$(mktemp)"
       trap 'rm -f "$notes_file"' EXIT
       get_release_page > "$notes_file"
+
+      if command -v buildkite-agent &>/dev/null; then
+        buildkite-agent artifact upload "$notes_file" || true
+      fi
+
+      if [ "$(wc -m < "$notes_file")" -gt "${GITHUB_RELEASE_NOTES_MAX_CHARS}" ]; then
+        if command -v buildkite-agent &>/dev/null; then
+          buildkite-agent annotate --style warning "Release notes contain more than ${GITHUB_RELEASE_NOTES_MAX_CHARS} characters and were shortened to ${GITHUB_RELEASE_NOTES_MAX_CHARS} characters for the GitHub release. Full release notes have been uploaded as a Buildkite artifact." || true
+        fi
+        local notice
+        notice="$(get_release_page_notice)"
+        local truncation_msg=$'\n\n... [Release notes truncated. See Buildkite artifacts for full notes.]\n'
+        local footer="${truncation_msg}${notice}"
+        local footer_len
+        footer_len="$(printf '%s' "${footer}" | wc -m)"
+        local max_body_len=$(( GITHUB_RELEASE_NOTES_MAX_CHARS - footer_len ))
+
+        local content
+        content="$(cat "$notes_file"; printf x)"
+        content="${content%x}"
+        printf '%s%s' "${content:0:${max_body_len}}" "${footer}" > "$notes_file"
+      fi
 
       echo "+++ Deploying to GitHub (Tag: ${tag_to_deploy}, Latest: ${latest_flag})"
 
@@ -270,8 +299,7 @@ function ensure_gpg_secret_key_imported() {
   if ! gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null; then
     keyfile=$(mktemp --tmpdir)
     chmod 0600 "${keyfile}"
-    gcloud storage cat "gs://bazel-trusted-encrypted-secrets/release-key.gpg.enc" | \
-        gcloud kms decrypt --location "global" --keyring "buildkite" --key "bazel-release-key" --ciphertext-file "-" --plaintext-file "${keyfile}"
+    gcloud secrets versions access latest --secret="bazel-release-key" --project="bazel-public" --out-file="${keyfile}"
     gpg --allow-secret-key-import --import "${keyfile}"
     rm -f "${keyfile}"
   fi

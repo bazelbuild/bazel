@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -191,6 +192,16 @@ public final class CcToolchainProvider {
               .weakKeys()
               .build(seq -> seq.stream().map(PathFragment::create).collect(toImmutableList()));
 
+  private static final LoadingCache<NestedSet<Artifact>, ImmutableList<Artifact>>
+      generatedCompilerFilesCache =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  compilerFiles ->
+                      compilerFiles.toList().stream()
+                          .filter(artifact -> !artifact.isSourceArtifact())
+                          .collect(toImmutableList()));
+
   private final StarlarkInfo value;
 
   private CcToolchainProvider(StarlarkInfo value) {
@@ -318,6 +329,14 @@ public final class CcToolchainProvider {
   }
 
   /**
+   * Returns the generated (non-source) files necessary for compilation, cached per compiler_files
+   * NestedSet. For source-file toolchains (e.g. GRTE), this returns an empty list.
+   */
+  public ImmutableList<Artifact> getGeneratedCompilerFiles() throws EvalException {
+    return generatedCompilerFilesCache.get(getCompilerFiles());
+  }
+
+  /**
    * Returns the files necessary for compilation excluding headers, assuming that included files
    * will be discovered by input discovery.
    */
@@ -401,7 +420,7 @@ public final class CcToolchainProvider {
 
   /**
    * Return the name of the directory (relative to the bin directory) that holds mangled links to
-   * shared libraries. This name is always set to the '{@code _solib_<cpu_archictecture_name>}.
+   * shared libraries. This name is always set to the '{@code _solib_<cpu_architecture_name>}.
    */
   public String getSolibDirectory() throws EvalException {
     return value.getValue("_solib_dir", String.class);
@@ -441,6 +460,12 @@ public final class CcToolchainProvider {
   @Nullable
   public Artifact getGrepIncludes() throws EvalException {
     return value.getNoneableValue("_grep_includes", Artifact.class);
+  }
+
+  /** Returns the execution platform for the grep-includes tool, if configured via exec group. */
+  @Nullable
+  public PlatformInfo getGrepIncludesExecutionPlatform() throws EvalException {
+    return value.getNoneableValue("_grep_includes_execution_platform", PlatformInfo.class);
   }
 
   @Nullable

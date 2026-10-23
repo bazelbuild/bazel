@@ -21,6 +21,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path_platform.h"
 

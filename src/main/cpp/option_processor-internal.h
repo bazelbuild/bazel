@@ -16,7 +16,10 @@
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
 
 #include <algorithm>
+#include <deque>
 #include <set>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/util/exit_code.h"

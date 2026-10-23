@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -396,6 +397,18 @@ public class Package extends Packageoid {
             + getRepoRelativeBuildFilePathString(metadata)
             + "?)";
       } else {
+        Iterable<Rule> rules = Iterables.filter(otherTargets, Rule.class);
+        ImmutableList<String> consumingRules =
+            findRulesConsumingSourceStem(
+                metadata.packageIdentifier(), targetName, otherTargets, rules);
+        if (!consumingRules.isEmpty()) {
+          return TargetSuggester.prettyPrintTargets(consumingRules);
+        }
+        String ruleSuggestion =
+            TargetSuggester.suggestTargets(targetName, Iterables.transform(rules, Target::getName));
+        if (!ruleSuggestion.isEmpty()) {
+          return ruleSuggestion;
+        }
         return TargetSuggester.suggestTargets(
             targetName, Lists.transform(otherTargets, Target::getName));
       }
@@ -403,6 +416,82 @@ public class Package extends Packageoid {
       // Ignore - suggestions are best-effort.
       return "";
     }
+  }
+
+  private static final int MAX_CONSUMING_RULE_SUGGESTIONS = 10;
+
+  /**
+   * Returns up to {@value #MAX_CONSUMING_RULE_SUGGESTIONS} rule targets in {@code packageId} that
+   * consume a source file matching {@code targetName} (by relative path, basename, or stem).
+   *
+   * <p>For example, if a developer tries to build {@code //pkg:foo_bar} or {@code
+   * //pkg:HelperUtil}, and {@code pkg/BUILD} defines {@code cc_library(name = "core_lib", srcs =
+   * ["foo_bar.cc", "sub/HelperUtil.cc"])}, this finds the matching source files ({@code foo_bar.cc}
+   * and {@code sub/HelperUtil.cc}) and suggests the rule that compiles them ({@code "core_lib"}).
+   */
+  private static ImmutableList<String> findRulesConsumingSourceStem(
+      PackageIdentifier packageId,
+      String targetName,
+      ImmutableList<Target> otherTargets,
+      Iterable<Rule> rules) {
+    Set<String> matchingSourceFiles = new LinkedHashSet<>();
+    for (InputFile inputFile : Iterables.filter(otherTargets, InputFile.class)) {
+      if (matchesSourceFileStem(inputFile.getName(), targetName)) {
+        matchingSourceFiles.add(inputFile.getName());
+      }
+    }
+    if (matchingSourceFiles.isEmpty()) {
+      return ImmutableList.of();
+    }
+    Set<String> matchingRules = new LinkedHashSet<>();
+    for (Rule rule : rules) {
+      for (Label label : rule.getLabels()) {
+        if (label.getPackageIdentifier().equals(packageId)
+            && matchingSourceFiles.contains(label.getName())) {
+          matchingRules.add(rule.getName());
+          break;
+        }
+      }
+      if (matchingRules.size() >= MAX_CONSUMING_RULE_SUGGESTIONS) {
+        break;
+      }
+    }
+    return ImmutableList.copyOf(matchingRules);
+  }
+
+  /**
+   * Returns whether {@code sourceLabelName} matches {@code targetName} by exact name, basename,
+   * path without extension, or basename without extension (all case-insensitive).
+   *
+   * <p>For example, for a source file named {@code "sub/HelperUtil.cc"}, any of the following
+   * target names will match:
+   *
+   * <ul>
+   *   <li>{@code "sub/HelperUtil.cc"} (exact relative path)
+   *   <li>{@code "HelperUtil.cc"} (basename)
+   *   <li>{@code "sub/HelperUtil"} (relative path without extension)
+   *   <li>{@code "HelperUtil"} or {@code "helperutil"} (basename stem)
+   * </ul>
+   */
+  private static boolean matchesSourceFileStem(String sourceLabelName, String targetName) {
+    if (Ascii.equalsIgnoreCase(sourceLabelName, targetName)) {
+      return true;
+    }
+    int slashIdx = sourceLabelName.lastIndexOf('/');
+    if (slashIdx >= 0
+        && Ascii.equalsIgnoreCase(sourceLabelName.substring(slashIdx + 1), targetName)) {
+      return true;
+    }
+    int dotIdx = sourceLabelName.lastIndexOf('.');
+    if (dotIdx <= slashIdx + 1) {
+      return false;
+    }
+    String withoutExt = sourceLabelName.substring(0, dotIdx);
+    if (Ascii.equalsIgnoreCase(withoutExt, targetName)) {
+      return true;
+    }
+    String baseWithoutExt = sourceLabelName.substring(slashIdx + 1, dotIdx);
+    return Ascii.equalsIgnoreCase(baseWithoutExt, targetName);
   }
 
   private static String getRepoRelativeBuildFilePathString(Metadata metadata) {

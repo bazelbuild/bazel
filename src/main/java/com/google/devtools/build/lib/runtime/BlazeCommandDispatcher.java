@@ -164,7 +164,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -177,7 +177,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         invocationPolicy,
         args,
         outErr,
-        lockingMode,
+        blockForLockTimeout,
         uiVerbosity,
         clientDescription,
         firstContactTimeMillis,
@@ -194,7 +194,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -239,30 +239,42 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // TODO(ulfjack): Add lock acquisition to the profiler.
     synchronized (commandLock) {
       while (currentClientDescription != null) {
-        switch (lockingMode) {
-          case WAIT -> {
-            if (!otherClientDescription.equals(currentClientDescription)) {
-              String serverDescription =
-                  serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
-              outErr.printErrLn(
-                  String.format(
-                      "Another command (%s) is running. Waiting for it to complete on the"
-                          + " server%s...",
-                      currentClientDescription, serverDescription));
-              otherClientDescription = currentClientDescription;
-            }
-            commandLock.wait(500);
-          }
-          case ERROR_OUT -> {
+        if (!blockForLockTimeout.isPositive()) {
+          String message =
+              String.format(
+                  "Another command (%s) is running. Exiting immediately.",
+                  currentClientDescription);
+          outErr.printErrLn(message);
+          return createDetailedCommandResult(
+              message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
+        }
+        long waitMillis = 500;
+        if (blockForLockTimeout.compareTo(Duration.ofMillis(Long.MAX_VALUE)) < 0) {
+          long timeoutMillis = blockForLockTimeout.toMillis();
+          long elapsedMillis = (BlazeClock.nanoTime() - clockBefore) / 1_000_000L;
+          if (elapsedMillis >= timeoutMillis) {
             String message =
                 String.format(
-                    "Another command (%s) is running. Exiting immediately.",
-                    currentClientDescription);
+                    "Another command (%s) is running. Exiting because --block_for_lock=%dms"
+                        + " timeout expired.",
+                    currentClientDescription, timeoutMillis);
             outErr.printErrLn(message);
             return createDetailedCommandResult(
                 message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
           }
+          waitMillis = Math.min(500, timeoutMillis - elapsedMillis);
         }
+        if (!otherClientDescription.equals(currentClientDescription)) {
+          String serverDescription =
+              serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
+          outErr.printErrLn(
+              String.format(
+                  "Another command (%s) is running. Waiting for it to complete on the"
+                      + " server%s...",
+                  currentClientDescription, serverDescription));
+          otherClientDescription = currentClientDescription;
+        }
+        commandLock.wait(waitMillis);
 
         multipleAttempts = true;
       }
@@ -341,8 +353,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /**
    * For testing ONLY. Same as {@link CommandDispatcher#exec(InvocationPolicy, List, OutErr,
-   * LockingMode, String, long, Optional, List, CommandExtensionReporter)} but automatically uses
-   * the current time.
+   * Duration, UiVerbosity, String, long, Optional, Supplier, List, CommandExtensionReporter)} but
+   * automatically uses the current time.
    */
   @VisibleForTesting
   public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
@@ -351,7 +363,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         InvocationPolicy.getDefaultInstance(),
         args,
         originalOutErr,
-        LockingMode.ERROR_OUT,
+        Duration.ZERO,
         UiVerbosity.NORMAL,
         clientDescription,
         runtime.getClock().currentTimeMillis(),
@@ -456,46 +468,53 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             waitTimeInMs);
     storedEventHandler.post(profilerStartedEvent);
 
-    // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
-    boolean success = false;
-    if (!commonOptions.getStarlarkCpuProfile().isEmpty()) {
-      OutputStream out;
-      try {
-        InstrumentationOutput starlarkCpuProfile =
-            runtime
-                .getInstrumentationOutputFactory()
-                .createInstrumentationOutput(
-                    /* name= */ "starlarkCpuProfile",
-                    PathFragment.create(commonOptions.getStarlarkCpuProfile()),
-                    DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
-                    env,
-                    storedEventHandler,
-                    /* append= */ null,
-                    /* internal= */ null);
-        out = starlarkCpuProfile.createOutputStream();
-      } catch (IOException ex) {
-        String message = "Starlark CPU profiler: " + ex.getMessage();
-        outErr.printErrLn(message);
-        return createDetailedCommandResult(
-            message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
-      }
-      try {
-        success = Starlark.startCpuProfile(out, Duration.ofMillis(10));
-      } catch (IllegalStateException ex) { // e.g. SIGPROF in use
-        String message = Strings.nullToEmpty(ex.getMessage());
-        outErr.printErrLn(message);
-        return createDetailedCommandResult(
-            message, FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
-      }
-    }
-
     BlazeCommandResult result =
         createDetailedCommandResult(
             "Unknown command failure", FailureDetails.Command.Code.COMMAND_FAILURE_UNKNOWN);
-    boolean needToCallAfterCommand = true;
+    boolean needToCallAfterCommand = false;
+    boolean starlarkCpuProfileStarted = false;
     Reporter reporter = env.getReporter();
     OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher();
     try {
+      // Keep profiling setup inside the cleanup scope, including initialization failures.
+      if (!commonOptions.getStarlarkCpuProfile().isEmpty()) {
+        OutputStream out;
+        try {
+          InstrumentationOutput starlarkCpuProfile =
+              runtime
+                  .getInstrumentationOutputFactory()
+                  .createInstrumentationOutput(
+                      /* name= */ "starlarkCpuProfile",
+                      PathFragment.create(commonOptions.getStarlarkCpuProfile()),
+                      DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
+                      env,
+                      storedEventHandler,
+                      /* append= */ null,
+                      /* internal= */ null);
+          out = starlarkCpuProfile.createOutputStream();
+        } catch (IOException ex) {
+          String message = "Starlark CPU profiler: " + ex.getMessage();
+          outErr.printErrLn(message);
+          result =
+              createDetailedCommandResult(
+                  message,
+                  FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
+          return result;
+        }
+        try {
+          starlarkCpuProfileStarted = Starlark.startCpuProfile(out, Duration.ofMillis(10));
+        } catch (IllegalStateException ex) { // e.g. SIGPROF in use
+          String message = Strings.nullToEmpty(ex.getMessage());
+          outErr.printErrLn(message);
+          result =
+              createDetailedCommandResult(
+                  message,
+                  FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
+          return result;
+        }
+      }
+
+      needToCallAfterCommand = true;
       // Both the call to env.decideKeepIncrementalState() and module.beforeCommand() may emit
       // events, but the reporter isn't setup yet. Use a stored event handler to catch those events.
       reporter.addHandler(storedEventHandler);
@@ -815,7 +834,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Finalize the Starlark CPU profile.
-      if (!commonOptions.getStarlarkCpuProfile().isEmpty() && success) {
+      if (starlarkCpuProfileStarted) {
+        starlarkCpuProfileStarted = false;
         try {
           Starlark.stopCpuProfile();
         } catch (IOException ex) {
@@ -850,6 +870,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       result = BlazeCommandResult.createShutdown(crash);
       return result;
     } finally {
+      if (starlarkCpuProfileStarted) {
+        try {
+          Starlark.stopCpuProfile();
+        } catch (IOException e) {
+          reporter.handle(Event.error("Starlark CPU profiler: " + e.getMessage()));
+        }
+      }
       try {
         // Profiler might still be running when an exception is thrown before BuildCompleteEvent is
         // emitted or BlazeModule#completeCommand() is called. So we still need to try to stop the

@@ -16,12 +16,14 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#include "src/main/native/windows/jni-util.h"
+
 #include <windows.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <string>
 #include <type_traits>  // static_assert
-
-#include "src/main/native/windows/jni-util.h"
 
 namespace bazel {
 namespace windows {

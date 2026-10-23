@@ -102,10 +102,13 @@ native_image(
         ],
         "//conditions:default": [],
     }) + select({
+        # Graal's default settings result in executables that aren't sufficiently compatible for
+        # general use in Bazel.
         "@platforms//cpu:x86_64": [
-            # Graal's default settings result in executables that aren't sufficiently compatible for
-            # general use in Bazel.
             "-march=x86-64-v2",
+        ],
+        "@platforms//cpu:aarch64": [
+            "-march=armv8-a",
         ],
         "//conditions:default": [],
     }) + select({

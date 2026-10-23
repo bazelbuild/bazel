@@ -14,27 +14,22 @@
 
 #include "src/tools/singlejar/input_jar.h"
 
+#include <cinttypes>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include "src/tools/singlejar/diag.h"
+#include "src/tools/singlejar/zip_headers.h"
 
-bool InputJar::Open(const std::string& path) {
+bool InputJar::Open(const std::string& path, bool populate) {
   if (!path_.empty()) {
     diag_errx(1, "%s:%d: This instance is already handling %s\n", __FILE__,
               __LINE__, path_.c_str());
   }
-  if (!mapped_file_.Open(path)) {
+  if (!mapped_file_.Open(path, populate)) {
     diag_warn("%s:%d: Cannot open input jar %s", __FILE__, __LINE__,
               path.c_str());
-    mapped_file_.Close();
-    return false;
-  }
-  if (mapped_file_.size() < sizeof(ECD)) {
-    diag_warnx(
-        "%s:%d: %s is only 0x%zx"
-        " bytes long, should be at least 0x%zx bytes long",
-        __FILE__, __LINE__, path.c_str(), mapped_file_.size(), sizeof(ECD));
     mapped_file_.Close();
     return false;
   }
@@ -43,6 +38,10 @@ bool InputJar::Open(const std::string& path) {
 
 bool InputJar::Open(const std::string& path, unsigned char* data,
                     size_t length) {
+  if (!path_.empty()) {
+    diag_errx(1, "%s:%d: This instance is already handling %s\n", __FILE__,
+              __LINE__, path_.c_str());
+  }
   if (path.empty()) {
     diag_errx(1, "%s:%d: A non-empty path is required\n", __FILE__, __LINE__);
   }
@@ -51,17 +50,29 @@ bool InputJar::Open(const std::string& path, unsigned char* data,
 }
 
 bool InputJar::LocateCentralDirectory(const std::string& path) {
-  // Now locate End of Central Directory (ECD) record.
-  auto ecd_min = mapped_file_.end() - 65536 - sizeof(ECD);
-  if (ecd_min < mapped_file_.start()) {
-    ecd_min = mapped_file_.start();
+  if (mapped_file_.size() < sizeof(ECD)) {
+    diag_warnx(
+        "%s:%d: %s is only 0x%zx"
+        " bytes long, should be at least 0x%zx bytes long",
+        __FILE__, __LINE__, path.c_str(), mapped_file_.size(), sizeof(ECD));
+    mapped_file_.Close();
+    return false;
   }
 
+  // Now locate End of Central Directory (ECD) record.
+  size_t max_back = 65536 + sizeof(ECD);
+  const uint8_t* ecd_min = mapped_file_.size() > max_back
+                               ? mapped_file_.end() - max_back
+                               : mapped_file_.start();
+
   const ECD* ecd = nullptr;
-  for (auto ecd_ptr = mapped_file_.end() - sizeof(ECD); ecd_ptr >= ecd_min;
-       --ecd_ptr) {
-    if (reinterpret_cast<const ECD*>(ecd_ptr)->is()) {
-      ecd = reinterpret_cast<const ECD*>(ecd_ptr);
+  for (const uint8_t* ecd_ptr = mapped_file_.end() - sizeof(ECD);
+       ecd_ptr >= ecd_min; --ecd_ptr) {
+    auto candidate = reinterpret_cast<const ECD*>(ecd_ptr);
+    if (candidate->is() &&
+        ecd_ptr + sizeof(ECD) + candidate->comment_length() <=
+            mapped_file_.end()) {
+      ecd = candidate;
       break;
     }
   }
@@ -120,13 +131,35 @@ bool InputJar::LocateCentralDirectory(const std::string& path) {
     }
   }
   if (cen_size == 0) {
+    if (ziph::zfield_has_ext64(cen_position)) {
+      diag_warnx("%s:%d: %s is corrupt: Central Directory location 0x%" PRIx32
+                 " is invalid",
+                 __FILE__, __LINE__, path.c_str(), cen_position);
+      mapped_file_.Close();
+      return false;
+    }
     // Empty archive, let cdh_ point to End of Central Directory.
     cdh_ = reinterpret_cast<const CDH*>(ecd);
+    cen_end_ = ziph::byte_ptr(ecd);
     preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
   } else {
-    auto ecd64loc = reinterpret_cast<const ECD64Locator*>(ziph::byte_ptr(ecd) -
-                                                          sizeof(ECD64Locator));
-    if (ecd64loc->is()) {
+    const ECD64Locator* ecd64loc = nullptr;
+    if (static_cast<size_t>(mapped_file_.offset(ecd)) >= sizeof(ECD64Locator)) {
+      auto candidate = reinterpret_cast<const ECD64Locator*>(
+          ziph::byte_ptr(ecd) - sizeof(ECD64Locator));
+      if (candidate->is()) {
+        ecd64loc = candidate;
+      }
+    }
+    if (ecd64loc != nullptr) {
+      if (static_cast<size_t>(mapped_file_.offset(ecd64loc)) < sizeof(ECD64)) {
+        diag_warnx(
+            "%s:%d: %s is corrupt, expected ECD64 record before offset "
+            "0x%" PRIx64 " is missing",
+            __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd64loc));
+        mapped_file_.Close();
+        return false;
+      }
       auto ecd64 = reinterpret_cast<const ECD64*>(ziph::byte_ptr(ecd64loc) -
                                                   sizeof(ECD64));
       if (!ecd64->is()) {
@@ -137,29 +170,60 @@ bool InputJar::LocateCentralDirectory(const std::string& path) {
         mapped_file_.Close();
         return false;
       }
-      cdh_ = reinterpret_cast<const CDH*>(ziph::byte_ptr(ecd64) -
-                                          ecd64->cen_size());
-      preamble_size_ = mapped_file_.offset(cdh_) - ecd64->cen_offset();
+      uint64_t cen_size64 = ecd64->cen_size();
+      uint64_t ecd64_offset = mapped_file_.offset(ecd64);
+      if (cen_size64 > ecd64_offset) {
+        diag_warnx("%s:%d: %s is corrupt: Central Directory size 0x%" PRIx64
+                   " is too large",
+                   __FILE__, __LINE__, path.c_str(), cen_size64);
+        mapped_file_.Close();
+        return false;
+      }
+      cdh_ = reinterpret_cast<const CDH*>(ziph::byte_ptr(ecd64) - cen_size64);
+      cen_end_ = ziph::byte_ptr(ecd64);
+      uint64_t cdh_offset = mapped_file_.offset(cdh_);
+      if (ecd64->cen_offset() > cdh_offset) {
+        diag_warnx("%s:%d: %s is corrupt: Central Directory offset 0x%" PRIx64
+                   " exceeds position 0x%" PRIx64,
+                   __FILE__, __LINE__, path.c_str(), ecd64->cen_offset(),
+                   cdh_offset);
+        mapped_file_.Close();
+        return false;
+      }
+      preamble_size_ = cdh_offset - ecd64->cen_offset();
       // Find CEN and preamble size.
     } else {
       if (ziph::zfield_has_ext64(cen_size) ||
           ziph::zfield_has_ext64(cen_position)) {
         diag_warnx(
-            "%s:%d: %s is corrupt, expected ECD64 locator record at "
+            "%s:%d: %s is corrupt, expected ECD64 locator record before "
             "offset 0x%" PRIx64 " is missing",
-            __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd64loc));
+            __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd));
+        mapped_file_.Close();
         return false;
       }
       cdh_ = reinterpret_cast<const CDH*>(ziph::byte_ptr(ecd) - cen_size);
-      preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
+      cen_end_ = ziph::byte_ptr(ecd);
+      uint64_t cdh_offset = mapped_file_.offset(cdh_);
+      if (cen_position > cdh_offset) {
+        diag_warnx("%s:%d: %s is corrupt: Central Directory offset 0x%" PRIx32
+                   " exceeds position 0x%" PRIx64,
+                   __FILE__, __LINE__, path.c_str(), cen_position, cdh_offset);
+        mapped_file_.Close();
+        return false;
+      }
+      preamble_size_ = cdh_offset - cen_position;
     }
-    if (!cdh_->is()) {
-      diag_warnx(
-          "%s:%d: In %s, expected central file header signature at "
-          "offset0x%" PRIx64,
-          __FILE__, __LINE__, path.c_str(), mapped_file_.offset(cdh_));
-      mapped_file_.Close();
-      return false;
+    if (ziph::byte_ptr(cdh_) < cen_end_) {
+      if (static_cast<size_t>(cen_end_ - ziph::byte_ptr(cdh_)) < sizeof(CDH) ||
+          !cdh_->is()) {
+        diag_warnx(
+            "%s:%d: In %s, expected central file header signature at "
+            "offset0x%" PRIx64,
+            __FILE__, __LINE__, path.c_str(), mapped_file_.offset(cdh_));
+        mapped_file_.Close();
+        return false;
+      }
     }
   }
   path_ = path;
@@ -169,5 +233,8 @@ bool InputJar::LocateCentralDirectory(const std::string& path) {
 bool InputJar::Close() {
   mapped_file_.Close();
   path_.clear();
+  cdh_ = nullptr;
+  cen_end_ = nullptr;
+  preamble_size_ = 0;
   return true;
 }

@@ -6,10 +6,12 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
+load(":windows_llvm_alias.bzl", "windows_llvm_alias")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
@@ -80,18 +82,11 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
-# The tools Bazel uses to compile Java.
-# TODO(#6316): Gradually remove the targets here.
-JAVA_TOOLS = [
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-]
-
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
 # in Starlark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
-    srcs = JAVA_TOOLS + [
+    srcs = [
                "BUILD.tools",
                "MODULE.tools",
                "//src/conditions:embedded_tools",
@@ -133,7 +128,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 292,
+    expect = 250,
     margin = 5,  # percentage
 )
 
@@ -186,7 +181,7 @@ cc_binary(
     srcs = ["read_manifest.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     tags = ["manual"],
@@ -194,17 +189,16 @@ cc_binary(
     visibility = ["//src/java_tools:__subpackages__"],
 )
 
-# Updates the app manifest of a Windows executable.
+# Updates the app manifest of a Windows executable, no-op on other hosts.
 cc_binary(
     name = "write_manifest",
     srcs = ["write_manifest.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     tags = ["manual"],
-    target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
 )
 
@@ -240,14 +234,32 @@ _JLINK_TOOL_LOCATION = select({
     "//conditions:default": "$(location :jdk_for_jlink)",
 })
 
+# Temurin distributions omit JMODs from the JDK archive. Supply the matching
+# module archive when creating either flavor of the embedded runtime.
+_JMODS_REPOS = {
+    "//src/conditions:linux_ppc64le": "@openjdk_linux_ppc64le_jmods//file",
+    "//src/conditions:linux_riscv64": "@openjdk_linux_riscv64_jmods//file",
+    "//src/conditions:linux_s390x": "@openjdk_linux_s390x_jmods//file",
+}
+
+_JMODS_SRCS = select({
+    condition: [repo]
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": []})
+
+_JMODS_ARG = select({
+    condition: " $(location %s)" % repo
+    for condition, repo in _JMODS_REPOS.items()
+} | {"//conditions:default": ""})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -257,9 +269,9 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + _JMODS_SRCS,
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + _JMODS_ARG,
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -337,7 +349,6 @@ genrule(
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
-        "//tools/compliance:__pkg__",  # For license gathering
     ],
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),
@@ -367,6 +378,32 @@ genrule(
     "_notools",
     "_nojdk",
 ]]
+
+# Bazel for Windows, cross-compiled with the hermetic LLVM toolchains. Can be
+# built on any host platform.
+windows_llvm_alias(
+    name = "bazel_windows_llvm",
+    actual = ":bazel.exe",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+# Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
+# Not registered by default; it is only used with the `llvm` config in .bazelrc
+# and by :bazel_windows_llvm.
+windows_resource_compiler_toolchain(
+    name = "llvm_rc",
+    rc_exe = "@llvm//tools:llvm-rc",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+toolchain(
+    name = "llvm_rc_toolchain",
+    target_compatible_with = ["@platforms//os:windows"],
+    toolchain = ":llvm_rc",
+    toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
+)
 
 filegroup(
     name = "srcs",

@@ -72,6 +72,12 @@ message RunRequest {
   // arbitrary messages which the server may be programmed to recognize and
   // consume. Unrecognized message types are ignored.
   repeated google.protobuf.Any command_extensions = 8;
+
+  // Maximum duration in milliseconds to wait for concurrent commands to
+  // complete before aborting with an error. If not set, wait indefinitely if
+  // block_for_lock is true, or abort immediately if block_for_lock is false.
+  // If set to 0 (or <= 0), abort immediately when the lock is held.
+  optional int64 block_for_lock_timeout_ms = 10;
 }
 
 // Contains the a startup option with its source file. Uses bytes to preserve

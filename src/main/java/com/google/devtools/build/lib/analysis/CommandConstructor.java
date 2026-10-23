@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 
 /**
  * The interface to construct command line for different shells (Bash, Batch, Powershell). Used in
@@ -33,5 +34,5 @@ public interface CommandConstructor {
   ImmutableList<String> asExecArgv(Artifact scriptFileArtifact);
 
   /** Write the command to a script and return the artifact of the script. */
-  Artifact commandAsScript(RuleContext ruleContext, String command);
+  Artifact commandAsScript(ActionConstructionContext context, String targetName, String command);
 }

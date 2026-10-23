@@ -83,7 +83,7 @@ public class ShellConfiguration extends Fragment {
             `BAZEL_SH` environment variable is set on the first Bazel invocation (that starts
             up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded
             default path depending on the operating system it runs on;
-            - Windows: `c:/msys64/usr/bin/bash.exe`
+            - Windows: `C:/msys64/usr/bin/bash.exe`
             - FreeBSD and OpenBSD: `/usr/local/bin/bash`
             - All others: `/bin/bash`.
 

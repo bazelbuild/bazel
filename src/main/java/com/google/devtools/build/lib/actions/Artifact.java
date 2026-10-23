@@ -380,11 +380,11 @@ public abstract sealed class Artifact
   }
 
   /**
-   * Returns the parent Artifact containing this Artifact. Artifacts without parents shall return
-   * null.
+   * Returns the parent Artifact containing this Artifact, or null if the Artifact does not have a
+   * parent.
    */
   @Nullable
-  public SpecialArtifact getParent() {
+  public Artifact getParent() {
     return null;
   }
 
@@ -549,12 +549,12 @@ public abstract sealed class Artifact
   }
 
   /**
-   * Returns the path of this Artifact relative to this containing Artifact. Since ordinary
-   * Artifacts correspond to only one Artifact -- itself -- for ordinary Artifacts, this just
-   * returns the empty path. For special Artifacts, returns {@code null}.
+   * Returns the path of this Artifact relative to its parent Artifact, or null if the Artifact does
+   * not have a parent.
    */
+  @Nullable
   public PathFragment getParentRelativePath() {
-    return PathFragment.EMPTY_FRAGMENT;
+    return null;
   }
 
   @Override
@@ -1084,11 +1084,17 @@ public abstract sealed class Artifact
     private static Path getExecRoot(ArtifactRoot artifactRoot) {
       // /output_base/execroot/bazel-out/k8-fastbuild/bin
       Path rootPath = artifactRoot.getRoot().asPath();
-      PathFragment rootPathFragment = rootPath.asFragment();
+      String rootPathStr = rootPath.getPathString();
+      String execPathStr = artifactRoot.getExecPath().getPathString();
       // /output_base/execroot
+      int endIndex =
+          execPathStr.isEmpty()
+              ? rootPathStr.length()
+              : Math.max(
+                  rootPath.asFragment().getDriveStrLength(),
+                  rootPathStr.length() - execPathStr.length() - 1);
       PathFragment execRootPath =
-          rootPathFragment.subFragment(
-              0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
+          PathFragment.createAlreadyNormalized(rootPathStr.substring(0, endIndex));
       return rootPath.getFileSystem().getPath(execRootPath);
     }
   }

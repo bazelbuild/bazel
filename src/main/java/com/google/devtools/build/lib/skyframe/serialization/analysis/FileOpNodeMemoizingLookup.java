@@ -15,21 +15,33 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.AccumulatingQuiescingFuture;
+import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
+import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
@@ -38,12 +50,19 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNod
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.ByteString;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
@@ -117,6 +136,9 @@ public final class FileOpNodeMemoizingLookup {
     }
   }
 
+  // Same method used by java.util.stream.AbstractTask.suggestTargetSize.
+  private static final int TARGET_WORK_UNITS = Runtime.getRuntime().availableProcessors() * 4;
+
   private final SafeExecutor executor;
   private final InMemoryGraph graph;
   private final FileOpNodeMap nodes = new FileOpNodeMap();
@@ -125,6 +147,9 @@ public final class FileOpNodeMemoizingLookup {
   private boolean shouldDiscardMemory;
   @Nullable // non-null if shouldDiscardMemory is true
   private ImmutableSet<PackageIdentifier> referencedPackages;
+
+  /** Whether Skyframe direct deps may have been cleared. See {@link #markDirectDepsCleared}. */
+  private boolean directDepsCleared = false;
 
   FileOpNodeMemoizingLookup(
       SafeExecutor executor,
@@ -146,6 +171,17 @@ public final class FileOpNodeMemoizingLookup {
     this.selectedKeys = selectedKeys;
     this.shouldDiscardMemory = shouldDiscardMemory;
     this.referencedPackages = referencedPackages;
+  }
+
+  /**
+   * Records that Skyframe direct deps are about to be cleared.
+   *
+   * <p>Afterwards, a node's deps read from the graph would be empty, so every node must already be
+   * memoized by {@link #materializeNodeGraph}. Computing any other node fails rather than silently
+   * yielding a node with no file dependencies.
+   */
+  void markDirectDepsCleared() {
+    directDepsCleared = true;
   }
 
   FileOpNodeOrFuture computeNode(ActionLookupKey key) {
@@ -180,7 +216,14 @@ public final class FileOpNodeMemoizingLookup {
       try {
         return ownedFuture.completeWith(Futures.getDone(collector));
       } catch (ExecutionException e) {
-        return ownedFuture.failWith(e);
+        // Unwraps the ExecutionException transport envelope so ownedFuture fails with the root
+        // cause. Failing with `e` directly would produce nested layers of ExecutionException across
+        // future-to-future hops.
+        Throwable cause = e.getCause();
+        return ownedFuture.failWith(cause != null ? cause : e);
+      } catch (CancellationException e) {
+        ownedFuture.cancel(/* mayInterruptIfRunning= */ false);
+        return ownedFuture;
       }
     }
     return ownedFuture.completeWith(collector);
@@ -192,6 +235,12 @@ public final class FileOpNodeMemoizingLookup {
       @Nullable SkyValue value,
       @Nullable Iterable<SkyKey> directDeps) {
     if (directDeps == null) {
+      if (directDepsCleared) {
+        collector.failWith(
+            new IllegalStateException(
+                key + " was not materialized before Skyframe direct deps were cleared"));
+        return;
+      }
       InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
       if (nodeEntry == null) {
         collector.failWith(new MissingSkyframeEntryException(key));
@@ -296,7 +345,7 @@ public final class FileOpNodeMemoizingLookup {
       this.sourceFile = sourceFile;
     }
 
-    private void failWith(MissingSkyframeEntryException e) {
+    private void failWith(Throwable e) {
       recordException(e);
     }
 
@@ -314,5 +363,342 @@ public final class FileOpNodeMemoizingLookup {
     // Control only gets here for nodes that have been freshly downloaded. This means that there
     // must be no corresponding entry in the map.
     Verify.verify(old == null);
+  }
+
+  static ActionLookupKey getDependencyKey(SkyKey key) {
+    return switch (key) {
+      case ActionLookupKey alk -> alk;
+      case ActionLookupData ald -> ald.getActionLookupKey();
+      case DerivedArtifact artifact -> artifact.getArtifactOwner();
+      case ActionLookupSummaryKey alsk -> alsk.argument();
+      default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
+    };
+  }
+
+  /**
+   * Materializes the node graph for every key in {@code selection}.
+   *
+   * <p>Failures do not end materialization early. This returns only once every dispatched batch and
+   * every node future it reached has settled, so no work remains in flight afterwards.
+   *
+   * @return all node resolution and evaluation failures accumulated across the graph during
+   *     materialization, or an empty list if graph materialization succeeded completely
+   */
+  @CheckReturnValue
+  public ImmutableList<Throwable> materializeNodeGraph(ImmutableSet<SkyKey> selection)
+      throws InterruptedException {
+    // Parallel root triggering with cached-node filtering.
+    ImmutableList<SkyKey> keys = selection.asList();
+    var quiescence = new LookupQuiescence(keys);
+    int totalKeys = keys.size();
+    int batchSize = max(1, totalKeys / TARGET_WORK_UNITS);
+
+    for (int start = 0; start < totalKeys; start += batchSize) {
+      executor.execute(quiescence.newBatch(start, min(start + batchSize, totalKeys)));
+    }
+
+    // Release the initial pre-increment and wait for global DAG quiescence.
+    quiescence.finishRegistration();
+    try {
+      return quiescence.get();
+    } catch (ExecutionException | CancellationException e) {
+      // LookupQuiescence collects errors instead of failing, and is never exposed for cancellation.
+      throw new AssertionError("LookupQuiescence unexpectedly failed", e);
+    }
+  }
+
+  /**
+   * Leaf identifiers, and the order in which to drive uploads, both derived from one walk.
+   *
+   * @param leafIds the dense leaf numbering
+   * @param uploadOrder every selected key that will be uploaded: analysis keys without a nested
+   *     node, then analysis keys by the longest-path depth of their node, deepest first, then owned
+   *     keys (execution keys and {@link ActionLookupSummaryKey}s). See {@link SelectionPartition}.
+   */
+  public record DenseLeafIdsAndUploadOrder(
+      LeafIdAssignment leafIds, ImmutableList<SkyKey> uploadOrder) {}
+
+  /**
+   * Numbers every leaf reachable from {@code selection} so that each node's leaf closure is close
+   * to a contiguous range, and derives the upload order from the node depths of the same walk.
+   *
+   * <p>Must run after {@link #materializeNodeGraph}, which is what materializes the node graph, and
+   * before any serialization work asks for an ID.
+   */
+  public DenseLeafIdsAndUploadOrder computeLeafIdsAndUploadOrder(ImmutableSet<SkyKey> selection) {
+    SelectionPartition partition;
+    try (var _ = Profiler.instance().profile("partitionSelection")) {
+      partition = SelectionPartition.partition(selection, this::isSkipped, this::resolvedNode);
+    }
+    LeafIdsAndMaxDepth layout = NodeGraphLayout.populateLeafIdsAndDepths(partition.roots());
+
+    ImmutableList<SkyKey> uploadOrder;
+    try (var _ = Profiler.instance().profile("uploadOrder")) {
+      uploadOrder = partition.uploadOrder(layout.maxDepth());
+    }
+    return new DenseLeafIdsAndUploadOrder(layout.leafIds(), uploadOrder);
+  }
+
+  /** Whether serialization skips {@code key}: absent from the graph, or deserialized from cache. */
+  private boolean isSkipped(SkyKey key) {
+    InMemoryNodeEntry entry = graph.getIfPresent(key);
+    return entry == null || entry.getValue() instanceof DeserializedSkyValue;
+  }
+
+  /** The node for {@code key}, which must already have been materialized. */
+  private FileOpNodeOrEmpty resolvedNode(ActionLookupKey key) {
+    return switch (nodes.getValueOrFuture(key)) {
+      case FileOpNodeOrEmpty immediate -> immediate;
+      case FutureFileOpNode future -> {
+        try {
+          yield Futures.getDone(future);
+        } catch (ExecutionException | CancellationException e) {
+          throw new AssertionError("unexpected failure for already materialized node: " + key, e);
+        }
+      }
+    };
+  }
+
+  /** The leaf numbering, and the greatest depth assigned to any node. */
+  private record LeafIdsAndMaxDepth(LeafIdAssignment leafIds, int maxDepth) {}
+
+  /**
+   * One depth-first walk of the node graph that lays it out for upload: it numbers the leaves and
+   * assigns every nested node its longest-path depth.
+   *
+   * <p>Numbering leaves in depth-first order puts the leaves of each subtree into a nearly
+   * contiguous range, which compresses to a handful of run containers in a {@code RoaringBitmap}.
+   *
+   * <p>Each node's {@link AbstractNestedFileOpNodes#getLongestPathDepth} field doubles as the
+   * visited marker while the walk is running, and {@link #assignLongestPathDepths} overwrites it
+   * with the final depth afterwards.
+   *
+   * <p>Only reachable through {@link #populateLeafIdsAndDepths}, so the walk's scratch state is
+   * unreachable once it returns.
+   */
+  private static final class NodeGraphLayout {
+    private final Object2IntOpenHashMap<FileOpNode> analysisIds = newIdMap();
+    private final Object2IntOpenHashMap<FileKey> sourceIds = newIdMap();
+
+    /**
+     * Every nested node the walk reached, in the order it finished. Consumed by {@link
+     * #assignLongestPathDepths}.
+     */
+    private final ArrayList<AbstractNestedFileOpNodes> postOrder = new ArrayList<>();
+
+    /** Shared by both channels: the two maps land in the same bitmap, so IDs must not collide. */
+    private int nextLeafId = 0;
+
+    /**
+     * Numbers every leaf reachable from {@code roots} and sets the depth of every nested node
+     * reachable from them.
+     */
+    private static LeafIdsAndMaxDepth populateLeafIdsAndDepths(List<FileOpNode> roots) {
+      var layout = new NodeGraphLayout();
+      try (var _ = Profiler.instance().profile("leafIdWalk")) {
+        for (FileOpNode root : roots) {
+          layout.visitRoot(root);
+        }
+      }
+      int maxDepth;
+      try (var _ = Profiler.instance().profile("assignLongestPathDepths")) {
+        maxDepth = layout.assignLongestPathDepths();
+      }
+      return new LeafIdsAndMaxDepth(layout.buildLeafIds(), maxDepth);
+    }
+
+    private void visitRoot(FileOpNode root) {
+      switch (root) {
+        case FileKey file -> assignAnalysisId(file);
+        case DirectoryListingKey listing -> assignAnalysisId(listing);
+        case AbstractNestedFileOpNodes nested -> visitNested(nested);
+        case RemoteFileOpNode _ -> {}
+      }
+    }
+
+    private void visitNested(AbstractNestedFileOpNodes node) {
+      // Provisional: assignLongestPathDepths may push the node deeper once all its parents are
+      // known.
+      if (!node.markVisited()) {
+        return;
+      }
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (node.getAnalysisDependency(i)) {
+          case FileKey file -> assignAnalysisId(file);
+          case DirectoryListingKey listing -> assignAnalysisId(listing);
+          case AbstractNestedFileOpNodes child -> {
+            child.incrementInDegree();
+            visitNested(child);
+          }
+          case RemoteFileOpNode _ -> {}
+        }
+      }
+      if (node instanceof NestedFileOpNodesWithSource withSource) {
+        assignIdIfAbsent(sourceIds, withSource.source());
+      }
+      postOrder.add(node);
+    }
+
+    /**
+     * Assigns every walked node its longest-path depth, and returns the greatest one.
+     *
+     * <p>In a depth-first post-order, every node finishes before any node that depends on it, so
+     * reading {@link #postOrder} backwards visits each node after all its parents. By then its
+     * depth is final, and it only has to push the next depth down onto its children. One pass over
+     * the nodes and their edges suffices.
+     */
+    private int assignLongestPathDepths() {
+      int maxDepth = AbstractNestedFileOpNodes.TOP_DEPTH;
+      for (int i = postOrder.size() - 1; i >= 0; i--) {
+        AbstractNestedFileOpNodes node = postOrder.get(i);
+        // Since all ancestors have already been traversed, this is the node's final depth.
+        int depth = node.getLongestPathDepth();
+        maxDepth = max(maxDepth, depth);
+        for (int j = 0; j < node.analysisDependenciesCount(); j++) {
+          if (node.getAnalysisDependency(j) instanceof AbstractNestedFileOpNodes child) {
+            child.placeBelow(depth);
+          }
+        }
+      }
+      return maxDepth;
+    }
+
+    private void assignAnalysisId(FileOpNode leaf) {
+      assignIdIfAbsent(analysisIds, leaf);
+    }
+
+    /**
+     * Assigns {@code key} the next leaf ID unless it already has one.
+     *
+     * <p>Uses {@code getInt} followed by {@code put} rather than {@code putIfAbsent(K, int)}, which
+     * fastutil 7 lacks. Bazel builds against fastutil 7, where that call resolves to the boxed
+     * {@link java.util.Map#putIfAbsent}, which returns null for an absent key.
+     */
+    private <K> void assignIdIfAbsent(Object2IntOpenHashMap<K> ids, K key) {
+      if (ids.getInt(key) == LeafIdAssignment.ABSENT) {
+        ids.put(key, nextLeafId++);
+      }
+    }
+
+    /**
+     * A map returning {@link LeafIdAssignment#ABSENT} for missing keys, so that {@code getInt}
+     * distinguishes them. fastutil's built-in default, 0, is a real ID.
+     */
+    private static <K> Object2IntOpenHashMap<K> newIdMap() {
+      var map = new Object2IntOpenHashMap<K>();
+      map.defaultReturnValue(LeafIdAssignment.ABSENT);
+      return map;
+    }
+
+    private LeafIdAssignment buildLeafIds() {
+      // The populations are final now, so release the slack left by the maps' doubling growth.
+      analysisIds.trim();
+      sourceIds.trim();
+      return LeafIdAssignment.dense(analysisIds, sourceIds);
+    }
+  }
+
+  /**
+   * Waits for root dispatch and every node future it reaches to settle, collecting failures.
+   *
+   * <p>Unlike {@link QuiescingFuture#executeSubtask}, a failure here never completes the future
+   * early, so {@link #get} returns only once no work remains in flight.
+   */
+  private final class LookupQuiescence extends QuiescingFuture<ImmutableList<Throwable>>
+      implements FutureCallback<FileOpNodeOrEmpty> {
+    // Soft bound on the number of errors that we accumulate here. This bound can be exceeded due to
+    // a TOCTOU race condition, but it's of no practical concern.
+    private static final int MAX_ERRORS = 100;
+
+    private final ImmutableList<SkyKey> keys;
+    private final Set<Throwable> errors = Sets.newConcurrentHashSet();
+
+    private LookupQuiescence(ImmutableList<SkyKey> keys) {
+      // Note that this superclass constructor initializes taskCount to 1. That protects against
+      // premature completion while the parallel root loop is still registering tasks.
+      super(safeDirectExecutor());
+      this.keys = keys;
+    }
+
+    @Override
+    protected ImmutableList<Throwable> getValue() {
+      return ImmutableList.copyOf(errors);
+    }
+
+    /**
+     * Creates a task visiting {@code keys[begin, limit)}, holding quiescence open until it ends.
+     */
+    private Batch newBatch(int begin, int limit) {
+      return new Batch(begin, limit);
+    }
+
+    private final class Batch implements RejectionHandlingRunnable {
+      private final int begin;
+      private final int limit;
+
+      private Batch(int begin, int limit) {
+        this.begin = begin;
+        this.limit = limit;
+        increment();
+      }
+
+      @Override
+      public void run() {
+        try {
+          for (int i = begin; i < limit; i++) {
+            SkyKey key = keys.get(i);
+            // Skip keys that are never uploaded (see isSkipped). Materializing their nodes is
+            // wasted work and, for keys absent from the graph, would report a spurious
+            // MissingSkyframeEntryException. SelectionPartition.partition must apply the same
+            // filter: it expects every key it keeps to have been materialized here.
+            if (isSkipped(key)) {
+              continue;
+            }
+
+            ActionLookupKey depKey = getDependencyKey(key);
+            switch (computeNode(depKey)) {
+              // quiescence tracks completion of node dependencies.
+              case FutureFileOpNode future -> track(future);
+              // Nothing needs to be done for already complete nodes.
+              case FileOpNodeOrEmpty _ -> {}
+            }
+          }
+        } catch (Throwable t) {
+          if (errors.size() < MAX_ERRORS) {
+            errors.add(t);
+          }
+        } finally {
+          decrement();
+        }
+      }
+
+      @Override
+      public void handleRejection(Throwable t) {
+        if (errors.size() < MAX_ERRORS) {
+          errors.add(t);
+        }
+        decrement();
+      }
+    }
+
+    private void track(FutureFileOpNode future) {
+      increment();
+      Futures.addCallback(future, this, directExecutor());
+    }
+
+    @Override
+    @DoNotCall("Only called via track")
+    public void onSuccess(FileOpNodeOrEmpty unused) {
+      decrement();
+    }
+
+    @Override
+    @DoNotCall("Only called via track")
+    public void onFailure(Throwable t) {
+      if (errors.size() < MAX_ERRORS) {
+        errors.add(t);
+      }
+      decrement();
+    }
   }
 }

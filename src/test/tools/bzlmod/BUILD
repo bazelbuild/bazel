@@ -19,6 +19,18 @@ sh_binary(
 )
 
 sh_test(
+    name = "update_default_lock_file_test",
+    size = "small",
+    srcs = ["update_default_lock_file_test.sh"],
+    data = [
+        "update_default_lock_file.sh",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],  # Uses Unix paths and a shell executable fixture.
+)
+
+sh_test(
     name = "verify_default_lock_file",
     srcs = ["verify_default_lock_file.sh"],
     data = [

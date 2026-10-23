@@ -161,6 +161,8 @@ public abstract class UiOptions extends OptionsBase {
       help = "Use terminal controls to colorize output.")
   public abstract UseColor getUseColorEnum();
 
+  public abstract void setUseColorEnum(UseColor value);
+
   @Option(
       name = "curses",
       defaultValue = "auto",
@@ -193,6 +195,8 @@ public abstract class UiOptions extends OptionsBase {
               + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
               + "If this is set to true, then '--color=auto' will be treated as '--color=yes'.")
   public abstract boolean getIsATty();
+
+  public abstract void setIsATty(boolean value);
 
   // This lives here (as opposed to the more logical BuildRequest.Options)
   // because the client passes it to the server *always*.  We don't want the
@@ -289,19 +293,19 @@ public abstract class UiOptions extends OptionsBase {
 
   @Option(
       name = "terminal_hyperlinks",
-      defaultValue = "auto",
+      defaultValue = "no",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "If true (or auto with color enabled and a tty), format terminal file paths and test"
-              + " logs as clickable OSC 8 hyperlinks.")
+          "If true (or auto with color enabled and a tty), format terminal file paths, test"
+              + " logs, and build results URLs as clickable OSC 8 hyperlinks.")
   public abstract TriState getTerminalHyperlinks();
 
   public abstract void setTerminalHyperlinks(TriState value);
 
   public boolean useHyperlinks() {
     return getTerminalHyperlinks() == TriState.YES
-        || (getTerminalHyperlinks() == TriState.AUTO && useColor());
+        || (getTerminalHyperlinks() == TriState.AUTO && useColor() && getIsATty());
   }
 
   public boolean useColor() {

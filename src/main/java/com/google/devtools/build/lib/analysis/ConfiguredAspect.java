@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Info;
@@ -178,6 +179,11 @@ public interface ConfiguredAspect extends ProviderCollection {
                 /* actionsWithoutExtraAction= */ ImmutableSet.of(), ruleContext));
       }
 
+      if (!providers.contains(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey())
+          && !ruleContext.verifyNestedSetCountLimit()) {
+        return null;
+      }
+
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
       ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
       try {
@@ -212,7 +218,7 @@ public interface ConfiguredAspect extends ProviderCollection {
      * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
      * CoreOptions.IncludeConfigFragmentsEnum#OFF} and if the provider was not already added.
      *
-     * <p>See {@link RequiredFragmentsUtil} for a description of the meaning of this provider's
+     * <p>See {@code RequiredFragmentsUtil} for a description of the meaning of this provider's
      * content. That class contains methods that populate the results of {@link
      * RuleContext#getRequiredConfigFragments}.
      */

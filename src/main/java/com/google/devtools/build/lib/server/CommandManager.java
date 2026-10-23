@@ -62,6 +62,15 @@ class CommandManager {
   private final AtomicLong interruptCounter = new AtomicLong(0);
   @Nullable private final String slowInterruptMessageSuffix;
 
+  @GuardedBy("runningCommandsMap")
+  private long commandCounter = 0;
+
+  @GuardedBy("runningCommandsMap")
+  private long changeCounter = 0;
+
+  @GuardedBy("runningCommandsMap")
+  private long lastObservedChangeCounter = 0;
+
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
@@ -128,19 +137,32 @@ class CommandManager {
 
   boolean isEmpty() {
     synchronized (runningCommandsMap) {
+      lastObservedChangeCounter = changeCounter;
       return runningCommandsMap.isEmpty();
+    }
+  }
+
+  long getCommandCounter() {
+    synchronized (runningCommandsMap) {
+      return commandCounter;
     }
   }
 
   void waitForChange() throws InterruptedException {
     synchronized (runningCommandsMap) {
-      runningCommandsMap.wait();
+      while (changeCounter == lastObservedChangeCounter) {
+        runningCommandsMap.wait();
+      }
+      lastObservedChangeCounter = changeCounter;
     }
   }
 
   void waitForChange(long timeout) throws InterruptedException {
     synchronized (runningCommandsMap) {
-      runningCommandsMap.wait(timeout);
+      if (changeCounter == lastObservedChangeCounter) {
+        runningCommandsMap.wait(timeout);
+      }
+      lastObservedChangeCounter = changeCounter;
     }
   }
 
@@ -162,6 +184,8 @@ class CommandManager {
         busy();
       }
       runningCommandsMap.put(command.id, command);
+      commandCounter++;
+      changeCounter++;
       runningCommandsMap.notify();
     }
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
@@ -259,6 +283,7 @@ class CommandManager {
         if (runningCommandsMap.isEmpty()) {
           idle(idleTasks);
         }
+        changeCounter++;
         runningCommandsMap.notify();
       }
 

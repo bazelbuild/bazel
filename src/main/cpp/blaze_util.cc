@@ -23,7 +23,11 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <iostream>
+#include <map>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"

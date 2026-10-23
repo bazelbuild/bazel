@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PatternExpandingError;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -467,6 +468,32 @@ public final class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2"));
     assertThat(tester.getFilteredTargets()).isEmpty();
     assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
+  public void testBuildManualTestsIncludesNonTestManualTargets() throws Exception {
+    tester.addFile(
+        "pkg/BUILD",
+        """
+        filegroup(
+            name = "fg_manual",
+            srcs = ["foo.txt"],
+            tags = ["manual"],
+        )
+        filegroup(
+            name = "fg_regular",
+            srcs = ["bar.txt"],
+        )
+        """);
+    TargetPatternPhaseValue defaultResult = assertNoErrors(tester.load("//pkg:all"));
+    assertThat(defaultResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//pkg:fg_regular"));
+
+    tester.useLoadingOptions("--build_manual_tests");
+    TargetPatternPhaseValue manualResult = assertNoErrors(tester.load("//pkg:all"));
+    assertThat(manualResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//pkg:fg_regular", "//pkg:fg_manual"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
   }
 
   @Test
@@ -1829,7 +1856,7 @@ public final class LoadingPhaseRunnerTest {
       PackageOptions options = Options.getDefaults(PackageOptions.class);
       storedErrors = new StoredEventHandler();
       skyframeExecutor =
-          BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+          SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)

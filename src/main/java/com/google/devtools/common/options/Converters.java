@@ -636,6 +636,13 @@ public final class Converters {
     }
   }
 
+  /** A converter for integers that must be at least 0. */
+  public static class NonNegativeIntegerConverter extends RangeConverter {
+    public NonNegativeIntegerConverter() {
+      super(0, Integer.MAX_VALUE);
+    }
+  }
+
   /** Same as {@link PercentageConverter} but also supports being unset. */
   public static class OptionalPercentageConverter extends Converter.Contextless<OptionalInt> {
     public static final String UNSET = "-1";

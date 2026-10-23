@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -64,6 +63,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.ref.WeakReference;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -485,7 +485,7 @@ public final class BlazeCommandDispatcherTest {
                     InvocationPolicy.getDefaultInstance(),
                     ImmutableList.of("bar"),
                     outErr,
-                    LockingMode.WAIT,
+                    Duration.ofMillis(Long.MAX_VALUE),
                     UiVerbosity.NORMAL,
                     "test client",
                     runtime.getClock().currentTimeMillis(),
@@ -511,6 +511,45 @@ public final class BlazeCommandDispatcherTest {
       // We don't care what happened on the threads, don't assert state to make sure we join both.
       blockCommandThread.join();
       blockedCommandThread.join();
+    }
+  }
+
+  @Test
+  public void testBlockForLockTimeoutExpires() throws Exception {
+    BlockCommand blockCommand = new BlockCommand();
+    runtime.overrideCommands(ImmutableList.of(blockCommand, bar));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, /* serverPid= */ 42);
+
+    Thread blockCommandThread =
+        new TestThread(
+            () ->
+                dispatch.exec(ImmutableList.of("block"), "blocking client", new RecordingOutErr()));
+    try {
+      blockCommandThread.start();
+      blockCommand.awaitRunning();
+
+      BlazeCommandResult result =
+          dispatch.exec(
+              InvocationPolicy.getDefaultInstance(),
+              ImmutableList.of("bar"),
+              outErr,
+              Duration.ofMillis(50),
+              UiVerbosity.NORMAL,
+              "test client",
+              runtime.getClock().currentTimeMillis(),
+              /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
+              /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
+              /* commandExtensions= */ ImmutableList.of(),
+              /* commandExtensionReporter= */ (ext) -> {});
+
+      assertThat(result.getExitCode()).isEqualTo(ExitCode.LOCK_HELD_NOBLOCK_FOR_LOCK);
+      assertThat(outErr.errAsLatin1())
+          .contains(
+              "Another command (blocking client) is running. Exiting because --block_for_lock=50ms"
+                  + " timeout expired.");
+    } finally {
+      blockCommand.unblock();
+      blockCommandThread.join();
     }
   }
 

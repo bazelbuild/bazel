@@ -21,8 +21,11 @@
 #include <versionhelpers.h>
 #include <windows.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <sstream>
+#include <string>
 
 namespace bazel {
 namespace windows {

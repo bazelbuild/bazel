@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -64,20 +63,18 @@ public class TestConfiguration extends Fragment {
         // LINT.IfChange
         Class<? extends FragmentOptions> affectedOptionsClass =
             changedOption.getDeclaringClass(FragmentOptions.class);
-        if (!affectedOptionsClass.equals(TestOptions.class)
-            && !affectedOptionsClass.equals(CoverageOptions.class)) {
-          // options outside of TestOptions always prompt invalidation, except for --run_under.
-          if (affectedOptionsClass.equals(CoreOptions.class)
-              && changedOption.getOptionName().equals("run_under")) {
-            return !Objects.equals(
-                RunUnder.trimForNonTestConfiguration((RunUnder) oldValue),
-                RunUnder.trimForNonTestConfiguration((RunUnder) newValue));
-          }
-          return true;
+        if (affectedOptionsClass.equals(TestOptions.class)) {
+          // other options in TestOptions require invalidation when --trim_test_configuration is off
+          return !options.get(TestOptions.class).getTrimTestConfiguration();
         }
+        if (affectedOptionsClass.equals(CoreOptions.class)
+            && changedOption.getOptionName().equals("run_under")) {
+          return !Objects.equals(
+              RunUnder.trimForNonTestConfiguration((RunUnder) oldValue),
+              RunUnder.trimForNonTestConfiguration((RunUnder) newValue));
+        }
+        return true;
         // LINT.ThenChange(TestTrimmingLogic.java)
-        // other options in TestOptions require invalidation when --trim_test_configuration is off
-        return !options.get(TestOptions.class).getTrimTestConfiguration();
       };
 
   /** Command-line options. */
@@ -102,7 +99,8 @@ public class TestConfiguration extends Fragment {
             environment. Variables can be either specified by `name`, in which
             case its value will be read from the Bazel client environment, or by the
             `name=value` pair.
-            Previously set variables can be unset via `=name`.
+            Variables can be unset via `=name`, which removes both previously set variables
+            and variables that Bazel sets by default, such as `HOME`.
             This option can be used multiple times to specify several variables.
             Used only by the 'bazel test' command.
             """)

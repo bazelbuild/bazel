@@ -24,6 +24,7 @@
 #include <windows.h>
 #include <winioctl.h>
 
+#include <cstddef>
 #include <memory>
 #include <sstream>
 #include <string>

@@ -1099,7 +1099,7 @@ EOF
   local bazel_bin="$(bazel info bazel-bin)"
   local bazel_bin_reldir="${bazel_bin#$output_base}"
 
-  bazel test --reuse_sandbox_directories //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
+  bazel test --reuse_sandbox_directories --noexperimental_inmemory_sandbox_stashes //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
     || fail "Expected first test to succeed"
 
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
@@ -1107,7 +1107,7 @@ EOF
   [[ -n "$stash_test" && -d "${sandbox_stash}/TestRunner/$stash_test/$bazel_bin_reldir/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
     || fail "${sandbox_stash} did not stash readonly_dir"
 
-  bazel test --reuse_sandbox_directories --nocache_test_results //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
+  bazel test --reuse_sandbox_directories --noexperimental_inmemory_sandbox_stashes --nocache_test_results //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
     || fail "Expected second test to succeed"
 }
 
@@ -1317,6 +1317,59 @@ function test_bad_state_linux_sandboxing() {
 
   bazel build --local_termination_grace_seconds=-1 \
     || fail "Expected build to succeed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/31064
+function test_flaky_timeout_retries() {
+  if ! is_linux; then
+    echo "Skipping test: hermetic Linux sandbox is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  local project_folder
+  project_folder="$(pwd | cut -d"/" -f 2)"
+  local mount_flags=()
+  for folder in /*/; do
+    if [ -d "$folder" ] && [ "$folder" != "/$project_folder/" ]; then
+      if [[ -L "$folder" ]]; then
+        local linked_folder
+        linked_folder="$(readlink -f "$folder")"
+        mount_flags+=("--sandbox_add_mount_pair=/$linked_folder:$folder")
+      else
+        mount_flags+=("--sandbox_add_mount_pair=$folder")
+      fi
+    fi
+  done
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/timeout_test.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "test starts and intentionally times out before producing test.xml"
+sleep 30
+EOF
+  chmod +x pkg/timeout_test.sh
+  cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = "timeout_test",
+    size = "small",
+    srcs = ["timeout_test.sh"],
+)
+EOF
+
+  bazel test \
+    "${mount_flags[@]}" \
+    --test_strategy=standalone \
+    --spawn_strategy=linux-sandbox \
+    --experimental_use_hermetic_linux_sandbox \
+    --test_timeout=1 \
+    --flaky_test_attempts=3 \
+    //pkg:timeout_test &> "$TEST_log" \
+    && fail "Expected timeout_test to time out"
+  expect_log "TIMEOUT in 3 out of 3"
+  expect_not_log "was modified during execution"
 }
 
 function is_bazel() {

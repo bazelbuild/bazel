@@ -547,4 +547,50 @@ public final class FileArtifactValueTest {
     assertThat(value2.getDigest()).isNotNull();
     assertThat(fingerprint1.digestAndReset()).isNotEqualTo(fingerprint2.digestAndReset());
   }
+
+  @Test
+  public void remoteFileArtifactValueWithMaterializationData_expirationTimeEpochContract() {
+    byte[] digest = new byte[] {1, 2, 3};
+
+    // Expiration timestamp null maps to null.
+    FileArtifactValue nullExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
+    assertThat(nullExp.getExpirationTime()).isNull();
+
+    // Instant.EPOCH maps to 0 epoch milli, which is treated as the unset sentinel
+    // and returns null to align with zero-initialized primitive fields after deserialization.
+    FileArtifactValue epochExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ Instant.EPOCH,
+            /* inMemoryOutput= */ false);
+    assertThat(epochExp.getExpirationTime()).isNull();
+
+    // Initializing to positive instant returns a valid time.
+    Instant validTime = Instant.ofEpochMilli(123456789L);
+    FileArtifactValue validExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ validTime,
+            /* inMemoryOutput= */ false);
+    assertThat(validExp.getExpirationTime()).isEqualTo(validTime);
+
+    // Mutating to EPOCH makes it null.
+    validExp.setExpirationTime(Instant.EPOCH);
+    assertThat(validExp.getExpirationTime()).isNull();
+
+    // Mutating to a new positive instant returns a valid time.
+    Instant newTime = Instant.ofEpochMilli(987654321L);
+    validExp.setExpirationTime(newTime);
+    assertThat(validExp.getExpirationTime()).isEqualTo(newTime);
+  }
 }

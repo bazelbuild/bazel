@@ -77,7 +77,16 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   public PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
-    return stat(path, false).isSymbolicLink() ? readSymbolicLink(path) : null;
+    String name = path.toString();
+    long startTime = Profiler.instance().nanoTimeMaybe();
+    var comp = Blocker.begin();
+    try {
+      String result = run(() -> nativePosixFilesService.readlink(name));
+      return result != null ? PathFragment.create(result) : null;
+    } finally {
+      Blocker.end(comp);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
+    }
   }
 
   /** Converts from {@link NativePosixFilesService.Dirent.Type} to {@link Dirent.Type}. */

@@ -110,6 +110,55 @@ inline void put_n(u1 *&p, const u1 *src, size_t n) {
   p += n;
 }
 
+struct Reader {
+  const u1 *p;
+  const u1 *end;
+  bool ok;
+
+  Reader(const u1 *p, size_t len) : p(p), end(p + len), ok(true) {}
+  Reader(const u1 *p, const u1 *end) : p(p), end(end), ok(p <= end) {}
+
+  size_t remaining() const { return ok ? static_cast<size_t>(end - p) : 0; }
+
+  bool Ensure(size_t n) {
+    if (!ok || static_cast<size_t>(end - p) < n) {
+      ok = false;
+      return false;
+    }
+    return true;
+  }
+
+  u1 get_u1() { return Ensure(1) ? devtools_ijar::get_u1(p) : 0; }
+  u2 get_u2be() { return Ensure(2) ? devtools_ijar::get_u2be(p) : 0; }
+  u2 get_u2le() { return Ensure(2) ? devtools_ijar::get_u2le(p) : 0; }
+  u4 get_u4be() { return Ensure(4) ? devtools_ijar::get_u4be(p) : 0; }
+  u4 get_u4le() { return Ensure(4) ? devtools_ijar::get_u4le(p) : 0; }
+  u8 get_u8le() { return Ensure(8) ? devtools_ijar::get_u8le(p) : 0; }
+
+  const u1 *get_bytes(size_t n) {
+    if (!Ensure(n)) return nullptr;
+    const u1 *res = p;
+    p += n;
+    return res;
+  }
+
+  Reader slice(size_t n) {
+    if (!Ensure(n)) {
+      Reader bad(end, end);
+      bad.ok = false;
+      return bad;
+    }
+    const u1 *start = p;
+    p += n;
+    return Reader(start, start + n);
+  }
+};
+
+// Reads a JVM class from classdata_in (of the specified length), and
+// writes out a simplified class to classdata_out, advancing the
+// pointer. Returns true if the class should be kept.
+bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
+
 extern bool verbose;
 
 }  // namespace devtools_ijar

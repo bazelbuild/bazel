@@ -88,7 +88,7 @@ public interface Structure extends StarlarkValue {
    * method to return a memoized value.
    */
   @Override
-  default Types.StructType getStarlarkType(StarlarkSemantics semantics) {
+  default StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     ImmutableMap.Builder<String, StarlarkType> fieldTypes =
         ImmutableMap.builderWithExpectedSize(getFieldNames().size());
     for (String fieldName : getFieldNames()) {

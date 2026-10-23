@@ -149,7 +149,7 @@ message FailureDetail {
     DiffAwareness diff_awareness = 182;
     ModCommand mod_command = 183;
     BuildReport build_report = 184;
-    Skyfocus skyfocus = 185;
+    Skyfocus skyfocus = 185 [deprecated = true];
     RemoteAnalysisCaching remote_analysis_caching = 186;
     JniLinking jni_linking = 190;
   }
@@ -264,6 +264,7 @@ message ExternalRepository {
     UNKNOWN_REGISTRY = 6 [(metadata) = { exit_code: 2 }];
     SYMLINKING_FAILED = 7 [(metadata) = { exit_code: 2 }];
     REPOSITORY_MAPPING_IO_EXCEPTION = 8 [(metadata) = { exit_code: 36 }];
+    INVALID_REGISTRY_URL = 9 [(metadata) = { exit_code: 2 }];
   }
   Code code = 1;
   // Additional data could include external repository names.
@@ -406,6 +407,8 @@ message BuildReport {
 
 // Failure details for errors produced when using Skyfocus
 message Skyfocus {
+  option deprecated = true;
+
   enum Code {
     // The defined working set cannot be used for the focused targets. For
     // example, this happens when the intersection of the working set and the
@@ -536,6 +539,7 @@ message Execution {
     SOURCE_INPUT_IO_EXCEPTION = 39 [(metadata) = { exit_code: 1 }];
     SYMLINK_TREE_DELETION_IO_EXCEPTION = 40 [(metadata) = { exit_code: 36 }];
     NONDETERMINISTIC_TREE_ARTIFACT = 41 [(metadata) = { exit_code: 1 }];
+    REWOUND_ACTION_OUTPUT_CHANGED = 42 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -709,6 +713,7 @@ message InfoCommand {
     KEY_NOT_RECOGNIZED = 2 [(metadata) = { exit_code: 2 }];
     INFO_BLOCK_WRITE_FAILURE = 3 [(metadata) = { exit_code: 7 }];
     ALL_INFO_WRITE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    KEY_NOT_SUPPORTED_OUTSIDE_WORKSPACE = 5 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

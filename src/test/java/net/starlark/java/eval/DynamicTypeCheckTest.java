@@ -19,8 +19,9 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.StringSubject;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 import net.starlark.java.syntax.Types.CallableType;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,7 +37,6 @@ public class DynamicTypeCheckTest {
   @Before
   public void setup() throws Exception {
     ev = new EvaluationTestCase();
-    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true).build());
     ev.setSemantics(
         StarlarkSemantics.builder()
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
@@ -88,16 +88,16 @@ public class DynamicTypeCheckTest {
             "in call to f(), parameter 'a' got value of type 'list[bool]', want 'list[int]'");
     assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1], [True]])")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'list[list[int]|list[bool]]', "
+            "in call to f(), parameter 'a' got value of type 'list[list[bool] | list[int]]', "
                 + "want 'list[list[int]]'");
     assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1, True]])")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'list[list[int|bool]]', "
+            "in call to f(), parameter 'a' got value of type 'list[list[bool | int]]', "
                 + "want 'list[list[int]]'");
     // invariance
     assertExecThrows(EvalException.class, "def f(a: list[None|int]): pass", "f([1])")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'list[int]', want 'list[None|int]'");
+            "in call to f(), parameter 'a' got value of type 'list[int]', want 'list[int | None]'");
   }
 
   @Test
@@ -105,7 +105,7 @@ public class DynamicTypeCheckTest {
     ev.exec("def f(a: None|bool): pass", "f(None)");
     ev.exec("def f(a: None|bool): pass", "f(True)");
     assertExecThrows(EvalException.class, "def f(a: None|bool): pass", "f(1)")
-        .isEqualTo("in call to f(), parameter 'a' got value of type 'int', want 'None|bool'");
+        .isEqualTo("in call to f(), parameter 'a' got value of type 'int', want 'bool | None'");
   }
 
   @Test
@@ -129,7 +129,7 @@ public class DynamicTypeCheckTest {
     assertExecThrows(
             EvalException.class, "def f(a: dict[int, list[str]]): pass", "f({1: ['a', 1]})")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'dict[int, list[str|int]]', "
+            "in call to f(), parameter 'a' got value of type 'dict[int, list[int | str]]', "
                 + "want 'dict[int, list[str]]'");
   }
 
@@ -141,7 +141,7 @@ public class DynamicTypeCheckTest {
     // invariance
     assertExecThrows(EvalException.class, "def f(a: set[int|str]): pass", "f(set([1, 2]))")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'set[int]', want 'set[int|str]'");
+            "in call to f(), parameter 'a' got value of type 'set[int]', want 'set[int | str]'");
     assertExecThrows(EvalException.class, "def f(a: set[int]): pass", "f(set([True]))")
         .isEqualTo("in call to f(), parameter 'a' got value of type 'set[bool]', want 'set[int]'");
   }
@@ -223,7 +223,7 @@ public class DynamicTypeCheckTest {
     assertExecThrows(EvalException.class, "def f(a: Mapping[None|str, int]): pass", "f({'a': 1})")
         .isEqualTo(
             "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
-                + " 'Mapping[None|str, int]'");
+                + " 'Mapping[str | None, int]'");
   }
 
   @Test
@@ -247,36 +247,43 @@ public class DynamicTypeCheckTest {
 
   @Test
   public void testStarlarkUniverseTypes() {
+    StarlarkSemantics semantics = ev.getStarlarkThread().getSemantics();
+    TypeContext typeContext = ev.getStarlarkThread().getTypeContext();
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (var entry : Starlark.UNIVERSE.entrySet()) {
-      StarlarkType type =
-          Starlark.getStarlarkType(entry.getValue(), ev.getStarlarkThread().getSemantics());
-      if (type instanceof CallableType callable) {
-        builder.add(entry.getKey() + ": " + callable.toSignatureString());
+      String description;
+      StarlarkType type = Starlark.getStarlarkType(entry.getValue(), semantics);
+      CallableType callable = Types.toCallableType(type, typeContext);
+      if (callable != null) {
+        description = entry.getKey() + ": " + callable.toSignatureString();
       } else {
-        builder.add(entry.getKey() + ": " + type);
+        description = entry.getKey() + ": " + type;
       }
+      if (StarlarkType.assignableFrom(Types.TYPE, type, typeContext)) {
+        description += "; is a reified type";
+      }
+      builder.add(description);
     }
 
     assertThat(builder.build())
         .containsAtLeast(
             "False: bool",
             "True: bool",
-            "None: None",
+            "None: None; is a reified type",
             "hash: (str, /) -> int",
-            "bool: ([object], /) -> bool",
+            "bool: ([object], /) -> bool; is a reified type",
             "getattr: (object, str, [object], /) -> Any",
             "hasattr: (object, str, /) -> bool",
             "repr: (object, /) -> str",
-            "str: (object, /) -> str",
+            "str: (object, /) -> str; is a reified type",
             "type: (object, /) -> str",
-            "float: ([str|bool|int|float], /) -> float",
-            "int: (str|bool|int|float, /, base: [int]) -> int",
+            "float: ([bool | float | int | str], /) -> float; is a reified type",
+            "int: (bool | float | int | str, /, base: [int]) -> int; is a reified type",
             "dir: (object, /) -> list[str]",
             "all: (Collection[object], /) -> bool",
             "any: (Collection[object], /) -> bool",
             "range: (int, [int], [int], /) -> Sequence[int]",
-            "len: (Collection[object]|str, /) -> int");
+            "len: (Collection[object] | str, /) -> int");
   }
 
   @Test
@@ -298,10 +305,10 @@ public class DynamicTypeCheckTest {
     assertThat(builder.build())
         .containsAtLeast(
             "capitalize: () -> str",
-            "count: (str, [int|None], [int|None], /) -> int",
+            "count: (str, [int | None], [int | None], /) -> int",
             "elems: () -> Sequence[str]",
-            "find: (str, [int|None], [int|None], /) -> int",
-            "index: (str, [int|None], [int|None], /) -> int",
+            "find: (str, [int | None], [int | None], /) -> int",
+            "index: (str, [int | None], [int | None], /) -> int",
             "isalnum: () -> bool",
             "isalpha: () -> bool",
             "isdigit: () -> bool",
@@ -311,17 +318,17 @@ public class DynamicTypeCheckTest {
             "isupper: () -> bool",
             "join: (Collection[str], /) -> str",
             "lower: () -> str",
-            "lstrip: ([str|None], /) -> str",
+            "lstrip: ([str | None], /) -> str",
             "removeprefix: (str, /) -> str",
             "removesuffix: (str, /) -> str",
             "replace: (str, str, [int], /) -> str",
-            "rfind: (str, [int|None], [int|None], /) -> int",
-            "rindex: (str, [int|None], [int|None], /) -> int",
+            "rfind: (str, [int | None], [int | None], /) -> int",
+            "rindex: (str, [int | None], [int | None], /) -> int",
             "rsplit: (sep: str, maxsplit: [int]) -> list[str]",
-            "rstrip: ([str|None], /) -> str",
+            "rstrip: ([str | None], /) -> str",
             "split: (sep: str, maxsplit: [int]) -> list[str]",
             "splitlines: ([bool], /) -> Sequence[str]",
-            "strip: ([str|None], /) -> str",
+            "strip: ([str | None], /) -> str",
             "title: () -> str",
             "upper: () -> str");
     // TODO(ilist@): format (args,kwargs), partition, rpartition (returns tuple), startswith,

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
@@ -28,6 +29,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuildEvent;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -105,16 +108,27 @@ public class BuildEventStreamer {
   private final OutputGroupFileModes outputGroupFileModes;
   private final boolean publishTargetSummaries;
 
+  /**
+   * Tracks all events that have been announced, but not yet posted. At any point after the first
+   * event is posted, only the single next unposted progress event ({@code progressCount}) is
+   * present here.
+   */
   @GuardedBy("this")
-  private Set<BuildEventId> announcedEvents;
+  private Set<BuildEventId> frontierEvents;
 
+  /**
+   * Tracks all non-progress events that have been posted. Progress events are omitted to save
+   * memory and are instead tracked via {@link #progressCount}; use {@link #isPosted} and {@link
+   * #recordPosted} instead of accessing this directly.
+   */
   @GuardedBy("this")
-  private final Set<BuildEventId> postedEvents = new HashSet<>();
+  private final Set<BuildEventId> postedEvents = CompactHashSet.create();
 
   @GuardedBy("this")
   private final Set<BuildEventId> configurationsPosted = new HashSet<>();
 
   @GuardedBy("this")
+  @Nullable
   private List<Pair<String, String>> bufferedStdoutStderrPairs = new ArrayList<>();
 
   // Use LinkedHashMultimap to maintain a FIFO ordering of pending events.
@@ -250,7 +264,7 @@ public class BuildEventStreamer {
     this.besOptions = options;
     this.outputGroupFileModes = outputGroupFileModes;
     this.publishTargetSummaries = publishTargetSummaries;
-    this.announcedEvents = null;
+    this.frontierEvents = null;
     this.progressCount = 0;
     this.artifactGroupNamer = artifactGroupNamer;
     this.oomMessage = oomMessage;
@@ -261,13 +275,40 @@ public class BuildEventStreamer {
     this.outErrProvider = outErrProvider;
   }
 
+  /**
+   * Returns whether the event with the given ID has been posted.
+   *
+   * <p>Progress event IDs are only ever generated sequentially via {@link #progressCount}, so
+   * whether one has been posted is derived from the counter rather than retained in {@link
+   * #postedEvents}.
+   */
+  @GuardedBy("this")
+  private boolean isPosted(BuildEventId id) {
+    return id.hasProgress()
+        ? id.getProgress().getOpaqueCount() < progressCount
+        : postedEvents.contains(id);
+  }
+
+  /** Records the event with the given ID as posted; see {@link #isPosted}. */
+  @GuardedBy("this")
+  private void recordPosted(BuildEventId id) {
+    if (id.hasProgress()) {
+      progressCount++;
+    } else {
+      postedEvents.add(id);
+    }
+  }
+
   // This exists to nop out the announcement of new events after #buildComplete
   private synchronized void maybeRegisterAnnouncedEvent(BuildEventId id) {
     if (finalEventsToCome != null) {
       return;
     }
 
-    announcedEvents.add(id);
+    if (isPosted(id)) {
+      return;
+    }
+    frontierEvents.add(id);
   }
 
   // This exists to nop out the announcement of new events after #buildComplete
@@ -276,7 +317,11 @@ public class BuildEventStreamer {
       return;
     }
 
-    announcedEvents.addAll(ids);
+    for (BuildEventId id : ids) {
+      if (!isPosted(id)) {
+        frontierEvents.add(id);
+      }
+    }
   }
 
   /**
@@ -295,24 +340,21 @@ public class BuildEventStreamer {
     List<BuildEvent> flushEvents = null;
     boolean lastEvent = false;
 
-    if (announcedEvents == null) {
-      announcedEvents = new HashSet<>();
+    if (frontierEvents == null) {
+      frontierEvents = new HashSet<>();
       // The very first event of a stream is implicitly announced by the convention that
       // a complete stream has to have at least one entry. In this way we keep the invariant
       // that the set of posted events is always a subset of the set of announced events.
       maybeRegisterAnnouncedEvent(id);
-      if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
+      if (!id.equals(ProgressEvent.INITIAL_PROGRESS_UPDATE)
+          && !event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
         BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
         linkEvents = ImmutableList.of(progress);
         progressCount++;
         maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
-        // the new first event in the stream, implicitly announced by the fact that complete
-        // stream may not be empty.
-        maybeRegisterAnnouncedEvent(progress.getEventId());
-        postedEvents.add(progress.getEventId());
       }
 
-      if (!bufferedStdoutStderrPairs.isEmpty()) {
+      if (bufferedStdoutStderrPairs != null && !bufferedStdoutStderrPairs.isEmpty()) {
         flushEvents = new ArrayList<>(bufferedStdoutStderrPairs.size());
         for (Pair<String, String> outErrPair : bufferedStdoutStderrPairs) {
           flushEvents.add(flushStdoutStderrEvent(outErrPair.getFirst(), outErrPair.getSecond()));
@@ -320,7 +362,7 @@ public class BuildEventStreamer {
       }
       bufferedStdoutStderrPairs = null;
     } else {
-      if (!announcedEvents.contains(id)) {
+      if (!frontierEvents.contains(id) && !isPosted(id)) {
         Iterable<String> allOut = ImmutableList.of();
         Iterable<String> allErr = ImmutableList.of();
         if (outErrProvider != null) {
@@ -338,7 +380,7 @@ public class BuildEventStreamer {
               finalLinkEvents.add(progressEvent);
               progressCount++;
               maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
-              postedEvents.add(progressEvent.getEventId());
+              frontierEvents.remove(progressEvent.getEventId());
             });
       }
     }
@@ -346,16 +388,15 @@ public class BuildEventStreamer {
     if (event instanceof BuildInfoEvent) {
       // The specification for BuildInfoEvent says that there may be many such events,
       // but all except the first one should be ignored.
-      if (postedEvents.contains(id)) {
+      if (isPosted(id)) {
         return;
       }
     }
 
-    postedEvents.add(id);
+    recordPosted(id);
+    frontierEvents.remove(id);
     maybeRegisterAnnouncedEvents(event.getChildrenEvents());
-    // We keep as an invariant that postedEvents is a subset of announced events, so this is a
-    // cheaper test for equality
-    if (announcedEvents.size() == postedEvents.size()) {
+    if (frontierEvents.isEmpty()) {
       lastEvent = true;
     }
 
@@ -418,7 +459,8 @@ public class BuildEventStreamer {
         // AbortedEvent.
         ImmutableList.Builder<BuildEventId> children = ImmutableList.builder();
         for (BuildEventId bufferedId : bufferedEventsPendingOnThisType) {
-          if (announcedEvents == null || !announcedEvents.contains(bufferedId)) {
+          if (frontierEvents == null
+              || (!frontierEvents.contains(bufferedId) && !isPosted(bufferedId))) {
             children.add(bufferedId);
           }
         }
@@ -429,16 +471,16 @@ public class BuildEventStreamer {
   }
 
   /**
-   * Clear all events that are still announced; events not naturally closed by the expected event
-   * normally only occur if the build is aborted.
+   * Clear all events that are announced but not posted; events not naturally closed by the expected
+   * event normally only occur if the build is aborted.
    */
-  private synchronized void clearAnnouncedEvents(Collection<BuildEventId> dontclear) {
-    if (announcedEvents != null) {
+  private synchronized void clearFrontierEvents(Collection<BuildEventId> dontclear) {
+    if (frontierEvents != null) {
       // create a copy of the identifiers to clear, as the post method
-      // will change the set of already announced events.
+      // will change the frontier (announced but not posted) set.
       Set<BuildEventId> ids;
       synchronized (this) {
-        ids = Sets.difference(announcedEvents, postedEvents);
+        ids = Sets.newHashSet(frontierEvents);
       }
       for (BuildEventId id : ids) {
         if (!dontclear.contains(id)) {
@@ -446,6 +488,32 @@ public class BuildEventStreamer {
         }
       }
     }
+  }
+
+  @GuardedBy("this")
+  private ListenableFuture<Void> quiescenceFuture = null;
+
+  /**
+   * Returns a future that completes when all registered {@link BuildEventTransport}s have
+   * {@linkplain BuildEventTransport#getQuiescenceFuture quiesced}.
+   *
+   * <p>Unlike {@link #close}, this does not close or half-close the streamer or its transports;
+   * subsequent events can still be posted.
+   *
+   * <p>At most one quiescence check is supported. If called more than once, returns the existing
+   * future created on the first call.
+   */
+  public synchronized ListenableFuture<Void> getQuiescenceFuture() {
+    if (quiescenceFuture != null) {
+      return quiescenceFuture;
+    }
+    ImmutableList.Builder<ListenableFuture<Void>> futures =
+        ImmutableList.builderWithExpectedSize(transports.size());
+    for (BuildEventTransport transport : transports) {
+      futures.add(transport.getQuiescenceFuture());
+    }
+    quiescenceFuture = Futures.whenAllComplete(futures.build()).call(() -> null, directExecutor());
+    return quiescenceFuture;
   }
 
   public synchronized boolean isClosed() {
@@ -487,6 +555,29 @@ public class BuildEventStreamer {
       halfCloseFuturesMapBuilder.put(transport, transport.getHalfCloseFuture());
     }
     halfCloseFuturesMap = halfCloseFuturesMapBuilder.buildOrThrow();
+    clearRetainedEventState();
+  }
+
+  /**
+   * Releases retained {@link BuildEventId} data structures when the build event stream has closed
+   * or completed, freeing memory occupied by announced and posted event graphs.
+   */
+  @VisibleForTesting
+  synchronized void clearRetainedEventState() {
+    if (frontierEvents != null) {
+      frontierEvents.clear();
+    }
+    postedEvents.clear();
+    configurationsPosted.clear();
+    pendingEvents.clear();
+  }
+
+  @VisibleForTesting
+  synchronized boolean hasRetainedEventState() {
+    return (frontierEvents != null && !frontierEvents.isEmpty())
+        || !postedEvents.isEmpty()
+        || !configurationsPosted.isEmpty()
+        || !pendingEvents.isEmpty();
   }
 
   private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
@@ -726,7 +817,10 @@ public class BuildEventStreamer {
         blockedEventsFifo = pendingEvents.removeAll(eventId);
         // Pretend we posted this event so a target summary arriving after this test summary (which
         // is common) doesn't get erroneously buffered in bufferUntilPrerequisitesReceived().
-        postedEvents.add(eventId);
+        recordPosted(eventId);
+        if (frontierEvents != null) {
+          frontierEvents.remove(eventId);
+        }
       }
       for (BuildEvent freedEvent : blockedEventsFifo) {
         buildEvent(freedEvent);
@@ -738,7 +832,7 @@ public class BuildEventStreamer {
     BuildEvent updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
     progressCount++;
     maybeRegisterAnnouncedEvents(updateEvent.getChildrenEvents());
-    postedEvents.add(updateEvent.getEventId());
+    frontierEvents.remove(updateEvent.getEventId());
     return updateEvent;
   }
 
@@ -773,7 +867,7 @@ public class BuildEventStreamer {
         // If we've already announced the final events, we cannot add more progress events. Stdout
         // and stderr are truncated from the event log.
         consumeAsPairsofStrings(allOut, allErr, (s1, s2) -> {});
-      } else if (announcedEvents != null) {
+      } else if (frontierEvents != null) {
         updateEvents = new ArrayList<>();
         List<BuildEvent> finalUpdateEvents = updateEvents;
         consumeAsPairsofStrings(
@@ -869,19 +963,41 @@ public class BuildEventStreamer {
       allErr = orEmpty(outErrProvider.getErr());
       progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
     }
-    consumeAsPairsofStrings(
-        allOut,
-        allErr,
-        (s1, s2) -> post(flushStdoutStderrEvent(s1, s2)),
-        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount++, s1, s2)));
-    clearAnnouncedEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
+    if (bufferedStdoutStderrPairs != null) {
+      // No event has been posted yet; append any remaining output so pre-start flushes stay ahead
+      // of trailing output before closing the progress stream.
+      if (!Iterables.isEmpty(allOut) || !Iterables.isEmpty(allErr)) {
+        consumeAsPairsofStrings(
+            allOut, allErr, (s1, s2) -> bufferedStdoutStderrPairs.add(Pair.of(s1, s2)));
+      }
+      List<Pair<String, String>> pairs = bufferedStdoutStderrPairs;
+      bufferedStdoutStderrPairs = null;
+      if (pairs.isEmpty()) {
+        post(ProgressEvent.finalProgressUpdate(progressCount, "", ""));
+      } else {
+        for (int i = 0; i < pairs.size() - 1; i++) {
+          Pair<String, String> pair = pairs.get(i);
+          post(ProgressEvent.progressUpdate(progressCount, pair.getFirst(), pair.getSecond()));
+        }
+        Pair<String, String> lastPair = pairs.getLast();
+        post(
+            ProgressEvent.finalProgressUpdate(
+                progressCount, lastPair.getFirst(), lastPair.getSecond()));
+      }
+    } else {
+      consumeAsPairsofStrings(
+          allOut,
+          allErr,
+          (s1, s2) -> post(ProgressEvent.progressUpdate(progressCount, s1, s2)),
+          (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount, s1, s2)));
+    }
+    clearFrontierEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
   }
 
   private synchronized void buildComplete(ChainableEvent event) {
     clearEventsAndPostFinalProgress(event);
 
-    finalEventsToCome = new HashSet<>(announcedEvents);
-    finalEventsToCome.removeAll(postedEvents);
+    finalEventsToCome = new HashSet<>(frontierEvents);
     if (finalEventsToCome.isEmpty()) {
       close();
     }
@@ -951,7 +1067,7 @@ public class BuildEventStreamer {
       // The event's class is replaceable but this instance isn't. Treat it normally.
       return RetentionDecision.POST;
     }
-    if (postedEvents.contains(event.getEventId())) {
+    if (isPosted(event.getEventId())) {
       // This event type has already been posted, so the replaceable event is outdated.
       return RetentionDecision.DISCARD;
     }
@@ -974,7 +1090,7 @@ public class BuildEventStreamer {
     }
     // Check if all prerequisite events are posted already.
     for (BuildEventId prerequisiteId : buildEventWithOrderConstraint.postedAfter()) {
-      if (!postedEvents.contains(prerequisiteId)) {
+      if (!isPosted(prerequisiteId)) {
         pendingEvents.put(prerequisiteId, event);
         return true;
       }

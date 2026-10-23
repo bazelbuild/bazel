@@ -15,7 +15,7 @@
 package com.google.testing.junit.runner.util;
 
 import com.google.testing.junit.runner.util.TestIntegrationsExporter.Callback;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** JUnit runner integration code for TestIntegration. */
 public class TestIntegrationsRunnerIntegration {

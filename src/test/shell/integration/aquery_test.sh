@@ -1152,6 +1152,9 @@ EOF
   expect_log_n "CppCompileActionTemplate compiling.*.cc" 1 \
     "Expected exactly 1 CppCompileActionTemplates."
   assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
+  # The tree artifact is also an input of the CppCompileActionTemplate, and must
+  # be labeled there too so it is distinguishable from a regular file input.
+  assert_contains "Inputs:.*tree_artifact_artifact.cc (TreeArtifact)" output
 
   # Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
   # while Linux has both PIC and non-PIC CppCompileActionTemplates
@@ -2041,6 +2044,11 @@ EOF
 
   if is_windows; then
     assert_contains '  key: "INCLUDE"' output
+  elif is_darwin; then
+    # CppCompileAction only injects PWD=/proc/self/cwd for actions that aren't
+    # tagged with `requires-darwin`, which the Xcode toolchain provided by
+    # apple_support does tag them with.
+    assert_contains '  key: "XCODE_VERSION_OVERRIDE"' output
   else
     assert_contains '  key: "PWD"' output
   fi

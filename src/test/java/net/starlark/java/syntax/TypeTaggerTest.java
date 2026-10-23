@@ -87,7 +87,6 @@ public class TypeTaggerTest {
             }
           }
           case TypeAliasStatement typeAlias -> {
-            // TODO: #27370 - give type aliases' values a sensible type.
             if (typeAlias.getIdentifier().getName().equals(name)) {
               return typeTable().getType(typeAlias.getIdentifier().getBinding());
             }
@@ -863,6 +862,9 @@ public class TypeTaggerTest {
             type custom_struct[T, U] = struct[{'a': T, 'b': U}, ...]
             z: custom_struct[int, int_or_str_or_list[bool]]
             """);
+    assertThat(result.getType("int_or_str")).isEqualTo(Types.TYPE);
+    assertThat(result.getType("int_or_str_or_list")).isEqualTo(Types.TYPE);
+    assertThat(result.getType("custom_struct")).isEqualTo(Types.TYPE);
     assertThat(result.getType("x")).isEqualTo(Types.union(Types.INT, Types.STR));
     assertThat(result.getType("y"))
         .isEqualTo(Types.union(Types.INT, Types.STR, Types.list(Types.FLOAT)));

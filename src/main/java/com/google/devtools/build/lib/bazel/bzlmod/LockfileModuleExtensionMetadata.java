@@ -77,9 +77,16 @@ public abstract class LockfileModuleExtensionMetadata {
   }
 
   public Optional<RootModuleFileFixup> generateFixup(
-      ModuleExtensionUsage rootUsage, Set<String> allRepos) throws EvalException {
-    var rootModuleDirectDevDeps = getRootModuleDirectDevDeps(allRepos);
-    var rootModuleDirectDeps = getRootModuleDirectDeps(allRepos);
+      ModuleExtensionUsage rootUsage, Set<String> allRepos, Set<String> reposOverriddenWithMain)
+      throws EvalException {
+    // Validate metadata against all generated repos, but do not suggest imports of the root
+    // module itself. Such imports are rejected when evaluating MODULE.bazel.
+    var rootModuleDirectDevDeps =
+        getRootModuleDirectDevDeps(allRepos)
+            .map(deps -> Sets.difference(deps, reposOverriddenWithMain));
+    var rootModuleDirectDeps =
+        getRootModuleDirectDeps(allRepos)
+            .map(deps -> Sets.difference(deps, reposOverriddenWithMain));
     if (rootModuleDirectDevDeps.isEmpty() && rootModuleDirectDeps.isEmpty()) {
       return Optional.empty();
     }

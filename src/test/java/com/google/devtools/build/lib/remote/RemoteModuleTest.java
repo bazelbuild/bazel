@@ -33,6 +33,9 @@ import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.extensions.proto.ProtoTruth;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -80,6 +83,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.grpc.BindableService;
+import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -91,6 +95,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.Assert;
@@ -104,6 +109,7 @@ import org.junit.runners.JUnit4;
 public final class RemoteModuleTest {
   private static final String EXECUTION_SERVER_NAME = "execution-server";
   private static final String CACHE_SERVER_NAME = "cache-server";
+  private static final String DOWNLOADER_SERVER_NAME = "downloader-server";
   private static final String OUTPUT_SERVICE_SERVER_NAME = "output-service";
   private static final ServerCapabilities CACHE_ONLY_CAPS =
       ServerCapabilities.newBuilder()
@@ -147,30 +153,9 @@ public final class RemoteModuleTest {
     void initialize(Scratch scratch) throws IOException;
   }
 
-  private static CommandEnvironment createTestCommandEnvironment(
-      RemoteModule remoteModule,
-      RemoteOptions remoteOptions,
-      WorkspaceInitializer workspaceInitializer)
+  private static BlazeWorkspace createTestWorkspace(
+      RemoteModule remoteModule, WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
-    CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
-    CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
-    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
-    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    TestOptions testOptions = Options.getDefaults(TestOptions.class);
-
-    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
-
-    OptionsParsingResult options = mock(OptionsParsingResult.class);
-    when(options.getOptions(CoreOptions.class)).thenReturn(coreOptions);
-    when(options.getOptions(CommonCommandOptions.class)).thenReturn(commonCommandOptions);
-    when(options.getOptions(PackageOptions.class)).thenReturn(packageOptions);
-    when(options.getOptions(ClientOptions.class)).thenReturn(clientOptions);
-    when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
-    when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
-    when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
-
     String productName = "bazel";
     Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
     ServerDirectories serverDirectories =
@@ -201,7 +186,30 @@ public final class RemoteModuleTest {
 
     BlazeDirectories directories =
         new BlazeDirectories(serverDirectories, workspacePath, productName);
-    BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
+    return runtime.initWorkspace(directories, BinTools.empty(directories));
+  }
+
+  private static CommandEnvironment initCommand(
+      BlazeWorkspace workspace, RemoteOptions remoteOptions) throws AbruptExitException {
+    CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
+    CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestOptions testOptions = Options.getDefaults(TestOptions.class);
+
+    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+    OptionsParsingResult options = mock(OptionsParsingResult.class);
+    when(options.getOptions(CoreOptions.class)).thenReturn(coreOptions);
+    when(options.getOptions(CommonCommandOptions.class)).thenReturn(commonCommandOptions);
+    when(options.getOptions(PackageOptions.class)).thenReturn(packageOptions);
+    when(options.getOptions(ClientOptions.class)).thenReturn(clientOptions);
+    when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
+    when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
+    when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+    when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
+
     Command command = BuildCommand.class.getAnnotation(Command.class);
     return workspace.initCommand(
         command,
@@ -261,15 +269,19 @@ public final class RemoteModuleTest {
   private RemoteModule remoteModule;
   private RemoteOptions remoteOptions;
   private Map<String, Map<String, ?>> serviceConfigsByTarget;
+  private List<ManagedChannel> createdChannels;
 
   @Before
   public void initialize() {
     serviceConfigsByTarget = new HashMap<>();
+    createdChannels = new ArrayList<>();
     remoteModule = new RemoteModule();
     remoteModule.setChannelFactory(
         (target, proxy, options, interceptors, serviceConfig) -> {
           serviceConfigsByTarget.put(target, serviceConfig);
-          return InProcessChannelBuilder.forName(target).directExecutor().build();
+          ManagedChannel channel = InProcessChannelBuilder.forName(target).directExecutor().build();
+          createdChannels.add(channel);
+          return channel;
         });
     remoteOptions = Options.getDefaults(RemoteOptions.class);
   }
@@ -736,11 +748,155 @@ public final class RemoteModuleTest {
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand(WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
-    CommandEnvironment env =
-        createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer);
+    return beforeCommand(createTestWorkspace(remoteModule, workspaceInitializer));
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(BlazeWorkspace workspace) throws AbruptExitException {
+    CommandEnvironment env = initCommand(workspace, remoteOptions);
+    env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
     return env;
+  }
+
+  /** Runs the remote module's after-command cleanup and waits for it to complete. */
+  private void afterCommand(CommandEnvironment env) throws AbruptExitException {
+    remoteModule.afterCommand();
+    env.getRuntime().getBlazeModule(BlockWaitingModule.class).afterCommand();
+  }
+
+  @Test
+  public void successiveCommands_keepOnlyPreviousOutputChecker() throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      BlazeWorkspace workspace = createTestWorkspace(remoteModule, scratch -> {});
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME, "--remote_download_outputs=toplevel");
+      var execRoot =
+          ArtifactRoot.asDerivedRoot(
+              new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
+              ArtifactRoot.RootType.OUTPUT,
+              "out");
+      var firstOutput = ActionsTestUtil.createArtifact(execRoot, "first");
+      var secondOutput = ActionsTestUtil.createArtifact(execRoot, "second");
+      var metadata =
+          FileArtifactValue.createForRemoteFile(
+              new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+      var firstEnv = beforeCommand(workspace);
+      var firstChecker = remoteModule.getRemoteOutputChecker();
+      firstChecker.addOutputToDownload(firstOutput);
+      afterCommand(firstEnv);
+
+      var secondEnv = beforeCommand(workspace);
+      var secondChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(secondChecker.getLastRemoteOutputChecker()).isSameInstanceAs(firstChecker);
+      assertThat(secondChecker.shouldTrustMetadata(firstOutput, metadata)).isFalse();
+      secondChecker.addOutputToDownload(secondOutput);
+      afterCommand(secondEnv);
+
+      var thirdEnv = beforeCommand(workspace);
+      var thirdChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(thirdChecker.getLastRemoteOutputChecker()).isSameInstanceAs(secondChecker);
+      assertThat(secondChecker.getLastRemoteOutputChecker()).isNull();
+      assertThat(thirdChecker.shouldTrustMetadata(secondOutput, metadata)).isFalse();
+      assertThat(thirdChecker.shouldTrustMetadata(firstOutput, metadata)).isTrue();
+      afterCommand(thirdEnv);
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  /** Waits for the eagerly created channels of the current command to be connected. */
+  private void awaitChannelsConnected() throws Exception {
+    var combinedCache = remoteModule.getActionContextProvider().getCombinedCache();
+    if (combinedCache != null) {
+      var _ = combinedCache.getRemoteCacheCapabilities();
+    }
+    if (remoteModule.getRemoteDownloader() instanceof GrpcRemoteDownloader downloader) {
+      var _ = downloader.getChannel().withChannelBlocking(ch -> new Object());
+    }
+  }
+
+  @Test
+  public void remoteDownloader_separateEndpoint_channelsAreClosedAfterCommand() throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+    Server downloaderServer = createFakeServer(DOWNLOADER_SERVER_NAME);
+    downloaderServer.start();
+
+    try {
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(DOWNLOADER_SERVER_NAME);
+
+      var env = beforeCommand();
+      awaitChannelsConnected();
+      assertThat(createdChannels).hasSize(2);
+
+      afterCommand(env);
+
+      for (ManagedChannel channel : createdChannels) {
+        assertThat(channel.isTerminated()).isTrue();
+      }
+    } finally {
+      cacheServer.shutdownNow();
+      downloaderServer.shutdownNow();
+      cacheServer.awaitTermination();
+      downloaderServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void remoteDownloader_sharedEndpoint_channelIsClosedOnceCacheIsReleased()
+      throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(CACHE_SERVER_NAME);
+
+      var env = beforeCommand();
+      awaitChannelsConnected();
+      assertThat(createdChannels).hasSize(1);
+      ManagedChannel channel = createdChannels.get(0);
+
+      // Retain the cache beyond the end of the command, as e.g. the artifact uploader of an
+      // asynchronous BES upload does.
+      var combinedCache = remoteModule.getActionContextProvider().getCombinedCache();
+      combinedCache.retain();
+      afterCommand(env);
+
+      // Closing the downloader must not shut down the channel it shares with the cache.
+      assertThat(channel.isShutdown()).isFalse();
+
+      combinedCache.release();
+
+      assertThat(channel.isTerminated()).isTrue();
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void executorService_withoutBuildRequestOptions_preservesPoolSize() throws Exception {
+    var executor = remoteModule.getExecutorService();
+    int jobs = executor.getCorePoolSize() + 1;
+    executor.setMaximumPoolSize(jobs);
+    executor.setCorePoolSize(jobs);
+    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
+
+    // The test command's options do not include BuildRequestOptions.
+    beforeCommand();
+
+    assertThat(executor.getCorePoolSize()).isEqualTo(jobs);
+    assertThat(executor.getMaximumPoolSize()).isEqualTo(jobs);
   }
 
   @Test
@@ -900,4 +1056,3 @@ public final class RemoteModuleTest {
     assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isNotEqualTo(baseSalt);
   }
 }
-

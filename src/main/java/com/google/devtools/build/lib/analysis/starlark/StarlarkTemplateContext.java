@@ -49,6 +49,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
   private final ImmutableSet<SpecialArtifact> outputDirectories;
   private final ImmutableMap<String, String> executionInfo;
+  private final boolean isSubdirectoryAllowed;
   private ImmutableList.Builder<AbstractAction> actions = ImmutableList.builder();
 
   public StarlarkTemplateContext(
@@ -58,7 +59,8 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       SpawnAction.Builder spawnActionBuilder,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier,
       ImmutableSet<SpecialArtifact> outputDirectories,
-      ImmutableMap<String, String> executionInfo) {
+      ImmutableMap<String, String> executionInfo,
+      boolean isSubdirectoryAllowed) {
     this.semantics = semantics;
     this.actionOwner = actionOwner;
     this.artifactOwner = artifactOwner;
@@ -66,6 +68,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     this.repoMappingSupplier = repoMappingSupplier;
     this.outputDirectories = outputDirectories;
     this.executionInfo = executionInfo;
+    this.isSubdirectoryAllowed = isSubdirectoryAllowed;
   }
 
   @Override
@@ -89,26 +92,16 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
 
     StarlarkActionFactory.buildCommandLine(builder, arguments, repoMappingSupplier);
 
-    List<Artifact> inputArtifacts;
     switch (inputs) {
       case Sequence<?> sequence -> {
-        inputArtifacts = Sequence.cast(inputs, Artifact.class, "inputs");
-        builder.addInputs(inputArtifacts);
+        builder.addInputs(Sequence.cast(sequence, Artifact.class, "inputs"));
       }
       case Depset depset -> {
         NestedSet<Artifact> inputNestedSet = Depset.cast(depset, Artifact.class, "inputs");
-        inputArtifacts = inputNestedSet.toList();
         builder.addTransitiveInputs(inputNestedSet);
       }
       default -> {
         throw Starlark.errorf("Expected a list or depset but got %s", Starlark.type(inputs));
-      }
-    }
-
-    for (Artifact input : inputArtifacts) {
-      if (outputDirectories.contains(input)) {
-        throw Starlark.errorf(
-            "Output directory %s cannot be used as an input to template_ctx.run()", input);
       }
     }
 
@@ -148,7 +141,14 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       }
     }
 
-    actions.add(builder.buildForStarlarkActionTemplate(actionOwner));
+    var action = builder.buildForStarlarkActionTemplate(actionOwner);
+    for (var input : action.getInputs().toList()) {
+      if (outputDirectories.contains(input)) {
+        throw Starlark.errorf(
+            "Output directory %s cannot be used as an input to template_ctx.run()", input);
+      }
+    }
+    actions.add(action);
   }
 
   public void registerAction(AbstractAction action) {
@@ -174,6 +174,12 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
 
   @Override
   public Artifact declareSubdirectory(String subdirectory, FileApi directory) throws EvalException {
+    if (!isSubdirectoryAllowed) {
+      throw Starlark.errorf(
+          "Target %s is not allowlisted to use declare_subdirectory. See"
+              + " //tools/allowlists/subdirectory_allowlist",
+          actionOwner.getLabel() != null ? actionOwner.getLabel() : actionOwner);
+    }
     SpecialArtifact parent = SpecialArtifact.cast(directory, SpecialArtifactType.TREE, "directory");
     // We do not support nesting subtrees in subtrees.
     if (parent.isSubTreeArtifact()) {

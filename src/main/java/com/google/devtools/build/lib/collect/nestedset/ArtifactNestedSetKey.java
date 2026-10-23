@@ -25,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * {@link SkyKey} for requesting all artifacts in a {@link NestedSet}.
@@ -90,6 +91,31 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
     }
   }
 
+  /**
+   * Visits the direct dependencies of {@code set}, passing leaf artifacts to {@code leafConsumer}
+   * and non-leaf {@link ArtifactNestedSetKey}s to {@code nonLeafConsumer}.
+   */
+  public static void visitDirectDeps(
+      NestedSet<Artifact> set,
+      Consumer<Artifact> leafConsumer,
+      Consumer<? super ArtifactNestedSetKey> nonLeafConsumer) {
+    if (set.isSingleton()) {
+      leafConsumer.accept(set.getSingleton());
+      return;
+    }
+    Object children = set.getChildren();
+    if (!(children instanceof Object[] array)) {
+      return;
+    }
+    for (Object child : array) {
+      if (child instanceof Artifact artifact) {
+        leafConsumer.accept(artifact);
+      } else {
+        nonLeafConsumer.accept(createInternal((Object[]) child));
+      }
+    }
+  }
+
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.ARTIFACT_NESTED_SET;
@@ -104,32 +130,6 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   public ImmutableList<Artifact> expandToArtifacts() {
     // Depth is not accurate, but doesn't matter.
     return NestedSet.<Artifact>create(Order.STABLE_ORDER, /* depth= */ 3, children).toList();
-  }
-
-  /**
-   * Augments the given rewind graph with the entire nested set structure reachable from {@code
-   * key}, including all child {@link ArtifactNestedSetKey} nodes and non-source artifacts.
-   *
-   * <p>This is used in the imprecise/legacy rewinding case where any lost input in a nested set
-   * results in rewinding all artifacts within it. The walk is terminated when a node is already in
-   * the rewind graph.
-   */
-  public static void addEntireNestedSetToRewindGraph(
-      MutableGraph<SkyKey> rewindGraph, ArtifactNestedSetKey key) {
-    if (rewindGraph.nodes().contains(key)) {
-      return;
-    }
-    for (Object child : key.children) {
-      if (child instanceof Artifact artifact) {
-        if (!artifact.isSourceArtifact()) {
-          rewindGraph.putEdge(key, Artifact.key(artifact));
-        }
-      } else {
-        ArtifactNestedSetKey nextNode = createInternal((Object[]) child);
-        addEntireNestedSetToRewindGraph(rewindGraph, nextNode);
-        rewindGraph.putEdge(key, nextNode);
-      }
-    }
   }
 
   /**

@@ -151,12 +151,6 @@ filegroup(
     srcs = ["java/jsr305.jar"],
 )
 
-# libnetty-tcnative-java
-java_import(
-    name = "netty_tcnative",
-    jars = ["java/netty-tcnative.jar"],
-)
-
 # libjavapoet-java
 java_import(
     name = "javapoet",

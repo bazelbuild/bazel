@@ -26,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver.Binding;
 import net.starlark.java.syntax.Resolver.ComprehensionBinding;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.TypeTagger;
 
 /**
@@ -54,14 +55,14 @@ public final class StarlarkThread {
 
   // profiler state
   //
-  // The profiler field (and savedThread) are set when we first observe during a
+  // The profiler field (and savedCpuTicks) are set when we first observe during a
   // push (function call entry) that the profiler is active. They are unset
   // not in the corresponding pop, but when the last frame is popped, because
   // the profiler session might start in the middle of a call and/or run beyond
   // the lifetime of this thread.
-  final AtomicInteger cpuTicks = new AtomicInteger();
+  private final AtomicInteger cpuTicks = new AtomicInteger();
   @Nullable private CpuProfiler profiler;
-  private StarlarkThread savedThread; // saved StarlarkThread, when profiling reentrant evaluation
+  @Nullable private AtomicInteger savedCpuTicks; // saved counter for reentrant evaluation
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
@@ -143,13 +144,17 @@ public final class StarlarkThread {
     return v == null ? null : key.cast(v);
   }
 
-  /** A Frame records information about an active function call. */
+  /**
+   * A Frame records information about an active function call.
+   *
+   * <p>Frames are reused: once popped, a Frame is reset and kept by its thread for a subsequent
+   * call. Callers must therefore not retain Frame references beyond the lifetime of the call.
+   */
   static final class Frame implements Debug.Frame {
     final StarlarkThread thread;
-    final StarlarkCallable fn; // the called function
+    StarlarkCallable fn; // the called function
 
-    @Nullable
-    final Debug.Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+    @Nullable Debug.Debugger dbg; // the debugger, if active for this frame
 
     Object result = Starlark.NONE; // the operand of a Starlark return statement
 
@@ -168,9 +173,26 @@ public final class StarlarkThread {
 
     private long profileStartTimeNanos; // start time nanos of walltime call profiler
 
-    private Frame(StarlarkThread thread, StarlarkCallable fn) {
+    private Frame(StarlarkThread thread) {
       this.thread = thread;
+    }
+
+    // Prepares this (new or reset) frame for a call to fn.
+    private void init(StarlarkCallable fn) {
       this.fn = fn;
+      this.dbg = Debug.debugger.get();
+    }
+
+    // Restores this frame to its initial state, dropping references to per-call state,
+    // so that it may be reused by a subsequent push.
+    private void reset() {
+      fn = null;
+      dbg = null;
+      result = Starlark.NONE;
+      loc = null;
+      errorLocationSet = false;
+      locals = null;
+      profileStartTimeNanos = 0;
     }
 
     // Updates the PC location in this frame.
@@ -258,6 +280,12 @@ public final class StarlarkThread {
   /** Stack of active function calls. */
   private final ArrayList<Frame> callstack = new ArrayList<>();
 
+  /**
+   * Previously popped frames, available for reuse by {@link #push}. Since frames are pushed and
+   * popped in LIFO order, this saves allocating a new frame for every function call.
+   */
+  private final ArrayList<Frame> framePool = new ArrayList<>();
+
   /** A hook for notifications of assignments at top level. */
   PostAssignHook postAssignHook;
 
@@ -267,9 +295,9 @@ public final class StarlarkThread {
     if (profiler == null) {
       this.profiler = CpuProfiler.get();
       if (profiler != null) {
-        // Associated current Java thread with this StarlarkThread.
+        // Associate the current OS thread with this evaluation's CPU tick counter.
         // (Save the previous association so we can restore it later.)
-        this.savedThread = CpuProfiler.setStarlarkThread(this);
+        this.savedCpuTicks = CpuProfiler.setCpuTicksForCurrentThread(cpuTicks);
       }
     }
 
@@ -287,7 +315,9 @@ public final class StarlarkThread {
       }
     }
 
-    Frame fr = new Frame(this, fn);
+    int pooled = framePool.size();
+    Frame fr = pooled > 0 ? framePool.remove(pooled - 1) : new Frame(this);
+    fr.init(fn);
     callstack.add(fr);
 
     // Notify debug tools of the thread's first push.
@@ -319,8 +349,8 @@ public final class StarlarkThread {
       // unregister it from the profiler.
       if (last == 0) {
         // Restore the previous association (in case of reentrant evaluation).
-        CpuProfiler.setStarlarkThread(this.savedThread);
-        this.savedThread = null;
+        CpuProfiler.setCpuTicksForCurrentThread(this.savedCpuTicks);
+        this.savedCpuTicks = null;
         this.profiler = null;
       }
     }
@@ -334,6 +364,9 @@ public final class StarlarkThread {
       var contextDescription = last == 0 ? getContextDescription() : null;
       callProfiler.end(fr.profileStartTimeNanos, fr.fn, contextDescription);
     }
+
+    fr.reset();
+    framePool.add(fr);
 
     // Notify debug tools of the thread's last pop.
     if (last == 0 && Debug.threadHook != null) {
@@ -517,6 +550,10 @@ public final class StarlarkThread {
 
   public StarlarkSemantics getSemantics() {
     return semantics;
+  }
+
+  public TypeContext getTypeContext() {
+    return builtinManager;
   }
 
   /** Reports whether this thread is allowed to make recursive calls. */

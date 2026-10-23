@@ -35,7 +35,7 @@ java_test(
     srcs = ["StarlarkFunctionInfoExtractorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_function",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:extractionexception",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:starlarkfunctioninfoextractor",
@@ -69,7 +69,7 @@ java_test(
     srcs = ["ModuleInfoExtractorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_function",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:extractionexception",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:moduleinfoextractor",

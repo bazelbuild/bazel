@@ -34,12 +34,8 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
@@ -51,11 +47,9 @@ import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -71,12 +65,10 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
+import com.google.devtools.common.options.OptionDefinition;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Factory for {@link RemoteAnalysisCacheManager}. */
@@ -87,12 +79,11 @@ public final class RemoteAnalysisCacheFactory {
 
   public static AnalysisDeps create(
       CommandEnvironment env,
-      Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher,
       Collection<Label> topLevelTargets,
       BuildOptions topLevelOptions,
       Map<String, String> userOptions,
       Set<String> projectSclOptions)
-      throws InterruptedException, AbruptExitException, InvalidConfigurationException {
+      throws InterruptedException, AbruptExitException {
     // Bail out early if needed
     var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
     if (options == null
@@ -103,11 +94,14 @@ public final class RemoteAnalysisCacheFactory {
           RemoteAnalysisCacheManager.createDisabled(), disabledDeps, disabledDeps);
     }
 
-    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
+    if (options.getSkycacheAnalysisOnly()
+        && !env.getSkyframeExecutor().supportsSkycacheAnalysisOnly()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
-                  .setMessage("Skycache and Skyfocus cannot be enabled at the same time.")
+                  .setMessage(
+                      "Skycache analysis-only mode (--experimental_skycache_analysis_only) is not"
+                          + " supported by the current Skyframe executor.")
                   .setRemoteAnalysisCaching(
                       RemoteAnalysisCaching.newBuilder()
                           .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
@@ -128,13 +122,6 @@ public final class RemoteAnalysisCacheFactory {
                     .build()));
       }
     }
-
-    // Set up active directory matcher
-
-    Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcherFromFlags =
-        finalizeActiveDirectoriesMatcher(env, maybeActiveDirectoriesMatcher, options.getMode());
-    Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher =
-        maybeActiveDirectoriesMatcherFromFlags.map(v -> pi -> v.includes(pi.getPackageFragment()));
 
     // Compute versions we are evaluating at
 
@@ -225,13 +212,11 @@ public final class RemoteAnalysisCacheFactory {
             env.getReporter(),
             options.getMode(),
             options.getAnalysisCacheBailOnMissingFingerprint(),
-            options.getSkycacheMinimizeMemory(),
             servicesSupplier,
             env.getRemoteAnalysisCachingEventListener(),
             objectCodecs,
             compressionService,
             frontierNodeVersion,
-            activeDirectoriesMatcher,
             options.getSerializedFrontierProfile(),
             options.getSkycacheAnalysisOnly(),
             options.getEmitBepUploadEvents(),
@@ -261,7 +246,6 @@ public final class RemoteAnalysisCacheFactory {
             servicesSupplier.getAnalysisCacheClient(),
             analysisCacheInvalidator,
             topLevelTargets,
-            activeDirectoriesMatcher,
             options.getSkycacheMinimizeMemory(),
             platformConfigurationProvider);
 
@@ -288,44 +272,6 @@ public final class RemoteAnalysisCacheFactory {
       return new AnalysisDeps(manager, deps, deps);
     } else {
       throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
-    }
-  }
-
-  private static Optional<PathFragmentPrefixTrie> finalizeActiveDirectoriesMatcher(
-      CommandEnvironment env,
-      Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
-      RemoteAnalysisCacheMode mode)
-      throws InvalidConfigurationException {
-    if (mode.serializesValues()) {
-      // Upload or Dump mode: allow overriding the project file matcher with the active
-      // directories flag.
-      List<String> activeDirectoriesFromFlag =
-          env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
-      var result = maybeProjectFileMatcher;
-      if (!activeDirectoriesFromFlag.isEmpty()) {
-        env.getReporter()
-            .handle(
-                Event.warn(
-                    "Specifying --experimental_active_directories will override the active"
-                        + " directories specified in the PROJECT.scl file"));
-        try {
-          result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
-        } catch (PathFragmentPrefixTrieException e) {
-          throw new InvalidConfigurationException(
-              "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
-        }
-      }
-
-      if (result.isEmpty() || !result.get().hasIncludedPaths()) {
-        env.getReporter()
-            .handle(
-                Event.warn(
-                    "No active directories were found. Falling back on full serialization."));
-        return Optional.empty();
-      }
-      return result;
-    } else {
-      return Optional.empty();
     }
   }
 
@@ -456,7 +402,10 @@ public final class RemoteAnalysisCacheFactory {
       if (fragmentOptions instanceof TestConfiguration.TestOptions) {
         continue;
       }
-      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
+      for (var definition :
+          OptionDefinition.getOptionDefinitions(fragmentOptions.getOptionsClass())) {
+        allOptionsAsStringsBuilder.add(definition.getOptionName());
+      }
     }
     return allOptionsAsStringsBuilder.build();
   }

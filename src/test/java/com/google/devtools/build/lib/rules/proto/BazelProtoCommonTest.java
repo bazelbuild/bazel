@@ -197,9 +197,7 @@ compile_rule = rule(_impl,
     invalidatePackages();
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 

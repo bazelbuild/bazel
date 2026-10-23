@@ -60,14 +60,16 @@ uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size, bool *attr_not_found) {
   ssize_t result = ::getxattr(path, name, value, size);
-  *attr_not_found = (errno == ENODATA);
+  *attr_not_found =
+      (errno == ENODATA || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found) {
   ssize_t result = ::lgetxattr(path, name, value, size);
-  *attr_not_found = (errno == ENODATA);
+  *attr_not_found =
+      (errno == ENODATA || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 }
 

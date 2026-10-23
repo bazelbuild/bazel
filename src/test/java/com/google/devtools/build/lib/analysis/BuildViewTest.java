@@ -1775,4 +1775,14 @@ public class BuildViewTest extends BuildViewTestBase {
         "//pkg:foo", ImmutableList.of("+" + OutputGroupInfo.VALIDATION_TRANSITIVE), true);
     assertNoEvents();
   }
+
+  @Test
+  public void testInternalOutputGroups_noError() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    updateWithOutputGroups(
+        "//pkg:foo", ImmutableList.of("+custom_internal" + OutputGroupInfo.INTERNAL_SUFFIX), true);
+    updateWithOutputGroups(
+        "//pkg:foo", ImmutableList.of("+custom_internal" + OutputGroupInfo.INTERNAL_SUFFIX), false);
+    assertNoEvents();
+  }
 }

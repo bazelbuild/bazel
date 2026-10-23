@@ -35,8 +35,8 @@ java_library(
         "//tools/cpp:cc_toolchain_config_lib.bzl",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:shell_configuration",
         "//src/main/java/com/google/devtools/build/lib/bazel:repository_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
@@ -47,7 +47,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:io",
         "@rules_java//java/runfiles",
     ],
 )

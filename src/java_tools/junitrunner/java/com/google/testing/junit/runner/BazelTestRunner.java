@@ -19,9 +19,11 @@ import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.junit4.JUnit4Bazel;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
 import com.google.testing.junit.runner.junit4.JUnit4Runner;
+import com.google.testing.junit.runner.util.SuiteUtil;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -42,7 +44,11 @@ import sun.misc.Signal;
  * <p>It also traps SIGTERM signals to make sure that the test report is written when the signal is
  * closed by the unit test framework for running over time.
  */
-@SuppressWarnings("SunApi") // for signal handling, see JDK-8349056
+@SuppressWarnings({
+  "SunApi",
+  "JdkImmutableCollections",
+  "JdkCollectors"
+}) // SunApi for signal handling (see JDK-8349056), avoiding Guava dependency in Bazel tools
 public class BazelTestRunner {
   /**
    * If no arguments are passed on the command line, use this System property to determine which
@@ -60,6 +66,15 @@ public class BazelTestRunner {
 
   private BazelTestRunner() {
     // utility class; should not be instantiated
+  }
+
+  /**
+   * Gets the list of class names of the test classes that Bazel asked us to run.
+   *
+   * @return list of class names
+   */
+  public static List<String> getTestSuiteClassNames() {
+    return SuiteUtil.parseSuiteClassNames(System.getProperty(TEST_SUITE_PROPERTY_NAME));
   }
 
   /**
@@ -85,14 +100,14 @@ public class BazelTestRunner {
     // is interrupted during suite creation.
     installSignalHandlers(stderr);
 
-    String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
-    if (!checkTestSuiteProperty(suiteClassName)) {
+    List<String> suiteClassNames = getTestSuiteClassNames();
+    if (!checkTestSuiteClasses(suiteClassNames)) {
       System.exit(EXIT_CODE_TEST_RUNNER_FAILURE);
     }
 
     int exitCode;
     try {
-      exitCode = runTestsInSuite(suiteClassName, args);
+      exitCode = runTestsInSuites(suiteClassNames, args);
     } catch (Throwable e) {
       // An exception was thrown by the runner. Print the error to the output stream so it will be
       // logged
@@ -118,13 +133,12 @@ public class BazelTestRunner {
   }
 
   /**
-   * Ensures that the bazel.test_suite in argument is not {@code null} or print error and
-   * explanation.
+   * Ensures that test suites were provided or prints error and explanation.
    *
-   * @param testSuiteProperty system property to check
+   * @param suiteClassNames test suite class names to check
    */
-  private static boolean checkTestSuiteProperty(String testSuiteProperty) {
-    if (testSuiteProperty == null) {
+  private static boolean checkTestSuiteClasses(List<String> suiteClassNames) {
+    if (suiteClassNames.isEmpty()) {
       System.err.printf(
           "Error: The test suite Java system property %s is required but missing.%n",
           TEST_SUITE_PROPERTY_NAME);
@@ -149,23 +163,24 @@ public class BazelTestRunner {
   }
 
   /**
-   * Runs the tests in the specified suite. Looks for the suite class in the given classLoader, or
-   * in the system classloader if none is specified.
+   * Runs the tests in the specified suites. Looks for the suite classes in the given classLoader,
+   * or in the system classloader if none is specified.
    */
-  private static int runTestsInSuite(String suiteClassName, String[] args) {
-    Class<?> suite = getTestClass(suiteClassName);
-
-    if (suite == null) {
-      // No class found corresponding to the system property passed in from Bazel
-      if (args.length == 0 && suiteClassName != null) {
+  private static int runTestsInSuites(List<String> suiteClassNames, String[] args) {
+    List<Class<?>> suites = new ArrayList<>();
+    for (String suiteClassName : suiteClassNames) {
+      Class<?> suite = getTestClass(suiteClassName);
+      if (suite == null) {
+        // No class found corresponding to the system property passed in from Bazel
         System.err.printf("Class not found: [%s]%n", suiteClassName);
         return EXIT_CODE_TEST_RUNNER_FAILURE;
       }
+      suites.add(suite);
     }
 
     // TODO(kush): Use a new classloader for the following instantiation.
     JUnit4Runner runner =
-        JUnit4Bazel.builder().suiteClass(suite).config(new Config(args)).build().runner();
+        JUnit4Bazel.builder().suiteClasses(suites).config(new Config(args)).build().runner();
     Result result = runner.run();
     if (result.wasSuccessful()) {
       return EXIT_CODE_SUCCESS;

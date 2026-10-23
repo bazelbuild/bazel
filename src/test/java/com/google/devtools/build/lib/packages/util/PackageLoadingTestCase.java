@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -208,7 +209,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   private SkyframeExecutor createSkyframeExecutor() {
     SkyframeExecutor skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(packageFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
@@ -226,8 +227,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
                 RepoDefinitionFunction.REPOSITORY_OVERRIDES, ImmutableMap.of())));
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
-            PrecomputedValue.injected(
-                ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of())));
+            PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
+            PrecomputedValue.injected(ModuleFileFunction.INJECTED_MODULES, ImmutableMap.of())));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }

@@ -14,6 +14,8 @@
 
 #include "src/tools/singlejar/options.h"
 
+#include <string>
+
 #include "src/tools/singlejar/diag.h"
 
 void Options::ParseCommandLine(int argc, const char* const argv[]) {

@@ -169,11 +169,11 @@ public enum Order {
    * @throws IllegalArgumentException if the name is not valid
    */
   public static Order parse(String name) {
-    if (VALUES.containsKey(name)) {
-      return VALUES.get(name);
-    } else {
+    Order order = VALUES.get(name);
+    if (order == null) {
       throw new IllegalArgumentException("Invalid order: " + name);
     }
+    return order;
   }
 
   /**

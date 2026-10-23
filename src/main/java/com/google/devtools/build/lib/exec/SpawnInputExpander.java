@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -195,10 +197,13 @@ public final class SpawnInputExpander {
    * <p>The returned map never contains {@code null} values.
    *
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
+   *
+   * <p>The returned map is sorted by {@link PathFragment#HIERARCHICAL_COMPARATOR}, which orders the
+   * paths nested under a directory directly after it.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn, InputMetadataProvider inputMetadataProvider) {
-    TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
+    TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>(HIERARCHICAL_COMPARATOR);
     addInputs(inputMap, spawn.getInputFiles(), inputMetadataProvider, spawn.getPathMapper());
     return inputMap;
   }

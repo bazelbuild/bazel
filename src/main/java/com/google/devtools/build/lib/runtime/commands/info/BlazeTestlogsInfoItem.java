@@ -30,6 +30,11 @@ public final class BlazeTestlogsInfoItem extends InfoItem {
         false);
   }
 
+  @Override
+  public boolean requiresWorkspace() {
+    return true;
+  }
+
   // This is one of the three (non-hidden) info items that require a configuration, because the
   // corresponding paths contain the short name. Maybe we should recommend using the symlinks
   // or make them hidden by default?

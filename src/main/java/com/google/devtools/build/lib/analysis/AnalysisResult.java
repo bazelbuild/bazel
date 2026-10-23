@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
-/** Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}. */
+/** Return value for {@code com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}. */
 public class AnalysisResult {
   private final BuildConfigurationValue configuration;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;

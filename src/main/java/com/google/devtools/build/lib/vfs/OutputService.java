@@ -21,13 +21,12 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -53,16 +52,16 @@ public interface OutputService {
 
     /**
      * The action file system implementation is purely in-memory, taking full control of the output
-     * base. It's not able to stage remote outputs accessed as inputs by local actions, but is able
-     * to do input discovery. Used by Blaze.
+     * base. It's not able to stage remote outputs accessed as inputs by local actions or to do
+     * input discovery. Used by Blaze.
      */
     IN_MEMORY_ONLY_FILE_SYSTEM,
 
     /**
      * The action file system implementation mixes an in-memory and a local file system. It uses the
      * in-memory filesystem for in-process and remote actions, but is also aware of outputs from
-     * local actions. It's able to stage remote outputs accessed as inputs by local actions and to
-     * do input discovery. Used by Blaze.
+     * local actions. It's able to stage remote outputs accessed as inputs by local actions, but
+     * unable to do input discovery. Used by Blaze.
      */
     STAGE_REMOTE_FILES_FILE_SYSTEM,
 
@@ -100,10 +99,6 @@ public interface OutputService {
      */
     public boolean supportsLocalActions() {
       return this != IN_MEMORY_ONLY_FILE_SYSTEM;
-    }
-
-    public boolean supportsInputDiscovery() {
-      return this != REMOTE_FILE_SYSTEM;
     }
 
     public boolean isEnabled() {
@@ -167,7 +162,7 @@ public interface OutputService {
 
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, EnvironmentalExecException, InterruptedException;
+      throws IOException, ExecException, InterruptedException;
 
   @Nullable
   BatchStat getBatchStatter();
@@ -296,6 +291,13 @@ public interface OutputService {
         throws InterruptedException;
 
     /**
+     * Guards an action from the beginning to the end of its {@link Action#discoverInputs input
+     * discovery}, during which it may read any of its inputs and scheduling dependencies.
+     */
+    SilentCloseable enterInputDiscovery(Action action, InputMetadataProvider metadataProvider)
+        throws InterruptedException;
+
+    /**
      * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
      * that support racy access to action outputs.
      */
@@ -309,6 +311,12 @@ public interface OutputService {
           @Override
           public SilentCloseable enterActionExecution(
               Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterInputDiscovery(
+              Action action, InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };

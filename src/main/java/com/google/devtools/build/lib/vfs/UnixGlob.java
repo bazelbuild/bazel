@@ -214,6 +214,11 @@ public final class UnixGlob {
       return false;
     }
 
+    // Parentheses have legacy regex semantics, so keep them on the regex path.
+    if (isWildcardFree(pattern) && pattern.indexOf('(') < 0 && pattern.indexOf(')') < 0) {
+      return pattern.equals(str);
+    }
+
     // Common case: **
     if (pattern.equals("**")) {
       return true;

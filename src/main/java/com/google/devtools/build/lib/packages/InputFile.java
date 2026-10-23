@@ -73,6 +73,11 @@ public class InputFile extends FileTarget {
     return false;
   }
 
+  /** Returns true if this input file is the BUILD file of its package. */
+  public boolean isBuildFile() {
+    return getLabel().equals(pkg.getBuildFileLabel());
+  }
+
   @Override
   @Nullable
   public RuleVisibility getRawVisibility() {
@@ -86,11 +91,6 @@ public class InputFile extends FileTarget {
 
   public boolean isLicenseSpecified() {
     return false;
-  }
-
-  @Override
-  public License getLicense() {
-    return License.NO_LICENSE;
   }
 
   /**

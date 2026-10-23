@@ -19,6 +19,8 @@
 #include <wchar.h>
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/test_util.h"
@@ -137,6 +139,40 @@ TEST(TokenStreamTest, CommandFileLongPath) {
   EXPECT_TRUE(token_stream.AtEnd());
 }
 #endif
+
+// Unquoted backslash escapes and quotes in the middle of a token, which
+// interrupt the run of ordinary characters, and a token terminated by EOF
+// rather than whitespace (the file has no trailing newline).
+TEST(TokenStreamTest, CommandFileEscapesAndNoTrailingNewline) {
+  const char* tempdir = getenv("TEST_TMPDIR");
+  ASSERT_NE(nullptr, tempdir);
+  std::string command_file_path =
+      singlejar_test_util::OutputFilePath("tokens_escapes");
+  FILE* fp = fopen(command_file_path.c_str(), "w");
+  ASSERT_NE(nullptr, fp);
+  // foo\ bar foo\\bar foo\'bar ab"cd"ef ab'c d'ef con\<newline>tinued last
+  fputs(
+      "foo\\ bar foo\\\\bar foo\\'bar ab\"cd\"ef ab'c d'ef con\\\ntinued last",
+      fp);
+  fclose(fp);
+
+  std::string command_file_arg = std::string("@") + command_file_path;
+  const char* args[] = {"", "-after_file"};
+  args[0] = command_file_arg.c_str();
+  ArgTokenStream token_stream(ARRAY_SIZE(args), args);
+  const char* expected[] = {"foo bar", "foo\\bar",  "foo'bar", "abcdef",
+                            "abc def", "continued", "last"};
+  for (size_t i = 0; i < ARRAY_SIZE(expected); ++i) {
+    bool flag = false;
+    EXPECT_EQ(expected[i], token_stream.token());
+    ASSERT_TRUE(token_stream.MatchAndSet(expected[i], &flag));
+    EXPECT_TRUE(flag);
+  }
+  bool flag = false;
+  ASSERT_TRUE(token_stream.MatchAndSet("-after_file", &flag));
+  EXPECT_TRUE(flag);
+  EXPECT_TRUE(token_stream.AtEnd());
+}
 
 // '--arg1 optval1 --arg2' command line.
 TEST(TokenStreamTest, OptargOne) {

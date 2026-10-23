@@ -53,9 +53,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
-import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -64,6 +62,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -151,10 +150,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
-                        CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
@@ -190,10 +187,12 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
+    ModuleFileFunction.INJECTED_MODULES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
+    RegistryFunction.WATCHED_REGISTRIES.set(differencer, ImmutableSet.of());
   }
 
   @Test
@@ -829,6 +828,176 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setKey(createModuleKey("bbb", ""))
                 .addDep("ccc", createModuleKey("ccc", "2.0"))
                 .build());
+  }
+
+  @Test
+  public void testInjectedModule() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    String bbbPath = rootDirectory.getRelative("code_for_b").getPathString();
+    ModuleFileFunction.INJECTED_MODULES.set(
+        differencer, ImmutableMap.of("bbb", PathFragment.create(bbbPath)));
+
+    EvaluationResult<RootModuleFileValue> rootResult =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (rootResult.hasError()) {
+      fail(rootResult.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    assertThat(rootModuleFileValue.module())
+        .isEqualTo(
+            InterimModuleBuilder.create("aaa", "0.1")
+                .setKey(ModuleKey.ROOT)
+                .addDep("bbb", createModuleKey("bbb", ""))
+                .build());
+    assertThat(rootModuleFileValue.overrides())
+        .containsExactly("bbb", new NonRegistryOverride(LocalPathRepoSpecs.create(bbbPath)));
+    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoToModuleName())
+        .containsExactly(RepositoryName.create("bbb+"), "bbb");
+    assertThat(rootModuleFileValue.nonRegistryOverrideModuleToRepoName())
+        .containsExactly("bbb", "bbb");
+  }
+
+  @Test
+  public void testInjectedModule_keptWithIgnoreDevDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='ccc',version='1.0',dev_dependency=True)",
+        "local_path_override(module_name='ddd',path='somewhere/else')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    ModuleFileFunction.INJECTED_MODULES.set(
+        differencer, ImmutableMap.of("bbb", PathFragment.create("/code_for_b")));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    // The dev dependency and the override from MODULE.bazel are dropped, but the injected module
+    // is kept.
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    assertThat(rootModuleFileValue.module().getDeps())
+        .containsExactly("bbb", createModuleKey("bbb", ""));
+    assertThat(rootModuleFileValue.overrides())
+        .containsExactly("bbb", new NonRegistryOverride(LocalPathRepoSpecs.create("/code_for_b")));
+  }
+
+  private void assertInjectedModuleError(String expectedError, String... moduleFileLines)
+      throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(), moduleFileLines);
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.INJECTED_MODULES.set(
+        differencer, ImmutableMap.of("bbb", PathFragment.create("/code_for_b")));
+    reporter.removeHandler(failFastHandler); // expect failures
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(expectedError);
+  }
+
+  @Test
+  public void testInjectedModule_bad_existingDep() throws Exception {
+    assertInjectedModuleError(
+        "--inject_module cannot inject 'bbb' as it is already in the dependency graph: the root"
+            + " module depends on it",
+        "module(name='aaa')",
+        "bazel_dep(name='bbb',version='1.0',repo_name='other_b')");
+  }
+
+  @Test
+  public void testInjectedModule_withExistingNodepDep() throws Exception {
+    // A nodep dep doesn't add bbb to the dependency graph, so injecting it is allowed.
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0',repo_name=None)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.INJECTED_MODULES.set(
+        differencer, ImmutableMap.of("bbb", PathFragment.create("/code_for_b")));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    assertThat(rootModuleFileValue.module())
+        .isEqualTo(
+            InterimModuleBuilder.create("aaa", "0.1")
+                .setKey(ModuleKey.ROOT)
+                .addNodepDep(createModuleKey("bbb", "1.0"))
+                .addDep("bbb", createModuleKey("bbb", ""))
+                .build());
+    assertThat(rootModuleFileValue.overrides())
+        .containsExactly("bbb", new NonRegistryOverride(LocalPathRepoSpecs.create("/code_for_b")));
+  }
+
+  @Test
+  public void testInjectedModule_bad_existingOverride() throws Exception {
+    assertInjectedModuleError(
+        "--inject_module cannot inject 'bbb' as the root module already has an override for it",
+        "module(name='aaa')",
+        "single_version_override(module_name='bbb',version='1.0')");
+  }
+
+  @Test
+  public void testInjectedModule_bad_alsoOverriddenOnCommandLine() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(), "module(name='aaa')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.INJECTED_MODULES.set(
+        differencer, ImmutableMap.of("bbb", PathFragment.create("/code_for_b")));
+    ModuleFileFunction.MODULE_OVERRIDES.set(
+        differencer,
+        ImmutableMap.of("bbb", new NonRegistryOverride(LocalPathRepoSpecs.create("/other_b"))));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("module 'bbb' is given to both --inject_module and --override_module");
+  }
+
+  @Test
+  public void testInjectedModule_bad_repoNameCollision() throws Exception {
+    assertInjectedModuleError(
+        "The repo name 'bbb' cannot be defined by --inject_module",
+        "module(name='aaa')",
+        "bazel_dep(name='ccc',version='1.0',repo_name='bbb')");
+  }
+
+  @Test
+  public void testInjectedModule_bad_rootModule() throws Exception {
+    assertInjectedModuleError(
+        "--inject_module cannot inject the root module 'bbb'", "module(name='bbb')");
+  }
+
+  @Test
+  public void testInjectedModule_bad_builtinModule() throws Exception {
+    setUpWithBuiltinModules(
+        ImmutableMap.of(
+            "bbb",
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(rootDirectory.getRelative("bbb").getPathString()))));
+    assertInjectedModuleError(
+        "--inject_module cannot inject 'bbb' as it is a built-in module", "module(name='aaa')");
   }
 
   @Ignore(
@@ -1528,6 +1697,76 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("invalid module name 'f.'");
+  }
+
+  @Test
+  public void bazelDep_selfDependencyWithRepoName() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='foo',version='1.0',repo_name='foo_self')",
+        "bazel_dep(name='foo',version='2.0',repo_name='foo_alias')");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
+  }
+
+  @Test
+  public void bazelDep_selfNodepDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='foo',version='2.0',repo_name=None)");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
+  }
+
+  @Test
+  public void bazelDep_ignoredSelfDevDependency() throws Exception {
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='foo',version='2.0',repo_name='foo_alias',dev_dependency=True)");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
+  }
+
+  @Test
+  public void bazelDep_nonRootSelfDependency() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("foo", "1.0"),
+                "module(name='foo',version='1.0',repo_name='foo_self')",
+                "bazel_dep(name='foo',version='2.0',repo_name='foo_alias')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.key(createModuleKey("foo", "1.0"))),
+            evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("module 'foo' cannot depend on itself");
   }
 
   @Test

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -58,6 +59,7 @@ class BlazeOptionHandlerTestHelper {
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeService(new CompressionServiceImpl())
+            .addBlazeModule(new BazelStartupOptionsModule())
             .addBlazeModule(new BazelRulesModule())
             .build();
     runtime.overrideCommands(ImmutableList.of(new MockBuildCommand()));

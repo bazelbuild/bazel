@@ -146,6 +146,8 @@ public class PathFragmentWindowsTest {
   @Test
   public void testWindowsVolumeUppercase() {
     assertThat(create("C:/")).isEqualTo(create("c:/"));
+    assertThat(create("C:/foo/bar")).isEqualTo(create("c:/foo/bar"));
+    assertThat(create("c:/foo/bar").getPathString()).isEqualTo("C:/foo/bar");
   }
 
   @Test
@@ -244,7 +246,7 @@ public class PathFragmentWindowsTest {
     assertThat(create("C:/a/b")).isEqualTo(create("C:/a/b"));
     assertThat(create("C:/a/./b")).isEqualTo(create("C:/a/b"));
     assertThat(create("C:/a/../b")).isEqualTo(create("C:/b"));
-    assertThat(create("C:/../b")).isEqualTo(create("C:/../b"));
+    assertThat(create("C:/../b")).isEqualTo(create("C:/b"));
   }
 
   @Test

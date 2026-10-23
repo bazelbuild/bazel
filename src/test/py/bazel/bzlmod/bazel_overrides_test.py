@@ -32,6 +32,7 @@ class BazelOverridesTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'main')
     )
     self.main_registry.start()
+    self.addCleanup(self.main_registry.stop)
     self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
     ).createShModule('bbb', '1.0', {'aaa': '1.0'}).createShModule(
@@ -57,10 +58,6 @@ class BazelOverridesTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
-
-  def tearDown(self):
-    self.main_registry.stop()
-    test_base.TestBase.tearDown(self)
 
   def writeMainProjectFiles(self, aaa_repo_name='aaa'):
     self.ScratchFile(
@@ -213,26 +210,24 @@ class BazelOverridesTest(test_base.TestBase):
         ' from another registry',
     )
     another_registry.start()
-    try:
-      another_registry.createShModule('aaa', '1.0')
-      self.ScratchFile(
-          'MODULE.bazel',
-          [
-              'bazel_dep(name = "aaa", version = "1.0")',
-              'bazel_dep(name = "bbb", version = "1.0")',
-              'single_version_override(',
-              '  module_name = "aaa",',
-              '  registry = "%s",' % another_registry.getURL(),
-              ')',
-          ],
-      )
-      self.AddBazelDep('rules_shell')
-      _, stdout, _ = self.RunBazel(['run', '//:main'])
-      self.assertIn('main function => aaa@1.0 from another registry', stdout)
-      self.assertIn('main function => bbb@1.0', stdout)
-      self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
-    finally:
-      another_registry.stop()
+    self.addCleanup(another_registry.stop)
+    another_registry.createShModule('aaa', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  registry = "%s",' % another_registry.getURL(),
+            ')',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.0 from another registry', stdout)
+    self.assertIn('main function => bbb@1.0', stdout)
+    self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
 
   def testArchiveOverride(self):
     self.writeMainProjectFiles()
@@ -837,6 +832,157 @@ class BazelOverridesTest(test_base.TestBase):
         'deps',
         '--inject_repository=injected_repo=%workspace%/injected_repo',
     ])
+
+  def writeInjectedModuleFiles(self):
+    self.ScratchFile(
+        'rbe/MODULE.bazel',
+        [
+            'module(name = "rbe")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'register_execution_platforms("//:rbe_platform")',
+        ],
+    )
+    self.ScratchFile(
+        'rbe/BUILD',
+        [
+            'platform(name = "rbe_platform")',
+            'filegroup(name = "target", srcs = ["@aaa//:lib_aaa"])',
+        ],
+    )
+
+  def testInjectModule(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile(
+        'BUILD',
+        ['genrule(name = "gen", outs = ["gen.txt"], cmd = "touch $@")'],
+    )
+    self.writeInjectedModuleFiles()
+
+    # The injected module's own dependencies are resolved.
+    self.RunBazel([
+        'build',
+        '--inject_module=rbe=%workspace%/rbe',
+        '@rbe//:target',
+    ])
+
+    # Injected modules are not dev dependencies.
+    self.RunBazel([
+        'build',
+        '--ignore_dev_dependency',
+        '--inject_module=rbe=%workspace%/rbe',
+        '@rbe//:target',
+    ])
+
+    # `mod` doesn't inherit the `build` registry flags from the .bazelrc.
+    _, stdout, _ = self.RunBazel([
+        'mod',
+        'dump_repo_mapping',
+        '--registry=' + self.main_registry.getURL(),
+        '--registry=https://bcr.bazel.build',
+        '--inject_module=rbe=%workspace%/rbe',
+        '',
+    ])
+    main_repo_mapping = json.loads('\n'.join(stdout))
+    self.assertEqual(main_repo_mapping['rbe'], 'rbe+')
+
+    # The injected module's execution platforms are registered.
+    _, _, stderr = self.RunBazel([
+        'cquery',
+        '--inject_module=rbe=%workspace%/rbe',
+        '--toolchain_resolution_debug=.*',
+        '//:gen',
+    ])
+    self.assertIn(
+        'Selected execution platform @@rbe+//:rbe_platform', '\n'.join(stderr)
+    )
+
+  def testInjectModuleRemovedWithEmptyPath(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile('BUILD')
+    self.writeInjectedModuleFiles()
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--inject_module=rbe=%workspace%/rbe',
+            '--inject_module=rbe=',
+            '@rbe//:target',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "No repository visible as '@rbe' from main repository",
+        '\n'.join(stderr),
+    )
+
+  def testInjectModuleAndOverrideModuleForSameModule(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile('BUILD')
+    self.writeInjectedModuleFiles()
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--inject_module=rbe=%workspace%/rbe',
+            '--override_module=rbe=%workspace%/rbe',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "module 'rbe' is given to both --inject_module and --override_module",
+        '\n'.join(stderr),
+    )
+
+  def testInjectModuleOnTransitiveDep(self):
+    # bbb@1.0 depends on aaa@1.0, so aaa is in the dependency graph even though
+    # the root module doesn't depend on it directly.
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "bbb", version = "1.0")']
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('other_aaa/MODULE.bazel', ['module(name = "aaa")'])
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--inject_module=aaa=%workspace%/other_aaa',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "--inject_module cannot inject 'aaa' as it is already in the dependency"
+        " graph: 'bbb@1.0' depends on 'aaa@1.0'; use --override_module to"
+        ' override it instead',
+        '\n'.join(stderr),
+    )
+
+  def testInjectModuleOnExistingDep(self):
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "aaa", version = "1.0")']
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('other_aaa/MODULE.bazel', ['module(name = "aaa")'])
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--inject_module=aaa=%workspace%/other_aaa',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "--inject_module cannot inject 'aaa' as it is already in the dependency"
+        ' graph: the root module depends on it; use --override_module to'
+        ' override it instead',
+        '\n'.join(stderr),
+    )
 
   def testOverrideRepositoryOnNonExistentRepo(self):
     self.ScratchFile('other_repo/REPO.bazel')

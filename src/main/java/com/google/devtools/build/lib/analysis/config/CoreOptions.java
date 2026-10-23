@@ -176,7 +176,7 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           """
           Please only use this flag as part of a suggested migration or testing strategy. Note
           that the heuristic has known deficiencies and it is suggested to migrate to
-          relying on just `--experimental_override_name_platform_in_output_dir`.
+          relying on just `--override_platform_cpu_name`.
           """)
   public abstract boolean getUsePlatformsInOutputDirLegacyHeuristic();
 

@@ -136,8 +136,10 @@ public abstract class LoadingOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Forces test targets tagged 'manual' to be built. 'manual' tests are excluded from "
-              + "processing. This option forces them to be built (but not executed).")
+          "Forces targets tagged 'manual' to be built. Despite the flag name, this option applies "
+              + "to all targets (both test and non-test targets) matching the pattern. Targets "
+              + "tagged 'manual' are excluded from processing by default; this option forces them "
+              + "to be built (tests are built but not executed).")
   public abstract boolean getBuildManualTests();
 
   @Deprecated

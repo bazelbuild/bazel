@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -25,29 +26,24 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.Types;
 
 /**
  * A struct-like Info (provider instance) for providers defined in Starlark that don't have a
  * schema.
  */
 public class StarlarkInfoNoSchema extends StarlarkInfo {
+  // TODO(bazel-team): require this to be either a StarlarkProvider or StructProvider.
   private final Provider provider;
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
   private final Object[] table;
 
-  // TODO(adonovan): restrict type of provider to StarlarkProvider?
-  // Do we ever need StarlarkInfos of BuiltinProviders? Such BuiltinProviders could
-  // be  moved to Starlark using bzl builtins injection.
-  // Alternatively: what about this implementation is specific to StarlarkProvider?
-  // It's really just a "generic" or "dynamic" representation of a struct,
-  // analogous to reflection versus generated message classes in the protobuf world.
-  // The efficient table algorithms would be a nice addition to the Starlark
-  // interpreter, to allow other clients to define their own fast structs
-  // (or to define a standard one). See also comments at Info about upcoming clean-ups.
   private StarlarkInfoNoSchema(Provider provider, Object[] table) {
     this.provider = provider;
     this.table = table;
@@ -61,6 +57,33 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
   @Override
   public Provider getProvider() {
     return provider;
+  }
+
+  private StarlarkType getStructType(StarlarkSemantics semantics) {
+    int n = table.length / 2;
+    ImmutableMap.Builder<String, StarlarkType> fieldTypes = ImmutableMap.builderWithExpectedSize(n);
+    for (int i = 0; i < n; i++) {
+      String name = (String) table[i];
+      StarlarkType type = Starlark.getStarlarkType(table[n + i], semantics);
+      fieldTypes.put(name, type);
+    }
+    return Types.struct(fieldTypes.buildOrThrow());
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    if (provider instanceof StarlarkType type) {
+      // This is the case for StarlarkProvider. Do nominal typing.
+      // TODO: #27370 - Should we emit the fields and types for schemaless starlark providers?
+      return type;
+    } else {
+      // Untyped struct; provider is either StructProvider (`struct` in BUILD API) or one of a few
+      // non-StructProvider builtin providers that deliberately construct untyped struct values
+      // (e.g. Actions or ApplePlatform). Do structural typing.
+      // TODO: #27370 - Should we synthesize a nominal StarlarkType for the value type of such
+      // non-StructProvider builtin providers?
+      return getStructType(semantics);
+    }
   }
 
   /**

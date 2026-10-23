@@ -25,7 +25,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
@@ -125,11 +124,11 @@ class NestedSetSerializationCache {
    * @param fingerprint the fingerprint of the desired {@link NestedSet} contents
    * @param context the context needed to deterministically deserialize the contents associated with
    *     {@code fingerprint}
-   * @param future a freshly created {@link SettableFuture}
+   * @param future a freshly created {@link ListenableFuture}
    */
   @Nullable
   Object putFutureIfAbsent(
-      PackedFingerprint fingerprint, SettableFuture<Object[]> future, Object context) {
+      PackedFingerprint fingerprint, ListenableFuture<Object[]> future, Object context) {
     checkArgument(!future.isDone(), "Must pass a fresh future: %s", future);
     Object existing =
         fingerprintToContents.asMap().putIfAbsent(new FingerprintKey(fingerprint, context), future);

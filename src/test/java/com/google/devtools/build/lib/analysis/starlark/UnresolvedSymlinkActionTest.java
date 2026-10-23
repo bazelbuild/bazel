@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
@@ -162,7 +163,21 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(action)
+    ImmutableList.Builder<UnresolvedSymlinkAction> actions = ImmutableList.builder();
+    for (SymlinkTargetType targetType : SymlinkTargetType.values()) {
+      for (String progressMessage :
+          ImmutableList.of(
+              UnresolvedSymlinkAction.DEFAULT_PROGRESS_MESSAGE, "Creating unresolved symlink")) {
+        actions.add(
+            UnresolvedSymlinkAction.create(
+                NULL_ACTION_OWNER,
+                outputArtifact,
+                "../some/relative/path",
+                targetType,
+                progressMessage));
+      }
+    }
+    new SerializationTester(actions.build().toArray())
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(Root.RootCodecDependencies.class, new Root.RootCodecDependencies(root))
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
@@ -175,6 +190,8 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
                   .isEqualTo(outAction.getPrimaryOutput().getFilename());
               assertThat(inAction.getOwner()).isEqualTo(outAction.getOwner());
               assertThat(inAction.getProgressMessage()).isEqualTo(outAction.getProgressMessage());
+              assertThat(computeKey(inAction)).isEqualTo(computeKey(outAction));
+              assertThat(inAction.describeKey()).isEqualTo(outAction.describeKey());
             })
         .runTests();
   }

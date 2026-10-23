@@ -477,7 +477,7 @@ public final class Resolver extends NodeVisitor {
    * checking, but is not used directly in the resolver. It may include information about
    * user-defined types, i.e. types introduced as global symbols in the resolved code.
    */
-  public interface Module extends TypeContext {
+  public interface Module {
 
     /**
      * Resolves a name to a GLOBAL, PREDECLARED, or UNIVERSAL binding.
@@ -488,6 +488,20 @@ public final class Resolver extends NodeVisitor {
     Scope resolve(String name, boolean resolveTypeSyntax) throws Undefined;
 
     /**
+     * Returns the value type of a {@link Resolver.Scope#PREDECLARED} symbol, or null if there is no
+     * such symbol.
+     */
+    @Nullable
+    StarlarkType getPredeclaredSymbolType(String name);
+
+    /**
+     * Returns the value type of a {@link Resolver.Scope#UNIVERSAL} symbol, or null if there is no
+     * such symbol.
+     */
+    @Nullable
+    StarlarkType getUniversalSymbolType(String name);
+
+    /**
      * Resolves a name to a corresponding type constructor.
      *
      * @return null if the name is known but not a type constructor.
@@ -495,6 +509,9 @@ public final class Resolver extends NodeVisitor {
      */
     @Nullable
     TypeConstructor getTypeConstructor(String name) throws Undefined;
+
+    /** Returns the {@link TypeContext} for this module. */
+    TypeContext getTypeContext();
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}
@@ -1345,14 +1362,15 @@ public final class Resolver extends NodeVisitor {
       }
 
       if (statement instanceof LoadStatement) {
-        if (firstStatement == null) {
-          continue;
+        if (firstStatement != null) {
+          errorf(
+              statement,
+              "load statements must appear before any other statement (first non-load statement at"
+                  + " line %d)",
+              firstStatement.getStartLocation().line());
+          return;
         }
-        errorf(statement, "load statements must appear before any other statement");
-        errorf(firstStatement, "\tfirst non-load statement appears here");
-      }
-
-      if (firstStatement == null) {
+      } else if (firstStatement == null) {
         firstStatement = statement;
       }
     }

@@ -218,6 +218,7 @@ EOF
 ./test_foo_runfiles/e/f symlink dir
 ./test_foo_runfiles/foo file
 ./test_foo_runfiles/py file
+./test_foo_runfiles/py.build_data.txt file
 ./test_foo_runfiles/py.py file
 ./test_foo_runfiles/x regular dir
 ./test_foo_runfiles/x/y regular dir
@@ -228,10 +229,15 @@ EOF
   # Some files are Google-specific and don't exist in the upstream Bazel.
   if [[ "$PRODUCT_NAME" == "blaze" ]]; then
     expected="${expected}
+./__pycache__ regular dir
+./test_foo_runfiles/__pycache__ regular dir
 ./test_foo_runfiles/_private_py.lazy_imports_info.json file
+./test_foo_runfiles/a/b/__pycache__ regular dir
+./test_foo_runfiles/c/__pycache__ regular dir
+./test_foo_runfiles/c/d/__pycache__ regular dir
 "
     # Filter out Bazel Python runfiles.
-    filters='_py.venv|_py_stage2_bootstrap.py'
+    filters='_py.venv|_py_stage2_bootstrap.py|py.build_data.txt'
     expected=$(echo "$expected" | grep -v -E "$filters")
   fi
 
@@ -252,13 +258,15 @@ EOF
   # expected string and not have to worry about stray newlines from shell
   # commands and quoting.
   expected=$(sort <<<"$expected" | sed '/^$/d')
-  actual=$(recursive_path_info .)
+  # Filtering out *.pyc files because they exist by default only in Blaze;
+  # also their file names are not stable - they depend on the version of Python.
+  actual=$(recursive_path_info . | grep -v '\.pyc ')
   assert_equals "$expected" "$actual"
 
   # The manifest only records files and symlinks, not real directories
   expected="$expected$(get_repo_mapping_manifest_file)"
   expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
-  actual_manifest_size=$(cat "$MANIFEST_NO_TOOLCHAIN" | wc -l)
+  actual_manifest_size=$(grep -v '\.pyc ' "$MANIFEST_NO_TOOLCHAIN" | wc -l)
   assert_equals $expected_manifest_size $actual_manifest_size
 
   # that accounts for everything

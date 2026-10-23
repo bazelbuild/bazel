@@ -58,8 +58,6 @@ import org.junit.runners.JUnit4;
 public class StarlarkSubruleTest extends BuildViewTestCase {
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//subrule_testing:label");
-  private final BazelEvaluationTestCase evOutsideAllowlist =
-      new BazelEvaluationTestCase("//foo:bar");
 
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
@@ -1929,9 +1927,188 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubrulesParamForAspect_isPrivateAPI() throws Exception {
-    evOutsideAllowlist.setSemantics("--noexperimental_rule_extension_api");
-    evOutsideAllowlist.checkEvalErrorContains(
-        "'//foo:bar' cannot use private API", "aspect(implementation = lambda: 0, subrules = [1])");
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
+    scratch.file(
+        "foo/myrule.bzl",
+        """
+        def _impl(ctx):
+            pass
+        my_subrule = subrule(implementation = _impl)
+        my_aspect = aspect(_impl, subrules = [my_subrule])
+        my_rule = rule(_impl, attrs = {'dep': attr.label(aspects = [my_aspect])})
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+
+        my_rule(name = "bar")
+        my_rule(name = "foo", dep = ":bar")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//foo");
+
+    ev.assertContainsError("Non-allowlisted attempt to use subrules.");
+  }
+
+  @Test
+  public void testSubruleImplicitDep_visibleToSubrulePackage_passes() throws Exception {
+    scratch.file("subrule_testing/rule/BUILD");
+    scratch.file(
+        "subrule_testing/rule/myrule.bzl",
+        """
+        load("//subrule_testing/subrule:mysubrule.bzl", "my_subrule")
+        my_rule = rule(lambda ctx: [], subrules = [my_subrule])
+        """);
+    scratch.file(
+        "subrule_testing/subrule/BUILD",
+        """
+        filegroup(name = 'tool', visibility = ["//visibility:private"])
+        """);
+    scratch.file(
+        "subrule_testing/subrule/mysubrule.bzl",
+        """
+        my_subrule = subrule(
+            implementation = lambda *args, **kwargs: None,
+            attrs = {"_tool" : attr.label(default = ":tool")}
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("//subrule_testing/rule:myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+
+    getConfiguredTarget("//foo"); // no errors
+  }
+
+  @Test
+  public void testAspectSubruleImplicitDep_visibility() throws Exception {
+    scratch.file("subrule_testing/rule/BUILD");
+    scratch.file(
+        "subrule_testing/rule/myrule.bzl",
+        """
+        load("//subrule_testing/subrule:mysubrule.bzl", "my_subrule")
+        my_aspect = aspect(lambda *args: [], subrules = [my_subrule])
+        my_rule = rule(
+            lambda ctx: [],
+            attrs = {'a' : attr.label(aspects = [my_aspect])}
+        )
+        """);
+    scratch.file(
+        "subrule_testing/subrule/BUILD",
+        """
+        filegroup(name = 'tool', visibility = ["//visibility:private"])
+        """);
+    scratch.file(
+        "subrule_testing/subrule/mysubrule.bzl",
+        """
+        my_subrule = subrule(
+            implementation = lambda *args, **kwargs: None,
+            attrs = {"_tool" : attr.label(default = ":tool")}
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("//subrule_testing/rule:myrule.bzl", "my_rule")
+        filegroup(name = "fg")
+        my_rule(name = "foo", a = ":fg")
+        """);
+
+    getConfiguredTarget("//foo"); // no errors
+  }
+
+  @Test
+  public void testSubruleImplicitDep_visibleOnlyToConsumingRulePackage_fails() throws Exception {
+    scratch.file(
+        "subrule_testing/rule/BUILD",
+        """
+        filegroup(name = 'tool', visibility = ["//visibility:private"])
+        """);
+    scratch.file(
+        "subrule_testing/rule/myrule.bzl",
+        """
+        load("//subrule_testing/subrule:mysubrule.bzl", "my_subrule")
+        my_rule = rule(lambda ctx: [], subrules = [my_subrule])
+        """);
+    scratch.file("subrule_testing/subrule/BUILD");
+    scratch.file(
+        "subrule_testing/subrule/mysubrule.bzl",
+        """
+        my_subrule = subrule(
+            implementation = lambda *args, **kwargs: None,
+            attrs = {"_tool" : attr.label(default = "//subrule_testing/rule:tool")}
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("//subrule_testing/rule:myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//foo");
+
+    ev.assertContainsError(
+        "'//subrule_testing/rule:tool' is not visible from\n"
+            + "target '//subrule_testing/subrule:mysubrule.bzl'");
+  }
+
+  @Test
+  public void testSubruleImplicitDep_transitiveSubruleVisibility() throws Exception {
+    scratch.file(
+        "subrule_testing/rule/BUILD",
+        """
+        filegroup(name = 'tool', visibility = ["//visibility:private"])
+        """);
+    scratch.file(
+        "subrule_testing/rule/myrule.bzl",
+        """
+        load("//subrule_testing/subrule1:mysubrule.bzl", "my_subrule")
+        my_rule = rule(lambda ctx: [], subrules = [my_subrule])
+        """);
+    scratch.file("subrule_testing/subrule1/BUILD");
+    scratch.file(
+        "subrule_testing/subrule1/mysubrule.bzl",
+        """
+        load("//subrule_testing/subrule2:mysubrule.bzl", "my_other_subrule")
+        my_subrule = subrule(
+            implementation = lambda *args, **kwargs: None,
+            subrules = [my_other_subrule],
+        )
+        """);
+    scratch.file("subrule_testing/subrule2/BUILD");
+    scratch.file(
+        "subrule_testing/subrule2/mysubrule.bzl",
+        """
+        my_other_subrule = subrule(
+            implementation = lambda *args, **kwargs: None,
+            attrs = {"_tool" : attr.label(default = "//subrule_testing/rule:tool")}
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("//subrule_testing/rule:myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//foo");
+
+    ev.assertContainsError(
+        "'//subrule_testing/rule:tool' is not visible from\n"
+            + "target '//subrule_testing/subrule2:mysubrule.bzl'");
   }
 
   private StructImpl getProvider(String targetLabel, String providerLabel, String providerName)

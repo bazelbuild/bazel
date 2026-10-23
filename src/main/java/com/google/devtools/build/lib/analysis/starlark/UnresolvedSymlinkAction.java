@@ -44,23 +44,18 @@ import javax.annotation.Nullable;
  * <p>To create a symlink to a known-to-exist target with alias semantics similar to a true copy of
  * the input, use {@link SymlinkAction} instead.
  */
-public final class UnresolvedSymlinkAction extends AbstractAction {
+public class UnresolvedSymlinkAction extends AbstractAction {
   private static final String GUID = "0f302651-602c-404b-881c-58913193cfe7";
+  static final String DEFAULT_PROGRESS_MESSAGE = "Creating symlink %{output}";
 
   private final String target;
   private final SymlinkTargetType targetType;
-  private final String progressMessage;
 
   private UnresolvedSymlinkAction(
-      ActionOwner owner,
-      Artifact primaryOutput,
-      String target,
-      SymlinkTargetType targetType,
-      String progressMessage) {
+      ActionOwner owner, Artifact primaryOutput, String target, SymlinkTargetType targetType) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(primaryOutput));
-    this.target = target;
+    this.target = target.intern();
     this.targetType = targetType;
-    this.progressMessage = progressMessage;
   }
 
   public static UnresolvedSymlinkAction create(
@@ -70,7 +65,30 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
       SymlinkTargetType targetType,
       String progressMessage) {
     Preconditions.checkArgument(primaryOutput.isSymlink());
-    return new UnresolvedSymlinkAction(owner, primaryOutput, target, targetType, progressMessage);
+    if (DEFAULT_PROGRESS_MESSAGE.equals(progressMessage)) {
+      return new UnresolvedSymlinkAction(owner, primaryOutput, target, targetType);
+    }
+    return new WithProgressMessage(owner, primaryOutput, target, targetType, progressMessage);
+  }
+
+  // Most actions use the default message, so only retain a field for custom messages.
+  private static final class WithProgressMessage extends UnresolvedSymlinkAction {
+    private final String progressMessage;
+
+    private WithProgressMessage(
+        ActionOwner owner,
+        Artifact primaryOutput,
+        String target,
+        SymlinkTargetType targetType,
+        String progressMessage) {
+      super(owner, primaryOutput, target, targetType);
+      this.progressMessage = progressMessage;
+    }
+
+    @Override
+    protected String getRawProgressMessage() {
+      return progressMessage;
+    }
   }
 
   @Override
@@ -114,7 +132,7 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    return progressMessage;
+    return DEFAULT_PROGRESS_MESSAGE;
   }
 
   public String getTarget() {

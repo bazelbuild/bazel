@@ -180,8 +180,7 @@ public class CriticalPathComputer {
             Comparators.greatest(
                 LARGEST_MEMORY_COMPONENTS_SIZE,
                 Comparator.comparingLong(
-                    (c) ->
-                        c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::memoryEstimate))));
+                    (c) -> c.getMaxNonDuration(0, SpawnMetrics::memoryEstimate))));
   }
 
   /** Returns the list of components with the largest input sizes. */
@@ -190,8 +189,7 @@ public class CriticalPathComputer {
         .collect(
             Comparators.greatest(
                 LARGEST_INPUT_SIZE_COMPONENTS_SIZE,
-                Comparator.comparingLong(
-                    (c) -> c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::inputBytes))));
+                Comparator.comparingLong((c) -> c.getMaxNonDuration(0, SpawnMetrics::inputBytes))));
   }
 
   /** Returns the list of components with the largest input counts. */
@@ -200,8 +198,7 @@ public class CriticalPathComputer {
         .collect(
             Comparators.greatest(
                 LARGEST_INPUT_COUNT_COMPONENTS_SIZE,
-                Comparator.comparingLong(
-                    (c) -> c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::inputFiles))));
+                Comparator.comparingLong((c) -> c.getMaxNonDuration(0, SpawnMetrics::inputFiles))));
   }
 
   /** Returns the list of slowest components. */

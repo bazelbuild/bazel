@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -205,9 +204,6 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           return switch (o) {
             case String str -> appendPrettyQuoted(str);
             case Label label -> super.repr(labelPrinter.toString(label), semantics);
-            // Nulls can appear e.g. from BuildType.Selector#mapCopy in `reconsructSelect`; a None
-            // value will be mapped to null if the attr type's default value is null.
-            case null -> super.repr(Starlark.NONE, semantics);
             default -> super.repr(o, semantics);
           };
         }
@@ -224,9 +220,11 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
               .getSelectors()) {
         if (selector.isUnconditional()) {
-          selectors.add(outputRawAttrValue(Preconditions.checkNotNull(selector.getDefault())));
+          selectors.add(
+              outputRawAttrValue(Preconditions.checkNotNull(selector.getStarlarkDefault())));
         } else {
-          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.mapCopy())));
+          selectors.add(
+              String.format("select(%s)", outputRawAttrValue(selector.starlarkMapCopy())));
         }
       }
       return String.join(" + ", selectors);

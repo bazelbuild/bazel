@@ -29,6 +29,8 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
@@ -274,6 +276,62 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     void transportClosed(BuildEventTransportClosedEvent evt) {
       transportSet.remove(evt.transport());
     }
+  }
+
+  @Test
+  public void testClearRetainedEventState() {
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+    streamer.buildEvent(startEvent);
+
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+    streamer.clearRetainedEventState();
+    assertThat(streamer.hasRetainedEventState()).isFalse();
+
+    // Verify configurationsPosted is reflected by hasRetainedEventState() and cleared.
+    streamer.buildEvent(
+        new GenericConfigurationEvent(
+            testId("WithConfig"), new GenericBuildEvent(testId("Config"), ImmutableSet.of())));
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+    streamer.clearRetainedEventState();
+    assertThat(streamer.hasRetainedEventState()).isFalse();
+
+    // Verify pendingEvents is reflected by hasRetainedEventState() and cleared.
+    streamer.buildEvent(
+        new GenericOrderEvent(
+            testId("Pending"), ImmutableSet.of(), ImmutableSet.of(testId("UnpostedPrerequisite"))));
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+    assertThat(streamer.isClosed()).isFalse();
+
+    streamer.clearRetainedEventState();
+
+    assertThat(streamer.hasRetainedEventState()).isFalse();
+  }
+
+  @Test
+  public void testCloseClearsRetainedEventState() {
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(
+        new GenericConfigurationEvent(
+            testId("WithConfig"), new GenericBuildEvent(testId("Config"), ImmutableSet.of())));
+    streamer.buildEvent(
+        new GenericOrderEvent(
+            testId("Pending"), ImmutableSet.of(), ImmutableSet.of(testId("UnpostedPrerequisite"))));
+
+    assertThat(streamer.hasRetainedEventState()).isTrue();
+
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+
+    assertThat(streamer.isClosed()).isTrue();
+    assertThat(streamer.hasRetainedEventState()).isFalse();
   }
 
   @Test(timeout = 5000)
@@ -997,6 +1055,145 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     verify(outErr, times(2)).getErr();
   }
 
+  private static void assertValidEventStream(List<BuildEventStreamProtos.BuildEvent> events) {
+    assertThat(events).isNotEmpty();
+    Set<BuildEventId> seenIds = new HashSet<>();
+    Set<BuildEventId> announcedIds = new HashSet<>();
+    boolean sawFirstProgress = false;
+    for (int i = 0; i < events.size(); i++) {
+      BuildEventStreamProtos.BuildEvent event = events.get(i);
+      BuildEventId id = event.getId();
+      if (i > 0) {
+        assertWithMessage("Event at index %s posted before being announced: %s", i, event)
+            .that(announcedIds)
+            .contains(id);
+      } else {
+        announcedIds.add(id);
+      }
+      assertWithMessage("Duplicate BuildEventId at index %s: %s", i, event)
+          .that(seenIds.add(id))
+          .isTrue();
+      if (id.hasProgress()) {
+        if (!sawFirstProgress) {
+          assertThat(id).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+          sawFirstProgress = true;
+        }
+        assertWithMessage("Progress event must not be aborted: %s", event)
+            .that(event.hasAborted())
+            .isFalse();
+      }
+      announcedIds.addAll(event.getChildrenList());
+      assertThat(event.getLastMessage()).isEqualTo(i == events.size() - 1);
+    }
+    assertThat(seenIds).isEqualTo(announcedIds);
+  }
+
+  @Test
+  public void testEarlyFlush_doesNotAbortProgressZeroOnBuildComplete() {
+    // Regression test for issue where early flush prior to BuildStarted caused progress event #0
+    // to be recorded in frontierEvents and subsequently re-emitted as an AbortedEvent on build
+    // completion.
+    BuildEventStreamer.OutErrProvider outErr = mock(BuildEventStreamer.OutErrProvider.class);
+    when(outErr.getOut()).thenReturn(ImmutableList.of("Early stdout"), ImmutableList.of());
+    when(outErr.getErr()).thenReturn(ImmutableList.of("Early stderr"), ImmutableList.of());
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.flush();
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+
+    assertThat(streamer.isClosed()).isTrue();
+    assertValidEventStream(transport.getEventProtos());
+  }
+
+  @Test
+  public void testMultiChunkFinalFlush_maintainsValidProgressChain() {
+    BuildEventStreamer.OutErrProvider outErr = mock(BuildEventStreamer.OutErrProvider.class);
+    when(outErr.getOut()).thenReturn(ImmutableList.of("out chunk 1 ", "out chunk 2"));
+    when(outErr.getErr()).thenReturn(ImmutableList.of("err chunk 1 ", "err chunk 2"));
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+
+    assertThat(streamer.isClosed()).isTrue();
+    List<BuildEventStreamProtos.BuildEvent> events = transport.getEventProtos();
+    assertValidEventStream(events);
+    assertThat(
+            events.stream()
+                .filter(BuildEventStreamProtos.BuildEvent::hasProgress)
+                .map(e -> e.getProgress().getStdout())
+                .toList())
+        .containsExactly("out chunk 1 ", "out chunk 2", "")
+        .inOrder();
+    assertThat(
+            events.stream()
+                .filter(BuildEventStreamProtos.BuildEvent::hasProgress)
+                .map(e -> e.getProgress().getStderr())
+                .toList())
+        .containsExactly("", "err chunk 1 ", "err chunk 2")
+        .inOrder();
+  }
+
+  @Test
+  public void testPreStartClose_withEarlyFlushAndMultiChunkOutput_maintainsOrderAndValidStream() {
+    BuildEventStreamer.OutErrProvider outErr = mock(BuildEventStreamer.OutErrProvider.class);
+    when(outErr.getOut())
+        .thenReturn(ImmutableList.of("early out "), ImmutableList.of("late out 1 ", "late out 2"));
+    when(outErr.getErr())
+        .thenReturn(ImmutableList.of("early err "), ImmutableList.of("late err 1 ", "late err 2"));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.flush();
+    streamer.close();
+
+    assertThat(streamer.isClosed()).isTrue();
+    List<BuildEventStreamProtos.BuildEvent> events = transport.getEventProtos();
+    assertValidEventStream(events);
+    assertThat(
+            events.stream()
+                .filter(BuildEventStreamProtos.BuildEvent::hasProgress)
+                .map(e -> e.getProgress().getStdout())
+                .toList())
+        .containsExactly("early out ", "late out 1 ", "late out 2", "")
+        .inOrder();
+    assertThat(
+            events.stream()
+                .filter(BuildEventStreamProtos.BuildEvent::hasProgress)
+                .map(e -> e.getProgress().getStderr())
+                .toList())
+        .containsExactly("early err ", "", "late err 1 ", "late err 2")
+        .inOrder();
+  }
+
+  @Test
+  public void testUnannouncedEventBeforeBuildStarted_maintainsValidStream() {
+    BuildEvent unannouncedBeforeStart =
+        new GenericBuildEvent(testId("EarlyUnannounced"), ImmutableSet.of());
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+
+    streamer.buildEvent(unannouncedBeforeStart);
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+
+    assertThat(streamer.isClosed()).isTrue();
+    assertValidEventStream(transport.getEventProtos());
+  }
+
   @Test
   public void testChunkedFlush() {
     // Verify that the streamer calls to flush() that return multiple chunked buffers.
@@ -1087,6 +1284,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     stderr.write("INFO: Build completed successfully, 3 total actions\n".getBytes(UTF_8));
     streamer.close();
 
+    assertValidEventStream(transport.getEventProtos());
     String reconstructedOutput =
         transport.getEventProtos().stream()
             .map(BuildEventStreamProtos.BuildEvent::getProgress)
@@ -1914,5 +2112,29 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
         FailureDetail.newBuilder()
             .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
             .build());
+  }
+
+  @Test
+  public void quiescenceFuture() throws Exception {
+    SettableFuture<Void> transportQuiescenceFuture = SettableFuture.create();
+    BuildEventTransport mockTransport = mock(BuildEventTransport.class);
+    when(mockTransport.getQuiescenceFuture()).thenReturn(transportQuiescenceFuture);
+
+    BuildEventStreamer customStreamer =
+        new BuildEventStreamer.Builder()
+            .artifactGroupNamer(artifactGroupNamer)
+            .besStreamOptions(Options.getDefaults(BuildEventStreamOptions.class))
+            .buildEventTransports(ImmutableSet.of(mockTransport))
+            .build();
+
+    ListenableFuture<Void> quiescenceFuture = customStreamer.getQuiescenceFuture();
+    assertThat(quiescenceFuture.isDone()).isFalse();
+
+    transportQuiescenceFuture.set(null);
+    quiescenceFuture.get();
+    assertThat(quiescenceFuture.isDone()).isTrue();
+
+    // Calling getQuiescenceFuture again returns the same future.
+    assertThat(customStreamer.getQuiescenceFuture()).isSameInstanceAs(quiescenceFuture);
   }
 }

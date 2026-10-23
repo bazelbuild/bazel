@@ -23,9 +23,15 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -33,8 +39,12 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -52,7 +62,7 @@ public final class ParsedFlagsFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws InterruptedException, ParsedFlagsFunctionException {
+      throws InterruptedException, SkyFunctionException {
     ParsedFlagsValue.Key key = (ParsedFlagsValue.Key) skyKey.argument();
 
     ImmutableList.Builder<String> nativeFlags = ImmutableList.builder();
@@ -104,6 +114,7 @@ public final class ParsedFlagsFunction implements SkyFunction {
             .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))
             .nativeOptionsParser(fakeNativeParser)
             .includeDefaultValues(key.includeDefaultValues())
+            .allowNonFlagBuildSettings(key.allowNonFlagBuildSettings())
             .build();
     try {
       if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
@@ -111,6 +122,30 @@ public final class ParsedFlagsFunction implements SkyFunction {
       }
     } catch (OptionsParsingException e) {
       throw new ParsedFlagsFunctionException(e);
+    }
+    if (key.allowNonFlagBuildSettings()) {
+      PackageIdentifier consumerPkg = key.packageContext().packageIdentifier();
+      for (Target settingTarget : starlarkFlagParser.getParsedBuildSettingTargets().values()) {
+        Rule associatedRule = settingTarget.getAssociatedRule();
+        if (associatedRule == null) {
+          continue;
+        }
+        BuildSetting setting = associatedRule.getRuleClassObject().getBuildSetting();
+        if (setting != null && !setting.isFlag()) {
+          Boolean isVisible = checkPackageVisibility(env, settingTarget, consumerPkg);
+          if (isVisible == null) {
+            return null;
+          }
+          if (!isVisible) {
+            throw new ParsedFlagsFunctionException(
+                new OptionsParsingException(
+                    String.format(
+                        "Build setting '%s' cannot be set by platform in package '%s': target is"
+                            + " not visible from this package",
+                        settingTarget.getLabel(), consumerPkg)));
+          }
+        }
+      }
     }
     NativeAndStarlarkFlags.Builder flags =
         NativeAndStarlarkFlags.builder()
@@ -130,6 +165,85 @@ public final class ParsedFlagsFunction implements SkyFunction {
     } catch (OptionsParsingException e) {
       throw new ParsedFlagsFunctionException(e);
     }
+  }
+
+  @Nullable
+  private static Boolean checkPackageVisibility(
+      Environment env, Target settingTarget, PackageIdentifier consumerPkg)
+      throws InterruptedException {
+    // Canonical visibility checking requires ConfiguredTarget, which doesn't exist yet
+    // during flag parsing before configuration creation. We resolve PackageGroups
+    // directly via Skyframe PackageValues instead.
+    if (settingTarget.getLabel().getPackageIdentifier().equals(consumerPkg)) {
+      return true;
+    }
+    RuleVisibility ruleVisibility =
+        settingTarget.isCreatedInSymbolicMacro()
+            ? settingTarget.getActualVisibility()
+            : settingTarget.getVisibility();
+    if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
+      return true;
+    }
+    if (ruleVisibility.equals(RuleVisibility.PRIVATE)) {
+      return false;
+    }
+    if (!(ruleVisibility instanceof PackageGroupsRuleVisibility packageGroupsVisibility)) {
+      return false;
+    }
+    if (packageGroupsVisibility.getDirectPackages().containsPackage(consumerPkg)) {
+      return true;
+    }
+    ImmutableList<Label> initialGroups = packageGroupsVisibility.getPackageGroups();
+    if (initialGroups.isEmpty()) {
+      return false;
+    }
+
+    Set<Label> visitedGroups = new HashSet<>();
+    Set<Label> currentGroups = new LinkedHashSet<>(initialGroups);
+
+    while (!currentGroups.isEmpty()) {
+      Set<PackageIdentifier> packageKeys = new HashSet<>();
+      for (Label groupLabel : currentGroups) {
+        packageKeys.add(groupLabel.getPackageIdentifier());
+      }
+      visitedGroups.addAll(currentGroups);
+
+      SkyframeLookupResult lookupResult = env.getValuesAndExceptions(packageKeys);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      Set<Label> nextGroups = new LinkedHashSet<>();
+      for (Label groupLabel : currentGroups) {
+        PackageIdentifier pkgId = groupLabel.getPackageIdentifier();
+        PackageValue pkgValue;
+        try {
+          pkgValue = (PackageValue) lookupResult.getOrThrow(pkgId, NoSuchPackageException.class);
+        } catch (NoSuchPackageException e) {
+          continue;
+        }
+        if (pkgValue == null) {
+          return null;
+        }
+        Target groupTarget;
+        try {
+          groupTarget = pkgValue.getPackage().getTarget(groupLabel.getName());
+        } catch (NoSuchTargetException e) {
+          continue;
+        }
+        if (groupTarget instanceof PackageGroup packageGroup) {
+          if (packageGroup.contains(consumerPkg)) {
+            return true;
+          }
+          for (Label include : packageGroup.getIncludes()) {
+            if (!visitedGroups.contains(include)) {
+              nextGroups.add(include);
+            }
+          }
+        }
+      }
+      currentGroups = nextGroups;
+    }
+    return false;
   }
 
   /**

@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -102,9 +104,8 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
     return super.getExtraActionInfo(actionKeyContext).setExtension(infoExtension, getInfo());
   }
 
-  public static Artifact getDummyOutput(RuleContext ruleContext) {
-    return ruleContext.getPackageRelativeArtifact(
-        ruleContext.getLabel().getName() + ".extra_action_dummy",
-        ruleContext.getGenfilesDirectory());
+  public static Artifact getDummyOutput(ActionConstructionContext context, Label label) {
+    return context.getPackageRelativeArtifact(
+        label.getName() + ".extra_action_dummy", context.getGenfilesDirectory());
   }
 }

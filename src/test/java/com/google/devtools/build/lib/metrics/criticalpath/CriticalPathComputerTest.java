@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent.ChangePhase;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MockAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
@@ -145,6 +145,99 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     // still 'incorrect', it is more fair than keeping the latest invocation data.
     assertThat(cp.getSpawnMetrics().getRemoteMetrics().totalTimeInMs()).isEqualTo(30 * 1000);
     assertThat(cp.getLongestPhaseSpawnRunnerName()).isEqualTo("second");
+  }
+
+  @Test
+  public void testSingleSpawnMetrics_maxNonDuration() {
+    CriticalPathComponent cp = new CriticalPathComponent(new NullAction(), 0);
+    cp.addSpawnResult(
+        SpawnMetrics.Builder.forRemoteExec()
+            .setTotalTimeInMs(10 * 1000)
+            .setMemoryEstimateBytes(1024)
+            .setInputBytes(2048)
+            .setInputFiles(5)
+            .build(),
+        "runner",
+        "",
+        false);
+    cp.finishActionExecution(0, 10, "test");
+
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::memoryEstimate)).isEqualTo(1024);
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::inputBytes)).isEqualTo(2048);
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::inputFiles)).isEqualTo(5);
+    assertThat(cp.getSpawnMetrics().getRemoteMetrics().memoryEstimate()).isEqualTo(1024);
+  }
+
+  @Test
+  public void testMultipleSpawnMetricsDifferentExecKind_maxNonDuration() {
+    CriticalPathComponent cp = new CriticalPathComponent(new NullAction(), 0);
+    cp.addSpawnResult(
+        SpawnMetrics.Builder.forRemoteExec()
+            .setTotalTimeInMs(10 * 1000)
+            .setMemoryEstimateBytes(1024)
+            .setInputBytes(500)
+            .setInputFiles(2)
+            .build(),
+        "remote_runner",
+        "",
+        false);
+    cp.changePhase();
+    cp.addSpawnResult(
+        SpawnMetrics.Builder.forLocalExec()
+            .setTotalTimeInMs(20 * 1000)
+            .setMemoryEstimateBytes(2048)
+            .setInputBytes(300)
+            .setInputFiles(8)
+            .build(),
+        "local_runner",
+        "",
+        false);
+    cp.finishActionExecution(0, 30, "test");
+
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::memoryEstimate)).isEqualTo(2048);
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::inputBytes)).isEqualTo(500);
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::inputFiles)).isEqualTo(8);
+    assertThat(cp.getSpawnMetrics().getRemoteMetrics().memoryEstimate()).isEqualTo(1024);
+    assertThat(cp.getSpawnMetrics().getMetrics(SpawnMetrics.ExecKind.LOCAL).memoryEstimate())
+        .isEqualTo(2048);
+  }
+
+  @Test
+  public void testSameExecKindAcrossPhases_combined() {
+    CriticalPathComponent cp = new CriticalPathComponent(new NullAction(), 0);
+    cp.addSpawnResult(
+        SpawnMetrics.Builder.forRemoteExec()
+            .setTotalTimeInMs(10 * 1000)
+            .setExecutionWallTimeInMs(8 * 1000)
+            .setMemoryEstimateBytes(1024)
+            .setInputBytes(500)
+            .setInputFiles(2)
+            .build(),
+        "runner1",
+        "",
+        false);
+    cp.changePhase();
+    cp.addSpawnResult(
+        SpawnMetrics.Builder.forRemoteExec()
+            .setTotalTimeInMs(15 * 1000)
+            .setExecutionWallTimeInMs(12 * 1000)
+            .setMemoryEstimateBytes(2048)
+            .setInputBytes(300)
+            .setInputFiles(8)
+            .build(),
+        "runner2",
+        "",
+        false);
+    cp.finishActionExecution(0, 30, "test");
+
+    // Durations should be summed, non-durations should be maxed.
+    assertThat(cp.getSpawnMetrics().getRemoteMetrics().totalTimeInMs()).isEqualTo(25 * 1000);
+    assertThat(cp.getSpawnMetrics().getRemoteMetrics().executionWallTimeInMs())
+        .isEqualTo(20 * 1000);
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::memoryEstimate)).isEqualTo(2048);
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::inputBytes)).isEqualTo(500);
+    assertThat(cp.getMaxNonDuration(0, SpawnMetrics::inputFiles)).isEqualTo(8);
+    assertThat(cp.getSpawnMetrics().getMetrics(SpawnMetrics.ExecKind.LOCAL).isEmpty()).isTrue();
   }
 
   /**

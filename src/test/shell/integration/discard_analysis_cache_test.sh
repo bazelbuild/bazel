@@ -68,12 +68,25 @@ EOF
 
 function set_up() {
   add_rules_java MODULE.bazel
+  add_rules_shell MODULE.bazel
 }
 
 #### TESTS #############################################################
 
 function test_compile_helloworld() {
-  write_hello_world_files
+  mkdir -p hello || fail "mkdir hello failed"
+  cat >hello/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(name = 'hello',
+  srcs = ['hello.sh'])
+EOF
+
+  cat >hello/hello.sh <<EOF
+#!/usr/bin/env bash
+echo "hello!"
+EOF
+  chmod +x hello/hello.sh
+
   bazel run --experimental_ui_debug_all_events --discard_analysis_cache hello:hello >&$TEST_log \
       || fail "Build failed"
   expect_log "Loading package: hello"
@@ -332,8 +345,14 @@ EOF
 int b() { return FOO_VALUE; }
 EOF
 
+  # Settle MODULE.bazel.lock before the builds below: a lockfile updated at
+  # the end of the first build would dirty the loading-phase nodes of
+  # @other_repo, which the second build relies on finding done in Skyframe.
+  bazel build --experimental_merged_skyframe_analysis_execution --nobuild \
+      //foo:target_a >& "$TEST_log" \
+      || fail "Warm-up build of target_a failed"
+
   bazel build --experimental_merged_skyframe_analysis_execution \
-      --lockfile_mode=off \
       //foo:target_a >& "$TEST_log" \
       || fail "First build of target_a failed"
 
@@ -345,7 +364,6 @@ EOF
   # header from the execroot. HeaderDiscovery then requires the fallback
   # package root lookup in IncrementalPackageRoots to resolve the package root.
   bazel build --experimental_merged_skyframe_analysis_execution \
-      --lockfile_mode=off \
       --spawn_strategy=standalone \
       --cxxopt=-O3 //foo:target_b >& "$TEST_log" \
       || fail "Second build of target_b failed"

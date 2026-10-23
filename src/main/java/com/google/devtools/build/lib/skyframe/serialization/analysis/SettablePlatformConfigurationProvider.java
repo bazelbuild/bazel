@@ -58,13 +58,9 @@ public final class SettablePlatformConfigurationProvider implements PlatformConf
   }
 
   @Override
-  public boolean trimTestOptions(BuildOptions options) {
-    return get().trimTestOptions(options);
-  }
-
-  @Override
-  public boolean usePlatformInOutputDir() {
-    return get().usePlatformInOutputDir();
+  public BuildOptions getActualBaseOptionsForPlatform(
+      Label platformLabel, boolean isExec, boolean trimTestOptions) throws SerializationException {
+    return get().getActualBaseOptionsForPlatform(platformLabel, isExec, trimTestOptions);
   }
 
   @Override

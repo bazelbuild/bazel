@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages.semantics;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ImmutableDeserializationContext;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Random;
@@ -117,6 +119,31 @@ public class ConsistencyTest {
     assertThat(modified.getBool(flag)).isTrue();
   }
 
+  @Test
+  public void allowlistLabelConverter_validatesLabelSyntax() throws Exception {
+    assertThat(parseOptions("--bzl_file_size_limit_allowlist=").getBzlFileSizeLimitAllowlist())
+        .isEmpty();
+    assertThat(
+            parseOptions(
+                    "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl")
+                .getBzlFileSizeLimitAllowlist())
+        .isEqualTo("//tools/allowlist:allowlist.allowlist.scl");
+    assertThat(
+            parseOptions(
+                    "--bzl_file_size_limit_allowlist=@@repo//tools/allowlist:allowlist.allowlist.scl")
+                .getBzlFileSizeLimitAllowlist())
+        .isEqualTo("@@repo//tools/allowlist:allowlist.allowlist.scl");
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseOptions("--bzl_file_size_limit_allowlist=not_a_valid_label"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseOptions("--bzl_file_size_limit_allowlist=:allowlist.allowlist.scl"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseOptions("--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl"));
+  }
+
   /**
    * Constructs a {@link BuildLanguageOptions} object with random fields. Must access {@code rand}
    * using the same sequence of operations (for the same fields) as {@link #buildRandomSemantics}.
@@ -130,7 +157,6 @@ public class ConsistencyTest {
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_single_package_toolchain_binding=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
-        "--incompatible_no_implicit_watch_label=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
@@ -157,7 +183,11 @@ public class ConsistencyTest {
         "--incompatible_symbolic_macro_strict_attrs=" + rand.nextBoolean(),
         "--internal_starlark_flag_test_canary=" + rand.nextBoolean(),
         "--internal_starlark_utf_8_byte_strings=" + rand.nextBoolean(),
-        "--max_computation_steps=" + rand.nextLong());
+        "--max_computation_steps=" + rand.nextLong(),
+        "--max_bzl_file_size=" + rand.nextLong(),
+        "--soft_max_bzl_file_size=" + rand.nextLong(),
+        "--bzl_file_size_limit_allowlist=//pkg:" + rand.nextInt() + ".allowlist.scl",
+        "--nested_set_count_limit=" + rand.nextInt());
   }
 
   /**
@@ -175,7 +205,6 @@ public class ConsistencyTest {
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())
@@ -205,6 +234,12 @@ public class ConsistencyTest {
         .setBool(StarlarkSemantics.PRINT_TEST_MARKER, rand.nextBoolean())
         .setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, rand.nextBoolean())
         .set(BuildLanguageOptions.MAX_COMPUTATION_STEPS, rand.nextLong())
+        .set(BuildLanguageOptions.MAX_BZL_FILE_SIZE, rand.nextLong())
+        .set(BuildLanguageOptions.SOFT_MAX_BZL_FILE_SIZE, rand.nextLong())
+        .set(
+            BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST,
+            "//pkg:" + rand.nextInt() + ".allowlist.scl")
+        .set(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT, rand.nextInt())
         .build();
   }
 

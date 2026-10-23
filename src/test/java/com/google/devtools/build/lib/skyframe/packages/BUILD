@@ -25,7 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:external_files_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:AbstractPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageLoader",
         "//src/main/java/com/google/devtools/build/lib/util:value_or_exception",

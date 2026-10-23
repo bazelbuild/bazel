@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.util.io.RecordOutputStream;
+import com.google.devtools.build.lib.util.io.RecordAlignedBufferedOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -146,7 +146,8 @@ public abstract class MapCodec<K, V> {
    */
   public Writer createWriter(Path path, int version, boolean overwrite) throws IOException {
     boolean append = !overwrite && path.exists();
-    RecordOutputStream recordOut = new RecordOutputStream(path.getOutputStream(append));
+    RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(path.getOutputStream(append));
     DataOutputStream dataOut = new DataOutputStream(recordOut);
     if (!append) {
       dataOut.writeLong(MAGIC);
@@ -157,19 +158,20 @@ public abstract class MapCodec<K, V> {
   }
 
   /**
-   * Writes key/value pairs to a {@link DataOutputStream} backed by a {@link RecordOutputStream}.
+   * Writes key/value pairs to a {@link DataOutputStream} backed by a {@link
+   * RecordAlignedBufferedOutputStream}.
    *
    * <p>In a best-effort attempt to prevent data corruption in the event of an abrupt exit, use a
-   * {@link RecordOutputStream} instead of a {@link BufferedOutputStream} to ensure that only
-   * complete records are ever written to the underlying unbuffered {@link OutputStream}. While this
-   * can still be defeated by partial writes, experiments suggest they're rather unlikely for small
-   * buffer sizes.
+   * {@link RecordAlignedBufferedOutputStream} instead of a {@link BufferedOutputStream} to ensure
+   * that only complete records are ever written to the underlying unbuffered {@link OutputStream}.
+   * While this can still be defeated by partial writes, experiments suggest they're rather unlikely
+   * for small buffer sizes.
    */
   public final class Writer implements AutoCloseable {
-    private final RecordOutputStream recordOut;
+    private final RecordAlignedBufferedOutputStream recordOut;
     private final DataOutputStream dataOut;
 
-    private Writer(RecordOutputStream recordOut, DataOutputStream dataOut) {
+    private Writer(RecordAlignedBufferedOutputStream recordOut, DataOutputStream dataOut) {
       this.recordOut = recordOut;
       this.dataOut = dataOut;
     }

@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVer
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -171,7 +170,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
       SkyFunction ignoredSubdirectoriesFunction,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       boolean allowExternalRepositories,
       Supplier<Path> repoContentsCachePathSupplier,
@@ -194,7 +192,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         syscallCache,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         ignoredSubdirectoriesFunction,
-        crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         actionOnFilesystemErrorCodeLoadingBzlFile,
@@ -566,8 +563,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     Map<String, SkyKeyStats> ruleStats = new HashMap<>();
     Map<String, SkyKeyStats> aspectStats = new HashMap<>();
     Multiset<StarlarkProvider> starlarkProviders = HashMultiset.create();
-    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-        memoizingEvaluator.getDoneValues().entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneAnalysisValues().entrySet()) {
       SkyValue value = skyKeyAndValue.getValue();
       SkyKey key = skyKeyAndValue.getKey();
       SkyFunctionName functionName = key.functionName();
@@ -603,6 +599,18 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         Multisets.copyHighestCountFirst(starlarkProviders));
   }
 
+  /** Returns the done configured target and aspect values in the graph. */
+  private Map<SkyKey, SkyValue> collectDoneAnalysisValues() {
+    return memoizingEvaluator
+        .getInMemoryGraph()
+        .collectDoneValues(
+            key -> {
+              SkyFunctionName functionName = key.functionName();
+              return functionName.equals(SkyFunctions.CONFIGURED_TARGET)
+                  || functionName.equals(SkyFunctions.ASPECT);
+            });
+  }
+
   private static void addStarlarkProviders(
       TransitiveInfoProviderMap providers, Multiset<StarlarkProvider> starlarkProviders) {
     for (int i = 0; i < providers.getProviderCount(); i++) {
@@ -620,8 +628,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     ImmutableList.Builder<Callable<Void>> tasks = ImmutableList.builder();
 
     try {
-      for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-          memoizingEvaluator.getDoneValues().entrySet()) {
+      for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneAnalysisValues().entrySet()) {
         SkyKey key = skyKeyAndValue.getKey();
         SkyValue skyValue = skyKeyAndValue.getValue();
         if (skyValue == null) {
@@ -684,8 +691,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void dumpSkyframeState(ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException, IOException, TemplateExpansionException {
 
-    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-        memoizingEvaluator.getDoneValues().entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneAnalysisValues().entrySet()) {
       SkyKey key = skyKeyAndValue.getKey();
       SkyValue skyValue = skyKeyAndValue.getValue();
       if (skyValue == null) {
@@ -860,6 +866,37 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     return new Builder();
   }
 
+  public static final DiffCheckNotificationOptions BAZEL_DIFF_CHECK_NOTIFICATION_OPTIONS =
+      new DiffCheckNotificationOptions() {
+        @Override
+        public boolean allowDiffCheck(
+            EvaluatingVersionDiff versionDiff, EventHandler eventHandler, OptionsProvider options) {
+          return true;
+        }
+
+        @Override
+        public String getStatusMessage() {
+          return "Checking for file changes...";
+        }
+
+        @Override
+        public Duration getStatusUpdateDelay() {
+          return Duration.ofSeconds(1);
+        }
+      };
+
+  public static Builder newBazelSkyframeExecutorBuilder() {
+    return builder()
+        .setIgnoredSubdirectories(IgnoredSubdirectoriesFunction.INSTANCE)
+        .setActionOnIOExceptionReadingBuildFile(
+            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
+        .setActionOnFilesystemErrorCodeLoadingBzlFile(
+            BazelSkyframeExecutorConstants.ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE)
+        .setShouldUseRepoDotBazel(BazelSkyframeExecutorConstants.USE_REPO_DOT_BAZEL)
+        .setBuildFilesByPriority(BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
+        .setDiffCheckNotificationOptions(BAZEL_DIFF_CHECK_NOTIFICATION_OPTIONS);
+  }
+
   /**
    * Builder class for {@link SequencedSkyframeExecutor}.
    *
@@ -872,7 +909,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     FileSystem fileSystem;
     BlazeDirectories directories;
     ActionKeyContext actionKeyContext;
-    private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
     private ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile;
@@ -903,7 +939,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(fileSystem);
       Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(actionKeyContext);
-      Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
       Preconditions.checkNotNull(buildFilesByPriority);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(actionOnFilesystemErrorCodeLoadingBzlFile);
@@ -922,7 +957,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               extraSkyFunctions,
               Preconditions.checkNotNull(syscallCache),
               ignoredSubdirectoriesFunction,
-              crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
               allowExternalRepositories,
               repoContentsCachePathSupplier,
@@ -1016,13 +1050,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setRepoContentsCachePathSupplier(Supplier<Path> repoContentsCachePathSupplier) {
       this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setCrossRepositoryLabelViolationStrategy(
-        CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
-      this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
       return this;
     }
 

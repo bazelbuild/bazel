@@ -48,13 +48,16 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.UnrecognizedOptionException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,6 +69,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 
 /**
  * Handles parsing the blaze command arguments.
@@ -156,6 +160,28 @@ public final class BlazeOptionHandler {
    * was called from the output directory and fail if it was.
    */
   private DetailedExitCode checkCwdInWorkspace(EventHandler eventHandler) {
+    if (workspace.getDirectories().inWorkspace()) {
+      Path workspacePath = workspace.getWorkspace();
+      if (workspacePath != null && workspacePath.getParentDirectory() != null) {
+        Path doNotBuild =
+            workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
+
+        boolean doNotBuildExists;
+        try {
+          doNotBuildExists = doNotBuild.exists();
+        } catch (IOException e) {
+          // TODO(tjgq): Propagate this error.
+          doNotBuildExists = false;
+        }
+
+        if (doNotBuildExists) {
+          String message = getNotInRealWorkspaceError(doNotBuild);
+          eventHandler.handle(Event.error(message));
+          return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
+        }
+      }
+    }
+
     if (!commandAnnotation.mustRunInWorkspace()) {
       return DetailedExitCode.success();
     }
@@ -172,25 +198,6 @@ public final class BlazeOptionHandler {
       return createDetailedExitCode(message, Code.NOT_IN_WORKSPACE);
     }
 
-    Path workspacePath = workspace.getWorkspace();
-    if (workspacePath.getParentDirectory() != null) {
-      Path doNotBuild =
-          workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
-
-      boolean doNotBuildExists;
-      try {
-        doNotBuildExists = doNotBuild.exists();
-      } catch (IOException e) {
-        // TODO(tjgq): Propagate this error.
-        doNotBuildExists = false;
-      }
-
-      if (doNotBuildExists) {
-        String message = getNotInRealWorkspaceError(doNotBuild);
-        eventHandler.handle(Event.error(message));
-        return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
-      }
-    }
     return DetailedExitCode.success();
   }
 
@@ -630,11 +637,12 @@ public final class BlazeOptionHandler {
     accumulator.add(commandAnnotation.name());
   }
 
-  private static DetailedExitCode processOptionsParsingException(
+  private DetailedExitCode processOptionsParsingException(
       ExtendedEventHandler eventHandler,
       OptionsParsingException e,
       String logMessage,
       Code failureCode) {
+    e = maybeAddStartupOptionHint(e);
     Event error;
     // Differentiates errors stemming from an invalid argument and errors from different parts of
     // the codebase.
@@ -647,6 +655,54 @@ public final class BlazeOptionHandler {
     }
     eventHandler.handle(error);
     return createDetailedExitCode(logMessage + ": " + e.getMessage(), failureCode);
+  }
+
+  private OptionsParsingException maybeAddStartupOptionHint(OptionsParsingException e) {
+    if (!(e instanceof UnrecognizedOptionException)) {
+      return e;
+    }
+    String invalidArg = e.getInvalidArgument();
+    if (invalidArg == null) {
+      return e;
+    }
+    String startupFlag = getMatchingStartupOptionFlag(invalidArg);
+    if (startupFlag == null) {
+      return e;
+    }
+    return new UnrecognizedOptionException(
+        invalidArg,
+        String.format(
+            " (%s is a startup option and must appear before the '%s' command)",
+            startupFlag, commandAnnotation.name()));
+  }
+
+  @Nullable
+  private String getMatchingStartupOptionFlag(String arg) {
+    if (!arg.startsWith("--")) {
+      return null;
+    }
+    int eqIndex = arg.indexOf('=');
+    String flag = eqIndex >= 0 ? arg.substring(0, eqIndex) : arg;
+    String name = flag.substring(2);
+    IsolatedOptionsData startupOptions =
+        (IsolatedOptionsData)
+            OptionsParser.getOptionsData(
+                BlazeCommandUtils.getStartupOptions(runtime.getOptionsSuppliers()));
+    OptionDefinition def = startupOptions.getOptionDefinitionFromName(name);
+    if (def == null && eqIndex < 0 && name.startsWith("no")) {
+      def = startupOptions.getOptionDefinitionFromName(name.substring(2));
+      if (def != null && def.requiresValue()) {
+        def = null;
+      }
+    }
+    if (def == null) {
+      return null;
+    }
+    ImmutableList<OptionMetadataTag> tags = ImmutableList.copyOf(def.getOptionMetadataTags());
+    if (tags.contains(OptionMetadataTag.INTERNAL) || tags.contains(OptionMetadataTag.HIDDEN)) {
+      return null;
+    }
+    return flag;
   }
 
   private String getNotInRealWorkspaceError(Path doNotBuildFile) {

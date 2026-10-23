@@ -18,15 +18,21 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Optional;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -40,6 +46,8 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -134,6 +142,11 @@ public final class StarlarkProviderTest {
           public Location getLocation() {
             return Location.BUILTIN;
           }
+
+          @Override
+          public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+            return Types.ANY_CALLABLE;
+          }
         };
 
     StarlarkProvider provider =
@@ -165,6 +178,11 @@ public final class StarlarkProviderTest {
           public Location getLocation() {
             return Location.BUILTIN;
           }
+
+          @Override
+          public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+            return Types.ANY_CALLABLE;
+          }
         };
 
     StarlarkProvider provider =
@@ -178,14 +196,16 @@ public final class StarlarkProviderTest {
   @Test
   public void rawConstructorBypassesInit() throws Exception {
     StarlarkCallable init = mock(StarlarkCallable.class, "init");
+    when(init.getCallableType(any(), any())).thenReturn(Types.ANY_CALLABLE);
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setInit(init)
             .buildWithIdentityToken(generator.generate());
+    verify(init).getCallableType(any(), any());
     StarlarkInfo infoFromRawConstructor = instantiateWithA1B2C3(provider.createRawConstructor());
     assertHasExactlyValuesA1B2C3(infoFromRawConstructor);
     assertThat(infoFromRawConstructor.getProvider()).isEqualTo(provider);
-    verifyNoInteractions(init);
+    verifyNoMoreInteractions(init);
   }
 
   @Test
@@ -665,6 +685,36 @@ public final class StarlarkProviderTest {
         .testEquals();
   }
 
+  @Test
+  public void providerKeyEqualsAndHashCode() throws Exception {
+    StarlarkProvider.Key keyFooA1 =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provA");
+    StarlarkProvider.Key keyFooA2 =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provA");
+    StarlarkProvider.Key keyFooB =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provB");
+    StarlarkProvider.Key keyBarA =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//bar.bzl")), "provA");
+
+    // Simulate DynamicCodec deserialization where transient hashCode is initialized to 0.
+    StarlarkProvider.Key keyFooADeserialized =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo.bzl")), "provA");
+    Field hashCodeField = StarlarkProvider.Key.class.getDeclaredField("hashCode");
+    hashCodeField.setAccessible(true);
+    assertThat(Modifier.isTransient(hashCodeField.getModifiers())).isTrue();
+    hashCodeField.setInt(keyFooADeserialized, 0);
+
+    new EqualsTester()
+        .addEqualityGroup(keyFooA1, keyFooA2, keyFooADeserialized)
+        .addEqualityGroup(keyFooB)
+        .addEqualityGroup(keyBarA)
+        .testEquals();
+
+    StarlarkProvider exported = StarlarkProvider.builder(Location.BUILTIN).buildExported(keyFooA1);
+    assertThat(exported.hashCode()).isEqualTo(keyFooA1.hashCode());
+    assertThat(keyFooADeserialized.hashCode()).isEqualTo(keyFooA1.hashCode());
+  }
+
   /** Custom init equivalent to `def initBC(a): return {a:a, b:a*2, c:a*3}` */
   private static final StarlarkCallable initBC =
       new StarlarkCallable() {
@@ -693,6 +743,19 @@ public final class StarlarkProviderTest {
         @Override
         public Location getLocation() {
           return Location.BUILTIN;
+        }
+
+        @Override
+        public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+          return Types.generalCallable(
+              ImmutableList.of("a"),
+              ImmutableList.of(Types.ANY),
+              0,
+              1,
+              ImmutableSet.of("a"),
+              null,
+              null,
+              Types.dict(Types.STR, Types.ANY));
         }
       };
 

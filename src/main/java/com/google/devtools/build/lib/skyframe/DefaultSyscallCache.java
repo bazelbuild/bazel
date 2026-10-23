@@ -15,12 +15,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Ascii;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
-import com.google.devtools.build.lib.util.LatestObjectMetricExporter;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,10 +43,6 @@ public final class DefaultSyscallCache implements SyscallCache {
 
   private final Supplier<LoadingCache<Path, Object>> statCacheSupplier;
   private final Supplier<LoadingCache<Path, Object>> readdirCacheSupplier;
-
-  @Nullable private final LatestObjectMetricExporter<Cache<?, ?>> statCacheMetricExporter;
-
-  @Nullable private final LatestObjectMetricExporter<Cache<?, ?>> readdirCacheMetricExporter;
 
   private LoadingCache<Path, Object> statCache;
 
@@ -104,13 +98,9 @@ public final class DefaultSyscallCache implements SyscallCache {
 
   private DefaultSyscallCache(
       Supplier<LoadingCache<Path, Object>> statCacheSupplier,
-      Supplier<LoadingCache<Path, Object>> readdirCacheSupplier,
-      @Nullable LatestObjectMetricExporter<Cache<?, ?>> statCacheMetricExporter,
-      @Nullable LatestObjectMetricExporter<Cache<?, ?>> readdirCacheMetricExporter) {
+      Supplier<LoadingCache<Path, Object>> readdirCacheSupplier) {
     this.statCacheSupplier = statCacheSupplier;
     this.readdirCacheSupplier = readdirCacheSupplier;
-    this.statCacheMetricExporter = statCacheMetricExporter;
-    this.readdirCacheMetricExporter = readdirCacheMetricExporter;
     clear();
   }
 
@@ -124,8 +114,6 @@ public final class DefaultSyscallCache implements SyscallCache {
     private int maxStats = UNSET;
     private int maxReaddirs = UNSET;
     private int initialCapacity = UNSET;
-    private LatestObjectMetricExporter<Cache<?, ?>> statCacheMetricExporter = null;
-    private LatestObjectMetricExporter<Cache<?, ?>> readdirCacheMetricExporter = null;
 
     private Builder() {}
 
@@ -150,56 +138,14 @@ public final class DefaultSyscallCache implements SyscallCache {
       return this;
     }
 
-    /**
-     * Sets the metric exporter for the 'stat' cache.
-     *
-     * <p>No metrics are exported by default. If a non-null value is set, the 'stat' cache will
-     * record access statistics with some overhead.
-     *
-     * @deprecated If you need this, please file an issue on the Bazel GitHub tracker. It ultimately
-     *     did not work as intended internally at Google, but it can be retained if others are using
-     *     it.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setStatCacheMetricExporter(
-        LatestObjectMetricExporter<Cache<?, ?>> statCacheMetricExporter) {
-      this.statCacheMetricExporter = statCacheMetricExporter;
-      return this;
-    }
-
-    /**
-     * Sets the metric exporter for the 'readdir' cache.
-     *
-     * <p>No metrics are exported by default. If a non-null value is set, the 'readdir' cache will
-     * record access statistics with some overhead.
-     *
-     * @deprecated If you need this, please file an issue on the Bazel GitHub tracker. It ultimately
-     *     did not work as intended internally at Google, but it can be retained if others are using
-     *     it.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setReaddirCacheMetricExporter(
-        LatestObjectMetricExporter<Cache<?, ?>> readdirCacheMetricExporter) {
-      this.readdirCacheMetricExporter = readdirCacheMetricExporter;
-      return this;
-    }
-
     public DefaultSyscallCache build() {
       Caffeine<Object, Object> statCacheBuilder = Caffeine.newBuilder();
       if (maxStats != UNSET) {
         statCacheBuilder.maximumSize(maxStats);
       }
-      if (statCacheMetricExporter != null) {
-        statCacheBuilder.recordStats();
-      }
       Caffeine<Object, Object> readdirCacheBuilder = Caffeine.newBuilder();
       if (maxReaddirs != UNSET) {
         readdirCacheBuilder.maximumSize(maxReaddirs);
-      }
-      if (readdirCacheMetricExporter != null) {
-        readdirCacheBuilder.recordStats();
       }
       if (initialCapacity != UNSET) {
         statCacheBuilder.initialCapacity(initialCapacity);
@@ -207,9 +153,7 @@ public final class DefaultSyscallCache implements SyscallCache {
       }
       return new DefaultSyscallCache(
           () -> statCacheBuilder.build(DefaultSyscallCache::statImpl),
-          () -> readdirCacheBuilder.build(DefaultSyscallCache::readdirImpl),
-          statCacheMetricExporter,
-          readdirCacheMetricExporter);
+          () -> readdirCacheBuilder.build(DefaultSyscallCache::readdirImpl));
     }
   }
 
@@ -323,12 +267,6 @@ public final class DefaultSyscallCache implements SyscallCache {
     // Drop not just the memory of the FileStatus objects but the maps themselves.
     statCache = statCacheSupplier.get();
     readdirCache = readdirCacheSupplier.get();
-    if (statCacheMetricExporter != null) {
-      statCacheMetricExporter.setLatestInstance(statCache);
-    }
-    if (readdirCacheMetricExporter != null) {
-      readdirCacheMetricExporter.setLatestInstance(readdirCache);
-    }
   }
 
   // This is used because the cache implementations don't allow null.

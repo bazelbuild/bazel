@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "src/main/cpp/archive_utils.h"
 
+#include <chrono>  // NOLINT
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -20,6 +22,7 @@
 #include <set>
 #include <string>
 #include <thread>  // NOLINT
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
@@ -325,14 +328,6 @@ void ExtractSingleFile(const string& archive_path, const string& file_name,
 
 void ExtractBuildLabel(const string &archive_path, string *build_label) {
   ExtractSingleFile(archive_path, "build-label.txt", build_label);
-}
-
-string GetServerJarPath(const vector<string> &archive_contents) {
-  if (archive_contents.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Couldn't find server jar in archive";
-  }
-  return archive_contents[0];
 }
 
 }  // namespace blaze

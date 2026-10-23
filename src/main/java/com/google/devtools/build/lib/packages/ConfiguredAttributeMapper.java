@@ -136,15 +136,47 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * resolved due to intrinsic contradictions in the configuration.
    */
   public <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
-    AttributeResolutionResult<T> result = getResolvedAttribute(attributeName, type);
-    if (result.getType() == AttributeResolutionResult.AttributeResolutionResultType.FAILURE) {
-      throw new ValidationException(result.getFailure());
+    // This is the hot path (every attribute read goes through here), so it returns the resolved
+    // value directly instead of wrapping it in an AttributeResolutionResult.
+    SelectorList<T> selectorList = getSelectorList(attributeName, type);
+    if (selectorList == null) {
+      // This is a normal attribute.
+      return super.get(attributeName, type);
     }
 
-    return result.getSuccess().orElse(null);
+    List<T> resolvedList = new ArrayList<>();
+    for (Selector<T> selector : selectorList.getSelectors()) {
+      SelectResolutionResult<T> resolvedPath = resolveSelector(attributeName, selector);
+      if (resolvedPath.getType() == SelectResolutionResult.SelectResolutionResultType.FAILURE) {
+        throw new ValidationException(resolvedPath.getFailure());
+      }
+      if (!selector.isValueSet(resolvedPath.getSuccess().configKey)) {
+        // Use the default. We don't have access to the rule here, so pass null to
+        // Attribute.getValue(). This has the result of making attributes with condition
+        // predicates ineligible for "None" values. But no user-facing attributes should
+        // do that anyway, so that isn't a loss.
+        Attribute attr = getAttributeDefinition(attributeName);
+        if (attr.isMandatory()) {
+          throw new ValidationException(
+              String.format(
+                  "Mandatory attribute '%s' resolved to 'None' after evaluating 'select'"
+                      + " expression",
+                  attributeName));
+        }
+        // Attribute's default value conforms to its type T.
+        @SuppressWarnings("unchecked")
+        T defaultValue = (T) attr.getDefaultValue(rule);
+        resolvedList.add(defaultValue);
+      } else {
+        resolvedList.add(resolvedPath.getSuccess().value);
+      }
+    }
+
+    return resolvedList.size() == 1 ? resolvedList.get(0) : type.concat(resolvedList);
   }
 
   public <T> AttributeResolutionResult<T> getResolvedAttribute(Attribute attr) {
+    // Cast to Type<T> matches the generic return type requested by caller.
     @SuppressWarnings("unchecked")
     Type<T> type = (Type<T>) attr.getType();
     return getResolvedAttribute(attr.getName(), type);
@@ -155,41 +187,11 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * the AttributeResolutionResult
    */
   public <T> AttributeResolutionResult<T> getResolvedAttribute(String attributeName, Type<T> type) {
-    SelectorList<T> selectorList = getSelectorList(attributeName, type);
-    if (selectorList == null) {
-      // This is a normal attribute.
-      return AttributeResolutionResult.ofSuccess(super.get(attributeName, type));
+    try {
+      return AttributeResolutionResult.ofSuccess(getAndValidate(attributeName, type));
+    } catch (ValidationException e) {
+      return AttributeResolutionResult.ofFailure(e.getMessage());
     }
-
-    List<T> resolvedList = new ArrayList<>();
-    for (Selector<T> selector : selectorList.getSelectors()) {
-      SelectResolutionResult<T> resolvedPath = resolveSelector(attributeName, selector);
-      if (resolvedPath.getType() == SelectResolutionResult.SelectResolutionResultType.FAILURE) {
-        return AttributeResolutionResult.ofFailure(resolvedPath.getFailure());
-      }
-      if (!selector.isValueSet(resolvedPath.getSuccess().configKey)) {
-        // Use the default. We don't have access to the rule here, so pass null to
-        // Attribute.getValue(). This has the result of making attributes with condition
-        // predicates ineligible for "None" values. But no user-facing attributes should
-        // do that anyway, so that isn't a loss.
-        Attribute attr = getAttributeDefinition(attributeName);
-        if (attr.isMandatory()) {
-          return AttributeResolutionResult.ofFailure(
-              String.format(
-                  "Mandatory attribute '%s' resolved to 'None' after evaluating 'select'"
-                      + " expression",
-                  attributeName));
-        }
-        @SuppressWarnings("unchecked")
-        T defaultValue = (T) attr.getDefaultValue(rule);
-        resolvedList.add(defaultValue);
-      } else {
-        resolvedList.add(resolvedPath.getSuccess().value);
-      }
-    }
-
-    return AttributeResolutionResult.ofSuccess(
-        resolvedList.size() == 1 ? resolvedList.get(0) : type.concat(resolvedList));
   }
 
   /** Representation of the config key and it's value. */

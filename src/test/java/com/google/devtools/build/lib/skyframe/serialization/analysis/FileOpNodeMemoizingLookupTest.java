@@ -14,25 +14,34 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
+import static java.lang.Math.max;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
@@ -42,12 +51,26 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNod
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Predicate;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -57,6 +80,29 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
   // TODO: b/364831651 - consider adding test cases covering other scenarios, like symlinks.
 
   private static final int CONCURRENCY = 4;
+
+  /**
+   * A diamond: {@code top} depends on {@code mid1} and {@code mid2}, which share {@code leaf}.
+   *
+   * <p>{@code leaf} globs, so the graph includes a directory listing.
+   */
+  private static final String DIAMOND_BUILD =
+      genrule("top", "[':mid1', ':mid2']")
+          + genrule("mid1", "['a.txt', ':leaf']")
+          + genrule("mid2", "['b.txt', ':leaf']")
+          + genrule("leaf", "glob(['*.txt'])");
+
+  private ForkJoinPool forkJoinPool;
+
+  @Before
+  public void createForkJoinPool() {
+    forkJoinPool = new ForkJoinPool(CONCURRENCY);
+  }
+
+  @After
+  public void shutdownForkJoinPool() {
+    forkJoinPool.shutdownNow();
+  }
 
   @Test
   public void fileOpNodes_areConsistent() throws Exception {
@@ -347,5 +393,521 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
           .that(graph.getIfPresent(key))
           .isNotNull();
     }
+  }
+
+  // The tests below cover graph materialization and dense leaf ID assignment.
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_inDegreesMatchGraphEdges() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    var _ = lookup.computeLeafIdsAndUploadOrder(selection);
+
+    // In-degrees accumulate during computeLeafIdsAndUploadOrder, at the point each edge is
+    // traversed during the leaf walk. Walk the finished graph and check that every node's recorded
+    // in-degree equals the number of edges actually pointing at it.
+    //
+    // This is worth asserting permanently. A divergence would be silent here and would surface far
+    // downstream as reference counts that never reach zero, and therefore bitmaps that are never
+    // freed -- the exact failure this accounting exists to prevent.
+    Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> parents =
+        nodeParents(lookup, selection);
+
+    assertThat(parents.values().stream().anyMatch(p -> !p.isEmpty())).isTrue();
+    parents.forEach(
+        (node, nodeParents) ->
+            assertWithMessage("in-degree for %s", node)
+                .that(node.getInDegree())
+                .isEqualTo(nodeParents.size()));
+  }
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_depthIsLongestPathFromTop() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    var _ = lookup.computeLeafIdsAndUploadOrder(selection);
+
+    // In a DAG, this recurrence has exactly one solution, so checking it locally at every node
+    // checks every depth.
+    Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> parents =
+        nodeParents(lookup, selection);
+    int maxDepth = 0;
+    for (var entry : parents.entrySet()) {
+      int expected =
+          AbstractNestedFileOpNodes.TOP_DEPTH
+              + entry.getValue().stream()
+                  .mapToInt(AbstractNestedFileOpNodes::getLongestPathDepth)
+                  .max()
+                  .orElse(AbstractNestedFileOpNodes.TOP_DEPTH - 1);
+      assertWithMessage("longest-path depth of %s", entry.getKey())
+          .that(entry.getKey().getLongestPathDepth())
+          .isEqualTo(expected);
+      maxDepth = max(maxDepth, expected);
+    }
+    // The diamond alone is three levels deep, so a flat assignment cannot pass by accident. Not
+    // exact: the selection holds every done ActionLookupKey, including platform and toolchain
+    // targets outside the diamond, whose nodes can add levels.
+    assertThat(maxDepth).isAtLeast(3);
+  }
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_uploadOrderDescendsByDepth() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    ImmutableList<SkyKey> uploadOrder =
+        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+
+    var depths = new ArrayList<Integer>();
+    for (SkyKey key : uploadOrder) {
+      if (resolvedNode(lookup, (ActionLookupKey) key) instanceof AbstractNestedFileOpNodes node) {
+        depths.add(node.getLongestPathDepth());
+      }
+    }
+    // At least the diamond's three levels. Not exact, for the same reason as in
+    // computeLeafIdsAndUploadOrder_depthIsLongestPathFromTop.
+    assertThat(ImmutableSet.copyOf(depths).size()).isAtLeast(3);
+    assertThat(depths).isInOrder(Comparator.reverseOrder());
+  }
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_uploadOrderPlacesDependenciesFirst() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection =
+        doneKeys(key -> key instanceof ActionLookupKey || key instanceof ActionLookupData);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    ImmutableList<SkyKey> uploadOrder =
+        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+
+    assertThat(uploadOrder).containsNoDuplicates();
+    assertThat(uploadOrder).containsExactlyElementsIn(selection);
+    var position = new HashMap<SkyKey, Integer>();
+    for (int i = 0; i < uploadOrder.size(); i++) {
+      position.put(uploadOrder.get(i), i);
+    }
+
+    // SelectionPartition admits exactly two kinds of analysis-to-analysis inversion: keys that
+    // share a node (a collapse tie), and keys that both lack a nested node (the unranked bucket).
+    // Anything else means a dependency is uploaded after its dependent.
+    InMemoryGraph graph = graph();
+    int checkedRankedEdges = 0;
+    for (SkyKey key : uploadOrder) {
+      if (!(key instanceof ActionLookupKey parent)) {
+        // Owned keys (execution and summary keys) follow every analysis key, so each follows its
+        // owner.
+        ActionLookupKey owner = FileOpNodeMemoizingLookup.getDependencyKey(key);
+        if (position.containsKey(owner)) {
+          assertWithMessage("owner %s of %s", owner, key)
+              .that(position.get(owner))
+              .isLessThan(position.get(key));
+        }
+        continue;
+      }
+      FileOpNodeOrEmpty parentNode = resolvedNode(lookup, parent);
+      for (SkyKey dep : graph.getIfPresent(key).getDirectDeps()) {
+        if (!(dep instanceof ActionLookupKey child) || !position.containsKey(dep)) {
+          continue;
+        }
+        FileOpNodeOrEmpty childNode = resolvedNode(lookup, child);
+        boolean parentRanked = parentNode instanceof AbstractNestedFileOpNodes;
+        boolean childRanked = childNode instanceof AbstractNestedFileOpNodes;
+        if (parentRanked && childRanked && !Objects.equals(parentNode, childNode)) {
+          checkedRankedEdges++;
+        }
+        if (position.get(dep) < position.get(key)
+            || (parentRanked && childRanked && Objects.equals(parentNode, childNode))
+            || (!parentRanked && !childRanked)) {
+          continue;
+        }
+        assertWithMessage("%s is uploaded after its dependent %s", dep, key).fail();
+      }
+    }
+    assertThat(checkedRankedEdges).isGreaterThan(0);
+  }
+
+  @Test
+  public void computeLeafIdsAndUploadOrder_absentKey_excludedFromUploadOrder() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/BUILD", genrule("ok", "['a.txt']"));
+    buildTarget("//pkg:ok");
+    ConfiguredTargetKey okKey = ctKey("//pkg:ok");
+    ActionLookupKey absentKey = unbuiltKey("//pkg:absent");
+    ImmutableSet<SkyKey> selection = ImmutableSet.of(okKey, absentKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+
+    ImmutableList<SkyKey> uploadOrder =
+        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+    assertThat(uploadOrder).contains(okKey);
+    assertThat(uploadOrder).doesNotContain(absentKey);
+  }
+
+  @Test
+  public void materializeNodeGraph_missingDependency_returnsOneFailurePerFailedNode()
+      throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/b.txt", "b");
+    write(
+        "pkg/BUILD",
+        genrule("ok", "['a.txt']") + genrule("bad1", "['b.txt']") + genrule("bad2", "['b.txt']"));
+    buildTarget("//pkg:ok", "//pkg:bad1", "//pkg:bad2");
+    ConfiguredTargetKey bad1Key = ctKey("//pkg:bad1");
+    ImmutableSet<SkyKey> selection =
+        ImmutableSet.of(ctKey("//pkg:ok"), bad1Key, ctKey("//pkg:bad2"));
+    SkyKey removed = removeDirectDependency(bad1Key, "b.txt");
+    var lookup = newLookup(selection);
+
+    // Both bad roots fail on the same missing node. The failure is reported once, deduplicated by
+    // identity, and materialization does not throw.
+    assertSingleMissingEntry(lookup.materializeNodeGraph(selection), removed);
+  }
+
+  @Test
+  public void materializeNodeGraph_emptySelection_completesSuccessfully() throws Exception {
+    assertThat(newLookup(ImmutableSet.of()).materializeNodeGraph(ImmutableSet.of())).isEmpty();
+  }
+
+  @Test
+  public void materializeNodeGraph_interrupted_throwsInterruptedException() throws Exception {
+    var lookup = newLookup(ImmutableSet.of());
+
+    Thread.currentThread().interrupt();
+    try {
+      assertThrows(
+          InterruptedException.class, () -> lookup.materializeNodeGraph(ImmutableSet.of()));
+    } finally {
+      // Clear interrupted status
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  public void materializeNodeGraph_unexpectedExceptionInBatch_returnsException() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/BUILD", genrule("ok", "['a.txt']"));
+    buildTarget("//pkg:ok");
+    // FileKey is in the graph, so isSkipped returns false, but getDependencyKey does not support
+    // it.
+    SkyKey unhandledKey = doneKeys(key -> key instanceof FileKey).iterator().next();
+    var lookup = newLookup(ImmutableSet.of(unhandledKey));
+
+    ImmutableList<Throwable> failures = lookup.materializeNodeGraph(ImmutableSet.of(unhandledKey));
+
+    assertThat(failures).hasSize(1);
+    assertThat(failures.get(0)).isInstanceOf(IllegalStateException.class);
+    assertThat(failures.get(0)).hasMessageThat().contains("unexpected key");
+  }
+
+  @Test
+  public void materializeNodeGraph_batchFailure_stillCollectsNodeFailures() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/b.txt", "b");
+    write("pkg/BUILD", genrule("ok", "['a.txt']") + genrule("bad", "['b.txt']"));
+    buildTarget("//pkg:ok", "//pkg:bad");
+    ConfiguredTargetKey badKey = ctKey("//pkg:bad");
+    SkyKey removed = removeDirectDependency(badKey, "b.txt");
+    SkyKey unhandledKey = doneKeys(key -> key instanceof FileKey).iterator().next();
+    ImmutableSet<SkyKey> selection = ImmutableSet.of(unhandledKey, ctKey("//pkg:ok"), badKey);
+    var lookup = newLookup(selection);
+
+    // A throwing batch does not end materialization early: the node failure is still reported.
+    ImmutableList<Throwable> failures = lookup.materializeNodeGraph(selection);
+
+    assertThat(failures.stream().map(Object::getClass))
+        .containsExactly(IllegalStateException.class, MissingSkyframeEntryException.class);
+    assertThat(
+            failures.stream()
+                .filter(MissingSkyframeEntryException.class::isInstance)
+                .map(e -> ((MissingSkyframeEntryException) e).key()))
+        .containsExactly(removed);
+  }
+
+  @Test
+  public void materializeNodeGraph_rejectedExecution_returnsRejection() throws Exception {
+    forkJoinPool.shutdown();
+    ActionLookupKey absentKey = unbuiltKey("//pkg:absent");
+    var lookup = newLookup(ImmutableSet.of(absentKey));
+
+    ImmutableList<Throwable> failures = lookup.materializeNodeGraph(ImmutableSet.of(absentKey));
+
+    assertThat(failures).hasSize(1);
+    assertThat(failures.get(0)).isInstanceOf(RejectedExecutionException.class);
+  }
+
+  @Test
+  public void materializeNodeGraph_cancelledNode_returnsCancellationException() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/b.txt", "b");
+    write("pkg/BUILD", genrule("ok", "['a.txt']") + genrule("cancelled", "['b.txt']"));
+    buildTarget("//pkg:ok", "//pkg:cancelled");
+    ConfiguredTargetKey cancelledKey = ctKey("//pkg:cancelled");
+    ImmutableSet<SkyKey> selection = ImmutableSet.of(ctKey("//pkg:ok"), cancelledKey);
+    var executor = new DeferredCallbackExecutor(new SafeExecutorOwner(forkJoinPool));
+    var lookup = newLookup(executor, selection);
+
+    // Pre-populate cancelledKey as an in-flight future with an unbuilt child dependency, then
+    // cancel it.
+    FileOpNodeOrFuture inFlight =
+        lookup.computeNode(
+            cancelledKey, new SkyValue() {}, ImmutableList.of(unbuiltKey("//pkg:child")));
+    assertThat(inFlight).isInstanceOf(FutureFileOpNode.class);
+    executor.failOnlyPendingCallback(new CancellationException("injected node cancellation"));
+    assertThat(((FutureFileOpNode) inFlight).isCancelled()).isTrue();
+
+    // materializeNodeGraph completes normally, reporting the cancelled future.
+    ImmutableList<Throwable> failures = lookup.materializeNodeGraph(selection);
+
+    assertThat(failures).hasSize(1);
+    assertThat(failures.get(0)).isInstanceOf(CancellationException.class);
+  }
+
+  @Test
+  public void computeNode_afterDirectDepsCleared_failsUnlessMaterialized() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/b.txt", "b");
+    write(
+        "pkg/BUILD", genrule("materialized", "['a.txt']") + genrule("unmaterialized", "['b.txt']"));
+    buildTarget("//pkg:materialized", "//pkg:unmaterialized");
+    ConfiguredTargetKey materializedKey = ctKey("//pkg:materialized");
+    ConfiguredTargetKey unmaterializedKey = ctKey("//pkg:unmaterialized");
+    var lookup = newLookup(ImmutableSet.of(materializedKey));
+    assertThat(lookup.materializeNodeGraph(ImmutableSet.of(materializedKey))).isEmpty();
+
+    lookup.markDirectDepsCleared();
+
+    // A memoized node is still served.
+    assertThat(lookup.computeNode(materializedKey)).isInstanceOf(FileOpNodeOrEmpty.class);
+    // Any other node would read empty deps from the graph, so it fails instead.
+    var future = (FutureFileOpNode) lookup.computeNode(unmaterializedKey);
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isInstanceOf(IllegalStateException.class);
+    assertThat(thrown)
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains("was not materialized before Skyframe direct deps were cleared");
+  }
+
+  @Test
+  public void populateFutureFileOpNode_cancelledCollector_cancelsOwnedFuture() {
+    SafeExecutor cancellingCallbackExecutor =
+        new SafeExecutor() {
+          @Override
+          public void execute(RejectionHandlingRunnable task) {
+            task.run();
+          }
+
+          @Override
+          public <V> void addCallback(
+              ListenableFuture<V> future, FutureCallback<? super V> callback) {
+            callback.onFailure(new CancellationException("injected dep cancellation"));
+          }
+
+          @Override
+          public Executor getInternalUnsafeExecutor() {
+            return Runnable::run;
+          }
+        };
+    ActionLookupKey parentKey = unbuiltKey("//pkg:parent");
+    var lookup = newLookup(cancellingCallbackExecutor, ImmutableSet.of(parentKey));
+
+    FileOpNodeOrFuture result =
+        lookup.computeNode(
+            parentKey, new SkyValue() {}, ImmutableList.of(unbuiltKey("//pkg:child")));
+
+    assertThat(result).isInstanceOf(FutureFileOpNode.class);
+    var future = (FutureFileOpNode) result;
+    assertThat(future.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, future::get);
+  }
+
+  @Test
+  public void populateFutureFileOpNode_asynchronouslyCancelledCollector_cancelsOwnedFuture() {
+    var executor = new DeferredCallbackExecutor(SafeExecutor.safeDirectExecutor());
+    ActionLookupKey parentKey = unbuiltKey("//pkg:parent");
+    var lookup = newLookup(executor, ImmutableSet.of(parentKey));
+
+    FileOpNodeOrFuture result =
+        lookup.computeNode(
+            parentKey, new SkyValue() {}, ImmutableList.of(unbuiltKey("//pkg:child")));
+
+    assertThat(result).isInstanceOf(FutureFileOpNode.class);
+    var future = (FutureFileOpNode) result;
+    assertThat(future.isDone()).isFalse();
+
+    executor.failOnlyPendingCallback(new CancellationException("injected async cancellation"));
+    assertThat(future.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, future::get);
+  }
+
+  /**
+   * A {@link SafeExecutor} that holds on to the callbacks registered with it, so that a test can
+   * fail them at a chosen point.
+   */
+  private static final class DeferredCallbackExecutor implements SafeExecutor {
+    private final SafeExecutor taskExecutor;
+    private final List<FutureCallback<?>> pendingCallbacks = new ArrayList<>();
+
+    private DeferredCallbackExecutor(SafeExecutor taskExecutor) {
+      this.taskExecutor = taskExecutor;
+    }
+
+    @Override
+    public void execute(RejectionHandlingRunnable task) {
+      taskExecutor.execute(task);
+    }
+
+    @Override
+    public synchronized <V> void addCallback(
+        ListenableFuture<V> future, FutureCallback<? super V> callback) {
+      pendingCallbacks.add(callback);
+    }
+
+    @Override
+    public Executor getInternalUnsafeExecutor() {
+      return Runnable::run;
+    }
+
+    /** Fails the one callback registered so far. */
+    synchronized void failOnlyPendingCallback(Throwable t) {
+      assertThat(pendingCallbacks).hasSize(1);
+      pendingCallbacks.get(0).onFailure(t);
+    }
+  }
+
+  private void writeDiamond() throws Exception {
+    write("pkg/a.txt", "a");
+    write("pkg/b.txt", "b");
+    write("pkg/BUILD", DIAMOND_BUILD);
+    buildTarget("//pkg:top");
+  }
+
+  /** A genrule concatenating {@code srcs}, a Starlark list or glob expression. */
+  private static String genrule(String name, String srcs) {
+    return String.format(
+        """
+        genrule(
+            name = "%1$s",
+            srcs = %2$s,
+            outs = ["%1$s.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """,
+        name, srcs);
+  }
+
+  private InMemoryGraph graph() {
+    return getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+  }
+
+  private ImmutableSet<SkyKey> doneKeys(Predicate<SkyKey> filter) {
+    return graph().getDoneValues().keySet().stream().filter(filter).collect(toImmutableSet());
+  }
+
+  /**
+   * Every nested node reachable from the nodes of {@code selection}, mapped to the nested nodes
+   * that depend on it. Built independently of the lookup's own walk, to check what it recorded.
+   */
+  private static Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> nodeParents(
+      FileOpNodeMemoizingLookup lookup, ImmutableSet<SkyKey> selection) {
+    var parents = new HashMap<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>>();
+    var pending = new ArrayDeque<AbstractNestedFileOpNodes>();
+    for (SkyKey key : selection) {
+      if (resolvedNode(lookup, (ActionLookupKey) key) instanceof AbstractNestedFileOpNodes root
+          && parents.putIfAbsent(root, new ArrayList<>()) == null) {
+        pending.add(root);
+      }
+    }
+    while (!pending.isEmpty()) {
+      AbstractNestedFileOpNodes parent = pending.remove();
+      for (int i = 0; i < parent.analysisDependenciesCount(); i++) {
+        if (parent.getAnalysisDependency(i) instanceof AbstractNestedFileOpNodes child) {
+          List<AbstractNestedFileOpNodes> childParents = parents.get(child);
+          if (childParents == null) {
+            childParents = new ArrayList<>();
+            parents.put(child, childParents);
+            pending.add(child);
+          }
+          childParents.add(parent);
+        }
+      }
+    }
+    return parents;
+  }
+
+  /**
+   * The materialized node for {@code key}.
+   *
+   * <p>{@link FileOpNodeMemoizingLookup#computeNode} can still return the completed future for a
+   * key after {@link FileOpNodeMemoizingLookup#materializeNodeGraph} returns: the future completes,
+   * and so releases quiescence, before its callback replaces the map entry with the node. Checking
+   * {@code computeNode(key) instanceof AbstractNestedFileOpNodes} directly would then miss the
+   * node, while {@link FileOpNodeMemoizingLookup#computeLeafIdsAndUploadOrder} unwraps the future
+   * and walks it.
+   */
+  private static FileOpNodeOrEmpty resolvedNode(
+      FileOpNodeMemoizingLookup lookup, ActionLookupKey key) {
+    return switch (lookup.computeNode(key)) {
+      case FileOpNodeOrEmpty node -> node;
+      case FutureFileOpNode future -> Futures.getUnchecked(future);
+    };
+  }
+
+  private FileOpNodeMemoizingLookup newLookup(
+      SafeExecutor executor, ImmutableSet<SkyKey> selection) {
+    return new FileOpNodeMemoizingLookup(
+        executor,
+        graph(),
+        selection,
+        /* shouldDiscardMemory= */ false,
+        /* referencedPackages= */ null);
+  }
+
+  private FileOpNodeMemoizingLookup newLookup(ImmutableSet<SkyKey> selection) {
+    return newLookup(new SafeExecutorOwner(forkJoinPool), selection);
+  }
+
+  private ConfiguredTargetKey ctKey(String label) throws Exception {
+    ConfiguredTarget target = getConfiguredTarget(label);
+    assertThat(target).isNotNull();
+    return ConfiguredTargetKey.fromConfiguredTarget(target);
+  }
+
+  /** A key for a target that was never built, and so is absent from the graph. */
+  private static ActionLookupKey unbuiltKey(String label) {
+    return ConfiguredTargetKey.builder().setLabel(Label.parseCanonicalUnchecked(label)).build();
+  }
+
+  /**
+   * Removes from the graph the first direct dependency of {@code parent} whose key contains {@code
+   * fragment}, and returns its key.
+   */
+  private SkyKey removeDirectDependency(SkyKey parent, String fragment) throws Exception {
+    InMemoryGraph graph = graph();
+    for (SkyKey dep : graph.getIfPresent(parent).getDirectDeps()) {
+      SkyKey dependencyKey = dep instanceof ActionLookupData ald ? ald.getActionLookupKey() : dep;
+      if (dependencyKey.toString().contains(fragment)
+          && graph.getIfPresent(dependencyKey) != null) {
+        graph.remove(dependencyKey);
+        return dependencyKey;
+      }
+    }
+    throw new AssertionError("no direct dependency of " + parent + " matches " + fragment);
+  }
+
+  private static void assertSingleMissingEntry(ImmutableList<Throwable> failures, SkyKey key) {
+    assertThat(failures).hasSize(1);
+    assertThat(failures.get(0)).isInstanceOf(MissingSkyframeEntryException.class);
+    assertThat(((MissingSkyframeEntryException) failures.get(0)).key()).isEqualTo(key);
   }
 }

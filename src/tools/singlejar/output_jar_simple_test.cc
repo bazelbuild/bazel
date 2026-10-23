@@ -26,17 +26,17 @@
 #include <vector>
 
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/port.h"  // IWYU pragma: keep
+#include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
 #include "src/tools/singlejar/test_util.h"
+#include "src/tools/singlejar/zip_headers.h"
 #include "googletest/include/gtest/gtest.h"
 #include "absl/base/macros.h"
 #include "absl/strings/match.h"
-#include "src/main/cpp/util/file_platform.h"
-#include "src/tools/singlejar/combiners.h"
-#include "src/tools/singlejar/zip_headers.h"
 
 #if !defined(JAR_TOOL_PATH)
 #error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="
@@ -755,8 +755,7 @@ TEST_F(OutputJarSimpleTest, Normalize) {
         << entry_name << " modification time";
     EXPECT_EQ(15393, cdh->last_mod_file_date())
         << entry_name << " modification date should be 01/01/2010";
-    auto n = entry_name.size() - strlen(".class");
-    if (0 == strcmp(entry_name.c_str() + n, ".class")) {
+    if (absl::EndsWith(entry_name, ".class")) {
       EXPECT_EQ(1, cdh->last_mod_file_time())
           << entry_name
           << " modification time for .class entry should be 00:00:02";
@@ -817,8 +816,7 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
         << entry_name << " modification time";
     EXPECT_EQ(15393, cdh->last_mod_file_date())
         << entry_name << " modification date should be 01/01/2010";
-    auto n = entry_name.size() - strlen(".class");
-    if (0 == strcmp(entry_name.c_str() + n, ".class")) {
+    if (absl::EndsWith(entry_name, ".class")) {
       EXPECT_EQ(1, cdh->last_mod_file_time())
           << entry_name
           << " modification time for .class entry should be 00:00:02";
@@ -1233,6 +1231,79 @@ TEST_F(OutputJarSimpleTest, MalformedExtraField) {
   ParseCommandLine(out_path, {"--sources", bad_jar});
   OutputJar output_jar(&options_);
   ASSERT_DEATH(output_jar.Doit(), "malformed extra field");
+}
+
+TEST_F(OutputJarSimpleTest, BuildInfoFileNoTrailingNewline) {
+  string build_info_path =
+      CreateTextFile("buildinfo_nonewline", "k1=v1\nk2=v2");
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--build_info_file", build_info_path});
+  string build_properties = GetEntryContents(out_path, "build-data.properties");
+  EXPECT_PRED2(HasSubstr, build_properties, "k1=v1\nk2=v2");
+}
+
+TEST_F(OutputJarSimpleTest, MultipleUnixTimeAndOddZip64ExtraFields) {
+  std::string zip_data;
+  const std::string filename = "entry.txt";
+
+  size_t lh_offset = zip_data.size();
+  size_t lh_size = sizeof(LH) + filename.size();
+  zip_data.resize(lh_offset + lh_size, 0);
+  auto* lh = reinterpret_cast<LH*>(&zip_data[lh_offset]);
+  lh->signature();
+  lh->version(20);
+  lh->file_name(filename.data(), filename.size());
+
+  // Two 'UT' fields and a 4-byte payload Zip64 field in CDH.
+  uint8_t ef_buffer[] = {
+      'U',  'T',  1, 0, 0,           // UT #1 (5 bytes)
+      'U',  'T',  1, 0, 0,           // UT #2 (5 bytes)
+      1,    0,    4, 0, 1, 2, 3, 4,  // Zip64 with 4-byte payload (8 bytes)
+      0xFE, 0xCA, 0, 0,              // 0xCAFE (4 bytes, should be kept)
+  };
+
+  size_t cdh_offset = zip_data.size();
+  size_t cdh_size = sizeof(CDH) + filename.size() + sizeof(ef_buffer);
+  zip_data.resize(cdh_offset + cdh_size, 0);
+  auto* cdh = reinterpret_cast<CDH*>(&zip_data[cdh_offset]);
+  cdh->signature();
+  cdh->version(20);
+  cdh->version_to_extract(20);
+  cdh->local_header_offset32(lh_offset);
+  cdh->file_name(filename.data(), filename.size());
+  cdh->extra_fields(ef_buffer, sizeof(ef_buffer));
+
+  size_t ecd_offset = zip_data.size();
+  zip_data.resize(ecd_offset + sizeof(ECD), 0);
+  auto* ecd = reinterpret_cast<ECD*>(&zip_data[ecd_offset]);
+  ecd->signature();
+  ecd->this_disk_entries16(1);
+  ecd->total_entries16(1);
+  ecd->cen_size32(cdh_size);
+  ecd->cen_offset32(cdh_offset);
+
+  string in_jar = OutputFilePath("odd_ef.jar");
+  string out_path = OutputFilePath("out.jar");
+  ASSERT_TRUE(blaze_util::WriteFile(zip_data, in_jar));
+  CreateOutput(out_path, {"--normalize", "--sources", in_jar});
+
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH* out_lh = nullptr;
+  const CDH* out_cdh = nullptr;
+  bool found = false;
+  while ((out_cdh = input_jar.NextEntry(&out_lh))) {
+    if (out_cdh->file_name_is("entry.txt")) {
+      found = true;
+      // Both UT extra fields and the Zip64 extra field should be dropped,
+      // leaving only the 4-byte 0xCAFE extra field.
+      EXPECT_EQ(4, out_cdh->extra_fields_length());
+      EXPECT_EQ(nullptr, out_cdh->unix_time_extra_field());
+      EXPECT_EQ(nullptr, out_cdh->zip64_extra_field());
+    }
+  }
+  EXPECT_TRUE(found);
+  input_jar.Close();
 }
 
 }  // namespace
