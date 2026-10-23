@@ -28,6 +28,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -471,7 +472,32 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "seq")})
   public Sequence<?> internList(Sequence<?> seq) {
-    return Tuple.copyOf(Iterables.transform(seq, interner::intern));
+    return Tuple.copyOf(
+        Iterables.transform(
+            seq, value -> referencesArtifactUnderAnalysis(value) ? value : interner.intern(value)));
+  }
+
+  /**
+   * Returns whether {@code value} references an artifact owned by the target currently being
+   * analyzed.
+   *
+   * <p>Such values must not be interned: as long as the generating action key of an artifact isn't
+   * set, it is equal to the artifact with the same path created by a previous attempt at analyzing
+   * the same target, for example one that was restarted due to a missing Skyframe dependency.
+   * Interning could thus return a value that references a stale artifact whose generating action
+   * key is never set. Since such values are specific to a single target, interning them wouldn't
+   * save memory anyway.
+   */
+  private static boolean referencesArtifactUnderAnalysis(Object value) {
+    return switch (value) {
+      case DerivedArtifact artifact -> !artifact.hasGeneratingActionKey();
+      case StarlarkInfo info ->
+          info.getFieldNames().stream()
+              .anyMatch(field -> referencesArtifactUnderAnalysis(info.getValue(field)));
+      case Sequence<?> sequence ->
+          sequence.stream().anyMatch(CcStarlarkInternal::referencesArtifactUnderAnalysis);
+      case null, default -> false;
+    };
   }
 
   @StarlarkMethod(
