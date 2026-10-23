@@ -164,11 +164,8 @@ EOF
     || fail "${sandbox_base} contains stale dirs"
 
   bazel shutdown
-  [[ -d "${sandbox_base}/sandbox_stash" ]] \
-    || fail "${sandbox_base}/_moved_trash_dir directory not present"
-  bazel build
   [[ ! -d "${sandbox_base}/sandbox_stash" ]] \
-    || fail "${sandbox_base}/_moved_trash_dir directory not present"
+    || fail "${sandbox_base}/sandbox_stash directory should be removed on shutdown"
   [[ $(ls -1 ${sandbox_base} | wc -l | tr -d ' ') == 1 ]] \
     || fail "${sandbox_base} contains stale dirs"
 }
@@ -973,10 +970,85 @@ EOF
   [[ ! -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} present after clean"
 
-  bazel build //pkg:a >"${TEST_log}" 2>&1 \
+  bazel shutdown
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} present after shutdown"
+}
+
+function test_sandbox_reuse_stashes_cleaned_on_shutdown() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+genrule(
+  name = "a",
+  srcs = [ "a.txt" ],
+  outs = [ "aout.txt" ],
+  cmd = "wc $(location :a.txt) > $@",
+)
+EOF
+  echo A > pkg/a.txt
+  local output_base="$(bazel info output_base)"
+
+  bazel build --reuse_sandbox_directories //pkg:a >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
 
+  local sandbox_stash="${output_base}/sandbox/sandbox_stash"
+  [[ -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} not present during server lifetime"
+
   bazel shutdown
+
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} should be cleaned up after bazel shutdown"
+}
+
+function test_sandbox_reuse_stashes_cleaned_on_shutdown_multi_action() {
+  mkdir -p pkg
+  cat >pkg/custom_rule.bzl <<'EOF'
+def _custom_rule_impl(ctx):
+  out_a = ctx.actions.declare_file(ctx.label.name + "_A.txt")
+  ctx.actions.run_shell(
+      inputs = ctx.files.srcs,
+      outputs = [out_a],
+      command = "touch {}".format(out_a.path),
+      progress_message = "Action A: {}".format(out_a.basename),
+  )
+  out_b = ctx.actions.declare_file(ctx.label.name + "_B.txt")
+  ctx.actions.run_shell(
+      inputs = [out_a],
+      outputs = [out_b],
+      command = "touch {}".format(out_b.path),
+      progress_message = "Action B: {}".format(out_b.basename),
+  )
+  return DefaultInfo(files = depset([out_b]))
+
+custom_rule = rule(
+    implementation = _custom_rule_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+    },
+)
+EOF
+  cat >pkg/BUILD <<'EOF'
+load(":custom_rule.bzl", "custom_rule")
+custom_rule(
+    name = "dummy_pipeline",
+    srcs = ["input.txt"],
+)
+EOF
+  touch pkg/input.txt
+  local output_base="$(bazel info output_base)"
+
+  bazel build --reuse_sandbox_directories //pkg:dummy_pipeline >"${TEST_log}" 2>&1 \
+    || fail "Expected build to succeed"
+
+  local sandbox_stash="${output_base}/sandbox/sandbox_stash"
+  [[ -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} not present after build"
+
+  bazel shutdown
+
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} should be cleaned up after bazel shutdown"
 }
 
 # This test does not currently work in Blaze. Not due to the inaccessible dirs
