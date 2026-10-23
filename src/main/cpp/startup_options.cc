@@ -84,6 +84,7 @@ StartupOptions::StartupOptions(const string& product_name,
       batch_cpu_scheduling(false),
       io_nice_level(-1),
       shutdown_on_low_sys_mem(false),
+      delete_output_base_on_shutdown(false),
       oom_more_eagerly(false),
       oom_more_eagerly_threshold(100),
       write_command_log(true),
@@ -143,6 +144,8 @@ StartupOptions::StartupOptions(const string& product_name,
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
+  RegisterNullaryStartupFlag("delete_output_base_on_shutdown",
+                             &delete_output_base_on_shutdown);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
