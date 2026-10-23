@@ -17,18 +17,26 @@ import com.google.common.base.Ascii;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.IntegerConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.OptionalInt;
 
 /** A strategy for running the same tests in many processes. */
 interface TestShardingStrategy {
   int getNumberOfShards(int shardCountFromAttr);
 
+  /** Returns the single shard index to run, if this strategy selects only one shard. */
+  default OptionalInt getOnlyShardIndex() {
+    return OptionalInt.empty();
+  }
+
   /** Converts to {@link TestShardingStrategy}. */
   final class ShardingStrategyConverter extends Converter.Contextless<TestShardingStrategy> {
     private static final String FORCED_PREFIX = "forced=";
+    private static final String ONLY_PREFIX = "only=";
 
     @Override
     public String getTypeDescription() {
-      return "explicit, disabled or forced=k where k is the number of shards to enforce";
+      return "explicit, disabled, forced=k where k is the number of shards to enforce, or only=k"
+          + " where k is the 1-based shard index to run";
     }
 
     @Override
@@ -47,6 +55,17 @@ interface TestShardingStrategy {
         }
 
         return new TestShardingStrategyForced(forcedShardsCount);
+      }
+
+      if (Ascii.toLowerCase(input).startsWith(ONLY_PREFIX)) {
+        int onlyShardIndex =
+            new IntegerConverter().convert(input.substring(ONLY_PREFIX.length()));
+        if (onlyShardIndex < 1) {
+          throw new OptionsParsingException("Shard index for only= must be at least 1.");
+        }
+
+        // Convert from 1-based (user-facing) to 0-based (internal).
+        return new TestShardingStrategyOnly(onlyShardIndex - 1);
       }
 
       throw new OptionsParsingException(
