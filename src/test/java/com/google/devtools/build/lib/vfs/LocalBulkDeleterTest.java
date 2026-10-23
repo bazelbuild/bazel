@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -141,15 +140,44 @@ public final class LocalBulkDeleterTest {
   }
 
   @Test
-  public void interruptedBeforeDeleteLeavesTree() throws Exception {
+  public void pendingInterruptStillDeletesAndKeepsTheFlag() throws Exception {
     Thread.currentThread().interrupt();
 
-    assertThrows(
-        InterruptedException.class,
-        () ->
-            deleter.bulkDelete(
-                ImmutableList.of(PathFragment.create("bazel-out/k8-fastbuild/bin/pkg/stale"))));
+    deleter.bulkDelete(
+        ImmutableList.of(PathFragment.create("bazel-out/k8-fastbuild/bin/pkg/stale")));
 
-    assertThat(execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/stale/a.o").exists()).isTrue();
+    assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    Thread.interrupted();
+    assertThat(execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/stale").exists()).isFalse();
+    assertThat(execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/sibling.txt").exists()).isTrue();
+  }
+
+  @Test
+  public void deletesFileWhoseParentIsNotWritable() throws Exception {
+    Path parent = execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/locked");
+    parent.createDirectoryAndParents();
+    FileSystemUtils.writeContent(parent.getRelative("somefile.out"), UTF_8, "x");
+    parent.setWritable(false);
+
+    deleter.bulkDelete(
+        ImmutableList.of(PathFragment.create("bazel-out/k8-fastbuild/bin/pkg/locked/somefile.out")));
+
+    assertThat(parent.getRelative("somefile.out").exists()).isFalse();
+    assertThat(execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/sibling.txt").exists()).isTrue();
+  }
+
+  @Test
+  public void deletesTreeWhoseParentIsNotWritable() throws Exception {
+    Path parent = execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/locked");
+    Path tree = parent.getRelative("somedir");
+    tree.createDirectoryAndParents();
+    FileSystemUtils.writeContent(tree.getRelative("somefile"), UTF_8, "x");
+    parent.setWritable(false);
+
+    deleter.bulkDelete(
+        ImmutableList.of(PathFragment.create("bazel-out/k8-fastbuild/bin/pkg/locked/somedir")));
+
+    assertThat(tree.exists()).isFalse();
+    assertThat(execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/sibling.txt").exists()).isTrue();
   }
 }
