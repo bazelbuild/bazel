@@ -1,3 +1,1420 @@
+## Release 7.7.2 (2026-10-23)
+
+```
+
+Release Notes:
+
+```
+
+## Release 7.7.2 (2026-10-22)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.3.1 (2026-10-20)
+
+```
+
+Release Notes:
+
+```
+
+## Release 8.8.2 (2026-10-20)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.3.0 (2026-10-07)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260916.5 (2026-10-02)
+
+```
+Baseline: 6332cd97a4b72907623ae44f32fbc06a00cc9f6f
+
+Cherry picks:
+
+   + 1f39b46f4f3efb0fd4410dab7f776328c88c3753:
+     Avoid storing missing mandatory attribute state as a field on
+     Rule.
+```
+
+New features:
+
+  - `DefaultInfo.executable` exposes the executable of configured
+    targets and directly constructed providers, including providers
+    returned by `ctx.super()`.
+
+Important changes:
+
+  - Skip implicit output generation when mandatory rule attributes
+    are missing to prevent secondary error messages.
+  - Fix crash when evaluating target patterns or paths containing
+    invalid characters or wildcards on Windows.
+  - Facts of reproducible module extensions are now restored to the
+    expected state after external modifications by every Bazel
+    command that updates the lockfile.
+  - Fix for regression in #29284 that caused select builtin actions
+    to incorrectly inherit resource set overrides.
+  - `bazel fetch --force` no longer causes the fetched repos to be
+    fetched again by the next build with a spurious warning about
+    external modifications.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Daniel Burrell, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, Henner Zeller, jdymitarai, Jordan Mele, Keith Smiley, Raiyyan Ur Rahman Mohammed, Son Luong Ngoc.
+
+## Release 8.8.1 (2026-09-24)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260911.2 (2026-09-18)
+
+```
+Baseline: d4c275b89348663ec7b84e58f75ec8ab46f62101
+
+Cherry picks:
+
+   + 27f9635b3723ff4a2e5b782c768b80b160e8722e:
+     Make the hash codes of providers and configured targets stable.
+```
+
+Incompatible changes:
+
+  - --experimental_sibling_repository_layout is now a no-op.
+
+Important changes:
+
+  - Support `dict(label, string)` aspect attributes in `query
+    --output=proto`.
+  - Transitive rule and toolchain resolution errors are now formatted
+    into a multi-line indented hierarchy.
+    Fixes https://github.com/bazelbuild/bazel/issues/15791
+  - Fix NullPointerException and improve error messages when Starlark
+    implicit output templates reference unset or unknown attributes.
+
+This release contains contributions from many people at Google, as well as Chris McDonald, David Zbarsky, Fabian Meumertzheim, James Judd, Tamir Duberstein, Vladimir Sitnikov.
+
+## Release 10.0.0-pre.20260908.2 (2026-09-15)
+
+```
+Baseline: 6a4878da6a4abeca65ceb60d5bc772123fa53c4a
+
+Cherry picks:
+
+   + 2ce8da8d5c24d7ccf2f6becdc16d7262f2f3c882:
+     Rollback of
+     https://github.com/bazelbuild/bazel/commit/f72ac81d9b589a62012f49
+     b32cf915f4a64c8cfb.
+```
+
+Important changes:
+
+  - Invalidate cached action execution results when remote
+    cache/executor endpoints or `--remote_instance_name` change
+    between invocations.
+  - Fix issue where `bazel test --nobuild` failed with
+    `TEST_WITH_NOANALYZE` instead of succeeding after analysis.
+  - With Build without the Bytes, a requested top-level output that
+    was deleted locally is now reliably redownloaded in the next
+    build that requests it, even if other invocations ran in between.
+  - Avoid redundant remote CAS uploads when using combined disk and
+    remote caching with a cold disk cache.
+  - Fix incremental remote builds failing to create output
+    directories beneath stale dangling symlinks.
+  - credential-helper: treat `null` values in response as unset.
+  - Fixed a rare crash with `NullPointerException` in
+    `ActionInputMap.getIndex` when an action discovers additional
+    inputs while executing.
+  - Add `repository_ctx.patch(directory)`
+  - Disk cache entries deleted by a concurrent garbage collection are
+    now treated as cache misses and don't result in failures.
+  - Fix an issue where Java compilation actions re-execute on every
+    build due to an Action Cache digest mismatch when
+    `--experimental_output_paths=strip` and in-memory `.jdeps` files
+    are enabled.
+  - Credential helper failures now abort HTTP downloads instead of
+    continuing without authentication.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Fabian Meumertzheim, George Gensure, Henner Zeller, James Judd, Jason Bedard, Jonathan Perry, Keith Smiley, Ming Zhao, Morax, Tamir Duberstein, Yannic Bonenberger.
+
+## Release 10.0.0-pre.20260902.1 (2026-09-10)
+
+```
+Baseline: e2e4c35d7400a1f3cdf3e337bb53e4fa0eafd001
+```
+
+Important changes:
+
+  - Starlark `fail()` calls now format error messages with `Error: `
+    instead of `Error in fail: `.
+    Resolves https://github.com/bazelbuild/bazel/issues/21523.
+  - Aquery now supports the `config(expr, word)` function.
+  - Fixed unnecessary remote-cache hits in incremental BwoB builds
+    after a previous invocation used a broader remote output download
+    policy.
+  - Fix an issue on Windows where empty environment variables (e.g.
+    `--action_env=VAR=`) caused test execution failures in the test
+    wrapper.
+  - `--experimental_override_platform_cpu_name` renamed to
+    `--override_platform_cpu_name`
+  - The macOS sandbox now allows actions to bind sockets when network
+    access is blocked, matching the behavior of the Linux sandbox.
+    Note that macOS cannot restrict inbound connections by peer, so
+    an action that listens on a non-loopback address is reachable
+    from other hosts on the network; outbound traffic remains
+    restricted to loopback.
+  - Clean up unused stashed sandbox directories when shutting down
+    the Bazel server.
+  - Downloader rewrites to endpoints that refuse connections no
+    longer repeat the connector's full retry sequence.
+  - Fix `grep: invalid option -- P` errors on macOS when running
+    release and documentation scripts.
+  - Remote execution, remote caching, and auth flags can now be reset
+    to their default unset state on the command line by passing an
+    empty value (e.g., `--remote_cache=`, `--remote_executor=`,
+    `--google_credentials=`).
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Angus Lees, Armando Montanez, Fabian Meumertzheim, Fabian Meumertzheim, Henner Zeller, jjj-n, Jonathan Perry, justinswe, Keith Smiley, Kip Hamiltons, Salma Samy, Samuel Bronson, Tyler Breisacher, zozo123.
+
+## Release 10.0.0-pre.20260826.1 (2026-09-08)
+
+```
+Baseline: 609cb51089a86f7e40552a1f79c16992376f06db
+
+Cherry picks:
+
+   + bd75cfcf5c906fb6b88515c993edcd34bfadeecb:
+     Update protobuf to 36.0.bcr.1
+     (https://github.com/bazelbuild/bazel/pull/30886)
+```
+
+Incompatible changes:
+
+  - `--rewind_lost_inputs` is now enabled by default. Builds with
+    BwoB automatically recover from remote cache eviction by
+    rewinding actions that generated lost inputs.
+
+New features:
+
+  - With the new
+    `--experimental_keep_change_prunable_nodes_during_gc` flag,
+    Skyframe will keep computed nodes that aren't requested by the
+    current evaluation but whose dependencies would be verified clean
+    after change pruning.
+
+Important changes:
+
+  - `--server_javabase` and nojdk builds of Bazel can now use JREs in
+    addition to JDKs.
+  - Test targets can now be built for a target platform that no
+    execution platform is compatible with, e.g. to cross-compile
+    them. Running such a test fails with an error at execution time
+    instead of failing analysis.
+  - Disk cache action results are now always trusted with
+    `--rewind_lost_inputs`, even if Build without the Bytes makes it
+    so that the outputs are not available locally.
+  - Cycles between `MODULE.bazel` files connected via `include()` are
+    now reported as an error instead of hanging the build.
+  - Fixed a crash while evaluating `MODULE.bazel` files when Skyframe
+    dropped its temporary state in response to memory pressure.
+  - Fixed a build failure with `--execution_log_compact_file` when a
+    C++ action template has no inputs.
+  - Files uploaded to the disk cache are now copied with a
+    copy-on-write clone where the filesystem supports it, so a cache
+    entry can share its blocks with the output it was uploaded from.
+  - Module extensions are now correctly rerun when the root module
+    changes the `dev_dependency` value of a `use_extension` call,
+    which is visible to extensions as
+    `module_ctx.root_module_has_non_dev_dependency`.
+  - None
+    RELNOTES: None
+  - The C++ include scanner now properly resolves headers that are
+    generated at build time and included as part of the toolchain.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Armando Montanez, Benjamin Peterson, Chi Wang, David Ostrovsky, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, Garrett Holmstrom, Han-Wen Nienhuys, Herdiyan Adam Putra, Hoyt Summers Pittman, JonathanPerry651, Jordan Mele, Ladd Van Tol, Rahul Butani, Rajkaran Yadav, Tamir Duberstein, Tyler French, wade-arista.
+
+## Release 8.8.0 (2026-08-31)
+
+```
+
+Release Notes:
+
+```
+
+## Release 8.8.0 (2026-08-31)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260818.1 (2026-08-27)
+
+```
+Baseline: cec8ee49f731e48b5bb336a27a7f2f1be770da48
+
+Cherry picks:
+
+   + 2a60c3357abd1e881088e88747ac7c7baa6f2e79:
+     Roll forward of commit 909985a3b9a1f71106e7cba31eb862078e5bdebe
+     with … (https://github.com/bazelbuild/bazel/pull/30754)
+```
+
+Important changes:
+
+  - Fix `Could not chdir` in `tw.exe` for long runfiles paths on
+    Windows.
+
+This release contains contributions from many people at Google, as well as Anton Karpov, Armando Montanez, Chi Wang, Fabian Meumertzheim, Rgis Desgroppes, Son Luong Ngoc.
+
+## Release 10.0.0-pre.20260811.3 (2026-08-20)
+
+```
+Baseline: 882d6f366dfdb92f031492755ba11185948bd987
+
+Cherry picks:
+
+   + 56cf7a548564f342b6c6f78191780b0f03401e18:
+     Disable non-deterministic interning / memory optimizations when
+     Skycache serialization is needed.
+   + 31d34c8a8cd7cc3481094dcefaa5411a804a7540:
+     Fix non-fatal error in StarlarkProvider.export()
+```
+
+Important changes:
+
+  - Fix `sh_binary` on Windows to pass user arguments as positional
+    parameters to bash instead of concatenating them.
+  - Fixes a possible crash on Windows Arm64 related to JNI strings
+  - Added urlencode($1) support to --downloader_config rewrite rules.
+
+This release contains contributions from many people at Google, as well as Andrew Hewitson, dependabot[bot], Fabian Meumertzheim, Keith Smiley.
+
+## Release 10.0.0-pre.20260806.4 (2026-08-14)
+
+```
+Baseline: 4cc61677898c457f289fa06eb528b99ffaa93ca1
+
+Cherry picks:
+
+   + 2685d96916dbc3d097290cfb240e0b4ee77a7ab0:
+     Fix NullPointerException in CriticalPathComputer.
+   + 40d145301469ebf27d679bdb670aaf3eb056f4b1:
+     Fix duplicate execution info entry crash in SpawnIncludeScanner.
+   + 7f5421b25aae980a5b22b33dbe0a0a27f20d3fda:
+     Automated rollback of commit
+     f138e4937c816d6263bf1b9bc3eb6cc89ded7871.
+   + 53428ca4a01e330c29a01e92487abe52177c583a:
+     Close the coverage post-processing `FileOutErr` before deleting
+     its files (https://github.com/bazelbuild/bazel/pull/30662)
+   + 27aaf57930ab5edf6b24101d791712a949f5617a:
+     Pass Host header to curl in remote-ip sandboxing networking test.
+```
+
+Important changes:
+
+  - Honor XDG_CACHE_HOME on Windows in Bazel.
+
+This release contains contributions from many people at Google, as well as Benedict Chacko, Benjamin Peterson, David Zbarsky, Fabian Meumertzheim, jcater, Keith Smiley, Tamir Duberstein.
+
+## Release 10.0.0-pre.20260801.1 (2026-08-10)
+
+```
+Baseline: 14498c82d1af1ee127ac2140f0bfdf0f62d36c60
+
+Cherry picks:
+
+   + 909985a3b9a1f71106e7cba31eb862078e5bdebe:
+     Automated rollback of commit
+     2558ffede4c29cc41c7080eadd3118cb12509517.
+```
+
+Incompatible changes:
+
+  - The Windows shell launcher now again prepends rather than appends
+    the directory containing the shell binary, restoring the behavior
+    of Bazel 8.x. This is technically an incompatible change, but
+    deemed necessary due to the unexpected and widespread
+    implications of the change in 9.0.0. See
+    https://github.com/bazelbuild/bazel/issues/29637 for more context.
+
+New features:
+
+  - The `BAZEL_LLVM_PROFILE_FILE` environment variable can now
+    be used to customize the LLVM profile filename pattern for C++
+    coverage
+    collection (e.g. `--test_env=BAZEL_LLVM_PROFILE_FILE=%p.profraw`).
+    Defaults to `%h-%p-%m.profraw` when unset.
+
+Important changes:
+
+  - --experimental_split_coverage_processing and
+    --experimental_fetch_all_coverage_outputs default to true.
+  - Retry 408 and 429 status codes with HTTP remote caching.
+  - Fixed a bug that could cause `ignore_directories()` to not ignore
+    directories.
+
+This release contains contributions from many people at Google, as well as Akshay Ubale, Benjamin Peterson, Bryce Lampe, Chi Wang, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, George Gensure, Javier Maestro, Keith Smiley, Matthew Steffen, PikachuHy, Son Luong Ngoc, Tamir Duberstein, Tyler Breisacher, Xdng Yng, Yossi Eliaz, zozo123.
+
+## Release 10.0.0-pre.20260729.1 (2026-08-04)
+
+```
+Baseline: b66e78bad319b5107a5d1be67343a5705360e87a
+```
+
+New features:
+
+  - Added `--experimental_remote_cache_chunking_function` to select
+    the content-defined chunking function used by
+    `--experimental_remote_cache_chunking`. Supported values are
+    `auto` (the default, which negotiates the function from the
+    server capabilities, preferring FastCDC 2020), `fast_cdc_2020`
+    and `rep_max_cdc`.
+
+Important changes:
+
+  - Fixed `repository_ctx.download_and_extract` failing with an
+    "Expected a file with a ... suffix" error when
+    `--downloader_config` blocks all URLs and the archive is served
+    from the repository cache.
+  - `--incompatible_modify_execution_info_additive` is now deprecated
+    and a no-op. When `--modify_execution_info` is specified multiple
+    times, all values are always applied in order.
+
+This release contains contributions from many people at Google, as well as David Zbarsky, Fabian Meumertzheim, ifutivic, Keith Smiley, Tamir Duberstein.
+
+## Release 10.0.0-pre.20260727.2 (2026-07-31)
+
+```
+Baseline: a37f02683bd75e77bb83f17bfaa0ac1629f279a6
+
+Cherry picks:
+
+   + b66e78bad319b5107a5d1be67343a5705360e87a:
+     Fix release script for rolling releases
+```
+
+Important changes:
+
+  - Fixes an error when using `strip_components` with archives
+    containing symbolic//hard links.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Kapunahele Wong, Keith Smiley, Will Stranton, Yossi Eliaz.
+
+## Release 10.0.0-pre.20260723.1 (2026-07-30)
+
+```
+Baseline: d1e2d982496ec3c4806674ca45eed38faacdcf57
+
+Cherry picks:
+
+   + e16c8f93f1be6f41cc881b2900e38b96940846f0:
+     Fix release script for rolling releases
+```
+
+Incompatible changes:
+
+  - in min() and max(), the key callback is now prohibited from
+    mutating the sequence being iterated over
+  - `--test_tmpdir=` now resets a value from a bazelrc to
+    the default execroot temp directory instead of creating `_tmp` in
+    the
+    workspace. Use `--test_tmpdir=.` to retain workspace-relative
+    behavior.
+  - Bind mounts specified via `--sandbox_add_mount_pair` (or
+    `-M`/`-m` flags in `linux-sandbox`) are now correctly remounted
+    read-only when using the hermetic sandbox (with
+    `--experimental_sandbox_hermetic`). Build actions that write to
+    these paths will now fail with a read-only filesystem error.
+  - `--use_target_platform_for_tests` is now a no-op. By default,
+    tests are executed on an execution platform that has all
+    constraints of the target platform, making this flag obsolete. To
+    migrate, make sure that your target platform or a platform with
+    at least the same constraints is registered as an execution
+    platform.
+
+New features:
+
+  - `--worker_sandboxing` can now be scoped per worker-key mnemonic
+    with `--worker_sandboxing=<mnemonic>=<boolean>`.
+
+Important changes:
+
+  - If --incompatible_symbolic_macro_strict_attrs is enabled,
+    invalid attribute values in symbolic macros fail the build
+    (matching
+    the behavior of rules).
+  - Added a new `instance_id` field to the `BuildMetrics` BES event,
+    in order to help diff between the current and previous builds on
+    the running server.
+  - `--experimental_remote_scrubbing_config=` now disables remote
+    cache key scrubbing, allowing command-line overrides of scrubbing
+    configs set in .bazelrc.
+  - "$ bazel config x86-opt": you can now inspect configs based on
+    output path prefixes, not just config checksum prefixes.
+  - The JDK bundled with Bazel has been updated to 26.
+  - Action rewinding (`--rewind_lost_inputs`) can now succeed even if
+    the remote cache doesn't verify that AC entries aren't stale.
+  - Running `bazel shutdown` no longer results in stale lockfile data
+    being written.
+  - Starlark debug server now binds to the configured address
+    (defaulting to 127.0.0.1) via
+    --experimental_skylark_debug_server_address.
+
+This release contains contributions from many people at Google, as well as Adin Cebic, Alexander Scott, Armando Montanez, Dan Halperin, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, giria660, Guillaume Maudoux, Han-Wen Nienhuys, jcater, Keith Smiley, Kobi Hikri, Son Luong Ngoc, Steve Barrau, Tamir Duberstein, teaugene, Yossi Eliaz, zozo123.
+
+## Release 10.0.0-pre.20260710.1 (2026-07-22)
+
+```
+Baseline: 4f6e97e9a020a1305deb50fb2da35d289f5ea9ce
+```
+
+Incompatible changes:
+
+  - Custom Starlark rules named `test_suite` are no longer treated as
+    a `test_suite`
+
+New features:
+
+  - Windows launcher stubs now embed an `asInvoker` UAC manifest,
+    preventing "The requested operation requires elevation. (error:
+    740)" for targets whose name matches the installer-detection
+    heuristic.
+
+Important changes:
+
+  - Fix --progress_in_terminal_title output under screen and emacs.
+  - Modifying environment variables no longer causes spurious
+    reloading of packages in external repositories.
+  - Fixed a spurious remote-execution failure with
+    `--experimental_output_paths=strip` where a lost input in a tree
+    artifact shared between actions could not be recovered by action
+    rewinding.
+  - Fixed a flaky crash when Java compilation actions encounter
+    multiple lost `.jdeps` files.
+  - The remote repo contents cache no longer caches or restores repos
+    with cross-repo symlinks, thus avoiding a large surface area for
+    bugs. The effort to reenable this support is tracked by
+    https://github.com/bazelbuild/bazel/issues/30160.
+
+This release contains contributions from many people at Google, as well as David Zbarsky, Fabian Meumertzheim, Guillaume Maudoux, Jasmine Tang, jcater, Kapunahele Wong, Rgis Desgroppes, Tamir Duberstein, teaugene.
+
+## Release 10.0.0-pre.20260630.1 (2026-07-17)
+
+```
+Baseline: 9eb1ca2fcd0aea034c37dcdcacbde3d86ff1b26f
+
+Cherry picks:
+
+   + 2ed91fa145434a6f82f29071a27f6de9e785e73b:
+     Roll-forward: Upgrade to rules_cc 0.2.18 in MODULE.tools
+   + e0ce90e80f60ad3d7a479af2a55477f44fd2af9e:
+     Fix distribution archive generation
+```
+
+New features:
+
+  - Windows launcher stubs now embed an `asInvoker` UAC manifest,
+    preventing "The requested operation requires elevation. (error:
+    740)" for targets whose name matches the installer-detection
+    heuristic.
+
+Important changes:
+
+  - The remote repo contents cache now correctly materializes chains
+    of symlinks as action inputs, but no longer supports symlinks
+    into the main repository.
+  - Fixed Bazel being unable to run a Windows executable whose path
+    is too long to shorten under `MAX_PATH`, e.g. when 8dot3 short
+    names are disabled (microsoft/Windows-Containers#507).
+  - Fixed spurious "No such file" errors with the remote repo
+    contents cache when a repo contains a symlink to a `.bzl` file.
+  - Source directories in external repositories are temporarily
+    allowed to cross package boundaries. This will be disallowed in
+    the future, gated by the new
+    `--incompatible_check_external_repo_source_dir_package_boundary`
+    flag.
+  - Adds `bazel dump --skyframe=keys` to report only the keys
+    available in SkyFrame. Always use with `--skykey_filter` to limit
+    the number of keys reported.
+  - Fixed a crash with `--experimental_remote_repo_contents_cache`
+    when running without a remote or disk cache.
+
+This release contains contributions from many people at Google, as well as adilburaksen, Blaine Freestone, c2qd, Chedrian07, cjk, David Zbarsky, Fabian Meumertzheim, Jacob Nowjack, jcater, Markus Hofbauer, Rgis Desgroppes, Son Luong Ngoc, vadim, zhaixiaojuan.
+
+## Release 9.2.0 (2026-07-13)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260621.2 (2026-07-13)
+
+```
+Baseline: 66f385645e351a55415b4ae341d6cd2e7ab6d4e4
+```
+
+New features:
+
+  - The `and_then` method on `transition`s can be used to compose
+    transitions. Both Starlark transitions and native transitions
+    (e.g. `config.exec()`) are supported.
+
+Important changes:
+
+  - Bazel no longer limits the size of gRPC messages received from
+    the remote executor or cache.
+  - External repos are no longer refetched whenever they contribute
+    inputs to an action using the hermetic Linux sandbox.
+  - Enable TCP keepalive by default for gRPC connections with
+    reasonable defaults
+  - Remove CoptsFilter. rules_cc 0.2.19 no longer uses it..
+
+This release contains contributions from many people at Google, as well as Ashutosh0x, Benjamin Peterson, Fabian Meumertzheim, Kapunahele Wong, Keith Smiley, Shrey Shah, Tamir Duberstein, vadim.
+
+## Release 10.0.0-pre.20260614.4 (2026-06-24)
+
+```
+Baseline: e05fcb1658bce403337a3e73a0ca184c45128ad6
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20260614.1 (2026-06-22)
+
+```
+Baseline: e05fcb1658bce403337a3e73a0ca184c45128ad6
+```
+
+Important changes:
+
+  - Fixed repo content caching for non-gRPC cache backends.
+  - CCStarlarkInternal exposes hash functions currently  used by
+    rules_cc Java rules to starlark
+  - The new `--expand_param_files` flag expands param files into
+    their contents in `--subcommands` and `--verbose_failures` output.
+  - Fixed a performance regression in Bazel 9 that causes
+    `RepoMappingManifest` actions to consume a lot of CPU time.
+  - Improved BES upload failure message with failed invocation's ID.
+  - Any existing action relying on the legacy hardcoded list in Bazel
+    code being populated will now need to opt-into output mapping by
+    modifying their execution requirements.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Bryce Lampe, Fabian Meumertzheim, honnix, Keith Smiley, peakschris.
+
+## Release 10.0.0-pre.20260608.1 (2026-06-16)
+
+```
+Baseline: db077161e43484e4cb0f2270374ee33d05f3690d
+
+Cherry picks:
+
+   + 65ecccb87ae8dfda0ef1cd064f3a441746072abd:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
+   + abca86808bb612026ee6d3831958af995966515f:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
+```
+
+Important changes:
+
+  - The new `refines_constraint_value` attribute on
+    `constraint_setting` can be used to indicate that any non-default
+    value for that setting specified on a `platform` requires the
+    refined value to also be specified.
+  - Bazel's serialization system now has a new wire encoding that
+    supports
+    preserving how values are serialized across Bazel versions.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, Jean-Baptiste Bronisz, JonathanPerry651, Keith Smiley, vadim.
+
+## Release 10.0.0-pre.20260601.1 (2026-06-11)
+
+```
+Baseline: c9a05c3af4e6bf7a2bd9ab0a29ada8f33eab76cf
+```
+
+New features:
+
+  - Add an `exclude` param to `rtx.watch_tree()` to allow excluding
+    glob patterns from watch.
+
+Important changes:
+
+  - Enabled output path mapping (config stripping) support for
+    `ArchivedTreeArtifact`s to improve action caching under
+    `--experimental_output_paths=strip`.
+  - `module_extension(...)` now accepts a `facts_version` integer
+    parameter. Bumping it invalidates the facts persisted in
+    `MODULE.bazel.lock` for that extension, allowing extension
+    authors to make breaking changes to the facts schema without
+    risking misinterpretation by older code paths.
+  - Fixed an issue that caused Bazel to fail on a lost input even
+    with build or action rewinding enabled.
+  - BuildFinished events in BEP will consistently contain an
+    "infrastructure-caused" detailed exit code when a single target
+    contains both infrastructure-caused and user-caused exit codes in
+    its failed actions.
+
+This release contains contributions from many people at Google, as well as Chi Wang, Fabian Meumertzheim, Moran Omer, Son Luong Ngoc, Will Stranton, Yonatan Goldschmidt.
+
+## Release 10.0.0-pre.20260524.1 (2026-06-03)
+
+```
+Baseline: fdba6e6bda1ff9423b111eb099f4f9f6e0d34115
+```
+
+Important changes:
+
+  - CDC chunk uploads and downloads can now happen in parallel within
+    a large blob.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Tyler French, XananasX.
+
+## Release 9.1.1 (2026-06-03)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260520.2 (2026-05-28)
+
+```
+Baseline: 3d40c422df61c4adb243ef68fff7e84584019a1f
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20260516.1 (2026-05-22)
+
+```
+Baseline: e2792d172525887b9ba4307c9bdd0483c736c5ad
+```
+
+New features:
+
+  - Add `add_prefix` attribute to `git_repository` to allow cloning
+    repositories into a given subdirectory prefix
+  - {r,m}ctx.download* report the size of downloaded files
+    RELNOTES: Addition to the user-facing Build API
+
+Important changes:
+
+  - `--tls_certificate=`, `--tls_client_certificate=`, and
+    `--tls_client_key=` can now be used to reset those flags to their
+    unset state.
+  - In output of `query --output=build`, string attributes containing
+    newline characters are now enclosed in triple double quotes (""")
+    for better readability.
+
+This release contains contributions from many people at Google, as well as Albert Lloveras, Chi Wang, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, gaurav0107, John Millikin, Kapunahele Wong, Keith Smiley, Malte Poll, Nikki Vijaybhaskar, Richard Lavoie, Steffeeen, Tyler French, Will Stranton.
+
+## Release 10.0.0-pre.20260428.1 (2026-05-15)
+
+```
+Baseline: 37654e56598027f1f65bf729d604a600786dd8e9
+
+Cherry picks:
+
+   + 082349719b7f6a5a5930103df56e5c48f2bb1c34:
+     Add SkybridgeInterface to bootstrap test
+     (https://github.com/bazelbuild/bazel/pull/29418)
+   + 6de72fb7126113b15e67c9f0ae3745661c4881a7:
+     cherry-pick to include github tools release branch (#29533)
+   + 420dca55a0c9837fab29f6378738c694ac62d040:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
+   + 7c5c33a292e926580897a80ef1a8ea84c50dc4b6:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
+```
+
+New features:
+
+  - Adds the `strip_components` attribute to
+    `extract`/`download_and_extract`/`http_archive` to allow
+    stripping of path components when extracting files.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Grzegorz Lukasik, Hoyt Summers Pittman, Kapunahele Wong, Nikki Vijaybhaskar, Will Stranton.
+
+## Release 8.7.0 (2026-05-06)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260421.2 (2026-04-30)
+
+```
+Baseline: 2d4650fe518304730dbda56c27cc3245784aea10
+
+Cherry picks:
+
+   + 84421290d1715dccc28b30aa662305d9964993f2:
+     Ensure Blaze profiler provides a valid clock fallback for
+     logging.
+   + 4090746091f5c6cad2d483bb64157c8beb8559b5:
+     Fix :bazel_bootstrap_distfile_test and
+     :bazel_bootstrap_distfile_tar_test.
+```
+
+Important changes:
+
+  - Added the `module_ctx.tag_sort_key(tag)` method, which returns an
+    opaque object for the given tag that can be compared to derive
+    the order in which tags from different classes appear in the
+    MODULE.bazel file.
+
+This release contains contributions from many people at Google, as well as Douglas Thor, Hoyt Summers Pittman, Jacob Nowjack, Keith Smiley, Xudong Yang.
+
+## Release 10.0.0-pre.20260416.1 (2026-04-23)
+
+```
+Baseline: ee72e6ddbcf19db6e4ddf127bde56ca5676de780
+```
+
+Important changes:
+
+  - Large numbers with 5+ digits in CLI output are now formatted with
+    comma separators for improved readability (e.g., "12,345 targets
+    configured" instead of "12345 targets configured")
+
+This release contains contributions from many people at Google, as well as Anthony Pratti, giria660, Jacob Nowjack, John Cater, Keith Smiley, Sarad Pant, Sarad, Tyler Breisacher, Tyler French.
+
+## Release 9.1.0 (2026-04-20)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260412.1 (2026-04-20)
+
+```
+Baseline: b938ef2838f83980e894c2a0b9ec916f2dea7e14
+```
+
+Incompatible changes:
+
+  - Add support for decompressing Brotli archives (.br, .tar.br)
+  - Removes the deprecated repository rule `new_git_repository`.
+    Users should use `git_repository` instead (they are the same)
+
+Important changes:
+
+  - Adds `-Djava.net.preferIPv6Addresses=system` to startup JVM args
+    which may impact certain IPv4-only environments. Override as
+    necessary with `--host_jvm_args`.
+  - bazelrc config declarations can now be empty
+
+This release contains contributions from many people at Google, as well as Alex Eagle, ijuren8, Jeremy Volkman, Keith Smiley, Mike Lundy, Will Stranton.
+
+## Release 10.0.0-pre.20260408.3 (2026-04-15)
+
+```
+Baseline: ea7b4ba1ea04795b850965a590006e54344307c0
+
+Cherry picks:
+
+   + 47abc210d2d258fa586b8b97e6129c44c895e9a3:
+     Account for `DeserializedSkyValue` in change pruning.
+```
+
+New features:
+
+  - `--disk_cache` can now be set without an argument to enable the
+    disk cache using a default location at
+    `<outputUserRoot>/cache/disk`. Other boolean forms
+    (`--disk_cache=1` or `--disk_cache=true` to enable;
+    `--disk_cache=0`, `--disk_cache=false` or `--nodisk_cache` to
+    disable) are also accepted.
+
+Important changes:
+
+  - Adds `--output:display_full_kind` for query options to display
+    the full kind for Starlark rules with the `label_kind`,
+    `location`, and `xml` output formats.
+  - Changes the `debugPrint` of `ctx.download` to include the state
+    of the download. Adds an `error` key to the returned struct when
+    `success: false` to explain why it's false.
+  - The local and remote repo contents cache now include the host OS
+    and CPU architecture in the cache key.
+  - Fix launcher/launcher_maker for cross build, e.g. build windows
+    binary on linux machine.
+  - The flag `--fdo_optimize` now accepts repo labels as well as
+    package labels.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Alexey Tereshenkov, Boleyn Su, Denbeigh Stevens, dependabot[bot], Desel72, Fabian Meumertzheim, Jake Newfield, John Cater, Jordan Mele, Keith Smiley, Will Stranton.
+
+## Release 9.0.2 (2026-04-09)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.2 (2026-04-09)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260329.2 (2026-04-08)
+
+```
+Baseline: b06b3774e7c5380756a2a0ce4d052afb7a5bbbe1
+
+Cherry picks:
+
+   + ba43bbd393f89bf1ebda1ec309018c9a7faec0fd:
+     Rollback of `PersistentStringIndexer` change.
+```
+
+Important changes:
+
+  - Module extension tags now have an implicit `_sort_key` field that
+    can be compared to derive the order in which tags from different
+    classes appear in the MODULE.bazel file.
+  - The remote repo contents cache now supports all reproducible repo
+    rules.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Chris Jakins, dependabot[bot], Fabian Meumertzheim, John Cater, Keith Smiley.
+
+## Release 10.0.0-pre.20260322.2 (2026-04-01)
+
+```
+Baseline: f00741106467895a4ae70206b00f122f2ebbbc1c
+```
+
+New features:
+
+  - Added `--experimental_remote_cache_chunking` flag to read and
+    write large blobs to/from the remote cache in chunks. Requires
+    server support.
+
+Important changes:
+
+  - BEP events will now be written respecting parent-child ordering
+    constraints.
+  - Bzlmod now enforces that integrity strings for patches and
+    overlay files in `source.json` are non-empty.
+  - A `.bazelrc` file may now only `import` files recursively with a
+    depth of up to 512 imports. If you see a "Maximum import depth
+    exceeded parsing config file" error message, check that your
+    workspace genuinely needs to be configured with `.bazelrc` files
+    loading other rc files in a chain as long as 512 files. If you
+    are configured in this way and cannot easily change your
+    `.bazelrc` files to use shorter `import` chains, you may set the
+    `BAZEL_UNLIMITED_IMPORT_DEPTH` environment variable to any value
+    to disable this limit.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jake Newfield, John Cater, Justin Won, Tyler French.
+
+## Release 10.0.0-pre.20260312.1 (2026-03-19)
+
+```
+Baseline: f3ab7948c2dff519f8228890b3878a5586d2b723
+```
+
+Incompatible changes:
+
+  - string.splitlines() no longer incorrectly treats u+0085 (NEL) as a
+    newline character
+
+Important changes:
+
+  - Bazel no longer verifies the digests of disk cache entries upon a
+    cache hit. This honors the description but not the previous
+    behavior of the `--remote_verify_downloads` flag, which in fact
+    controlled digest verification for both remote and disk caches.
+  - Bazel now has experimental support for --rewind_lost_inputs,
+    which can rerun actions within a single build to recover from
+    (remote or disk) cache evictions.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, H5-O5, Keith Smiley.
+
+## Release 10.0.0-pre.20260308.2 (2026-03-16)
+
+```
+Baseline: d67b13a5d8e8fa2715ae8ebbd4a0ca1b8c1d495a
+
+Cherry picks:
+
+   + eb3941da848addebd7ebe530771a5839e8f9dfa3:
+     Automated rollback of commit
+     4f793a81b502b345e47b55b09216430af0fb08f0.
+   + 51907c4773cd91342f8f39f1e6f92938e6372784:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + fc4340c57c203e0cb7f93750dd3ec4d67d7eb358:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + 7a135942ed0da98456dafff07130e5df5d871d9e:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + a933bce49ec0cc3a0463a6e7691b1d10a4d85849:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + 9b133bc7d7c0e2514cf83ef7a922ec812c2247d9:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + 9bc159f6cc9c2e9205d259123513bd58abd82e46:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + e0f314633c0b4c2e28202ad757e7c4c80420459a:
+     Release 10.0.0-pre.20260308.2 (2026-03-14)
+   + 9ef180ef79914603d56088335993ce90a78acc6d:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+   + 704831db809db3a7c45b75e88866c6dea2459d4b:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+   + 2aebc4d79e03f8347d3dcefdf7c6d0b83144d609:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+   + 8a81d0bb0eeaab8b3a5a33e2988d92322ca5f4cb:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+```
+
+Incompatible changes:
+
+  - `--incompatible_check_testonly_for_output_files` has been
+    flipped. See https://github.com/bazelbuild/bazel/issues/28875 for
+    more details.
+
+Important changes:
+
+  - Fix --lockfile_mode=error validation when rolling back changes to
+    module extension facts
+  - `package_group` now supports labels with external repositories in
+    the `packages` attribute.
+
+This release contains contributions from many people at Google, as well as Alan Mond, Armando Montanez, Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jesse Schalken, John Cater, Keith Smiley, Markus Hofbauer, Michael Mitchell, Ted Kaplan.
+
+## Release 9.0.1 (2026-03-10)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260223.3 (2026-03-06)
+
+```
+Baseline: 6dd6396737cf953159079cee20355ba6123c934b
+
+Cherry picks:
+
+   + fd860b00f2614ca0697fd33f8741db8f32340358:
+     Add alias map cache for command line flag aliases.
+```
+
+Incompatible changes:
+
+  - The environment variable `LC_CTYPE` now defaults to `C.UTF-8` for
+    actions that set `use_default_shell_env = True`, which results in
+    a Unicode-aware locale on essentially all non-EOL Linux
+    distributions, with MSYS2 as well as macOS 15.4 and higher. Pass
+    `--action_env==LC_CTYPE` (note the two `=`s) to explicitly unset
+    this variable, which restores the previous behavior. On older
+    versions of macOS, you can set `--action_env=LC_CTYPE=UTF-8`
+    instead.
+
+Important changes:
+
+  - The `requires-worker-protocol` execution requirement is now
+    forwarded to remote execution services as a platform property
+    (`persistentWorkerProtocol`) to support intermixing JSON and
+    Proto remote persistent worker protocols across a build.
+  - `rctx.symlink` now implicitly watches the target if it falls back
+    to a copy.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Benjamin Peterson, Fabian Meumertzheim, giria660, Joseph Gette, Stefan Penner, Taeyang Jin (Theo), Tyler Breisacher, Tyler French.
+
+## Release 8.6.0 (2026-02-26)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260211.1 (2026-02-18)
+
+```
+Baseline: 6edc9a8b61395ca54794479d2e9fee47a68dd4b6
+```
+
+Important changes:
+
+  - Labels in the main repo will now have a `repr` form that reliably
+    evaluates back to themselves (that is, `repr(Label("@@//:foo"))
+    == "Label(\"@@//:foo\")"`).
+  - The `compatibility_level` and `max_compatibility_level`
+    attributes of `module` in MODULE.bazel are now no-ops. Module
+    maintainers should stop specifying those attributes and provide
+    clear build time error messages and actionable migration paths
+    when making major breaking changes.
+
+This release contains contributions from many people at Google, as well as Damian Banki, dependabot[bot], Fabian Meumertzheim, giria660.
+
+## Release 10.0.0-pre.20260204.1 (2026-02-12)
+
+```
+Baseline: 0a2574e8a302d1edc91a83fee825961a090e1573
+```
+
+Important changes:
+
+  - Bazel now fails over immediately to mirror URLs if a TLS
+    handshake error occurs.
+
+This release contains contributions from many people at Google, as well as ashutosh0x, Fabian Meumertzheim, Keith Smiley, Tyler French, Will Stranton.
+
+## Release 10.0.0-pre.20260128.2 (2026-02-06)
+
+```
+Baseline: 3ad9562ae006151d40a0ebcc90b84889888c2111
+```
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Fabian Meumertzheim, Paul Tarjan.
+
+## Release 10.0.0-pre.20260120.1 (2026-01-29)
+
+```
+Baseline: cc1e0a6ba439764fea48e1f8035419aa44313f05
+```
+
+Incompatible changes:
+
+  - The `config_setting`s
+    `@bazel_tools//src/conditions:{host_windows,remote}` have been
+    removed. Toolchains are usually a better fit as they don't depend
+    on the configuration of the host machine running Bazel and/or
+    fixed execution modes.
+
+Important changes:
+
+  - Reporting of cached test results can now be suppressed with
+    `--test_summary=short_uncached` or
+    `--test_summary=detailed_uncached`.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Jordan Mele, Kapunahele Wong, Keith Smiley, Yagiz Nizipli.
+
+## Release 10.0.0-pre.20260114.1 (2026-01-22)
+
+```
+Baseline: a4e9e9774d3266b829de7e0b7e7cd75791ca3333
+```
+
+Initial release.
+
+## Release 6.6.0 (2026-01-21)
+
+```
+Baseline:  d2daa9b6fed3f38bf8e8cce90a0d17ea945c1ab7
+
+Release Notes:
+
++ Release 6.5.0 (2024-01-23)
++ Fixes for using recent Xcodes and macOS 26 (#27463)
++ Match postsubmit jobs with presubmit (#28193)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Mike Bland.
+```
+
+## Release 9.0.0 (2026-01-20)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260112.1 (2026-01-16)
+
+```
+Baseline: 7111cbfcecdd3bda3e4beedd8b59dc93d3652607
+
+Cherry picks:
+
+   + 76166fca04ca8fdf6d87b3a2a7cf60da6ca8145b:
+     Use the hermetic python toolchain for Bazel
+```
+
+Important changes:
+
+  - The new `package_relative_label` function on the rule context
+    (`ctx`) can be used to turn a user-provided label string into a
+    `Label` relative to the target that is currently being analyzed
+    (where `Label(...)` would return a `Label` relative to the `.bzl`
+    file containing the call).
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Alex O'Brien, Carmen Chui, Damian Banki, dependabot[bot], Fabian Meumertzheim, George Gensure, google-labs-jules[bot], jade.
+
+## Release 10.0.0-pre.20260104.1 (2026-01-15)
+
+```
+Baseline: 571ed6a26de82b041dedb6d30ff816c97c68e79a
+
+Cherry picks:
+
+   + 1f2624a0b0a55f692ef019c731c0a9cb8cca0638:
+     Cherry picks for 10.0.0-pre.20260104.1  (#28313)
+```
+
+Important changes:
+
+  - C static libraries can now elide backwards reference warnings (if
+    linking with LLD and such warnings are enabled) if the
+    `warn_backrefs_defined` feature is defined and enabled for the
+    toolchain.
+
+This release contains contributions from many people at Google, as well as Alex Novak, Carmen Chui, Dan Katz, Fabian Meumertzheim, gampu, Keith Smiley.
+
+## Release 10.0.0-pre.20251217.3 (2026-01-13)
+
+```
+Baseline: b9762ddb486864c29cca3aeefc30fbf391e86f14
+
+Cherry picks:
+
+   + 39ffbf0d06db539f53dc7a86b46e79f4af7845c2:
+     Automated rollback of commit
+     03ee90a351737979e3a78b48f1590ca7da7c54e9.
+   + 1d6aaa0a83a644bea11f737407e114682d693bff:
+     Internal change.
+   + aea3f208d4a5032ca28bffcddcac2e0e125a4ad0:
+     Automated rollback of commit
+     cb9bd8615210dda2104f79d281938e47187dc2de.
+   + 1b97de53d69a028536a318045a893cb34c842439:
+     Use the hermetic python toolchain for Bazel (#28287)
+```
+
+Important changes:
+
+  - `--override_repository` now supports apparent repository names
+    from the point of view of the main repository. An unknown
+    apparent repo name will result in an error.
+  - The values of keyword arguments passed to `use_repo` can now
+    contain the special substrings `{name}` and `{version}`, which
+    are treated as equivalent to the corresponding attributes of the
+    current module.
+
+This release contains contributions from many people at Google, as well as Carmen Chui, Chi Wang, David Zbarsky, Fabian Meumertzheim, Jeff Klukas, Jordan Mele, Jordan Mele, Justin Kaeser, Keith Smiley, Markus Hofbauer, Son Luong Ngoc, Timothy Gu, Will Stranton.
+
+## Release 8.5.1 (2026-01-12)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20251208.3 (2025-12-18)
+
+```
+Baseline: 9ba1edd5516721ffef3ad34e4f4c4e385e603320
+
+Cherry picks:
+
+   + e8b02043432e37af24bc063055f27ef4fa631519:
+     Automated rollback of commit
+     ed847c7929502ce6abc4eb8c3c03701059d7a579.
+```
+
+This release contains contributions from many people at Google, as well as Aaron Sky, Damian Banki, dependabot[bot], Fabian Meumertzheim, Jean-Yves LENHOF, Keith Smiley, Lucas Pottersky, Malte Poll, Will Stranton.
+
+## Release 8.5.0 (2025-12-11)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20251203.1 (2025-12-10)
+
+```
+Baseline: 413f554735101e4e933984c09b2ed59745ce7ab4
+```
+
+Important changes:
+
+  - Added an optional parameter to allow eliding the stack trace when
+    calling fail().
+
+This release contains contributions from many people at Google, as well as Amit Keren, Benjamin Peterson, Chris Heisterkamp, David Zbarsky, Dylan Joss, Fabian Brandstetter, Fabian Meumertzheim, Greg, Jordan Mele, Keith Smiley, Pieter Agten, Rgis Desgroppes.
+
+## Release 10.0.0-pre.20251116.2 (2025-12-01)
+
+```
+Baseline: 7c096ba03fed206d9e6fe3afccbfe5c91a71ec46
+
+Cherry picks:
+
+   + 9c45849986b61f8f3eb3c585a1b2264fdd30d018:
+     Automated rollback of commit
+     c82313b4ca4749c0f1c8f304b4c12328e8beb4ea.
+```
+
+New features:
+
+  - The new `attr.label_list_dict` type accepts a dict in which keys
+    are strings and values are lists of labels.
+  - bazel query/cquery/aquery now supports an `executables()`
+    function to find only the executable targets in a given expression
+
+Important changes:
+
+  - The new `--remote_max_concurrency_per_connection` can be used to
+    specify the maximum number of concurrent gRPC requests Bazel will
+    issue on a single connection to the server. The default value of
+    100 matches the previous behavior.
+  - In environment variable values set via `--repo_env`, the
+    substring `%bazel_workspace%` is now replaced with the absolute
+    path of the current Bazel workspace. This can, for example, be
+    used to make tools checked into the repository available on the
+    `PATH` for repository rules.
+
+This release contains contributions from many people at Google, as well as Alan Mond, Alex Eagle, Benjamin Peterson, dependabot[bot], Ed Schouten, Fabian Meumertzheim, Keith Smiley, Markus Hofbauer.
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+   + 08d7a4ce0a428b7758d55644987de7289c9ad04e:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+   + 1dc713325f1186cbf9e2c713768b79eb3eb857da:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+```
+
+Incompatible changes:
+
+  - `--incompatible_compact_repo_mapping_manifest` is now enabled by
+    default. If you encounter issues with runfile lookups failing at
+    runtime, make sure that the language rulesets you use are
+    up-to-date and runfiles libraries support the new format. Further
+    details are available in the tracking issue
+    https://github.com/bazelbuild/bazel/issues/26262.
+
+New features:
+
+  - The results of reproducible repository rules without dependencies
+    added at runtime (e.g., via `repository_ctx.watch` or `.getenv`)
+    can now be cached in a regular HTTP or gRPC remote cache if the
+    new `--experimental_remote_repo_contents_cache` startup option is
+    provided.
+
+Important changes:
+
+  - The `--module_mirrors` flag now supports specifying mirrors for
+    individual registries via the syntax
+    `--module_mirrors=<registry>=<mirror1>[,<mirror2>,...]`.
+  - The deprecated `remote_execution_properties` platform attribute
+    has been removed in favor of `exec_properties`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Keith Smiley, Lev Leontev, Mark Reuter, PikachuHy, Timothy Gu.
+
+## Release 7.7.1 (2025-11-12)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20251029.2 (2025-11-07)
+
+```
+Baseline: 0d890272e6f39cc5ca5c959df5b6981fbfe0bd91
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, David Sanderson, Fabian Meumertzheim, Farid Zakaria, Keith Smiley, Will Stranton.
+
+## Release 9.0.0-pre.20251025.1 (2025-10-31)
+
+```
+Baseline: d4980887951f011448b39b5b973d346ea03aab75
+```
+
+New features:
+
+  - Add support for setting the `.bazelrc` path via a `BAZELRC`
+    environment variable.
+
+Important changes:
+
+  - OSS Bazel permits but ignores type annotations in .bzl files.
+    Type annotations are experimental, and code that uses them may
+    fail in future versions of Bazel.
+  - If a java_import target's srcjar attribute refers to a source
+    file, the file should exist.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alexander Golovlev, Benjamin Peterson, Fabian Meumertzheim, Keith Smiley, Will Stranton.
+
 ## Release 7.7.0 (2025-10-30)
 
 ```
