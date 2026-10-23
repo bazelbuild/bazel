@@ -287,11 +287,6 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
-  public License getLicense() {
-    return License.NO_LICENSE;
-  }
-
-  @Override
   public Location getLocation() {
     return location;
   }

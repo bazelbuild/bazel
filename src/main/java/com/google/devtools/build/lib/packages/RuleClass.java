@@ -2359,16 +2359,6 @@ public class RuleClass implements RuleClassData {
     return allowlistCheckers;
   }
 
-  /**
-   * If true, no rule of this class ever declares a license regardless of what the rule's or
-   * package's <code>licenses</code> attribute says.
-   *
-   * <p>This is useful for rule types that don't make sense for license checking.
-   */
-  boolean ignoreLicenses() {
-    return attributeProvider.ignoreLicenses();
-  }
-
   public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {
     return toolchainTypes;
   }
