@@ -79,6 +79,7 @@ java_library(
         "//third_party/java/auto:auto_value",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/guava:primitives",
         "//third_party/java/jsr305_annotations",
     ],
 )

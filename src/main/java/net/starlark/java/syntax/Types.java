@@ -17,6 +17,8 @@ package net.starlark.java.syntax;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.primitives.Booleans.falseFirst;
+import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
@@ -25,7 +27,11 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -43,8 +49,27 @@ import javax.annotation.Nullable;
  */
 public final class Types {
 
-  // TODO(ilist@): constructed types should probably be interned. In some cases it might help
-  // to precompute and memoize StarlarkTypes.getSupertypes.
+  // TODO(ilist@): In some cases it might help to precompute and memoize
+  // StarlarkType.getSupertypes.
+  private static final Interner<StarlarkType> TYPE_INTERNER = Interners.newWeakInterner();
+
+  private static final Comparator<StarlarkType> UNION_ELEMENT_COMPARATOR =
+      comparing(
+              (StarlarkType t) -> t instanceof NoneType,
+              falseFirst()) // By convention, None goes last
+          .thenComparing(t -> t.getClass().getName())
+          .thenComparing(StarlarkType::typeRepr);
+
+  /**
+   * Interns a {@link StarlarkType} instance by weak reference.
+   *
+   * <p>The given type's {@link Object#equals} implementation must only return true for instances of
+   * the same Java class and (if the implementation is generic) a compatible Java type.
+   */
+  @SuppressWarnings("unchecked") // cast is checked against type.getClass() at runtime
+  public static <T extends StarlarkType> T intern(T type) {
+    return (T) type.getClass().cast(TYPE_INTERNER.intern(type));
+  }
 
   /**
    * The Dynamic type of gradual typing; compatible with any other type, but not related by
@@ -478,15 +503,16 @@ public final class Types {
         "numPositionalParameters (%s) > numParameterTypes (%s)",
         numPositionalParameters,
         parameterTypes.size());
-    return new AutoValue_Types_GeneralCallableType(
-        parameterNames,
-        parameterTypes,
-        numPositionalOnlyParameters,
-        numPositionalParameters,
-        varargsType,
-        kwargsType,
-        returns,
-        mandatoryParams);
+    return intern(
+        new AutoValue_Types_GeneralCallableType(
+            parameterNames,
+            parameterTypes,
+            numPositionalOnlyParameters,
+            numPositionalParameters,
+            varargsType,
+            kwargsType,
+            returns,
+            mandatoryParams));
   }
 
   public static SimpleCallableType simpleCallable(
@@ -498,7 +524,8 @@ public final class Types {
       checkArgument(
           parameterTypes.isEmpty(), "If hasVarargsAndKwargs is true, parameterTypes must be empty");
     }
-    return new AutoValue_Types_SimpleCallableType(parameterTypes, returns, hasVarargsAndKwargs);
+    return intern(
+        new AutoValue_Types_SimpleCallableType(parameterTypes, returns, hasVarargsAndKwargs));
   }
 
   /**
@@ -939,40 +966,34 @@ public final class Types {
    * is returned.
    */
   public static StarlarkType union(StarlarkType... types) {
-    return union(ImmutableSet.copyOf(types));
+    return union(ImmutableList.copyOf(types));
   }
 
   /** Constructs a union type. */
-  // TODO: #28043 - Seems more appropriate to use List<StarlarkType> for the param and let this
-  // factory method take care of deduplication. For the moment we have a convenience overload below.
-  public static StarlarkType union(ImmutableSet<StarlarkType> types) {
-    ImmutableSet.Builder<StarlarkType> subtypesBuilder = ImmutableSet.builder();
-    // Unions are flattened
+  public static StarlarkType union(Collection<StarlarkType> types) {
+    if (types.size() == 1) {
+      // Optimize the common case.
+      return types.iterator().next();
+    }
+    ArrayList<StarlarkType> flattenedSubtypeList = new ArrayList<>(types.size());
     for (StarlarkType type : types) {
-      if (type instanceof UnionType union) {
-        subtypesBuilder.addAll(union.getTypes());
+      if (type.equals(Types.OBJECT)) {
+        return Types.OBJECT;
+      } else if (type instanceof UnionType union) {
+        // Unions are flattened
+        flattenedSubtypeList.addAll(union.getTypes());
       } else if (!type.equals(Types.NEVER)) {
-        subtypesBuilder.add(type);
+        flattenedSubtypeList.add(type);
       }
     }
-    ImmutableSet<StarlarkType> subtypes = subtypesBuilder.build();
-    if (subtypes.contains(Types.OBJECT)) {
-      return Types.OBJECT;
-    }
+    flattenedSubtypeList.sort(UNION_ELEMENT_COMPARATOR);
+    ImmutableSet<StarlarkType> subtypes = ImmutableSet.copyOf(flattenedSubtypeList);
     if (subtypes.size() == 1) {
       return subtypes.iterator().next();
     } else if (subtypes.isEmpty()) {
       return Types.NEVER;
     }
-    return new AutoValue_Types_UnionType(subtypes);
-  }
-
-  public static StarlarkType union(List<StarlarkType> types) {
-    if (types.size() == 1) {
-      // Optimize the common case.
-      return types.getFirst();
-    }
-    return union(ImmutableSet.copyOf(types));
+    return intern(new AutoValue_Types_UnionType(subtypes));
   }
 
   /** Returns the list of a union's types, or a singleton list if {@code type} is not a union. */
@@ -1034,7 +1055,7 @@ public final class Types {
   }
 
   public static ListType list(StarlarkType elementType) {
-    return new AutoValue_Types_ListType(elementType);
+    return intern(new AutoValue_Types_ListType(elementType));
   }
 
   /**
@@ -1044,7 +1065,7 @@ public final class Types {
    * parameter; and it MUST NOT be inferred as or in a type parameter of a generic function.
    */
   public static ListRvalueType listRvalue(StarlarkType elementType) {
-    return new AutoValue_Types_ListRvalueType(elementType);
+    return intern(new AutoValue_Types_ListRvalueType(elementType));
   }
 
   /** List type */
@@ -1145,7 +1166,7 @@ public final class Types {
   }
 
   public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
-    return new AutoValue_Types_DictType(keyType, valueType);
+    return intern(new AutoValue_Types_DictType(keyType, valueType));
   }
 
   /**
@@ -1155,7 +1176,7 @@ public final class Types {
    * parameter; and it MUST NOT be inferred as or in a type parameter of a generic function.
    */
   public static DictRvalueType dictRvalue(StarlarkType keyType, StarlarkType valueType) {
-    return new AutoValue_Types_DictRvalueType(keyType, valueType);
+    return intern(new AutoValue_Types_DictRvalueType(keyType, valueType));
   }
 
   /** Dict type */
@@ -1244,7 +1265,7 @@ public final class Types {
   }
 
   public static SetType set(StarlarkType elementType) {
-    return new AutoValue_Types_SetType(elementType);
+    return intern(new AutoValue_Types_SetType(elementType));
   }
 
   /** Set type */
@@ -1296,7 +1317,7 @@ public final class Types {
   }
 
   public static FixedLengthTupleType tuple(ImmutableList<StarlarkType> elementTypes) {
-    return new AutoValue_Types_FixedLengthTupleType(elementTypes);
+    return intern(new AutoValue_Types_FixedLengthTupleType(elementTypes));
   }
 
   public static FixedLengthTupleType tuple(StarlarkType first, StarlarkType... rest) {
@@ -1304,7 +1325,7 @@ public final class Types {
   }
 
   public static HomogeneousTupleType homogeneousTuple(StarlarkType elementType) {
-    return new AutoValue_Types_HomogeneousTupleType(elementType);
+    return intern(new AutoValue_Types_HomogeneousTupleType(elementType));
   }
 
   /** Tuple type. */
@@ -1489,7 +1510,7 @@ public final class Types {
 
   /** Collection type */
   public static CollectionType collection(StarlarkType elementType) {
-    return new AutoValue_Types_CollectionType(elementType);
+    return intern(new AutoValue_Types_CollectionType(elementType));
   }
 
   /** Returns true if {@code type} may be used as a collection. */
@@ -1582,7 +1603,7 @@ public final class Types {
 
   /** Sequence type */
   public static SequenceType sequence(StarlarkType elementType) {
-    return new AutoValue_Types_SequenceType(elementType);
+    return intern(new AutoValue_Types_SequenceType(elementType));
   }
 
   /** Abstract sequence type for common sequence functionality. Exists to be subclassed. */
@@ -1638,7 +1659,7 @@ public final class Types {
 
   /** Mapping type */
   public static MappingType mapping(StarlarkType keyType, StarlarkType valueType) {
-    return new AutoValue_Types_MappingType(keyType, valueType);
+    return intern(new AutoValue_Types_MappingType(keyType, valueType));
   }
 
   /**
@@ -1758,14 +1779,24 @@ public final class Types {
     }
   }
 
+  private static ImmutableMap<String, StarlarkType> sortFieldsByName(
+      Map<String, StarlarkType> fields) {
+    if (fields.size() <= 1) {
+      return ImmutableMap.copyOf(fields);
+    }
+    ArrayList<Map.Entry<String, StarlarkType>> entries = new ArrayList<>(fields.entrySet());
+    entries.sort(Map.Entry.comparingByKey());
+    return ImmutableMap.copyOf(entries);
+  }
+
   /** Immutable partial struct type */
-  public static StructType partialStruct(ImmutableMap<String, StarlarkType> fields) {
-    return new AutoValue_Types_StructType(fields, /* partial= */ true);
+  public static StructType partialStruct(Map<String, StarlarkType> fields) {
+    return intern(new AutoValue_Types_StructType(sortFieldsByName(fields), /* partial= */ true));
   }
 
   /** Immutable total struct type */
-  public static StructType struct(ImmutableMap<String, StarlarkType> fields) {
-    return new AutoValue_Types_StructType(fields, /* partial= */ false);
+  public static StructType struct(Map<String, StarlarkType> fields) {
+    return intern(new AutoValue_Types_StructType(sortFieldsByName(fields), /* partial= */ false));
   }
 
   /**

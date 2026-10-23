@@ -88,16 +88,16 @@ public class DynamicTypeCheckTest {
             "in call to f(), parameter 'a' got value of type 'list[bool]', want 'list[int]'");
     assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1], [True]])")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'list[list[int] | list[bool]]', "
+            "in call to f(), parameter 'a' got value of type 'list[list[bool] | list[int]]', "
                 + "want 'list[list[int]]'");
     assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1, True]])")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'list[list[int | bool]]', "
+            "in call to f(), parameter 'a' got value of type 'list[list[bool | int]]', "
                 + "want 'list[list[int]]'");
     // invariance
     assertExecThrows(EvalException.class, "def f(a: list[None|int]): pass", "f([1])")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'list[int]', want 'list[None | int]'");
+            "in call to f(), parameter 'a' got value of type 'list[int]', want 'list[int | None]'");
   }
 
   @Test
@@ -105,7 +105,7 @@ public class DynamicTypeCheckTest {
     ev.exec("def f(a: None|bool): pass", "f(None)");
     ev.exec("def f(a: None|bool): pass", "f(True)");
     assertExecThrows(EvalException.class, "def f(a: None|bool): pass", "f(1)")
-        .isEqualTo("in call to f(), parameter 'a' got value of type 'int', want 'None | bool'");
+        .isEqualTo("in call to f(), parameter 'a' got value of type 'int', want 'bool | None'");
   }
 
   @Test
@@ -129,7 +129,7 @@ public class DynamicTypeCheckTest {
     assertExecThrows(
             EvalException.class, "def f(a: dict[int, list[str]]): pass", "f({1: ['a', 1]})")
         .isEqualTo(
-            "in call to f(), parameter 'a' got value of type 'dict[int, list[str | int]]', "
+            "in call to f(), parameter 'a' got value of type 'dict[int, list[int | str]]', "
                 + "want 'dict[int, list[str]]'");
   }
 
@@ -223,7 +223,7 @@ public class DynamicTypeCheckTest {
     assertExecThrows(EvalException.class, "def f(a: Mapping[None|str, int]): pass", "f({'a': 1})")
         .isEqualTo(
             "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
-                + " 'Mapping[None | str, int]'");
+                + " 'Mapping[str | None, int]'");
   }
 
   @Test
@@ -277,8 +277,8 @@ public class DynamicTypeCheckTest {
             "repr: (object, /) -> str",
             "str: (object, /) -> str; is a reified type",
             "type: (object, /) -> str",
-            "float: ([str | bool | int | float], /) -> float; is a reified type",
-            "int: (str | bool | int | float, /, base: [int]) -> int; is a reified type",
+            "float: ([bool | float | int | str], /) -> float; is a reified type",
+            "int: (bool | float | int | str, /, base: [int]) -> int; is a reified type",
             "dir: (object, /) -> list[str]",
             "all: (Collection[object], /) -> bool",
             "any: (Collection[object], /) -> bool",
