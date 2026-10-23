@@ -234,6 +234,11 @@ public class RemoteExecutionServiceTest {
   private RemoteExecutionClient executor;
   private RemoteActionExecutionContext remoteActionExecutionContext;
 
+  private static final NodeProperties INPUT_SET_ROOT_PROPERTIES =
+      NodeProperties.newBuilder()
+          .addProperties(NodeProperty.newBuilder().setName("input_set_root").setValue("true"))
+          .build();
+
   @Before
   public final void setUp() throws Exception {
     reporter.addHandler(eventHandler);
@@ -590,7 +595,7 @@ public class RemoteExecutionServiceTest {
 
     var emptyDirectory = dir(ImmutableList.of(), ImmutableMap.of());
     var treeArtifactDirectory =
-        dir(
+        inputSetDir(
             ImmutableList.of(
                 file("root_file1", "content of tree file root_file1"),
                 file("root_file2", "content of tree file root_file2"),
@@ -644,7 +649,7 @@ public class RemoteExecutionServiceTest {
                                 file("bar.txt", "content of tree file srcs/system-root/bar.txt")),
                             ImmutableMap.of())))));
     var runfilesDirectory =
-        dir(
+        inputSetDir(
             ImmutableList.of(),
             ImmutableMap.of(
                 TestConstants.WORKSPACE_NAME,
@@ -655,7 +660,7 @@ public class RemoteExecutionServiceTest {
                         file("root_file3", "content of root_file3")),
                     ImmutableMap.of(
                         "dir",
-                        dir(
+                        inputSetDir(
                             ImmutableList.of(
                                 file("file1", "content of dir/file1"),
                                 file("file2", "content of dir/file2"),
@@ -685,7 +690,7 @@ public class RemoteExecutionServiceTest {
                         "empty_dir",
                         emptyDirectory,
                         "path",
-                        dir(
+                        inputSetDir(
                             ImmutableList.of(
                                 file("ﾐ", "content of path/ﾐ"), file("🔥", "content of path/🔥")),
                             ImmutableMap.of()),
@@ -694,12 +699,12 @@ public class RemoteExecutionServiceTest {
                             ImmutableList.of(),
                             ImmutableMap.of(
                                 "system",
-                                dir(
+                                inputSetDir(
                                     ImmutableList.of(
                                         file("foo.txt", "content of srcs/system/foo.txt")),
                                     ImmutableMap.of()),
                                 "system-root",
-                                dir(
+                                inputSetDir(
                                     ImmutableList.of(
                                         file("bar.txt", "content of srcs/system-root/bar.txt")),
                                     ImmutableMap.of())))))));
@@ -766,28 +771,14 @@ public class RemoteExecutionServiceTest {
                                         file("bar.txt", "content of srcs/system-root/bar.txt")),
                                     ImmutableMap.of()))))),
                 "src_dir",
-                dir(
+                inputSetDir(
                     ImmutableList.of(
                         file("file1", "content of src_dir/file1"),
                         file("file2", "content of src_dir/file2"),
                         file("file3", "content of src_dir/file3")),
                     ImmutableMap.of())));
 
-    var expectedDigest =
-        DigestUtil.fromString(
-            switch (TestConstants.PRODUCT_NAME) {
-              // The product name and the main workspace name differ between Bazel and Blaze,
-              // both of them making their way into paths.
-              case "bazel" ->
-                  "ff6cfaefd3fe05996e6e06e818ff462b7e5632a730e48111a8643bbf58d6e01f/164";
-              case "blaze" ->
-                  "53a0d960028fceda7b7f7108721f0d5fae190710c4e78fd7385851648958f220/164";
-              default ->
-                  throw new IllegalArgumentException(
-                      "Unknown product name " + TestConstants.PRODUCT_NAME);
-            });
-
-    assertThat(digestUtil.compute(rootDirectory)).isEqualTo(expectedDigest);
+    var expectedDigest = digestUtil.compute(rootDirectory);
 
     // Verify that multiple concurrent Merkle tree builds all produce the same result and don't
     // interfere with each other.
@@ -914,6 +905,13 @@ public class RemoteExecutionServiceTest {
             builder.addDirectories(
                 DirectoryNode.newBuilder().setName(name).setDigest(digestUtil.compute(dir))));
     return builder.build();
+  }
+
+  private Directory inputSetDir(
+      ImmutableList<Message> filesAndSymlinks, ImmutableMap<String, Directory> dirs) {
+    return dir(filesAndSymlinks, dirs).toBuilder()
+        .setNodeProperties(INPUT_SET_ROOT_PROPERTIES)
+        .build();
   }
 
   @Test
@@ -3028,6 +3026,7 @@ public class RemoteExecutionServiceTest {
                     .setName(TestConstants.WORKSPACE_NAME)
                     .setDigest(digestUtil.compute(runfilesSubDirectory))
                     .build())
+            .setNodeProperties(INPUT_SET_ROOT_PROPERTIES)
             .build();
 
     var inputFile =
