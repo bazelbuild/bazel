@@ -411,7 +411,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     assertThat(value.getSize()).isEqualTo(file.getSize());
     if (digest == null) {
       assertThat(value.getDigest()).isNull();
-      assertThat(value.getModifiedTime()).isEqualTo(file.getLastModifiedTime());
+      assertThat(value.getModifiedTime()).isEqualTo(file.getLastModifiedTimeNanos());
     } else {
       assertThat(value.getDigest()).isEqualTo(digest);
     }
