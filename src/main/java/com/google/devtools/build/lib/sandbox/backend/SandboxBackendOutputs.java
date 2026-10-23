@@ -42,9 +42,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -86,6 +89,14 @@ final class SandboxBackendOutputs {
    * Starts to assemble the files and directories described by {@code result}, and the contents of
    * the file {@code stdoutOutput} if the standard output of the action was redirected into one.
    *
+   * <p>Nothing that the backend returns is trusted to stay within what the action declared: every
+   * path in {@code result} has to be one of {@code declaredOutputPaths}, and the names in a tree
+   * have to be plain names. Outputs that weren't declared are an error rather than ignored, since
+   * a backend that reports them is confused about the action it ran, and what else it got wrong
+   * can't be known. The target of a symlink is not checked, as symlinks that point anywhere are
+   * legitimate outputs.
+   *
+   * @param declaredOutputPaths the {@code output_paths} that were sent in the command
    * @param stdout where the standard output of the action goes: a file output if non-null,
    *     otherwise {@code outErr}
    */
@@ -93,10 +104,15 @@ final class SandboxBackendOutputs {
       RemoteActionExecutionContext context,
       ActionResult result,
       RemotePathResolver resolver,
+      Collection<String> declaredOutputPaths,
       @Nullable Path stdoutOutput)
       throws IOException {
+    Set<String> declared = new HashSet<>();
+    for (String path : declaredOutputPaths) {
+      declared.add(PathFragment.create(unicodeToInternal(path)).getPathString());
+    }
     for (OutputFile file : result.getOutputFilesList()) {
-      Path real = resolver.outputPathToLocalPath(unicodeToInternal(file.getPath()));
+      Path real = resolver.outputPathToLocalPath(declaredOutput(declared, file.getPath()));
       if (outputs.containsKey(real)) {
         continue;
       }
@@ -105,7 +121,7 @@ final class SandboxBackendOutputs {
       downloads.add(fetchFile(context, file.getDigest(), assembled, file.getIsExecutable()));
     }
     for (OutputDirectory directory : result.getOutputDirectoriesList()) {
-      Path real = resolver.outputPathToLocalPath(unicodeToInternal(directory.getPath()));
+      Path real = resolver.outputPathToLocalPath(declaredOutput(declared, directory.getPath()));
       if (outputs.containsKey(real)) {
         continue;
       }
@@ -117,7 +133,7 @@ final class SandboxBackendOutputs {
     symlinks.addAll(result.getOutputFileSymlinksList());
     symlinks.addAll(result.getOutputDirectorySymlinksList());
     for (OutputSymlink symlink : symlinks) {
-      Path real = resolver.outputPathToLocalPath(unicodeToInternal(symlink.getPath()));
+      Path real = resolver.outputPathToLocalPath(declaredOutput(declared, symlink.getPath()));
       if (outputs.containsKey(real)) {
         continue;
       }
@@ -138,6 +154,41 @@ final class SandboxBackendOutputs {
         FileSystemUtils.createEmptyFile(assembled);
       }
     }
+  }
+
+  /**
+   * Returns {@code path}, as a Bazel internal string, if it is one of the {@code declared} paths.
+   * Those are relative to the exec root, so a path that is one of them can't leave it.
+   */
+  private static String declaredOutput(Set<String> declared, String path) throws IOException {
+    String internal = unicodeToInternal(path);
+    if (path.isEmpty() || path.indexOf('\0') >= 0 || path.startsWith("/")) {
+      throw new IOException(
+          "sandbox backend returned the invalid output path '" + printable(path) + "'");
+    }
+    PathFragment normalized = PathFragment.create(internal);
+    if (normalized.containsUplevelReferences() || !declared.contains(normalized.getPathString())) {
+      throw new IOException(
+          "sandbox backend returned the output '" + printable(path) + "', which the action didn't declare");
+    }
+    return internal;
+  }
+
+  /** Returns {@code name}, a name in a tree, if it can't refer to anything but a child. */
+  private static String childName(String name) throws IOException {
+    if (name.isEmpty()
+        || name.equals(".")
+        || name.equals("..")
+        || name.indexOf('/') >= 0
+        || name.indexOf('\0') >= 0) {
+      throw new IOException(
+          "sandbox backend returned a tree with the invalid name '" + printable(name) + "'");
+    }
+    return unicodeToInternal(name);
+  }
+
+  private static String printable(String s) {
+    return s.replace("\0", "\\0");
   }
 
   /**
@@ -246,11 +297,11 @@ final class SandboxBackendOutputs {
           fetchFile(
               context,
               file.getDigest(),
-              path.getRelative(unicodeToInternal(file.getName())),
+              path.getRelative(childName(file.getName())),
               file.getIsExecutable()));
     }
     for (SymlinkNode symlink : directory.getSymlinksList()) {
-      path.getRelative(unicodeToInternal(symlink.getName()))
+      path.getRelative(childName(symlink.getName()))
           .createSymbolicLink(PathFragment.create(unicodeToInternal(symlink.getTarget())));
     }
     for (DirectoryNode node : directory.getDirectoriesList()) {
@@ -259,7 +310,7 @@ final class SandboxBackendOutputs {
         throw new IOException(
             "sandbox backend returned a tree without the directory " + node.getName());
       }
-      Path childPath = path.getRelative(unicodeToInternal(node.getName()));
+      Path childPath = path.getRelative(childName(node.getName()));
       childPath.createDirectory();
       populate(context, child, children, childPath, files);
     }

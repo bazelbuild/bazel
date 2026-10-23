@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.sandbox.backend;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import build.bazel.remote.execution.v2.Action;
@@ -456,6 +457,160 @@ public final class SandboxBackendSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(context.isLockOutputFilesCalled()).isFalse();
     assertThat(execRoot.getRelative("outputs/out.txt").exists()).isFalse();
+  }
+
+  private SpawnResult execWithResult(ActionResult result, String... declaredOutputs)
+      throws Exception {
+    backend.setExecuteHandler((request, responses) -> FakeBackend.respond(responses, result));
+    Spawn spawn = spawn(declaredOutputs);
+    return runner.exec(spawn, context(spawn));
+  }
+
+  @Test
+  public void undeclaredOutputFile_isRejectedAndNothingIsWritten() throws Exception {
+    Digest out = stage("o1", "hello");
+
+    SpawnResult result =
+        execWithResult(
+            ActionResult.newBuilder()
+                .addOutputFiles(outputFile("outputs/out.txt", out))
+                .addOutputFiles(outputFile("outputs/extra.txt", out))
+                .build(),
+            "outputs/out.txt");
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage())
+        .contains("returned the output 'outputs/extra.txt', which the action didn't declare");
+    assertThat(execRoot.getRelative("outputs/out.txt").exists()).isFalse();
+    assertThat(execRoot.getRelative("outputs/extra.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void outputPathsThatEscapeTheExecRoot_areRejected() throws Exception {
+    Digest out = stage("o1", "hello");
+    java.nio.file.Path outside = java.nio.file.Path.of(root.getPathString(), "outside.txt");
+    for (String path :
+        new String[] {
+          outside.toString(), "../outside.txt", "../../outside.txt", "outputs/../../outside.txt", ""
+        }) {
+      SpawnResult result =
+          execWithResult(
+              ActionResult.newBuilder().addOutputFiles(outputFile(path, out)).build(),
+              "outputs/out.txt");
+
+      assertWithMessage(path).that(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+      assertWithMessage(path).that(result.getFailureMessage()).contains("sandbox backend returned");
+      assertThat(java.nio.file.Files.exists(outside)).isFalse();
+    }
+  }
+
+  @Test
+  public void outputPathWithNul_isRejected() throws Exception {
+    Digest out = stage("o1", "hello");
+
+    SpawnResult result =
+        execWithResult(
+            ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt\0x", out)).build(),
+            "outputs/out.txt");
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("invalid output path");
+  }
+
+  @Test
+  public void undeclaredOutputDirectoryAndSymlink_areRejected() throws Exception {
+    SpawnResult directory =
+        execWithResult(
+            ActionResult.newBuilder()
+                .addOutputDirectories(
+                    OutputDirectory.newBuilder()
+                        .setPath("outputs/other")
+                        .setTreeDigest(digestUtil.computeAsUtf8("x")))
+                .build(),
+            "outputs/tree");
+    SpawnResult symlink =
+        execWithResult(
+            ActionResult.newBuilder()
+                .addOutputSymlinks(
+                    build.bazel.remote.execution.v2.OutputSymlink.newBuilder()
+                        .setPath("../escape")
+                        .setTarget("/etc/passwd"))
+                .build(),
+            "outputs/link");
+
+    assertThat(directory.getFailureMessage()).contains("outputs/other', which the action didn't");
+    assertThat(symlink.getFailureMessage()).contains("'../escape', which the action didn't");
+    assertThat(root.getRelative("escape").exists()).isFalse();
+  }
+
+  @Test
+  public void treeWithInvalidNames_isRejected() throws Exception {
+    Digest file = stage("o1", "in tree");
+    for (String name : new String[] {"..", ".", "a/b", "", "/abs", "nul\0"}) {
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addFiles(FileNode.newBuilder().setName(name).setDigest(file)))
+              .build();
+      Digest treeDigest = digestUtil.compute(tree.toByteArray());
+      backend.serve(treeDigest, tree.toByteString());
+
+      SpawnResult result =
+          execWithResult(
+              ActionResult.newBuilder()
+                  .addOutputDirectories(
+                      OutputDirectory.newBuilder()
+                          .setPath("outputs/tree")
+                          .setTreeDigest(treeDigest))
+                  .build(),
+              "outputs/tree");
+
+      assertWithMessage(name).that(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+      assertWithMessage(name).that(result.getFailureMessage()).contains("invalid name");
+      assertThat(execRoot.getRelative("outputs/tree").exists()).isFalse();
+    }
+  }
+
+  @Test
+  public void treeWithInvalidDirectoryAndSymlinkNames_isRejected() throws Exception {
+    Directory empty = Directory.getDefaultInstance();
+    Tree withDirectory =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addDirectories(
+                        build.bazel.remote.execution.v2.DirectoryNode.newBuilder()
+                            .setName("..")
+                            .setDigest(digestUtil.compute(empty))))
+            .addChildren(empty)
+            .build();
+    Tree withSymlink =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addSymlinks(
+                        build.bazel.remote.execution.v2.SymlinkNode.newBuilder()
+                            .setName("a/../../b")
+                            .setTarget("x")))
+            .build();
+    for (Tree tree : new Tree[] {withDirectory, withSymlink}) {
+      Digest treeDigest = digestUtil.compute(tree.toByteArray());
+      backend.serve(treeDigest, tree.toByteString());
+
+      SpawnResult result =
+          execWithResult(
+              ActionResult.newBuilder()
+                  .addOutputDirectories(
+                      OutputDirectory.newBuilder()
+                          .setPath("outputs/tree")
+                          .setTreeDigest(treeDigest))
+                  .build(),
+              "outputs/tree");
+
+      assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+      assertThat(result.getFailureMessage()).contains("invalid name");
+    }
   }
 
   @Test

@@ -214,7 +214,7 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
 
       com.google.rpc.Status status = response.getStatus();
       if (status.getCode() == Code.OK_VALUE) {
-        return finish(spawn, context, session, remoteContext, resolver, response, metrics, total);
+        return finish(spawn, context, session, remoteContext, resolver, command, response, metrics, total);
       }
       if (isMissing(status) && attempt < MAX_MISSING_RETRIES) {
         continue;
@@ -242,6 +242,7 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
       SandboxBackendSession session,
       RemoteActionExecutionContext remoteContext,
       RemotePathResolver resolver,
+      Command command,
       ExecuteResponse response,
       SpawnMetrics.Builder metrics,
       Stopwatch total)
@@ -258,7 +259,11 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
       FileOutErr tmpOutErr = outErr.childOutErr();
       try {
         outputs.download(
-            remoteContext, result, resolver, stdoutOutput != null ? stdoutOutput.getPath() : null);
+            remoteContext,
+            result,
+            resolver,
+            command.getOutputPathsList(),
+            stdoutOutput != null ? stdoutOutput.getPath() : null);
         outputs.downloadOutErr(
             remoteContext,
             result,
