@@ -326,7 +326,7 @@ public abstract class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "experimental_inmemory_sandbox_stashes",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
