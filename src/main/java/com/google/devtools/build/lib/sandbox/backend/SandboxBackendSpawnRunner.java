@@ -175,7 +175,10 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
               /* cacheable= */ false,
               /* salt= */ null);
       ActionKey actionKey = digestUtil.computeActionKey(action);
-      context.setDigest(digestUtil.asSpawnLogProto(actionKey));
+      // A spawn cache has already set the digest of the spawn, and a different one is an error.
+      if (context.getDigest() == null) {
+        context.setDigest(digestUtil.asSpawnLogProto(actionKey));
+      }
       RemoteActionExecutionContext remoteContext =
           RemoteActionExecutionContext.create(
               spawn, context, buildMetadata(spawn, actionKey.digest()));

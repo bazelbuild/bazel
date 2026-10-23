@@ -614,6 +614,41 @@ public final class SandboxBackendSpawnRunnerTest {
   }
 
   @Test
+  public void digestSetByASpawnCache_isKept() throws Exception {
+    Digest out = stage("o1", "hello");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build()));
+    Spawn spawn = spawn("outputs/out.txt");
+    Context context = context(spawn);
+    var cacheDigest = com.google.devtools.build.lib.exec.Protos.Digest.newBuilder().setHash("cache").build();
+    context.setDigest(cacheDigest);
+
+    runner.exec(spawn, context);
+
+    assertThat(context.getDigest()).isEqualTo(cacheDigest);
+  }
+
+  @Test
+  public void digestIsSetWhenNoSpawnCacheDid() throws Exception {
+    Digest out = stage("o1", "hello");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build()));
+    Spawn spawn = spawn("outputs/out.txt");
+    Context context = context(spawn);
+
+    runner.exec(spawn, context);
+
+    assertThat(context.getDigest().getHash())
+        .isEqualTo(backend.executes.get(0).getActionDigest().getHash());
+  }
+
+  @Test
   public void failedCapabilitiesCheck_failsTheSpawnAndTheNextSpawnStartsAgain() throws Exception {
     var retrying =
         new SandboxBackendSpawnRunner(
