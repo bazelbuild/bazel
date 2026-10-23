@@ -290,6 +290,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
         "//third_party/java/roaringbitmap",
     ],
 )

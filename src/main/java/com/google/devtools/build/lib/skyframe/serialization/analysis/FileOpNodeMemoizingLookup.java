@@ -526,7 +526,10 @@ public final class FileOpNodeMemoizingLookup {
         switch (node.getAnalysisDependency(i)) {
           case FileKey file -> assignAnalysisId(file);
           case DirectoryListingKey listing -> assignAnalysisId(listing);
-          case AbstractNestedFileOpNodes child -> visitNested(child);
+          case AbstractNestedFileOpNodes child -> {
+            child.incrementInDegree();
+            visitNested(child);
+          }
           case RemoteFileOpNode _ -> {}
         }
       }

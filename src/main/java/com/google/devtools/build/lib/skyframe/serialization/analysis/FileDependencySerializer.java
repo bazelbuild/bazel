@@ -97,6 +97,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -201,6 +202,18 @@ final class FileDependencySerializer {
 
   private final LeafIdAssignment leafIds;
 
+  /**
+   * Whether a node's bitmap is freed once its last parent has consumed it.
+   *
+   * <p>Freeing is sound only if a node's in-degree is final by the time the node is serialized,
+   * because that in-degree becomes its reference count. {@link SelectedEntrySerializer} guarantees
+   * this by materializing the whole node graph first. {@link SkycacheUploadClient} uploads while
+   * analysis is still running, so a parent can appear after its child was serialized; the child's
+   * count would then reach zero early and a later parent would find the bitmap gone. That path must
+   * pass false and keep every bitmap.
+   */
+  private final boolean releaseBitmaps;
+
   FileDependencySerializer(
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
@@ -208,7 +221,8 @@ final class FileDependencySerializer {
       KeyValueWriter writer,
       SafeExecutor executor,
       @Nullable ProfileCollector profileCollector,
-      LeafIdAssignment leafIds) {
+      LeafIdAssignment leafIds,
+      boolean releaseBitmaps) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
@@ -217,6 +231,7 @@ final class FileDependencySerializer {
     this.counters = new Counters();
     this.profileCollector = profileCollector;
     this.leafIds = leafIds;
+    this.releaseBitmaps = releaseBitmaps;
   }
 
   Counters getCounters() {
@@ -254,8 +269,12 @@ final class FileDependencySerializer {
         return reference;
       }
 
+      // The leaf ID walk does not count edges into remote nodes, so no initial count is correct: a
+      // parent that unwraps to a remote node adds its own references, and releases could then pass
+      // through zero while other parents still need to merge it. The bitmap is empty, so pinning
+      // it costs nothing.
       var info =
-          new NodeInvalidationDataInfo(
+          NodeInvalidationDataInfo.pinned(
               PackedFingerprint.fromBytes(node.fingerprint().toByteArray()),
               WriteStatuses.immediateWriteStatus(),
               new RoaringBitmap(),
@@ -964,6 +983,7 @@ final class FileDependencySerializer {
         // TODO(b/558805781): investigate whether the empty case is reachable in practice.
         if (retainedNodeDependencies.isEmpty()) {
           counters.nodesWaitingForDeps.decrementAndGet();
+          releaseChildBitmaps(nodeDependencies);
           return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
         }
         // There are multiple ways that result could become unary here, even if `node` always has at
@@ -977,11 +997,19 @@ final class FileDependencySerializer {
           // TODO: b/364831651 - consider additional special casing for unary file or listing
           // dependencies.
           counters.nodesWaitingForDeps.decrementAndGet();
-          return retainedNodeDependencies.get(0);
+          NodeInvalidationDataInfo delegate = retainedNodeDependencies.get(0);
+          // Boost delegate by this parent's incoming edges before decrements to prevent transient
+          // zero:
+          delegate.addReferences(this.node.getInDegree());
+          releaseChildBitmaps(nodeDependencies);
+          return delegate;
         }
       }
 
       // Phase 4: Wire Serialization & Publication
+      // Free child bitmaps immediately before CPU-intensive compression and CAS put:
+      releaseChildBitmaps(nodeDependencies);
+
       // File and listing keys were collected in dependency order, so sort them here.
       var sortedFileKeys = retainedFileKeys.stream().sorted().distinct().toList();
       var sortedListingKeys = retainedListingKeys.stream().sorted().distinct().toList();
@@ -1058,7 +1086,29 @@ final class FileDependencySerializer {
       union.trim();
 
       return new NodeInvalidationDataInfo(
-          key, writeStatusBuilder.build(), union, hasOpaqueDependencies);
+          key,
+          writeStatusBuilder.build(),
+          union,
+          hasOpaqueDependencies,
+          /* initialReferences= */ node.getInDegree());
+    }
+
+    /**
+     * Drops this node's reference to every child in {@code nodeDependencies}, freeing any child
+     * bitmap whose last parent has now consumed it.
+     *
+     * <p>Iterates {@code nodeDependencies}, the complete set of children this handler took a
+     * reference on, <b>not</b> the retained subset that survives transitive reduction. A child
+     * pruned by reduction was still referenced, so it still has to be released; releasing only the
+     * retained subset would leave the pruned children's refcounts permanently above zero and strand
+     * their bitmaps.
+     */
+    private void releaseChildBitmaps(List<NodeInvalidationDataInfo> nodeDependencies) {
+      if (releaseBitmaps) {
+        for (NodeInvalidationDataInfo child : nodeDependencies) {
+          child.decrementReference();
+        }
+      }
     }
 
     @Override
@@ -1066,6 +1116,10 @@ final class FileDependencySerializer {
         @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
       counters.nodesWaitingForDeps.decrementAndGet();
       counters.nodesWithProcessingErrors.incrementAndGet();
+      // Child reference decrements are intentionally omitted here. If any node fails, the overall
+      // serialization and cache upload fail fast and abort. The build will fail, and in-memory
+      // data structures and bitmaps will be discarded anyway, so leaving reference counts non-zero
+      // on error paths is harmless and avoids complex error-handling synchronization.
     }
 
     private FileDataInfo getSuccessfulFileDataInfo(FileKey fileKey) {

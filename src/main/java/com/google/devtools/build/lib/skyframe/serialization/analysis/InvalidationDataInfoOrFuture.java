@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
@@ -20,7 +21,10 @@ import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.function.BiConsumer;
+import javax.annotation.Nullable;
 import org.roaringbitmap.RoaringBitmap;
 
 /**
@@ -213,7 +217,19 @@ sealed interface InvalidationDataInfoOrFuture
   /** Information about remotely persisted {@link AbstractNestedFileOpNodes}. */
   static final class NodeInvalidationDataInfo extends BaseInvalidationDataInfo<PackedFingerprint>
       implements NodeDataInfo {
-    private final RoaringBitmap bitmap;
+    private static final VarHandle REMAINING_REFERENCES_HANDLE;
+
+    static {
+      try {
+        REMAINING_REFERENCES_HANDLE =
+            MethodHandles.lookup()
+                .findVarHandle(NodeInvalidationDataInfo.class, "remainingReferences", int.class);
+      } catch (ReflectiveOperationException e) {
+        throw new ExceptionInInitializerError(e);
+      }
+    }
+
+    @Nullable private RoaringBitmap bitmap;
     private final boolean hasOpaqueDependencies;
 
     /**
@@ -223,11 +239,25 @@ sealed interface InvalidationDataInfoOrFuture
      */
     private final int cardinality;
 
+    private final boolean pinned;
+    private volatile int remainingReferences;
+
     NodeInvalidationDataInfo(
         PackedFingerprint key,
         WriteStatus writeStatus,
         RoaringBitmap bitmap,
-        boolean hasOpaqueDependencies) {
+        boolean hasOpaqueDependencies,
+        int initialReferences) {
+      this(key, writeStatus, bitmap, hasOpaqueDependencies, initialReferences, /* pinned= */ false);
+    }
+
+    private NodeInvalidationDataInfo(
+        PackedFingerprint key,
+        WriteStatus writeStatus,
+        RoaringBitmap bitmap,
+        boolean hasOpaqueDependencies,
+        int initialReferences,
+        boolean pinned) {
       super(key, writeStatus);
       this.bitmap = bitmap;
       this.hasOpaqueDependencies = hasOpaqueDependencies;
@@ -235,6 +265,44 @@ sealed interface InvalidationDataInfoOrFuture
       // descending cardinality. Ranking opaque nodes first merges their bits into the union early,
       // which gives the most opportunity to prune the siblings that follow.
       this.cardinality = hasOpaqueDependencies ? Integer.MAX_VALUE : bitmap.getCardinality();
+      this.pinned = pinned;
+      this.remainingReferences = initialReferences;
+    }
+
+    /**
+     * Creates an info that ignores reference counting and never drops its bitmap.
+     *
+     * <p>For nodes whose incoming edges are not counted, where any initial count could reach zero
+     * while parents still need the bitmap.
+     */
+    static NodeInvalidationDataInfo pinned(
+        PackedFingerprint key,
+        WriteStatus writeStatus,
+        RoaringBitmap bitmap,
+        boolean hasOpaqueDependencies) {
+      return new NodeInvalidationDataInfo(
+          key,
+          writeStatus,
+          bitmap,
+          hasOpaqueDependencies,
+          /* initialReferences= */ 0,
+          /* pinned= */ true);
+    }
+
+    public void decrementReference() {
+      if (pinned) {
+        return;
+      }
+      if ((int) REMAINING_REFERENCES_HANDLE.getAndAdd(this, -1) == 1) {
+        this.bitmap = null;
+      }
+    }
+
+    public void addReferences(int delta) {
+      if (pinned) {
+        return;
+      }
+      REMAINING_REFERENCES_HANDLE.getAndAdd(this, delta);
     }
 
     /**
@@ -246,6 +314,9 @@ sealed interface InvalidationDataInfoOrFuture
      *     covered, so the edge to it is redundant and can be dropped.
      */
     public boolean mergeInto(RoaringBitmap union) {
+      if (bitmap == null) {
+        throw new IllegalStateException("Attempted to merge from dropped bitmap for " + cacheKey());
+      }
       if (hasOpaqueDependencies) {
         union.or(bitmap);
         return true;
@@ -265,6 +336,16 @@ sealed interface InvalidationDataInfoOrFuture
     @Override
     public boolean hasOpaqueDependencies() {
       return hasOpaqueDependencies;
+    }
+
+    @VisibleForTesting
+    boolean isBitmapDroppedForTesting() {
+      return bitmap == null;
+    }
+
+    @VisibleForTesting
+    int getRemainingReferencesForTesting() {
+      return remainingReferences;
     }
   }
 

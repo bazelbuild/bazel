@@ -320,7 +320,8 @@ final class SelectedEntrySerializer {
             fileInvalidationWriter,
             fingerprintValueService.getExecutor(),
             profileCollector,
-            dense.leafIds());
+            dense.leafIds(),
+            /* releaseBitmaps= */ true);
     var writeStatuses = new SerializationStatus(fileDependencySerializer.getCounters());
     var serializer =
         new SelectedEntrySerializer(
