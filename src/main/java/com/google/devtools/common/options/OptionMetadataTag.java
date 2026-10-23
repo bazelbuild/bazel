@@ -61,7 +61,13 @@ public enum OptionMetadataTag {
   // reserved EXPLICIT_IN_OUTPUT_PATH(6)
 
   /** Options which are IMMUTABLE cannot be changed in (non-exec) Starlark transitions. */
-  IMMUTABLE(7);
+  IMMUTABLE(7),
+
+  /**
+   * Options which are FULLY_REDACTED_IN_LOGS contain sensitive credentials and should be redacted
+   * in logs.
+   */
+  FULLY_REDACTED_IN_LOGS(9);
 
   private final int value;
 

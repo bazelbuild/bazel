@@ -162,6 +162,10 @@ public final class ParsedOptionDescription {
     return tags.contains(OptionMetadataTag.HIDDEN) || tags.contains(OptionMetadataTag.INTERNAL);
   }
 
+  public boolean isFullyRedactedInLogs() {
+    return optionDefinition.isFullyRedactedInLogs();
+  }
+
   @Nullable
   public String getUnconvertedValue() {
     return unconvertedValue;

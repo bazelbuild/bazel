@@ -188,7 +188,10 @@ public class OptionFilterDescriptions {
         .put(
             OptionMetadataTag.INTERNAL, // Here for completeness, these options are UNDOCUMENTED.
             "This option isn't even a option, and should not be logged.")
-        .put(OptionMetadataTag.IMMUTABLE, "This option cannot be changed in a transition.");
+        .put(OptionMetadataTag.IMMUTABLE, "This option cannot be changed in a transition.")
+        .put(
+            OptionMetadataTag.FULLY_REDACTED_IN_LOGS,
+            "This option may contain sensitive credentials and should be redacted in logs.");
     return effectTagDescriptionBuilder.build();
   }
 }

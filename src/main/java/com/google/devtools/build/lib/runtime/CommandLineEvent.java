@@ -127,11 +127,23 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         List<ParsedOptionDescription> parsedOptionDescriptions) {
       List<Option> options = new ArrayList<>();
       for (ParsedOptionDescription parsedOption : parsedOptionDescriptions) {
-        options.add(
-            createOption(
-                parsedOption.getOptionDefinition(),
-                parsedOption.getCommandLineForm(),
-                parsedOption.getUnconvertedValue()));
+        if (parsedOption.isHidden()) {
+          continue;
+        }
+        if (parsedOption.isFullyRedactedInLogs()) {
+          String optionName = parsedOption.getOptionDefinition().getOptionName();
+          options.add(
+              createOption(
+                  parsedOption.getOptionDefinition(),
+                  "--" + optionName + "=<REDACTED>",
+                  "<REDACTED>"));
+        } else {
+          options.add(
+              createOption(
+                  parsedOption.getOptionDefinition(),
+                  parsedOption.getCommandLineForm(),
+                  parsedOption.getUnconvertedValue()));
+        }
       }
       return options;
     }
