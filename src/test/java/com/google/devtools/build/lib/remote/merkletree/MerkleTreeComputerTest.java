@@ -652,6 +652,64 @@ public class MerkleTreeComputerTest {
     assertThat(merkleTree.blobs()).isEmpty();
   }
 
+  @Test
+  public void discardBlobPolicy_rootDigestMatchesSerializedDirectories() throws Exception {
+    var sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var fakeFileCache = new FakeActionInputFileCache();
+    var file0 = ActionsTestUtil.createArtifactWithExecPath(sourceRoot, PathFragment.create("a/f0"));
+    var file1 =
+        ActionsTestUtil.createArtifactWithExecPath(sourceRoot, PathFragment.create("a/b/f1"));
+    for (var file : ImmutableList.of(file0, file1)) {
+      file.getPath().getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContentAsLatin1(file.getPath(), "content of " + file.getFilename());
+      fakeFileCache.put(file, FileArtifactValue.createForTesting(file));
+    }
+    var outputDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "out_dir");
+    var spawn = new SpawnBuilder().withInputs(file0, file1).withOutputs(outputDir).build();
+
+    var merkleTree =
+        createMerkleTreeComputer(/* uploader= */ null)
+            .buildForSpawn(
+                spawn,
+                ImmutableSet.of(),
+                /* scrubber= */ null,
+                createSpawnExecutionContext(spawn, fakeFileCache),
+                MerkleTreeComputer.BlobPolicy.DISCARD);
+
+    var b =
+        Directory.newBuilder()
+            .addFiles(fileNode("f1", digestUtil.computeAsUtf8("content of f1")))
+            .build();
+    var a =
+        Directory.newBuilder()
+            .addFiles(fileNode("f0", digestUtil.computeAsUtf8("content of f0")))
+            .addDirectories(directoryNode("b", digestUtil.compute(b.toByteArray())))
+            .build();
+    var outputs =
+        Directory.newBuilder()
+            .addDirectories(
+                directoryNode(
+                    "out_dir", digestUtil.compute(Directory.getDefaultInstance().toByteArray())))
+            .build();
+    var root =
+        Directory.newBuilder()
+            .addDirectories(directoryNode("a", digestUtil.compute(a.toByteArray())))
+            .addDirectories(directoryNode("outputs", digestUtil.compute(outputs.toByteArray())))
+            .build();
+    assertThat(merkleTree).isInstanceOf(MerkleTree.RootOnly.BlobsDiscarded.class);
+    assertThat(merkleTree.digest()).isEqualTo(digestUtil.compute(root.toByteArray()));
+  }
+
+  private static FileNode fileNode(String name, Digest digest) {
+    return FileNode.newBuilder().setName(name).setDigest(digest).setIsExecutable(true).build();
+  }
+
+  private static DirectoryNode directoryNode(String name, Digest digest) {
+    return DirectoryNode.newBuilder().setName(name).setDigest(digest).build();
+  }
+
   private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)
       throws Exception {
     var blobs = merkleTree.blobs();
