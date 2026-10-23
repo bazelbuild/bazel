@@ -47,8 +47,14 @@ public final class LocalBulkDeleter implements BulkDeleter {
   public void bulkDelete(Iterable<PathFragment> paths) throws IOException, InterruptedException {
     for (PathFragment fragment : paths) {
       Path path = execRoot.getRelative(fragment);
-      // deleteOutput makes the parent writable before retrying. A genrule can chmod the directory
-      // that contains its output, and both unlink and rmdir fail until that directory is writable.
+      try {
+        // A file, a symlink, a missing path, and an empty directory are one remove(3).
+        // The directory walk is only for a path that still has children.
+        path.delete();
+        continue;
+      } catch (IOException ignored) {
+        // ENOTEMPTY, or the parent directory is not writable.
+      }
       Path parent = path.getParentDirectory();
       if (parent != null && parent.startsWith(execRoot)) {
         try {
