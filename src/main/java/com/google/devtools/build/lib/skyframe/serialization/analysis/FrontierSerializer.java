@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.UploadPhaseTimings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.compress.CompressionService;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener.UploadPhaseTimingsEvent;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
@@ -195,7 +198,9 @@ public final class FrontierSerializer {
                   serializationStats.analysisNodes(),
                   serializationStats.executionNodes(),
                   stopwatch)));
-      reporter.handle(Event.info(formatUploadPhases(serializationStats, stopwatch.elapsed())));
+      var phases = UploadPhases.of(serializationStats, stopwatch.elapsed());
+      reporter.handle(Event.info(phases.format()));
+      eventBus.post(new UploadPhaseTimingsEvent(phases.toProto()));
     } catch (ExecutionException e) {
       // The writeStatus future is not known to throw any ExecutionExceptions.
       Throwable cause = e.getCause();
@@ -224,18 +229,34 @@ public final class FrontierSerializer {
   }
 
   /**
-   * Breaks the sync write's elapsed time into the synchronous phases of {@link
+   * The sync write's elapsed time, broken into the synchronous phases of {@link
    * SelectedEntrySerializer#uploadSelection} and the remaining wait for writes to land.
    */
-  private static String formatUploadPhases(
-      SelectedEntrySerializer.SerializationStats stats, Duration total) {
-    Duration materialize = stats.materializeNodeGraphTime();
-    Duration leafIds = stats.computeLeafIdsAndUploadOrderTime();
-    Duration drive = stats.driveUploadsTime();
-    Duration awaitWrites = total.minus(materialize).minus(leafIds).minus(drive);
-    return String.format(
-        "Skycache sync write: materialize=%d ms, assign and order=%d ms, drive=%d ms, await=%d ms",
-        materialize.toMillis(), leafIds.toMillis(), drive.toMillis(), awaitWrites.toMillis());
+  private record UploadPhases(
+      Duration materialize, Duration leafIds, Duration drive, Duration awaitWrites) {
+    static UploadPhases of(SelectedEntrySerializer.SerializationStats stats, Duration total) {
+      Duration materialize = stats.materializeNodeGraphTime();
+      Duration leafIds = stats.computeLeafIdsAndUploadOrderTime();
+      Duration drive = stats.driveUploadsTime();
+      return new UploadPhases(
+          materialize, leafIds, drive, total.minus(materialize).minus(leafIds).minus(drive));
+    }
+
+    UploadPhaseTimings toProto() {
+      return UploadPhaseTimings.newBuilder()
+          .setMaterializeNodeGraphMicros(MICROSECONDS.convert(materialize))
+          .setComputeLeafIdsAndUploadOrderMicros(MICROSECONDS.convert(leafIds))
+          .setDriveUploadsMicros(MICROSECONDS.convert(drive))
+          .setAwaitWritesMicros(MICROSECONDS.convert(awaitWrites))
+          .build();
+    }
+
+    String format() {
+      return String.format(
+          "Skycache sync write: materialize=%d ms, assign and order=%d ms, drive=%d ms,"
+              + " await=%d ms",
+          materialize.toMillis(), leafIds.toMillis(), drive.toMillis(), awaitWrites.toMillis());
+    }
   }
 
   /**
