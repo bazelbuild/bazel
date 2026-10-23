@@ -126,9 +126,27 @@ public record BackendConfig(String binary, ImmutableList<String> options) {
       }
       File withExtension = new File(candidate.getPath() + extension);
       if (withExtension.isFile() && withExtension.canExecute()) {
-        return withExtension;
+        return spelledOnDisk(withExtension);
       }
     }
     return null;
+  }
+
+  /**
+   * Returns {@code file} with the spelling of its name on disk. {@code PATHEXT} is upper case, but
+   * the file may be {@code backend.exe}, and the file system doesn't care which one is used.
+   */
+  private static File spelledOnDisk(File file) {
+    File directory = file.getAbsoluteFile().getParentFile();
+    String[] names = directory != null ? directory.list() : null;
+    if (names != null) {
+      for (String name : names) {
+        if (name.equalsIgnoreCase(file.getName())) {
+          File parent = file.getParentFile();
+          return parent != null ? new File(parent, name) : new File(name);
+        }
+      }
+    }
+    return file;
   }
 }
