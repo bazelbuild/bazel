@@ -223,8 +223,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   @Before
-  public void setOutputService() {
-    skyframeExecutor.setOutputService(new LocalOutputService(directories));
+  public void setOutputService() throws AbruptExitException {
+    LocalOutputService outputService = new LocalOutputService(directories);
+    outputService.startBuild(
+        UUID.randomUUID(),
+        ruleClassProvider.getRunfilesPrefix(),
+        NullEventHandler.INSTANCE,
+        /* finalizeActions= */ true);
+    skyframeExecutor.setOutputService(outputService);
   }
 
   @Override

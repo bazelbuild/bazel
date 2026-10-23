@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.OutputChecker;
@@ -40,6 +41,7 @@ import javax.annotation.Nullable;
  */
 public class LocalOutputService implements OutputService {
   private final BlazeDirectories directories;
+  @Nullable private volatile String workspaceName;
 
   public LocalOutputService(BlazeDirectories directories) {
     this.directories = checkNotNull(directories);
@@ -59,6 +61,7 @@ public class LocalOutputService implements OutputService {
   public ModifiedFileSet startBuild(
       UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
       throws AbruptExitException {
+    this.workspaceName = workspaceName;
     Path outputPath = directories.getOutputPath(workspaceName);
     Path localOutputPath = directories.getLocalOutputPath();
     try {
@@ -104,6 +107,12 @@ public class LocalOutputService implements OutputService {
   public void createSymlinkTree(
       Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public BulkDeleter bulkDeleter() {
+    checkState(workspaceName != null, "bulkDeleter() called before startBuild()");
+    return new LocalBulkDeleter(directories.getExecRoot(workspaceName));
   }
 
   @Override
