@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.sandbox.backend;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -77,8 +76,6 @@ public final class SandboxBackendDiskCacheIntegrationTest extends BuildIntegrati
   @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
-    // Backends can't be reached on Windows yet, and these tests use unix sockets and shell scripts.
-    assumeTrue(SandboxBackendTransport.isSupported());
     if (fake == null) {
       startBackend();
     }

@@ -57,6 +57,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/protobuf:spawn_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -126,6 +127,10 @@ java_test(
         "FakeBackend.java",
         "SandboxBackendsTest.java",
     ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendsTest",
     deps = COMMON_DEPS + [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -162,6 +167,10 @@ java_test(
         "FakeBackend.java",
         "SandboxBackendSessionTest.java",
     ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendSessionTest",
     deps = COMMON_DEPS + [
         "//third_party/google/bytestream:bytestream_grpc",
@@ -190,6 +199,10 @@ java_test(
         "FakeBackend.java",
         "SandboxBackendSocketTest.java",
     ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendSocketTest",
     deps = COMMON_DEPS + [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -235,6 +248,10 @@ java_test(
         # Required for compatibility with records.
         "-Djol.magicFieldOffset=true",
     ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendDynamicExecutionIntegrationTest",
     runtime_deps = [
         "//third_party/java/grpc:util",
@@ -275,6 +292,10 @@ java_test(
         # Required for compatibility with records.
         "-Djol.magicFieldOffset=true",
     ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendDiskCacheIntegrationTest",
     runtime_deps = [
         "//third_party/java/grpc:util",

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.sandbox.backend;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.Assume.assumeFalse;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -102,8 +103,6 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Before
   public void setUp() throws Exception {
-    // Backends can't be reached on Windows yet, and these tests use unix sockets and shell scripts.
-    assumeTrue(SandboxBackendTransport.isSupported());
     fs = new LinkingFileSystem(FileSystems.getNativeFileSystem(DigestHashFunction.SHA256));
     root = fs.getPath(java.nio.file.Files.createTempDirectory("sbk-test").toString());
     execRoot = root.getRelative("execroot/_main");
@@ -266,6 +265,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void executableBitOfOutput_isHonoredWithoutChangingStagedFile() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     Digest out = stage("o1", "script");
     backend.setExecuteHandler(
         (request, responses) ->
@@ -724,6 +725,11 @@ public final class SandboxBackendSpawnRunnerTest {
         .isEqualTo(FileUriBlobs.encode(file.getPathString()));
   }
 
+  private static String uriOf(Path path) {
+    return FileUriBlobs.encode(path.getPathString())
+        .toString(java.nio.charset.StandardCharsets.ISO_8859_1);
+  }
+
   private SpawnResult execWithUri(String uriBytes, Digest digest) throws Exception {
     backend.serve(digest, ByteString.copyFrom(uriBytes, java.nio.charset.StandardCharsets.ISO_8859_1));
     return execWithResult(
@@ -735,7 +741,7 @@ public final class SandboxBackendSpawnRunnerTest {
   public void stagedFileThatDoesNotExist_isRejected() throws Exception {
     Digest digest = digestUtil.computeAsUtf8("hello");
 
-    SpawnResult result = execWithUri("file://" + staged.getRelative("nope").getPathString(), digest);
+    SpawnResult result = execWithUri(uriOf(staged.getRelative("nope")), digest);
 
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.getFailureMessage()).contains("a file that doesn't exist");
@@ -744,11 +750,13 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void stagedDanglingSymlink_isRejected() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     staged.getRelative("dangling").createSymbolicLink(PathFragment.create("/nonexistent/target"));
 
     SpawnResult result =
         execWithUri(
-            "file://" + staged.getRelative("dangling").getPathString(),
+            uriOf(staged.getRelative("dangling")),
             digestUtil.computeAsUtf8("hello"));
 
     assertThat(result.getFailureMessage()).contains("a file that doesn't exist");
@@ -760,7 +768,7 @@ public final class SandboxBackendSpawnRunnerTest {
 
     SpawnResult result =
         execWithUri(
-            "file://" + staged.getRelative("dir").getPathString(), digestUtil.computeAsUtf8("hello"));
+            uriOf(staged.getRelative("dir")), digestUtil.computeAsUtf8("hello"));
 
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.getFailureMessage()).contains("isn't a regular file");
@@ -772,7 +780,7 @@ public final class SandboxBackendSpawnRunnerTest {
     FileSystemUtils.writeContentAsLatin1(staged.getRelative("o1"), "hello world");
 
     SpawnResult result =
-        execWithUri("file://" + staged.getRelative("o1").getPathString(), digest);
+        execWithUri(uriOf(staged.getRelative("o1")), digest);
 
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.getFailureMessage()).contains("which has 11 bytes instead of the 5");
@@ -793,7 +801,7 @@ public final class SandboxBackendSpawnRunnerTest {
   @Test
   public void uriWithNul_isRejected() throws Exception {
     SpawnResult result =
-        execWithUri("file://" + staged.getPathString() + "/a%00b", digestUtil.computeAsUtf8("hello"));
+        execWithUri(uriOf(staged) + "/a%00b", digestUtil.computeAsUtf8("hello"));
 
     assertThat(result.getFailureMessage()).contains("a NUL byte");
   }
@@ -842,6 +850,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void symlinkOutputs_areCreatedWithoutFollowingTheirTargets() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     SpawnResult result =
         execWithResult(
             ActionResult.newBuilder()
@@ -867,6 +877,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void symlinkInTree_isCreated() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     Digest file = stage("o1", "in tree");
     Tree tree =
         Tree.newBuilder()
@@ -986,6 +998,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void stagedFile_isHardLinked() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     Digest out = stage("o1", "hello");
 
     execWithResult(
@@ -997,6 +1011,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void failingHardLink_fallsBackToACopy() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     Digest out = stage("o1", "hello");
     fs.failHardLinks = true;
 
@@ -1012,6 +1028,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void executableStagedFile_isLinkedForExecutableOutputAndCopiedOtherwise() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     Digest out = stage("o1", "#!/bin/sh");
     staged.getRelative("o1").setExecutable(true);
 
@@ -1033,6 +1051,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Test
   public void emptyOutputs_areCreatedIncludingInATree() throws Exception {
+    // Symbolic links, hard links and the executable bit work differently on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
     Digest empty = digestUtil.compute(new byte[0]);
     Tree tree =
         Tree.newBuilder()

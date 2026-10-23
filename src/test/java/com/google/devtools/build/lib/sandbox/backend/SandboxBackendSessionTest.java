@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox.backend;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,8 +42,6 @@ public final class SandboxBackendSessionTest {
 
   @Before
   public void setUp() throws Exception {
-    // Backends can't be reached on Windows yet, and these tests use unix sockets and shell scripts.
-    assumeTrue(SandboxBackendTransport.isSupported());
     // Unix socket paths are short, so stay out of the long test temporary directory.
     dir = Files.createTempDirectory(Path.of("/tmp"), "sbk-session-");
     backend = FakeBackend.onUnixSocket(dir.resolve("s").toString());

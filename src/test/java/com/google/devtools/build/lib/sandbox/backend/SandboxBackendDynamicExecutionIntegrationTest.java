@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.sandbox.backend;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -161,8 +160,6 @@ public final class SandboxBackendDynamicExecutionIntegrationTest extends BuildIn
 
   @Before
   public void setUpDynamicExecution() {
-    // Backends can't be reached on Windows yet, and these tests use unix sockets and shell scripts.
-    assumeTrue(SandboxBackendTransport.isSupported());
     addOptions("--internal_spawn_scheduler", "--spawn_strategy=dynamic");
   }
 

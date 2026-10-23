@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,8 +58,6 @@ public final class SandboxBackendsTest {
 
   @Before
   public void setUp() throws Exception {
-    // Backends can't be reached on Windows yet, and these tests use unix sockets and shell scripts.
-    assumeTrue(SandboxBackendTransport.isSupported());
     dir = Files.createTempDirectory(java.nio.file.Path.of("/tmp"), "sbk-reg-");
     // All backends that are launched are linked to this one.
     backend = FakeBackend.onUnixSocket(dir.resolve("s").toString());
