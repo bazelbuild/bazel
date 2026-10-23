@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -360,6 +361,28 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     registerAction(action);
   }
 
+  @VisibleForTesting
+  static void checkCopyArtifacts(Artifact outputArtifact, Artifact inputArtifact)
+      throws EvalException {
+    if (outputArtifact.isSymlink() || inputArtifact.isSymlink()) {
+      throw Starlark.errorf(
+          "copy() of symlink artifacts is not yet supported: \"output\" and \"src\" must be"
+              + " declared as a file or directory (declare_file() or declare_directory())");
+    }
+    if (outputArtifact.isFileset() || inputArtifact.isFileset()) {
+      throw Starlark.errorf(
+          "copy() of Fileset artifacts is not supported: \"output\" and \"src\" must be"
+              + " declared as a file or directory (declare_file() or declare_directory())");
+    }
+    if (inputArtifact.isTreeArtifact() != outputArtifact.isTreeArtifact()) {
+      String inputType = inputArtifact.isTreeArtifact() ? "directory" : "file";
+      String outputType = outputArtifact.isTreeArtifact() ? "directory" : "file";
+      throw Starlark.errorf(
+          "copy() requires that \"output\" (%s) and \"src\" (%s) be the same type",
+          outputType, inputType);
+    }
+  }
+
   @Override
   public void copy(
       FileApi output, FileApi src, Object progressMessageUnchecked, StarlarkThread thread)
@@ -370,18 +393,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     Artifact outputArtifact = (Artifact) output;
     Artifact inputArtifact = (Artifact) src;
 
-    if (outputArtifact.isSymlink() || inputArtifact.isSymlink()) {
-      throw Starlark.errorf(
-          "copy() of symlink artifacts is not yet supported: \"output\" and \"src\" must be"
-              + " declared as a file or directory (declare_file() or declare_directory())");
-    }
-    if (inputArtifact.isDirectory() != outputArtifact.isDirectory()) {
-      String inputType = inputArtifact.isDirectory() ? "directory" : "file";
-      String outputType = outputArtifact.isDirectory() ? "directory" : "file";
-      throw Starlark.errorf(
-          "copy() requires that \"output\" (%s) and \"src\" (%s) be the same type",
-          outputType, inputType);
-    }
+    checkCopyArtifacts(outputArtifact, inputArtifact);
 
     String progressMessage =
         (progressMessageUnchecked != Starlark.NONE)

@@ -81,6 +81,22 @@ java_test(
 )
 
 java_test(
+    name = "StarlarkActionFactoryCopyTest",
+    srcs = ["StarlarkActionFactoryCopyTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "StarlarkCustomCommandLineTest",
     srcs = ["StarlarkCustomCommandLineTest.java"],
     deps = [

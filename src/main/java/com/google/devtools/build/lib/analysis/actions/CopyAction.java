@@ -38,8 +38,10 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -211,6 +213,14 @@ public final class CopyAction extends AbstractAction {
    * destination is always written on the host file system.
    */
   private static void copyLocalFile(Path from, Path to) throws IOException {
+    FileStatus status = from.statIfFound(Symlinks.FOLLOW);
+    if (status != null && !status.isFile()) {
+      throw new IOException(
+          String.format(
+              "source '%s' is not a regular file. Only regular files and tree artifacts"
+                  + " (directories declared with declare_directory()) can be copied",
+              from));
+    }
     copyFileWithFallback(from, to.forHostFileSystem(), FileSystemUtils::copyFile);
   }
 

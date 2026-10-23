@@ -679,7 +679,14 @@ public final class SandboxHelpers {
 
     @Override
     public String toString() {
-      return "Files: " + files + "\nVirtualInputs: " + virtualInputs + "\nSymlinks: " + symlinks;
+      return "Files: "
+          + files
+          + "\nVirtualInputs: "
+          + virtualInputs
+          + "\nSymlinks: "
+          + symlinks
+          + "\nCopyStagedFiles: "
+          + copyStagedFiles;
     }
   }
 
@@ -743,7 +750,10 @@ public final class SandboxHelpers {
                 ? null
                 : execRoot.getRelative(actionInput.getExecPath());
         inputFiles.put(pathFragment, inputPath);
-        if (inputPath != null && inputMetadataProvider != null) {
+        // Only generated files (including tree file artifacts) can be copy outputs.
+        if (inputPath != null
+            && inputMetadataProvider != null
+            && actionInput instanceof Artifact.DerivedArtifact) {
           FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(actionInput);
           if (metadata != null && metadata.isCopyOutput()) {
             copyStagedFiles.add(pathFragment);

@@ -411,4 +411,22 @@ public class CopyActionTest extends BuildViewTestCase {
     assertThat(FileSystemUtils.readContent(out.getPath().getRelative("a/f"), UTF_8))
         .isEqualTo("x");
   }
+
+  @Test
+  public void sourceThatIsADirectory_failsWithClearMessage() throws Exception {
+    Artifact in = getBinArtifactWithNoOwner("in_dir");
+    Artifact out = getBinArtifactWithNoOwner("out");
+    in.getPath().createDirectoryAndParents();
+    when(inputProvider.getInputMetadata(in))
+        .thenReturn(FileArtifactValue.createForNormalFile(DIGEST, null, 0));
+
+    ActionExecutionException e =
+        assertThrows(
+            ActionExecutionException.class,
+            () -> execute(CopyAction.create(NULL_ACTION_OWNER, in, out, "Copying")));
+
+    assertThat(e).hasMessageThat().contains("is not a regular file");
+    assertThat(e).hasMessageThat().contains("tree artifacts");
+    assertThat(out.getPath().exists()).isFalse();
+  }
 }

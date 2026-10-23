@@ -19,7 +19,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -53,6 +56,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -293,6 +297,34 @@ public class SandboxHelpersTest {
     // The real path stays the output's own path, never the source.
     assertThat(inputs.getFiles().get(copy.getExecPath()))
         .isEqualTo(execRoot.getRelative(copy.getExecPath()));
+  }
+
+  @Test
+  public void processInputFiles_neverLooksUpMetadataOfSourceOrVirtualInputs() throws Exception {
+    ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+    Artifact source = ActionsTestUtil.createArtifact(sourceRoot, "src.txt");
+    ActionInput virtual = ActionsTestUtil.createVirtualActionInput("virtual.txt", "v");
+    InputMetadataProvider provider = mock(InputMetadataProvider.class);
+
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(inputMap(source, virtual), execRoot, provider);
+
+    assertThat(inputs.getFiles()).hasSize(2);
+    assertThat(inputs.getCopyStagedFiles()).isEmpty();
+    verify(provider, never()).getInputMetadata(any());
+  }
+
+  @Test
+  public void sandboxInputs_toStringMentionsCopyStagedFiles() {
+    PathFragment a = PathFragment.create("a");
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(a, execRoot.getRelative("a")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableSet.of(a));
+
+    assertThat(inputs.toString()).contains("CopyStagedFiles: [a]");
   }
 
   @Test
