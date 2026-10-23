@@ -96,6 +96,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -104,6 +105,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import org.roaringbitmap.RoaringBitmap;
 
 /**
  * Records {@link FileKey}, {@link DirectoryListingKey} or {@link AbstractNestedFileOpNodes}
@@ -167,6 +169,11 @@ final class FileDependencySerializer {
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
 
+  private static final Comparator<NodeInvalidationDataInfo> NODE_DEPENDENCY_COMPARATOR =
+      Comparator.comparingInt(NodeInvalidationDataInfo::cardinality)
+          .reversed()
+          .thenComparing(NodeInvalidationDataInfo::cacheKey);
+
   private final CompressionService compressionService;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
@@ -192,13 +199,16 @@ final class FileDependencySerializer {
               this::populateFutureListingDataInfo,
               FutureListingDataInfo.class);
 
+  private final LeafIdAssignment leafIds;
+
   FileDependencySerializer(
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
       CompressionService compressionService,
       KeyValueWriter writer,
       SafeExecutor executor,
-      @Nullable ProfileCollector profileCollector) {
+      @Nullable ProfileCollector profileCollector,
+      LeafIdAssignment leafIds) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
@@ -206,6 +216,7 @@ final class FileDependencySerializer {
     this.executor = executor;
     this.counters = new Counters();
     this.profileCollector = profileCollector;
+    this.leafIds = leafIds;
   }
 
   Counters getCounters() {
@@ -231,14 +242,14 @@ final class FileDependencySerializer {
     };
   }
 
-  NodeDataInfo registerDependency(RemoteFileOpNode node) {
-    var reference = (NodeDataInfo) node.getSerializationScratch();
+  NodeInvalidationDataInfo registerDependency(RemoteFileOpNode node) {
+    var reference = (NodeInvalidationDataInfo) node.getSerializationScratch();
     if (reference != null) {
       return reference;
     }
 
     synchronized (node) {
-      reference = (NodeDataInfo) node.getSerializationScratch();
+      reference = (NodeInvalidationDataInfo) node.getSerializationScratch();
       if (reference != null) {
         return reference;
       }
@@ -246,7 +257,9 @@ final class FileDependencySerializer {
       var info =
           new NodeInvalidationDataInfo(
               PackedFingerprint.fromBytes(node.fingerprint().toByteArray()),
-              WriteStatuses.immediateWriteStatus());
+              WriteStatuses.immediateWriteStatus(),
+              new RoaringBitmap(),
+              /* hasOpaqueDependencies= */ true);
       node.setSerializationScratch(info);
       return info;
     }
@@ -852,37 +865,48 @@ final class FileDependencySerializer {
 
     @Override
     protected NodeDataInfo getValue() {
-      var writeStatusBuilder = new WriteStatusBuilder();
       var nodeDependencies = new ArrayList<NodeInvalidationDataInfo>();
       for (int i = 0; i < node.analysisDependenciesCount(); i++) {
         switch (node.getAnalysisDependency(i)) {
           case AbstractNestedFileOpNodes nestedKeys -> {
             switch (getSuccessfulNodeDataInfo(nestedKeys)) {
               case CONSTANT_NODE -> {} // Constant nodes have no invalidation dependencies.
-              case NodeInvalidationDataInfo nodeInfo -> {
-                nodeDependencies.add(nodeInfo);
-                writeStatusBuilder.add(nodeInfo.writeStatus());
-              }
+              case NodeInvalidationDataInfo nodeInfo -> nodeDependencies.add(nodeInfo);
             }
           }
-          case RemoteFileOpNode remoteNode -> {
-            switch (registerDependency(remoteNode)) {
-              case CONSTANT_NODE -> {}
-              case NodeInvalidationDataInfo remoteInfo -> {
-                nodeDependencies.add(remoteInfo);
-                writeStatusBuilder.add(remoteInfo.writeStatus());
-              }
-            }
-          }
+          case RemoteFileOpNode remoteNode -> nodeDependencies.add(registerDependency(remoteNode));
           // Direct leaf files and listings are evaluated in the second walk below.
           case FileKey _, DirectoryListingKey _ -> {}
         }
       }
 
+      var writeStatusBuilder = new WriteStatusBuilder();
+      var union = new RoaringBitmap();
+      var retainedNodeDependencies = new ArrayList<NodeInvalidationDataInfo>();
+      boolean hasOpaqueDependencies = false;
+
+      // Phase 1: Total Ordering
+      nodeDependencies.sort(NODE_DEPENDENCY_COMPARATOR);
+
+      // Phase 2: Transitive Reduction
+      // Evaluate child nodes
+      NodeInvalidationDataInfo prev = null;
+      for (NodeInvalidationDataInfo child : nodeDependencies) {
+        if (prev != null && prev.cacheKey().equals(child.cacheKey())) {
+          continue;
+        }
+        prev = child;
+        if (child.mergeInto(union)) {
+          retainedNodeDependencies.add(child);
+          writeStatusBuilder.add(child.writeStatus());
+          hasOpaqueDependencies |= child.hasOpaqueDependencies();
+        }
+      }
+
       // Second walk of node.getAnalysisDependency: Evaluate direct FileKey and DirectoryListingKey
       // leaves
-      var fileKeys = new ArrayList<String>();
-      var listingKeys = new ArrayList<String>();
+      var retainedFileKeys = new ArrayList<String>();
+      var retainedListingKeys = new ArrayList<String>();
       for (int i = 0; i < node.analysisDependenciesCount(); i++) {
         switch (node.getAnalysisDependency(i)) {
           case FileKey fileKey -> {
@@ -890,8 +914,11 @@ final class FileDependencySerializer {
               // Constant files never change; no invalidation data needed.
               case CONSTANT_FILE -> {}
               case FileInvalidationDataInfo fileInfo -> {
-                fileKeys.add(fileInfo.cacheKey());
-                writeStatusBuilder.add(fileInfo.writeStatus());
+                int id = leafIds.getAnalysisId(fileKey);
+                if (union.checkedAdd(id)) {
+                  retainedFileKeys.add(fileInfo.cacheKey());
+                  writeStatusBuilder.add(fileInfo.writeStatus());
+                }
               }
             }
           }
@@ -900,8 +927,11 @@ final class FileDependencySerializer {
               // Constant listings never change; no invalidation data needed.
               case CONSTANT_LISTING -> {}
               case ListingInvalidationDataInfo listingInfo -> {
-                listingKeys.add(listingInfo.cacheKey());
-                writeStatusBuilder.add(listingInfo.writeStatus());
+                int id = leafIds.getAnalysisId(listingKey);
+                if (union.checkedAdd(id)) {
+                  retainedListingKeys.add(listingInfo.cacheKey());
+                  writeStatusBuilder.add(listingInfo.writeStatus());
+                }
               }
             }
           }
@@ -915,43 +945,53 @@ final class FileDependencySerializer {
       switch (node) {
         case NestedFileOpNodes _ -> {} // Node has no immediate source file dependency.
         case NestedFileOpNodesWithSource withSource -> {
-          switch (getSuccessfulFileDataInfo(withSource.source())) {
+          FileKey source = withSource.source();
+          switch (getSuccessfulFileDataInfo(source)) {
             case CONSTANT_FILE -> {} // Source file is constant; no invalidation data needed.
             case FileInvalidationDataInfo fileInfo -> {
-              sourceFileKey = fileInfo.cacheKey();
-              writeStatusBuilder.add(fileInfo.writeStatus());
+              int sourceLeafId = leafIds.getSourceId(source);
+              if (union.checkedAdd(sourceLeafId)) {
+                sourceFileKey = fileInfo.cacheKey();
+                writeStatusBuilder.add(fileInfo.writeStatus());
+              }
             }
           }
         }
       }
 
-      if (fileKeys.isEmpty() && listingKeys.isEmpty() && sourceFileKey == null) {
-        // TODO(b/558805781): investigate whether this is always dead code in practice
-        if (nodeDependencies.isEmpty()) {
+      // Phase 3: Unary Unwrapping
+      if (retainedFileKeys.isEmpty() && retainedListingKeys.isEmpty() && sourceFileKey == null) {
+        // TODO(b/558805781): investigate whether the empty case is reachable in practice.
+        if (retainedNodeDependencies.isEmpty()) {
           counters.nodesWaitingForDeps.decrementAndGet();
           return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
         }
         // There are multiple ways that result could become unary here, even if `node` always has at
         // least 2 children. The following may reduce child count.
-        // 1. Deduplication.
+        // 1. Deduplication of children with the same fingerprint.
         // 2. Constant references.
-        // 3. NestedFileOpNodes with the same fingerprints.
-        if (nodeDependencies.size() == 1) {
+        // 3. Transitive reduction, when one child's closure covers its siblings and direct leaves.
+        if (retainedNodeDependencies.size() == 1) {
           // It ended up as a node wrapping another node. Discards the wrapper.
           //
           // TODO: b/364831651 - consider additional special casing for unary file or listing
           // dependencies.
           counters.nodesWaitingForDeps.decrementAndGet();
-          return nodeDependencies.get(0);
+          return retainedNodeDependencies.get(0);
         }
       }
 
-      // We need to deduplicate and sort these entries so that serialization is deterministic
-      // and compact.
-      var sortedFileKeys = fileKeys.stream().sorted().distinct().toList();
-      var sortedListingKeys = listingKeys.stream().sorted().distinct().toList();
+      // Phase 4: Wire Serialization & Publication
+      // File and listing keys were collected in dependency order, so sort them here.
+      var sortedFileKeys = retainedFileKeys.stream().sorted().distinct().toList();
+      var sortedListingKeys = retainedListingKeys.stream().sorted().distinct().toList();
+      // Node dependencies are already ordered by NODE_DEPENDENCY_COMPARATOR, and that order alone
+      // would be canonical with the Phase 2 key deduplication, except for RemoteFileOpNode. A
+      // remote node has the same fingerprint as a local node with the same content, but is opaque,
+      // so its cardinality is Integer.MAX_VALUE. When both forms reach this node, they do not sort
+      // adjacently and both are retained. Sorting and deduplicating by key restores canonicity.
       var sortedNodeDependencies =
-          nodeDependencies.stream()
+          retainedNodeDependencies.stream()
               .map(NodeInvalidationDataInfo::cacheKey)
               .sorted()
               .distinct()
@@ -1002,7 +1042,23 @@ final class FileDependencySerializer {
       }
 
       writeStatusBuilder.add(writeStatus);
-      return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
+
+      // Canonicalize the closure before it is retained. `union` takes its last mutation above, when
+      // the source leaf is added, so this is the first point at which it is safe.
+      //
+      // Both calls are needed and neither is useful alone. `runOptimize` converts ascending spans
+      // into runs, which only pays off because leaf IDs are assigned by a depth-first walk; under
+      // scattered IDs it is a net regression. `trim` then releases the slack from RunContainer's
+      // doubling growth, which otherwise dominates: the copy constructor clones at full capacity,
+      // so the untrimmed form is roughly an order of magnitude larger than the data it holds.
+      //
+      // Trimming earlier, while the bitmap is still accumulating, would merely restart the doubling
+      // sequence and accomplish nothing.
+      union.runOptimize();
+      union.trim();
+
+      return new NodeInvalidationDataInfo(
+          key, writeStatusBuilder.build(), union, hasOpaqueDependencies);
     }
 
     @Override

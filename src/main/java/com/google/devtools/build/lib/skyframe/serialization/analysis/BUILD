@@ -137,6 +137,7 @@ java_library(
         ":file_dependency_serializer",
         ":file_op_node_map",
         ":invalidation_data_reference_or_future",
+        ":leaf_id_assignment",
         ":missing_skyframe_entry_exception",
         ":remote_analysis_cache_mode",
         ":serialization_dependencies_provider",
@@ -244,6 +245,7 @@ java_library(
         ":file_dependency_key_support",
         ":invalidation_data_reference_or_future",
         ":invalidation_type",
+        ":leaf_id_assignment",
         ":magic_bytes",
         ":missing_skyframe_entry_exception",
         ":value_or_future_map",
@@ -265,12 +267,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:file_invalidation_data_java_proto",
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/roaringbitmap",
     ],
 )
 
@@ -286,6 +290,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/roaringbitmap",
     ],
 )
 
