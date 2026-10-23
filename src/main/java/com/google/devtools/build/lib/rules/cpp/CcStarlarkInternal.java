@@ -516,11 +516,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         }
         yield true;
       }
-      case SourceArtifact ignored -> true;
-      case String ignored -> true;
-      case Boolean ignored -> true;
-      case StarlarkInt ignored -> true;
-      case NoneType ignored -> true;
+      case SourceArtifact _, String _, Boolean _, StarlarkInt _, NoneType _ -> true;
       // Values of other types may reference artifacts.
       default -> false;
     };
