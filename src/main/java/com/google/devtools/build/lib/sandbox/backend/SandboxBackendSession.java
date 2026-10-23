@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox.backend;
 
+import build.bazel.remote.execution.v2.CapabilitiesGrpc;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
+import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableList;
@@ -57,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -77,6 +80,7 @@ final class SandboxBackendSession implements AutoCloseable {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final Duration STARTUP_TIMEOUT = Duration.ofSeconds(30);
+  private static final Duration CAPABILITIES_TIMEOUT = Duration.ofSeconds(30);
   private static final int OUTPUT_TAIL_LIMIT = 8 * 1024;
 
   private final String name;
@@ -111,10 +115,11 @@ final class SandboxBackendSession implements AutoCloseable {
               @Override
               public Single<ChannelConnectionWithServerCapabilities> create() {
                 return Single.fromCallable(
-                    () ->
-                        new ChannelConnectionWithServerCapabilities(
-                            channelSupplier.get(),
-                            Single.just(ServerCapabilities.getDefaultInstance())));
+                    () -> {
+                      ManagedChannel connection = channelSupplier.get();
+                      return new ChannelConnectionWithServerCapabilities(
+                          connection, Single.fromCallable(() -> getCapabilities(connection)));
+                    });
               }
 
               @Override
@@ -144,6 +149,42 @@ final class SandboxBackendSession implements AutoCloseable {
         new GrpcCacheClient(
             channel, CallCredentialsProvider.NO_CREDENTIALS, options, retrier, digestUtil);
     this.cache = new SandboxBackendCache(cacheClient, digestUtil);
+  }
+
+  private ServerCapabilities getCapabilities(ManagedChannel connection) throws IOException {
+    try {
+      return CapabilitiesGrpc.newBlockingStub(connection)
+          .withDeadlineAfter(CAPABILITIES_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
+          .getCapabilities(GetCapabilitiesRequest.getDefaultInstance());
+    } catch (StatusRuntimeException e) {
+      throw new IOException(
+          e.getStatus().getCode() == Status.Code.UNIMPLEMENTED
+              // Treated as a failure rather than as "supports everything": a backend has to
+              // declare that it executes, and which digest functions and API versions it speaks.
+              ? String.format(
+                  "sandbox backend '%s' does not implement GetCapabilities, which it has to to"
+                      + " declare that it supports execution",
+                  name)
+              : String.format("sandbox backend '%s' failed GetCapabilities: %s", name, e.getStatus()),
+          e);
+    }
+  }
+
+  /**
+   * Asks the backend what it supports, once per session, and fails if that isn't enough for Bazel.
+   */
+  private void checkCapabilities() throws IOException {
+    ServerCapabilities capabilities;
+    try {
+      capabilities = channel.getServerCapabilities();
+    } catch (IOException e) {
+      throw !alive && deathMessage != null ? new IOException(deathMessage, e) : e;
+    }
+    String problem =
+        SandboxBackendCapabilities.check(name, capabilities, digestUtil.getDigestFunction());
+    if (problem != null) {
+      throw new IOException(problem);
+    }
   }
 
   @FunctionalInterface
@@ -187,6 +228,7 @@ final class SandboxBackendSession implements AutoCloseable {
       session = new SandboxBackendSession(name, process, transport, transport::connect, digestUtil);
       session.watchProcess();
       session.awaitReady();
+      session.checkCapabilities();
       return session;
     } catch (IOException | InterruptedException | RuntimeException e) {
       if (session != null) {
@@ -204,8 +246,16 @@ final class SandboxBackendSession implements AutoCloseable {
   /** Creates a session for a backend that is served on {@code channel}. */
   static SandboxBackendSession forChannel(
       String name, ChannelSupplier channel, DigestUtil digestUtil) throws IOException {
-    return new SandboxBackendSession(
-        name, /* process= */ null, /* transport= */ null, channel, digestUtil);
+    SandboxBackendSession session =
+        new SandboxBackendSession(
+            name, /* process= */ null, /* transport= */ null, channel, digestUtil);
+    try {
+      session.checkCapabilities();
+    } catch (IOException | RuntimeException e) {
+      session.close();
+      throw e;
+    }
+    return session;
   }
 
   private void watchProcess() {

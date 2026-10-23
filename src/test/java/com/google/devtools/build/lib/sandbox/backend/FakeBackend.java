@@ -14,6 +14,12 @@
 package com.google.devtools.build.lib.sandbox.backend;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
+import build.bazel.remote.execution.v2.DigestFunction;
+import build.bazel.remote.execution.v2.ExecutionCapabilities;
+import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.semver.SemVer;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ExecuteRequest;
@@ -80,6 +86,9 @@ final class FakeBackend implements AutoCloseable {
   final AtomicInteger findMissingCalls = new AtomicInteger();
   private final Map<String, ByteString> readable = new ConcurrentHashMap<>();
   private volatile ExecuteHandler handler = (request, responses) -> {};
+  final AtomicInteger capabilitiesCalls = new AtomicInteger();
+  private volatile ServerCapabilities capabilities = defaultCapabilities();
+  private volatile Status capabilitiesError;
   private volatile Runnable onRead = () -> {};
   private final String name = "fake-backend-" + UUID.randomUUID();
   /** The full names of all RPCs that the backend has received. */
@@ -135,7 +144,30 @@ final class FakeBackend implements AutoCloseable {
             })
         .addService(new Bytestream())
         .addService(new Cas())
-        .addService(new Exec());
+        .addService(new Exec())
+        .addService(new Caps());
+  }
+
+  /** A backend that can execute with SHA-256 and speaks the API version Bazel uses. */
+  static ServerCapabilities defaultCapabilities() {
+    return ServerCapabilities.newBuilder()
+        .setLowApiVersion(SemVer.newBuilder().setMajor(2))
+        .setHighApiVersion(SemVer.newBuilder().setMajor(2).setMinor(11))
+        .setExecutionCapabilities(
+            ExecutionCapabilities.newBuilder()
+                .setExecEnabled(true)
+                .addDigestFunctions(DigestFunction.Value.SHA256))
+        .build();
+  }
+
+  /** Makes this what {@code GetCapabilities} returns. */
+  void setCapabilities(ServerCapabilities capabilities) {
+    this.capabilities = capabilities;
+  }
+
+  /** Makes {@code GetCapabilities} fail with {@code status}. */
+  void failCapabilities(Status status) {
+    capabilitiesError = status;
   }
 
   ManagedChannel newChannel() {
@@ -279,6 +311,20 @@ final class FakeBackend implements AutoCloseable {
         }
       }
       observer.onNext(response.build());
+      observer.onCompleted();
+    }
+  }
+
+  private final class Caps extends CapabilitiesImplBase {
+    @Override
+    public void getCapabilities(
+        GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> observer) {
+      capabilitiesCalls.incrementAndGet();
+      if (capabilitiesError != null) {
+        observer.onError(capabilitiesError.asRuntimeException());
+        return;
+      }
+      observer.onNext(capabilities);
       observer.onCompleted();
     }
   }

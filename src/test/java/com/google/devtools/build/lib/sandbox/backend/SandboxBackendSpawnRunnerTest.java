@@ -459,6 +459,44 @@ public final class SandboxBackendSpawnRunnerTest {
   }
 
   @Test
+  public void failedCapabilitiesCheck_failsTheSpawnAndTheNextSpawnStartsAgain() throws Exception {
+    var retrying =
+        new SandboxBackendSpawnRunner(
+            "fake",
+            () -> SandboxBackendSession.forChannel("fake", backend::newChannel, digestUtil),
+            () -> true,
+            execRoot,
+            root.getRelative("scratch"),
+            "_main",
+            "build",
+            "command");
+    backend.setCapabilities(
+        FakeBackend.defaultCapabilities().toBuilder()
+            .setExecutionCapabilities(
+                build.bazel.remote.execution.v2.ExecutionCapabilities.getDefaultInstance())
+            .build());
+    Spawn spawn = spawn("outputs/out.txt");
+
+    SpawnResult result = retrying.exec(spawn, context(spawn));
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("sandbox backend 'fake' does not enable execution");
+    assertThat(backend.executes).isEmpty();
+    int calls = backend.capabilitiesCalls.get();
+
+    backend.setCapabilities(FakeBackend.defaultCapabilities());
+    Digest out = stage("o1", "hello");
+    backend.setExecuteHandler(
+        (request, responses) ->
+            FakeBackend.respond(
+                responses,
+                ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", out)).build()));
+
+    assertThat(retrying.exec(spawn, context(spawn)).status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(backend.capabilitiesCalls.get()).isEqualTo(calls + 1);
+  }
+
+  @Test
   public void declinesSpawnsThatMustNotBeSandboxed() {
     var declining =
         new SandboxBackendSpawnRunner(

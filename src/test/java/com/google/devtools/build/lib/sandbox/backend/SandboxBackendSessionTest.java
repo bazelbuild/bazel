@@ -37,25 +37,34 @@ public final class SandboxBackendSessionTest {
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private Path dir;
+  private FakeBackend backend;
 
   @Before
   public void setUp() throws Exception {
-    dir = Files.createTempDirectory("sbk-session-test");
+    // Unix socket paths are short, so stay out of the long test temporary directory.
+    dir = Files.createTempDirectory(Path.of("/tmp"), "sbk-session-");
+    backend = FakeBackend.onUnixSocket(dir.resolve("s").toString());
   }
 
   @After
   public void tearDown() {
     SandboxBackends.stopAll();
+    backend.close();
   }
 
-  /** A backend that creates its socket, as the backend contract requires, then runs {@code body}. */
+  /**
+   * A backend that creates its socket, as the backend contract requires, by linking it to the
+   * socket of the in-JVM backend, then runs {@code body}.
+   */
   private String script(String name, String body) throws IOException {
     Path script = dir.resolve(name);
     Files.writeString(
         script,
         "#!/bin/sh\n"
             + "for a in \"$@\"; do case $a in --socket=*) socket=${a#--socket=};; esac; done\n"
-            + "touch \"$socket\"\n"
+            + "ln -s \""
+            + dir.resolve("s")
+            + "\" \"$socket\"\n"
             + body
             + "\n");
     script.toFile().setExecutable(true);
@@ -173,7 +182,7 @@ public final class SandboxBackendSessionTest {
 
   @Test
   public void getOrStart_restartsDeadBackend() throws Exception {
-    String binary = script("flaky", "exit 0");
+    String binary = script("flaky", "sleep 1");
     BackendConfig config = config(binary);
     SandboxBackendSession first =
         SandboxBackends.getOrStart("flaky", config, ImmutableMap.of(), digestUtil);

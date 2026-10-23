@@ -220,9 +220,12 @@ public final class SandboxBackendDynamicExecutionIntegrationTest extends BuildIn
     buildTarget("//a:g");
 
     assertThat(output()).isEqualTo("REMOTE");
-    // Neither GetCapabilities, GetActionResult, QueryWriteStatus nor BatchUpdateBlobs is called.
+    // GetCapabilities is called once per session. Neither GetActionResult, QueryWriteStatus nor
+    // BatchUpdateBlobs is called.
+    assertThat(remote.fake.capabilitiesCalls.get()).isEqualTo(1);
     assertThat(remote.fake.rpcs)
         .containsExactly(
+            "build.bazel.remote.execution.v2.Capabilities/GetCapabilities",
             "build.bazel.remote.execution.v2.ContentAddressableStorage/FindMissingBlobs",
             "google.bytestream.ByteStream/Write",
             "google.bytestream.ByteStream/Read",

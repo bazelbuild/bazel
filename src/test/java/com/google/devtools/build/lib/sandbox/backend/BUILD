@@ -14,6 +14,7 @@ filegroup(
 )
 
 COMMON_DEPS = [
+    "@remoteapis//:build_bazel_semver_semver_java_proto",
     "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
     "//src/main/java/com/google/devtools/build/lib/sandbox/backend",
     "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -79,11 +80,59 @@ java_test(
 )
 
 java_test(
-    name = "SandboxBackendSessionTest",
-    srcs = ["SandboxBackendSessionTest.java"],
-    test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendSessionTest",
-    deps = COMMON_DEPS,
+    name = "SandboxBackendCapabilitiesTest",
+    srcs = [
+        "FakeBackend.java",
+        "SandboxBackendCapabilitiesTest.java",
+    ],
+    test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendCapabilitiesTest",
+    deps = COMMON_DEPS + [
+        "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/google/bytestream:bytestream_java_proto",
+        "//third_party/google/longrunning:operations_java_proto",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/google/rpc:error_details_java_proto",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:inprocess",
+        "//third_party/java/grpc:netty",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/netty4:transport",
+        "//third_party/java/netty4:transport_native_epoll",
+        "//third_party/java/netty4:transport_native_kqueue",
+        "//third_party/java/netty4:transport_native_unix_common",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
 )
+
+java_test(
+    name = "SandboxBackendSessionTest",
+    srcs = [
+        "FakeBackend.java",
+        "SandboxBackendSessionTest.java",
+    ],
+    test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendSessionTest",
+    deps = COMMON_DEPS + [
+        "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/google/bytestream:bytestream_java_proto",
+        "//third_party/google/longrunning:operations_java_proto",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/google/rpc:error_details_java_proto",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:inprocess",
+        "//third_party/java/grpc:netty",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/netty4:transport",
+        "//third_party/java/netty4:transport_native_epoll",
+        "//third_party/java/netty4:transport_native_kqueue",
+        "//third_party/java/netty4:transport_native_unix_common",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
 
 java_test(
     name = "SandboxBackendSocketTest",

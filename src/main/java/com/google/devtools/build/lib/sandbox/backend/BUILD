@@ -28,6 +28,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/remote:ReferenceCountedChannel",
+        "//src/main/java/com/google/devtools/build/lib/remote:api_version",
+        "//src/main/java/com/google/devtools/build/lib/remote:client_api_version",
         "//src/main/java/com/google/devtools/build/lib/remote:Retrier",
         "//src/main/java/com/google/devtools/build/lib/remote:combined_cache",
         "//src/main/java/com/google/devtools/build/lib/remote:grpc_cache_client",

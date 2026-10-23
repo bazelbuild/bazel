@@ -67,6 +67,9 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class SandboxBackendSocketTest {
+  private static final String CAPABILITIES =
+      "build.bazel.remote.execution.v2.Capabilities/GetCapabilities";
+
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
@@ -182,7 +185,9 @@ public final class SandboxBackendSocketTest {
             .get(10, TimeUnit.SECONDS);
 
     assertThat(missing).containsExactly(absent);
-    assertThat(backend.rpcs).containsExactly("build.bazel.remote.execution.v2.ContentAddressableStorage/FindMissingBlobs");
+    assertThat(backend.rpcs)
+        .containsExactly(
+            CAPABILITIES, "build.bazel.remote.execution.v2.ContentAddressableStorage/FindMissingBlobs");
   }
 
   @Test
@@ -216,7 +221,7 @@ public final class SandboxBackendSocketTest {
 
     assertThat(backend.stored.get(fileDigest.getHash())).isEqualTo(uri);
     assertThat(backend.stored.get(realDigest.getHash())).isEqualTo(ByteString.copyFromUtf8("real bytes"));
-    assertThat(backend.rpcs).containsExactly("google.bytestream.ByteStream/Write");
+    assertThat(backend.rpcs).containsExactly(CAPABILITIES, "google.bytestream.ByteStream/Write");
   }
 
   @Test
@@ -232,7 +237,7 @@ public final class SandboxBackendSocketTest {
     // Streamed reads don't check the size, which differs for a file URI.
     assertThat(download(fileDigest)).isEqualTo(uri);
     assertThat(download(realDigest)).isEqualTo(ByteString.copyFromUtf8("real"));
-    assertThat(backend.rpcs).containsExactly("google.bytestream.ByteStream/Read");
+    assertThat(backend.rpcs).containsExactly(CAPABILITIES, "google.bytestream.ByteStream/Read");
   }
 
   private ByteString download(Digest digest) throws Exception {
@@ -275,10 +280,12 @@ public final class SandboxBackendSocketTest {
     assertThat(context.getFileOutErr().outAsLatin1()).isEqualTo("said");
     assertThat(backend.stored.get(digestUtil.computeAsUtf8("input").getHash()))
         .isEqualTo(FileUriBlobs.encode(input.getPath().getPathString()));
-    // Exactly what the contract in the design document promises: no GetCapabilities,
-    // GetActionResult, QueryWriteStatus or BatchUpdateBlobs.
+    // Exactly what the contract in the design document promises, with GetCapabilities once per
+    // session: no GetActionResult, QueryWriteStatus or BatchUpdateBlobs.
+    assertThat(backend.capabilitiesCalls.get()).isEqualTo(1);
     assertThat(backend.rpcs)
         .containsExactly(
+            CAPABILITIES,
             "build.bazel.remote.execution.v2.ContentAddressableStorage/FindMissingBlobs",
             "google.bytestream.ByteStream/Write",
             "google.bytestream.ByteStream/Read",
