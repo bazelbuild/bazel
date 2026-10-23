@@ -66,6 +66,21 @@ bazel_version=$(bazel info release | cut -d' ' -f2)
 
 RELEASE_BUILD_OPTS="-c opt"
 
+case "${platform}-$(uname -m)" in
+linux-x86_64)
+  PREBUILT_BUILD_OPTS="--config=java_tools_release_linux_x86_64"
+  ;;
+linux-aarch64)
+  PREBUILT_BUILD_OPTS="--config=java_tools_release_linux_aarch64"
+  ;;
+windows-*)
+  PREBUILT_BUILD_OPTS="${RELEASE_BUILD_OPTS}"
+  ;;
+*)
+  PREBUILT_BUILD_OPTS="--config=java_tools_release"
+  ;;
+esac
+
 # Check that the build machine is set up for Unicode.
 bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
 
@@ -73,14 +88,12 @@ bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
 # uploaded on GCS with the same identifier.
 
 bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_zip
-zip_path=${PWD}/bazel-bin/src/java_tools.zip
-
-bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_prebuilt_zip
-prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
-
 # copy zips out of bazel-bin so we don't lose them on later bazel invocations
-cp -f ${zip_path} ${prebuilt_zip_path} ./
+cp -f bazel-bin/src/java_tools.zip ./
 zip_path=${PWD}/java_tools.zip
+
+bazel build ${PREBUILT_BUILD_OPTS} //src:java_tools_prebuilt_zip
+cp -f bazel-bin/src/java_tools_prebuilt.zip ./
 prebuilt_zip_path=${PWD}/java_tools_prebuilt.zip
 
 if [[ "$platform" == "windows" ]]; then
@@ -108,7 +121,7 @@ if [[ "$platform" != "windows" ]]; then
         --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH="${prebuilt_zip_path}"
 fi
 
-bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
+bazel run ${PREBUILT_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
     --commit_hash ${commit_hash} \
     --timestamp ${timestamp} \
     --bazel_version ${bazel_version}

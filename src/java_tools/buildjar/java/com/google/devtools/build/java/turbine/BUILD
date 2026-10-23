@@ -2,6 +2,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@rules_graalvm//graalvm:defs.bzl", "native_image")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":platform_aliases.bzl", "linux_aarch64_glibc_alias")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -61,16 +62,46 @@ config_setting(
     },
 )
 
+config_setting(
+    name = "linux_aarch64_musl",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:linux",
+        "@llvm//constraints/libc:musl",
+    ],
+)
+
+config_setting(
+    name = "linux_musl",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@llvm//constraints/libc:musl",
+    ],
+)
+
 alias(
     name = "turbine_direct_graal",
     actual = select({
+        # GraalVM only ships the static JDK libraries for musl on x86_64.
+        ":linux_aarch64_musl": ":turbine_direct_graal_linux_aarch64_glibc",
         "@platforms//os:windows": ":turbine_direct_graal_with_app_manifest",
         "//conditions:default": ":turbine_direct_graal_unpatched",
     }),
 )
 
+linux_aarch64_glibc_alias(
+    name = "turbine_direct_graal_linux_aarch64_glibc",
+    actual = ":turbine_direct_graal_unpatched",
+    tags = ["manual"],
+)
+
 native_image(
     name = "turbine_direct_graal_unpatched",
+    # Native Image on Windows only supports MSVC, whose flags conflict with the ones it adds.
+    cc_toolchain_flags = select({
+        "@platforms//os:windows": False,
+        "//conditions:default": True,
+    }),
     executable_name = select({
         # TODO(cushon): restore .exe suffix on windows
         # see https://github.com/sgammon/rules_graalvm/issues/324
@@ -90,9 +121,16 @@ native_image(
         # See :turbine_benchmark for the benchmark script used.
         "-R:MinHeapSize=512m",
     ] + select({
+        ":linux_musl": [
+            "--static",
+            "--libc=musl",
+        ],
         "@platforms//os:linux": [
             # Statically link zlib but not glibc.
             "-H:+StaticExecutableWithDynamicLibC",
+            # Native Image's version script hides _IO_stdin_used, which glibc references. Unlike
+            # GNU ld, lld reports this.
+            "-H:NativeLinkerOption=-Wl,--allow-shlib-undefined",
         ],
         "@platforms//os:windows": [
             # The charset specified by sun.jnu.encoding is not automatically included in the image,
