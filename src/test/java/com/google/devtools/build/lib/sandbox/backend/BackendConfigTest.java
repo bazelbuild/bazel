@@ -18,6 +18,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.util.OS;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -63,20 +65,54 @@ public final class BackendConfigTest {
 
   @Test
   public void resolveBinary_barenameUsesPath() throws Exception {
+    boolean windows = OS.getCurrent() == OS.WINDOWS;
     java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("bin");
-    java.nio.file.Path binary = dir.resolve("mybackend");
+    // On Windows a bare name is also tried with the extensions in PATHEXT.
+    java.nio.file.Path binary = dir.resolve(windows ? "mybackend.exe" : "mybackend");
     java.nio.file.Files.writeString(binary, "#!/bin/sh\n");
     binary.toFile().setExecutable(true);
+    String nonexistent = windows ? "C:\\nonexistent" : "/nonexistent";
 
     assertThat(
             new BackendConfig("mybackend", ImmutableList.of())
-                .resolveBinary(ImmutableMap.of("PATH", "/nonexistent:" + dir)))
+                .resolveBinary(
+                    ImmutableMap.of("PATH", nonexistent + File.pathSeparator + dir)))
         .isEqualTo(binary.toString());
     assertThat(
             new BackendConfig("mybackend", ImmutableList.of())
-                .resolveBinary(ImmutableMap.of("PATH", "/nonexistent")))
+                .resolveBinary(ImmutableMap.of("PATH", nonexistent)))
         .isNull();
-    assertThat(new BackendConfig("/nonexistent/x", ImmutableList.of()).resolveBinary(ImmutableMap.of()))
+    assertThat(
+            new BackendConfig(nonexistent + File.separator + "x", ImmutableList.of())
+                .resolveBinary(ImmutableMap.of()))
+        .isNull();
+  }
+
+  @Test
+  public void resolveBinary_nameWithPathSeparatorIsNotSearchedOnPath() throws Exception {
+    java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("bin");
+    java.nio.file.Path binary = dir.resolve(OS.getCurrent() == OS.WINDOWS ? "b.exe" : "b");
+    java.nio.file.Files.writeString(binary, "x");
+    binary.toFile().setExecutable(true);
+
+    // An absolute path is used as is.
+    assertThat(new BackendConfig(binary.toString(), ImmutableList.of()).resolveBinary(ImmutableMap.of()))
+        .isEqualTo(binary.toString());
+    // A relative name with a separator is not looked up on PATH.
+    assertThat(
+            new BackendConfig("sub" + File.separator + binary.getFileName(), ImmutableList.of())
+                .resolveBinary(ImmutableMap.of("PATH", dir.toString())))
+        .isNull();
+  }
+
+  @Test
+  public void resolveBinary_directoryIsNotAnExecutable() throws Exception {
+    java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("bin");
+    java.nio.file.Files.createDirectory(dir.resolve("mybackend"));
+
+    assertThat(
+            new BackendConfig("mybackend", ImmutableList.of())
+                .resolveBinary(ImmutableMap.of("PATH", dir.toString())))
         .isNull();
   }
 }

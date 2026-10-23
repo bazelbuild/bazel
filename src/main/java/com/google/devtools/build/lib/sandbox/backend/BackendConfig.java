@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox.backend;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -85,11 +86,14 @@ public record BackendConfig(String binary, ImmutableList<String> options) {
 
   /**
    * Returns the executable to launch, or null if the binary doesn't exist or isn't executable. A
-   * bare name is resolved against the {@code PATH} in {@code clientEnv}, the first match wins.
+   * name without a path separator is resolved against the {@code PATH} in {@code clientEnv}, the
+   * first match wins. On Windows, the extensions in {@code PATHEXT} are tried in turn when the name
+   * has none that matches.
    */
   public String resolveBinary(ImmutableMap<String, String> clientEnv) {
-    if (binary.contains("/")) {
-      return new File(binary).canExecute() ? binary : null;
+    if (binary.indexOf('/') >= 0 || binary.indexOf(File.separatorChar) >= 0) {
+      File executable = executableFile(new File(binary), clientEnv);
+      return executable != null ? executable.getPath() : null;
     }
     String path = clientEnv.get("PATH");
     if (path == null) {
@@ -99,9 +103,30 @@ public record BackendConfig(String binary, ImmutableList<String> options) {
       if (dir.isEmpty()) {
         continue;
       }
-      File candidate = new File(dir, binary);
-      if (candidate.canExecute()) {
-        return candidate.getPath();
+      File executable = executableFile(new File(dir, binary), clientEnv);
+      if (executable != null) {
+        return executable.getPath();
+      }
+    }
+    return null;
+  }
+
+  /** Returns {@code candidate}, or on Windows the candidate with a {@code PATHEXT} extension. */
+  private static File executableFile(File candidate, ImmutableMap<String, String> clientEnv) {
+    if (candidate.isFile() && candidate.canExecute()) {
+      return candidate;
+    }
+    if (OS.getCurrent() != OS.WINDOWS) {
+      return null;
+    }
+    String pathExt = clientEnv.getOrDefault("PATHEXT", ".COM;.EXE;.BAT;.CMD");
+    for (String extension : pathExt.split(";")) {
+      if (extension.isEmpty()) {
+        continue;
+      }
+      File withExtension = new File(candidate.getPath() + extension);
+      if (withExtension.isFile() && withExtension.canExecute()) {
+        return withExtension;
       }
     }
     return null;

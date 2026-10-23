@@ -37,7 +37,9 @@ java_test(
     name = "BackendConfigTest",
     srcs = ["BackendConfigTest.java"],
     test_class = "com.google.devtools.build.lib.sandbox.backend.BackendConfigTest",
-    deps = COMMON_DEPS,
+    deps = COMMON_DEPS + [
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+    ],
 )
 
 java_test(
