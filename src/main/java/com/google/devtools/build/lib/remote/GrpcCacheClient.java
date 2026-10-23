@@ -491,6 +491,10 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   @Override
   public ListenableFuture<Void> downloadStreamedBytes(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+    // The same as downloadBlob: nothing is read for the empty blob.
+    if (digest.getSizeBytes() == 0) {
+      return Futures.immediateVoidFuture();
+    }
     return downloadBlob(
         context,
         digest,

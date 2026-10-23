@@ -1802,6 +1802,143 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void downloadStreamedBytes_emptyBlobReadsNothing() throws Exception {
+    GrpcCacheClient client = newClient();
+    var reads = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            reads.incrementAndGet();
+            responseObserver.onCompleted();
+          }
+        });
+
+    var out = new ByteArrayOutputStream();
+    getFromFuture(client.downloadStreamedBytes(context, DIGEST_UTIL.compute(new byte[0]), out));
+
+    assertThat(out.size()).isEqualTo(0);
+    assertThat(reads.get()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadStreamedBytes_acceptsFewerBytesThanDigest() throws Exception {
+    GrpcCacheClient client = newClient();
+    Digest digest = DIGEST_UTIL.computeAsUtf8("a much longer blob than the answer");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("file:///x")).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    var out = new ByteArrayOutputStream();
+    getFromFuture(client.downloadStreamedBytes(context, digest, out));
+
+    assertThat(out.toString(UTF_8)).isEqualTo("file:///x");
+    // The regular download path must still reject the short answer.
+    assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
+  }
+
+  @Test
+  public void downloadStreamedBytes_neverCompresses() throws Exception {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.setCacheCompression(true);
+    options.setCacheCompressionThreshold(1);
+    GrpcCacheClient client = newClient(options);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("0123456789".repeat(10));
+    var resourceNames = new ArrayList<String>();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            resourceNames.add(request.getResourceName());
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("file:///x")).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    var out = new ByteArrayOutputStream();
+    getFromFuture(client.downloadStreamedBytes(context, digest, out));
+
+    // Compression would have failed to decode the answer, which is not compressed.
+    assertThat(out.toString(UTF_8)).isEqualTo("file:///x");
+    assertThat(resourceNames).containsExactly("blobs/" + DigestUtil.toString(digest));
+  }
+
+  @Test
+  public void downloadStreamedBytes_errorAtTheEndIsNotIgnoredEvenIfSizeMatches() throws Exception {
+    // A regular download that has received all bytes ignores an error at the end of the stream. The
+    // streamed bytes can have any size, so the number of bytes proves nothing and the download is
+    // retried at the offset that was written, which the server answers with nothing.
+    Backoff backoff = Mockito.mock(Backoff.class);
+    Mockito.when(backoff.nextDelayMillis(any(Exception.class))).thenReturn(0L, -1L);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> backoff);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    var offsets = new ArrayList<Long>();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            offsets.add(request.getReadOffset());
+            if (request.getReadOffset() == 0) {
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abcdefg")).build());
+              responseObserver.onError(Status.INTERNAL.asException());
+            } else {
+              responseObserver.onCompleted();
+            }
+          }
+        });
+
+    assertThat(downloadBlob(context, client, digest)).isEqualTo("abcdefg".getBytes(UTF_8));
+    assertThat(offsets).containsExactly(0L);
+
+    offsets.clear();
+    var out = new ByteArrayOutputStream();
+    getFromFuture(client.downloadStreamedBytes(context, digest, out));
+
+    assertThat(out.toString(UTF_8)).isEqualTo("abcdefg");
+    assertThat(offsets).containsExactly(0L, 7L).inOrder();
+  }
+
+  @Test
+  public void downloadStreamedBytes_retryResumesAtTheOffsetWritten() throws Exception {
+    Backoff backoff = Mockito.mock(Backoff.class);
+    Mockito.when(backoff.nextDelayMillis(any(Exception.class))).thenReturn(0L, -1L);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> backoff);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    var offsets = new ArrayList<Long>();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            offsets.add(request.getReadOffset());
+            if (request.getReadOffset() == 0) {
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abcd")).build());
+              responseObserver.onError(Status.UNAVAILABLE.asException());
+            } else {
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("efg")).build());
+              responseObserver.onCompleted();
+            }
+          }
+        });
+
+    var out = new ByteArrayOutputStream();
+    getFromFuture(client.downloadStreamedBytes(context, digest, out));
+
+    // Nothing is read again into the part of the stream that has been written.
+    assertThat(out.toString(UTF_8)).isEqualTo("abcdefg");
+    assertThat(offsets).containsExactly(0L, 4L).inOrder();
+  }
+
+  @Test
   public void uploadBlob_streamedSizeDiffersFromDigest() throws Exception {
     GrpcCacheClient client = newClient();
     Digest digest = DIGEST_UTIL.computeAsUtf8("foo");
