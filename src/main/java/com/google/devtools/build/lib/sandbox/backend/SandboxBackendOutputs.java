@@ -378,7 +378,10 @@ final class SandboxBackendOutputs {
           throw new IOException(
               "sandbox backend returned an invalid file URI: " + e.getMessage(), e);
         }
-        link(received.getFileSystem().getPath(stagedPath), assembled, executable);
+        if (stagedPath.indexOf('\0') >= 0) {
+          throw new IOException("sandbox backend returned a file URI with a NUL byte");
+        }
+        link(digest, received.getFileSystem().getPath(stagedPath), assembled, executable);
         received.delete();
         return;
       }
@@ -405,9 +408,33 @@ final class SandboxBackendOutputs {
     return digestUtil.compute(path, path.stat()).getHash().equals(digest.getHash());
   }
 
-  /** Makes {@code assembled} a file with the contents of {@code staged} without moving it. */
-  private static void link(Path staged, Path assembled, boolean executable) throws IOException {
-    FileStatus status = staged.stat();
+  /**
+   * Makes {@code assembled} a file with the contents of {@code staged} without moving it.
+   *
+   * <p>The staged file has to exist and to be a regular file of the size that the digest says. Its
+   * contents are not hashed, which would read every output once more: the backend is trusted to
+   * stage what it digested, and the size is the cheap check that catches a backend that names the
+   * wrong file.
+   */
+  private static void link(Digest digest, Path staged, Path assembled, boolean executable)
+      throws IOException {
+    FileStatus status = staged.statIfFound();
+    if (status == null) {
+      throw new IOException(
+          "sandbox backend returned the file URI of a file that doesn't exist: " + staged);
+    }
+    if (!status.isFile()) {
+      throw new IOException(
+          "sandbox backend returned the file URI of something that isn't a regular file: "
+              + staged);
+    }
+    if (status.getSize() != digest.getSizeBytes()) {
+      throw new IOException(
+          String.format(
+              "sandbox backend returned the file URI of %s, which has %d bytes instead of the %d of"
+                  + " %s",
+              staged, status.getSize(), digest.getSizeBytes(), digest.getHash()));
+    }
     boolean stagedExecutable = (status.getPermissions() & 0100) != 0;
     // Changing the permissions of a hard link changes those of all names of the file.
     if (stagedExecutable == executable) {
