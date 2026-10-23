@@ -52,6 +52,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -135,8 +138,29 @@ public final class SandboxBackendSocketTest {
             "command");
   }
 
+  private final List<FileOutErr> outErrs = new ArrayList<>();
+  private final List<SandboxBackendSession> extraSessions = new ArrayList<>();
+
+  /** An output of a spawn that is closed in tearDown, as Windows can't delete open files. */
+  private FileOutErr newOutErr() {
+    FileOutErr outErr = new FileOutErr(root.getRelative("stdout"), root.getRelative("stderr"));
+    outErrs.add(outErr);
+    return outErr;
+  }
+
+  private void closeOutErrs() throws IOException {
+    for (FileOutErr outErr : outErrs) {
+      outErr.getOutputStream().close();
+      outErr.getErrorStream().close();
+    }
+  }
+
   @After
   public void tearDown() throws Exception {
+    closeOutErrs();
+    for (SandboxBackendSession extra : extraSessions) {
+      extra.close();
+    }
     if (session != null) {
       session.close();
     }
@@ -170,7 +194,7 @@ public final class SandboxBackendSocketTest {
         spawn,
         fileCache,
         execRoot,
-        new FileOutErr(root.getRelative("stdout"), root.getRelative("stderr")));
+        newOutErr());
   }
 
   private Spawn spawn(String... outputs) {

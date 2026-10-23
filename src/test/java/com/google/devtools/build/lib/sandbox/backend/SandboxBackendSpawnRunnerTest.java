@@ -59,6 +59,8 @@ import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -129,8 +131,29 @@ public final class SandboxBackendSpawnRunnerTest {
             "command");
   }
 
+  private final List<FileOutErr> outErrs = new ArrayList<>();
+  private final List<SandboxBackendSession> extraSessions = new ArrayList<>();
+
+  /** An output of a spawn that is closed in tearDown, as Windows can't delete open files. */
+  private FileOutErr newOutErr() {
+    FileOutErr outErr = new FileOutErr(root.getRelative("stdout"), root.getRelative("stderr"));
+    outErrs.add(outErr);
+    return outErr;
+  }
+
+  private void closeOutErrs() throws IOException {
+    for (FileOutErr outErr : outErrs) {
+      outErr.getOutputStream().close();
+      outErr.getErrorStream().close();
+    }
+  }
+
   @After
   public void tearDown() throws Exception {
+    closeOutErrs();
+    for (SandboxBackendSession extra : extraSessions) {
+      extra.close();
+    }
     if (session != null) {
       session.close();
     }
@@ -165,7 +188,7 @@ public final class SandboxBackendSpawnRunnerTest {
 
   private Context context(Spawn spawn) {
     return new Context(
-        spawn, fileCache, execRoot, new FileOutErr(root.getRelative("stdout"), root.getRelative("stderr")));
+        spawn, fileCache, execRoot, newOutErr());
   }
 
   private Digest stage(String name, String contents) throws IOException {
@@ -1218,7 +1241,12 @@ public final class SandboxBackendSpawnRunnerTest {
     var retrying =
         new SandboxBackendSpawnRunner(
             "fake",
-            () -> SandboxBackendSession.forChannel("fake", backend::newChannel, digestUtil),
+            () -> {
+              SandboxBackendSession started =
+                  SandboxBackendSession.forChannel("fake", backend::newChannel, digestUtil);
+              extraSessions.add(started);
+              return started;
+            },
             () -> true,
             execRoot,
             root.getRelative("scratch"),
