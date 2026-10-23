@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -114,7 +115,17 @@ final class WorkerExecRoot {
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          key.createSymbolicLink(fileDest);
+          if (inputs.getCopyStagedFiles().contains(fragment)) {
+            // A copy output must never be staged as a symlink. Stage a copy of the output's own
+            // file instead. A failure fails the spawn.
+            if (key.exists(Symlinks.NOFOLLOW)) {
+              // Left over from a reused sandbox.
+              key.deleteTree();
+            }
+            FileSystemUtils.copyFile(fileDest, key);
+          } else {
+            key.createSymbolicLink(fileDest);
+          }
         } else {
           FileSystemUtils.createEmptyFile(key);
         }

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -118,6 +119,81 @@ public class WorkerExecRootTest {
     assertThat(workDir.getRelative("dir/input_symlink_2").readSymbolicLink())
         .isEqualTo(PathFragment.create("unchanged"));
     assertThat(workDir.getRelative("dir/input_symlink_3").exists()).isFalse();
+  }
+
+  @Test
+  public void stagesCopyOutputsAsRegularFiles() throws Exception {
+    SandboxHelper sandboxHelper =
+        new SandboxHelper(execRoot, workDir)
+            .addAndCreateCopyOutputInputFile("dir/copy.txt", "out/copy.txt", "copy contents")
+            .addAndCreateInputFile("dir/plain.txt", "out/plain.txt", "plain contents");
+    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of(), false);
+
+    workerExecRoot.createFileSystem(
+        sandboxHelper.getWorkerFiles(),
+        sandboxHelper.getSandboxInputs(),
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
+
+    Path copy = workDir.getRelative("dir/copy.txt");
+    assertThat(copy.isSymbolicLink()).isFalse();
+    assertThat(copy.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(FileSystemUtils.readContent(copy, Charset.defaultCharset()))
+        .isEqualTo("copy contents");
+    assertThat(workDir.getRelative("dir/plain.txt").isSymbolicLink()).isTrue();
+  }
+
+  @Test
+  public void copyOutputReplacesLeftoversOnReuse() throws Exception {
+    copyOutputReplacesLeftoversOnReuse(/* inMemoryTracking= */ false);
+  }
+
+  @Test
+  public void copyOutputReplacesLeftoversOnReuse_withInMemoryTracking() throws Exception {
+    copyOutputReplacesLeftoversOnReuse(/* inMemoryTracking= */ true);
+  }
+
+  private void copyOutputReplacesLeftoversOnReuse(boolean inMemoryTracking) throws Exception {
+    SandboxHelper sandboxHelper =
+        new SandboxHelper(execRoot, workDir)
+            .addAndCreateCopyOutputInputFile("dir/copy.txt", "out/copy.txt", "copy contents");
+    WorkerExecRoot workerExecRoot =
+        new WorkerExecRoot(workDir, ImmutableList.of(), inMemoryTracking);
+    workerExecRoot.createFileSystem(
+        sandboxHelper.getWorkerFiles(),
+        sandboxHelper.getSandboxInputs(),
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
+    Path copy = workDir.getRelative("dir/copy.txt");
+    assertThat(copy.isSymbolicLink()).isFalse();
+
+    // A previous run left a symlink there (e.g. staged by an older Bazel).
+    copy.delete();
+    copy.createSymbolicLink(execRoot.getRelative("out/copy.txt").asFragment());
+
+    workerExecRoot.createFileSystem(
+        sandboxHelper.getWorkerFiles(),
+        sandboxHelper.getSandboxInputs(),
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
+    assertThat(copy.isSymbolicLink()).isFalse();
+    assertThat(FileSystemUtils.readContent(copy, Charset.defaultCharset()))
+        .isEqualTo("copy contents");
+
+    // The action modified the staged copy: the next run gets fresh contents, and the output's own
+    // file is never written through.
+    FileSystemUtils.writeContentAsLatin1(copy, "tampered");
+    workerExecRoot.createFileSystem(
+        sandboxHelper.getWorkerFiles(),
+        sandboxHelper.getSandboxInputs(),
+        sandboxHelper.getSandboxOutputs(),
+        new SynchronousTreeDeleter());
+    assertThat(FileSystemUtils.readContent(copy, Charset.defaultCharset()))
+        .isEqualTo("copy contents");
+    assertThat(
+            FileSystemUtils.readContent(
+                execRoot.getRelative("out/copy.txt"), Charset.defaultCharset()))
+        .isEqualTo("copy contents");
   }
 
   @Test
