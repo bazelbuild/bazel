@@ -196,8 +196,13 @@ public abstract sealed class NestedSet<E> {
     }
 
     // Remember children we extracted from one-element subsets. Otherwise we can end up with two of
-    // the same child, which is a problem for the fast path in toList().
-    Set<E> alreadyInserted = ImmutableSet.of();
+    // the same child, which is a problem for the fast path in toList(). There are usually only a
+    // few of them, so they are deduplicated by a linear scan over hoistedArray[0, hoistedCount) to
+    // avoid allocating a hash set. Once there are more than MAX_LINEAR_SCAN_HOISTED of them, they
+    // are moved to hoistedSet instead.
+    Object[] hoistedArray = null;
+    int hoistedCount = 0;
+    CompactHashSet<E> hoistedSet = null;
     // The candidate array of children.
     Object[] children = new Object[direct.size() + transitive.size()];
     int approxDepth = 0;
@@ -213,14 +218,12 @@ public abstract sealed class NestedSet<E> {
           if (member instanceof ByteString) {
             throw new IllegalArgumentException("cannot store ByteString in NestedSet");
           }
-          if (!alreadyInserted.contains(member)) {
+          if (!isHoisted(member, hoistedArray, hoistedCount, hoistedSet)) {
             children[n++] = member;
             approxDepth = Math.max(approxDepth, 2);
           }
         }
-        alreadyInserted = direct;
       } else if ((pass == 1) == preorder && !transitive.isEmpty()) {
-        CompactHashSet<E> hoisted = null;
         for (NestedSet<E> subset : transitive) {
           approxDepth = Math.max(approxDepth, 1 + subset.getApproxDepth());
           // If this is a deserialization future, this call blocks.
@@ -231,18 +234,31 @@ public abstract sealed class NestedSet<E> {
             }
             children[n++] = a;
             shallow = false;
-          } else {
-            if (!alreadyInserted.contains(c)) {
-              if (hoisted == null) {
-                hoisted = CompactHashSet.create();
-              }
-              if (hoisted.add((E) c)) {
-                children[n++] = c;
-              }
+            continue;
+          }
+          if (preorder && direct.contains(c)) {
+            continue;
+          }
+          if (isHoisted(c, hoistedArray, hoistedCount, hoistedSet)) {
+            continue;
+          }
+          children[n++] = c;
+          if (hoistedSet != null) {
+            hoistedSet.add((E) c);
+          } else if (hoistedCount < MAX_LINEAR_SCAN_HOISTED) {
+            if (hoistedArray == null) {
+              hoistedArray = new Object[Math.min(transitive.size(), MAX_LINEAR_SCAN_HOISTED)];
             }
+            hoistedArray[hoistedCount++] = c;
+          } else {
+            hoistedSet = CompactHashSet.createWithExpectedSize(2 * MAX_LINEAR_SCAN_HOISTED);
+            for (int i = 0; i < hoistedCount; i++) {
+              hoistedSet.add((E) hoistedArray[i]);
+            }
+            hoistedSet.add((E) c);
+            hoistedArray = null;
           }
         }
-        alreadyInserted = hoisted == null ? ImmutableSet.of() : hoisted;
       }
     }
 
@@ -271,6 +287,30 @@ public abstract sealed class NestedSet<E> {
   private static boolean hasTransitiveMember(Object[] children) {
     for (Object child : children) {
       if (child instanceof Object[]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Maximum number of leaves hoisted from singleton transitive members in {@link #create(Order,
+   * Set, Collection, InterruptStrategy)} that are deduplicated by a linear scan rather than by a
+   * hash set.
+   */
+  private static final int MAX_LINEAR_SCAN_HOISTED = 8;
+
+  /**
+   * Returns whether {@code x} is contained in {@code hoistedSet} if it is non-null, or else in
+   * {@code hoistedArray[0, hoistedCount)}.
+   */
+  private static boolean isHoisted(
+      Object x, @Nullable Object[] hoistedArray, int hoistedCount, @Nullable Set<?> hoistedSet) {
+    if (hoistedSet != null) {
+      return hoistedSet.contains(x);
+    }
+    for (int i = 0; i < hoistedCount; i++) {
+      if (x.equals(hoistedArray[i])) {
         return true;
       }
     }

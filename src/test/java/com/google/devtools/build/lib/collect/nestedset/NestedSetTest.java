@@ -819,7 +819,7 @@ public final class NestedSetTest {
     NestedSet<String> set2 = b2.build();
     assertThat(set2.toList()).containsExactly("a", "b").inOrder();
 
-    // 3 transitive sets (promotes to CompactHashSet) + duplicates
+    // 3 transitive sets (grows the array) + duplicates
     NestedSetBuilder<String> b3 =
         NestedSetBuilder.<String>stableOrder()
             .addTransitive(sub1)
@@ -828,6 +828,69 @@ public final class NestedSetTest {
             .addTransitive(sub2);
     NestedSet<String> set3 = b3.build();
     assertThat(set3.toList()).containsExactly("a", "b", "c").inOrder();
+  }
+
+  @Test
+  public void builder_manyTransitiveSets_deduplicatesAndPreservesOrder() {
+    List<NestedSet<String>> subsets = new ArrayList<>();
+    List<String> expected = new ArrayList<>();
+    for (int i = 0; i < 40; i++) {
+      subsets.add(NestedSetBuilder.<String>stableOrder().add("a" + i).add("b" + i).build());
+      expected.add("a" + i);
+      expected.add("b" + i);
+    }
+    NestedSetBuilder<String> builder = NestedSetBuilder.stableOrder();
+    for (int i = 0; i < subsets.size(); i++) {
+      builder.addTransitive(subsets.get(i));
+      // Re-add a previously added set, both before and after switching to a hash set.
+      builder.addTransitive(subsets.get(i / 2));
+    }
+
+    NestedSet<String> set = builder.build();
+
+    assertThat(set.toList()).containsExactlyElementsIn(expected).inOrder();
+    assertThat(set.getNonLeaves()).hasSize(subsets.size());
+  }
+
+  @Test
+  public void hoisting_singletonTransitiveSets_deduplicatesByEqualityAgainstEachOtherAndDirects() {
+    for (int count : new int[] {5, 20}) {
+      for (Order order : ImmutableList.of(Order.STABLE_ORDER, Order.NAIVE_LINK_ORDER)) {
+        NestedSetBuilder<String> builder = NestedSetBuilder.newBuilder(order);
+        builder.add("d0").add("x3").add("d1");
+        for (int round = 0; round < 2; round++) {
+          for (int i = 0; i < count; i++) {
+            // Distinct but equal singleton sets, which the builder can't deduplicate by identity.
+            builder.addTransitive(NestedSetBuilder.<String>newBuilder(order).add("x" + i).build());
+          }
+        }
+        List<String> expected = new ArrayList<>();
+        if (order == Order.STABLE_ORDER) {
+          // Transitive members first: the direct "x3" is dropped.
+          for (int i = 0; i < count; i++) {
+            expected.add("x" + i);
+          }
+          expected.add("d0");
+          expected.add("d1");
+        } else {
+          // Direct members first: the hoisted "x3" is dropped.
+          expected.add("d0");
+          expected.add("x3");
+          expected.add("d1");
+          for (int i = 0; i < count; i++) {
+            if (i != 3) {
+              expected.add("x" + i);
+            }
+          }
+        }
+
+        NestedSet<String> set = builder.build();
+
+        // The set is flat, so toList() returns its children without further deduplication.
+        assertThat(set.getNonLeaves()).isEmpty();
+        assertThat(set.toList()).containsExactlyElementsIn(expected).inOrder();
+      }
+    }
   }
 
   @Test
