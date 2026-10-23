@@ -322,4 +322,51 @@ public final class CopyActionIntegrationTest extends BuildIntegrationTestCase {
     addOptions("--spawn_strategy=local");
     consumer_seesCopyContent_defaultStrategy();
   }
+
+  /**
+   * Under a symlinking sandbox the consumer must see a regular file, not a link, for every copy
+   * output. Checking content alone would pass with a symlink, so this checks the file type from
+   * inside the action.
+   */
+  @Test
+  public void consumer_seesRegularFiles_processWrapperSandbox() throws Exception {
+    addOptions("--spawn_strategy=processwrapper-sandbox");
+    writeRule();
+    write(
+        "consumer/BUILD",
+        """
+        load("//test:rule.bzl", "copy_rule")
+
+        copy_rule(name = "copies", src = "//test:source.txt")
+
+        genrule(
+            name = "consume",
+            srcs = [":copies"],
+            outs = ["consumed.txt"],
+            cmd = "for f in $(SRCS); do case $$f in"
+                + " *src_copy.txt|*gen_copy_copy.txt) if [ -L $$f ]; then echo LINK $$f;"
+                + " elif [ -f $$f ]; then echo FILE $$f; else echo OTHER $$f; fi >> $@;;"
+                + " */tree_copy) for c in $$f/f1.txt $$f/a/b/f2.txt; do"
+                + " if [ -L $$c ]; then echo LINK $$c; elif [ -f $$c ]; then echo FILE $$c;"
+                + " else echo OTHER $$c; fi >> $@; done;;"
+                + " esac; done",
+        )
+        """);
+    write(
+        "test/BUILD",
+        """
+        load(":rule.bzl", "copy_rule")
+
+        exports_files(["source.txt"])
+        copy_rule(name = "target", src = "source.txt")
+        """);
+
+    buildTarget("//consumer:consume");
+
+    String report = read(getArtifacts("//consumer:consume").get(0).getPath());
+    assertThat(report).contains("FILE");
+    assertThat(report).doesNotContain("LINK");
+    assertThat(report).doesNotContain("OTHER");
+    assertThat(report.lines().count()).isEqualTo(4);
+  }
 }

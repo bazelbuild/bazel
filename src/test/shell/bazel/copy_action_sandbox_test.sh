@@ -64,9 +64,14 @@ check() {
   check %s/f1.txt
   check %s/a/b/f2.txt
   echo "tree_links=$(find %s -type l | wc -l | tr -d ' ')"
-  if [ -e %s ]; then check %s; fi
+  if [ -e %s ]; then
+    check %s
+    # The inode of the staged symlink itself (ls does not follow it). It only stays the same
+    # across runs if the sandbox directory was reused and the symlink was not re-created.
+    echo "gen_inode=$(ls -i %s | awk '{print $1}')"
+  fi
 } > %s
-""" % (ctx.attr.salt, cp.path, cp_cp.path, tree_cp.path, tree_cp.path, tree_cp.path, gen.path, gen.path, report.path),
+""" % (ctx.attr.salt, cp.path, cp_cp.path, tree_cp.path, tree_cp.path, tree_cp.path, gen.path, gen.path, gen.path, report.path),
     )
     return [DefaultInfo(files = depset([report]))]
 
@@ -134,12 +139,18 @@ function test_copy_is_regular_file_in_processwrapper_sandbox() {
 }
 
 function test_copy_is_regular_file_in_darwin_sandbox() {
-  [[ "$(uname -s)" == "Darwin" ]] || return 0
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "SKIPPED: darwin-sandbox only exists on macOS" | tee -a "$TEST_log"
+    return 0
+  fi
   run_consumer_test darwin-sandbox
 }
 
 function test_copy_is_regular_file_in_linux_sandbox() {
-  [[ "$(uname -s)" == "Linux" ]] || return 0
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "SKIPPED: linux-sandbox only exists on Linux" | tee -a "$TEST_log"
+    return 0
+  fi
   run_consumer_test linux-sandbox
 }
 
@@ -172,21 +183,41 @@ function test_mark_survives_server_restart() {
   assert_copies_are_regular_files bazel-bin/pkg/plain_report.txt
 }
 
+# Returns the staged inode that the consumer of //pkg:with_source recorded.
+function gen_inode() {
+  grep "^gen_inode=" bazel-bin/pkg/with_source_report.txt || fail "no gen_inode in report"
+}
+
 function test_mark_survives_sandbox_reuse() {
   local flags="--spawn_strategy=sandboxed --reuse_sandbox_directories"
-  bazel build $flags //pkg:plain &> "$TEST_log" || fail "build failed"
-  assert_copies_are_regular_files bazel-bin/pkg/plain_report.txt
+  local target=//pkg:with_source
+  bazel build $flags $target &> "$TEST_log" || fail "build failed"
+  assert_copies_are_regular_files bazel-bin/pkg/with_source_report.txt
+  local first_inode
+  first_inode="$(gen_inode)"
+
+  # Only the consumer's command line changes, so it re-runs in a reused sandbox directory. The
+  # plain (non-copy) input is a staged symlink that a reused sandbox keeps as is, so its inode
+  # staying the same proves that a stash was reused, while the copy inputs must still be regular
+  # files (they are always re-created).
   set_salt three
-  bazel build $flags //pkg:plain &> "$TEST_log" || fail "build 2 failed"
-  assert_copies_are_regular_files bazel-bin/pkg/plain_report.txt
+  bazel build $flags $target &> "$TEST_log" || fail "build 2 failed"
+  assert_copies_are_regular_files bazel-bin/pkg/with_source_report.txt
+  [[ "$(gen_inode)" == "$first_inode" ]] \
+    || fail "sandbox was not reused (symlink inode changed from $first_inode to $(gen_inode))"
+
   set_salt four
-  bazel build $flags --experimental_inmemory_sandbox_stashes //pkg:plain &> "$TEST_log" \
+  bazel build $flags --experimental_inmemory_sandbox_stashes $target &> "$TEST_log" \
     || fail "build 3 failed"
-  assert_copies_are_regular_files bazel-bin/pkg/plain_report.txt
+  assert_copies_are_regular_files bazel-bin/pkg/with_source_report.txt
+  local third_inode
+  third_inode="$(gen_inode)"
   set_salt five
-  bazel build $flags --experimental_inmemory_sandbox_stashes //pkg:plain &> "$TEST_log" \
+  bazel build $flags --experimental_inmemory_sandbox_stashes $target &> "$TEST_log" \
     || fail "build 4 failed"
-  assert_copies_are_regular_files bazel-bin/pkg/plain_report.txt
+  assert_copies_are_regular_files bazel-bin/pkg/with_source_report.txt
+  [[ "$(gen_inode)" == "$third_inode" ]] \
+    || fail "in-memory stash was not reused (symlink inode changed from $third_inode)"
 }
 
 run_suite "Tests that ctx.actions.copy outputs are never staged as symlinks"
