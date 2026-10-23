@@ -35,7 +35,31 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:McdcCoverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
+    ],
+)
+
+java_test(
+    name = "McdcCoverageTest",
+    srcs = ["McdcCoverageTest.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:McdcCoverage",
+    ],
+)
+
+java_test(
+    name = "McdcCoverageDataTest",
+    srcs = ["McdcCoverageDataTest.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:McdcCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:McdcCoverageData",
     ],
 )
 
@@ -53,6 +77,7 @@ java_test(
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovPrinter",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:McdcCoverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
 )
@@ -68,6 +93,7 @@ java_test(
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovParser",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:McdcCoverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
 )
@@ -134,6 +160,21 @@ java_test(
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovParser",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovPrinter",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:MainLibrary",
+    ],
+)
+
+java_test(
+    name = "McdcIntegrationTest",
+    srcs = ["McdcIntegrationTest.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovParser",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovPrinter",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:McdcCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
 )
 
