@@ -44,7 +44,25 @@ public final class FileUriBlobsTest {
   }
 
   @Test
+  public void windowsDrivePath_roundTripsWithALiteralColon() {
+    ByteString uri = FileUriBlobs.encode("C:/Users/a b/f.txt");
+
+    assertThat(uri.toStringUtf8()).isEqualTo("file:///C:/Users/a%20b/f.txt");
+    assertThat(FileUriBlobs.decode(uri)).isEqualTo("C:/Users/a b/f.txt");
+  }
+
+  @Test
+  public void unixPathThatLooksLikeADrive_staysAUnixPath() {
+    ByteString uri = FileUriBlobs.encode("/C:/x");
+
+    // The colon is encoded, as it always was, so the path doesn't turn into a drive path.
+    assertThat(uri.toStringUtf8()).isEqualTo("file:///C%3A/x");
+    assertThat(FileUriBlobs.decode(uri)).isEqualTo("/C:/x");
+  }
+
+  @Test
   public void encode_relativePath_fails() {
+    assertThrows(IllegalArgumentException.class, () -> FileUriBlobs.encode("C:x"));
     assertThrows(IllegalArgumentException.class, () -> FileUriBlobs.encode("a/b"));
   }
 

@@ -33,6 +33,11 @@ import java.nio.charset.StandardCharsets;
  * file URI apart from a real blob as follows: the data is a file URI if and only if it starts with
  * {@code file://} and is not the blob described by the digest, i.e., its length is not the digest's
  * size or its hash is not the digest's hash.
+ *
+ * <p>An absolute Windows path such as {@code C:/dir/file}, as Bazel writes them, is the URI {@code
+ * file:///C:/dir/file}, with a literal colon after the drive letter. A Unix path that happens to
+ * start with {@code /C:/} stays unambiguous, as its colon is percent-encoded, and every Unix path
+ * is encoded as it always was.
  */
 public final class FileUriBlobs {
   private static final ByteString SCHEME = ByteString.copyFromUtf8("file://");
@@ -46,15 +51,20 @@ public final class FileUriBlobs {
    * as seen by the operating system.
    */
   public static ByteString encode(String path) {
-    if (!path.startsWith("/")) {
+    boolean drive = isDrivePath(path);
+    if (!path.startsWith("/") && !drive) {
       // A relative path would be parsed as having a host.
       throw new IllegalArgumentException("Not an absolute path: " + path);
     }
     byte[] bytes = path.getBytes(StandardCharsets.ISO_8859_1);
-    ByteString.Output out = ByteString.newOutput(SCHEME.size() + bytes.length);
+    ByteString.Output out = ByteString.newOutput(SCHEME.size() + bytes.length + 1);
     out.write(SCHEME.toByteArray(), 0, SCHEME.size());
-    for (byte b : bytes) {
-      if (isUnreserved(b) || b == '/') {
+    if (drive) {
+      out.write('/');
+    }
+    for (int i = 0; i < bytes.length; i++) {
+      byte b = bytes[i];
+      if (isUnreserved(b) || b == '/' || (drive && i == 1)) {
         out.write(b);
       } else {
         out.write('%');
@@ -90,8 +100,16 @@ public final class FileUriBlobs {
     if (bytes.length == 0 || bytes[0] != '/') {
       throw new IllegalArgumentException("File URI with a host or without a path");
     }
+    // A literal colon after a drive letter, which encode never writes for a Unix path.
+    int start =
+        bytes.length >= 4
+                && isLetter(bytes[1])
+                && bytes[2] == ':'
+                && bytes[3] == '/'
+            ? 1
+            : 0;
     ByteArrayOutputStream out = new ByteArrayOutputStream(bytes.length);
-    for (int i = 0; i < bytes.length; i++) {
+    for (int i = start; i < bytes.length; i++) {
       if (bytes[i] != '%') {
         out.write(bytes[i]);
         continue;
@@ -108,6 +126,17 @@ public final class FileUriBlobs {
       i += 2;
     }
     return new String(out.toByteArray(), StandardCharsets.ISO_8859_1);
+  }
+
+  private static boolean isDrivePath(String path) {
+    return path.length() >= 3
+        && isLetter((byte) path.charAt(0))
+        && path.charAt(1) == ':'
+        && path.charAt(2) == '/';
+  }
+
+  private static boolean isLetter(byte b) {
+    return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z');
   }
 
   private static boolean isUnreserved(byte b) {

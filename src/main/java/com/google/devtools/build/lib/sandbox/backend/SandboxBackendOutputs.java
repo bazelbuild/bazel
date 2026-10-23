@@ -167,7 +167,10 @@ final class SandboxBackendOutputs {
           "sandbox backend returned the invalid output path '" + printable(path) + "'");
     }
     PathFragment normalized = PathFragment.create(internal);
-    if (normalized.containsUplevelReferences() || !declared.contains(normalized.getPathString())) {
+    // A Windows path with a drive letter is absolute, but doesn't start with a slash.
+    if (normalized.isAbsolute()
+        || normalized.containsUplevelReferences()
+        || !declared.contains(normalized.getPathString())) {
       throw new IOException(
           "sandbox backend returned the output '" + printable(path) + "', which the action didn't declare");
     }
