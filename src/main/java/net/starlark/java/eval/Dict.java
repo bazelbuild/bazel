@@ -603,7 +603,6 @@ public abstract sealed class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Deprecated // use putEntry
   @Override
   public final V put(K key, V value) {
@@ -616,7 +615,6 @@ public abstract sealed class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Deprecated // use pop
   @Override
   public final V remove(Object key) {
