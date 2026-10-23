@@ -691,6 +691,91 @@ public final class SandboxBackendSpawnRunnerTest {
         .isEqualTo(FileUriBlobs.encode(file.getPathString()));
   }
 
+  private SpawnResult execWithUri(String uriBytes, Digest digest) throws Exception {
+    backend.serve(digest, ByteString.copyFrom(uriBytes, java.nio.charset.StandardCharsets.ISO_8859_1));
+    return execWithResult(
+        ActionResult.newBuilder().addOutputFiles(outputFile("outputs/out.txt", digest)).build(),
+        "outputs/out.txt");
+  }
+
+  @Test
+  public void stagedFileThatDoesNotExist_isRejected() throws Exception {
+    Digest digest = digestUtil.computeAsUtf8("hello");
+
+    SpawnResult result = execWithUri("file://" + staged.getRelative("nope").getPathString(), digest);
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("a file that doesn't exist");
+    assertThat(execRoot.getRelative("outputs/out.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void stagedDanglingSymlink_isRejected() throws Exception {
+    staged.getRelative("dangling").createSymbolicLink(PathFragment.create("/nonexistent/target"));
+
+    SpawnResult result =
+        execWithUri(
+            "file://" + staged.getRelative("dangling").getPathString(),
+            digestUtil.computeAsUtf8("hello"));
+
+    assertThat(result.getFailureMessage()).contains("a file that doesn't exist");
+  }
+
+  @Test
+  public void stagedDirectory_isRejected() throws Exception {
+    staged.getRelative("dir").createDirectory();
+
+    SpawnResult result =
+        execWithUri(
+            "file://" + staged.getRelative("dir").getPathString(), digestUtil.computeAsUtf8("hello"));
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("isn't a regular file");
+  }
+
+  @Test
+  public void stagedFileOfTheWrongSize_isRejected() throws Exception {
+    Digest digest = stage("o1", "hello");
+    FileSystemUtils.writeContentAsLatin1(staged.getRelative("o1"), "hello world");
+
+    SpawnResult result =
+        execWithUri("file://" + staged.getRelative("o1").getPathString(), digest);
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("which has 11 bytes instead of the 5");
+  }
+
+  @Test
+  public void invalidUri_isRejected() throws Exception {
+    Digest digest = digestUtil.computeAsUtf8("hello");
+
+    for (String uri : new String[] {"file://host/x", "file://relative", "file:///a%zz", "file:///a%2"}) {
+      SpawnResult result = execWithUri(uri, digest);
+
+      assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+      assertThat(result.getFailureMessage()).contains("invalid file URI");
+    }
+  }
+
+  @Test
+  public void uriWithNul_isRejected() throws Exception {
+    SpawnResult result =
+        execWithUri("file://" + staged.getPathString() + "/a%00b", digestUtil.computeAsUtf8("hello"));
+
+    assertThat(result.getFailureMessage()).contains("a NUL byte");
+  }
+
+  @Test
+  public void oversizedUri_isRejected() throws Exception {
+    // Not the blob, and far too long to be a path.
+    String uri = "file:///" + "a".repeat(70 * 1024);
+
+    SpawnResult result = execWithUri(uri, digestUtil.computeAsUtf8("hello"));
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
+    assertThat(result.getFailureMessage()).contains("don't match");
+  }
+
   @Test
   public void failedCapabilitiesCheck_failsTheSpawnAndTheNextSpawnStartsAgain() throws Exception {
     var retrying =
