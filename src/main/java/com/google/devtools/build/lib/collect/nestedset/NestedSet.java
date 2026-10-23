@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.ByteString;
-import java.lang.ref.WeakReference;
 import java.time.Duration;
 import java.util.AbstractCollection;
 import java.util.Arrays;
@@ -48,6 +48,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
@@ -77,13 +78,10 @@ import javax.annotation.Nullable;
  *
  * <p>The implementation has been highly optimized as it is crucial to Blaze's performance.
  *
- * <p>To optimize memory usage, the implementation uses two different subclasses depending on the
- * depth of the set. "Flat" sets ({@code depth <= 2}, containing no transitive nested sets) are
- * represented by a subclass that omits the {@code cached} list representation field. Since flat
- * sets are cheap to flatten and constitute a significant fraction of all instances, this saves
- * significant memory by avoiding the overhead of the {@code WeakReference} cache field for these
- * simple sets. "Nested" sets ({@code depth > 2}) use a subclass that retains the {@code cached}
- * field to avoid re-flattening expensive deep DAGs.
+ * <p>The implementation uses two different subclasses depending on the depth of the set. "Flat"
+ * sets ({@code depth <= 2}, containing no transitive nested sets) are cheap to flatten and are
+ * never cached. "Nested" sets ({@code depth > 2}) cache their flattened list representation in a
+ * shared weak cache to avoid re-flattening expensive deep DAGs.
  *
  * @see NestedSetBuilder
  */
@@ -321,8 +319,9 @@ public abstract sealed class NestedSet<E> {
    * Clears the cached list representation to free up memory when no other traversal of the
    * NestedSet is expected.
    *
-   * <p>Although the cached representation is stored as a {@link WeakReference}, eagerly clearing it
-   * helps the garbage collector, plus it also frees the {@link WeakReference} itself.
+   * <p>Although the cached representation is only weakly referenced, eagerly clearing it helps the
+   * garbage collector. The cache is shared by all sets with the same underlying graph node, so this
+   * also clears it for them.
    */
   public abstract void clearCachedListRepresentation();
 
@@ -855,33 +854,33 @@ public abstract sealed class NestedSet<E> {
   /** Implementation for {@code depth > 2} that caches its flattened list representation. */
   private static final class Nested<E> extends NestedSet<E> {
 
-    /** Initial value of {@link #cached} indicating that a traversal is necessary. */
-    @SuppressWarnings("rawtypes") // Safe to use as WeakReference<ImmutableList<E>> since it's null.
-    private static final WeakReference EMPTY_WEAK_REF = new WeakReference<>(null);
-
     /**
-     * A cache of the flattened list representation of this set.
+     * Flattened list representations, keyed by the identity of the (deserialized) children array.
      *
-     * <p>This field is initialized to {@link #EMPTY_WEAK_REF} to indicate that a traversal is
-     * necessary.
+     * <p>Most {@code Nested} instances are never flattened, so a shared map is cheaper than a
+     * per-instance field: without the field, a {@code Nested} takes 16 instead of 24 bytes with
+     * compact object headers. Instances sharing a children array also share the flattened list.
+     * This is safe because {@link #expand} does not depend on the order; {@link Order#LINK_ORDER}
+     * is applied by the caller.
      *
-     * <p>Using weak references is preferable to soft references because {@link
+     * <p>Keys are weak (and compared by identity), so the map does not retain the children. Values
+     * are weak rather than soft because {@link
      * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
      * soft references are collected. See b/322474776.
-     *
-     * <p>This field is {@code volatile} to support double-checked locking in {@link
-     * #expandWithCaching}.
      */
-    private transient volatile WeakReference<ImmutableList<E>> cached;
+    private static final ConcurrentMap<Object[], ImmutableList<?>> flattenedLists =
+        new MapMaker().weakKeys().weakValues().makeMap();
 
     Nested(Order order, int depth, Object children) {
       super(order, depth, children);
-      this.cached = EMPTY_WEAK_REF;
     }
 
     @Override
     public void clearCachedListRepresentation() {
-      this.cached = EMPTY_WEAK_REF;
+      // Not yet deserialized means not yet flattened.
+      if (isReady() && getChildren() instanceof Object[] array) {
+        flattenedLists.remove(array);
+      }
     }
 
     @Override
@@ -891,21 +890,21 @@ public abstract sealed class NestedSet<E> {
 
     @Override
     ImmutableList<E> expandWithCaching(Object[] children) {
-      WeakReference<ImmutableList<E>> localCached = this.cached;
-
-      ImmutableList<E> result = localCached.get();
+      ImmutableList<E> result = (ImmutableList<E>) flattenedLists.get(children);
       if (result != null) {
         return result;
       }
 
-      synchronized (this) {
-        // Read the field again under a lock.
-        result = this.cached.get();
-        if (result != null) {
-          return result;
+      // Double-checked locking on the children array, so that each array is expanded at most once
+      // at
+      // a time without holding a lock shared with unrelated keys. The array is private to
+      // NestedSet, so no other code synchronizes on it.
+      synchronized (children) {
+        result = (ImmutableList<E>) flattenedLists.get(children);
+        if (result == null) {
+          result = expand(children);
+          flattenedLists.put(children, result);
         }
-        result = expand(children);
-        this.cached = new WeakReference<>(result);
       }
       return result;
     }

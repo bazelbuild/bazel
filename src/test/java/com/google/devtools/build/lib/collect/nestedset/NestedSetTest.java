@@ -454,6 +454,70 @@ public final class NestedSetTest {
     }
   }
 
+  private static NestedSet<String> nestedSetOfAbc() {
+    NestedSet<String> ab = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    NestedSet<String> bc = NestedSetBuilder.<String>stableOrder().add("b").add("c").build();
+    return NestedSetBuilder.<String>stableOrder().addTransitive(ab).addTransitive(bc).build();
+  }
+
+  @Test
+  public void toList_nested_isCached() {
+    NestedSet<String> set = nestedSetOfAbc();
+
+    ImmutableList<String> first = set.toList();
+
+    assertThat(first).containsExactly("a", "b", "c").inOrder();
+    assertThat(set.toList()).isSameInstanceAs(first);
+  }
+
+  @Test
+  public void toList_nested_afterClearCachedListRepresentation_isRecomputed() {
+    NestedSet<String> set = nestedSetOfAbc();
+    ImmutableList<String> first = set.toList();
+
+    set.clearCachedListRepresentation();
+    ImmutableList<String> second = set.toList();
+
+    assertThat(second).isEqualTo(first);
+    assertThat(second).isNotSameInstanceAs(first);
+  }
+
+  @Test
+  public void toList_nested_cacheIsSharedBetweenSetsWithSameChildren() {
+    NestedSet<String> set = nestedSetOfAbc();
+    NestedSet<String> sameChildren =
+        NestedSet.create(Order.STABLE_ORDER, set.getApproxDepth(), set.getChildren());
+    NestedSet<String> sameChildrenLinkOrder =
+        NestedSet.create(LINK_ORDER, set.getApproxDepth(), set.getChildren());
+    assertThat(sameChildren).isNotSameInstanceAs(set);
+
+    ImmutableList<String> list = set.toList();
+
+    assertThat(sameChildren.toList()).isSameInstanceAs(list);
+    assertThat(sameChildrenLinkOrder.toList()).containsExactly("c", "b", "a").inOrder();
+    sameChildren.clearCachedListRepresentation();
+    assertThat(set.toList()).isNotSameInstanceAs(list);
+  }
+
+  @Test
+  public void toList_nested_fromStorage_isCachedOnceDeserialized() {
+    NestedSet<String> contents = nestedSetOfAbc();
+    SettableFuture<Object[]> future = SettableFuture.create();
+    NestedSet<String> deserializing =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, future);
+    deserializing.clearCachedListRepresentation(); // No-op while not ready.
+
+    future.set((Object[]) contents.getChildren());
+    ImmutableList<String> first = deserializing.toList();
+
+    assertThat(first).containsExactly("a", "b", "c").inOrder();
+    assertThat(deserializing.toList()).isSameInstanceAs(first);
+    deserializing.clearCachedListRepresentation();
+    ImmutableList<String> second = deserializing.toList();
+    assertThat(second).isEqualTo(first);
+    assertThat(second).isNotSameInstanceAs(first);
+  }
+
   @Test
   public void hoistingKeepsSetSmall() {
     NestedSet<String> first = NestedSetBuilder.<String>stableOrder().add("a").build();
