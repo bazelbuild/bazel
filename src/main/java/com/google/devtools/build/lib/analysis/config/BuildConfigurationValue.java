@@ -54,6 +54,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.TriState;
 import java.io.PrintStream;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -184,14 +185,26 @@ public class BuildConfigurationValue
     }
     // Order doesn't matter here as ActionEnvironment sorts by key.
     Map<String, String> testEnv = new HashMap<>();
+    // Variables that are unset via --test_env==NAME are not only removed from the --test_env
+    // layer, but also from the default test environment set up by Bazel (e.g. HOME).
+    Set<String> unsetTestEnv = new HashSet<>();
     for (Converters.EnvVar envVar : buildOptions.get(TestOptions.class).testEnvironment) {
       switch (envVar) {
-        case Converters.EnvVar.Set(String name, String value) -> testEnv.put(name, value);
-        case Converters.EnvVar.Inherit(String name) -> testEnv.put(name, null);
-        case Converters.EnvVar.Unset(String name) -> testEnv.remove(name);
+        case Converters.EnvVar.Set(String name, String value) -> {
+          testEnv.put(name, value);
+          unsetTestEnv.remove(name);
+        }
+        case Converters.EnvVar.Inherit(String name) -> {
+          testEnv.put(name, null);
+          unsetTestEnv.remove(name);
+        }
+        case Converters.EnvVar.Unset(String name) -> {
+          testEnv.remove(name);
+          unsetTestEnv.add(name);
+        }
       }
     }
-    return ActionEnvironment.split(testEnv);
+    return ActionEnvironment.split(testEnv, unsetTestEnv);
   }
 
   // Only BuildConfigurationFunction should instantiate this.
