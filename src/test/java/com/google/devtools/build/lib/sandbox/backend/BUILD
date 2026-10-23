@@ -109,6 +109,15 @@ java_test(
 )
 
 java_test(
+    name = "SandboxBackendTransportTest",
+    srcs = ["SandboxBackendTransportTest.java"],
+    test_class = "com.google.devtools.build.lib.sandbox.backend.SandboxBackendTransportTest",
+    deps = COMMON_DEPS + [
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+    ],
+)
+
+java_test(
     name = "SandboxBackendSessionTest",
     srcs = [
         "FakeBackend.java",

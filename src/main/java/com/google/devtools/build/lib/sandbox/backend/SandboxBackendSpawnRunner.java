@@ -93,8 +93,8 @@ public final class SandboxBackendSpawnRunner implements SpawnRunner {
 
   /**
    * @param name the name of the backend, which is also the name of the strategy
-   * @param available whether the backend can be started at all, so that spawns are declined and run
-   *     by another strategy if it can't
+   * @param available whether the backend can be started at all, which includes that the operating
+   *     system is supported, so that spawns are declined and run by another strategy if it can't
    * @param scratchRoot a directory on the file system of the exec root in which to assemble outputs
    */
   SandboxBackendSpawnRunner(

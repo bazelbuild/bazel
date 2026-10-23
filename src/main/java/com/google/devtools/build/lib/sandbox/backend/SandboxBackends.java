@@ -83,7 +83,9 @@ public final class SandboxBackends {
           new SandboxBackendSpawnRunner(
               name,
               () -> getOrStart(name, config, env.getClientEnv(), digestUtil),
-              () -> config.resolveBinary(env.getClientEnv()) != null,
+              () ->
+                  SandboxBackendTransport.isSupported()
+                      && config.resolveBinary(env.getClientEnv()) != null,
               env.getExecRoot(),
               scratchRoot.getRelative(name),
               env.getWorkspaceName(),

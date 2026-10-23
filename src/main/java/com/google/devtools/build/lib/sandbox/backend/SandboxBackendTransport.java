@@ -47,9 +47,21 @@ final class SandboxBackendTransport implements AutoCloseable {
     this.socket = directory.resolve("backend.sock");
   }
 
+  /**
+   * Whether a transport can be created on this operating system, so that spawns can be declined
+   * in favor of another strategy if it can't.
+   */
+  static boolean isSupported() {
+    return isSupported(OS.getCurrent());
+  }
+
+  static boolean isSupported(OS os) {
+    return os != OS.WINDOWS;
+  }
+
   /** Creates the private directory that holds the socket. */
   static SandboxBackendTransport create() throws IOException {
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (!isSupported()) {
       throw new IOException("Sandbox backends are not supported on Windows yet");
     }
     // The path of a unix domain socket is limited to roughly a hundred bytes, which rules out the
