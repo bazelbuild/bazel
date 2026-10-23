@@ -102,6 +102,16 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   /** Returns metadata about this option. */
   public abstract OptionMetadataTag[] getOptionMetadataTags();
 
+  /** Returns whether this option has the FULLY_REDACTED_IN_LOGS metadata tag. */
+  public boolean isFullyRedactedInLogs() {
+    for (OptionMetadataTag tag : getOptionMetadataTags()) {
+      if (tag == OptionMetadataTag.FULLY_REDACTED_IN_LOGS) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Returns a converter to use for this option. */
   @SuppressWarnings({"rawtypes"})
   public abstract Class<? extends Converter> getProvidedConverter();
