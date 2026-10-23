@@ -443,30 +443,13 @@ final class FileDependencySerializer {
       KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
       byte[] dataBytes = data.build().toByteArray();
       long keyByteCount = keyBytes.toBytes().length;
-      long valueByteCount = dataBytes.length; // Don't hold on to the bytes any longer than needed
-
-      counters.nodesWaitingForDeps.decrementAndGet();
-      counters.nodesWaitingForUpload.incrementAndGet();
-      counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
-      counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
-
-      WriteStatus writeStatus = writer.put(keyBytes, dataBytes);
-      writeStatus.addListener(
-          () -> {
-            counters.nodesWaitingForUpload.decrementAndGet();
-            counters.nodesUploaded.incrementAndGet();
-            counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
-            counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
-            counters.keyBytesUploaded.addAndGet(keyByteCount);
-            counters.valueBytesUploaded.addAndGet(valueByteCount);
-          },
-          directExecutor());
+      WriteStatus writeStatus = putEntry(keyBytes, keyByteCount, dataBytes);
       if (profileCollector != null) {
         recordInvalidationProfile(
             profileCollector,
             InvalidationEntryType.FILE,
             keyByteCount,
-            valueByteCount,
+            dataBytes.length,
             writeStatus);
       }
       writeStatuses.add(writeStatus);
@@ -793,30 +776,13 @@ final class FileDependencySerializer {
             byte[] dataBytes = data.build().toByteArray();
 
             long keyByteCount = keyBytes.toBytes().length;
-            long valueByteCount = dataBytes.length; // Do not hold on to the bytes
-
-            counters.nodesWaitingForDeps.decrementAndGet();
-            counters.nodesWaitingForUpload.incrementAndGet();
-            counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
-            counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
-
-            WriteStatus writeStatus = writer.put(keyBytes, dataBytes);
-            writeStatus.addListener(
-                () -> {
-                  counters.nodesWaitingForUpload.decrementAndGet();
-                  counters.nodesUploaded.incrementAndGet();
-                  counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
-                  counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
-                  counters.keyBytesUploaded.addAndGet(keyByteCount);
-                  counters.valueBytesUploaded.addAndGet(valueByteCount);
-                },
-                directExecutor());
+            WriteStatus writeStatus = putEntry(keyBytes, keyByteCount, dataBytes);
             if (profileCollector != null) {
               recordInvalidationProfile(
                   profileCollector,
                   InvalidationEntryType.LISTING,
                   keyByteCount,
-                  valueByteCount,
+                  dataBytes.length,
                   writeStatus);
             }
             writeStatuses.add(writeStatus);
@@ -1042,31 +1008,14 @@ final class FileDependencySerializer {
       PackedFingerprint key = writer.fingerprint(maybeCompressedBytes);
 
       long keyByteCount = key.toBytes().length;
-      long valueByteCount =
-          maybeCompressedBytes.length; // Don't hold on to the bytes any longer than needed
-
-      counters.nodesWaitingForDeps.decrementAndGet();
-      counters.nodesWaitingForUpload.incrementAndGet();
-      counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
-      counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
-
-      WriteStatus writeStatus = writer.put(key, maybeCompressedBytes);
-      writeStatus.addListener(
-          () -> {
-            counters.nodesWaitingForUpload.decrementAndGet();
-            counters.nodesUploaded.incrementAndGet();
-            counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
-            counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
-            counters.keyBytesUploaded.addAndGet(keyByteCount);
-            counters.valueBytesUploaded.addAndGet(valueByteCount);
-          },
-          directExecutor());
+      WriteStatus writeStatus = putEntry(key, keyByteCount, maybeCompressedBytes);
 
       if (recorder != null) {
         if (maybeCompressedBytes.length != nodeBytes.length) {
           recorder.setByteScale((double) maybeCompressedBytes.length / (double) nodeBytes.length);
         }
-        recordKeyAndRegisterStatus(recorder, keyByteCount, valueByteCount, writeStatus);
+        recordKeyAndRegisterStatus(
+            recorder, keyByteCount, maybeCompressedBytes.length, writeStatus);
       }
 
       writeStatusBuilder.add(writeStatus);
@@ -1290,6 +1239,35 @@ final class FileDependencySerializer {
     return exists
         ? versionGetter.getFilePathOrSymlinkVersion(path)
         : versionGetter.getNonexistentPathVersion(path);
+  }
+
+  /**
+   * Writes an invalidation entry whose dependencies have all resolved.
+   *
+   * <p>Moves the entry from {@link Counters#nodesWaitingForDeps} to {@link
+   * Counters#nodesWaitingForUpload}, and tracks its bytes as waiting until the write completes.
+   * Does not hold on to {@code value}.
+   */
+  private WriteStatus putEntry(KeyBytesProvider key, long keyByteCount, byte[] value) {
+    long valueByteCount = value.length; // // Don't hold on to the bytes longer than needed.
+
+    counters.nodesWaitingForDeps.decrementAndGet();
+    counters.nodesWaitingForUpload.incrementAndGet();
+    counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
+    counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
+
+    WriteStatus writeStatus = writer.put(key, value);
+    writeStatus.addListener(
+        () -> {
+          counters.nodesWaitingForUpload.decrementAndGet();
+          counters.nodesUploaded.incrementAndGet();
+          counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+          counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+          counters.keyBytesUploaded.addAndGet(keyByteCount);
+          counters.valueBytesUploaded.addAndGet(valueByteCount);
+        },
+        directExecutor());
+    return writeStatus;
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey, Consumer<String> overflowConsumer) {
