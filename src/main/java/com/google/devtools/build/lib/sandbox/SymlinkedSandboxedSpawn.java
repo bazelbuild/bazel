@@ -132,6 +132,11 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   }
 
   @Override
+  protected boolean stagesFilesAsSymlinks() {
+    return true;
+  }
+
+  @Override
   public void delete() {
     SandboxStash.stashSandbox(
         sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter, targetLabel);

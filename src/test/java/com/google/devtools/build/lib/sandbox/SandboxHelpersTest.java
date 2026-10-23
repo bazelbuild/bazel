@@ -19,6 +19,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,8 +28,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -137,7 +143,9 @@ public class SandboxHelpersTest {
             ImmutableList.of("-a", "-b"),
             ParameterFileType.UNQUOTED);
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            inputMap(paramFile), execRoot, /* inputMetadataProvider= */ null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
@@ -155,7 +163,9 @@ public class SandboxHelpersTest {
             scratch.file("tool", "#!/bin/bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(tool), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            inputMap(tool), execRoot, /* inputMetadataProvider= */ null);
 
     assertThat(inputs.getFiles())
         .containsExactly(
@@ -185,7 +195,8 @@ public class SandboxHelpersTest {
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
             inputMap(nestedFile, directory, other, fileUnderSymlink, nestedSymlink, symlink),
-            execRoot);
+            execRoot,
+            /* inputMetadataProvider= */ null);
 
     assertThat(inputs.getFiles())
         .containsExactly(
@@ -231,13 +242,15 @@ public class SandboxHelpersTest {
         executorToCleanup.submit(
             () -> {
               try {
-                SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+                SandboxHelpers.processInputFiles(
+                    inputMap(input), customExecRoot, /* inputMetadataProvider= */ null);
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
               }
             });
-    SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+    SandboxHelpers.processInputFiles(
+        inputMap(input), customExecRoot, /* inputMetadataProvider= */ null);
     finishProcessingSemaphore.release();
     future.get();
 
@@ -246,6 +259,174 @@ public class SandboxHelpersTest {
     Path outputFile = customExecRoot.getChild("file");
     assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
     assertThat(outputFile.isExecutable()).isTrue();
+  }
+
+  @Test
+  public void processInputFiles_recordsCopyOutputsIncludingTreeChildren() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.OUTPUT, "out");
+    Artifact copy = ActionsTestUtil.createArtifact(root, "copy");
+    Artifact plain = ActionsTestUtil.createArtifact(root, "plain");
+    Artifact remoteCopy = ActionsTestUtil.createArtifact(root, "remote_copy");
+    SpecialArtifact tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(root, "tree");
+    TreeFileArtifact markedChild = TreeFileArtifact.createTreeOutput(tree, "a/marked");
+    TreeFileArtifact plainChild = TreeFileArtifact.createTreeOutput(tree, "plain");
+    FileArtifactValue file = FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1);
+    InputMetadataProvider provider = mock(InputMetadataProvider.class);
+    when(provider.getInputMetadata(copy)).thenReturn(FileArtifactValue.createForCopyOutput(file));
+    when(provider.getInputMetadata(plain)).thenReturn(file);
+    when(provider.getInputMetadata(remoteCopy))
+        .thenReturn(
+            FileArtifactValue.createForCopyOutput(
+                FileArtifactValue.createForRemoteFile(new byte[] {2}, 2, 1)));
+    when(provider.getInputMetadata(markedChild))
+        .thenReturn(FileArtifactValue.createForCopyOutput(file));
+    when(provider.getInputMetadata(plainChild)).thenReturn(file);
+
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            inputMap(copy, plain, remoteCopy, markedChild, plainChild), execRoot, provider);
+
+    assertThat(inputs.getFiles()).hasSize(5);
+    assertThat(inputs.getCopyStagedFiles())
+        .containsExactly(
+            copy.getExecPath(), remoteCopy.getExecPath(), markedChild.getExecPath());
+    // The real path stays the output's own path, never the source.
+    assertThat(inputs.getFiles().get(copy.getExecPath()))
+        .isEqualTo(execRoot.getRelative(copy.getExecPath()));
+  }
+
+  @Test
+  public void processInputFiles_withoutMetadataProviderRecordsNothing() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.OUTPUT, "out");
+    Artifact copy = ActionsTestUtil.createArtifact(root, "copy");
+
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            inputMap(copy), execRoot, /* inputMetadataProvider= */ null);
+
+    assertThat(inputs.getCopyStagedFiles()).isEmpty();
+  }
+
+  @Test
+  public void sandboxInputs_limitedCopyKeepsOnlyAllowedCopyStagedFiles() {
+    PathFragment a = PathFragment.create("a");
+    PathFragment b = PathFragment.create("b");
+    Path source = execRoot.getRelative("src");
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(a, source, b, source),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableSet.of(a, b));
+
+    assertThat(inputs.limitedCopy(ImmutableSet.of(a)).getCopyStagedFiles()).containsExactly(a);
+  }
+
+  /** What is left in a sandbox that is being reused, for a copy-staged input. */
+  private enum Leftover {
+    STALE_SYMLINK_TO_RIGHT_TARGET,
+    STALE_SYMLINK_TO_OTHER_TARGET,
+    REGULAR_FILE,
+    DIRECTORY
+  }
+
+  private void createLeftover(Leftover leftover, Path path, Path target) throws IOException {
+    path.getParentDirectory().createDirectoryAndParents();
+    switch (leftover) {
+      case STALE_SYMLINK_TO_RIGHT_TARGET -> path.createSymbolicLink(target.asFragment());
+      case STALE_SYMLINK_TO_OTHER_TARGET ->
+          path.createSymbolicLink(PathFragment.create("/somewhere/else"));
+      case REGULAR_FILE -> FileSystemUtils.writeContentAsLatin1(path, "stale");
+      case DIRECTORY -> {
+        path.createDirectoryAndParents();
+        FileSystemUtils.writeContentAsLatin1(path.getRelative("x"), "stale");
+      }
+    }
+  }
+
+  @Test
+  public void cleanExisting_neverReusesLeftoverForCopyStagedInput(
+      @TestParameter Leftover leftover, @TestParameter boolean inMemoryContents) throws Exception {
+    PathFragment copyInput = PathFragment.create("pkg/copy.txt");
+    PathFragment plainInput = PathFragment.create("pkg/plain.txt");
+    Path copySource = scratch.file("/out/copy.txt", "copy");
+    Path plainSource = scratch.file("/out/plain.txt", "plain");
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(copyInput, copySource, plainInput, plainSource),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableSet.of(copyInput));
+    createLeftover(leftover, execRoot.getRelative(copyInput), copySource);
+    createLeftover(
+        Leftover.STALE_SYMLINK_TO_RIGHT_TARGET, execRoot.getRelative(plainInput), plainSource);
+    SandboxContents contents =
+        inMemoryContents
+            ? SandboxHelpers.createContentMap(
+                execRoot, inputs, SandboxOutputs.getEmptyInstance())
+            : null;
+    if (inMemoryContents && leftover == Leftover.DIRECTORY) {
+      // The in-memory map only ever describes files and symlinks.
+      return;
+    }
+    Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    SandboxHelpers.populateInputsAndDirsToCreate(
+        ImmutableSet.of(),
+        inputsToCreate,
+        dirsToCreate,
+        inputs.getFiles().keySet(),
+        SandboxOutputs.getEmptyInstance());
+
+    SandboxHelpers.cleanExisting(
+        execRoot.getParentDirectory(),
+        inputs,
+        inputsToCreate,
+        dirsToCreate,
+        execRoot,
+        treeDeleter,
+        contents);
+
+    // The leftover is gone and the input is still to be created, so it is staged afresh.
+    assertThat(execRoot.getRelative(copyInput).exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(inputsToCreate).contains(copyInput);
+    // An ordinary input with a right symlink is still reused.
+    assertThat(execRoot.getRelative(plainInput).isSymbolicLink()).isTrue();
+    assertThat(inputsToCreate).doesNotContain(plainInput);
+  }
+
+  @Test
+  public void contentMap_copyStagedFileIsNotKeptAsSymlink() throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path source = scratch.file("/out/copy.txt", "copy");
+    PathFragment copyInput = PathFragment.create("api/copy.txt");
+    PathFragment linkInput = PathFragment.create("api/link.txt");
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(copyInput, source, linkInput, source),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableSet.of(copyInput));
+    // As SymlinkedSandboxedSpawn would stage them.
+    Path copyFile = workDir.getRelative(copyInput);
+    copyFile.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.copyFile(source, copyFile);
+    workDir.getRelative(linkInput).createSymbolicLink(source.asFragment());
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    long timestamp = clock.currentTimeMillis();
+    clock.advanceMillis(1);
+    // Touch the directory so that it is rescanned.
+    scratch.file("/execroot/api/unexpected.txt", "unexpected");
+
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(copyFile.exists()).isFalse();
+    assertThat(workDir.getRelative(linkInput).isSymbolicLink()).isTrue();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap().keySet())
+        .containsExactly("link.txt");
   }
 
   private static ImmutableSortedMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {

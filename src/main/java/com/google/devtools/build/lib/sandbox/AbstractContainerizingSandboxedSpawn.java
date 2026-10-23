@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -169,7 +170,17 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          copyFile(fileDest, key);
+          if (stagesFilesAsSymlinks() && inputs.getCopyStagedFiles().contains(fragment)) {
+            // A copy output must never be staged as a symlink, as that would reveal where it lives.
+            // Stage a copy of the output's own file instead. A failure fails the spawn.
+            if (key.exists(Symlinks.NOFOLLOW)) {
+              // Left over from a reused sandbox.
+              key.deleteTree();
+            }
+            FileSystemUtils.copyFile(fileDest, key);
+          } else {
+            copyFile(fileDest, key);
+          }
         } else {
           FileSystemUtils.createEmptyFile(key);
         }
@@ -183,6 +194,14 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   }
 
   protected abstract void copyFile(Path source, Path target) throws IOException;
+
+  /**
+   * Whether {@link #copyFile} stages files as symlinks. If so, inputs that are {@code
+   * ctx.actions.copy} outputs are staged as regular files instead.
+   */
+  protected boolean stagesFilesAsSymlinks() {
+    return false;
+  }
 
   @Override
   public void copyOutputs(Path execRoot) throws IOException, InterruptedException {

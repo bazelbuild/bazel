@@ -29,10 +29,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
@@ -353,6 +356,12 @@ public final class SandboxHelpers {
         continue;
       }
       PathFragment pathRelativeToWorkDir = absPath.relativeTo(workDir);
+      if (inputs.getCopyStagedFiles().contains(pathRelativeToWorkDir)) {
+        // Never reuse what is left over for a copy-staged input, be it a stale symlink or a regular
+        // file of unknown content. It stays in inputsToCreate and is created afresh.
+        absPath.delete();
+        continue;
+      }
       Optional<PathFragment> targetPath =
           getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
       boolean shouldKeep =
@@ -417,6 +426,20 @@ public final class SandboxHelpers {
         continue;
       }
       PathFragment pathRelativeToWorkDir = absPath.relativeTo(workDir);
+      if (inputs.getCopyStagedFiles().contains(pathRelativeToWorkDir)) {
+        // Never reuse what is left over for a copy-staged input, be it a stale symlink or a regular
+        // file of unknown content. It stays in inputsToCreate and is created afresh.
+        if (DIRECTORY.equals(dirent.getType())) {
+          if (treeDeleter == null) {
+            absPath.deleteTree();
+          } else {
+            treeDeleter.deleteTree(absPath);
+          }
+        } else {
+          absPath.delete();
+        }
+        continue;
+      }
       Optional<PathFragment> targetPath =
           getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
       if (targetPath.isPresent()) {
@@ -590,6 +613,7 @@ public final class SandboxHelpers {
     private final Map<PathFragment, Path> files;
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
+    private final Set<PathFragment> copyStagedFiles;
 
     private static final SandboxInputs EMPTY_INPUTS =
         new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
@@ -598,9 +622,23 @@ public final class SandboxHelpers {
         Map<PathFragment, Path> files,
         Map<VirtualActionInput, byte[]> virtualInputs,
         Map<PathFragment, PathFragment> symlinks) {
+      this(files, virtualInputs, symlinks, ImmutableSet.of());
+    }
+
+    /**
+     * @param copyStagedFiles the keys of {@code files} that are {@code ctx.actions.copy} outputs.
+     *     Strategies that stage files as symlinks must stage these as regular files, copies of the
+     *     file in {@code files}, instead.
+     */
+    public SandboxInputs(
+        Map<PathFragment, Path> files,
+        Map<VirtualActionInput, byte[]> virtualInputs,
+        Map<PathFragment, PathFragment> symlinks,
+        Set<PathFragment> copyStagedFiles) {
       this.files = files;
       this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
+      this.copyStagedFiles = copyStagedFiles;
     }
 
     public static SandboxInputs getEmptyInputs() {
@@ -615,6 +653,14 @@ public final class SandboxHelpers {
       return symlinks;
     }
 
+    /**
+     * Returns the sandbox paths (keys of {@link #getFiles}) of inputs that must never be staged as
+     * symlinks, because they are {@code ctx.actions.copy} outputs.
+     */
+    public Set<PathFragment> getCopyStagedFiles() {
+      return copyStagedFiles;
+    }
+
     public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
       return ImmutableMap.copyOf(virtualInputs);
     }
@@ -627,7 +673,8 @@ public final class SandboxHelpers {
       return new SandboxInputs(
           Maps.filterKeys(files, allowed::contains),
           ImmutableMap.of(),
-          Maps.filterKeys(symlinks, allowed::contains));
+          Maps.filterKeys(symlinks, allowed::contains),
+          Sets.filter(copyStagedFiles, allowed::contains));
     }
 
     @Override
@@ -650,11 +697,16 @@ public final class SandboxHelpers {
    * @param inputMap the map of action inputs and where they should be visible in the action, sorted
    *     by {@link PathFragment#HIERARCHICAL_COMPARATOR}
    * @param execRoot the exec root
+   * @param inputMetadataProvider used to find inputs that are {@code ctx.actions.copy} outputs,
+   *     which are recorded in {@link SandboxInputs#getCopyStagedFiles}. May be null if the caller
+   *     never stages inputs as symlinks.
    * @throws IOException if processing symlinks fails
    */
   @CanIgnoreReturnValue
   public static SandboxInputs processInputFiles(
-      SortedMap<PathFragment, ActionInput> inputMap, Path execRoot)
+      SortedMap<PathFragment, ActionInput> inputMap,
+      Path execRoot,
+      @Nullable InputMetadataProvider inputMetadataProvider)
       throws IOException, InterruptedException {
     Preconditions.checkArgument(
         Objects.equals(inputMap.comparator(), HIERARCHICAL_COMPARATOR),
@@ -662,6 +714,7 @@ public final class SandboxHelpers {
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
+    Set<PathFragment> copyStagedFiles = new HashSet<>();
 
     // The last input that isn't a symlink. Any inputs nested under it directly follow it.
     PathFragment lastFile = null;
@@ -690,9 +743,15 @@ public final class SandboxHelpers {
                 ? null
                 : execRoot.getRelative(actionInput.getExecPath());
         inputFiles.put(pathFragment, inputPath);
+        if (inputPath != null && inputMetadataProvider != null) {
+          FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(actionInput);
+          if (metadata != null && metadata.isCopyOutput()) {
+            copyStagedFiles.add(pathFragment);
+          }
+        }
       }
     }
-    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks);
+    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, copyStagedFiles);
   }
 
   /**
@@ -801,6 +860,8 @@ public final class SandboxHelpers {
   public static SandboxContents createContentMap(
       Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
     Map<PathFragment, SandboxContents> contentsMap = CompactHashMap.create();
+    // Copy-staged inputs are recorded like any other file. They are regular files on disk, so
+    // updateContentMap never keeps them, and cleanExisting never reuses them whatever is recorded.
     for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
