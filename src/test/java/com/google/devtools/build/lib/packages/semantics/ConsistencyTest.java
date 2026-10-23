@@ -124,12 +124,24 @@ public class ConsistencyTest {
     assertThat(parseOptions("--bzl_file_size_limit_allowlist=").getBzlFileSizeLimitAllowlist())
         .isEmpty();
     assertThat(
-            parseOptions("--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl")
+            parseOptions(
+                    "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl")
                 .getBzlFileSizeLimitAllowlist())
-        .isEqualTo("//tools/allowlist:allowlist.scl");
+        .isEqualTo("//tools/allowlist:allowlist.allowlist.scl");
+    assertThat(
+            parseOptions(
+                    "--bzl_file_size_limit_allowlist=@@repo//tools/allowlist:allowlist.allowlist.scl")
+                .getBzlFileSizeLimitAllowlist())
+        .isEqualTo("@@repo//tools/allowlist:allowlist.allowlist.scl");
     assertThrows(
         OptionsParsingException.class,
         () -> parseOptions("--bzl_file_size_limit_allowlist=not_a_valid_label"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseOptions("--bzl_file_size_limit_allowlist=:allowlist.allowlist.scl"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseOptions("--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl"));
   }
 
   /**
@@ -175,7 +187,7 @@ public class ConsistencyTest {
         "--max_computation_steps=" + rand.nextLong(),
         "--max_bzl_file_size=" + rand.nextLong(),
         "--soft_max_bzl_file_size=" + rand.nextLong(),
-        "--bzl_file_size_limit_allowlist=//pkg:" + rand.nextInt());
+        "--bzl_file_size_limit_allowlist=//pkg:" + rand.nextInt() + ".allowlist.scl");
   }
 
   /**
@@ -225,7 +237,9 @@ public class ConsistencyTest {
         .set(BuildLanguageOptions.MAX_COMPUTATION_STEPS, rand.nextLong())
         .set(BuildLanguageOptions.MAX_BZL_FILE_SIZE, rand.nextLong())
         .set(BuildLanguageOptions.SOFT_MAX_BZL_FILE_SIZE, rand.nextLong())
-        .set(BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST, "//pkg:" + rand.nextInt())
+        .set(
+            BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST,
+            "//pkg:" + rand.nextInt() + ".allowlist.scl")
         .build();
   }
 

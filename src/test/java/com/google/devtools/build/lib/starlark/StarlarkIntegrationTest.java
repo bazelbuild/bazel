@@ -3896,11 +3896,12 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testOversizedBzlLoadedByTwoPackages_allowlistChangeInvalidatesBoth()
       throws Exception {
     scratch.file("tools/allowlist/BUILD");
-    scratch.file("tools/allowlist/allowlist.scl", "ALLOWED = [\"lib/oversized.bzl\"]");
+    scratch.file(
+        "tools/allowlist/allowlist.allowlist.scl", "ALLOWED = {\"lib/oversized.bzl\": True}");
     setBuildLanguageOptions(
         "--max_bzl_file_size=1000",
         "--soft_max_bzl_file_size=500",
-        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
     scratch.file("lib/BUILD");
     scratch.file("lib/oversized.bzl", "x = '" + "a".repeat(2000) + "'");
     scratch.file(
@@ -3912,7 +3913,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(getTarget("//oversized_user2:fg")).isNotNull();
 
     // Removing the .bzl from the allowlist must invalidate every package that loads it.
-    scratch.overwriteFile("tools/allowlist/allowlist.scl", "ALLOWED = []");
+    scratch.overwriteFile("tools/allowlist/allowlist.allowlist.scl", "ALLOWED = {}");
     invalidatePackages(/* alsoConfigs= */ false);
     reporter.removeHandler(failFastHandler);
     assertThrows(BuildFileContainsErrorsException.class, () -> getTarget("//oversized_user1:fg"));

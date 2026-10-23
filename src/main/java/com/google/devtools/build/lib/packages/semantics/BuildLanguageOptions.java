@@ -514,12 +514,15 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       } catch (BadLabelException e) {
         throw new OptionsParsingException(e.getMessage(), input, e);
       }
+      if (!stripped.endsWith(".allowlist.scl")) {
+        throw new OptionsParsingException("Allowlist label must end with '.allowlist.scl'", input);
+      }
       return stripped;
     }
 
     @Override
     public String getTypeDescription() {
-      return "a build target label";
+      return "a build target label ending with .allowlist.scl";
     }
   }
 
@@ -530,8 +533,10 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help =
-          "A label to a .scl file defining an ALLOWED list of .bzl/.scl file paths exempt from"
-              + " file size limits.")
+          "A label to a .allowlist.scl file defining an ALLOWED dict of .bzl/.scl file paths exempt"
+              + " from file size limits. Keys are paths relative to the repository root, e.g."
+              + " \"pkg/foo.bzl\" for the main repository or \"@@repo//pkg/foo.bzl\" for other"
+              + " repositories.")
   public abstract String getBzlFileSizeLimitAllowlist();
 
   @Option(
