@@ -337,6 +337,35 @@ java_library(
     ],
 )
 
+java_library(
+    name = "action_lookup_value",
+    srcs = [
+        "ActionLookupValue.java",
+        "ActionTemplate.java",
+        "ActionWithDiscoveredInputsState.java",
+        "BasicActionLookupValue.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    deps = [
+        ":action_exceptions",
+        ":action_input_prefetcher",
+        ":action_lookup_key",
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -344,11 +373,7 @@ java_library(
         "AbstractAction.java",
         "ActionContextMarker.java",
         "ActionKeyComputer.java",
-        "ActionLookupValue.java",
-        "ActionTemplate.java",
-        "ActionWithDiscoveredInputsState.java",
         "Actions.java",
-        "BasicActionLookupValue.java",
         "FailAction.java",
         "MapBasedActionGraph.java",
         "ResourceEstimator.java",
@@ -371,6 +396,7 @@ java_library(
         ":action_input_prefetcher",
         ":action_key_context",
         ":action_log_buffer_path_generator",
+        ":action_lookup_value",
         ":changed_files_message",
         ":commandline",
         ":commandline_limits",
@@ -391,6 +417,7 @@ java_library(
         ":action_log_buffer_path_generator",
         ":action_lookup_data",
         ":action_lookup_key",
+        ":action_lookup_value",
         ":artifact_owner",
         ":artifacts",
         ":changed_files_message",
