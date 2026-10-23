@@ -725,16 +725,13 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     Deps.Dependencies executorJdeps =
         readExecutorJdeps(spawnResult, outputDepsProto, actionExecutionContext);
 
-    if (pathMapper.isNoop()) {
-      return executorJdeps;
-    }
-
     // No paths to rewrite.
     if (executorJdeps.getDependencyCount() == 0) {
       return executorJdeps;
     }
 
-    // For each of the action's generated inputs, revert its mapped path back to its original path.
+    // For each of the action's generated inputs, revert its mapped or root-relative path back to
+    // its original path.
     HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
     HashMap<PathFragment, PathFragment> rootRelativeToOriginalPath = new HashMap<>();
     for (Artifact actionInput :
@@ -742,8 +739,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       if (actionInput.isSourceArtifact()) {
         continue;
       }
-      String mappedPath = pathMapper.getMappedExecPathString(actionInput);
       rootRelativeToOriginalPath.put(actionInput.getRootRelativePath(), actionInput.getExecPath());
+      if (pathMapper.isNoop()) {
+        continue;
+      }
+      String mappedPath = pathMapper.getMappedExecPathString(actionInput);
       PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
       if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
         // Multiple inputs from different configs map to the same path. This is allowed when they
@@ -754,15 +754,21 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     // Rewrite the .jdeps proto with full paths.
+    boolean modified = false;
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
       PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
       PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
-      if (originalPath == null) {
+      if (originalPath == null && !pathMapper.isNoop()) {
         originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
       }
-      dep.setPath(
-          originalPath == null ? pathOnExecutor.getPathString() : originalPath.getPathString());
+      if (originalPath != null && !originalPath.equals(pathOnExecutor)) {
+        dep.setPath(originalPath.getPathString());
+        modified = true;
+      }
+    }
+    if (!modified) {
+      return executorJdeps;
     }
     Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
 
