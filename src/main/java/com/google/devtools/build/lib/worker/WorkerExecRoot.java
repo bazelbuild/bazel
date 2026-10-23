@@ -115,7 +115,7 @@ final class WorkerExecRoot {
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          if (inputs.getCopyStagedFiles().contains(fragment)) {
+          if (inputs.getCopies().contains(fragment)) {
             // A copy output must never be staged as a symlink. Stage a copy of the output's own
             // file instead. A failure fails the spawn.
             if (key.exists(Symlinks.NOFOLLOW)) {

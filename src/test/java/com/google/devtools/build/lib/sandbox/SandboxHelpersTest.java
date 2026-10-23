@@ -291,7 +291,7 @@ public class SandboxHelpersTest {
             inputMap(copy, plain, remoteCopy, markedChild, plainChild), execRoot, provider);
 
     assertThat(inputs.getFiles()).hasSize(5);
-    assertThat(inputs.getCopyStagedFiles())
+    assertThat(inputs.getCopies())
         .containsExactly(
             copy.getExecPath(), remoteCopy.getExecPath(), markedChild.getExecPath());
     // The real path stays the output's own path, never the source.
@@ -310,12 +310,12 @@ public class SandboxHelpersTest {
         SandboxHelpers.processInputFiles(inputMap(source, virtual), execRoot, provider);
 
     assertThat(inputs.getFiles()).hasSize(2);
-    assertThat(inputs.getCopyStagedFiles()).isEmpty();
+    assertThat(inputs.getCopies()).isEmpty();
     verify(provider, never()).getInputMetadata(any());
   }
 
   @Test
-  public void sandboxInputs_toStringMentionsCopyStagedFiles() {
+  public void sandboxInputs_toStringMentionsCopies() {
     PathFragment a = PathFragment.create("a");
     SandboxInputs inputs =
         new SandboxInputs(
@@ -324,7 +324,7 @@ public class SandboxHelpersTest {
             ImmutableMap.of(),
             ImmutableSet.of(a));
 
-    assertThat(inputs.toString()).contains("CopyStagedFiles: [a]");
+    assertThat(inputs.toString()).contains("Copies: [a]");
   }
 
   @Test
@@ -336,11 +336,11 @@ public class SandboxHelpersTest {
         SandboxHelpers.processInputFiles(
             inputMap(copy), execRoot, /* inputMetadataProvider= */ null);
 
-    assertThat(inputs.getCopyStagedFiles()).isEmpty();
+    assertThat(inputs.getCopies()).isEmpty();
   }
 
   @Test
-  public void sandboxInputs_limitedCopyKeepsOnlyAllowedCopyStagedFiles() {
+  public void sandboxInputs_limitedCopyKeepsOnlyAllowedCopies() {
     PathFragment a = PathFragment.create("a");
     PathFragment b = PathFragment.create("b");
     Path source = execRoot.getRelative("src");
@@ -351,7 +351,7 @@ public class SandboxHelpersTest {
             ImmutableMap.of(),
             ImmutableSet.of(a, b));
 
-    assertThat(inputs.limitedCopy(ImmutableSet.of(a)).getCopyStagedFiles()).containsExactly(a);
+    assertThat(inputs.limitedCopy(ImmutableSet.of(a)).getCopies()).containsExactly(a);
   }
 
   /** What is left in a sandbox that is being reused, for a copy-staged input. */

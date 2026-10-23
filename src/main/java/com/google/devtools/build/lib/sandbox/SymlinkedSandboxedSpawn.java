@@ -132,7 +132,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   }
 
   @Override
-  protected boolean stagesFilesAsSymlinks() {
+  protected boolean stagesInputsAsSymlinks() {
     return true;
   }
 

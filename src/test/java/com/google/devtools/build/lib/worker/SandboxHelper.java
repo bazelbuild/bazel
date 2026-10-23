@@ -45,7 +45,7 @@ class SandboxHelper {
   private final Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
   private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
   private final Map<PathFragment, Path> workerFiles = new HashMap<>();
-  private final Set<PathFragment> copyStagedFiles = new HashSet<>();
+  private final Set<PathFragment> copies = new HashSet<>();
   private final List<PathFragment> outputFiles = new ArrayList<>();
   private final List<PathFragment> outputDirs = new ArrayList<>();
 
@@ -95,7 +95,7 @@ class SandboxHelper {
   public SandboxHelper addAndCreateCopyOutputInputFile(
       String relativePath, String workspacePath, String contents) throws IOException {
     addAndCreateInputFile(relativePath, workspacePath, contents);
-    copyStagedFiles.add(PathFragment.create(relativePath));
+    copies.add(PathFragment.create(relativePath));
     return this;
   }
 
@@ -200,7 +200,7 @@ class SandboxHelper {
   }
 
   public SandboxInputs getSandboxInputs() {
-    return new SandboxInputs(inputs, virtualInputs, symlinks, copyStagedFiles);
+    return new SandboxInputs(inputs, virtualInputs, symlinks, copies);
   }
 
   public SandboxOutputs getSandboxOutputs() {

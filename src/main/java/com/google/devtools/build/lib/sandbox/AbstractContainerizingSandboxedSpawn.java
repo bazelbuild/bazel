@@ -170,7 +170,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          if (stagesFilesAsSymlinks() && inputs.getCopyStagedFiles().contains(fragment)) {
+          if (stagesInputsAsSymlinks() && inputs.getCopies().contains(fragment)) {
             // A copy output must never be staged as a symlink, as that would reveal where it lives.
             // Stage a copy of the output's own file instead. A failure fails the spawn.
             if (key.exists(Symlinks.NOFOLLOW)) {
@@ -199,7 +199,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
    * Whether {@link #copyFile} stages files as symlinks. If so, inputs that are {@code
    * ctx.actions.copy} outputs are staged as regular files instead.
    */
-  protected boolean stagesFilesAsSymlinks() {
+  protected boolean stagesInputsAsSymlinks() {
     return false;
   }
 
