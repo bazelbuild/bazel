@@ -1678,6 +1678,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getExperimentalEnableSclDialect();
+
+    @Deprecated
+    @Option(
+        name = "incompatible_no_implicit_watch_label",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getIncompatibleNoImplicitWatchLabel();
   }
 
   @Override

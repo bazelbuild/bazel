@@ -205,18 +205,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
               + " function.")
   public abstract boolean getExperimentalIsolatedExtensionUsages();
 
-  @Option(
-      name = "incompatible_no_implicit_watch_label",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "If true, then methods on `repository_ctx` that are passed a Label will no"
-              + " longer automatically watch the file under that label for changes even if"
-              + " `watch = \"no\"`, and `repository_ctx.path` no longer"
-              + " causes the returned path to be watched. Use `repository_ctx.watch` instead.")
-  public abstract boolean getIncompatibleNoImplicitWatchLabel();
 
   @Option(
       name = "incompatible_stop_exporting_build_file_path",
@@ -922,7 +910,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, getExperimentalEnableFirstClassMacros())
             .setBool(
                 EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, getExperimentalIsolatedExtensionUsages())
-            .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, getIncompatibleNoImplicitWatchLabel())
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, getExperimentalGoogleLegacyApi())
             .setBool(EXPERIMENTAL_PLATFORMS_API, getExperimentalPlatformsApi())
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
@@ -1128,8 +1115,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
-  public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
-      "+incompatible_no_implicit_watch_label";
+
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";

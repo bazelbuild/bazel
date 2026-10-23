@@ -2421,16 +2421,6 @@ func(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
       }
     }
-    StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
-    try {
-      maybeWatch(
-          starlarkPath,
-          starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL)
-              ? ShouldWatch.NO
-              : ShouldWatch.AUTO);
-    } catch (RepositoryFunctionException e) {
-      throw Starlark.errorf("%s", e.getCause().getMessage());
-    }
-    return starlarkPath;
+    return new StarlarkPath(this, rootedPath.asPath());
   }
 }
