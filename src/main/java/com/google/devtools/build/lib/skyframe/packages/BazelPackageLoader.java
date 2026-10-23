@@ -104,6 +104,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
           PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
+          PrecomputedValue.injected(ModuleFileFunction.INJECTED_MODULES, ImmutableMap.of()),
           PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
           PrecomputedValue.injected(
               RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE,
