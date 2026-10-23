@@ -398,6 +398,33 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
   // The tests below cover graph materialization and dense leaf ID assignment.
 
   @Test
+  public void computeLeafIdsAndUploadOrder_inDegreesMatchGraphEdges() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    var _ = lookup.computeLeafIdsAndUploadOrder(selection);
+
+    // In-degrees accumulate during computeLeafIdsAndUploadOrder, at the point each edge is
+    // traversed during the leaf walk. Walk the finished graph and check that every node's recorded
+    // in-degree equals the number of edges actually pointing at it.
+    //
+    // This is worth asserting permanently. A divergence would be silent here and would surface far
+    // downstream as reference counts that never reach zero, and therefore bitmaps that are never
+    // freed -- the exact failure this accounting exists to prevent.
+    Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> parents =
+        nodeParents(lookup, selection);
+
+    assertThat(parents.values().stream().anyMatch(p -> !p.isEmpty())).isTrue();
+    parents.forEach(
+        (node, nodeParents) ->
+            assertWithMessage("in-degree for %s", node)
+                .that(node.getInDegree())
+                .isEqualTo(nodeParents.size()));
+  }
+
+  @Test
   public void computeLeafIdsAndUploadOrder_depthIsLongestPathFromTop() throws Exception {
     writeDiamond();
     ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);

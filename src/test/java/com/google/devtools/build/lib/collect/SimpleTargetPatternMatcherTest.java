@@ -71,9 +71,7 @@ public class SimpleTargetPatternMatcherTest {
       return ImmutableList.of(
           // Single pattern
           create(true, "//foo:foo", "//foo:foo"),
-          create(true, "//foo:foo", "//foo"),
           create(true, "//foo", "//foo:foo"),
-          create(true, "//foo", "//foo"),
           create(false, "//foo:foo", "//foo:bar"),
           create(false, "//foo", "//foo:bar"),
           create(true, "//foo/...", "//foo:foo"),

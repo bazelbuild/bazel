@@ -134,7 +134,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:external_files_helper",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:local_repository_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",

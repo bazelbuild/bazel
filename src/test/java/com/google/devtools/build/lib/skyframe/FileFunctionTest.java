@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -180,9 +179,7 @@ public class FileFunctionTest {
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
-                        CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(

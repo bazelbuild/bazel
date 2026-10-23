@@ -274,6 +274,7 @@ public abstract class MockCcSupport {
             "cc/common/cc_shared_library_info.bzl",
             "cc/common/semantics.bzl",
             "cc/find_cc_toolchain.bzl",
+            "cc/private/toolchain/BUILD",
             "cc/toolchains/BUILD",
             "cc/toolchains/actions/BUILD",
             "cc/toolchains/cc_toolchain.bzl",

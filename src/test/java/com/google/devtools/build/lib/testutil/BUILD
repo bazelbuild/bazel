@@ -182,6 +182,7 @@ java_library(
     srcs = ["SpawnController.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",

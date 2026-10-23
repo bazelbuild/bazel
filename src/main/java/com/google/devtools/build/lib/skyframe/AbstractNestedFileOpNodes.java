@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import java.util.Collection;
@@ -117,6 +118,21 @@ public abstract sealed class AbstractNestedFileOpNodes implements FileOpNodeOrFu
     return analysisDependencies[index];
   }
 
+  /**
+   * The number of walked parents of this node.
+   *
+   * <p>Tallied by the single-threaded leaf ID walk in {@code FileOpNodeMemoizingLookup}, which
+   * finishes before serialization reads it, so a plain {@code int} suffices. The serializer seeds
+   * this node's bitmap reference count with it. Each parent releases its reference once it has
+   * merged this node's bitmap, so the bitmap is freed when the last parent is done. Root nodes,
+   * which no walked node depends on, stay at 0.
+   *
+   * <p>{@code FileOpNodeCollector} gathers each parent's children in a set, so a parent lists a
+   * child at most once. The count would still balance if one didn't, since the walk increments and
+   * the serializer releases once per listing.
+   */
+  private int inDegree;
+
   @Nullable
   public Object getSerializationScratch() {
     return serializationScratch;
@@ -124,6 +140,19 @@ public abstract sealed class AbstractNestedFileOpNodes implements FileOpNodeOrFu
 
   public void setSerializationScratch(Object value) {
     this.serializationScratch = value;
+  }
+
+  public void incrementInDegree() {
+    inDegree++;
+  }
+
+  public int getInDegree() {
+    return inDegree;
+  }
+
+  @VisibleForTesting
+  public void addInDegreesForTesting(int delta) {
+    inDegree += delta;
   }
 
   /**

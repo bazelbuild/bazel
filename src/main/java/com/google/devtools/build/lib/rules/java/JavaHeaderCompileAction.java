@@ -76,6 +76,11 @@ import javax.annotation.Nullable;
  */
 public final class JavaHeaderCompileAction extends SpawnAction {
 
+  // 'javac turbine' has been replaced by just 'turbine', but the mnemonic is unchanged for
+  // continuity in the blaze performance logs, and to distinguish direct classpath actions
+  // which use the 'Turbine' mnemonic.
+  // TODO(b/230333695): consider renaming to a more descriptive name
+  private static final String MNEMONIC = "JavacTurbine";
   private static final String DIRECT_CLASSPATH_MNEMONIC = "Turbine";
   private static final String PROGRESS_MESSAGE_PREFIX = "Compiling Java headers";
 
@@ -215,6 +220,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     private ImmutableMap<String, String> utf8Environment = null;
 
     private boolean parallelism = true;
+
+    private boolean outputRootRelativePath = true;
 
     private String fixDepsTool = null;
 
@@ -418,6 +425,12 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder enableOutputRootRelativePath(boolean outputRootRelativePath) {
+      this.outputRootRelativePath = outputRootRelativePath;
+      return this;
+    }
+
     /** Builds and registers the action for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain)
         throws RuleErrorException, InterruptedException {
@@ -503,6 +516,9 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       CustomCommandLine.Builder commandLine =
           CustomCommandLine.builder()
               .addExecPath("--output", outputJar)
+              .addPath(
+                  "--output_root_relative_path",
+                  outputRootRelativePath ? outputJar.getRootRelativePath() : null)
               .addExecPath("--header_compilation_output", headerCompilationOutputJar)
               .addExecPath("--gensrc_output", gensrcOutputJar)
               .addExecPath("--resource_output", resourceOutputJar)
@@ -642,7 +658,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
       ruleContext.registerAction(
           new JavaCompileAction(
-              /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
+              /* mnemonic= */ MNEMONIC,
+              /* insertDependencies= */ true,
               /* owner= */ actionOwner,
               /* tools= */ toolsJars,
               /* progressMessage= */ progressMessage,

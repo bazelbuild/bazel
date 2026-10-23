@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -74,13 +73,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link PackageLookupFunction}. */
-public abstract class PackageLookupFunctionTest extends FoundationTestCase {
+@RunWith(JUnit4.class)
+public class PackageLookupFunctionTest extends FoundationTestCase {
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
-
-  protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
   @Before
   public final void setUp() throws Exception {
@@ -111,9 +109,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
-            deletedPackages,
-            crossRepositoryLabelViolationStrategy(),
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            deletedPackages, BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         FileStateKey.FILE_STATE,
@@ -132,7 +128,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             ruleClassProvider.getBazelStarlarkEnvironment(),
             Root.fromPath(directories.getWorkspace())));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
 
@@ -390,31 +385,5 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             PackageLookupValue.invalidPackageName("nope2"),
             PackageLookupValue.invalidPackageName("nope2"))
         .testEquals();
-  }
-
-  /**
-   * Runs all tests in the base {@link PackageLookupFunctionTest} class with the {@link
-   * CrossRepositoryLabelViolationStrategy#IGNORE} enum set, and also additional tests specific to
-   * that setting.
-   */
-  @RunWith(JUnit4.class)
-  public static class IgnoreLabelViolationsTest extends PackageLookupFunctionTest {
-    @Override
-    protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
-      return CrossRepositoryLabelViolationStrategy.IGNORE;
-    }
-  }
-
-  /**
-   * Runs all tests in the base {@link PackageLookupFunctionTest} class with the {@link
-   * CrossRepositoryLabelViolationStrategy#ERROR} enum set, and also additional tests specific to
-   * that setting.
-   */
-  @RunWith(JUnit4.class)
-  public static class ErrorLabelViolationsTest extends PackageLookupFunctionTest {
-    @Override
-    protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
-      return CrossRepositoryLabelViolationStrategy.ERROR;
-    }
   }
 }

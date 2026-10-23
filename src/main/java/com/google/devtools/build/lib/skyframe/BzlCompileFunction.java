@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -33,8 +35,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlCompileValue.TypeOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -42,22 +42,24 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
+import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.AssignmentStatement;
+import net.starlark.java.syntax.DictExpression;
+import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.FloatLiteral;
 import net.starlark.java.syntax.Identifier;
+import net.starlark.java.syntax.IntLiteral;
+import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
@@ -155,8 +157,7 @@ public class BzlCompileFunction implements SkyFunction {
         // report a meaningful size in stat(), so their size is checked after reading below.
         if (key.kind == BzlCompileValue.Kind.NORMAL && !fileValue.isSpecialFile()) {
           BzlCompileValue limitFailure =
-              checkHardFileSizeLimit(
-                  key, fileSize, location, semantics, bazelStarlarkEnvironment, env);
+              checkHardFileSizeLimit(key, fileSize, location, semantics, env);
           if (env.valuesMissing()) {
             return null;
           }
@@ -177,8 +178,7 @@ public class BzlCompileFunction implements SkyFunction {
 
         if (key.kind == BzlCompileValue.Kind.NORMAL && fileValue.isSpecialFile()) {
           BzlCompileValue limitFailure =
-              checkHardFileSizeLimit(
-                  key, bytes.length, location, semantics, bazelStarlarkEnvironment, env);
+              checkHardFileSizeLimit(key, bytes.length, location, semantics, env);
           if (env.valuesMissing()) {
             return null;
           }
@@ -269,13 +269,7 @@ public class BzlCompileFunction implements SkyFunction {
     if (key.kind == BzlCompileValue.Kind.NORMAL) {
       BzlCompileValue softLimitFailure =
           checkSoftFileSizeLimit(
-              key,
-              bytes.length,
-              file,
-              Location.fromFile(inputName),
-              semantics,
-              bazelStarlarkEnvironment,
-              env);
+              key, bytes.length, file, Location.fromFile(inputName), semantics, env);
       if (env.valuesMissing()) {
         return null;
       }
@@ -407,14 +401,6 @@ public class BzlCompileFunction implements SkyFunction {
 
   private static final String KNOWN_OVERSIZED_BZL_FILE_SYMBOL = "_KNOWN_OVERSIZED_BZL_FILE";
 
-  @Nullable
-  private static Label parseAllowlistLabel(String raw) {
-    if (raw.isEmpty()) {
-      return null;
-    }
-    return Label.parseCanonicalUnchecked(raw);
-  }
-
   private record AllowlistCheckResult(boolean allowlisted, @Nullable String errorMessage) {
     static final AllowlistCheckResult ALLOWLISTED = new AllowlistCheckResult(true, null);
     static final AllowlistCheckResult NOT_ALLOWLISTED = new AllowlistCheckResult(false, null);
@@ -424,66 +410,106 @@ public class BzlCompileFunction implements SkyFunction {
     }
   }
 
-  private static final Cache<BzlCompileValue, ParsedAllowlist> allowlistCache =
-      CacheBuilder.newBuilder().weakKeys().build();
+  private static final LoadingCache<BzlCompileValue, ParsedAllowlist> allowlistCache =
+      CacheBuilder.newBuilder()
+          .weakKeys()
+          .build(CacheLoader.from(BzlCompileFunction::evaluateAllowlist));
 
   private record ParsedAllowlist(
       @Nullable ImmutableSet<String> allowedEntries, @Nullable String errorMessage) {
-    static ParsedAllowlist success(ImmutableSet<String> allowedEntries) {
-      return new ParsedAllowlist(allowedEntries, null);
-    }
-
     static ParsedAllowlist error(String errorMessage) {
       return new ParsedAllowlist(null, errorMessage);
     }
   }
 
-  private static ParsedAllowlist evaluateAllowlist(
-      Label allowlistLabel,
-      BzlCompileValue allowlistCompileValue,
-      StarlarkSemantics semantics,
-      BazelStarlarkEnvironment bazelStarlarkEnvironment)
-      throws InterruptedException {
-    if (!allowlistCompileValue.lookupSuccessful()) {
-      return ParsedAllowlist.error(
-          String.format(
-              "Failed to compile allowlist file '%s': %s",
-              allowlistLabel.getCanonicalForm(), allowlistCompileValue.getError()));
+  private static ParsedAllowlist evaluateAllowlist(BzlCompileValue allowlistCompileValue) {
+    Program program = allowlistCompileValue.getProgram();
+    if (!program.getLoads().isEmpty()) {
+      return ParsedAllowlist.error("cannot contain load statements.");
     }
 
-    ImmutableMap<String, Object> predeclared =
-        bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
-    Module module = Module.withPredeclared(semantics, predeclared);
-    try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
-      Starlark.execFileProgram(allowlistCompileValue.getProgram(), module, thread);
-    } catch (EvalException e) {
-      return ParsedAllowlist.error(
-          String.format(
-              "Failed to evaluate allowlist file '%s': %s",
-              allowlistLabel.getCanonicalForm(), e.getMessage()));
+    Resolver.Function rfn = program.getResolvedFunction();
+    List<Statement> stmts = rfn.getBody();
+    if (rfn.getDocumentation() != null) {
+      stmts = stmts.subList(1, stmts.size());
+    }
+    Expression allowedRhs =
+        stmts.size() == 1 ? getSimpleAssignmentRhsMaybe(stmts.getFirst(), "ALLOWED") : null;
+    if (allowedRhs == null) {
+      return ParsedAllowlist.error("must only define a single top-level 'ALLOWED' symbol.");
+    }
+    if (!(allowedRhs instanceof DictExpression dictExpr)) {
+      return ParsedAllowlist.error("'ALLOWED' must be a dict with string keys.");
     }
 
-    Object allowedObj = module.getGlobal("ALLOWED");
-    if (allowedObj == null) {
-      return ParsedAllowlist.error(
-          String.format(
-              "Allowlist file '%s' does not define an 'ALLOWED' symbol.",
-              allowlistLabel.getCanonicalForm()));
-    }
-    if (!(allowedObj instanceof Sequence<?> allowedSeq)) {
-      return ParsedAllowlist.error(
-          String.format(
-              "Allowlist file '%s': 'ALLOWED' must be a list of strings, but got %s.",
-              allowlistLabel.getCanonicalForm(), Starlark.type(allowedObj)));
-    }
-    ImmutableSet.Builder<String> allowedBuilder = ImmutableSet.builder();
-    for (Object item : allowedSeq) {
-      if (item instanceof String s) {
-        allowedBuilder.add(s);
+    Set<String> allowed = new HashSet<>();
+    for (DictExpression.Entry entry : dictExpr.getEntries()) {
+      if (!(entry.getKey() instanceof StringLiteral keyLiteral)) {
+        return ParsedAllowlist.error("all keys in 'ALLOWED' must be string literals.");
+      }
+      String key = keyLiteral.getValue();
+      if (!isValidAllowlistKey(key)) {
+        return ParsedAllowlist.error(
+            String.format(
+                "invalid key \"%s\" in 'ALLOWED' at %s. Keys must be normalized paths relative to"
+                    + " the repository root, e.g. \"pkg/foo.bzl\" for the main repository or"
+                    + " \"@@repo//pkg/foo.bzl\" for other repositories.",
+                key, keyLiteral.getStartLocation()));
+      }
+      if (!allowed.add(key)) {
+        return ParsedAllowlist.error(
+            "duplicate key \"%s\" in 'ALLOWED' at %s."
+                .formatted(key, keyLiteral.getStartLocation()));
+      }
+      if (!isLiteralValue(entry.getValue())) {
+        return ParsedAllowlist.error(
+            "values in 'ALLOWED' must only contain literals (key \"%s\" at %s)."
+                .formatted(key, entry.getValue().getStartLocation()));
       }
     }
-    return ParsedAllowlist.success(allowedBuilder.build());
+    return new ParsedAllowlist(ImmutableSet.copyOf(allowed), null);
+  }
+
+  /**
+   * Returns the key under which {@code label} is listed in an allowlist's {@code ALLOWED} dict: the
+   * repository-relative path for the main repository, prefixed with {@code @@repo//} otherwise.
+   *
+   * <p>Uses {@link PackageIdentifier} to format and validate canonical {@code [@@repo//]path}
+   * strings even though the path fragment denotes a Starlark file rather than a package.
+   */
+  private static String allowlistKey(Label label) {
+    return PackageIdentifier.create(label.getRepository(), label.toPathFragment()).toString();
+  }
+
+  /** Whether {@code key} has the form produced by {@link #allowlistKey}. */
+  private static boolean isValidAllowlistKey(String key) {
+    try {
+      PackageIdentifier pkgId = PackageIdentifier.parse(key);
+      // PackageIdentifier.parse() accepts non-canonical forms like "//pkg/foo.bzl",
+      // "@@//pkg/foo.bzl", "@ext//pkg/foo.bzl", and "pkg/foo.bzl/..." whose toString()
+      // differs from key.
+      return !pkgId.getPackageFragment().isEmpty() && pkgId.toString().equals(key);
+    } catch (LabelSyntaxException e) {
+      return false;
+    }
+  }
+
+  private static boolean isLiteralValue(Expression expr) {
+    return switch (expr) {
+      case StringLiteral unused -> true;
+      case IntLiteral unused -> true;
+      case FloatLiteral unused -> true;
+      case Identifier id ->
+          id.getName().equals("True")
+              || id.getName().equals("False")
+              || id.getName().equals("None");
+      case ListExpression list ->
+          list.getElements().stream().allMatch(BzlCompileFunction::isLiteralValue);
+      case DictExpression dict ->
+          dict.getEntries().stream()
+              .allMatch(e -> isLiteralValue(e.getKey()) && isLiteralValue(e.getValue()));
+      default -> false;
+    };
   }
 
   @Nullable
@@ -492,7 +518,6 @@ public class BzlCompileFunction implements SkyFunction {
       long fileSize,
       Location location,
       StarlarkSemantics semantics,
-      BazelStarlarkEnvironment bazelStarlarkEnvironment,
       Environment env)
       throws InterruptedException {
     long maxLimit = semantics.get(BuildLanguageOptions.MAX_BZL_FILE_SIZE);
@@ -500,7 +525,7 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
     AllowlistCheckResult allowlistResult =
-        isFileAllowlisted(key, fileSize, maxLimit, semantics, bazelStarlarkEnvironment, env);
+        isFileAllowlisted(key, fileSize, maxLimit, semantics, env);
     if (allowlistResult == null || allowlistResult.allowlisted()) {
       return null;
     }
@@ -523,7 +548,6 @@ public class BzlCompileFunction implements SkyFunction {
       StarlarkFile file,
       Location location,
       StarlarkSemantics semantics,
-      BazelStarlarkEnvironment bazelStarlarkEnvironment,
       Environment env)
       throws InterruptedException {
     long softLimit = semantics.get(BuildLanguageOptions.SOFT_MAX_BZL_FILE_SIZE);
@@ -531,7 +555,7 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
     AllowlistCheckResult allowlistResult =
-        isFileAllowlisted(key, fileSize, softLimit, semantics, bazelStarlarkEnvironment, env);
+        isFileAllowlisted(key, fileSize, softLimit, semantics, env);
     if (allowlistResult == null || allowlistResult.allowlisted()) {
       return null;
     }
@@ -564,66 +588,22 @@ public class BzlCompileFunction implements SkyFunction {
     if (semantics == null) {
       return false;
     }
-    Label allowlistLabel =
-        parseAllowlistLabel(semantics.get(BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST));
-    if (allowlistLabel == null || key.label == null || key.label.equals(allowlistLabel)) {
-      return true;
-    }
     long maxLimit = semantics.get(BuildLanguageOptions.MAX_BZL_FILE_SIZE);
     long softLimit = semantics.get(BuildLanguageOptions.SOFT_MAX_BZL_FILE_SIZE);
     boolean exceedsLimit =
-        bzlFileValue.isSpecialFile()
+        ((maxLimit > 0 || softLimit > 0) && bzlFileValue.isSpecialFile())
             || (maxLimit > 0 && bzlFileValue.getSize() > maxLimit)
             || (softLimit > 0 && bzlFileValue.getSize() > softLimit);
     if (!exceedsLimit) {
       return true;
     }
-
-    PathFragment dir = Label.getContainingDirectory(allowlistLabel);
-    PackageIdentifier dirId = PackageIdentifier.create(allowlistLabel.getRepository(), dir);
-    ContainingPackageLookupValue packageLookup;
-    try {
-      packageLookup =
-          (ContainingPackageLookupValue)
-              env.getValueOrThrow(
-                  ContainingPackageLookupValue.key(dirId),
-                  BuildFileNotFoundException.class,
-                  InconsistentFilesystemException.class);
-    } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
-      return true;
-    }
-    if (packageLookup == null || !packageLookup.hasContainingPackage()) {
-      return !env.valuesMissing();
-    }
-    Root root = packageLookup.getContainingPackageRoot();
-
-    SkyKey allowlistFileKey =
-        FileValue.key(RootedPath.toRootedPath(root, allowlistLabel.toPathFragment()));
-    try {
-      var unused = env.getValueOrThrow(allowlistFileKey, IOException.class);
-    } catch (IOException e) {
-      return true;
-    }
-    if (env.valuesMissing()) {
-      return false;
-    }
-
-    BzlCompileValue.Key allowlistCompileKey = BzlCompileValue.key(root, allowlistLabel);
-    try {
-      var unused = env.getValueOrThrow(allowlistCompileKey, FailedIOException.class);
-    } catch (FailedIOException e) {
-      return true;
-    }
-    return !env.valuesMissing();
+    return isFileAllowlisted(key, bzlFileValue.getSize(), maxLimit, semantics, env) != null;
   }
 
   private static boolean hasKnownOversizedOptOut(StarlarkFile file) {
     for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof AssignmentStatement assignment
-          && assignment.getOperator() == null
-          && assignment.getLHS() instanceof Identifier id
-          && id.getName().equals(KNOWN_OVERSIZED_BZL_FILE_SYMBOL)
-          && assignment.getRHS() instanceof StringLiteral str
+      if (getSimpleAssignmentRhsMaybe(stmt, KNOWN_OVERSIZED_BZL_FILE_SYMBOL)
+              instanceof StringLiteral str
           && BuildLanguageOptions.KNOWN_OVERSIZED_BZL_FILE_VALUE_PATTERN
               .matcher(str.getValue())
               .matches()) {
@@ -633,20 +613,34 @@ public class BzlCompileFunction implements SkyFunction {
     return false;
   }
 
+  /**
+   * If {@code stmt} is a plain assignment {@code <symbol> = <rhs>}, returns {@code <rhs>};
+   * otherwise returns {@code null}.
+   */
+  @Nullable
+  private static Expression getSimpleAssignmentRhsMaybe(Statement stmt, String symbol) {
+    if (stmt instanceof AssignmentStatement assignment
+        && !assignment.isAugmented()
+        && assignment.getLHS() instanceof Identifier id
+        && id.getName().equals(symbol)) {
+      return assignment.getRHS();
+    }
+    return null;
+  }
+
   @Nullable
   private static AllowlistCheckResult isFileAllowlisted(
       BzlCompileValue.Key key,
       long fileSize,
       long limit,
       StarlarkSemantics semantics,
-      BazelStarlarkEnvironment bazelStarlarkEnvironment,
       Environment env)
       throws InterruptedException {
-    Label allowlistLabel =
-        parseAllowlistLabel(semantics.get(BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST));
-    if (allowlistLabel == null || key.label == null) {
+    String rawAllowlist = semantics.get(BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST);
+    if (rawAllowlist.isEmpty()) {
       return AllowlistCheckResult.NOT_ALLOWLISTED;
     }
+    Label allowlistLabel = Label.parseCanonicalUnchecked(rawAllowlist);
     if (allowlistLabel.equals(key.label)) {
       return AllowlistCheckResult.error(
           String.format(
@@ -655,8 +649,9 @@ public class BzlCompileFunction implements SkyFunction {
               key.label, fileSize, limit));
     }
 
-    PathFragment dir = Label.getContainingDirectory(allowlistLabel);
-    PackageIdentifier dirId = PackageIdentifier.create(allowlistLabel.getRepository(), dir);
+    PackageIdentifier dirId =
+        PackageIdentifier.create(
+            allowlistLabel.getRepository(), Label.getContainingDirectory(allowlistLabel));
     ContainingPackageLookupValue packageLookup;
     try {
       packageLookup =
@@ -667,88 +662,52 @@ public class BzlCompileFunction implements SkyFunction {
                   InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
       return AllowlistCheckResult.error(
-          String.format(
-              "Failed to find containing package for allowlist '%s': %s",
-              allowlistLabel.getCanonicalForm(), e.getMessage()));
+          "Failed to find containing package for allowlist '%s': %s"
+              .formatted(allowlistLabel, e.getMessage()));
     }
     if (packageLookup == null) {
       return null;
     }
     if (!packageLookup.hasContainingPackage()) {
       return AllowlistCheckResult.error(
-          String.format(
-              "Failed to load allowlist file '%s': no containing package",
-              allowlistLabel.getCanonicalForm()));
+          "Failed to load allowlist file '%s': no containing package".formatted(allowlistLabel));
     }
-    Root root = packageLookup.getContainingPackageRoot();
-
-    SkyKey allowlistFileKey =
-        FileValue.key(RootedPath.toRootedPath(root, allowlistLabel.toPathFragment()));
-    FileValue allowlistFileValue;
-    try {
-      allowlistFileValue = (FileValue) env.getValueOrThrow(allowlistFileKey, IOException.class);
-    } catch (IOException e) {
+    if (!packageLookup.getContainingPackageName().equals(allowlistLabel.getPackageIdentifier())) {
       return AllowlistCheckResult.error(
-          String.format(
-              "Failed to read allowlist file '%s': %s",
-              allowlistLabel.getCanonicalForm(), e.getMessage()));
-    }
-    if (allowlistFileValue == null) {
-      return null;
-    }
-    if (!allowlistFileValue.exists()) {
-      return AllowlistCheckResult.error(
-          String.format("Allowlist file '%s' does not exist.", allowlistLabel.getCanonicalForm()));
+          "Failed to load allowlist file '%s': %s"
+              .formatted(
+                  allowlistLabel,
+                  ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
+                      packageLookup.getContainingPackageRoot(), allowlistLabel, packageLookup)));
     }
 
-    BzlCompileValue.Key allowlistCompileKey = BzlCompileValue.key(root, allowlistLabel);
     BzlCompileValue allowlistCompileValue;
     try {
       allowlistCompileValue =
-          (BzlCompileValue) env.getValueOrThrow(allowlistCompileKey, FailedIOException.class);
+          (BzlCompileValue)
+              env.getValueOrThrow(
+                  BzlCompileValue.key(packageLookup.getContainingPackageRoot(), allowlistLabel),
+                  FailedIOException.class);
     } catch (FailedIOException e) {
       return AllowlistCheckResult.error(
-          String.format(
-              "Failed to compile allowlist file '%s': %s",
-              allowlistLabel.getCanonicalForm(), e.getMessage()));
+          "Failed to compile allowlist file '%s': %s".formatted(allowlistLabel, e.getMessage()));
     }
     if (allowlistCompileValue == null) {
       return null;
     }
-
-    ParsedAllowlist parsedAllowlist;
-    try {
-      parsedAllowlist =
-          allowlistCache.get(
-              allowlistCompileValue,
-              () ->
-                  evaluateAllowlist(
-                      allowlistLabel, allowlistCompileValue, semantics, bazelStarlarkEnvironment));
-    } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      if (cause instanceof InterruptedException interruptedException) {
-        throw interruptedException;
-      }
+    if (!allowlistCompileValue.lookupSuccessful()) {
       return AllowlistCheckResult.error(
-          String.format(
-              "Failed to evaluate allowlist file '%s': %s",
-              allowlistLabel.getCanonicalForm(),
-              cause != null ? cause.getMessage() : e.getMessage()));
+          "Failed to compile allowlist file '%s': %s"
+              .formatted(allowlistLabel, allowlistCompileValue.getError()));
     }
 
+    ParsedAllowlist parsedAllowlist = allowlistCache.getUnchecked(allowlistCompileValue);
     if (parsedAllowlist.errorMessage() != null) {
-      return AllowlistCheckResult.error(parsedAllowlist.errorMessage());
+      return AllowlistCheckResult.error(
+          "Allowlist file '%s': %s".formatted(allowlistLabel, parsedAllowlist.errorMessage()));
     }
-    ImmutableSet<String> allowed = parsedAllowlist.allowedEntries();
-    String pathString = key.label.toPathFragment().getPathString();
-    String canonicalLabel = key.label.getCanonicalForm();
-    String repoRelativeLabel = "//" + key.label.getPackageName() + ":" + key.label.getName();
-    if (allowed != null
-        && (allowed.contains(pathString)
-            || allowed.contains(canonicalLabel)
-            || allowed.contains(repoRelativeLabel))) {
-      return AllowlistCheckResult.ALLOWLISTED;
-    }
-    return AllowlistCheckResult.NOT_ALLOWLISTED;
+    return parsedAllowlist.allowedEntries().contains(allowlistKey(key.label))
+        ? AllowlistCheckResult.ALLOWLISTED
+        : AllowlistCheckResult.NOT_ALLOWLISTED;
   }
 }

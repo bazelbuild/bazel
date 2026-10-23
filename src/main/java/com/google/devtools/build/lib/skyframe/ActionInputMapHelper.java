@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
@@ -44,7 +43,7 @@ final class ActionInputMapHelper {
         // the tree metadata to determine the prefetch location of a tree artifact materialized as a
         // symlink to another (cf. TreeArtifactValue#getResolvedPath()).
         if (key.isChildOfDeclaredDirectory()) {
-          SpecialArtifact treeArtifact = key.getParent();
+          Artifact treeArtifact = key.getParent();
           TreeArtifactValue treeArtifactValue =
               actionExecutionValue.getTreeArtifactValue(treeArtifact);
           expandTreeArtifactAndPopulateArtifactData(treeArtifact, treeArtifactValue, inputMap);

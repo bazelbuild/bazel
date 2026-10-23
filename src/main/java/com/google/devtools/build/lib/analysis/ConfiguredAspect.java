@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Info;
@@ -176,6 +177,11 @@ public interface ConfiguredAspect extends ProviderCollection {
         addProvider(
             createExtraActionProvider(
                 /* actionsWithoutExtraAction= */ ImmutableSet.of(), ruleContext));
+      }
+
+      if (!providers.contains(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey())
+          && !ruleContext.verifyNestedSetCountLimit()) {
+        return null;
       }
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();

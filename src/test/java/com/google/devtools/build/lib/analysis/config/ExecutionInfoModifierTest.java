@@ -176,6 +176,27 @@ public class ExecutionInfoModifierTest {
     assertThat(modifier.wouldChange("Genrule", info)).isTrue();
   }
 
+  @Test
+  public void executionInfoModifier_repeatedQueries_consistentAndEqualityUnaffected()
+      throws Exception {
+    ExecutionInfoModifier modifier = converter.convert("Cpp.*=+x,CppLink=-y");
+    for (int i = 0; i < 2; i++) {
+      assertModifierMatchesAndResults(modifier, "CppCompile", ImmutableSet.of("x"));
+      assertThat(modifier.matches("Genrule")).isFalse();
+      // Patterns must match the whole mnemonic.
+      assertThat(modifier.matches("ObjcCppCompile")).isFalse();
+      Map<String, String> info = new HashMap<>();
+      info.put("y", "");
+      assertThat(modifier.wouldChange("CppLink", info)).isTrue();
+      modifier.apply("CppLink", info);
+      assertThat(info).containsExactly("x", "");
+      assertThat(modifier.wouldChange("CppLink", info)).isFalse();
+    }
+    new EqualsTester()
+        .addEqualityGroup(modifier, converter.convert("Cpp.*=+x,CppLink=-y"))
+        .testEquals();
+  }
+
   private void assertModifierMatchesAndResults(
       ExecutionInfoModifier modifier, String mnemonic, Set<String> expectedKeys) {
     assertModifierMatchesAndResults(ImmutableList.of(modifier), mnemonic, expectedKeys);

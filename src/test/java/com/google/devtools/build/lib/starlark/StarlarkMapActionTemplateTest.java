@@ -387,6 +387,88 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   @Test
+  public void chainedMapDirectoryCallsAfterReorderingExpandedActions() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/reorder.bzl",
+        """
+        def reorder_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                additional_params,
+                **kwargs):
+            f1 = input_directories["input_dir"].children[0]
+            outputs = [
+                template_ctx.declare_file("a", directory = output_directories["output_dir1"]),
+                template_ctx.declare_file("b", directory = output_directories["output_dir2"]),
+            ]
+            if additional_params["reverse"]:
+                outputs = reversed(outputs)
+            for o1 in outputs:
+                args = template_ctx.args()
+                args.add_all([o1, f1])
+                template_ctx.run(
+                    inputs = [f1],
+                    outputs = [o1],
+                    executable = tools["cat_tool"],
+                    arguments = [args],
+                )
+        """);
+    String ruleDef =
+        """
+        load(":helpers.bzl", "create_seed_dir", "zip_and_combine_impl")
+        load(":reorder.bzl", "reorder_impl")
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 1)
+            output_dir1 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir1")
+            output_dir2 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir2")
+            ctx.actions.map_directory(
+                implementation = reorder_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir1": output_dir1,
+                    "output_dir2": output_dir2,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+                additional_params = {
+                    "reverse": %s,
+                },
+            )
+            output_dir3 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir3")
+            ctx.actions.map_directory(
+                implementation = zip_and_combine_impl,
+                input_directories = {
+                    "input_dir1": output_dir1,
+                    "input_dir2": output_dir2,
+                },
+                output_directories = {
+                    "output_dir": output_dir3,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir3]))]
+        """;
+    write("test/rule_def.bzl", ruleDef.formatted("False"));
+    buildTarget("//test:target");
+    assertTreeContainsFileWithContents(
+        assertTreeBuilt("test/target_output_dir3"), "a_b.out", "1", "1");
+
+    write("test/rule_def.bzl", ruleDef.formatted("True"));
+    buildTarget("//test:target");
+    assertTreeContainsFileWithContents(
+        assertTreeBuilt("test/target_output_dir3"), "a_b.out", "1", "1");
+  }
+
+  @Test
   public void executionRequirementsPropagatedToExpandedActions() throws Exception {
     SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(

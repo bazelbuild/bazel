@@ -245,7 +245,8 @@ public final class JavaCompileActionBuilder {
             .withAdditionalFixedVariables(utf8Environment);
 
     return new JavaCompileAction(
-        /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
+        /* mnemonic= */ MNEMONIC,
+        /* insertDependencies= */ false,
         /* owner= */ ruleContext.getActionOwner(execGroup),
         /* tools= */ tools,
         /* progressMessage= */ new JavaCompileProgressMessage(

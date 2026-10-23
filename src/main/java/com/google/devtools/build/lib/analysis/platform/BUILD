@@ -89,6 +89,7 @@ java_library(
     deps = [
         ":platform",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/guava:collect",

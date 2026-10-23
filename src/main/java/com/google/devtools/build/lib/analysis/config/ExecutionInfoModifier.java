@@ -25,6 +25,7 @@ import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -116,30 +117,65 @@ public abstract class ExecutionInfoModifier {
   }
 
   /**
+   * Cache from mnemonic to the expressions whose pattern matches it.
+   *
+   * <p>This is queried for every action, but there are only a few distinct mnemonics, so caching
+   * avoids running the regexes (and allocating a {@link Matcher}) per action. Being memoized, the
+   * cache is not part of {@code equals}, {@code hashCode} or serialization.
+   */
+  @Memoized
+  ConcurrentHashMap<String, ImmutableList<Expression>> matchingExpressionsCache() {
+    return new ConcurrentHashMap<>();
+  }
+
+  /** Returns the expressions whose pattern matches the given {@code mnemonic}. */
+  private ImmutableList<Expression> matchingExpressions(String mnemonic) {
+    ImmutableList<Expression> expressions = expressions();
+    if (expressions.isEmpty()) {
+      return expressions;
+    }
+    ConcurrentHashMap<String, ImmutableList<Expression>> cache = matchingExpressionsCache();
+    // Try a plain lookup first to avoid allocating a capturing lambda on the hot path.
+    ImmutableList<Expression> result = cache.get(mnemonic);
+    if (result == null) {
+      result = cache.computeIfAbsent(mnemonic, this::computeMatchingExpressions);
+    }
+    return result;
+  }
+
+  private ImmutableList<Expression> computeMatchingExpressions(String mnemonic) {
+    String unicodeMnemonic = internalToUnicode(mnemonic);
+    ImmutableList.Builder<Expression> result = ImmutableList.builder();
+    for (Expression expr : expressions()) {
+      if (expr.pattern().matcher(unicodeMnemonic).matches()) {
+        result.add(expr);
+      }
+    }
+    return result.build();
+  }
+
+  /**
    * Determines whether the given {@code mnemonic} (e.g. "CppCompile") matches any of the patterns.
    */
   boolean matches(String mnemonic) {
-    return expressions().stream()
-        .anyMatch(expr -> expr.pattern().matcher(internalToUnicode(mnemonic)).matches());
+    return !matchingExpressions(mnemonic).isEmpty();
   }
 
   /** Checks whether the {@code executionInfoList} matches the {@code mnemonic}. */
   public static boolean matches(List<ExecutionInfoModifier> executionInfoList, String mnemonic) {
-    if (executionInfoList.isEmpty()) {
-      return false;
+    for (int i = 0; i < executionInfoList.size(); i++) {
+      if (executionInfoList.get(i).matches(mnemonic)) {
+        return true;
+      }
     }
-
-    return executionInfoList.stream().anyMatch(eim -> eim.matches(mnemonic));
+    return false;
   }
 
   /** Checks whether applying this modifier would actually change the given map. */
   // When --modify_execution_info is non-empty, this method helps reduce CPU/memory overhead from
   // modifying every action's execution info map.
   boolean wouldChange(String mnemonic, Map<String, String> executionInfo) {
-    for (Expression expr : expressions()) {
-      if (!expr.pattern().matcher(internalToUnicode(mnemonic)).matches()) {
-        continue;
-      }
+    for (Expression expr : matchingExpressions(mnemonic)) {
       if (expr.remove()) {
         if (executionInfo.containsKey(expr.key())) {
           return true;
@@ -159,11 +195,12 @@ public abstract class ExecutionInfoModifier {
       List<ExecutionInfoModifier> executionInfoList,
       String mnemonic,
       Map<String, String> executionInfo) {
-    if (executionInfoList.isEmpty()) {
-      return false;
+    for (int i = 0; i < executionInfoList.size(); i++) {
+      if (executionInfoList.get(i).wouldChange(mnemonic, executionInfo)) {
+        return true;
+      }
     }
-
-    return executionInfoList.stream().anyMatch(eim -> eim.wouldChange(mnemonic, executionInfo));
+    return false;
   }
 
   /** Applies {@code executionInfoList} to the given {@code executionInfo}. */
@@ -171,22 +208,18 @@ public abstract class ExecutionInfoModifier {
       List<ExecutionInfoModifier> executionInfoList,
       String mnemonic,
       Map<String, String> executionInfo) {
-    if (executionInfoList.isEmpty()) {
-      return;
+    for (int i = 0; i < executionInfoList.size(); i++) {
+      executionInfoList.get(i).apply(mnemonic, executionInfo);
     }
-
-    executionInfoList.forEach(eim -> eim.apply(mnemonic, executionInfo));
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */
   void apply(String mnemonic, Map<String, String> executionInfo) {
-    for (Expression expr : expressions()) {
-      if (expr.pattern().matcher(internalToUnicode(mnemonic)).matches()) {
-        if (expr.remove()) {
-          executionInfo.remove(expr.key());
-        } else {
-          executionInfo.put(expr.key(), "");
-        }
+    for (Expression expr : matchingExpressions(mnemonic)) {
+      if (expr.remove()) {
+        executionInfo.remove(expr.key());
+      } else {
+        executionInfo.put(expr.key(), "");
       }
     }
   }

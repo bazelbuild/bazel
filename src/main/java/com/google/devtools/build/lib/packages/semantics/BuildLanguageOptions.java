@@ -205,18 +205,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
               + " function.")
   public abstract boolean getExperimentalIsolatedExtensionUsages();
 
-  @Option(
-      name = "incompatible_no_implicit_watch_label",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "If true, then methods on `repository_ctx` that are passed a Label will no"
-              + " longer automatically watch the file under that label for changes even if"
-              + " `watch = \"no\"`, and `repository_ctx.path` no longer"
-              + " causes the returned path to be watched. Use `repository_ctx.watch` instead.")
-  public abstract boolean getIncompatibleNoImplicitWatchLabel();
 
   @Option(
       name = "incompatible_stop_exporting_build_file_path",
@@ -514,12 +502,15 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       } catch (BadLabelException e) {
         throw new OptionsParsingException(e.getMessage(), input, e);
       }
+      if (!stripped.endsWith(".allowlist.scl")) {
+        throw new OptionsParsingException("Allowlist label must end with '.allowlist.scl'", input);
+      }
       return stripped;
     }
 
     @Override
     public String getTypeDescription() {
-      return "a build target label";
+      return "a build target label ending with .allowlist.scl";
     }
   }
 
@@ -530,8 +521,10 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help =
-          "A label to a .scl file defining an ALLOWED list of .bzl/.scl file paths exempt from"
-              + " file size limits.")
+          "A label to a .allowlist.scl file defining an ALLOWED dict of .bzl/.scl file paths exempt"
+              + " from file size limits. Keys are paths relative to the repository root, e.g."
+              + " \"pkg/foo.bzl\" for the main repository or \"@@repo//pkg/foo.bzl\" for other"
+              + " repositories.")
   public abstract String getBzlFileSizeLimitAllowlist();
 
   @Option(
@@ -543,6 +536,33 @@ public abstract class BuildLanguageOptions extends OptionsBase {
           "The maximum depth of the graph internal to a depset (also known as NestedSet), above"
               + " which the depset() constructor will fail.")
   public abstract int getNestedSetDepthLimit();
+
+  @Option(
+      name = "nested_set_count_limit",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "The maximum number of newly constructed non-empty nested sets (also known as depsets)"
+              + " that may be created during the analysis of a single target or aspect (values"
+              + " <= 0 mean no limit). The count includes nested sets created internally by"
+              + " Bazel (e.g. for actions, runfiles and providers), not only Starlark depset()"
+              + " calls.")
+  public abstract int getNestedSetCountLimit();
+
+  @Option(
+      name = "nested_set_count_limit_allowlist",
+      converter = CommaSeparatedNonEmptyOptionListConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Package specifications (e.g. //foo/bar for a single package, //foo/... for a subtree)"
+              + " exempt from --nested_set_count_limit. Exempt are targets in these packages,"
+              + " aspects applied to those targets, and Starlark aspects defined in these"
+              + " packages.")
+  public abstract List<String> getNestedSetCountLimitAllowlist();
 
   @Option(
       name = "incompatible_disable_starlark_host_transitions",
@@ -917,7 +937,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, getExperimentalEnableFirstClassMacros())
             .setBool(
                 EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, getExperimentalIsolatedExtensionUsages())
-            .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, getIncompatibleNoImplicitWatchLabel())
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, getExperimentalGoogleLegacyApi())
             .setBool(EXPERIMENTAL_PLATFORMS_API, getExperimentalPlatformsApi())
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
@@ -958,6 +977,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .set(SOFT_MAX_BZL_FILE_SIZE, getSoftMaxBzlFileSize())
             .set(BZL_FILE_SIZE_LIMIT_ALLOWLIST, getBzlFileSizeLimitAllowlist().strip())
             .set(NESTED_SET_DEPTH_LIMIT, getNestedSetDepthLimit())
+            .set(NESTED_SET_COUNT_LIMIT, getNestedSetCountLimit())
+            .set(NESTED_SET_COUNT_LIMIT_ALLOWLIST, getNestedSetCountLimitAllowlist())
             .setBool(
                 INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, getIncompatibleSymbolicMacroStrictAttrs())
             .setBool(
@@ -1123,8 +1144,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
-  public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
-      "+incompatible_no_implicit_watch_label";
+
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
@@ -1226,4 +1246,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       FlagConstants.KNOWN_OVERSIZED_BZL_FILE_VALUE_EXAMPLE;
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
       new StarlarkSemantics.Key<>("nested_set_depth_limit", 3500);
+  public static final StarlarkSemantics.Key<Integer> NESTED_SET_COUNT_LIMIT =
+      new StarlarkSemantics.Key<>("nested_set_count_limit", 0);
+  public static final StarlarkSemantics.Key<List<String>> NESTED_SET_COUNT_LIMIT_ALLOWLIST =
+      new StarlarkSemantics.Key<>("nested_set_count_limit_allowlist", ImmutableList.of());
 }

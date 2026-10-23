@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
@@ -1004,6 +1005,12 @@ final class AspectFunction implements SkyFunction {
     } else {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
+        if (analysisEnvironment
+                .getStarlarkSemantics()
+                .get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT)
+            > 0) {
+          NestedSet.beginTargetNestedSetCount();
+        }
         configuredAspect =
             view.getConfiguredTargetFactory()
                 .createAspect(
@@ -1034,6 +1041,7 @@ final class AspectFunction implements SkyFunction {
       } catch (InvalidExecGroupException e) {
         throw new AspectFunctionException(e);
       } finally {
+        NestedSet.endTargetNestedSetCount();
         CurrentRuleTracker.endConfiguredAspect();
       }
     }

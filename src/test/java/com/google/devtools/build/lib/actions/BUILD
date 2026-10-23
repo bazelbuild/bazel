@@ -22,6 +22,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:action_execution_status_reporter",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
@@ -31,6 +32,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_limits",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",

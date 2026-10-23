@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.testing.EqualsTester;
 import com.google.common.testing.GcFinalization;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
@@ -214,10 +215,17 @@ public final class StarlarkListTest {
   }
 
   @Test
-  public void immutableSingleton() {
+  public void immutableSingleton() throws Exception {
     StarlarkList<Object> list = StarlarkList.immutableOf("a");
     checkImmutable(list);
     assertThat((List<?>) list).containsExactly("a");
+    assertThat(list.containsKey(StarlarkSemantics.DEFAULT, "a")).isTrue();
+    assertThat(list.containsKey(StarlarkSemantics.DEFAULT, "b")).isFalse();
+    new EqualsTester()
+        .addEqualityGroup(
+            list, StarlarkList.of(Mutability.create("test"), "a"), StarlarkList.immutableOf("a"))
+        .addEqualityGroup(StarlarkList.immutableOf("b"))
+        .testEquals();
   }
 
   @Test
@@ -225,6 +233,13 @@ public final class StarlarkListTest {
     StarlarkList<Object> list = StarlarkList.immutableOf("a", "b", "c");
     checkImmutable(list);
     assertThat((List<?>) list).containsExactly("a", "b", "c").inOrder();
+    new EqualsTester()
+        .addEqualityGroup(
+            list,
+            StarlarkList.of(Mutability.create("test"), "a", "b", "c"),
+            StarlarkList.immutableOf("a", "b", "c"))
+        .addEqualityGroup(StarlarkList.immutableOf("a", "b", "d"))
+        .testEquals();
   }
 
   @Test

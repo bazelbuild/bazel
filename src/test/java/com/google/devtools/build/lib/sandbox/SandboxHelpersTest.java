@@ -1091,7 +1091,11 @@ public class SandboxHelpersTest {
     // stashes, concurrent test actions compete for stashes by renaming them. The loser must not
     // drop the bookkeeping that the winner still needs to relocate the stashed runfiles directory.
     SandboxOptions options =
-        Options.parse(SandboxOptions.class, "--reuse_sandbox_directories").getOptions();
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--noexperimental_inmemory_sandbox_stashes")
+            .getOptions();
     Path sandboxBase = scratch.dir("/sandbox_stash_runfiles_race");
     Path sandbox1 = scratch.dir("/sandbox_stash_runfiles_race/1");
     String firstRunfiles = "bazel-out/bin/pkg/first_test.runfiles";
@@ -1161,7 +1165,11 @@ public class SandboxHelpersTest {
   @Test
   public void sandboxStash_stashWithUnknownRunfilesDirIsReusedWithoutRelocation() throws Exception {
     SandboxOptions options =
-        Options.parse(SandboxOptions.class, "--reuse_sandbox_directories").getOptions();
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--noexperimental_inmemory_sandbox_stashes")
+            .getOptions();
     Path sandboxBase = scratch.dir("/sandbox_stash_unknown_runfiles");
     String firstRunfiles = "bazel-out/bin/pkg/first_test.runfiles";
     String secondRunfiles = "bazel-out/bin/pkg/second_test.runfiles";
@@ -1210,7 +1218,11 @@ public class SandboxHelpersTest {
   @Test
   public void sandboxStash_prefersStashFromSamePackage() throws Exception {
     SandboxOptions options =
-        Options.parse(SandboxOptions.class, "--reuse_sandbox_directories").getOptions();
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--noexperimental_inmemory_sandbox_stashes")
+            .getOptions();
     Path sandboxBase = scratch.dir("/sandbox_stash_same_package");
     SandboxOutputs outputs = SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
 
