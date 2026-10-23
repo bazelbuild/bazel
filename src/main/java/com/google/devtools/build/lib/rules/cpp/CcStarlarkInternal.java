@@ -472,31 +472,49 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "seq")})
   public Sequence<?> internList(Sequence<?> seq) {
-    return Tuple.copyOf(
-        Iterables.transform(
-            seq, value -> referencesArtifactUnderAnalysis(value) ? value : interner.intern(value)));
+    return Tuple.copyOf(Iterables.transform(seq, CcStarlarkInternal::intern));
   }
 
   /**
-   * Returns whether {@code value} references an artifact owned by the target currently being
-   * analyzed.
+   * Interns {@code value}, which may reference artifacts.
    *
-   * <p>Such values must not be interned: as long as the generating action key of an artifact isn't
-   * set, it is equal to the artifact with the same path created by a previous attempt at analyzing
-   * the same target, for example one that was restarted due to a missing Skyframe dependency.
-   * Interning could thus return a value that references a stale artifact whose generating action
-   * key is never set. Since such values are specific to a single target, interning them wouldn't
-   * save memory anyway.
+   * <p>As long as the generating action key of an artifact isn't set, it is equal to the artifact
+   * with the same path created by a previous attempt at analyzing the same target, for example one
+   * that was restarted due to a missing Skyframe dependency. The interned value could thus
+   * reference a stale artifact whose generating action key is never set, so it is only used if it
+   * is interchangeable with {@code value}.
    */
-  private static boolean referencesArtifactUnderAnalysis(Object value) {
-    return switch (value) {
-      case DerivedArtifact artifact -> !artifact.hasGeneratingActionKey();
+  private static Object intern(Object value) {
+    Object interned = interner.intern(value);
+    return isInterchangeable(interned, value) ? interned : value;
+  }
+
+  /**
+   * Returns whether the equal values {@code a} and {@code b} reference the same artifacts or
+   * artifacts that both have their generating action key set.
+   */
+  private static boolean isInterchangeable(Object a, Object b) {
+    if (a == b) {
+      return true;
+    }
+    return switch (a) {
+      case DerivedArtifact artifact ->
+          artifact.hasGeneratingActionKey() && ((DerivedArtifact) b).hasGeneratingActionKey();
       case StarlarkInfo info ->
           info.getFieldNames().stream()
-              .anyMatch(field -> referencesArtifactUnderAnalysis(info.getValue(field)));
-      case Sequence<?> sequence ->
-          sequence.stream().anyMatch(CcStarlarkInternal::referencesArtifactUnderAnalysis);
-      case null, default -> false;
+              .allMatch(
+                  field ->
+                      isInterchangeable(info.getValue(field), ((StarlarkInfo) b).getValue(field)));
+      case Sequence<?> sequence -> {
+        Sequence<?> other = (Sequence<?>) b;
+        for (int i = 0; i < sequence.size(); i++) {
+          if (!isInterchangeable(sequence.get(i), other.get(i))) {
+            yield false;
+          }
+        }
+        yield true;
+      }
+      default -> true;
     };
   }
 
