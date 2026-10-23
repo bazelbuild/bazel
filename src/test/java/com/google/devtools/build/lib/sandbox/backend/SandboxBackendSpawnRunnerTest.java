@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox.backend;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static org.junit.Assume.assumeTrue;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -101,6 +102,8 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @Before
   public void setUp() throws Exception {
+    // Backends can't be reached on Windows yet, and these tests use unix sockets and shell scripts.
+    assumeTrue(SandboxBackendTransport.isSupported());
     fs = new LinkingFileSystem(FileSystems.getNativeFileSystem(DigestHashFunction.SHA256));
     root = fs.getPath(java.nio.file.Files.createTempDirectory("sbk-test").toString());
     execRoot = root.getRelative("execroot/_main");
@@ -129,9 +132,15 @@ public final class SandboxBackendSpawnRunnerTest {
 
   @After
   public void tearDown() throws Exception {
-    session.close();
-    backend.close();
-    root.deleteTree();
+    if (session != null) {
+      session.close();
+    }
+    if (backend != null) {
+      backend.close();
+    }
+    if (root != null) {
+      root.deleteTree();
+    }
   }
 
   private Spawn spawn(String... outputs) {
