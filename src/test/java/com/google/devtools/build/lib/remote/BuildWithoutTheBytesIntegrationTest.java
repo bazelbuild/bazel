@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
@@ -1230,6 +1231,56 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void copyOfRemoteOnlyFile_isMarkedAsCopyOutputAlsoAfterActionCacheHit() throws Exception {
+    writeRemoteFileCopyWorkspace();
+
+    buildTarget("//a:foo_copy_copy");
+
+    assertThat(getOnlyElement(getMetadata("//a:foo").values()).isCopyOutput()).isFalse();
+    assertThat(getOnlyElement(getMetadata("//a:foo_copy").values()).isCopyOutput()).isTrue();
+    assertThat(getOnlyElement(getMetadata("//a:foo_copy_copy").values()).isCopyOutput()).isTrue();
+
+    // The mark is not persisted in the action cache. After a server restart the copies are action
+    // cache hits whose remote metadata is restored from the cache, and must be marked again.
+    restartServer();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//a:foo_copy_copy");
+
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    assertThat(getOnlyElement(getMetadata("//a:foo").values()).isCopyOutput()).isFalse();
+    assertThat(getOnlyElement(getMetadata("//a:foo_copy").values()).isCopyOutput()).isTrue();
+    assertThat(getOnlyElement(getMetadata("//a:foo_copy_copy").values()).isCopyOutput()).isTrue();
+  }
+
+  @Test
+  public void copyOfRemoteOnlyTree_childrenAreMarkedAlsoAfterActionCacheHit() throws Exception {
+    writeRemoteTreeCopyWorkspace();
+    buildTarget("//a:tree_copy");
+
+    var children = getOnlyElement(getTreeMetadata("//a:tree_copy").values()).getChildValues();
+    assertThat(children).isNotEmpty();
+    assertThat(children.values().stream().allMatch(FileArtifactValue::isCopyOutput)).isTrue();
+    assertThat(
+            getOnlyElement(getTreeMetadata("//a:tree").values())
+                .getChildValues()
+                .values()
+                .stream()
+                .noneMatch(FileArtifactValue::isCopyOutput))
+        .isTrue();
+
+    restartServer();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//a:tree_copy");
+
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    children = getOnlyElement(getTreeMetadata("//a:tree_copy").values()).getChildValues();
+    assertThat(children).isNotEmpty();
+    assertThat(children.values().stream().allMatch(FileArtifactValue::isCopyOutput)).isTrue();
+  }
+
+  @Test
   public void copyOfRemoteOnlyFile_localConsumerDownloadsToOwnPath() throws Exception {
     writeRemoteFileCopyWorkspace();
 
@@ -1257,9 +1308,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertOutputDoesNotExist("a/foo_copy");
   }
 
-  @Test
-  public void copyOfRemoteOnlyTree_downloadsNothingAndConsumerDownloadsToOwnPaths()
-      throws Exception {
+  private void writeRemoteTreeCopyWorkspace() throws Exception {
     writeCopyRule();
     writeOutputDirRule();
     write(
@@ -1286,6 +1335,12 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             tags = ["no-remote-exec"],
         )
         """);
+  }
+
+  @Test
+  public void copyOfRemoteOnlyTree_downloadsNothingAndConsumerDownloadsToOwnPaths()
+      throws Exception {
+    writeRemoteTreeCopyWorkspace();
 
     buildTarget("//a:tree_copy");
 
