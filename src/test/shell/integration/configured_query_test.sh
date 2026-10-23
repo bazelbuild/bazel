@@ -218,6 +218,24 @@ function test_transitions_full() {
   assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
+function test_unicode_configured_rule_input() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch "$pkg/文.csv"
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "data",
+    srcs = ["文.csv"],
+)
+EOF
+
+  bazel cquery "//$pkg:data" --output=textproto --transitions=lite \
+    > output 2>"$TEST_log" || fail "Expected success"
+  # textproto escapes each UTF-8 byte of 文 (e6 96 87); a double-encoded label has six.
+  grep -qF "label: \"//$pkg:\\346\\226\\207.csv\"" output \
+    || fail "Expected the UTF-8 label in configured_rule_input: $(grep -F csv output)"
+}
+
 function test_transitions_incompatible_target() {
   local -r pkg=$FUNCNAME
 
