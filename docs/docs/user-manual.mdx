@@ -2437,21 +2437,24 @@ variable inheritance, and is necessary for running bazel in a chroot jail.
 Batch mode retains proper queueing semantics within the same output_base.
 That is, simultaneous invocations will be processed in order, without overlap.
 If a batch mode Bazel is run on a client with a running server, it first
-kills the server before processing the command.
+shuts down the server before processing the command.
 
-Bazel will run slower in batch mode, or with the alternatives described above.
-This is because, among other things, the build file cache is memory-resident, so it is not
-preserved between sequential batch invocations.
-Therefore, using batch mode often makes more sense in cases where performance
-is less critical, such as continuous builds.
+Bazel runs slower across repeated invocations in batch mode because JVM warmup
+and in-memory caches (such as the Skyframe graph and package cache) are not
+preserved between commands. Batch mode is best suited for single-shot
+invocations where no background daemon may outlive the command, such as
+ephemeral containers or strict process-tree environments.
 
-Warning: `--batch` is sufficiently slower than standard
-client/server mode. Additionally it might not support all of the features and optimizations which
-are made possible by a persistent Bazel server. If you're using `--batch`
-for the purpose of build isolation, you should use the command option
-`--nokeep_state_after_build`, which guarantees that no incremental
-in-memory state is kept between builds. In order to restart the Bazel server and JVM after a
-build, please explicitly do so using the "shutdown" command.
+Warning: `--batch` is substantially slower than client/server mode across
+multiple commands and does not support features or optimizations that require a
+persistent server. If you only need in-memory state isolation between builds,
+prefer the command option `--nokeep_state_after_build`, which discards
+in-memory incremental state while keeping a warm JVM. For multi-command
+scripts that need to avoid lingering servers, prefer `--max_idle_secs` or an
+explicit `shutdown` command at the end of the script. Also note that `bazel
+--batch run` launches the target binary as a child process of the Bazel JVM
+rather than replacing the client via `exec`, so the JVM process remains
+resident until the target exits.
 
 #### `--max_idle_secs=n` {#max-idle-secs}
 
