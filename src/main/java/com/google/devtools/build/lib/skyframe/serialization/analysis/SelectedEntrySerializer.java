@@ -306,9 +306,9 @@ final class SelectedEntrySerializer {
     }
 
     stopwatch.reset().start();
-    FileOpNodeMemoizingLookup.DenseLeafIdsAndUploadOrder dense;
+    UploadLayout.DenseLeafIdsAndUploadOrder dense;
     try (var _ = Profiler.instance().profile("computeLeafIdsAndUploadOrder")) {
-      dense = fileOpNodes.computeLeafIdsAndUploadOrder(selection);
+      dense = UploadLayout.computeLeafIdsAndUploadOrder(selection, fileOpNodes);
     }
     serializationStats.computeLeafIdsAndUploadOrderTime = stopwatch.elapsed();
 
@@ -354,7 +354,7 @@ final class SelectedEntrySerializer {
     // lot of nodes.
     //
     // The order is by the longest-path depth of each key's node, deepest first. See
-    // SelectionPartition.
+    // UploadLayout.
     stopwatch.reset().start();
     try (var _ = Profiler.instance().profile("driveUploads")) {
       for (SkyKey selectedKey : dense.uploadOrder()) {

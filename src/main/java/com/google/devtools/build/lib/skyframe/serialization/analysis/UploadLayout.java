@@ -15,19 +15,24 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
+import static java.lang.Math.max;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.skyframe.SkyKey;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,7 +42,11 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * The selection, split for the leaf walk and for upload ordering in a single serial pass.
+ * Lays out the selection for upload: numbers the leaves of the node graph, and orders the selected
+ * keys. See {@link #computeLeafIdsAndUploadOrder}.
+ *
+ * <p>An instance is the selection, split for the leaf walk and for upload ordering in a single
+ * serial pass.
  *
  * <p>This pass is where each selected key is translated to the {@link ActionLookupKey} that owns
  * its file dependencies, so it is also where analysis keys and owned keys part ways. Three buckets,
@@ -84,7 +93,7 @@ import java.util.function.Predicate;
  * reclaimed. It does not affect what gets deduplicated or the structure of the resulting
  * invalidation data.
  */
-final class SelectionPartition {
+final class UploadLayout {
   /** Nodes for the leaf walk, in selection order. Duplicates are retained; the walk dedups. */
   private final ArrayList<FileOpNode> roots = new ArrayList<>();
 
@@ -98,7 +107,40 @@ final class SelectionPartition {
   /** Execution keys and {@link ActionLookupSummaryKey}s; see the class comment. */
   private final ArrayList<SkyKey> ownedKeys = new ArrayList<>();
 
-  private SelectionPartition() {}
+  private UploadLayout() {}
+
+  /**
+   * Leaf identifiers, and the order in which to drive uploads, both derived from one walk.
+   *
+   * @param leafIds the dense leaf numbering
+   * @param uploadOrder every selected key that will be uploaded: analysis keys without a nested
+   *     node, then analysis keys by the longest-path depth of their node, deepest first, then owned
+   *     keys (execution keys and {@link ActionLookupSummaryKey}s). See {@link UploadLayout}.
+   */
+  public record DenseLeafIdsAndUploadOrder(
+      LeafIdAssignment leafIds, ImmutableList<SkyKey> uploadOrder) {}
+
+  /**
+   * Numbers every leaf reachable from {@code selection} so that each node's leaf closure is close
+   * to a contiguous range, and derives the upload order from the node depths of the same walk.
+   *
+   * <p>Must run after {@link FileOpNodeMemoizingLookup#materializeNodeGraph}, which is what
+   * materializes the node graph, and before any serialization work asks for an ID.
+   */
+  static DenseLeafIdsAndUploadOrder computeLeafIdsAndUploadOrder(
+      ImmutableSet<SkyKey> selection, FileOpNodeMemoizingLookup lookup) {
+    UploadLayout partition;
+    try (var _ = Profiler.instance().profile("partitionSelection")) {
+      partition = partition(selection, lookup::isSkipped, lookup::resolvedNode);
+    }
+    LeafIdsAndMaxDepth layout = NodeGraphLayout.populateLeafIdsAndDepths(partition.roots);
+
+    ImmutableList<SkyKey> uploadOrder;
+    try (var _ = Profiler.instance().profile("uploadOrder")) {
+      uploadOrder = partition.uploadOrder(layout.maxDepth());
+    }
+    return new DenseLeafIdsAndUploadOrder(layout.leafIds(), uploadOrder);
+  }
 
   /**
    * Partitions {@code selection}.
@@ -111,11 +153,11 @@ final class SelectionPartition {
    * @param resolveNode the already materialized node of an {@link ActionLookupKey}. Called at most
    *     once per distinct owner.
    */
-  static SelectionPartition partition(
+  static UploadLayout partition(
       Iterable<? extends SkyKey> selection,
       Predicate<SkyKey> isSkipped,
       Function<ActionLookupKey, FileOpNodeOrEmpty> resolveNode) {
-    var partition = new SelectionPartition();
+    var partition = new UploadLayout();
     var resolvedNodes = new HashMap<ActionLookupKey, FileOpNodeOrEmpty>();
     for (SkyKey key : selection) {
       if (isSkipped.test(key)) {
@@ -195,5 +237,144 @@ final class SelectionPartition {
       }
     }
     return order.addAll(ownedKeys).build();
+  }
+
+  /** The leaf numbering, and the greatest depth assigned to any node. */
+  private record LeafIdsAndMaxDepth(LeafIdAssignment leafIds, int maxDepth) {}
+
+  /**
+   * One depth-first walk of the node graph that lays it out for upload: it numbers the leaves and
+   * assigns every nested node its longest-path depth.
+   *
+   * <p>Numbering leaves in depth-first order puts the leaves of each subtree into a nearly
+   * contiguous range, which compresses to a handful of run containers in a {@code RoaringBitmap}.
+   *
+   * <p>Each node's {@link AbstractNestedFileOpNodes#getLongestPathDepth} field doubles as the
+   * visited marker while the walk is running, and {@link #assignLongestPathDepths} overwrites it
+   * with the final depth afterwards.
+   *
+   * <p>Only reachable through {@link #populateLeafIdsAndDepths}, so the walk's scratch state is
+   * unreachable once it returns.
+   */
+  private static final class NodeGraphLayout {
+    private final Object2IntOpenHashMap<FileOpNode> analysisIds = newIdMap();
+    private final Object2IntOpenHashMap<FileKey> sourceIds = newIdMap();
+
+    /**
+     * Every nested node the walk reached, in the order it finished. Consumed by {@link
+     * #assignLongestPathDepths}.
+     */
+    private final ArrayList<AbstractNestedFileOpNodes> postOrder = new ArrayList<>();
+
+    /** Shared by both channels: the two maps land in the same bitmap, so IDs must not collide. */
+    private int nextLeafId = 0;
+
+    /**
+     * Numbers every leaf reachable from {@code roots} and sets the depth of every nested node
+     * reachable from them.
+     */
+    private static LeafIdsAndMaxDepth populateLeafIdsAndDepths(List<FileOpNode> roots) {
+      var layout = new NodeGraphLayout();
+      try (var _ = Profiler.instance().profile("leafIdWalk")) {
+        for (FileOpNode root : roots) {
+          layout.visitRoot(root);
+        }
+      }
+      int maxDepth;
+      try (var _ = Profiler.instance().profile("assignLongestPathDepths")) {
+        maxDepth = layout.assignLongestPathDepths();
+      }
+      return new LeafIdsAndMaxDepth(layout.buildLeafIds(), maxDepth);
+    }
+
+    private void visitRoot(FileOpNode root) {
+      switch (root) {
+        case FileKey file -> assignAnalysisId(file);
+        case DirectoryListingKey listing -> assignAnalysisId(listing);
+        case AbstractNestedFileOpNodes nested -> visitNested(nested);
+        case RemoteFileOpNode _ -> {}
+      }
+    }
+
+    private void visitNested(AbstractNestedFileOpNodes node) {
+      // Provisional: assignLongestPathDepths may push the node deeper once all its parents are
+      // known.
+      if (!node.markVisited()) {
+        return;
+      }
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (node.getAnalysisDependency(i)) {
+          case FileKey file -> assignAnalysisId(file);
+          case DirectoryListingKey listing -> assignAnalysisId(listing);
+          case AbstractNestedFileOpNodes child -> {
+            child.incrementInDegree();
+            visitNested(child);
+          }
+          case RemoteFileOpNode _ -> {}
+        }
+      }
+      if (node instanceof NestedFileOpNodesWithSource withSource) {
+        assignIdIfAbsent(sourceIds, withSource.source());
+      }
+      postOrder.add(node);
+    }
+
+    /**
+     * Assigns every walked node its longest-path depth, and returns the greatest one.
+     *
+     * <p>In a depth-first post-order, every node finishes before any node that depends on it, so
+     * reading {@link #postOrder} backwards visits each node after all its parents. By then its
+     * depth is final, and it only has to push the next depth down onto its children. One pass over
+     * the nodes and their edges suffices.
+     */
+    private int assignLongestPathDepths() {
+      int maxDepth = AbstractNestedFileOpNodes.TOP_DEPTH;
+      for (int i = postOrder.size() - 1; i >= 0; i--) {
+        AbstractNestedFileOpNodes node = postOrder.get(i);
+        // Since all ancestors have already been traversed, this is the node's final depth.
+        int depth = node.getLongestPathDepth();
+        maxDepth = max(maxDepth, depth);
+        for (int j = 0; j < node.analysisDependenciesCount(); j++) {
+          if (node.getAnalysisDependency(j) instanceof AbstractNestedFileOpNodes child) {
+            child.placeBelow(depth);
+          }
+        }
+      }
+      return maxDepth;
+    }
+
+    private void assignAnalysisId(FileOpNode leaf) {
+      assignIdIfAbsent(analysisIds, leaf);
+    }
+
+    /**
+     * Assigns {@code key} the next leaf ID unless it already has one.
+     *
+     * <p>Uses {@code getInt} followed by {@code put} rather than {@code putIfAbsent(K, int)}, which
+     * fastutil 7 lacks. Bazel builds against fastutil 7, where that call resolves to the boxed
+     * {@link java.util.Map#putIfAbsent}, which returns null for an absent key.
+     */
+    private <K> void assignIdIfAbsent(Object2IntOpenHashMap<K> ids, K key) {
+      if (ids.getInt(key) == LeafIdAssignment.ABSENT) {
+        ids.put(key, nextLeafId++);
+      }
+    }
+
+    /**
+     * A map returning {@link LeafIdAssignment#ABSENT} for missing keys, so that {@code getInt}
+     * distinguishes them. fastutil's built-in default, 0, is a real ID.
+     */
+    private static <K> Object2IntOpenHashMap<K> newIdMap() {
+      var map = new Object2IntOpenHashMap<K>();
+      map.defaultReturnValue(LeafIdAssignment.ABSENT);
+      return map;
+    }
+
+    private LeafIdAssignment buildLeafIds() {
+      // The populations are final now, so release the slack left by the maps' doubling growth.
+      analysisIds.trim();
+      sourceIds.trim();
+      return LeafIdAssignment.dense(analysisIds, sourceIds);
+    }
   }
 }

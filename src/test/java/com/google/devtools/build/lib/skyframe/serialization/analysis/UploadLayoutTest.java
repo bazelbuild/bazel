@@ -37,7 +37,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public final class SelectionPartitionTest {
+public final class UploadLayoutTest {
 
   private final Root root =
       Root.fromPath(new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/root"));
@@ -62,8 +62,8 @@ public final class SelectionPartitionTest {
             .put(bottom, nested(/* depth= */ 3))
             .buildOrThrow();
 
-    SelectionPartition partition =
-        SelectionPartition.partition(
+    UploadLayout partition =
+        UploadLayout.partition(
             ImmutableList.of(action, top, empty, middle, bareLeaf, bottom),
             key -> false,
             nodes::get);
@@ -83,9 +83,8 @@ public final class SelectionPartitionTest {
         ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>of(
             first, shared, second, nested(/* depth= */ 2), third, shared);
 
-    SelectionPartition partition =
-        SelectionPartition.partition(
-            ImmutableList.of(first, second, third), key -> false, nodes::get);
+    UploadLayout partition =
+        UploadLayout.partition(ImmutableList.of(first, second, third), key -> false, nodes::get);
 
     assertThat(partition.uploadOrder(/* maxDepth= */ 2))
         .containsExactly(first, second, third)
@@ -101,8 +100,8 @@ public final class SelectionPartitionTest {
         ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>of(
             kept, keptNode, skipped, nested(/* depth= */ 1));
 
-    SelectionPartition partition =
-        SelectionPartition.partition(
+    UploadLayout partition =
+        UploadLayout.partition(
             ImmutableList.of(skipped, kept, ActionLookupData.create(skipped, 0)),
             key -> key.equals(skipped) || key.equals(ActionLookupData.create(skipped, 0)),
             nodes::get);
@@ -118,8 +117,8 @@ public final class SelectionPartitionTest {
     var resolved = new ArrayList<ActionLookupKey>();
     var nodes = ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>of(owner, ownerNode);
 
-    SelectionPartition partition =
-        SelectionPartition.partition(
+    UploadLayout partition =
+        UploadLayout.partition(
             ImmutableList.of(
                 ActionLookupData.create(owner, 0), ActionLookupData.create(owner, 1), owner),
             key -> false,
@@ -143,8 +142,8 @@ public final class SelectionPartitionTest {
     var node =
         (AbstractNestedFileOpNodes) AbstractNestedFileOpNodes.from(ImmutableList.of(fileA, fileB));
 
-    SelectionPartition partition =
-        SelectionPartition.partition(ImmutableList.of(unwalked), key -> false, key -> node);
+    UploadLayout partition =
+        UploadLayout.partition(ImmutableList.of(unwalked), key -> false, key -> node);
 
     assertThat(
             assertThrows(

@@ -187,7 +187,7 @@ java_library(
     name = "file_op_node_map",
     srcs = [
         "FileOpNodeMemoizingLookup.java",
-        "SelectionPartition.java",
+        "UploadLayout.java",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",

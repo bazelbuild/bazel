@@ -278,9 +278,9 @@ java_test(
 )
 
 java_test(
-    name = "SelectionPartitionTest",
+    name = "UploadLayoutTest",
     size = "small",
-    srcs = ["SelectionPartitionTest.java"],
+    srcs = ["UploadLayoutTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
