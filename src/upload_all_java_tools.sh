@@ -66,6 +66,15 @@ bazel_version=$(bazel info release | cut -d' ' -f2)
 
 RELEASE_BUILD_OPTS="-c opt"
 
+# Build the C++ binaries with the hermetic LLVM toolchains, except on Windows. On
+# Linux, they are fully static and use musl with mimalloc.
+PREBUILT_BUILD_OPTS="--config=java_tools_release"
+if [[ "$platform" == "windows" ]]; then
+  PREBUILT_BUILD_OPTS="${RELEASE_BUILD_OPTS}"
+elif [[ "$platform" == "linux" ]]; then
+  PREBUILT_BUILD_OPTS+=" --platforms=@llvm//platforms:linux_$(uname -m)_musl --custom_malloc=@mimalloc"
+fi
+
 # Check that the build machine is set up for Unicode.
 bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
 
@@ -75,7 +84,7 @@ bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
 bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_zip
 zip_path=${PWD}/bazel-bin/src/java_tools.zip
 
-bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_prebuilt_zip
+bazel build ${PREBUILT_BUILD_OPTS} //src:java_tools_prebuilt_zip
 prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
 # copy zips out of bazel-bin so we don't lose them on later bazel invocations
@@ -108,7 +117,7 @@ if [[ "$platform" != "windows" ]]; then
         --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH="${prebuilt_zip_path}"
 fi
 
-bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
+bazel run ${PREBUILT_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
     --commit_hash ${commit_hash} \
     --timestamp ${timestamp} \
     --bazel_version ${bazel_version}

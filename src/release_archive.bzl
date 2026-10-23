@@ -107,6 +107,16 @@ def release_archive(name, srcs = [], src_map = {}, package_dir = "-", deps = [],
         **kwargs
     )
 
+# rules_graalvm doesn't pass the C++ toolchain's flags to Native Image, so build
+# native images with the default toolchain.
+native_image_release_archive, _native_image_release_archive = (
+    with_cfg(release_archive)
+        .set("extra_toolchains", [])
+        .set("features", [])
+        .set("platforms", [])
+        .build()
+)
+
 def _rename_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.label.name + "/" + ctx.attr.target)
     in_file = ctx.file.source

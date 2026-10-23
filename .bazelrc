@@ -38,6 +38,16 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 common:llvm --extra_toolchains=@llvm//toolchain:all
 common:llvm --extra_toolchains=//src:llvm_rc_toolchain
 
+# Build the C++ binaries of the java_tools release with the hermetic LLVM
+# toolchains and the optimizations that hermetic-llvm uses for its own binaries.
+# Used by src/upload_all_java_tools.sh.
+common:java_tools_release --config=llvm
+common:java_tools_release --compilation_mode=opt
+common:java_tools_release --features=thin_lto
+common:java_tools_release --features=omit_frame_pointer
+common:java_tools_release --features=no_exceptions
+common:java_tools_release --features=no_rtti
+
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
 
