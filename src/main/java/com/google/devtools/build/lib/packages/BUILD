@@ -57,20 +57,35 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "AdvertisedProviderSet.java",
+            "AspectParameters.java",
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
+            "BuildFileName.java",
+            "BuildFileNotFoundException.java",
             "BuiltinProvider.java",
+            "BzlInitThreadContext.java",
             "BzlVisibility.java",
+            "ConfigurationFragmentPolicy.java",
             "ConfiguredAttributeMapper.java",
             "DeclaredExecGroup.java",
             "Globber.java",
             "GlobberUtils.java",
             "Info.java",
+            "InvalidPackageNameException.java",
+            "LabelConverter.java",
             "LabelPrinter.java",
+            "License.java",
             "NativeInfo.java",
+            "NoSuchPackageException.java",
+            "NoSuchPackagePieceException.java",
+            "NoSuchThingException.java",
             "PackageGroupsRuleVisibility.java",
             "PackagePieceIdentifier.java",
             "PackageSpecification.java",
             "Provider.java",
+            "RepoThreadContext.java",
+            "RepositoryFetchException.java",
+            "RequiredProviders.java",
             "RuleClassUtils.java",
             "RuleVisibility.java",
             "StarlarkExportable.java",
@@ -82,23 +97,49 @@ java_library(
             "StarlarkProviderIdentifier.java",
             "StructImpl.java",
             "StructProvider.java",
+            "TriState.java",
+            "VendorThreadContext.java",
         ],
     ),
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",
         "//src/main/java/com/google/devtools/build/lib:package_loader_access",
     ],
+    exports = [
+        ":advertised_provider_set",
+        ":aspect_parameters",
+        ":build_file_name",
+        ":configuration_fragment_policy",
+        ":label_converter",
+        ":license",
+        ":no_such_package_exception",
+        ":package_loading_exceptions",
+        ":required_providers",
+        ":thread_contexts",
+        ":tristate",
+    ],
     deps = [
+        ":advertised_provider_set",
+        ":aspect_parameters",
+        ":build_file_name",
         ":bzl_visibility",
+        ":configuration_fragment_policy",
         ":declared_exec_group",
         ":globber",
         ":globber_utils",
+        ":label_converter",
         ":label_printer",
+        ":license",
+        ":no_such_package_exception",
+        ":package_loading_exceptions",
         ":package_piece_identifier",
         ":package_specification",
         ":provider",
+        ":required_providers",
         ":rule_visibility",
         ":starlark_exportable",
+        ":thread_contexts",
+        ":tristate",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
@@ -328,5 +369,148 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+    ],
+)
+
+java_library(
+    name = "license",
+    srcs = ["License.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "tristate",
+    srcs = ["TriState.java"],
+)
+
+java_library(
+    name = "label_converter",
+    srcs = ["LabelConverter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "no_such_package_exception",
+    srcs = [
+        "NoSuchPackageException.java",
+        "NoSuchThingException.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "advertised_provider_set",
+    srcs = ["AdvertisedProviderSet.java"],
+    deps = [
+        ":provider",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "package_loading_exceptions",
+    srcs = [
+        "BuildFileNotFoundException.java",
+        "InvalidPackageNameException.java",
+        "NoSuchPackagePieceException.java",
+        "RepositoryFetchException.java",
+    ],
+    deps = [
+        ":no_such_package_exception",
+        ":package_piece_identifier",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+    ],
+)
+
+java_library(
+    name = "aspect_parameters",
+    srcs = ["AspectParameters.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf",
+    ],
+)
+
+java_library(
+    name = "thread_contexts",
+    srcs = [
+        "BzlInitThreadContext.java",
+        "RepoThreadContext.java",
+        "VendorThreadContext.java",
+    ],
+    deps = [
+        ":bzl_visibility",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "configuration_fragment_policy",
+    srcs = ["ConfigurationFragmentPolicy.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_class_set",
+        "//src/main/java/net/starlark/java/annot",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "required_providers",
+    srcs = ["RequiredProviders.java"],
+    deps = [
+        ":advertised_provider_set",
+        ":provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "build_file_name",
+    srcs = ["BuildFileName.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
