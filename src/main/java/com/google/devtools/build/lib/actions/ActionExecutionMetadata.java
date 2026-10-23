@@ -117,6 +117,17 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   }
 
   /**
+   * Returns true if all outputs of this action are {@code ctx.actions.copy} outputs: their
+   * metadata is marked (see {@link FileArtifactValue#isCopyOutput}) so that execution strategies
+   * never stage them as symlinks.
+   *
+   * <p>The value returned by this method is constant for lifetime of this action.
+   */
+  default boolean producesCopyOutputs() {
+    return false;
+  }
+
+  /**
    * Returns true if this action represents an aggregator that groups multiple inputs together into
    * a single collection (like runfiles or filesets) rather than a single file-to-file propagation.
    */

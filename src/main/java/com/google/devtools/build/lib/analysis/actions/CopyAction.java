@@ -174,7 +174,10 @@ public final class CopyAction extends AbstractAction {
       if (isRemoteOnly(input, child.getValue())) {
         builder.putChild(outChild, freshRemoteCopy(child.getValue()));
       } else {
-        builder.putChild(outChild, checkNotNull(localTree).getChildValues().get(outChild));
+        builder.putChild(
+            outChild,
+            FileArtifactValue.createForCopyOutput(
+                checkNotNull(localTree).getChildValues().get(outChild)));
       }
     }
     ctx.getOutputMetadataStore().injectTree(output, builder.build());
@@ -187,15 +190,17 @@ public final class CopyAction extends AbstractAction {
   /**
    * Returns a new, independent remote value with the same digest and size. Remote values are
    * mutable (expiration, local materialization), so they must never be shared between artifacts.
-   * No resolved path is set, as that would make the prefetcher plant a symlink to the input.
+   * No resolved path is set, as that would make the prefetcher plant a symlink to the input. The
+   * value is marked as a copy output, so that no strategy stages it as a symlink.
    */
   private static FileArtifactValue freshRemoteCopy(FileArtifactValue source) {
-    return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        source.getDigest(),
-        source.getSize(),
-        source.getLocationIndex(),
-        source.getExpirationTime(),
-        source.isInMemoryOutput());
+    return FileArtifactValue.createForCopyOutput(
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            source.getDigest(),
+            source.getSize(),
+            source.getLocationIndex(),
+            source.getExpirationTime(),
+            source.isInMemoryOutput()));
   }
 
   private static void copyLocalFile(Path from, Path to) throws IOException {
@@ -253,6 +258,11 @@ public final class CopyAction extends AbstractAction {
 
   @Override
   public boolean mayInsensitivelyPropagateInputs() {
+    return true;
+  }
+
+  @Override
+  public boolean producesCopyOutputs() {
     return true;
   }
 

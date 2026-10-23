@@ -109,6 +109,7 @@ public class CopyActionTest extends BuildViewTestCase {
 
     assertThat(action.getMnemonic()).isEqualTo("Copy");
     assertThat(action.mayInsensitivelyPropagateInputs()).isTrue();
+    assertThat(action.producesCopyOutputs()).isTrue();
     assertThat(action.getInputs().toList()).containsExactly(in);
     assertThat(action.getOutputs()).containsExactly(out);
     assertThat(action.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
@@ -137,6 +138,7 @@ public class CopyActionTest extends BuildViewTestCase {
     assertThat(injected.getExpirationTime()).isEqualTo(Instant.ofEpochSecond(1000));
     assertThat(injected.getResolvedPath()).isNull();
     assertThat(injected.getContentsProxy()).isNull();
+    assertThat(injected.isCopyOutput()).isTrue();
     // Mutating one does not affect the other.
     injected.setExpirationTime(Instant.ofEpochSecond(2000));
     assertThat(source.getExpirationTime()).isEqualTo(Instant.ofEpochSecond(1000));
@@ -271,6 +273,8 @@ public class CopyActionTest extends BuildViewTestCase {
     assertThat(injected.getChildValues().get(outB).getExpirationTime())
         .isEqualTo(Instant.ofEpochSecond(5));
     assertThat(injected.getChildValues().get(outA).getDigest()).isEqualTo(DIGEST);
+    assertThat(injected.getChildValues().get(outA).isCopyOutput()).isTrue();
+    assertThat(injected.getChildValues().get(outB).isCopyOutput()).isTrue();
     assertThat(out.getPath().exists()).isFalse();
   }
 
@@ -302,9 +306,12 @@ public class CopyActionTest extends BuildViewTestCase {
     ArgumentCaptor<TreeArtifactValue> captor = ArgumentCaptor.forClass(TreeArtifactValue.class);
     verify(outputStore).injectTree(eq(out), captor.capture());
     TreeFileArtifact outRem = TreeFileArtifact.createTreeOutput(out, "rem");
-    assertThat(captor.getValue().getChildValues().get(outLocal)).isSameInstanceAs(storeRead);
+    FileArtifactValue injectedLocal = captor.getValue().getChildValues().get(outLocal);
+    assertThat(injectedLocal.isCopyOutput()).isTrue();
+    assertThat(injectedLocal.getDigest()).isEqualTo(storeRead.getDigest());
     FileArtifactValue injectedRem = captor.getValue().getChildValues().get(outRem);
     assertThat(injectedRem.isRemote()).isTrue();
+    assertThat(injectedRem.isCopyOutput()).isTrue();
     assertThat(injectedRem).isNotSameInstanceAs(remValue);
     assertThat(outRem.getPath().exists()).isFalse();
   }

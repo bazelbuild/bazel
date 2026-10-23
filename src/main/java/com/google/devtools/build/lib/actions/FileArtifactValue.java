@@ -153,6 +153,17 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     return false;
   }
 
+  /**
+   * Returns whether this is the metadata of the output of a {@code ctx.actions.copy} action.
+   *
+   * <p>Execution strategies that stage inputs as symlinks must stage such an input as a regular
+   * file, so that the copy is never a link to another location. The mark does not affect equality
+   * of the digest-related fields, invalidation or the action cache.
+   */
+  public boolean isCopyOutput() {
+    return false;
+  }
+
   @Nullable
   public byte[] getValueFingerprint() {
     // TODO(janakr): return fingerprint in other cases: symlink, directory.
@@ -437,6 +448,20 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       boolean inMemoryOutput) {
     return new RemoteFileArtifactValueWithMaterializationData(
         digest, size, locationIndex, expirationTime, inMemoryOutput);
+  }
+
+  /**
+   * Returns {@code delegate} marked as the metadata of a copy output (see {@link #isCopyOutput}).
+   * Values that are already marked, and values that cannot describe a regular file (markers,
+   * directories, symlinks), are returned as they are.
+   */
+  public static FileArtifactValue createForCopyOutput(FileArtifactValue delegate) {
+    if (delegate.isCopyOutput()
+        || delegate instanceof Singleton
+        || delegate.getType() != FileStateType.REGULAR_FILE) {
+      return delegate;
+    }
+    return new CopyOutputArtifactValue(delegate);
   }
 
   public static FileArtifactValue createFromExistingWithResolvedPath(
@@ -1157,6 +1182,152 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       public ResolvedSymlinkArtifactValue call() {
         return new ResolvedSymlinkArtifactValue(delegate, resolvedPath);
       }
+    }
+  }
+
+  /**
+   * Metadata of a {@code ctx.actions.copy} output: everything delegates to the wrapped value, which
+   * is the output's own metadata, and {@link #isCopyOutput} is true.
+   *
+   * <p>The mark is not persisted in the action cache. It is re-applied whenever output metadata is
+   * created or injected for the copy action's outputs. Serialized with the dynamic codec, like the
+   * remote values it typically wraps.
+   */
+  private static final class CopyOutputArtifactValue extends FileArtifactValue {
+    private final FileArtifactValue delegate;
+
+    private CopyOutputArtifactValue(FileArtifactValue delegate) {
+      this.delegate = checkNotNull(delegate);
+    }
+
+    @Override
+    public boolean isCopyOutput() {
+      return true;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return delegate.getType();
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      return delegate.getDigest();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      return delegate.getContentsProxy();
+    }
+
+    @Override
+    public void setContentsProxy(FileContentsProxy proxy) {
+      delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return delegate.wasMaterializedAsToplevelOutput();
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      delegate.setMaterializedAsToplevelOutput(materializedAsToplevelOutput);
+    }
+
+    @Override
+    public boolean isInMemoryOutput() {
+      return delegate.isInMemoryOutput();
+    }
+
+    @Override
+    public long getSize() {
+      return delegate.getSize();
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return delegate.getModifiedTime();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return delegate.wasModifiedSinceDigest(path);
+    }
+
+    @Override
+    protected boolean couldBeModifiedByMetadata(FileArtifactValue lastKnown) {
+      return delegate.couldBeModifiedByMetadata(lastKnown);
+    }
+
+    @Override
+    @Nullable
+    public byte[] getValueFingerprint() {
+      return delegate.getValueFingerprint();
+    }
+
+    @Override
+    public String getUnresolvedSymlinkTarget() {
+      return delegate.getUnresolvedSymlinkTarget();
+    }
+
+    @Override
+    public boolean isInline() {
+      return delegate.isInline();
+    }
+
+    @Override
+    public InputStream getInputStream() {
+      return delegate.getInputStream();
+    }
+
+    @Override
+    public boolean isRemote() {
+      return delegate.isRemote();
+    }
+
+    @Override
+    public int getLocationIndex() {
+      return delegate.getLocationIndex();
+    }
+
+    @Override
+    @Nullable
+    public Instant getExpirationTime() {
+      return delegate.getExpirationTime();
+    }
+
+    @Override
+    public void setExpirationTime(Instant newExpirationTime) {
+      delegate.setExpirationTime(newExpirationTime);
+    }
+
+    @Override
+    @Nullable
+    public PathFragment getResolvedPath() {
+      return delegate.getResolvedPath();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof CopyOutputArtifactValue that)) {
+        return false;
+      }
+      return delegate.equals(that.delegate);
+    }
+
+    @Override
+    public int hashCode() {
+      return ~delegate.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("delegate", delegate).toString();
     }
   }
 

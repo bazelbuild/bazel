@@ -186,6 +186,21 @@ public final class ActionExecutionValueTest {
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
                 /* richArtifactData= */ null,
                 /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)),
+            // Copy output values, local-like and remote
+            createWithArtifactData(
+                ImmutableMap.of(
+                    output("copy_remote"),
+                    FileArtifactValue.createForCopyOutput(
+                        FileArtifactValue.createForRemoteFileWithMaterializationData(
+                            new byte[] {1, 2, 3},
+                            /* size= */ 10,
+                            /* locationIndex= */ 1,
+                            /* expirationTime= */ null,
+                            /* inMemoryOutput= */ false)),
+                    output("copy_local"),
+                    FileArtifactValue.createForCopyOutput(
+                        FileArtifactValue.createForNormalFile(
+                            new byte[] {4, 5, 6}, /* proxy= */ null, /* size= */ 3)))),
             // Resolved symlink artifact value
             createWithArtifactData(
                 ImmutableMap.of(
