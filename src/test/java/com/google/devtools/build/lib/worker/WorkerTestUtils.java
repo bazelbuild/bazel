@@ -347,6 +347,13 @@ public class WorkerTestUtils {
       }
 
       @Override
+      public ImmutableSet<Integer> evictWorkers(
+          ImmutableSet<Integer> workerIdsToEvict, WorkerProcessStatus.Status evictionStatus)
+          throws InterruptedException {
+        return ImmutableSet.of();
+      }
+
+      @Override
       public ImmutableSet<Integer> getIdleWorkers() throws InterruptedException {
         return ImmutableSet.of();
       }

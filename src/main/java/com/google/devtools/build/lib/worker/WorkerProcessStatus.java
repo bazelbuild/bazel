@@ -49,6 +49,8 @@ public class WorkerProcessStatus {
         /* priority= */ 3, WorkerStatus.ALIVE, "KILLED_DUE_TO_USER_EXEC_EXCEPTION"),
     PENDING_KILL_DUE_TO_IO_EXCEPTION(
         /* priority= */ 3, WorkerStatus.ALIVE, "KILLED_DUE_TO_IO_EXCEPTION"),
+    PENDING_KILL_DUE_TO_IDLE_TIMEOUT(
+        /* priority= */ 3, WorkerStatus.ALIVE, "KILLED_DUE_TO_IDLE_TIMEOUT"),
     PENDING_KILL_DUE_TO_MEMORY_PRESSURE(
         /* priority= */ 4, WorkerStatus.ALIVE, "KILLED_DUE_TO_MEMORY_PRESSURE"),
 
@@ -70,6 +72,9 @@ public class WorkerProcessStatus {
         /* priority= */ 6, WorkerStatus.KILLED_DUE_TO_USER_EXEC_EXCEPTION),
     // Bazel killed the worker due to an IOException.
     KILLED_DUE_TO_IO_EXCEPTION(/* priority= */ 6, WorkerStatus.KILLED_DUE_TO_IO_EXCEPTION),
+
+    // Bazel retired the worker after it exceeded the configured idle timeout.
+    KILLED_DUE_TO_IDLE_TIMEOUT(/* priority= */ 6, WorkerStatus.KILLED_DUE_TO_IDLE_TIMEOUT),
 
     // This can be a result of Bazel forcibly killing the worker process, which might result in
     // other exceptions caught in the execution threads (as enumerated by the other killed statuses
@@ -138,6 +143,7 @@ public class WorkerProcessStatus {
           Status.PENDING_KILL_DUE_TO_IO_EXCEPTION,
           Status.PENDING_KILL_DUE_TO_INTERRUPTED_EXCEPTION,
           Status.PENDING_KILL_DUE_TO_USER_EXEC_EXCEPTION,
+          Status.PENDING_KILL_DUE_TO_IDLE_TIMEOUT,
           Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
 
   private boolean isPendingKill() {
@@ -150,6 +156,7 @@ public class WorkerProcessStatus {
           Status.KILLED_DUE_TO_IO_EXCEPTION,
           Status.KILLED_DUE_TO_INTERRUPTED_EXCEPTION,
           Status.KILLED_DUE_TO_USER_EXEC_EXCEPTION,
+          Status.KILLED_DUE_TO_IDLE_TIMEOUT,
           Status.KILLED_DUE_TO_MEMORY_PRESSURE);
 
   public boolean isKilled() {

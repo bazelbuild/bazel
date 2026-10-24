@@ -199,6 +199,62 @@ public class WorkerParserTest {
   }
 
   @Test
+  public void workerIdleTimeout_parsesGlobalAndPerMnemonicValues() throws Exception {
+    assertThat(
+            parseWorkerOptions(
+                    "--experimental_worker_idle_timeout_secs=30",
+                    "--experimental_worker_idle_timeout_secs=Javac=10")
+                .getWorkerIdleTimeoutSecsMap())
+        .containsExactly("", 30, "Javac", 10);
+  }
+
+  @Test
+  public void workerIdleTimeout_laterValuesOverrideEarlierValues() throws Exception {
+    assertThat(
+            parseWorkerOptions(
+                    "--experimental_worker_idle_timeout_secs=Javac=10",
+                    "--experimental_worker_idle_timeout_secs=Javac=20")
+                .getWorkerIdleTimeoutSecsMap())
+        .containsExactly("Javac", 20);
+    assertThat(
+            parseWorkerOptions(
+                    "--experimental_worker_idle_timeout_secs=30",
+                    "--experimental_worker_idle_timeout_secs=Javac=10",
+                    "--experimental_worker_idle_timeout_secs=60")
+                .getWorkerIdleTimeoutSecsMap())
+        .containsExactly("", 60);
+  }
+
+  @Test
+  public void workerIdleTimeout_zeroDisablesTimeout() throws Exception {
+    assertThat(
+            parseWorkerOptions("--experimental_worker_idle_timeout_secs=0")
+                .getWorkerIdleTimeoutSecsMap())
+        .containsExactly("", 0);
+  }
+
+  @Test
+  public void workerIdleTimeout_rejectsInvalidValues() {
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseWorkerOptions("--experimental_worker_idle_timeout_secs=-1"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseWorkerOptions("--experimental_worker_idle_timeout_secs=Javac=invalid"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseWorkerOptions("--experimental_worker_idle_timeout_secs=auto"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseWorkerOptions("--experimental_worker_idle_timeout_secs=Javac=HOST_CPUS"));
+  }
+
+  @Test
+  public void workerIdleTimeout_defaultsToEmptyMap() throws Exception {
+    assertThat(parseWorkerOptions().getWorkerIdleTimeoutSecsMap()).isEmpty();
+  }
+
+  @Test
   public void createWorkerKey_perMnemonicSandboxingOverridesGlobalDefault() {
     WorkerOptions options = Options.getDefaults(WorkerOptions.class);
     options.setWorkerMultiplex(false);

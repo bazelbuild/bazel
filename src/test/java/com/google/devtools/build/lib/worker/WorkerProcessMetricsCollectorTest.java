@@ -545,6 +545,50 @@ public class WorkerProcessMetricsCollectorTest {
         .isEqualTo(startTime.toEpochMilli());
   }
 
+  @Test
+  public void onWorkerFinishExecution_recordsCompletionTimeAndAction() throws Exception {
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        new WorkerProcessStatus(),
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ false,
+        /* isSandboxed= */ false,
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    Instant finishTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(5);
+    clock.setTime(finishTime.toEpochMilli());
+
+    spyCollector.onWorkerFinishExecution(PROCESS_ID_1);
+
+    WorkerProcessMetrics metrics = spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1);
+    assertThat(metrics.getActionsExecuted()).isEqualTo(1);
+    assertThat(metrics.getLastExecutionFinishTime()).hasValue(finishTime);
+  }
+
+  @Test
+  public void onWorkerFinishExecution_retainsLatestMultiplexCompletion() throws Exception {
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        new WorkerProcessStatus(),
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ false,
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    Instant laterFinishTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(laterFinishTime.toEpochMilli());
+    spyCollector.onWorkerFinishExecution(PROCESS_ID_1);
+    clock.setTime(DEFAULT_CLOCK_START_INSTANT.plusSeconds(5).toEpochMilli());
+
+    spyCollector.onWorkerFinishExecution(PROCESS_ID_1);
+
+    WorkerProcessMetrics metrics = spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1);
+    assertThat(metrics.getActionsExecuted()).isEqualTo(2);
+    assertThat(metrics.getLastExecutionFinishTime()).hasValue(laterFinishTime);
+  }
+
   private WorkerMetrics newWorkerMetrics(int id, WorkerStatus status, int memoryInKb) {
     return WorkerMetrics.newBuilder()
         .addWorkerIds(id)
