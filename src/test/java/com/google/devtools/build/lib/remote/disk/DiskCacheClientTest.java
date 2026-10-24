@@ -699,13 +699,14 @@ public class DiskCacheClientTest {
     }
 
     @Override
-    public synchronized void setLastModifiedTime(PathFragment path, long newTime)
+    public synchronized boolean setLastModifiedTimeIfExists(PathFragment path, long newTime)
         throws IOException {
-      super.setLastModifiedTime(path, newTime);
-      if (path.equals(pathToDelete)) {
+      boolean updated = super.setLastModifiedTimeIfExists(path, newTime);
+      if (updated && path.equals(pathToDelete)) {
         pathToDelete = null;
         var unused = delete(path);
       }
+      return updated;
     }
   }
 }

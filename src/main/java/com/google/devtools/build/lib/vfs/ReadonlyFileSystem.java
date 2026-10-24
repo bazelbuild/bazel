@@ -105,7 +105,7 @@ public abstract class ReadonlyFileSystem extends FileSystem {
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public boolean setLastModifiedTimeIfExists(PathFragment path, long newTime) throws IOException {
     throw modificationException();
   }
 }
