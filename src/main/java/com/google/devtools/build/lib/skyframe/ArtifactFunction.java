@@ -399,11 +399,12 @@ public final class ArtifactFunction implements SkyFunction {
       return null;
     }
     Fingerprint fp = new Fingerprint();
-    for (ResolvedFile file : value.getTransitiveFiles().toList()) {
+    ImmutableList<ResolvedFile> files = value.getTransitiveFiles().toList();
+    for (ResolvedFile file : files) {
       fp.addString(file.getNameInSymlinkTree().getPathString());
       fp.addBytes(file.getMetadata().getDigest());
     }
-    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
+    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset(), files.size());
   }
 
   @Override

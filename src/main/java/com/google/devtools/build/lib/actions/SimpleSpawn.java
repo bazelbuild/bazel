@@ -152,14 +152,15 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
-  public ResourceSet getLocalResources() throws ExecException, InterruptedException {
+  public ResourceSet getLocalResources(InputMetadataProvider inputMetadataProvider)
+      throws ExecException, InterruptedException {
     ResourceSet result = localResourcesCached;
     if (result == null) {
       // Not expected to be called concurrently, and an idempotent computation if it is.
       result =
           localResources.buildLocalResources(
               OS.getCurrent(),
-              inputs.flatten().size(),
+              Spawns.getInputsStats(this, inputMetadataProvider),
               getExecutionInfo(),
               getCombinedExecProperties());
       localResourcesCached = result;

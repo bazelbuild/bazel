@@ -22,11 +22,21 @@ import java.util.Map;
 public interface ResourceSetOrBuilder {
   /**
    * Returns resource set based on number of inputs. If build requires the size of inputs, then it
-   * will flatten NestedSet. This action could create a lot of garbagge, so use it as close as
-   * possible to the execution phase,
+   * will flatten NestedSet. This action could create a lot of garbage, so use it as close as
+   * possible to the execution phase.
    */
-  public ResourceSet buildResourceSet(OS os, int inputsSize)
+  public ResourceSet buildResourceSet(OS os, InputsStats inputsStats)
       throws ExecException, InterruptedException;
+
+  /** Lazily computed statistics of a spawn's inputs. */
+  @FunctionalInterface
+  interface InputsStats {
+    /**
+     * Returns the number of input files, excluding tools, with tree artifacts, filesets and tracked
+     * source directories expanded.
+     */
+    int getInputsSize() throws ExecException, InterruptedException;
+  }
 
   /**
    * Returns the resources a spawn with this declaration should book with the {@code
@@ -37,9 +47,12 @@ public interface ResourceSetOrBuilder {
    * #ignoringOverrides}, doesn't pay to parse them.
    */
   default ResourceSet buildLocalResources(
-      OS os, int inputsSize, Map<String, String> executionInfo, Map<String, String> execProperties)
+      OS os,
+      InputsStats inputsStats,
+      Map<String, String> executionInfo,
+      Map<String, String> execProperties)
       throws ExecException, InterruptedException {
-    return buildResourceSet(os, inputsSize)
+    return buildResourceSet(os, inputsStats)
         .withResourceOverrides(
             ExecutionRequirements.parseResources(executionInfo),
             ExecutionRequirements.parseResources(execProperties));
@@ -52,14 +65,14 @@ public interface ResourceSetOrBuilder {
   static ResourceSetOrBuilder ignoringOverrides(ResourceSet resources) {
     return new ResourceSetOrBuilder() {
       @Override
-      public ResourceSet buildResourceSet(OS os, int inputsSize) {
+      public ResourceSet buildResourceSet(OS os, InputsStats inputsStats) {
         return resources;
       }
 
       @Override
       public ResourceSet buildLocalResources(
           OS os,
-          int inputsSize,
+          InputsStats inputsStats,
           Map<String, String> executionInfo,
           Map<String, String> execProperties) {
         return resources;
