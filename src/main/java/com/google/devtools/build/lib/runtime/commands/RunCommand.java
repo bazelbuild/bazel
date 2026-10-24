@@ -179,7 +179,9 @@ public class RunCommand implements BlazeCommand {
                 + " be used multiple times; for options given for the same variable, the latest"
                 + " wins, options for different variables accumulate. Note that the executed target"
                 + " will generally see the full environment of the host except for those variables"
-                + " that have been explicitly unset.")
+                + " that have been explicitly unset. The string `%bazel_workspace%` in a value"
+                + " will be replaced with the absolute path of the workspace as printed by"
+                + " `bazel info workspace`.")
     public abstract List<EnvVar> getRunEnvironment();
 
     @Option(
@@ -714,7 +716,7 @@ public class RunCommand implements BlazeCommand {
     for (var envVar : runOptions.getRunEnvironment()) {
       switch (envVar) {
         case EnvVar.Set(String name, String value) -> {
-          runEnvironment.put(name, value);
+          runEnvironment.put(name, env.expandWorkspaceInEnvironmentValue(value));
           envVariablesToClear.remove(name);
         }
         case EnvVar.Inherit(String name) -> {
