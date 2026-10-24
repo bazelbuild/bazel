@@ -790,6 +790,62 @@ class RepoContentsCacheTest(test_base.TestBase):
     # by the replanting logic, so cross-repo symlinks prevent caching.
     self.doTestCachedRepoWithSymlinks(expect_cross_repo_cached=False)
 
+  def testCachedRepoWithCopiedFiles(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('tool.sh', ['#!/bin/sh'], executable=True)
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'haha\','
+                " srcs=['data.txt', 'tool.sh'])\")"
+            ),
+            '  rctx.copy(Label("@//:data.txt"), "data.txt")',
+            '  rctx.copy(Label("@//:tool.sh"), "tool.sh")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    # Copies of files in the main repo don't prevent caching.
+    repo_dir = self.repoDir('my_repo')
+    self.assertRepoCached(repo_dir)
+    self.assertFalse(os.path.islink(os.path.join(repo_dir, 'data.txt')))
+    self.AssertFileContentContains(os.path.join(repo_dir, 'data.txt'), 'one')
+    if not self.IsWindows():
+      self.assertFalse(os.access(os.path.join(repo_dir, 'data.txt'), os.X_OK))
+      self.assertTrue(os.access(os.path.join(repo_dir, 'tool.sh'), os.X_OK))
+
+    # Change a copied file: not cached
+    self.ScratchFile('data.txt', ['two'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    repo_dir = self.repoDir('my_repo')
+    self.assertRepoCached(repo_dir)
+    self.AssertFileContentContains(os.path.join(repo_dir, 'data.txt'), 'two')
+
+    # Change back to the previous content: cached (even after expunging)
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('data.txt', ['one'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.AssertFileContentContains(
+        os.path.join(self.repoDir('my_repo'), 'data.txt'), 'one'
+    )
+
 
 if __name__ == '__main__':
   absltest.main()
