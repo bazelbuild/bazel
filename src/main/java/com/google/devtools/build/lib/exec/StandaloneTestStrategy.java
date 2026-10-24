@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -320,7 +321,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       Path execRoot)
       throws ExecException, IOException, InterruptedException {
     ResolvedPaths resolvedPaths = testAction.resolve(execRoot);
-    Path out = actionExecutionContext.getInputPath(testAction.getTestLog());
+    Path out =
+        actionExecutionContext.getInputPath(
+            ActionInputHelper.fromPath(testAction.getTestStdoutPath()));
     Path err = resolvedPaths.getTestStderr();
     FileOutErr testOutErr = new FileOutErr(out, err);
     Closeable streamed = null;
@@ -333,15 +336,31 @@ public class StandaloneTestStrategy extends TestStrategy {
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
     SpawnStrategyResolver resolver = actionExecutionContext.getContext(SpawnStrategyResolver.class);
 
-    return runTestAttempt(
-        testAction,
-        actionExecutionContext,
-        spawn,
-        resolver,
-        resolvedPaths,
-        testOutErr,
-        streamed,
-        startTimeMillis);
+    try {
+      return runTestAttempt(
+          testAction,
+          actionExecutionContext,
+          spawn,
+          resolver,
+          resolvedPaths,
+          testOutErr,
+          streamed,
+          startTimeMillis);
+    } finally {
+      // Early exits, such as cancellation or failure to start a helper, must retain any stdout
+      // already captured, just as when it was written directly to test.log.
+      if (out.exists()) {
+        out.renameTo(actionExecutionContext.getInputPath(testAction.getTestLog()));
+      }
+    }
+  }
+
+  private static void addExistingLogInput(
+      ActionExecutionContext context, Path path, ImmutableList.Builder<ActionInput> inputs)
+      throws IOException {
+    if (path.exists()) {
+      inputs.add(ActionInputHelper.fromPath(path.relativeTo(context.getExecRoot())));
+    }
   }
 
   private static void appendCoverageLog(FileOutErr coverageOutErr, FileOutErr outErr)
@@ -450,21 +469,30 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   /**
-   * A spawn to generate a test.xml file from the test log. This is only used if the test does not
-   * generate a test.xml file itself.
+   * A spawn to generate test.xml from raw test and coverage output. This is only used if the test
+   * does not generate test.xml itself.
    */
   private static Spawn createXmlGeneratingSpawn(
-      TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
-    ImmutableList<String> args =
-        ImmutableList.of(
-            action
-                .getTestXmlGeneratorScript()
-                .getExecPath()
-                .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
-            action.getTestLog().getExecPathString(),
-            action.getTestXml().getExecPathString(),
-            Integer.toString(result.getWallTimeInMs() / 1000),
-            Integer.toString(result.exitCode()));
+      TestRunnerAction action,
+      ImmutableMap<String, String> testEnv,
+      SpawnResult result,
+      ImmutableList<ActionInput> logInputs) {
+    ImmutableList.Builder<String> args =
+        ImmutableList.<String>builder()
+            .add(
+                action
+                    .getTestXmlGeneratorScript()
+                    .getExecPath()
+                    .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
+                action.getTestStdoutPath().getPathString(),
+                action.getTestXml().getExecPathString(),
+                Integer.toString(result.getWallTimeInMs() / 1000),
+                Integer.toString(result.exitCode()));
+    for (ActionInput logInput : logInputs) {
+      if (!logInput.getExecPath().equals(action.getTestStdoutPath())) {
+        args.add(logInput.getExecPathString());
+      }
+    }
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
     Preconditions.checkArgument(testEnv.containsKey("PATH"));
@@ -478,14 +506,16 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     return new SimpleSpawn(
         action,
-        args,
+        args.build(),
         envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on
         // the test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
         SpawnInputs.of(
-            NestedSetBuilder.create(
-                Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog())),
+            NestedSetBuilder.<ActionInput>stableOrder()
+                .add(action.getTestXmlGeneratorScript())
+                .addAll(logInputs)
+                .build()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
@@ -756,6 +786,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         .setRunDurationMillis(durationMillis)
         .setHasCoverage(testAction.isCoverageMode());
 
+    FileOutErr coverageOutErr = null;
     if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
       if (testResultDataBuilder.getTestPassed()) {
         if (testAction.getCoverageDirectoryTreeArtifact() == null) {
@@ -801,7 +832,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
         Path out = testRoot.getChild("coverage.log");
         Path err = testRoot.getChild("coverage.err");
-        FileOutErr coverageOutErr = new FileOutErr(out, err);
+        coverageOutErr = new FileOutErr(out, err);
         ActionExecutionContext coverageActionExecutionContext =
             actionExecutionContext
                 .withFileOutErr(coverageOutErr)
@@ -834,9 +865,8 @@ public class StandaloneTestStrategy extends TestStrategy {
           throw e;
         }
 
-        // Append all output from the coverage spawn to the test log.
+        // Keep raw coverage output available to the XML-generating spawn.
         coverageOutErr.close();
-        appendCoverageLog(coverageOutErr, fileOutErr);
       } else {
         Artifact coverageData = testAction.getCoverageData();
         if (coverageData != null) {
@@ -856,54 +886,67 @@ public class StandaloneTestStrategy extends TestStrategy {
     Verify.verifyNotNull(testResultDataBuilder);
 
     try {
-      if (!fileOutErr.hasRecordedOutput()) {
-        // Make sure that the test.log exists.Spaw
-        FileSystemUtils.touchFile(fileOutErr.getOutputPath());
-      }
       fileOutErr.close();
-      // Append any error output to the test.log. This is very rare.
-      //
-      // Only write after the error output stream has been closed. Otherwise, Bazel cannot delete
-      // test.err file on Windows. See https://github.com/bazelbuild/bazel/issues/20741.
-      writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
-      if (streamed != null) {
-        streamed.close();
-      }
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.TEST_OUT_ERR_IO_EXCEPTION);
     }
 
     Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
 
-    // If the test did not create a test.xml, then we run a separate action to create a test.xml
-    // from test.log. We do this as a spawn rather than doing it locally in-process, as the test.log
-    // file may only exist remotely (when remote execution is enabled), and we do not want to have
-    // to download it.
-    if (fileOutErr.getOutputPath().exists() && !xmlOutputPath.exists()) {
-      Spawn xmlGeneratingSpawn =
-          createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
-      SpawnStrategyResolver spawnStrategyResolver =
-          actionExecutionContext.getContext(SpawnStrategyResolver.class);
-      // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
-      // the test if this fails. We redirect the output to a temporary file.
-      FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
-
-      ActionExecutionContext xmlActionExecutionContext =
-          actionExecutionContext
-              .withFileOutErr(xmlSpawnOutErr)
-              .withOutputsAsInputs(ImmutableList.of(testAction.getTestLog()));
+    try {
+      // Consume the raw streams before assembling the presentation log. These inputs can be
+      // uploaded or staged independently; the XML spawn must not depend on a locally merged file.
+      if (!xmlOutputPath.exists()) {
+        ImmutableList.Builder<ActionInput> logInputsBuilder = ImmutableList.builder();
+        addExistingLogInput(actionExecutionContext, fileOutErr.getOutputPath(), logInputsBuilder);
+        if (coverageOutErr != null) {
+          addExistingLogInput(
+              actionExecutionContext, coverageOutErr.getErrorPath(), logInputsBuilder);
+          addExistingLogInput(
+              actionExecutionContext, coverageOutErr.getOutputPath(), logInputsBuilder);
+        }
+        addExistingLogInput(actionExecutionContext, fileOutErr.getErrorPath(), logInputsBuilder);
+        ImmutableList<ActionInput> logInputs = logInputsBuilder.build();
+        Spawn xmlGeneratingSpawn =
+            createXmlGeneratingSpawn(
+                testAction, spawn.getEnvironment(), spawnResults.get(0), logInputs);
+        SpawnStrategyResolver spawnStrategyResolver =
+            actionExecutionContext.getContext(SpawnStrategyResolver.class);
+        // XML failures remain catastrophic, but the raw test output must still be retained below.
+        FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
+        ActionExecutionContext xmlActionExecutionContext =
+            actionExecutionContext.withFileOutErr(xmlSpawnOutErr).withOutputsAsInputs(logInputs);
+        try {
+          ImmutableList<SpawnResult> xmlSpawnResults =
+              spawnStrategyResolver.exec(xmlGeneratingSpawn, xmlActionExecutionContext);
+          spawnResults =
+              ImmutableList.<SpawnResult>builder()
+                  .addAll(spawnResults)
+                  .addAll(xmlSpawnResults)
+                  .build();
+        } catch (InterruptedException | ExecException e) {
+          closeSuppressed(e, xmlSpawnOutErr);
+          throw e;
+        }
+      }
+    } finally {
       try {
-
-        ImmutableList<SpawnResult> xmlSpawnResults =
-            spawnStrategyResolver.exec(xmlGeneratingSpawn, xmlActionExecutionContext);
-        spawnResults =
-            ImmutableList.<SpawnResult>builder()
-                .addAll(spawnResults)
-                .addAll(xmlSpawnResults)
-                .build();
-      } catch (InterruptedException | ExecException e) {
-        closeSuppressed(e, xmlSpawnOutErr);
-        throw e;
+        // Preserve the historical log order: test stdout, coverage stderr, coverage stdout,
+        // then test stderr. Only merge after the XML spawn has consumed the raw files.
+        if (!fileOutErr.getOutputPath().exists()) {
+          FileSystemUtils.touchFile(fileOutErr.getOutputPath());
+        }
+        if (coverageOutErr != null) {
+          appendCoverageLog(coverageOutErr, fileOutErr);
+        }
+        // The streams are closed before deleting their files, including on Windows.
+        writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(e, Code.TEST_OUT_ERR_IO_EXCEPTION);
+      } finally {
+        if (streamed != null) {
+          streamed.close();
+        }
       }
     }
 

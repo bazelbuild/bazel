@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -604,18 +605,29 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   /**
    * Creates a new {@link ActionExecutionContext} whose {@link InputMetadataProvider} has the given
-   * {@link Artifact}s as inputs.
+   * outputs as inputs, including captured stdout/stderr files that are not declared artifacts.
    *
-   * <p>Each {@link Artifact} must be an output of the current {@link ActionExecutionContext} and it
-   * must already have been built.
+   * <p>Each output must belong to the current {@link ActionExecutionContext} and must already have
+   * been built. Non-artifact outputs must exist in the action filesystem.
    */
-  public ActionExecutionContext withOutputsAsInputs(Iterable<Artifact> outputs)
+  public ActionExecutionContext withOutputsAsInputs(Iterable<? extends ActionInput> outputs)
       throws IOException, InterruptedException {
     ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
         ImmutableMap.builder();
 
-    for (Artifact output : outputs) {
-      additionalInputMap.put(output, outputMetadataStore.getOutputMetadata(output));
+    for (ActionInput output : outputs) {
+      FileArtifactValue metadata;
+      if (output instanceof Artifact artifact) {
+        metadata = outputMetadataStore.getOutputMetadata(artifact);
+      } else {
+        Path path = getInputPath(output);
+        FileStatus stat = path.stat();
+        metadata =
+            stat instanceof FileStatusWithMetadata statWithMetadata
+                ? statWithMetadata.getMetadata()
+                : FileArtifactValue.createFromStat(path, stat, syscallCache);
+      }
+      additionalInputMap.put(output, metadata);
     }
 
     StaticInputMetadataProvider additionalInputMetadata =
