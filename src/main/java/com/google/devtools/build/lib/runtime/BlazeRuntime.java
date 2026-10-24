@@ -984,7 +984,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     logger.atInfo().log(
         "Starting Bazel server with pid %d, args %s",
-        ProcessHandle.current().pid(), Arrays.toString(args));
+        ProcessHandle.current().pid(), SafeRequestLogging.redactArguments(Arrays.asList(args)));
     try {
       // Run Blaze in server mode.
       exit(
@@ -1156,7 +1156,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         splitStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
     logger.atInfo().log(
         "Running Bazel in batch mode with pid %d, startup args %s",
-        ProcessHandle.current().pid(), commandLineOptions.getStartupArgs());
+        ProcessHandle.current().pid(),
+        SafeRequestLogging.redactArguments(commandLineOptions.getStartupArgs()));
 
     BlazeRuntime runtime;
     InvocationPolicy policy;
