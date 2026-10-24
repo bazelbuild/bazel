@@ -1257,6 +1257,42 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@ext//:all'])
     self.assertIn('DATA: ' + unicode_str, '\n'.join(stderr))
 
+  def testTagAttributesMutatedAfterTagCall(self):
+    # Equal lists passed to different tags must not be shared, as they can
+    # still be mutated by the rest of the module file.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'first = ["a"]',
+            'second = ["a"]',
+            'ext.tag(list = first)',
+            'ext.tag(list = second)',
+            'second.append("b")',
+            'use_repo(ext, "ext")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'def repo_rule_impl(ctx):',
+            '  ctx.file("BUILD")',
+            'repo_rule = repository_rule(implementation = repo_rule_impl)',
+            'def ext_impl(module_ctx):',
+            '  tags = module_ctx.modules[0].tags.tag',
+            '  print("TAGS: %s" % [tag.list for tag in tags])',
+            '  repo_rule(name = "ext")',
+            'tag = tag_class(attrs = {"list": attr.string_list()})',
+            'ext = module_extension(',
+            '  implementation = ext_impl,',
+            '  tag_classes = {"tag": tag},',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@ext//:all'])
+    self.assertIn('TAGS: [["a"], ["a", "b"]]', '\n'.join(stderr))
+
   def testDefaultModuleMirrors(self):
     """Tests that default module mirrors are applied to all registries."""
     self.ScratchFile(
