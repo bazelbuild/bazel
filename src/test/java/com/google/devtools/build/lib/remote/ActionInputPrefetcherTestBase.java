@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
@@ -441,6 +442,44 @@ public abstract class ActionInputPrefetcherTestBase {
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath(), fs.getPath(resolvedPath));
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_lostFileRequestedThroughDifferentInputs_failuresNameOwnInput()
+      throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    PathFragment resolvedPath = artifactRoot.getRoot().asPath().getChild("target").asFragment();
+    Artifact first = createRemoteArtifact("first", "hello world", resolvedPath, metadata, cas);
+    Artifact second = createRemoteArtifact("second", "hello world", resolvedPath, metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    SettableFuture<Void> download = SettableFuture.create();
+    mockDownload(prefetcher, cas, () -> download);
+
+    // Both inputs resolve to the same file, so the second one joins the download of the first.
+    ListenableFuture<Void> firstPrefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(first), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    ListenableFuture<Void> secondPrefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(second), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    FileArtifactValue lostMetadata = metadata.get(first);
+    download.setException(
+        new CacheNotFoundException(
+            DigestUtil.buildDigest(lostMetadata.getDigest(), lostMetadata.getSize()),
+            first.getExecPath()));
+
+    for (Artifact input : ImmutableList.of(first, second)) {
+      BulkTransferException e =
+          assertThrows(
+              BulkTransferException.class,
+              () -> getFromFuture(input == first ? firstPrefetch : secondPrefetch));
+      assertThat(
+              e.getLostArtifacts(execPath -> execPath.equals(input.getExecPath()) ? input : null)
+                  .byDigest()
+                  .values())
+          .containsExactly(input);
+    }
   }
 
   @Test
