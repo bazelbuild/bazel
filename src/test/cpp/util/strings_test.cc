@@ -145,6 +145,13 @@ TEST(BlazeUtil, Tokenize) {
   EXPECT_EQ("a", result[0]);
   EXPECT_EQ("b c", result[1]);
 
+  str = R"('hello\world' 'hello\\world' 'hello\'world)";
+  Tokenize(str, '#', &result);
+  ASSERT_EQ(size_t(3), result.size());
+  EXPECT_EQ(R"(hello\world)", result[0]);
+  EXPECT_EQ(R"(hello\\world)", result[1]);
+  EXPECT_EQ(R"(hello\world)", result[2]);
+
   str = "foo# bar baz";
   Tokenize(str, '#', &result);
   ASSERT_EQ(size_t(1), result.size());
