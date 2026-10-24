@@ -350,6 +350,11 @@ public class StarlarkOptionsParser {
                     .map(s -> "\"" + s + "\"")
                     .collect(joining(", "))));
       }
+    } else if (attrMap.has("scope", Type.STRING)
+        && !attrMap.get("scope", Type.STRING).equals(Type.STRING.getDefaultValue())) {
+      // Honor the rule's default just like BuildOptionsScopeFunction does for flags set by
+      // transitions so that both result in the same configuration.
+      scopeType = attrMap.get("scope", Type.STRING);
     }
     return scopeType;
   }
