@@ -498,6 +498,12 @@ public final class RemoteModule extends BlazeModule {
                 .formatted(resolvedOutputBase, resolvedDiskCache),
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
       }
+      try {
+        DiskCacheClient.createCacheDirectoryTag(resolvedDiskCache, env.getWorkspace());
+      } catch (IOException e) {
+        env.getReporter()
+            .handle(Event.warn("Could not create disk cache CACHEDIR.TAG: " + e.getMessage()));
+      }
       var gcIdleTask =
           DiskCacheGarbageCollectorIdleTask.create(
               remoteOptions, diskCachePath, env.getWorkingDirectory());

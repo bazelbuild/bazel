@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
 import java.io.BufferedOutputStream;
@@ -105,6 +106,40 @@ public class DiskCacheClient {
 
     fnRoot.createDirectoryAndParents();
     tmpRoot.createDirectoryAndParents();
+  }
+
+  /** Marks a disk cache for backup exclusion, unless it contains the current workspace. */
+  public static void createCacheDirectoryTag(Path root, Path workspace) throws IOException {
+    root.createDirectoryAndParents();
+    root = root.resolveSymbolicLinks();
+    if (workspace.resolveSymbolicLinks().startsWith(root)) {
+      return;
+    }
+    Path tag = root.getChild("CACHEDIR.TAG");
+    if (tag.exists(Symlinks.NOFOLLOW)) {
+      return;
+    }
+    Path tmp = root.getChild(TMP_DIR);
+    tmp.createDirectoryAndParents();
+    Path temp = tmp.getChild(UUID.randomUUID().toString());
+    try {
+      FileSystemUtils.writeContentAsLatin1(
+          temp,
+          "Signature: 8a477f597d28d172789f06886806bc55\n"
+              + "# This directory contains Bazel disk cache entries.\n"
+              + "# https://bford.info/cachedir/\n");
+      // Publish a complete regular file without replacing anything, even when
+      // another Bazel process creates the tag concurrently. Never follow a tag symlink.
+      try {
+        temp.createHardLink(tag);
+      } catch (IOException e) {
+        if (!tag.exists(Symlinks.NOFOLLOW)) {
+          throw e;
+        }
+      }
+    } finally {
+      temp.delete();
+    }
   }
 
   /**
