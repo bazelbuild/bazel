@@ -25,14 +25,14 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
-if [[ "$(uname -s | tr [:upper:] [:lower:])" =~ msys* ]]; then
+if [[ "$(uname -s | tr '[:upper:]' '[:lower:]')" =~ msys* ]]; then
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
 fi
 
-DIR=$(mktemp -d "${TEST_TMPDIR}/test.XXXXXXXX")
-cd $DIR
+DIR="$(mktemp -d "${TEST_TMPDIR}/test.XXXXXXXX")"
+cd -- "$DIR"
 
 # The following code produces a 120MB file (30*2^22 bytes)
 cat > input.txt <<EOF
@@ -48,7 +48,7 @@ done
 "$(rlocation io_bazel/tools/build_defs/hash/sha256${EXE_EXT})" \
   "$DIR/input.txt" "$DIR/output.txt"
 
-expected=b89e2ebd615b1d32be9cec7bf687f3a00476835fe2ea8fb560394d79f420390c
+expected="b89e2ebd615b1d32be9cec7bf687f3a00476835fe2ea8fb560394d79f420390c"
 if [ "$(cat output.txt)" != "$expected" ]; then
   echo "Wrong hash $(cat output.txt); expected $expected"
   exit 1
