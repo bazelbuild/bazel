@@ -26,16 +26,17 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
@@ -51,7 +52,7 @@ public final class SymlinkTreeHelperTest {
     FILESET
   }
 
-  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+  private final SymlinkCountingFileSystem fs = new SymlinkCountingFileSystem(true);
   private final Path execRoot = fs.getPath("/execroot");
   private final ArtifactRoot outputRoot =
       ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
@@ -197,5 +198,66 @@ public final class SymlinkTreeHelperTest {
     // With native symlink support, the existing link is kept as-is. Without it, it must be
     // recreated so that the file system can replace it with a copy of the now existing file.
     assertThat(fs.symlinksCreated.get()).isEqualTo(supportsSymlinks ? 0 : 1);
+  }
+
+  @Test
+  public void filesetChildReplacesConflictingParentLink(
+      @TestParameter boolean existing,
+      @TestParameter boolean parentFirst,
+      @TestParameter boolean directoryTarget)
+      throws Exception {
+    Path root = execRoot.getRelative("prefix.runfiles");
+    Path target = execRoot.getChild("target");
+    Path preserved = directoryTarget ? target.getChild("preserved") : target;
+    if (directoryTarget) {
+      target.createDirectory();
+    }
+    FileSystemUtils.writeContent(preserved, UTF_8, "preserved");
+    if (existing) {
+      root.createDirectoryAndParents();
+      root.getChild("parent").createSymbolicLink(target.asFragment());
+    }
+    var helper =
+        new SymlinkTreeHelper(
+            execRoot.getChild("manifest"), root.getChild("MANIFEST"), root, WORKSPACE_NAME);
+    Map<PathFragment, PathFragment> links = new LinkedHashMap<>();
+    if (parentFirst) {
+      links.put(PathFragment.create("parent"), target.asFragment());
+    }
+    links.put(PathFragment.create("parent/child"), preserved.asFragment());
+    if (!parentFirst) {
+      links.put(PathFragment.create("parent"), target.asFragment());
+    }
+    fs.symlinksCreated.set(0);
+    helper.createFilesetSymlinks(links);
+
+    assertThat(root.getChild("parent").isDirectory(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(root.getRelative("parent/child").readSymbolicLink()).isEqualTo(preserved.asFragment());
+    assertThat(FileSystemUtils.readContent(preserved, UTF_8)).isEqualTo("preserved");
+    assertThat(fs.symlinksCreated.get()).isEqualTo(1);
+
+    fs.symlinksCreated.set(0);
+    helper.createFilesetSymlinks(links);
+    assertThat(fs.symlinksCreated.get()).isEqualTo(0);
+    assertThat(FileSystemUtils.readContent(preserved, UTF_8)).isEqualTo("preserved");
+  }
+
+  @Test
+  public void replacesRunfilesRootSymlinkWithoutModifyingTarget() throws Exception {
+    Path root = execRoot.getRelative("prefix.runfiles");
+    Path target = execRoot.getChild("target");
+    target.createDirectory();
+    Path preserved = target.getChild("preserved");
+    FileSystemUtils.writeContent(preserved, UTF_8, "preserved");
+    root.createSymbolicLink(target.asFragment());
+    var helper =
+        new SymlinkTreeHelper(
+            execRoot.getChild("manifest"), root.getChild("MANIFEST"), root, WORKSPACE_NAME);
+    helper.createFilesetSymlinks(Map.of(PathFragment.create("link"), preserved.asFragment()));
+
+    assertThat(root.isDirectory(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(root.getChild("link").readSymbolicLink()).isEqualTo(preserved.asFragment());
+    assertThat(FileSystemUtils.readContent(preserved, UTF_8)).isEqualTo("preserved");
+    assertThat(target.getChild("link").exists(Symlinks.NOFOLLOW)).isFalse();
   }
 }
