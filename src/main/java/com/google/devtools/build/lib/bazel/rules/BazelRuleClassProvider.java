@@ -61,7 +61,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
@@ -138,16 +138,15 @@ public class BazelRuleClassProvider {
         : SHELL_EXECUTABLES.getOrDefault(os, FALLBACK_SHELL);
   }
 
-  public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
-      (BuildOptions options) -> {
+  public static final BiFunction<BuildOptions, OS, ActionEnvironment> SHELL_ACTION_ENV =
+      (BuildOptions options, OS executionOs) -> {
         if (options.hasNoConfig()) {
           return ActionEnvironment.EMPTY;
         }
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).getUseStrictActionEnv();
-        OS os = OS.getCurrent();
-        // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
-        // which may be different for remote execution. For now, this can be overridden with
-        // --shell_executable, so at least there's a workaround.
+        // Without strict action env, PATH comes from the client or the server, which run on the
+        // host OS.
+        OS os = strictActionEnv ? executionOs : OS.getCurrent();
         PathFragment shellExecutable =
             getShellExecutableForOs(os, options.get(ShellConfiguration.Options.class));
 
@@ -351,10 +350,6 @@ public class BazelRuleClassProvider {
 
   @VisibleForTesting
   public static String pathOrDefault(OS os, @Nullable String path, @Nullable PathFragment sh) {
-    // TODO(ulfjack): The default PATH should be set from the exec platform, which may be different
-    // from the local machine. For now, this can be overridden with --action_env=PATH=<value>, so
-    // at least there's a workaround.
-
     // On the BSDs system package manager binaries, and importantly bash, end
     // up in /usr/local/bin, so we need to include that in the default PATH. On
     // other Unix platforms we want to exclude /usr/local/bin which commonly

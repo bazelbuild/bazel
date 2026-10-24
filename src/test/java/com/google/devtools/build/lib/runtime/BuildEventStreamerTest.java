@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -2084,7 +2085,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             "productName"),
         new BuildConfigurationValue.GlobalStateProvider() {
           @Override
-          public ActionEnvironment getActionEnvironment(BuildOptions buildOptions) {
+          public ActionEnvironment getActionEnvironment(BuildOptions buildOptions, OS executionOs) {
             return ActionEnvironment.EMPTY;
           }
 

@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -133,7 +134,8 @@ public abstract class SpawnLogContextTestBase {
                 TestConstants.PRODUCT_NAME),
             new BuildConfigurationValue.GlobalStateProvider() {
               @Override
-              public ActionEnvironment getActionEnvironment(BuildOptions buildOptions) {
+              public ActionEnvironment getActionEnvironment(
+                  BuildOptions buildOptions, OS executionOs) {
                 return ActionEnvironment.EMPTY;
               }
 
