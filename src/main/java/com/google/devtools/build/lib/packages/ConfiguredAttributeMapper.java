@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 
 /**
  * {@link AttributeMap} implementation that binds a rule's attribute as follows:
@@ -94,6 +95,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final String configHash;
   private final boolean alwaysSucceed;
+  @Nullable private volatile ImmutableMap<String, Object> starlarkAttributeValues;
 
   private ConfiguredAttributeMapper(
       Rule rule,
@@ -109,6 +111,30 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   @Override
   public String describeRule() {
     return String.format("%s (%s)", super.describeRule(), this.configHash.substring(0, 6));
+  }
+
+  /**
+   * Returns immutable Starlark attribute values, shared across transitions from this rule.
+   *
+   * <p>Attributes without a Starlark representation are omitted.
+   */
+  public ImmutableMap<String, Object> getStarlarkAttributeValues() {
+    ImmutableMap<String, Object> values = starlarkAttributeValues;
+    if (values == null) {
+      ImmutableMap.Builder<String, Object> attributes = ImmutableMap.builder();
+      for (String attribute : getAttributeNames()) {
+        Object value = get(attribute, getAttributeType(attribute));
+        try {
+          attributes.put(Attribute.getStarlarkName(attribute), Attribute.valueToStarlark(value));
+        } catch (InvalidStarlarkValueException e) {
+          // Native rules can have attributes that are not representable in Starlark.
+          // TODO(b/288258583): encode this more cleanly than a swallowed exception.
+        }
+      }
+      values = attributes.buildKeepingLast();
+      starlarkAttributeValues = values;
+    }
+    return values;
   }
 
   /**
