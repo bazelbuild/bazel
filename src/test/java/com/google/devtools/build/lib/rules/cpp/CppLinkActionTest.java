@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
@@ -36,6 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
@@ -44,6 +47,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.util.List;
+import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -734,6 +738,76 @@ cc_binary(name = "tool")
         expandedCommandLines.getParamFiles().get(0).getArguments(),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
+  }
+
+  @Test
+  public void testLibrariesToLinkDoNotReferenceArtifactsFromRestartedAnalysis() throws Exception {
+    scratch.file("bazel_internal/test_rules/cc/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/cc/foo.bzl",
+"""
+load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')
+def _impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+    )
+    dir = ctx.actions.declare_directory("library_directory")
+    ctx.actions.run(executable = ctx.executable._tool, outputs = [dir])
+    compilation_outputs = cc_common.create_compilation_outputs(objects = depset([dir]))
+    cc_common.link(
+        actions = ctx.actions,
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        name = ctx.label.name,
+        compilation_outputs = compilation_outputs,
+        linking_contexts = [ctx.attr.dep[CcInfo].linking_context],
+        stamp = 1,
+    )
+
+cc_link_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "dep": attr.label(providers = [CcInfo]),
+        "_tool": attr.label(default = "//foo:tool", executable = True, cfg = "exec"),
+    },
+    fragments = ["cpp"],
+    toolchains = use_cc_toolchain(),
+)
+""");
+    // Compiling the stamped linkstamp requests the workspace status, which restarts the analysis of
+    // //foo after the libraries to link have already been interned.
+    scratch.file(
+        "foo/BUILD",
+"""
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel_internal/test_rules/cc:foo.bzl", "cc_link_rule")
+cc_link_rule(name = "foo", dep = ":stamp")
+cc_library(name = "stamp", linkstamp = "stamp.cc")
+cc_binary(name = "tool")
+""");
+
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
+    Artifact treeArtifact = ActionsTestUtil.getInput(linkAction, "library_directory");
+    LinkCommandLine linkCommandLine =
+        (LinkCommandLine) linkAction.getCommandLines().unpack().get(1).commandLine;
+    CcToolchainVariables.Sequence librariesToLink =
+        (CcToolchainVariables.Sequence)
+            linkCommandLine.getBuildVariables().getVariable("libraries_to_link", PathMapper.NOOP);
+    StarlarkInfo objectFileGroup =
+        librariesToLink.values().stream()
+            .map(StarlarkInfo.class::cast)
+            .filter(library -> library.getValue("type").equals("object_file_group"))
+            .collect(onlyElement());
+
+    // An equal artifact created by the restarted analysis attempt never has its generating action
+    // key set.
+    assertThat(((Sequence<?>) objectFileGroup.getValue("object_files")).get(0))
+        .isSameInstanceAs(treeArtifact);
   }
 
   @Test
