@@ -98,7 +98,13 @@ public final class StarlarkTransitionCache {
     return result;
   }
 
-  /** Adds the default values for a transition's input build settings to its input build options. */
+  /**
+   * Adds the values of a transition's build settings that aren't present under the label the
+   * transition references them by to its input build options.
+   *
+   * <p>This is the case for settings that have their default value as well as for settings
+   * referenced via an alias, which have the value of their actual setting.
+   */
   private BuildOptions addDefaultStarlarkOptions(
       BuildOptions fromOptions,
       ImmutableMap<String, Label> flagsAliases,
@@ -117,8 +123,10 @@ public final class StarlarkTransitionCache {
         if (optionsWithDefaults == null) {
           optionsWithDefaults = fromOptions.toBuilder();
         }
+        Object value = fromOptions.getStarlarkOptions().get(setting);
         optionsWithDefaults.addStarlarkOption(
-            maybeAliasSetting, details.buildSettingToDefault().get(setting));
+            maybeAliasSetting,
+            value != null ? value : details.buildSettingToDefault().get(setting));
       }
     }
 
