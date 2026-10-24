@@ -741,6 +741,11 @@ public class RemoteActionFileSystem extends FileSystem {
 
       @Override
       public long getLastModifiedTime() {
+        return Math.floorDiv(getLastModifiedTimeNanos(), 1_000_000);
+      }
+
+      @Override
+      public long getLastModifiedTimeNanos() {
         try {
           return m.getModifiedTime();
         } catch (UnsupportedOperationException e) {
@@ -752,6 +757,11 @@ public class RemoteActionFileSystem extends FileSystem {
       @Override
       public long getLastChangeTime() {
         return getLastModifiedTime();
+      }
+
+      @Override
+      public long getLastChangeTimeNanos() {
+        return getLastModifiedTimeNanos();
       }
 
       @Override

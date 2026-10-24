@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +41,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.text.Normalizer;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
@@ -569,5 +572,20 @@ public class WindowsFileSystemTest {
         () -> fs.renameTo(scratchRoot.getRelative("src").asFragment(), nested.asFragment()));
     assertThrows(IOException.class, () -> nested.createReadWriteByteChannel());
     assertThrows(IOException.class, () -> fs.createReadWriteByteChannel(nested.asFragment()));
+  }
+
+  @Test
+  public void testStatTimesInNanoseconds() throws Exception {
+    Path file = scratchRoot.getRelative("file");
+    FileSystemUtils.createEmptyFile(file);
+    Files.setLastModifiedTime(
+        Paths.get(file.getPathString()),
+        FileTime.from(Instant.ofEpochSecond(1_000_000_000, 123_456_700)));
+
+    FileStatus stat = file.stat();
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo(1_000_000_000_123_456_700L);
+    assertThat(stat.getLastModifiedTime()).isEqualTo(1_000_000_000_123L);
+    assertThat(Math.floorDiv(stat.getLastChangeTimeNanos(), 1_000_000))
+        .isEqualTo(stat.getLastChangeTime());
   }
 }

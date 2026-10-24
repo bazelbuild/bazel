@@ -158,6 +158,79 @@ public final class DigestUtilsTest {
   }
 
   @Test
+  public void changeWithinTheSameMillisecond_isAMiss() throws Exception {
+    AtomicInteger getDigestCounter = new AtomicInteger(0);
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getDigest(PathFragment path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+        };
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+
+    Path file = tracingFileSystem.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+    FileStatus stat = file.stat();
+    DigestUtils.manuallyComputeDigest(file, withChangeTimeNanos(stat, 1_000_001));
+    DigestUtils.manuallyComputeDigest(file, withChangeTimeNanos(stat, 1_000_002));
+
+    assertThat(getDigestCounter.get()).isEqualTo(2);
+    assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(0);
+  }
+
+  private static FileStatus withChangeTimeNanos(FileStatus stat, long changeTimeNanos) {
+    return new FileStatus() {
+      @Override
+      public boolean isFile() {
+        return stat.isFile();
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return stat.isDirectory();
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return stat.isSymbolicLink();
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return stat.isSpecialFile();
+      }
+
+      @Override
+      public long getSize() throws IOException {
+        return stat.getSize();
+      }
+
+      @Override
+      public long getLastModifiedTime() throws IOException {
+        return stat.getLastModifiedTime();
+      }
+
+      @Override
+      public long getLastChangeTime() {
+        return Math.floorDiv(changeTimeNanos, 1_000_000);
+      }
+
+      @Override
+      public long getLastChangeTimeNanos() {
+        return changeTimeNanos;
+      }
+
+      @Override
+      public long getNodeId() throws IOException {
+        return stat.getNodeId();
+      }
+    };
+  }
+
+  @Test
   public void manuallyComputeDigest() throws Exception {
     byte[] digest = {1, 2, 3};
     FileSystem noDigestFileSystem =
