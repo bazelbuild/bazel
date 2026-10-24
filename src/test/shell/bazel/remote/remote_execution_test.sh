@@ -2120,6 +2120,151 @@ function test_exclusive_test_wont_remote_exec() {
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
+function test_test_logs_with_minimal_downloads_and_deferred_stdio() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "passing_test",
+    srcs = ["test.sh"],
+    args = ["0"],
+)
+
+sh_test(
+    name = "failing_test",
+    srcs = ["test.sh"],
+    args = ["1"],
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/usr/bin/env bash
+echo RAW_LOG_TEST_STDOUT
+echo RAW_LOG_TEST_STDERR >&2
+printf 'ATTEMPT_NONCE=%s%s\n' "$RANDOM" "$RANDOM"
+# Leave test.xml absent so the remote XML helper must read the test output.
+exit "$1"
+EOF
+  chmod +x a/test.sh
+
+  if bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --remote_download_regex='.*test[.]xml' \
+      --test_output=errors \
+      --flaky_test_attempts=2 \
+      //a:passing_test //a:failing_test >& $TEST_log; then
+    fail "Expected failing_test to fail"
+  fi
+
+  local expected='RAW_LOG_TEST_STDOUT
+RAW_LOG_TEST_STDERR'
+  local test_name
+  for test_name in passing_test failing_test; do
+    local path="bazel-testlogs/a/${test_name}/test.xml"
+    [[ -f "$path" ]] || fail "Missing test output: $path"
+    assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' "$path")"
+  done
+  # Successful output stays remote; --test_output=errors materializes only the
+  # failed test's assembled log, including after retrying the failed attempt.
+  [[ ! -f bazel-testlogs/a/passing_test/test.log ]] \
+      || fail "Passing test log should not have been downloaded"
+  local failed_log=bazel-testlogs/a/failing_test/test.log
+  [[ -f "$failed_log" ]] || fail "Missing failed test log"
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' "$failed_log")"
+  assert_contains 'exited with error code 1' bazel-testlogs/a/failing_test/test.xml
+  # Retries reuse the raw output path but produce new digests. The XML helper
+  # must not consume a cached download from the previous attempt.
+  assert_equals "$(grep -o 'ATTEMPT_NONCE=[0-9]*' "$failed_log")" \
+      "$(grep -o 'ATTEMPT_NONCE=[0-9]*' bazel-testlogs/a/failing_test/test.xml)"
+
+  # Evict only the generated XML action results, leaving the test result and
+  # its raw streams cached remotely. The next XML helper must execute locally.
+  local cached_result
+  while IFS= read -r cached_result; do
+    if grep -aq 'test[.]xml' "$cached_result"; then
+      rm "$cached_result"
+    fi
+  done < <(find "$cas_path/ac" -type f)
+  bazel clean >& "$TEST_log" || fail "Failed to clean"
+  bazel test \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --spawn_strategy=standalone \
+      --remote_download_minimal \
+      --test_output=all \
+      //a:passing_test >& "$TEST_log" || fail "Failed to generate XML locally"
+  expect_log '1 remote cache hit'
+  expect_log '1 local'
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' bazel-testlogs/a/passing_test/test.xml)"
+  assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' bazel-testlogs/a/passing_test/test.log)"
+}
+
+function test_split_coverage_logs_with_minimal_downloads() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_binary(
+    name = "lcov_merger",
+    srcs = ["lcov_merger.sh"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/usr/bin/env bash
+echo RAW_LOG_TEST_STDOUT
+echo RAW_LOG_TEST_STDERR >&2
+# Give the split coverage action an input without requiring a language toolchain.
+echo coverage > "${COVERAGE_DIR}/test.dat"
+EOF
+  cat > a/lcov_merger.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo RAW_LOG_COVERAGE_STDOUT
+echo RAW_LOG_COVERAGE_STDERR >&2
+for arg in "$@"; do
+  if [[ "$arg" == --output_file=* ]]; then
+    printf 'SF:a/test.sh\nDA:2,1\nend_of_record\n' > "${arg#--output_file=}"
+  fi
+done
+EOF
+  chmod +x a/test.sh a/lcov_merger.sh
+
+  bazel coverage \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --remote_download_stdouterr=false \
+      --remote_download_regex='.*test[.]xml' \
+      --experimental_split_coverage_postprocessing \
+      --experimental_fetch_all_coverage_outputs \
+      --coverage_output_generator=//a:lcov_merger \
+      //a:test >& $TEST_log \
+      || fail "Failed to run split coverage with remote execution"
+
+  # The test wrapper combines test stderr into stdout. Coverage postprocessing
+  # keeps its streams separate and appends stderr before stdout, independent of
+  # the order in which the merger wrote them. Both XML and the final log must
+  # retain all streams when their raw files originate on the remote worker.
+  local expected='RAW_LOG_TEST_STDOUT
+RAW_LOG_TEST_STDERR
+RAW_LOG_COVERAGE_STDERR
+RAW_LOG_COVERAGE_STDOUT'
+  local output
+  for output in bazel-testlogs/a/test/test.xml bazel-testlogs/a/test/test.log; do
+    [[ -f "$output" ]] || fail "Missing test output: $output"
+    assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' "$output")"
+  done
+}
+
 function test_java_rbe_coverage_produces_report() {
   add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
@@ -3266,12 +3411,28 @@ exit 0
 EOF
   chmod +x x.sh
 
+  # Bash traces the wrapper's initial stderr redirection before it takes effect.
+  local trace_flags=()
+  if ! is_windows; then
+    trace_flags=(--test_env=SHELLOPTS=xtrace)
+  fi
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
+      --remote_download_regex='.*test[.]xml' \
+      "${trace_flags[@]}" \
       --test_output=errors \
       //:x  &> $TEST_log && fail "expected failure"
   expect_log "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --"
+  if ! is_windows; then
+    local output
+    for output in test.xml test.log; do
+      local path="bazel-testlogs/x/${output}"
+      assert_contains 'fake pass' "$path"
+      assert_contains '^+ exec$' "$path"
+      assert_contains 'Test exited prematurely' "$path"
+    done
+  fi
 }
 
 function test_cache_key_scrubbing() {

@@ -1295,9 +1295,9 @@ public class RemoteExecutionService {
    *
    * <p>For a successful action, the {@link RemoteOutputChecker} is consulted to determine which of
    * the outputs should be downloaded. For a failed action, all outputs are downloaded. The action
-   * stdout and stderr, as well as the in-memory output when present, are always downloaded even in
-   * the success case. Any outputs that are not downloaded have their metadata injected into the
-   * {@link RemoteActionFileSystem}.
+   * stdout and stderr are downloaded by default, but may be deferred until read when requested. The
+   * in-memory output when present is always downloaded. Any outputs that are not downloaded have
+   * their metadata injected into the {@link RemoteActionFileSystem}.
    *
    * <p>In case of download failure, all of the already downloaded outputs are deleted.
    *
@@ -1439,15 +1439,37 @@ public class RemoteExecutionService {
 
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
 
-    // Always download the action stdout/stderr, except for stdout that was redirected into an
-    // output above (in which case it must not be reported as regular action stdout).
+    // Inline logs have no guarantee of also being present in CAS, so always keep them local.
+    // Only defer digest-backed logs whose final paths support remote metadata injection.
+    // Dynamic execution failure hooks need the temporary logs. Error responses may also have
+    // diagnostics appended after this method returns, which cannot append to deferred remote data.
+    boolean canDeferLogs =
+        !remoteOptions.getRemoteDownloadStdoutStderr()
+            && remoteActionFileSystem != null
+            && !action.getSpawnExecutionContext().speculating()
+            && (result.getResponse() == null || result.getResponse().getStatus().getCode() == 0);
+    boolean deferStdout =
+        canDeferLogs
+            && checkNotNull(remoteActionFileSystem).isOutput(outErr.getOutputPathFragment())
+            && context.getSpawn().getStdout() == null
+            && !outErr.hasRecordedStdout()
+            && result.actionResult.getStdoutRaw().isEmpty()
+            && result.actionResult.hasStdoutDigest();
+    boolean deferStderr =
+        canDeferLogs
+            && checkNotNull(remoteActionFileSystem).isOutput(outErr.getErrorPathFragment())
+            && !outErr.hasRecordedStderr()
+            && result.actionResult.getStderrRaw().isEmpty()
+            && result.actionResult.hasStderrDigest();
+    // Stdout redirected into an output above must not be reported as regular action stdout.
     FileOutErr tmpOutErr = outErr.childOutErr();
     List<ListenableFuture<Void>> outErrDownloads =
         combinedCache.downloadOutErr(
             context,
             result.actionResult,
             tmpOutErr,
-            /* downloadStdout= */ context.getSpawn().getStdout() == null);
+            /* downloadStdout= */ context.getSpawn().getStdout() == null && !deferStdout,
+            /* downloadStderr= */ !deferStderr);
     for (ListenableFuture<Void> future : outErrDownloads) {
       downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
     }
@@ -1473,6 +1495,23 @@ public class RemoteExecutionService {
     // Will these be properly garbage-collected if the above throws an exception?
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
+
+    // Publish deferred logs at their final paths only after winning the output lock. Access the
+    // paths through FileOutErr to invalidate its cached sizes so it observes the injected logs.
+    if (deferStdout) {
+      injectRemoteLog(
+          checkNotNull(remoteActionFileSystem),
+          outErr.getOutputPath(),
+          result.actionResult.getStdoutDigest(),
+          expirationTime);
+    }
+    if (deferStderr) {
+      injectRemoteLog(
+          checkNotNull(remoteActionFileSystem),
+          outErr.getErrorPath(),
+          result.actionResult.getStderrDigest(),
+          expirationTime);
+    }
 
     List<FileMetadata> finishedDownloads = new ArrayList<>(downloads.size());
     for (ListenableFuture<FileMetadata> finishedDownload : downloads) {
@@ -1536,6 +1575,17 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  private static void injectRemoteLog(
+      RemoteActionFileSystem fileSystem, Path path, Digest digest, Instant expirationTime)
+      throws IOException {
+    fileSystem.injectRemoteFile(
+        path.asFragment(),
+        DigestUtil.toBinaryDigest(digest),
+        digest.getSizeBytes(),
+        expirationTime,
+        /* inMemoryOutput= */ false);
   }
 
   /** An ongoing local execution of a spawn. */

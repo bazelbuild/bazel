@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifact
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -69,6 +71,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -329,6 +332,7 @@ public class RemoteActionFileSystem extends FileSystem {
         FileArtifactValue.createForRemoteFileWithMaterializationData(
             digest, size, /* locationIndex= */ 1, expirationTime, inMemoryOutput);
     remoteOutputTree.injectFile(path, metadata);
+    inputFetcher.invalidateDownloads(ImmutableList.of(path.relativeTo(execRoot)));
   }
 
   @Override
@@ -392,6 +396,7 @@ public class RemoteActionFileSystem extends FileSystem {
 
   @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
       getFromFuture(downloadIfRemote(path));
     } catch (InterruptedException e) {
@@ -410,31 +415,63 @@ public class RemoteActionFileSystem extends FileSystem {
   /** Downloads the file at {@code path} if it is remote. */
   public ListenableFuture<Void> downloadIfRemote(PathFragment path) {
     try {
+      path = resolveSymbolicLinks(path).asFragment();
       if (!isRemote(path)) {
         return immediateVoidFuture();
       }
+      PathFragment execPath = path.relativeTo(execRoot);
+      ActionInput input = inputArtifactData.getInput(execPath);
+      InputMetadataProvider metadataProvider = inputArtifactData;
+      if (input == null) {
+        // Captured stdout/stderr and other injected outputs are not necessarily action inputs.
+        var status = remoteOutputTree.statIfFound(path, /* followSymlinks= */ false);
+        if (!(status instanceof FileStatusWithMetadata statusWithMetadata)) {
+          return immediateVoidFuture();
+        }
+        input = ActionInputHelper.fromPath(execPath);
+        metadataProvider =
+            new StaticInputMetadataProvider(Map.of(input, statusWithMetadata.getMetadata()));
+      }
+      ActionInput inputToFetch = input;
+      return inputFetcher.prefetchFiles(
+          action,
+          /* spawn= */ null,
+          () -> ImmutableList.of(inputToFetch),
+          metadataProvider,
+          Priority.CRITICAL,
+          Reason.INPUTS);
     } catch (IOException e) {
       return immediateFailedFuture(e);
     }
-    PathFragment execPath = path.relativeTo(execRoot);
-    ActionInput input = inputArtifactData.getInput(execPath);
-    if (input == null) {
-      // TODO(tjgq): Also look up the remote output tree.
-      return immediateVoidFuture();
-    }
-    return inputFetcher.prefetchFiles(
-        action,
-        /* spawn= */ null,
-        () -> ImmutableList.of(input),
-        inputArtifactData,
-        Priority.CRITICAL,
-        Reason.INPUTS);
   }
 
   @Override
   public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
-    return localFs.getPath(path).getOutputStream(append, internal);
+    path = resolveSymbolicLinksForParent(path);
+    if (isRemote(path)) {
+      path = resolveSymbolicLinks(path).asFragment();
+    }
+    boolean remoteOutput = isOutput(path) && isRemote(path);
+    if (remoteOutput && append) {
+      // Appending must retain the remotely stored prefix, even if it has never been read locally.
+      try {
+        getFromFuture(downloadIfRemote(path));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IOException("Interrupted while fetching output to append: " + path, e);
+      }
+    }
+    Path localPath = localFs.getPath(path);
+    if (remoteOutput && localPath.exists()) {
+      localPath.setWritable(true);
+    }
+    OutputStream stream = localPath.getOutputStream(append, internal);
+    if (remoteOutput) {
+      // Future metadata queries must describe the modified local file, not the original CAS blob.
+      remoteOutputTree.getPath(path).delete();
+    }
+    return stream;
   }
 
   @Override
@@ -653,7 +690,6 @@ public class RemoteActionFileSystem extends FileSystem {
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
-
   /**
    * Internal stat implementation.
    *
@@ -766,7 +802,7 @@ public class RemoteActionFileSystem extends FileSystem {
     };
   }
 
-  private boolean isOutput(PathFragment path) {
+  boolean isOutput(PathFragment path) {
     return path.startsWith(outputBase);
   }
 
@@ -782,6 +818,8 @@ public class RemoteActionFileSystem extends FileSystem {
     // there's no risk of a race condition below.
     pathCanonicalizer.clearPrefix(srcPath);
     pathCanonicalizer.clearPrefix(dstPath);
+    inputFetcher.invalidateDownloads(
+        ImmutableList.of(srcPath.relativeTo(execRoot), dstPath.relativeTo(execRoot)));
 
     FileNotFoundException remoteException = null;
     try {
