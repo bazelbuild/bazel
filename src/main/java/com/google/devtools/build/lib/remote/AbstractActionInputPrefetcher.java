@@ -283,6 +283,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return false;
   }
 
+  /**
+   * Returns whether the file with the given metadata is available at the given path, e.g. because
+   * it has been downloaded before.
+   */
+  public boolean isAvailable(Path path, FileArtifactValue metadata) throws IOException {
+    return !shouldDownloadFile(path.forHostFileSystem(), metadata);
+  }
+  
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
 
   /**
