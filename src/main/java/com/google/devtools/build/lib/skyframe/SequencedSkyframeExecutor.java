@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVersionDiff;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -611,6 +612,35 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             });
   }
 
+  /** Includes executed template expansions, which are not analysis values. */
+  private Map<SkyKey, SkyValue> collectDoneActionGraphValues() {
+    return memoizingEvaluator
+        .getInMemoryGraph()
+        .collectDoneValues(
+            key -> {
+              SkyFunctionName functionName = key.functionName();
+              return functionName.equals(SkyFunctions.CONFIGURED_TARGET)
+                  || functionName.equals(SkyFunctions.ASPECT)
+                  || functionName.equals(SkyFunctions.ACTION_TEMPLATE_EXPANSION);
+            });
+  }
+
+  @Nullable
+  private RuleConfiguredTargetValue getActionTemplateOwner(ActionTemplateExpansionKey key)
+      throws InterruptedException {
+    ActionLookupKey ownerKey = key.getActionLookupKey();
+    if (ownerKey instanceof AspectKey aspectKey) {
+      SkyValue aspect = memoizingEvaluator.getExistingValue(aspectKey);
+      if (aspect == null || aspect.isCleared()) {
+        return null;
+      }
+      ownerKey = aspectKey.getBaseConfiguredTargetKey();
+    }
+    SkyValue owner = memoizingEvaluator.getExistingValue(ownerKey);
+    // Owning analysis values can have been discarded since the template was expanded.
+    return owner instanceof RuleConfiguredTargetValue target && !target.isCleared() ? target : null;
+  }
+
   private static void addStarlarkProviders(
       TransitiveInfoProviderMap providers, Multiset<StarlarkProvider> starlarkProviders) {
     for (int i = 0; i < providers.getProviderCount(); i++) {
@@ -628,7 +658,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     ImmutableList.Builder<Callable<Void>> tasks = ImmutableList.builder();
 
     try {
-      for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneAnalysisValues().entrySet()) {
+      for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneActionGraphValues().entrySet()) {
         SkyKey key = skyKeyAndValue.getKey();
         SkyValue skyValue = skyKeyAndValue.getValue();
         if (skyValue == null) {
@@ -656,6 +686,16 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
                 actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
                 return null;
               });
+        } else if (skyValue instanceof ActionTemplateExpansionValue expansion) {
+          RuleConfiguredTargetValue owner =
+              getActionTemplateOwner((ActionTemplateExpansionKey) key);
+          if (owner != null) {
+            tasks.add(
+                () -> {
+                  actionGraphDump.dumpActionTemplateExpansion(expansion, owner);
+                  return null;
+                });
+          }
         }
       }
       ForkJoinPool executor =
@@ -691,7 +731,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void dumpSkyframeState(ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException, IOException, TemplateExpansionException {
 
-    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneAnalysisValues().entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue : collectDoneActionGraphValues().entrySet()) {
       SkyKey key = skyKeyAndValue.getKey();
       SkyValue skyValue = skyKeyAndValue.getValue();
       if (skyValue == null) {
@@ -711,6 +751,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               (ConfiguredTargetValue)
                   memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
           actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
+        } else if (skyValue instanceof ActionTemplateExpansionValue expansion) {
+          RuleConfiguredTargetValue owner =
+              getActionTemplateOwner((ActionTemplateExpansionKey) key);
+          if (owner != null) {
+            actionGraphDump.dumpActionTemplateExpansion(expansion, owner);
+          }
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
