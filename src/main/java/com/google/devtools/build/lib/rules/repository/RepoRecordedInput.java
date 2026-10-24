@@ -46,6 +46,8 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
@@ -308,6 +310,16 @@ public abstract sealed class RepoRecordedInput {
       throws InterruptedException;
 
   /**
+   * Returns the value to record during repository or module extension evaluation. Unlike
+   * verification of a previous evaluation, recording can observe writes made during this
+   * evaluation.
+   */
+  public MaybeValue getValueForRecording(Environment env, BlazeDirectories directories)
+      throws InterruptedException {
+    return getValue(env, directories);
+  }
+
+  /**
    * Returns a human-readable description of the change from {@code oldValue} to {@code newValue}.
    */
   public abstract String describeChange(@Nullable String oldValue, @Nullable String newValue);
@@ -525,6 +537,32 @@ public abstract sealed class RepoRecordedInput {
       try {
         return new MaybeValue.Valid(
             fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
+      } catch (IOException e) {
+        return new MaybeValue.Invalid("failed to stat %s: %s".formatted(path, e.getMessage()));
+      }
+    }
+
+    @Override
+    public MaybeValue getValueForRecording(Environment env, BlazeDirectories directories)
+        throws InterruptedException {
+      var skyKey = getSkyKey(directories);
+      // Keep the Skyframe dependency, but an extension may modify a watched file after Skyframe
+      // evaluated its FileValue. Check the original path so a changed symlink is followed, too.
+      if (env.getValue(skyKey) == null) {
+        return MaybeValue.VALUES_MISSING;
+      }
+      var watchedPath = ((RootedPath) skyKey.argument()).asPath();
+      try {
+        var status = watchedPath.statIfFound(Symlinks.FOLLOW);
+        if (status == null) {
+          return new MaybeValue.Valid("ENOENT");
+        }
+        if (status.isDirectory()) {
+          return new MaybeValue.Valid("DIR");
+        }
+        byte[] digest =
+            DigestUtils.getDigestWithManualFallback(watchedPath, SyscallCache.NO_CACHE, status);
+        return new MaybeValue.Valid(BaseEncoding.base16().lowerCase().encode(digest));
       } catch (IOException e) {
         return new MaybeValue.Invalid("failed to stat %s: %s".formatted(path, e.getMessage()));
       }
