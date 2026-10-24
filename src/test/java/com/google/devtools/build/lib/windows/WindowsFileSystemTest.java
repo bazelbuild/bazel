@@ -351,6 +351,36 @@ public class WindowsFileSystemTest {
   }
 
   @Test
+  public void testRelativeSymlinkUnderDirectoryLink(@TestParameter boolean targetExists)
+      throws Exception {
+    Path view = scratchRoot.getRelative("view");
+    Path store = scratchRoot.getRelative("store");
+    Path target = store.getRelative("repo");
+    Path link = view.getRelative("repo");
+    view.createDirectory();
+    store.createDirectory();
+    FileSystemUtils.writeContentAsLatin1(view.getRelative("marker.txt"), "logical parent");
+    FileSystemUtils.writeContentAsLatin1(store.getRelative("marker.txt"), "physical parent");
+    if (targetExists) {
+      target.createDirectory();
+    }
+    link.createSymbolicLink(target, SymlinkTargetType.DIRECTORY);
+    if (!targetExists) {
+      target.createDirectory();
+    }
+
+    // The VFS currently makes symlink targets absolute on Windows, so use NIO for the inner link.
+    Files.createSymbolicLink(
+        fs.getNioPath(target.getRelative("relative").asFragment()), Paths.get("../marker.txt"));
+
+    // Read through the alias without explicitly resolving it first. Junctions and directory
+    // symlinks are both reported as symlinks by the VFS, but use different parents for the inner
+    // link. This also exercises the directory hint when the outer link is dangling.
+    assertThat(FileSystemUtils.readContent(link.getRelative("relative"), ISO_8859_1))
+        .isEqualTo(createSymbolicLinks ? "physical parent" : "logical parent");
+  }
+
+  @Test
   public void testCreateSymbolicLinkToNonExistingTargetOfUnspecifiedType() throws Exception {
     Path linkPath = scratchRoot.getRelative("link");
     Path targetPath = scratchRoot.getRelative("target");
