@@ -73,6 +73,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterValuesProvide
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -386,6 +387,45 @@ public class MerkleTreeComputerTest {
     }
 
     assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void treeArtifactSubtree_uploadStateIsPerUploadScope() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var treeArtifactInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, "dir/subdir/scoped_tree_artifact");
+    treeArtifactInput.getPath().createDirectoryAndParents();
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifactInput);
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifactInput, "file");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), "scoped file content");
+    treeArtifactBuilder.putChild(
+        treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+    fakeFileCache.putTreeArtifact(treeArtifactInput, treeArtifactBuilder.build());
+    var spawn = new SpawnBuilder().withInputs(treeArtifactInput).build();
+    var scopeA = new Object();
+    var scopeB = new Object();
+    var uploaderA = new CountingMerkleTreeUploader();
+    var uploaderB = new CountingMerkleTreeUploader();
+
+    for (int i = 0; i < 2; i++) {
+      for (var scopedUploader :
+          ImmutableList.of(
+              new SimpleEntry<>(scopeA, uploaderA), new SimpleEntry<>(scopeB, uploaderB))) {
+        var unused =
+            createMerkleTreeComputer(scopedUploader.getValue(), scopedUploader.getKey())
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+      }
+    }
+
+    // Each destination uploads the subtree once, and only once.
+    assertThat(uploaderA.ensureInputsPresentCount.get()).isEqualTo(1);
+    assertThat(uploaderB.ensureInputsPresentCount.get()).isEqualTo(1);
   }
 
   @Test
@@ -704,12 +744,18 @@ public class MerkleTreeComputerTest {
   }
 
   private MerkleTreeComputer createMerkleTreeComputer(MerkleTreeUploader uploader) {
+    return createMerkleTreeComputer(uploader, /* uploadScope= */ null);
+  }
+
+  private MerkleTreeComputer createMerkleTreeComputer(
+      MerkleTreeUploader uploader, @Nullable Object uploadScope) {
     return new MerkleTreeComputer(
         new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256),
         uploader,
         "buildRequestId",
         "commandId",
-        WORKSPACE_NAME);
+        WORKSPACE_NAME,
+        uploadScope);
   }
 
   private FakeSpawnExecutionContext createSpawnExecutionContext(

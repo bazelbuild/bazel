@@ -102,8 +102,23 @@ class ByteStreamUploader {
    */
   public ListenableFuture<Void> uploadBlobAsync(
       RemoteActionExecutionContext context, Digest digest, Chunker chunker) {
+    return uploadBlobAsync(context, digest, chunker, /* requireDigestSize= */ true);
+  }
+
+  /**
+   * Like {@link #uploadBlobAsync(RemoteActionExecutionContext, Digest, Chunker)}, but if {@code
+   * requireDigestSize} is false the chunker may stream a different number of bytes than {@code
+   * digest} describes. The resource name is still derived from {@code digest}. This is for callers
+   * that agree with the server on a protocol where the bytes streamed for a digest are a reference
+   * to the blob rather than the blob itself.
+   */
+  public ListenableFuture<Void> uploadBlobAsync(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      Chunker chunker,
+      boolean requireDigestSize) {
     return Futures.catchingAsync(
-        startAsyncUpload(context, digest, chunker),
+        startAsyncUpload(context, digest, chunker, requireDigestSize),
         StatusRuntimeException.class,
         (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
         MoreExecutors.directExecutor());
@@ -137,14 +152,17 @@ class ByteStreamUploader {
 
   /** Starts a file upload and returns a future representing the upload. */
   private ListenableFuture<Void> startAsyncUpload(
-      RemoteActionExecutionContext context, Digest digest, Chunker chunker) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      Chunker chunker,
+      boolean requireDigestSize) {
     try {
       chunker.reset();
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
 
-    if (chunker.getUncompressedSize() != digest.getSizeBytes()) {
+    if (requireDigestSize && chunker.getUncompressedSize() != digest.getSizeBytes()) {
       return Futures.immediateFailedFuture(
           new IllegalStateException(
               String.format(

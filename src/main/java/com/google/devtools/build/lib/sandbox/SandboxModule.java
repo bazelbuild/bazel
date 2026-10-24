@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
+import com.google.devtools.build.lib.sandbox.backend.SandboxBackends;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -319,6 +320,16 @@ public final class SandboxModule extends BlazeModule {
           "sandboxed",
           "darwin-sandbox");
     }
+
+    // Platform-agnostic: one strategy per --sandbox_backend, each selected by name. Backends that
+    // can't be launched decline spawns at runtime so that Bazel falls through to the next strategy.
+    SandboxBackends.register(
+        cmdEnv,
+        options.getSandboxBackends(),
+        options.getSandboxBackendOpts(),
+        executionOptions,
+        builder,
+        spawnRunners);
 
     if (windowsSandboxSupported) {
       SpawnRunner spawnRunner =
