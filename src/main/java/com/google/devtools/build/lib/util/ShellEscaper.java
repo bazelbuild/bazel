@@ -114,6 +114,15 @@ public final class ShellEscaper extends Escaper {
     return INSTANCE.escape(unescaped);
   }
 
+  public static String unescapeString(String escaped) {
+    if (escaped.isEmpty()
+        || escaped.charAt(0) != '\''
+        || escaped.charAt(escaped.length() - 1) != '\'') {
+      return escaped;
+    }
+    return escaped.substring(1, escaped.length() - 1).replace("'\\''", "'");
+  }
+
   /**
    * Transforms the input {@code Iterable} of unescaped strings to an
    * {@code Iterable} of escaped ones. The escaping is done lazily.
