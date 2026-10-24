@@ -207,6 +207,9 @@ public final class StarlarkTransitionCache {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
     result = StarlarkTransition.validate(transition, details, flagsAliases, result);
+    result =
+        StarlarkTransition.resetPlatformScopedSettings(
+            transition, details, flagsAliases, fromOptions, result);
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.

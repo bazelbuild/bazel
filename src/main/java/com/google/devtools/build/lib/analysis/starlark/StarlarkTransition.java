@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -219,6 +221,112 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       cleanedOptionMap.put(entry.getKey(), options);
     }
     return cleanedOptionMap.buildOrThrow();
+  }
+
+  /**
+   * Resets build settings with {@code scope = "platform"} to their default values when a transition
+   * changes {@code --platforms}.
+   *
+   * <p>A build setting is reset in an entry of {@code toOptions} if that entry's {@code
+   * --platforms} differs from {@code fromOptions}' and no Starlark transition in {@code root} has
+   * the build setting as an output. The new platform's flags are applied afterwards when the
+   * configuration key is created, so a value set by the new platform still wins.
+   *
+   * <p>Platforms are compared by label, so changing to an alias of the current platform also resets
+   * these build settings.
+   *
+   * @param root transition that was applied
+   * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input
+   *     and output settings of root. Used to unalias the outputs of {@code root}.
+   * @param flagsAliases a list of starlark flag aliases defined via --flag_alias.
+   * @param fromOptions the options {@code root} was applied to
+   * @param toOptions result of applying {@code root}, as returned by {@link #validate}
+   * @return {@code toOptions} with platform-scoped build settings reset where needed
+   * @throws TransitionException if an error occurred while visiting {@code root}.
+   */
+  public static Map<String, BuildOptions> resetPlatformScopedSettings(
+      ConfigurationTransition root,
+      StarlarkBuildSettingsDetailsValue details,
+      ImmutableMap<String, Label> flagsAliases,
+      BuildOptions fromOptions,
+      Map<String, BuildOptions> toOptions)
+      throws TransitionException {
+    PlatformOptions fromPlatformOptions = fromOptions.get(PlatformOptions.class);
+    if (fromPlatformOptions == null) {
+      return toOptions;
+    }
+    List<Label> fromPlatforms = fromPlatformOptions.getPlatforms();
+    // Most transitions don't change the platform.
+    if (toOptions.values().stream()
+        .noneMatch(options -> changesPlatforms(options, fromPlatforms))) {
+      return toOptions;
+    }
+
+    Set<Label> outputSettings = getUnaliasedOutputSettings(root, details, flagsAliases);
+    boolean changed = false;
+    ImmutableMap.Builder<String, BuildOptions> resetOptionsMap =
+        ImmutableMap.builderWithExpectedSize(toOptions.size());
+    for (Entry<String, BuildOptions> entry : toOptions.entrySet()) {
+      BuildOptions options = entry.getValue();
+      BuildOptions resetOptions =
+          resetPlatformScopedSettingsIfPlatformsChanged(options, fromPlatforms, outputSettings);
+      changed |= resetOptions != options;
+      resetOptionsMap.put(entry.getKey(), resetOptions);
+    }
+    return changed ? resetOptionsMap.buildOrThrow() : toOptions;
+  }
+
+  /**
+   * Returns {@code options} with all build settings with {@code scope = "platform"} that aren't in
+   * {@code outputSettings} reset to their default values if its {@code --platforms} differ from
+   * {@code fromPlatforms}.
+   *
+   * <p>Returns the same instance if no build setting has to be reset.
+   */
+  private static BuildOptions resetPlatformScopedSettingsIfPlatformsChanged(
+      BuildOptions options, List<Label> fromPlatforms, Set<Label> outputSettings) {
+    if (!changesPlatforms(options, fromPlatforms)) {
+      return options;
+    }
+    BuildOptions.Builder resetOptions = null;
+    for (Label setting : options.getStarlarkOptions().keySet()) {
+      Scope.ScopeType scopeType = options.getScopeTypeMap().get(setting);
+      if (scopeType == null
+          || !scopeType.scopeType().equals(Scope.ScopeType.PLATFORM)
+          || outputSettings.contains(setting)) {
+        continue;
+      }
+      if (resetOptions == null) {
+        resetOptions = options.toBuilder();
+      }
+      resetOptions.removeStarlarkOption(setting);
+    }
+    return resetOptions != null ? resetOptions.build() : options;
+  }
+
+  private static boolean changesPlatforms(BuildOptions options, List<Label> fromPlatforms) {
+    PlatformOptions platformOptions = options.get(PlatformOptions.class);
+    return platformOptions != null && !platformOptions.getPlatforms().equals(fromPlatforms);
+  }
+
+  /** Returns the Starlark build settings output by any Starlark transition in {@code root}. */
+  private static Set<Label> getUnaliasedOutputSettings(
+      ConfigurationTransition root,
+      StarlarkBuildSettingsDetailsValue details,
+      ImmutableMap<String, Label> flagsAliases)
+      throws TransitionException {
+    ImmutableSet.Builder<Label> outputSettings = ImmutableSet.builder();
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              for (Label maybeAliasSetting :
+                  getRelevantStarlarkSettingsFromTransition(
+                      transition, flagsAliases, Settings.OUTPUTS)) {
+                outputSettings.add(
+                    details.aliasToActual().getOrDefault(maybeAliasSetting, maybeAliasSetting));
+              }
+            });
+    return outputSettings.build();
   }
 
   /**

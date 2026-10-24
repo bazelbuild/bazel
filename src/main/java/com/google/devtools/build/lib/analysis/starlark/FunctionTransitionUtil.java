@@ -237,9 +237,10 @@ public final class FunctionTransitionUtil {
     }
     if (!options.get(CoreOptions.class).getExcludeStarlarkFlagsFromExecConfig()) {
       // Starlark flags propagate to exec by default. This can only be changed by a flag explicitly
-      // setting "scope = 'target'". Project-scoped flags also propagate through exec transitions:
-      // their value is maintained across exec boundaries, with project-boundary enforcement still
-      // applied at target-configuration time by BuildConfigurationKeyProducer.
+      // setting "scope = 'target'" or "scope = 'platform'". Project-scoped flags also propagate
+      // through exec transitions: their value is maintained across exec boundaries, with
+      // project-boundary enforcement still applied at target-configuration time by
+      // BuildConfigurationKeyProducer.
       return starlarkOptions.entrySet().stream()
           .filter(
               entry -> {
@@ -279,6 +280,8 @@ public final class FunctionTransitionUtil {
           ans.put(entry.getKey(), onLeaveScopeValue);
         }
         // else Don't propagate this flag.
+      } else if (scopeType.equals(Scope.ScopeType.PLATFORM)) {
+        // Don't propagate this flag: the exec platform's flags apply instead.
       } else if (customPropagatingFlags.contains(entry.getKey().getUnambiguousCanonicalForm())) {
         ans.put(entry);
       } else if (customPropagatingFlagPatterns.stream()
