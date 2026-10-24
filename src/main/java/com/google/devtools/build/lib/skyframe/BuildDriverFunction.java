@@ -183,6 +183,18 @@ public class BuildDriverFunction implements SkyFunction {
       return null;
     }
 
+    if (buildDriverKey.isAnalysisOnly()) {
+      // The successful analysis of the target is all that was asked for. It's neither built nor
+      // reported as a top-level target, so no TopLevelTargetAnalyzedEvent/TargetConfiguredEvent is
+      // posted, and since none of its actions are executed, they aren't checked for conflicts.
+      postEventIfNecessary(
+          postedEventsTypes,
+          env,
+          TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, /* succeeded= */ true));
+      removeStatesForKey(buildDriverKey);
+      return new BuildDriverValue(topLevelSkyValue, /* skipped= */ true);
+    }
+
     // At this point, the target is considered "analyzed". It's important that this event is sent
     // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
     // concluded, we need to have the complete list of analyzed targets ready in
