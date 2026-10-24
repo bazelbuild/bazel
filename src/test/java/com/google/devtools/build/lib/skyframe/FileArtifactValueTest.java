@@ -78,6 +78,48 @@ public final class FileArtifactValueTest {
   }
 
   @Test
+  public void copyOutput_delegatesAndIsIdempotent() {
+    FileArtifactValue remote =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1, 2, 3},
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ Instant.ofEpochMilli(5),
+            /* inMemoryOutput= */ false);
+
+    FileArtifactValue marked = FileArtifactValue.createForCopyOutput(remote);
+
+    assertThat(remote.isCopyOutput()).isFalse();
+    assertThat(marked.isCopyOutput()).isTrue();
+    assertThat(FileArtifactValue.createForCopyOutput(marked)).isSameInstanceAs(marked);
+    assertThat(marked.getDigest()).isEqualTo(remote.getDigest());
+    assertThat(marked.getSize()).isEqualTo(10);
+    assertThat(marked.isRemote()).isTrue();
+    assertThat(marked.getLocationIndex()).isEqualTo(1);
+    assertThat(marked.getExpirationTime()).isEqualTo(Instant.ofEpochMilli(5));
+    // Mutable state is shared with the delegate, so lease updates are not lost.
+    marked.setExpirationTime(Instant.ofEpochMilli(7));
+    assertThat(remote.getExpirationTime()).isEqualTo(Instant.ofEpochMilli(7));
+    // Not a stand-in for something that is not a file.
+    assertThat(FileArtifactValue.createForCopyOutput(FileArtifactValue.MISSING_FILE_MARKER))
+        .isSameInstanceAs(FileArtifactValue.MISSING_FILE_MARKER);
+    FileArtifactValue directory = FileArtifactValue.createForDirectoryWithMtime(1);
+    assertThat(FileArtifactValue.createForCopyOutput(directory)).isSameInstanceAs(directory);
+  }
+
+  @Test
+  public void copyOutput_isComparedLikeItsDelegate() {
+    FileArtifactValue file =
+        FileArtifactValue.createForNormalFile(
+            toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L);
+    FileArtifactValue marked = FileArtifactValue.createForCopyOutput(file);
+
+    // No spurious invalidation when comparing marked and unmarked values.
+    assertThat(file.couldBeModifiedSince(marked)).isFalse();
+    assertThat(marked.couldBeModifiedSince(file)).isFalse();
+  }
+
+  @Test
   public void testEqualsAndHashCode() {
     // Each "equality group" is checked for equality within itself (including hashCode equality)
     // and inequality with members of other equality groups.
@@ -117,6 +159,18 @@ public final class FileArtifactValueTest {
                 FileArtifactValue.createForNormalFile(
                     toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L),
                 PathFragment.create("/some/path")))
+        .addEqualityGroup(
+            // A copy output is not equal to the value it marks, nor to a differing delegate.
+            FileArtifactValue.createForCopyOutput(
+                FileArtifactValue.createForNormalFile(
+                    toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L)),
+            FileArtifactValue.createForCopyOutput(
+                FileArtifactValue.createForNormalFile(
+                    toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L)))
+        .addEqualityGroup(
+            FileArtifactValue.createForCopyOutput(
+                FileArtifactValue.createForNormalFile(
+                    toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 2L)))
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.RUNFILES_TREE_MARKER)
         .addEqualityGroup("a string")

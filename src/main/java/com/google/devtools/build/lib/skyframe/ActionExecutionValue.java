@@ -159,13 +159,55 @@ public abstract class ActionExecutionValue implements SkyValue {
       ActionOutputMetadataStore actionOutputMetadataStore,
       RichArtifactData richArtifactData,
       Action action) {
+    ImmutableMap<Artifact, FileArtifactValue> artifactData =
+        actionOutputMetadataStore.getAllArtifactData();
+    ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData =
+        actionOutputMetadataStore.getAllTreeArtifactData();
+    if (action.producesCopyOutputs()) {
+      checkCopyOutputsAreMarked(action, artifactData, treeArtifactData);
+    }
     return create(
-        actionOutputMetadataStore.getAllArtifactData(),
-        actionOutputMetadataStore.getAllTreeArtifactData(),
+        artifactData,
+        treeArtifactData,
         richArtifactData,
         action instanceof IncludeScannable includeScannable
             ? includeScannable.getDiscoveredModules()
             : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+  }
+
+  /**
+   * Checks that every regular file value of an action that {@linkplain
+   * Action#producesCopyOutputs produces copy outputs} is marked with {@link
+   * FileArtifactValue#isCopyOutput}. Strategies rely on the mark to never stage such an output as
+   * a symlink, and a lost mark fails silently. Only regular file values are checked: markers for
+   * missing files, omitted outputs and missing trees, directories and symlinks do not describe
+   * file contents that could be staged.
+   */
+  @VisibleForTesting
+  static void checkCopyOutputsAreMarked(
+      Action action,
+      Map<Artifact, FileArtifactValue> artifactData,
+      Map<Artifact, TreeArtifactValue> treeArtifactData) {
+    artifactData.forEach(
+        (artifact, value) ->
+            checkState(
+                !value.getType().isFile() || value.isCopyOutput(),
+                "Unmarked file value for copy output %s of %s",
+                artifact,
+                action));
+    treeArtifactData.forEach(
+        (tree, treeValue) ->
+            (TreeArtifactValue.MISSING_TREE_ARTIFACT.equals(treeValue)
+                    ? ImmutableMap.<TreeFileArtifact, FileArtifactValue>of()
+                    : treeValue.getChildValues())
+                .forEach(
+                    (child, childValue) ->
+                        checkState(
+                            !childValue.getType().isFile() || childValue.isCopyOutput(),
+                            "Unmarked file value for copy output %s in tree %s of %s",
+                            child,
+                            tree,
+                            action)));
   }
 
   /**

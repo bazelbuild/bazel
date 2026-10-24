@@ -339,6 +339,55 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       throws EvalException;
 
   @StarlarkMethod(
+      name = "copy",
+      doc =
+          "Creates an action that makes the content of <code>src</code> available at"
+              + " <code>output</code> with the same content and digest. No process is spawned."
+              + "<p>No execution strategy that stages the inputs of an action (such as the local"
+              + " sandboxes and sandboxed workers) stages <code>output</code> as a symbolic link,"
+              + " so an action that consumes <code>output</code> never sees a link to"
+              + " <code>src</code> or to where <code>src</code> lives. Whether storage is shared"
+              + " with <code>src</code> (hard link, clone, reflink, copy) is unspecified, as is"
+              + " when <code>output</code> is materialized on disk: it can be copied (possibly"
+              + " using copy-on-write) while the action runs, or, if the content of"
+              + " <code>src</code> is only available remotely, downloaded later if a local action"
+              + " needs it. Runfiles trees built in the execution root contain symbolic links to"
+              + " the path of <code>output</code> itself, never to <code>src</code>. The"
+              + " guarantee does not extend to the remote symlink template flag"
+              + " (<code>--remote_download_symlink_template</code>), which turns"
+              + " downloads into links to a cache location, nor to remote output services that"
+              + " place outputs themselves.<p>Only files and directories are supported: declare"
+              + " <code>output</code> with <a href=\"#declare_file\"><code>declare_file()</code></a>"
+              + " or <a href=\"#declare_directory\"><code>declare_directory()</code></a> to match"
+              + " the type of <code>src</code>. Symlink artifacts are not yet supported.",
+      parameters = {
+        @Param(
+            name = "output",
+            named = true,
+            positional = false,
+            doc = "The output of this action. Must match the type of <code>src</code>."),
+        @Param(
+            name = "src",
+            allowedTypes = {@ParamType(type = FileApi.class)},
+            named = true,
+            positional = false,
+            doc = "The File or directory whose content is made available at <code>output</code>."),
+        @Param(
+            name = "progress_message",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "Progress message to show to the user during the build."),
+      },
+      useStarlarkThread = true)
+  void copy(FileApi output, FileApi src, Object progressMessage, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
       name = "write",
       doc =
           "Creates a file write action. When the action is executed, it will write the given "

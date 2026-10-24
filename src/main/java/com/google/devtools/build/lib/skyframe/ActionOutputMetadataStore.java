@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -85,6 +86,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
+      boolean outputsAreCopies,
       XattrProvider xattrProvider,
       @Nullable BatchStat batchStatter,
       TimestampGranularityMonitor tsgm,
@@ -93,6 +95,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
         archivedTreeArtifactsEnabled,
         outputPermissions,
         outputs,
+        outputsAreCopies,
         xattrProvider,
         batchStatter,
         tsgm,
@@ -110,6 +113,14 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   private final AtomicBoolean executionMode = new AtomicBoolean(false);
 
   private final ImmutableSet<Artifact> outputs;
+
+  /**
+   * Whether all outputs are {@code ctx.actions.copy} outputs. If so, every file value this store
+   * hands out (read from disk, injected by the action, or restored from the action cache) is marked
+   * with {@link FileArtifactValue#isCopyOutput}. The mark is not persisted anywhere, so this is the
+   * single place that re-derives it.
+   */
+  private final boolean outputsAreCopies;
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
   private final ConcurrentMap<Artifact, FileArtifactValue> artifactData = new ConcurrentHashMap<>();
   private final ConcurrentMap<SpecialArtifact, TreeArtifactValue> treeArtifactData =
@@ -119,6 +130,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
+      boolean outputsAreCopies,
       XattrProvider xattrProvider,
       @Nullable BatchStat batchStatter,
       TimestampGranularityMonitor tsgm,
@@ -126,18 +138,48 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
+    this.outputsAreCopies = outputsAreCopies;
     this.xattrProvider = xattrProvider;
     this.batchStatter = batchStatter;
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
   }
 
-  private void putArtifactData(Artifact artifact, FileArtifactValue value) {
+  /** Stores {@code value} and returns what was stored, which is marked for copy outputs. */
+  private FileArtifactValue putArtifactData(Artifact artifact, FileArtifactValue value) {
     Preconditions.checkArgument(
         !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
         "%s should be stored in a TreeArtifactValue",
         artifact);
+    value = markIfCopy(value);
     artifactData.put(artifact, value);
+    return value;
+  }
+
+  private FileArtifactValue markIfCopy(FileArtifactValue value) {
+    return outputsAreCopies ? FileArtifactValue.createForCopyOutput(value) : value;
+  }
+
+  /** Marks the children of {@code tree} if this action's outputs are copies. */
+  private TreeArtifactValue markIfCopy(SpecialArtifact parent, TreeArtifactValue tree) {
+    if (!outputsAreCopies
+        || TreeArtifactValue.MISSING_TREE_ARTIFACT.equals(tree)
+        || tree.getChildValues().isEmpty()) {
+      return tree;
+    }
+    boolean changed = false;
+    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
+    for (Map.Entry<TreeFileArtifact, FileArtifactValue> child : tree.getChildValues().entrySet()) {
+      FileArtifactValue marked = markIfCopy(child.getValue());
+      changed |= marked != child.getValue();
+      builder.putChild(child.getKey(), marked);
+    }
+    if (!changed) {
+      return tree;
+    }
+    tree.getArchivedRepresentation().ifPresent(builder::setArchivedRepresentation);
+    tree.getResolvedPath().ifPresent(builder::setResolvedPath);
+    return builder.build();
   }
 
   ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
@@ -233,7 +275,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     value = constructFileArtifactValueFromFilesystem(artifact);
-    putArtifactData(artifact, value);
+    value = putArtifactData(artifact, value);
     return checkExists(value, artifact);
   }
 
@@ -247,7 +289,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return checkExists(value, artifact);
     }
 
-    value = constructTreeArtifactValueFromFilesystem(artifact);
+    value = markIfCopy(artifact, constructTreeArtifactValueFromFilesystem(artifact));
     treeArtifactData.put(artifact, value);
     return checkExists(value, artifact);
   }
@@ -378,7 +420,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
-    treeArtifactData.put(output, tree);
+    treeArtifactData.put(output, markIfCopy(output, tree));
   }
 
   @Override

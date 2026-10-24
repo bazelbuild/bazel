@@ -965,6 +965,17 @@ sh_test(
 )
 
 sh_test(
+    name = "copy_action_sandbox_test",
+    size = "large",
+    srcs = ["copy_action_sandbox_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no-sandbox",
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "starlark_rule_test",
     size = "large",
     srcs = ["starlark_rule_test.sh"],

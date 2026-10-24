@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -89,6 +90,120 @@ public class SymlinkedSandboxedSpawnTest {
     assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
     assertThat(execRoot.getRelative("very").isDirectory()).isTrue();
     assertThat(execRoot.getRelative("wow/writable").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void createFileSystem_stagesCopyOutputsAsRegularFiles() throws Exception {
+    Path copyOutput = workspaceDir.getRelative("out/copy.txt");
+    copyOutput.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(copyOutput, "copy contents");
+    Path other = workspaceDir.getRelative("other.txt");
+    FileSystemUtils.writeContentAsLatin1(other, "other");
+    PathFragment copyInput = PathFragment.create("such/copy.txt");
+    PathFragment otherInput = PathFragment.create("such/other.txt");
+    PathFragment nestedInput = PathFragment.create("deep/er/copy2.txt");
+
+    SymlinkedSandboxedSpawn spawn =
+        new SymlinkedSandboxedSpawn(
+            sandboxDir,
+            execRoot,
+            ImmutableList.of("/bin/true"),
+            ImmutableMap.of(),
+            new SandboxInputs(
+                ImmutableMap.of(
+                    copyInput, copyOutput, otherInput, other, nestedInput, copyOutput),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(copyInput, nestedInput)),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableSet.of(),
+            new SynchronousTreeDeleter(),
+            /* sandboxDebugPath= */ null,
+            /* statisticsPath= */ null,
+            /* interactiveDebugArguments= */ null,
+            "SomeMnemonic",
+            /* targetLabel= */ null);
+
+    spawn.createFileSystem();
+
+    for (PathFragment staged : new PathFragment[] {copyInput, nestedInput}) {
+      Path path = execRoot.getRelative(staged);
+      assertThat(path.isSymbolicLink()).isFalse();
+      assertThat(path.isFile(Symlinks.NOFOLLOW)).isTrue();
+      assertThat(new String(FileSystemUtils.readContentAsLatin1(path))).isEqualTo("copy contents");
+    }
+    // Unmarked inputs are still symlinks.
+    assertThat(execRoot.getRelative(otherInput).isSymbolicLink()).isTrue();
+    assertThat(execRoot.getRelative(otherInput).resolveSymbolicLinks()).isEqualTo(other);
+    // The output's own file is untouched.
+    assertThat(copyOutput.isFile(Symlinks.NOFOLLOW)).isTrue();
+  }
+
+  @Test
+  public void createFileSystem_copyOutputReplacesLeftoverSymlink() throws Exception {
+    Path copyOutput = workspaceDir.getRelative("copy.txt");
+    FileSystemUtils.writeContentAsLatin1(copyOutput, "copy contents");
+    PathFragment copyInput = PathFragment.create("such/copy.txt");
+    Path staged = execRoot.getRelative(copyInput);
+    staged.getParentDirectory().createDirectoryAndParents();
+    staged.createSymbolicLink(copyOutput.asFragment());
+
+    SymlinkedSandboxedSpawn spawn =
+        new SymlinkedSandboxedSpawn(
+            sandboxDir,
+            execRoot,
+            ImmutableList.of("/bin/true"),
+            ImmutableMap.of(),
+            new SandboxInputs(
+                ImmutableMap.of(copyInput, copyOutput),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(copyInput)),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableSet.of(),
+            new SynchronousTreeDeleter(),
+            /* sandboxDebugPath= */ null,
+            /* statisticsPath= */ null,
+            /* interactiveDebugArguments= */ null,
+            "SomeMnemonic",
+            /* targetLabel= */ null);
+
+    spawn.createFileSystem();
+
+    assertThat(staged.isSymbolicLink()).isFalse();
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(staged))).isEqualTo("copy contents");
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(copyOutput)))
+        .isEqualTo("copy contents");
+  }
+
+  @Test
+  public void createFileSystem_failureToCopyOutputFailsTheSpawn() throws Exception {
+    PathFragment copyInput = PathFragment.create("such/copy.txt");
+    // The output's own file is missing: there is no silent fallback to a symlink.
+    Path missing = workspaceDir.getRelative("missing.txt");
+
+    SymlinkedSandboxedSpawn spawn =
+        new SymlinkedSandboxedSpawn(
+            sandboxDir,
+            execRoot,
+            ImmutableList.of("/bin/true"),
+            ImmutableMap.of(),
+            new SandboxInputs(
+                ImmutableMap.of(copyInput, missing),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(copyInput)),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableSet.of(),
+            new SynchronousTreeDeleter(),
+            /* sandboxDebugPath= */ null,
+            /* statisticsPath= */ null,
+            /* interactiveDebugArguments= */ null,
+            "SomeMnemonic",
+            /* targetLabel= */ null);
+
+    assertThrows(IOException.class, spawn::createFileSystem);
+    assertThat(execRoot.getRelative(copyInput).exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
