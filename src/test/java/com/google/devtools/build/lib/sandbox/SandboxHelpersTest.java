@@ -381,6 +381,7 @@ public class SandboxHelpersTest {
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
         SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    clock.advanceMillis(1000);
     long timestamp = clock.currentTimeMillis();
 
     clock.advanceMillis(1);
@@ -403,9 +404,12 @@ public class SandboxHelpersTest {
     Path knownSymlink = workDir.getRelative(knownInput);
     knownSymlink.getParentDirectory().createDirectoryAndParents();
     knownSymlink.createSymbolicLink(sourceFile.asFragment());
+    Path retargetedSymlink = workDir.getRelative("pkg/retargeted.txt");
+    retargetedSymlink.createSymbolicLink(sourceFile.asFragment());
 
     Map<PathFragment, Path> files = new HashMap<>();
     files.put(knownInput, sourceFile);
+    files.put(PathFragment.create("pkg/retargeted.txt"), sourceFile);
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
         SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
@@ -414,16 +418,111 @@ public class SandboxHelpersTest {
     clock.advanceMillis(1);
     Path unexpectedSymlink = workDir.getRelative("pkg/unexpected");
     unexpectedSymlink.createSymbolicLink(sourceFile.asFragment());
+    retargetedSymlink.delete();
+    retargetedSymlink.createSymbolicLink(PathFragment.create("/other/input.txt"));
     FileSystemUtils.appendIsoLatin1(sourceFile, "_modified");
 
     SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
 
     assertThat(knownSymlink.isSymbolicLink()).isTrue();
     assertThat(unexpectedSymlink.exists()).isFalse();
+    assertThat(retargetedSymlink.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
         .containsEntry("input.txt", sourceFile.asFragment());
     assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
         .doesNotContainKey("unexpected");
+    assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
+        .doesNotContainKey("retargeted.txt");
+  }
+
+  @Test
+  public void updateContentMap_detectsMutationsInTimestampBucket(
+      @TestParameter({"0", "234"}) int millisWithinSecond) throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path source = scratch.file("/source/input.txt", "content");
+    Path link = scratch.symlink("/execroot/pkg/input.txt", source.getPathString());
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(PathFragment.create("pkg/input.txt"), source),
+            ImmutableMap.of(),
+            ImmutableMap.of());
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    clock.advanceMillis(1000);
+    // Model both an unchanged millisecond clock and a filesystem rounded down to whole seconds.
+    long timestamp = clock.currentTimeMillis() + millisWithinSecond;
+    link.delete();
+    link.createSymbolicLink(PathFragment.create("/other/input.txt"));
+    Path unexpected = scratch.file("/execroot/pkg/unexpected", "unexpected");
+    assertThat(link.getParentDirectory().stat().getLastChangeTime())
+        .isEqualTo(clock.currentTimeMillis());
+
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(link.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(unexpected.exists()).isFalse();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap()).isEmpty();
+  }
+
+  @Test
+  public void updateContentMap_detectsModifiedEmptyInputInUnchangedDirectory(
+      @TestParameter boolean changePermissions,
+      @TestParameter({"0", "234"}) int millisWithinSecond) throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path input = scratch.file("/execroot/api/modified");
+    Path unmodified = scratch.file("/execroot/api/unmodified");
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(PathFragment.create("api/modified"), null);
+    files.put(PathFragment.create("api/unmodified"), null);
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(
+            workDir,
+            new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of()),
+            SandboxOutputs.getEmptyInstance());
+    long parentCtime = input.getParentDirectory().stat().getLastChangeTime();
+    long timestamp = clock.advanceMillis(1000) + millisWithinSecond;
+    if (changePermissions) {
+      input.setReadable(false);
+    } else {
+      FileSystemUtils.appendIsoLatin1(input, "modified");
+    }
+    assertThat(input.getParentDirectory().stat().getLastChangeTime()).isEqualTo(parentCtime);
+
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(input.exists()).isFalse();
+    assertThat(unmodified.exists()).isTrue();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap())
+        .containsExactly("unmodified", null);
+  }
+
+  @Test
+  public void updateContentMap_doesNotFollowReplacedEmptyInput() throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path input = scratch.file("/execroot/api/empty");
+    Path target = scratch.file("/source/empty");
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(PathFragment.create("api/empty"), null);
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(
+            workDir,
+            new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of()),
+            SandboxOutputs.getEmptyInstance());
+    long timestamp = clock.advanceMillis(1000);
+    input.delete();
+    input.createSymbolicLink(target);
+
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(input.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.exists()).isTrue();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap()).isEmpty();
   }
 
   @Test
@@ -816,8 +915,8 @@ public class SandboxHelpersTest {
     ManualClock clock = new ManualClock();
     Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
     Path workDir = scratch.dir("/execroot");
-    Path unmodifiedFile = scratch.file("/execroot/api/unmodified.txt", "");
-    Path modifiedFile = scratch.file("/execroot/api/modified.txt", "");
+    Path unmodifiedFile = scratch.file("/execroot/api/unmodified.txt");
+    Path modifiedFile = scratch.file("/execroot/api/modified.txt");
     PathFragment unmodifiedInput = PathFragment.create("api/unmodified.txt");
     PathFragment modifiedInput = PathFragment.create("api/modified.txt");
     Map<PathFragment, Path> files = new HashMap<>();
@@ -826,6 +925,7 @@ public class SandboxHelpersTest {
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
         SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    clock.advanceMillis(1000);
     long timestamp = clock.currentTimeMillis();
 
     clock.advanceMillis(1);
@@ -863,7 +963,9 @@ public class SandboxHelpersTest {
     Path sandbox1 = trackingScratch.dir("/sandbox_stash_reuse/1");
     Path execroot1 = sandbox1.getChild("execroot");
     execroot1.createDirectoryAndParents();
-    Path file1 = trackingScratch.file("/sandbox_stash_reuse/1/execroot/file.txt", "content");
+    Path source = trackingScratch.file("/source/file.txt", "content");
+    Path file1 =
+        trackingScratch.symlink("/sandbox_stash_reuse/1/execroot/file.txt", source.getPathString());
 
     SandboxOptions options =
         Options.parse(
@@ -877,7 +979,7 @@ public class SandboxHelpersTest {
       assertThat(stash).isNotNull();
 
       SandboxContents contents = new SandboxContents();
-      contents.fileMap().put("file.txt", null);
+      contents.fileMap().put("file.txt", source.asFragment());
       SandboxStash.setPathContents(sandbox1, contents);
       SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTime());
 
@@ -935,7 +1037,9 @@ public class SandboxHelpersTest {
     Path sandbox1 = scratch.dir("/sandbox_stash_immediate/1");
     Path execroot1 = sandbox1.getChild("execroot");
     execroot1.createDirectoryAndParents();
-    Path file1 = scratch.file("/sandbox_stash_immediate/1/execroot/file.txt", "content");
+    Path source = scratch.file("/source/file.txt", "content");
+    Path file1 =
+        scratch.symlink("/sandbox_stash_immediate/1/execroot/file.txt", source.getPathString());
 
     SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
     try {
@@ -943,7 +1047,7 @@ public class SandboxHelpersTest {
       assertThat(stash).isNotNull();
 
       SandboxContents contents = new SandboxContents();
-      contents.fileMap().put("file.txt", null);
+      contents.fileMap().put("file.txt", source.asFragment());
       SandboxStash.setPathContents(sandbox1, contents);
       SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTime());
 
