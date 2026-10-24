@@ -99,7 +99,15 @@ public final class ActionOutputDirectoryHelper {
 
         PathFragment rootPath =
             artifactPathResolver.convertPath(outputFile.getRoot().getRoot().asPath()).asFragment();
-        forceCreateDirectoryAndParents(outputDir, rootPath);
+        // The action filesystem may expose input directories over stale physical files. Repair
+        // the host path before populating the action filesystem's own directory state.
+        forceCreateDirectoryAndParents(outputDir.forHostFileSystem(), rootPath);
+        try {
+          outputDir.createDirectoryAndParents();
+          outputDir.setWritable(true);
+        } catch (IOException e) {
+          throw new CreateOutputDirectoryException(outputDir.asFragment(), e);
+        }
       }
     }
   }
