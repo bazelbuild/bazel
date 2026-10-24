@@ -461,7 +461,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     return writablePaths.build();
   }
 
-  private static void addWritablePath(
+  private void addWritablePath(
       Path sandboxExecRoot,
       ImmutableSet.Builder<Path> writablePaths,
       String pathString,
@@ -470,9 +470,21 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     Path path = sandboxExecRoot.getRelative(pathString);
     if (path.startsWith(sandboxExecRoot)) {
       // We add this path even though it is below sandboxExecRoot (and thus already writable as a
-      // subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
-      // needed directory if it doesn't exist yet.
-      writablePaths.add(path);
+      // subpath) to take advantage of the side-effect that AbstractContainerizingSandboxedSpawn
+      // also creates this needed directory if it doesn't exist yet.
+      //
+      // Additionally, adding such paths to writablePaths is required when using the hermetic Linux
+      // sandbox (aka `HardlinkedSandboxedSpawn`) else they will not be mounted as writable.
+      if (OS.getCurrent() == OS.LINUX && sandboxOptions.getUseHermetic()) {
+        // drop the sandbox root from the path, if using the hermetic linux sandbox; this leaves
+        // the portion of the path relative to `/` in the sandbox:
+        var sandboxRoot = sandboxExecRoot.getParentDirectory().getParentDirectory();
+        var pathWithinHermeticSandbox = path.relativeTo(sandboxRoot);
+        path = path.getFileSystem().getPath("/").getRelative(pathWithinHermeticSandbox);
+        writablePaths.add(path);
+      } else {
+        writablePaths.add(path);
+      }
     } else if (path.exists()) {
       // If `path` itself is a symlink, then adding it to `writablePaths` would result in making
       // the symlink itself writable, not what it points to. Therefore we need to resolve symlinks
