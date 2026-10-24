@@ -166,9 +166,9 @@ EOF
   bazel build @r//a:ra >& $TEST_log && fail "Build succeeded"
   expect_log "target '@@+local_repository+r//:fg' is not visible"
   bazel build //a:ma >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@+local_repository+r//:fg' is not visible"
+  expect_log "target '@r//:fg' is not visible"
   bazel build //v:mv >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@+local_repository+r//:fg' is not visible"
+  expect_log "target '@r//:fg' is not visible"
 
 }
 
@@ -236,8 +236,42 @@ EOF
 
   bazel build @r//:fg || fail "Build failed"
   bazel build //:fg >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@+local_repository+r//r:fg1' is not visible"
+  expect_log "target '@r//r:fg1' is not visible"
 
+}
+
+function test_bzlmod_visibility_error_apparent_repo_name() {
+  local ext=$TEST_TMPDIR/ext
+  mkdir -p $ext/pkg
+  cat > $ext/MODULE.bazel <<EOF
+module(name = "ext_module")
+EOF
+  cat > $ext/pkg/BUILD <<EOF
+filegroup(
+    name = "hidden",
+    visibility = ["//visibility:private"],
+)
+EOF
+
+  cat > MODULE.bazel <<EOF
+module(name = "root_module")
+bazel_dep(name = "ext_module", repo_name = "my_ext")
+local_path_override(
+    module_name = "ext_module",
+    path = "$ext",
+)
+EOF
+
+  cat > BUILD <<EOF
+filegroup(
+    name = "consumer",
+    srcs = ["@my_ext//pkg:hidden"],
+)
+EOF
+
+  bazel build //:consumer >& $TEST_log && fail "Build succeeded"
+  expect_log "target '@my_ext//pkg:hidden' is not visible from"
+  expect_log "target '//:consumer'"
 }
 
 function test_select_in_external_repo() {
