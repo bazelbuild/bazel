@@ -135,7 +135,9 @@ cc_test(
         "data/multi_release.jar",
     ],
     # Requires at least 5 GiB of memory
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     deps = [
         ":combiners",
         ":input_jar",
