@@ -117,6 +117,13 @@ public class RepositoryUtils {
     // TODO(#30160): Repos with symlinks pointing out of the repo are currently excluded from the
     // remote repo contents cache since cross-FS resolution of symlinks proved tricky to get right.
     boolean symlinksResolveWithinRepo = true;
+    // Without support for symlinks to files, which is optional on Windows, only symlinks to
+    // directories can be created when a repo is materialized from the remote repo contents cache.
+    // Note that tools run by repo rules can presumably create these symlinks even if Bazel itself
+    // doesn't.
+    boolean fileSymlinksSupported =
+        repoDir.getFileSystem().supportsSymbolicLinksNatively(repoDir.asFragment());
+    boolean symlinksCanBeMaterialized = true;
     try {
       Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
@@ -124,6 +131,9 @@ public class RepositoryUtils {
         FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
       }
       for (Path symlink : symlinks) {
+        if (!fileSymlinksSupported && !resolvesToDirectory(symlink)) {
+          symlinksCanBeMaterialized = false;
+        }
         PathFragment target = symlink.readSymbolicLink();
         PathFragment originalTarget = target;
         if (target.startsWith(workspace.asFragment())) {
@@ -210,6 +220,16 @@ public class RepositoryUtils {
       throw new IOException(
           String.format("Failed to rewrite symlinks under %s: %s", repoDir, e.getMessage()), e);
     }
-    return new ReplantSymlinksResult(portableSymlinksOnly, symlinksResolveWithinRepo);
+    return new ReplantSymlinksResult(
+        portableSymlinksOnly, symlinksResolveWithinRepo && symlinksCanBeMaterialized);
+  }
+
+  private static boolean resolvesToDirectory(Path symlink) {
+    try {
+      return symlink.isDirectory();
+    } catch (IOException e) {
+      // The symlink can't be resolved, e.g. because it is part of a loop.
+      return false;
+    }
   }
 }
