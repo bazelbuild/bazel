@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.protobuf.ByteString;
 import java.util.Collection;
 import java.util.List;
@@ -103,7 +104,10 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
       String uri = converters.pathConverter().apply(logFile.localFile.path);
       if (uri != null) {
         toolLogs.addLog(
-            BuildEventStreamProtos.File.newBuilder().setName(logFile.name).setUri(uri).build());
+            BuildEventStreamProtos.File.newBuilder()
+                .setName(logFile.name)
+                .setUri(StringEncoding.internalToUnicode(uri))
+                .build());
       }
     }
     return GenericBuildEvent.protoChaining(this).setBuildToolLogs(toolLogs.build()).build();

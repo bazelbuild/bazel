@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 
@@ -49,7 +50,8 @@ public class InvocationPolicyParser {
         return TextFormat.parse(policy, InvocationPolicy.class);
       }
     } catch (InvalidProtocolBufferException | TextFormat.ParseException e) {
-      throw new OptionsParsingException("Malformed value of --invocation_policy: " + policy, e);
+      throw new OptionsParsingException(
+          "Malformed value of --invocation_policy: " + StringEncoding.unicodeToInternal(policy), e);
     }
   }
 }

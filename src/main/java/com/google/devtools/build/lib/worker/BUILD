@@ -188,6 +188,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/metrics:resource_collector",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
@@ -358,7 +359,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
@@ -398,6 +398,7 @@ java_library(
     name = "recording_input_stream",
     srcs = ["RecordingInputStream.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/guava:base",
         "//third_party/java/guava:io",
         "//third_party/java/guava:primitives",

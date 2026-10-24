@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
@@ -326,7 +325,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 "Failed to read @-argument '%s': file is not a declared input", argValue));
       }
       try {
-        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
+        for (String line : FileSystemUtils.readLinesAsLatin1(path)) {
           expandArgument(inputs, line, requestBuilder);
         }
       } catch (IOException e) {
@@ -336,12 +335,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
             e);
       }
     } else {
-      requestBuilder.addArguments(arg);
+      requestBuilder.addArguments(StringEncoding.internalToUnicode(arg));
     }
   }
 
   private static boolean isExternalRepositoryLabel(String arg) {
-    return arg.matches("^@.*//.*");
+    return arg.matches("(?s)^@.*//.*");
   }
 
   private static UserExecException createEmptyResponseException(Path logfile) {

@@ -241,15 +241,21 @@ public class BuildEventStreamer {
      * Return the chunks of stdout that were produced since the last call to this function (or the
      * beginning of the build, for the first call). It is the responsibility of the class
      * implementing this interface to properly synchronize with simultaneously written output.
+     *
+     * <p>Unless {@code isFinal} is true, an incomplete character at the end of the output may be
+     * held back until the next call.
      */
-    Iterable<String> getOut();
+    Iterable<String> getOut(boolean isFinal);
 
     /**
      * Return the chunks of stderr that were produced since the last call to this function (or the
      * beginning of the build, for the first call). It is the responsibility of the class
      * implementing this interface to properly synchronize with simultaneously written output.
+     *
+     * <p>Unless {@code isFinal} is true, an incomplete character at the end of the output may be
+     * held back until the next call.
      */
-    Iterable<String> getErr();
+    Iterable<String> getErr(boolean isFinal);
   }
 
   /** Creates a new build event streamer. */
@@ -366,8 +372,8 @@ public class BuildEventStreamer {
         Iterable<String> allOut = ImmutableList.of();
         Iterable<String> allErr = ImmutableList.of();
         if (outErrProvider != null) {
-          allOut = orEmpty(outErrProvider.getOut());
-          allErr = orEmpty(outErrProvider.getErr());
+          allOut = orEmpty(outErrProvider.getOut(/* isFinal= */ false));
+          allErr = orEmpty(outErrProvider.getErr(/* isFinal= */ false));
           progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
         }
         linkEvents = new ArrayList<>();
@@ -855,8 +861,8 @@ public class BuildEventStreamer {
       Iterable<String> allOut = ImmutableList.of();
       Iterable<String> allErr = ImmutableList.of();
       if (outErrProvider != null) {
-        allOut = orEmpty(outErrProvider.getOut());
-        allErr = orEmpty(outErrProvider.getErr());
+        allOut = orEmpty(outErrProvider.getOut(/* isFinal= */ false));
+        allErr = orEmpty(outErrProvider.getErr(/* isFinal= */ false));
         progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
       }
       if (Iterables.isEmpty(allOut) && Iterables.isEmpty(allErr)) {
@@ -959,8 +965,8 @@ public class BuildEventStreamer {
     Iterable<String> allOut = ImmutableList.of();
     Iterable<String> allErr = ImmutableList.of();
     if (outErrProvider != null) {
-      allOut = orEmpty(outErrProvider.getOut());
-      allErr = orEmpty(outErrProvider.getErr());
+      allOut = orEmpty(outErrProvider.getOut(/* isFinal= */ true));
+      allErr = orEmpty(outErrProvider.getErr(/* isFinal= */ true));
       progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
     }
     if (bufferedStdoutStderrPairs != null) {

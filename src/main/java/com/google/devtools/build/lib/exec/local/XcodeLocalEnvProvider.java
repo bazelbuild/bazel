@@ -139,7 +139,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
                   clientEnv)
               .execute();
 
-      return new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim();
+      return new String(xcrunResult.getStdout(), StandardCharsets.ISO_8859_1).trim();
     } catch (AbnormalTerminationException e) {
       TerminationStatus terminationStatus = e.getResult().terminationStatus();
 
@@ -155,15 +155,15 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
                 terminationStatus.getExitCode(),
                 appleSdkPlatform,
                 terminationStatus,
-                new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
-                new String(e.getResult().getStderr(), StandardCharsets.UTF_8)));
+                new String(e.getResult().getStdout(), StandardCharsets.ISO_8859_1),
+                new String(e.getResult().getStderr(), StandardCharsets.ISO_8859_1)));
       }
       String message =
           String.format(
               "xcrun failed.\n" + "%s\n" + "stdout: %s\n" + "stderr: %s",
               e.getResult().terminationStatus(),
-              new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
-              new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
+              new String(e.getResult().getStdout(), StandardCharsets.ISO_8859_1),
+              new String(e.getResult().getStderr(), StandardCharsets.ISO_8859_1));
       throw new IOException(message, e);
     } catch (CommandException e) {
       throw new IOException(e);
@@ -239,7 +239,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       CommandResult xcodeLocatorResult =
           new Command(ImmutableList.of(xcodeLocatorPath, version.toString()), clientEnv).execute();
 
-      return new String(xcodeLocatorResult.getStdout(), StandardCharsets.UTF_8).trim();
+      return new String(xcodeLocatorResult.getStdout(), StandardCharsets.ISO_8859_1).trim();
     } catch (AbnormalTerminationException e) {
       TerminationStatus terminationStatus = e.getResult().terminationStatus();
 
@@ -258,8 +258,8 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
                 terminationStatus.getExitCode(),
                 version,
                 terminationStatus.toString(),
-                new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
-                new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
+                new String(e.getResult().getStdout(), StandardCharsets.ISO_8859_1),
+                new String(e.getResult().getStderr(), StandardCharsets.ISO_8859_1));
       } else {
         message =
             String.format(
@@ -267,8 +267,8 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
                 xcodeLocatorPath,
                 version,
                 e.getResult().terminationStatus(),
-                new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
-                new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
+                new String(e.getResult().getStdout(), StandardCharsets.ISO_8859_1),
+                new String(e.getResult().getStderr(), StandardCharsets.ISO_8859_1));
       }
       throw new IOException(message, e);
     } catch (CommandException e) {

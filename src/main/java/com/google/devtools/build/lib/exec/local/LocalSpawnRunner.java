@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
-import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
@@ -327,7 +326,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                         + StringEncoding.unicodeToInternal(
                             localExecutionOptions.getAllowedLocalAction().regexPattern().toString())
                         + "\n")
-                    .getBytes(UTF_8));
+                    .getBytes(ISO_8859_1));
         spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
         return spawnResultBuilder
             .setStatus(Status.EXECUTION_DENIED)
@@ -399,13 +398,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         }
         // SubprocessBuilder does not accept relative paths for the first argument, even though
         // Command does. We sometimes get relative paths here, so we need to handle it.
-        File argv0 = new File(args.get(0));
-        if (!argv0.isAbsolute() && argv0.getParent() != null) {
-          List<String> newArgs = new ArrayList<>(args);
-          newArgs.set(0, new File(execRoot.getPathFile(), newArgs.get(0)).getAbsolutePath());
-          args = ImmutableList.copyOf(newArgs);
-        }
-        subprocessBuilder.setArgv(args);
+        subprocessBuilder.setArgv(
+            SubprocessBuilder.makeArgv0Absolute(args, execRoot.getPathFile()));
         spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
 
         spawnResultBuilder.setStartTime(Instant.now());
@@ -437,7 +431,8 @@ public class LocalSpawnRunner implements SpawnRunner {
           outErr
               .getErrorStream()
               .write(
-                  ("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
+                  ("Action failed to execute: java.io.IOException: " + msg + "\n")
+                      .getBytes(ISO_8859_1));
           outErr.getErrorStream().flush();
           spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
           return spawnResultBuilder

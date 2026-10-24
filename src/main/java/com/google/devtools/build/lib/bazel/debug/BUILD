@@ -50,7 +50,9 @@ java_library(
     deps = [
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:collect",
         "//third_party/java/protobuf",
     ],
 )

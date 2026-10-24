@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -757,13 +759,13 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     boolean modified = false;
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
-      PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
+      PathFragment pathOnExecutor = PathFragment.create(unicodeToInternal(dep.getPath()));
       PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
       if (originalPath == null && !pathMapper.isNoop()) {
         originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
       }
       if (originalPath != null && !originalPath.equals(pathOnExecutor)) {
-        dep.setPath(originalPath.getPathString());
+        dep.setPath(internalToUnicode(originalPath.getPathString()));
         modified = true;
       }
     }

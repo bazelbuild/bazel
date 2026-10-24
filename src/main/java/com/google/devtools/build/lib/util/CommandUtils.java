@@ -29,7 +29,9 @@ public class CommandUtils {
   @VisibleForTesting
   @Nullable
   static String cwd(Command command) {
-    return command.getWorkingDirectory() == null ? null : command.getWorkingDirectory().getPath();
+    return command.getWorkingDirectory() == null
+        ? null
+        : StringEncoding.platformToInternal(command.getWorkingDirectory().getPath());
   }
 
   /**
