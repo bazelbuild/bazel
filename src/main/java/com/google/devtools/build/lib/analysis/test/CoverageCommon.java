@@ -48,6 +48,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
+      Sequence<?> unfilteredSourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
       Object
           supportFiles, // Depset<Artifact>|Sequence<Artifact|Depset<Artifact>|FilesToRunProvider>
@@ -101,6 +102,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),
         Sequence.cast(sourceAttributes, String.class, "source_attributes"),
+        Sequence.cast(unfilteredSourceAttributes, String.class, "unfiltered_source_attributes"),
         Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         supportFilesBuilder.build(),
         ImmutableMap.copyOf(environmentDict),
@@ -120,6 +122,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
       RuleContext ruleContext,
       List<String> sourceAttributes,
+      List<String> unfilteredSourceAttributes,
       List<String> dependencyAttributes,
       NestedSet<Artifact> supportFiles,
       ImmutableMap<String, String> environment,
@@ -140,6 +143,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     InstrumentationSpec instrumentationSpec =
         new InstrumentationSpec(fileTypeSet)
             .withSourceAttributes(sourceAttributes)
+            .withUnfilteredSourceAttributes(unfilteredSourceAttributes)
             .withDependencyAttributes(dependencyAttributes);
     return InstrumentedFilesCollector.collect(
         ruleContext,
