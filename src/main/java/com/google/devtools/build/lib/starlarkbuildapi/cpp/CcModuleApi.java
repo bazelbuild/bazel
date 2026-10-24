@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -785,7 +786,12 @@ public interface CcModuleApi<
 
   @StarlarkMethod(
       name = "get_tool_for_action",
-      doc = "Returns tool path for given action.",
+      doc =
+          "Returns tool path for given action.<p>When called from a <a "
+              + "href='../builtins/Args.html#add_all.map_each'><code>map_each</code></a> callback, "
+              + "the returned path has Bazel's path mapping applied to it. This is only needed if "
+              + "the path is used somewhere other than the <code>executable</code> parameter of an "
+              + "action, which is path mapped automatically.",
       parameters = {
         @Param(
             name = "feature_configuration",
@@ -879,7 +885,9 @@ public interface CcModuleApi<
           "Returns flattened command line flags for given action, using given variables for "
               + "expansion. Flattens nested sets and ideally should not be used, or at least "
               + "should not outlive analysis. Work on memory efficient function returning Args is "
-              + "ongoing.",
+              + "ongoing.<p>When called from a <a "
+              + "href='../builtins/Args.html#add_all.map_each'><code>map_each</code></a> callback, "
+              + "the returned flags have path mapping applied to them if enabled.",
       parameters = {
         @Param(
             name = "feature_configuration",
@@ -900,12 +908,28 @@ public interface CcModuleApi<
             doc = "Build variables to be used for template expansions.",
             named = true,
             positional = false),
+        @Param(
+            name = "expander",
+            allowedTypes = {
+              @ParamType(type = DirectoryExpander.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "The <a href='../builtins/DirectoryExpander.html'><code>DirectoryExpander</code>"
+                    + "</a> passed to a <a href='../builtins/Args.html#add_all.map_each'>"
+                    + "<code>map_each</code></a> callback, if any. It is required to expand tree "
+                    + "artifacts contained in <code>variables</code>; without it they are left "
+                    + "unexpanded.",
+            named = true,
+            positional = false),
       },
       useStarlarkThread = true)
   Sequence<String> getCommandLine(
       FeatureConfigurationT featureConfiguration,
       String actionName,
       CcToolchainVariablesT variables,
+      Object expander,
       StarlarkThread thread)
       throws EvalException;
 
