@@ -1,5 +1,19 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "get_workspace_status_test",
+    size = "small",
+    srcs = ["get_workspace_status_test.sh"],
+    data = [
+        "get_workspace_status.sh",
+        "//scripts/release:common.sh",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
 
 BUILD_SCM_REV_CMD = "\\\"$$(grep BUILD_SCM_REVISION bazel-out/volatile-status.txt | sed 's/^BUILD_SCM_REVISION //')\\\""
 
