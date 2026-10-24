@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeProvider;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -49,10 +50,10 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -113,7 +114,13 @@ public final class DependencyResolutionHelpers {
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
       if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
         attributeMap = ConfiguredAttributeMapper.of(rule, configConditions, config);
-        resolveAttributes(getAspectAttributes(aspects), outgoingLabels, rule, attributeMap, config);
+        resolveAttributes(
+            /* includeRuleAttributes= */ false,
+            aspects,
+            outgoingLabels,
+            rule,
+            attributeMap,
+            config);
       }
       addToolchainDeps(toolchainContexts, outgoingLabels);
     } else if (target instanceof InputFile) {
@@ -314,7 +321,8 @@ public final class DependencyResolutionHelpers {
 
     Iterable<Label> visibilityDepLabels = rule.getVisibilityDependencyLabels();
     addVisibilityDepLabels(visibilityDepLabels, outgoingLabels);
-    resolveAttributes(getAttributes(rule, aspects), outgoingLabels, rule, attributeMap, ruleConfig);
+    resolveAttributes(
+        /* includeRuleAttributes= */ true, aspects, outgoingLabels, rule, attributeMap, ruleConfig);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
     addExplicitDeps(outgoingLabels, rule, "visibility", visibilityDepLabels);
@@ -396,48 +404,116 @@ public final class DependencyResolutionHelpers {
     }
   }
 
+  /**
+   * Resolves the dependencies through the attributes that should be visited for this rule/aspect
+   * combination.
+   *
+   * <p>For aspects evaluation, all attributes of the main aspect (last aspect in {@code aspects})
+   * are visited, even if they have the same name as an attribute in the rule or a base aspect,
+   * because main aspect attributes are separated and retrieved from `ctx.attr`.
+   *
+   * <p>Attributes of the underlying rule and base aspects are merged and retrieved from
+   * `ctx.rule.attr` with rule attributes taking precedence then aspects' attributes based on the
+   * aspect order in the aspects path (lowest order to highest).
+   *
+   * <p>This deliberately iterates the attributes directly instead of materializing a list of {@link
+   * AttributeDependencyKind}s, since it runs for every configured target and aspect and most
+   * attributes don't give rise to dependencies.
+   *
+   * @param includeRuleAttributes whether to visit the attributes of {@code rule} itself. If false,
+   *     only the aspects' attributes are visited (and base aspect attributes are not deduplicated
+   *     against the rule's attributes).
+   */
   private static void resolveAttributes(
-      Iterable<AttributeDependencyKind> attributeDependencyKinds,
+      boolean includeRuleAttributes,
+      ImmutableList<Aspect> aspects,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
       BuildConfigurationValue ruleConfig)
       throws InterruptedException {
-    for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
-      Attribute attribute = dependencyKind.getAttribute();
-      // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
-      // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
-      // breaks trimming as shown by
-      // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
-      // because it resolves a dep that trimming (correctly) doesn't account for because it's part
-      // of an unchosen select() branch.
-      if (attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
-        continue;
+    AttributeProvider ruleAttributeProvider = rule.getRuleClassObject().getAttributeProvider();
+    if (includeRuleAttributes) {
+      for (Attribute attribute : ruleAttributeProvider.getAttributes()) {
+        maybeResolveAttribute(
+            attribute, /* owningAspect= */ null, outgoingLabels, rule, attributeMap, ruleConfig);
       }
-      Type<?> type = attribute.getType();
-      if (type == BuildType.OUTPUT
-          || type == BuildType.OUTPUT_LIST
-          || type == BuildType.NODEP_LABEL
-          || type == BuildType.NODEP_LABEL_LIST
-          || type == BuildType.DORMANT_LABEL
-          || type == BuildType.DORMANT_LABEL_LIST
-          || type == BuildType.GENQUERY_SCOPE_TYPE
-          || type == BuildType.GENQUERY_SCOPE_TYPE_LIST) {
-        // These types invoke visitLabels() so that they are reported in "bazel query" but do not
-        // create a dependency. Maybe it's better to remove that, but then the labels() query
-        // function would need to be rethought.
-        continue;
-      }
-
-      resolveAttribute(
-          attribute, type, dependencyKind, outgoingLabels, rule, attributeMap, ruleConfig);
     }
+
+    if (aspects.isEmpty()) {
+      return;
+    }
+
+    // Add all the main aspect's attributes
+    Aspect mainAspect = Iterables.getLast(aspects);
+    for (Attribute attribute : mainAspect.getDefinition().getAttributes().values()) {
+      maybeResolveAttribute(
+          attribute, mainAspect.getAspectClass(), outgoingLabels, rule, attributeMap, ruleConfig);
+    }
+
+    if (aspects.size() == 1) {
+      return;
+    }
+
+    // For base aspects, if multiple attributes have the same name, take the first encountered in
+    // the aspects path.
+    Set<String> processedBaseAspectAttributes = new HashSet<>();
+    for (Aspect aspect : aspects.subList(0, aspects.size() - 1)) {
+      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
+        String name = attribute.getName();
+        if (includeRuleAttributes && ruleAttributeProvider.getAttributeIndex(name) != null) {
+          continue;
+        }
+        if (processedBaseAspectAttributes.add(name)) {
+          maybeResolveAttribute(
+              attribute, aspect.getAspectClass(), outgoingLabels, rule, attributeMap, ruleConfig);
+        }
+      }
+    }
+  }
+
+  private static void maybeResolveAttribute(
+      Attribute attribute,
+      @Nullable AspectClass owningAspect,
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
+      Rule rule,
+      ConfiguredAttributeMapper attributeMap,
+      BuildConfigurationValue ruleConfig)
+      throws InterruptedException {
+    // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
+    // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
+    // breaks trimming as shown by
+    // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
+    // because it resolves a dep that trimming (correctly) doesn't account for because it's part
+    // of an unchosen select() branch.
+    if (attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
+      return;
+    }
+    Type<?> type = attribute.getType();
+    if (type.getLabelClass() == LabelClass.NONE && !attribute.isMaterializing()) {
+      return;
+    }
+    if (type.equals(BuildType.OUTPUT)
+        || type.equals(BuildType.OUTPUT_LIST)
+        || type.equals(BuildType.NODEP_LABEL)
+        || type.equals(BuildType.NODEP_LABEL_LIST)
+        || type.equals(BuildType.DORMANT_LABEL)
+        || type.equals(BuildType.DORMANT_LABEL_LIST)
+        || type.equals(BuildType.GENQUERY_SCOPE_TYPE)
+        || type.equals(BuildType.GENQUERY_SCOPE_TYPE_LIST)) {
+      // These types invoke visitLabels() so that they are reported in "bazel query" but do not
+      // create a dependency. Maybe it's better to remove that, but then the labels() query
+      // function would need to be rethought.
+      return;
+    }
+
+    resolveAttribute(attribute, type, owningAspect, outgoingLabels, rule, attributeMap, ruleConfig);
   }
 
   private static <T> void resolveAttribute(
       Attribute attribute,
       Type<T> type,
-      AttributeDependencyKind dependencyKind,
+      @Nullable AspectClass owningAspect,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
@@ -449,7 +525,7 @@ public final class DependencyResolutionHelpers {
       // their values from somewhere else. This incidentally means that aspects attributes are not
       // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
       // attribute mapping works, which is a large chunk of work.
-      if (dependencyKind.getOwningAspect() == null) {
+      if (owningAspect == null) {
         attributeValue = attributeMap.get(attribute.getName(), type);
       } else {
         Object defaultValue = attribute.getDefaultValue(rule);
@@ -463,11 +539,11 @@ public final class DependencyResolutionHelpers {
       // These attributes are resolved by calling the materializer function in
       // DependencyMapProducer. The reason is that they need the analyzed versions some direct
       // dependencies and we can't do that here.
-      outgoingLabels.put(dependencyKind, null);
+      outgoingLabels.put(createDependencyKind(attribute, owningAspect), null);
     } else if (attribute.isLateBound()) {
       attributeValue =
           type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig));
-    } else if (dependencyKind.getOwningAspect() == null && attributeMap.has(attribute.getName())) {
+    } else if (owningAspect == null && attributeMap.has(attribute.getName())) {
       // This condition is false for aspect attributes that do not give rise to dependencies because
       // attributes that come from aspects do not appear in attributeMap (see the comment in the
       // case that handles implicit attributes).
@@ -478,10 +554,18 @@ public final class DependencyResolutionHelpers {
       return;
     }
 
+    AttributeDependencyKind dependencyKind = createDependencyKind(attribute, owningAspect);
     type.visitLabels(
         (depLabel, ctx) -> outgoingLabels.put(dependencyKind, depLabel),
         attributeValue,
         /*context=*/ null);
+  }
+
+  private static AttributeDependencyKind createDependencyKind(
+      Attribute attribute, @Nullable AspectClass owningAspect) {
+    return owningAspect == null
+        ? AttributeDependencyKind.forRule(attribute)
+        : AttributeDependencyKind.forAspect(attribute, owningAspect);
   }
 
   @Nullable
@@ -543,65 +627,6 @@ public final class DependencyResolutionHelpers {
     Attribute attribute =
         rule.getRuleClassObject().getAttributeProvider().getAttributeByName(attrName);
     outgoingLabels.putAll(AttributeDependencyKind.forRule(attribute), labels);
-  }
-
-  /** Returns the attributes that should be visited for this rule/aspect combination. */
-  private static ImmutableList<AttributeDependencyKind> getAttributes(
-      Rule rule, ImmutableList<Aspect> aspects) {
-    ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
-    HashSet<String> ruleAndBaseAspectsProcessedAttributes = new HashSet<>();
-
-    // For aspects evaluation, all attributes of the main aspect (last aspect in {@code aspects}
-    // should be added, even if they have the same name as an attribute in the rule or a base aspect
-    // because main aspect attributes are separated and retrieved from `ctx.attr`.
-
-    // Attributes of the underlying rule and base aspects are merged and retrieved from
-    // `ctx.rule.attr` with rule attributes taking precedence then aspects' attributes based on the
-    // aspect order in the aspects path (lowest order to highest).
-
-    List<Attribute> ruleAttributes =
-        rule.getRuleClassObject().getAttributeProvider().getAttributes();
-    for (Attribute attribute : ruleAttributes) {
-        result.add(AttributeDependencyKind.forRule(attribute));
-      ruleAndBaseAspectsProcessedAttributes.add(attribute.getName());
-    }
-
-    addAspectAttributes(aspects, ruleAndBaseAspectsProcessedAttributes, result);
-
-    return result.build();
-  }
-
-  private static ImmutableList<AttributeDependencyKind> getAspectAttributes(
-      ImmutableList<Aspect> aspects) {
-    ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
-    addAspectAttributes(aspects, new HashSet<>(), result);
-    return result.build();
-  }
-
-  private static void addAspectAttributes(
-      ImmutableList<Aspect> aspects,
-      Set<String> processedAttributes,
-      ImmutableList.Builder<AttributeDependencyKind> attributes) {
-
-    if (aspects.isEmpty()) {
-      return;
-    }
-
-    // Add all the main aspect's attributes
-    Aspect mainAspect = Iterables.getLast(aspects, null);
-    for (Attribute attribute : mainAspect.getDefinition().getAttributes().values()) {
-      attributes.add(AttributeDependencyKind.forAspect(attribute, mainAspect.getAspectClass()));
-    }
-
-    // For base aspects, if multiple attributes have the same name, take the first encountered in
-    // the aspects path.
-    for (Aspect aspect : aspects.subList(0, aspects.size() - 1)) {
-      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-        if (processedAttributes.add(attribute.getName())) {
-          attributes.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
-        }
-      }
-    }
   }
 
   private static void addVisibilityDepLabels(

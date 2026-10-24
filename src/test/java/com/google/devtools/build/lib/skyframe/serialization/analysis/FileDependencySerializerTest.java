@@ -177,7 +177,8 @@ public final class FileDependencySerializerTest {
             writer,
             executor,
             profileCollector,
-            LeafIdAssignment.lazy());
+            LeafIdAssignment.lazy(),
+            /* releaseBitmaps= */ true);
 
     PathFragment filePathFragment = PathFragment.create("file.txt");
     RootedPath rootedPath = RootedPath.toRootedPath(root, filePathFragment);
@@ -369,7 +370,7 @@ public final class FileDependencySerializerTest {
     assertThat(serializer.getCounters().nodesWithProcessingErrors.get()).isEqualTo(0);
   }
 
-  private FileDependencySerializer newSerializer(LeafIdAssignment leafIds) {
+  private FileDependencySerializer newSerializer(LeafIdAssignment leafIds, boolean releaseBitmaps) {
     return new FileDependencySerializer(
         versionGetter,
         graph,
@@ -377,7 +378,12 @@ public final class FileDependencySerializerTest {
         writer,
         executor,
         /* profileCollector= */ null,
-        leafIds);
+        leafIds,
+        releaseBitmaps);
+  }
+
+  private FileDependencySerializer newSerializer(LeafIdAssignment leafIds) {
+    return newSerializer(leafIds, /* releaseBitmaps= */ true);
   }
 
   private static LeafIdAssignment denseLeafIds(
@@ -639,6 +645,8 @@ public final class FileDependencySerializerTest {
     int parentCount = 25;
     AbstractNestedFileOpNodes sharedChild =
         nested(mockFile("shared_base1.txt", 1L), mockFile("shared_base2.txt", 2L));
+    // One more reference than there are parents, so the bitmap is still readable afterwards.
+    sharedChild.addInDegreesForTesting(parentCount + 1);
     var childInfo = serialize(sharedChild);
     // Stubs are set up before any parent starts: Mockito stubbing is not safe against concurrent
     // invocations of the same mock.
@@ -656,6 +664,7 @@ public final class FileDependencySerializerTest {
       assertThat(future.get().cardinality()).isEqualTo(3);
     }
 
+    assertThat(childInfo.getRemainingReferencesForTesting()).isEqualTo(1);
     var childClosure = new RoaringBitmap();
     assertThat(childInfo.mergeInto(childClosure)).isTrue();
     assertThat(childClosure.getLongCardinality()).isEqualTo(2);
@@ -694,7 +703,8 @@ public final class FileDependencySerializerTest {
         new PackedFingerprint(1L, 1L),
         new SettableWriteStatus(),
         bitmap,
-        /* hasOpaqueDependencies= */ false);
+        /* hasOpaqueDependencies= */ false,
+        /* initialReferences= */ 0);
   }
 
   /**
@@ -711,6 +721,102 @@ public final class FileDependencySerializerTest {
     }
     union.runOptimize();
     return union;
+  }
+
+  @Test
+  public void unaryUnwrapping_transfersParentInDegreeToDelegateAndPreservesRefcount()
+      throws Exception {
+    stubWriter();
+    FileKey file1 = mockFile("unwrap_f1.txt", 1L);
+    FileKey file2 = mockFile("unwrap_f2.txt", 2L);
+    // C0 is referenced once, by P.
+    AbstractNestedFileOpNodes childC0 = nested(file1, file2);
+    childC0.incrementInDegree();
+    var c0Info = serialize(childC0);
+    assertThat(c0Info.getRemainingReferencesForTesting()).isEqualTo(1);
+
+    // P's direct file1 is covered by C0, so P collapses onto C0. P is referenced by GP1 and GP2.
+    AbstractNestedFileOpNodes parentP = nested(childC0, file1);
+    parentP.addInDegreesForTesting(2);
+    assertThat(serialize(parentP)).isSameInstanceAs(c0Info);
+    // C0 takes on P's two references and drops P's own: 1 + 2 - 1.
+    assertThat(c0Info.getRemainingReferencesForTesting()).isEqualTo(2);
+
+    var _ = serialize(nested(parentP, mockFile("unwrap_f3.txt", 3L)));
+    assertThat(c0Info.getRemainingReferencesForTesting()).isEqualTo(1);
+    assertThat(c0Info.isBitmapDroppedForTesting()).isFalse();
+
+    var _ = serialize(nested(parentP, mockFile("unwrap_f4.txt", 4L)));
+    assertThat(c0Info.getRemainingReferencesForTesting()).isEqualTo(0);
+    assertThat(c0Info.isBitmapDroppedForTesting()).isTrue();
+    // The cardinality is cached, so it outlives the bitmap. Merging does not.
+    assertThat(c0Info.cardinality()).isEqualTo(2);
+    RoaringBitmap union = new RoaringBitmap();
+    IllegalStateException thrown =
+        assertThrows(IllegalStateException.class, () -> c0Info.mergeInto(union));
+    assertThat(thrown).hasMessageThat().contains("Attempted to merge from dropped bitmap");
+  }
+
+  @Test
+  public void diamondUnwrap_conservationPreventsPrematureBitmapDropping() throws Exception {
+    stubWriter();
+    FileKey file1 = mockFile("diamond_unwrap_f1.txt", 1L);
+    FileKey file2 = mockFile("diamond_unwrap_f2.txt", 2L);
+    // C0 is referenced by P1 and P2, both of which collapse onto it. Each Pi is referenced by GP.
+    AbstractNestedFileOpNodes childC0 = nested(file1, file2);
+    childC0.addInDegreesForTesting(2);
+    var c0Info = serialize(childC0);
+    AbstractNestedFileOpNodes p1 = nested(childC0, file1);
+    p1.incrementInDegree();
+    AbstractNestedFileOpNodes p2 = nested(childC0, file2);
+    p2.incrementInDegree();
+
+    // Each collapse adds the wrapper's one reference and releases its own, for a net of zero.
+    assertThat(serialize(p1)).isSameInstanceAs(c0Info);
+    assertThat(c0Info.getRemainingReferencesForTesting()).isEqualTo(2);
+    assertThat(serialize(p2)).isSameInstanceAs(c0Info);
+    assertThat(c0Info.getRemainingReferencesForTesting()).isEqualTo(2);
+
+    // GP sees C0 twice, keeps it once, and collapses onto it as well. As a root, GP adds no
+    // references and releases both of its own.
+    assertThat(serialize(nested(p1, p2))).isSameInstanceAs(c0Info);
+    assertThat(c0Info.getRemainingReferencesForTesting()).isEqualTo(0);
+    assertThat(c0Info.isBitmapDroppedForTesting()).isTrue();
+  }
+
+  @Test
+  public void unaryUnwrapToRemoteNode_keepsBitmapForAllGrandparents() throws Exception {
+    stubWriter();
+    RemoteFileOpNode remote = remoteNode(1);
+    FileKey constantFile =
+        FileKey.create(RootedPath.toRootedPath(root, PathFragment.EMPTY_FRAGMENT));
+    // P collapses onto the remote node, whose incoming edges are never counted. P is referenced by
+    // GP1 and GP2.
+    AbstractNestedFileOpNodes parentP = nested(remote, constantFile);
+    parentP.addInDegreesForTesting(2);
+    var remoteInfo = serialize(parentP);
+    assertThat(remoteInfo).isSameInstanceAs(serializer.registerDependency(remote));
+
+    // Each grandparent merges the remote node and then releases it.
+    var _ = serialize(nested(parentP, mockFile("remote_unwrap_f1.txt", 1L)));
+    var _ = serialize(nested(parentP, mockFile("remote_unwrap_f2.txt", 2L)));
+
+    assertThat(remoteInfo.isBitmapDroppedForTesting()).isFalse();
+    assertQuiescent();
+  }
+
+  @Test
+  public void releaseBitmapsDisabled_retainsBitmapAfterLastParent() throws Exception {
+    stubWriter();
+    var retainingSerializer = newSerializer(LeafIdAssignment.lazy(), /* releaseBitmaps= */ false);
+    AbstractNestedFileOpNodes child =
+        nested(mockFile("retain_f1.txt", 1L), mockFile("retain_f2.txt", 2L));
+    child.incrementInDegree();
+    var childInfo = serialize(retainingSerializer, child);
+
+    var _ = serialize(retainingSerializer, nested(child, mockFile("retain_f3.txt", 3L)));
+
+    assertThat(childInfo.isBitmapDroppedForTesting()).isFalse();
   }
 
   @Test
@@ -788,5 +894,23 @@ public final class FileDependencySerializerTest {
 
     assertThat(infoC.writeStatus().isDone()).isFalse();
     assertThat(infoA.writeStatus().isDone()).isTrue();
+  }
+
+  @Test
+  public void failedParent_doesNotReleaseChildBitmaps() throws Exception {
+    stubWriter();
+    AbstractNestedFileOpNodes child =
+        nested(mockFile("rc_future_f1.txt", 1L), mockFile("rc_future_f2.txt", 2L));
+    child.incrementInDegree();
+    var childInfo = serialize(child);
+    // Not stubbed, so absent from the mocked graph.
+    FileKey missingFile =
+        FileKey.create(RootedPath.toRootedPath(root, PathFragment.create("rc_missing.txt")));
+
+    assertThrows(ExecutionException.class, () -> serialize(nested(child, missingFile)));
+    forkJoinPool.awaitQuiescence(5, SECONDS);
+
+    assertThat(childInfo.getRemainingReferencesForTesting()).isEqualTo(1);
+    assertThat(childInfo.isBitmapDroppedForTesting()).isFalse();
   }
 }

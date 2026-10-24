@@ -165,7 +165,7 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
       // them as rvalues. This, in particular, allows us to make the (dynamic) type of
       // `select({"//foo": [], "//bar": ["something"]})}) assignable to a `select[list[str]]`,
       // rather than only to a `select[list[Any]|list[str]]`.
-      return new AutoValue_SelectorValue_Type(valueType.toRvalue());
+      return Types.intern(new AutoValue_SelectorValue_Type(valueType.toRvalue()));
     }
 
     public abstract StarlarkType getValueType();

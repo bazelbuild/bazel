@@ -21,6 +21,10 @@ import javax.annotation.Nullable;
 /**
  * Base class for all Starlark types.
  *
+ * <p>For compatibility with {@link Types#intern interning}, subclasses of {@link StarlarkType} must
+ * ensure that their {@link Object#equals} implementation only returns true for instances of the
+ * same Java class and (if the subclass is generic) a compatible Java type.
+ *
  * <p>Starlark typing is an experimental feature under development. See the tracking issue:
  * https://github.com/bazelbuild/bazel/issues/27370
  */

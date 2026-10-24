@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -40,14 +41,14 @@ public final class TypeTable {
   // for bindings without static type information.
   private final StarlarkType[] bindingTypes;
   // Type constructor values of bindings, indexed by the binding's sequence number. Sparse because
-  // most bindings are not type constructors.
-  private final LinkedHashMap<Integer, TypeConstructor> typeConstructors = new LinkedHashMap<>();
+  // most bindings are not type constructors; lazily initialized by setTypeConstructor().
+  @Nullable private LinkedHashMap<Integer, TypeConstructor> typeConstructors;
   // Types of functions. Indexed by function's sequence number.
   private final Types.GeneralCallableType[] functionTypes;
   // Whether a function uses type syntax. Indexed by function's sequence number.
   private final boolean[] functionsUsingTypeSyntax;
 
-  final List<SyntaxError> errors = new ArrayList<>();
+  private List<SyntaxError> errors = new ArrayList<>();
 
   /** Constructs a {@link TypeTable} large enough to hold typeable entities in the given file. */
   public TypeTable(StarlarkFile file) {
@@ -73,14 +74,22 @@ public final class TypeTable {
     this.functionsUsingTypeSyntax = new boolean[numFunctions];
   }
 
+  /** Records a syntax error in the type table. */
+  void addError(SyntaxError error) {
+    if (errors == null) {
+      errors = new ArrayList<>();
+    }
+    errors.add(error);
+  }
+
   /** Returns the list of errors recorded in the type table. */
   public ImmutableList<SyntaxError> errors() {
-    return ImmutableList.copyOf(errors);
+    return errors == null ? ImmutableList.of() : ImmutableList.copyOf(errors);
   }
 
   /** Returns true if no errors were recorded in the type table. */
   public boolean ok() {
-    return errors.isEmpty();
+    return errors == null || errors.isEmpty();
   }
 
   /**
@@ -122,6 +131,12 @@ public final class TypeTable {
    */
   void setTypeConstructor(Resolver.Binding binding, @Nullable TypeConstructor typeConstructor) {
     checkArgument(binding.getScope() == Resolver.Scope.GLOBAL || binding.isToplevelLocal());
+    if (typeConstructors == null) {
+      if (typeConstructor == null) {
+        return;
+      }
+      typeConstructors = new LinkedHashMap<>();
+    }
     typeConstructors.put(binding.getBindingId(), typeConstructor);
   }
 
@@ -132,7 +147,7 @@ public final class TypeTable {
    */
   @Nullable
   public TypeConstructor getTypeConstructor(Resolver.Binding binding) {
-    return typeConstructors.get(binding.getBindingId());
+    return typeConstructors == null ? null : typeConstructors.get(binding.getBindingId());
   }
 
   /** Returns the declared type of the global binding. Null indicates untyped / Any. */
@@ -180,5 +195,18 @@ public final class TypeTable {
   /** Marks the function with the given sequence number as using type syntax. */
   void setUsesTypeSyntax(Resolver.Function function) {
     functionsUsingTypeSyntax[function.getFunctionId()] = true;
+  }
+
+  /**
+   * Returns a newly-allocated array of function types (excluding the <toplevel> function) indexed
+   * by their {@link Resolver.Function#getFunctionId}.
+   *
+   * <p>Can only be called after type tagging has finished.
+   */
+  public Types.CallableType[] getNonToplevelFunctionTypes() {
+    if (functionTypes.length == 0) {
+      return new Types.CallableType[0];
+    }
+    return Arrays.copyOfRange(functionTypes, 0, functionTypes.length - 1);
   }
 }

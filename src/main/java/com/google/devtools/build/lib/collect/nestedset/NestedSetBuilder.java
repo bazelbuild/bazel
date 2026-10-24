@@ -27,6 +27,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 
@@ -455,12 +456,20 @@ public abstract sealed class NestedSetBuilder<E> {
   }
 
   private static final class DefaultNestedSetBuilder<E> extends NestedSetBuilder<E> {
+    /**
+     * Maximum number of transitive sets that are deduplicated by a linear scan (by identity) rather
+     * than by a hash set.
+     */
+    private static final int MAX_LINEAR_SCAN_TRANSITIVE = 16;
+
     // Polymorphic slot:
     // - null: 0 transitive sets
     // - NestedSet<E>: 1 transitive set
-    // - NestedSet<?>[]: 2 transitive sets
-    // - CompactHashSet<NestedSet<E>>: 3+ transitive sets
+    // - NestedSet<?>[]: 2 to MAX_LINEAR_SCAN_TRANSITIVE transitive sets in the first
+    //   transitiveCount slots
+    // - CompactHashSet<NestedSet<E>>: more than MAX_LINEAR_SCAN_TRANSITIVE transitive sets
     private Object transitive;
+    private int transitiveCount;
 
     private DefaultNestedSetBuilder(Order order) {
       super(order);
@@ -472,25 +481,42 @@ public abstract sealed class NestedSetBuilder<E> {
       NestedSet<E> typedSubset = (NestedSet<E>) subset;
       if (transitive == null) {
         transitive = typedSubset;
-      } else if (transitive instanceof NestedSet<?> first) {
-        if (first == typedSubset) {
-          // Duplicate, ignore.
-          return;
-        }
-        transitive = new NestedSet<?>[] {first, typedSubset};
-      } else if (transitive instanceof NestedSet<?>[] arr) {
-        if (arr[0] == typedSubset || arr[1] == typedSubset) {
-          // Duplicate, ignore.
-          return;
-        }
-        var set = CompactHashSet.<NestedSet<E>>createWithExpectedSize(4);
-        set.add((NestedSet<E>) arr[0]);
-        set.add((NestedSet<E>) arr[1]);
-        set.add(typedSubset);
-        transitive = set;
-      } else {
-        ((CompactHashSet<NestedSet<E>>) transitive).add(typedSubset);
+        return;
       }
+      if (transitive instanceof NestedSet<?> first) {
+        if (first != typedSubset) {
+          transitive = new NestedSet<?>[] {first, typedSubset};
+          transitiveCount = 2;
+        }
+        return;
+      }
+      if (transitive instanceof NestedSet<?>[] arr) {
+        // NestedSet does not override equals, so deduplicating by identity is equivalent to
+        // deduplicating via a hash set.
+        for (int i = 0; i < transitiveCount; i++) {
+          if (arr[i] == typedSubset) {
+            // Duplicate, ignore.
+            return;
+          }
+        }
+        if (transitiveCount == MAX_LINEAR_SCAN_TRANSITIVE) {
+          var set =
+              CompactHashSet.<NestedSet<E>>createWithExpectedSize(2 * MAX_LINEAR_SCAN_TRANSITIVE);
+          for (int i = 0; i < transitiveCount; i++) {
+            set.add((NestedSet<E>) arr[i]);
+          }
+          set.add(typedSubset);
+          transitive = set;
+          return;
+        }
+        if (transitiveCount == arr.length) {
+          arr = Arrays.copyOf(arr, Math.min(2 * arr.length, MAX_LINEAR_SCAN_TRANSITIVE));
+          transitive = arr;
+        }
+        arr[transitiveCount++] = typedSubset;
+        return;
+      }
+      ((CompactHashSet<NestedSet<E>>) transitive).add(typedSubset);
     }
 
     @Override
@@ -511,7 +537,7 @@ public abstract sealed class NestedSetBuilder<E> {
 
     @Override
     boolean isTwoTransitive() {
-      return transitive instanceof NestedSet<?>[] arr && arr.length == 2;
+      return transitive instanceof NestedSet<?>[] && transitiveCount == 2;
     }
 
     @Override
@@ -538,7 +564,8 @@ public abstract sealed class NestedSetBuilder<E> {
         return ImmutableList.of((NestedSet<E>) single);
       }
       if (transitive instanceof NestedSet<?>[] arr) {
-        return ImmutableList.of((NestedSet<E>) arr[0], (NestedSet<E>) arr[1]);
+        // Caller does not mutate the returned list.
+        return Arrays.asList((NestedSet<E>[]) arr).subList(0, transitiveCount);
       }
       return (CompactHashSet<NestedSet<E>>) transitive;
     }

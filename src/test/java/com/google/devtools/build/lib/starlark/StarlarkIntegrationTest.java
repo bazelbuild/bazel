@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -113,6 +114,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(DummyTestFragment.class);
+    builder.setNestedSetCountLimitMessage("See the limits doc.");
     testStarlarkBuiltin = new TestStarlarkBuiltin();
     builder.addBzlToplevel("test", testStarlarkBuiltin);
     return builder.build();
@@ -4794,5 +4796,135 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/starlark:t");
     assertNoEvents();
+  }
+
+  @Test
+  public void testNestedSetCountLimitAndAllowlist() throws Exception {
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+          return [MyInfo(sets = [depset([i]) for i in range(200)])]
+        my_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load(":extension.bzl", "my_rule")
+        my_rule(name = "t")
+        """);
+    reporter.removeHandler(failFastHandler);
+
+    setBuildLanguageOptions("--nested_set_count_limit=100");
+    assertThat(getConfiguredTarget("//test/starlark:t")).isNull();
+    assertContainsEvent(
+        "which exceeds the maximum allowed limit of 100 controlled by --nested_set_count_limit."
+            + " See the limits doc.");
+
+    eventCollector.clear();
+    setBuildLanguageOptions(
+        "--nested_set_count_limit=100", "--nested_set_count_limit_allowlist=//test/starlark");
+    assertThat(getConfiguredTarget("//test/starlark:t")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testNestedSetCountLimitAspectExceededAndAllowlisted() throws Exception {
+    setBuildLanguageOptions("--nested_set_count_limit=100");
+    scratch.file("test/aspect_pkg/BUILD", "");
+    scratch.file(
+        "test/aspect_pkg/aspect.bzl",
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          return [AspectInfo(sets = [depset([i]) for i in range(200)])]
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def _rule_impl(ctx):
+          return []
+        my_rule = rule(implementation = _rule_impl)
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load(":extension.bzl", "my_rule")
+        my_rule(name = "t")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(
+        ViewCreationFailedException.class,
+        () ->
+            update(
+                ImmutableList.of("//test/starlark:t"),
+                ImmutableList.of("test/aspect_pkg/aspect.bzl%my_aspect"),
+                /* keepGoing= */ false,
+                /* loadingPhaseThreads= */ 1,
+                /* doAnalysis= */ true,
+                new EventBus()));
+    assertContainsEvent("which exceeds the maximum allowed limit of 100");
+
+    // Allowlisting the package of the aspect's .bzl file exempts the aspect.
+    eventCollector.clear();
+    setBuildLanguageOptions(
+        "--nested_set_count_limit=100", "--nested_set_count_limit_allowlist=//test/aspect_pkg");
+    AnalysisResult result =
+        update(
+            ImmutableList.of("//test/starlark:t"),
+            ImmutableList.of("test/aspect_pkg/aspect.bzl%my_aspect"),
+            /* keepGoing= */ false,
+            /* loadingPhaseThreads= */ 1,
+            /* doAnalysis= */ true,
+            new EventBus());
+    assertThat(result.getAspectsMap()).hasSize(1);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testNestedSetCountLimitPropagatesAnalysisFailureInfo() throws Exception {
+    setBuildLanguageOptions("--nested_set_count_limit=100");
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        MyInfo = provider()
+        def _under_test_impl(ctx):
+          return [MyInfo(sets = [depset([i]) for i in range(200)])]
+        under_test_rule = rule(implementation = _under_test_impl)
+
+        def _test_impl(ctx):
+          causes = ctx.attr.dep[0][AnalysisFailureInfo].causes.to_list()
+          return [AnalysisTestResultInfo(
+              success = len(causes) == 1,
+              message = causes[0].message if causes else "no failure",
+          )]
+
+        allow_failures_transition = analysis_test_transition(
+            settings = {"//command_line_option:allow_analysis_failures": "true"},
+        )
+
+        failure_test = rule(
+            implementation = _test_impl,
+            analysis_test = True,
+            attrs = {"dep": attr.label(cfg = allow_failures_transition)},
+        )
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load(":extension.bzl", "failure_test", "under_test_rule")
+        under_test_rule(name = "under_test")
+        failure_test(name = "my_test", dep = ":under_test")
+        """);
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//test/starlark:my_test");
+    AnalysisTestResultInfo info =
+        (AnalysisTestResultInfo)
+            testTarget.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR.getKey());
+    assertThat(info.getSuccess()).isTrue();
+    assertThat(info.getMessage()).contains("which exceeds the maximum allowed limit of 100");
   }
 }

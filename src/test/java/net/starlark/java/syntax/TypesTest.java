@@ -726,4 +726,64 @@ public class TypesTest {
         .isEqualTo(
             "(bool, /, a: int, b: [float], *args: int, c: None, d: [Any], **kwargs: int) -> bool");
   }
+
+  @Test
+  public void factories_internTypes() {
+    assertThat(Types.union(Types.INT, Types.FLOAT)).isSameInstanceAs(Types.NUMERIC);
+    assertThat(Types.union(Types.INT, Types.STR))
+        .isSameInstanceAs(Types.union(Types.STR, Types.INT));
+    assertThat(Types.list(Types.INT)).isSameInstanceAs(Types.list(Types.INT));
+    assertThat(Types.listRvalue(Types.INT)).isSameInstanceAs(Types.listRvalue(Types.INT));
+    assertThat(Types.dict(Types.STR, Types.INT)).isSameInstanceAs(Types.dict(Types.STR, Types.INT));
+    assertThat(Types.dictRvalue(Types.STR, Types.INT))
+        .isSameInstanceAs(Types.dictRvalue(Types.STR, Types.INT));
+    assertThat(Types.set(Types.STR)).isSameInstanceAs(Types.set(Types.STR));
+    assertThat(Types.tuple(ImmutableList.of())).isSameInstanceAs(Types.EMPTY_TUPLE);
+    assertThat(Types.tuple(Types.INT, Types.STR))
+        .isSameInstanceAs(Types.tuple(Types.INT, Types.STR));
+    assertThat(Types.homogeneousTuple(Types.ANY)).isSameInstanceAs(Types.HOMOGENEOUS_TUPLE_OF_ANY);
+    assertThat(Types.homogeneousTuple(Types.INT))
+        .isSameInstanceAs(Types.homogeneousTuple(Types.INT));
+    assertThat(Types.collection(Types.ANY)).isSameInstanceAs(Types.COLLECTION_OF_ANY);
+    assertThat(Types.collection(Types.INT)).isSameInstanceAs(Types.collection(Types.INT));
+    assertThat(Types.sequence(Types.INT)).isSameInstanceAs(Types.sequence(Types.INT));
+    assertThat(Types.mapping(Types.STR, Types.INT))
+        .isSameInstanceAs(Types.mapping(Types.STR, Types.INT));
+    assertThat(Types.partialStruct(ImmutableMap.of())).isSameInstanceAs(Types.ANY_STRUCT);
+    assertThat(Types.partialStruct(ImmutableMap.of("b", Types.INT, "a", Types.STR)))
+        .isSameInstanceAs(Types.partialStruct(ImmutableMap.of("a", Types.STR, "b", Types.INT)));
+    assertThat(Types.struct(ImmutableMap.of())).isSameInstanceAs(Types.EMPTY_STRUCT);
+    assertThat(Types.struct(ImmutableMap.of("b", Types.INT, "a", Types.STR)))
+        .isSameInstanceAs(Types.struct(ImmutableMap.of("a", Types.STR, "b", Types.INT)));
+    assertThat(
+            Types.generalCallable(
+                ImmutableList.of(),
+                ImmutableList.of(),
+                0,
+                0,
+                ImmutableSet.of(),
+                null,
+                null,
+                Types.ANY))
+        .isSameInstanceAs(Types.NO_PARAMS_CALLABLE);
+    assertThat(Types.simpleCallable(ImmutableList.of(Types.INT), false, Types.STR))
+        .isSameInstanceAs(Types.simpleCallable(ImmutableList.of(Types.INT), false, Types.STR));
+  }
+
+  @Test
+  public void union_typeRepr_canonicalOrder() {
+    assertThat(Types.union(Types.STR, Types.INT).typeRepr()).isEqualTo("int | str");
+    assertThat(Types.union(Types.list(Types.STR), Types.list(Types.INT)).typeRepr())
+        .isEqualTo("list[int] | list[str]");
+    assertThat(Types.union(Types.NONE, Types.STR, Types.set(Types.INT)).typeRepr())
+        .isEqualTo("set[int] | str | None");
+  }
+
+  @Test
+  public void struct_typeRepr_canonicalOrder() {
+    assertThat(Types.struct(ImmutableMap.of("b", Types.INT, "a", Types.STR)).typeRepr())
+        .isEqualTo("struct[{\"a\": str, \"b\": int}]");
+    assertThat(Types.partialStruct(ImmutableMap.of("b", Types.INT, "a", Types.STR)).typeRepr())
+        .isEqualTo("struct[{\"a\": str, \"b\": int}, ...]");
+  }
 }

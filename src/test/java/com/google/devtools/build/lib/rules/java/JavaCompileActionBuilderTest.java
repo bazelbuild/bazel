@@ -558,5 +558,25 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
             depUnmapped.getExecPathString(),
             depAdditionalTransitive.getExecPathString())
         .inOrder();
+
+    Deps.Dependencies noopMapperFullOutputDeps =
+        JavaCompileAction.createFullOutputDeps(
+            spawnResult,
+            outputDepsProto,
+            NestedSetBuilder.create(Order.STABLE_ORDER, depRootRelative, depMapped, depUnmapped),
+            NestedSetBuilder.create(Order.STABLE_ORDER, depAdditionalTransitive),
+            actionExecutionContext,
+            PathMapper.NOOP);
+
+    assertThat(
+            noopMapperFullOutputDeps.getDependencyList().stream()
+                .map(Deps.Dependency::getPath)
+                .toList())
+        .containsExactly(
+            depRootRelative.getExecPathString(),
+            pathMapper.getMappedExecPathString(depMapped),
+            depUnmapped.getExecPathString(),
+            depAdditionalTransitive.getExecPathString())
+        .inOrder();
   }
 }

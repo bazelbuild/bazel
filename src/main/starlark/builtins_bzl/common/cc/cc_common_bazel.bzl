@@ -13,10 +13,13 @@
 # limitations under the License.
 """Utilities related to C++ support."""
 
-load(":common/cc/cc_helper_internal.bzl", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
-
 _cc_common_internal = _builtins.internal.cc_common
 _cc_internal = _builtins.internal.cc_internal
+
+_RULES_CC_ALLOWLIST = [
+    ("", "third_party/bazel_rules/rules_cc"),
+    ("rules_cc", ""),
+]
 
 def _get_tool_for_action(*, feature_configuration, action_name: str) -> str:
     return _cc_common_internal.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
@@ -40,31 +43,28 @@ def _legacy_cc_flags_make_variable_do_not_use(*, cc_toolchain) -> str:
     return _cc_common_internal.legacy_cc_flags_make_variable_do_not_use(cc_toolchain = cc_toolchain)
 
 def _check_experimental_cc_shared_library() -> bool:
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_internal.check_private_api(allowlist = _RULES_CC_ALLOWLIST)
     return _cc_common_internal.check_experimental_cc_shared_library()
 
 def _incompatible_disable_objc_library_transition() -> bool:
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_internal.check_private_api(allowlist = _RULES_CC_ALLOWLIST)
     return _cc_common_internal.incompatible_disable_objc_library_transition()
 
 def _add_go_exec_groups_to_binary_rules() -> bool:
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_internal.check_private_api(allowlist = _RULES_CC_ALLOWLIST)
     return _cc_common_internal.add_go_exec_groups_to_binary_rules()
 
 def _get_tool_requirement_for_action(*, feature_configuration, action_name: str) -> Sequence[str]:
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_internal.check_private_api(allowlist = _RULES_CC_ALLOWLIST)
     return _cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
 
 def _implementation_deps_allowed_by_allowlist(*, ctx: Ctx) -> bool:
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_internal.check_private_api(allowlist = _RULES_CC_ALLOWLIST)
     return _cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
 
 # TODO: #27370 - replace `Any` with a more precise type once we support dot expressions in type names
 def _internal_exports() -> Any:
-    _cc_internal.check_private_api(allowlist = [
-        ("", "third_party/bazel_rules/rules_cc"),
-        ("rules_cc", ""),
-    ])
+    _cc_internal.check_private_api(allowlist = _RULES_CC_ALLOWLIST)
     return _cc_internal
 
 cc_common = struct(

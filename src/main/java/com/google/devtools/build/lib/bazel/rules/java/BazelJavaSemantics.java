@@ -94,4 +94,11 @@ public class BazelJavaSemantics implements JavaSemantics {
   public Optional<String> getFixDepsTool(Rule rule, JavaConfiguration javaConfiguration) {
     return Optional.empty();
   }
+
+  @Override
+  public boolean turbineOutputRootRelativePath() {
+    // TODO(cushon): move this back out of JavaSemantics after a release with a new turbine
+    // (https://github.com/bazelbuild/bazel/pull/31597)
+    return false;
+  }
 }

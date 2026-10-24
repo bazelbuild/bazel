@@ -73,5 +73,10 @@ public interface JavaSemantics {
 
   /** Returns the name of the tool to use for fixing dependencies in Java rules. */
   Optional<String> getFixDepsTool(Rule rule, JavaConfiguration javaConfiguration);
+
+  /** Whether to pass {@code --output_root_relative_path} to Turbine. */
+  // TODO(cushon): move this back out of JavaSemantics after a release with a new turbine
+  // (https://github.com/bazelbuild/bazel/pull/31597)
+  boolean turbineOutputRootRelativePath();
 }
 

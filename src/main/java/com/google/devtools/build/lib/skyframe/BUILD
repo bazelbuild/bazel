@@ -1252,6 +1252,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",
     ],

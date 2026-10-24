@@ -380,11 +380,11 @@ public abstract sealed class Artifact
   }
 
   /**
-   * Returns the parent Artifact containing this Artifact. Artifacts without parents shall return
-   * null.
+   * Returns the parent Artifact containing this Artifact, or null if the Artifact does not have a
+   * parent.
    */
   @Nullable
-  public SpecialArtifact getParent() {
+  public Artifact getParent() {
     return null;
   }
 
@@ -549,12 +549,12 @@ public abstract sealed class Artifact
   }
 
   /**
-   * Returns the path of this Artifact relative to this containing Artifact. Since ordinary
-   * Artifacts correspond to only one Artifact -- itself -- for ordinary Artifacts, this just
-   * returns the empty path. For special Artifacts, returns {@code null}.
+   * Returns the path of this Artifact relative to its parent Artifact, or null if the Artifact does
+   * not have a parent.
    */
+  @Nullable
   public PathFragment getParentRelativePath() {
-    return PathFragment.EMPTY_FRAGMENT;
+    return null;
   }
 
   @Override

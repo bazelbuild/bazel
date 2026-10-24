@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -239,6 +240,12 @@ public final class ConfiguredTargetFactory {
     if (target instanceof Rule) {
       try {
         CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
+        if (analysisEnvironment
+                .getStarlarkSemantics()
+                .get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT)
+            > 0) {
+          NestedSet.beginTargetNestedSetCount();
+        }
         return createRule(
             analysisEnvironment,
             (Rule) target,
@@ -252,6 +259,7 @@ public final class ConfiguredTargetFactory {
             execGroupCollectionBuilder,
             starlarkExecTransition);
       } finally {
+        NestedSet.endTargetNestedSetCount();
         CurrentRuleTracker.endConfiguredTarget();
       }
     }

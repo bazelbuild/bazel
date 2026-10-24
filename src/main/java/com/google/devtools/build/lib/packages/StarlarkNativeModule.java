@@ -606,7 +606,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               "licenses for exported file '%s' declared twice", inputFile.getName());
         }
 
-        targetDefinitionContext.setVisibilityAndLicense(inputFile, visibility, license);
+        targetDefinitionContext.setVisibilityAndLicense(
+            inputFile, visibility, license != null && license.isSpecified());
       } catch (NameConflictException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }

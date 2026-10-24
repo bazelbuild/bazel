@@ -2659,14 +2659,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
 
   private Set<LicenseType> getLicenses(String label) throws Exception {
     Rule rule = (Rule) getTarget(label);
-    // There are two interfaces for retrieving a rule's license: from the Rule object and by
-    // directly reading the "licenses" attribute. For config_setting both of these should always
-    // be NONE. This method checks consistency between them.
-    Set<LicenseType> fromRule = rule.getLicense().getLicenseTypes();
-    Set<LicenseType> fromAttribute =
-        RawAttributeMapper.of(rule).get("licenses", BuildType.LICENSE).getLicenseTypes();
-    assertThat(fromRule).containsExactlyElementsIn(fromAttribute);
-    return fromRule;
+    return RawAttributeMapper.of(rule).get("licenses", BuildType.LICENSE).getLicenseTypes();
   }
 
   /** Tests that default license behavior is unaffected. */

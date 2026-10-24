@@ -681,28 +681,8 @@ public final class StarlarkRepositoryContextTest {
   }
 
   @Test
-  public void testNoIncompatibleNoImplicitWatchLabel() throws Exception {
-    setUpRepo(
-        "test",
-        StarlarkSemantics.DEFAULT.toBuilder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, false)
-            .build());
-    scratch.file(root.getRelative("foo").getPathString());
-    StarlarkPath unusedPath = context.getPath(fakeFileLabel);
-    String unusedRead = context.readFile(fakeFileLabel, "no", thread);
-    assertThat(
-            context.getRecordedInputs().stream()
-                .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
-        .isNotEmpty();
-  }
-
-  @Test
-  public void testIncompatibleNoImplicitWatchLabel() throws Exception {
-    setUpRepo(
-        "test",
-        StarlarkSemantics.DEFAULT.toBuilder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, true)
-            .build());
+  public void testNoImplicitWatchLabel() throws Exception {
+    setUpRepo("test");
     scratch.file(root.getRelative("foo").getPathString());
     StarlarkPath unusedPath = context.getPath(fakeFileLabel);
     String unusedRead = context.readFile(fakeFileLabel, "no", thread);

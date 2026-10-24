@@ -193,6 +193,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_test_result_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/baseline_coverage_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

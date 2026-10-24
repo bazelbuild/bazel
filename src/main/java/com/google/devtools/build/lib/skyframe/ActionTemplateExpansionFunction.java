@@ -192,7 +192,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
             actionTemplate,
             output,
             action);
-        SpecialArtifact outputTree =
+        Artifact outputTree =
             output.getParent().isSubTreeArtifact()
                 ? output.getParent().getParent()
                 : output.getParent();

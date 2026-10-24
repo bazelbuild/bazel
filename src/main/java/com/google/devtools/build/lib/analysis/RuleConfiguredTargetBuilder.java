@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
@@ -278,6 +279,11 @@ public final class RuleConfiguredTargetBuilder {
           ruleContext.isDefaultExecGroupExecutingOnWindows(),
           ruleContext.createOutputArtifactScriptForAnalysisTest(),
           testResultInfo);
+    }
+
+    if (!providersBuilder.contains(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey())
+        && !ruleContext.verifyNestedSetCountLimit()) {
+      return null;
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();

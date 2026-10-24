@@ -398,13 +398,40 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
   // The tests below cover graph materialization and dense leaf ID assignment.
 
   @Test
+  public void computeLeafIdsAndUploadOrder_inDegreesMatchGraphEdges() throws Exception {
+    writeDiamond();
+    ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
+    var lookup = newLookup(selection);
+
+    assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
+    var _ = UploadLayout.computeLeafIdsAndUploadOrder(selection, lookup);
+
+    // In-degrees accumulate during computeLeafIdsAndUploadOrder, at the point each edge is
+    // traversed during the leaf walk. Walk the finished graph and check that every node's recorded
+    // in-degree equals the number of edges actually pointing at it.
+    //
+    // This is worth asserting permanently. A divergence would be silent here and would surface far
+    // downstream as reference counts that never reach zero, and therefore bitmaps that are never
+    // freed -- the exact failure this accounting exists to prevent.
+    Map<AbstractNestedFileOpNodes, List<AbstractNestedFileOpNodes>> parents =
+        nodeParents(lookup, selection);
+
+    assertThat(parents.values().stream().anyMatch(p -> !p.isEmpty())).isTrue();
+    parents.forEach(
+        (node, nodeParents) ->
+            assertWithMessage("in-degree for %s", node)
+                .that(node.getInDegree())
+                .isEqualTo(nodeParents.size()));
+  }
+
+  @Test
   public void computeLeafIdsAndUploadOrder_depthIsLongestPathFromTop() throws Exception {
     writeDiamond();
     ImmutableSet<SkyKey> selection = doneKeys(key -> key instanceof ActionLookupKey);
     var lookup = newLookup(selection);
 
     assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
-    var _ = lookup.computeLeafIdsAndUploadOrder(selection);
+    var _ = UploadLayout.computeLeafIdsAndUploadOrder(selection, lookup);
 
     // In a DAG, this recurrence has exactly one solution, so checking it locally at every node
     // checks every depth.
@@ -437,7 +464,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
     ImmutableList<SkyKey> uploadOrder =
-        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+        UploadLayout.computeLeafIdsAndUploadOrder(selection, lookup).uploadOrder();
 
     var depths = new ArrayList<Integer>();
     for (SkyKey key : uploadOrder) {
@@ -460,7 +487,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
     ImmutableList<SkyKey> uploadOrder =
-        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+        UploadLayout.computeLeafIdsAndUploadOrder(selection, lookup).uploadOrder();
 
     assertThat(uploadOrder).containsNoDuplicates();
     assertThat(uploadOrder).containsExactlyElementsIn(selection);
@@ -469,7 +496,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
       position.put(uploadOrder.get(i), i);
     }
 
-    // SelectionPartition admits exactly two kinds of analysis-to-analysis inversion: keys that
+    // UploadLayout admits exactly two kinds of analysis-to-analysis inversion: keys that
     // share a node (a collapse tie), and keys that both lack a nested node (the unranked bucket).
     // Anything else means a dependency is uploaded after its dependent.
     InMemoryGraph graph = graph();
@@ -521,7 +548,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     assertThat(lookup.materializeNodeGraph(selection)).isEmpty();
 
     ImmutableList<SkyKey> uploadOrder =
-        lookup.computeLeafIdsAndUploadOrder(selection).uploadOrder();
+        UploadLayout.computeLeafIdsAndUploadOrder(selection, lookup).uploadOrder();
     assertThat(uploadOrder).contains(okKey);
     assertThat(uploadOrder).doesNotContain(absentKey);
   }
@@ -825,8 +852,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
    * key after {@link FileOpNodeMemoizingLookup#materializeNodeGraph} returns: the future completes,
    * and so releases quiescence, before its callback replaces the map entry with the node. Checking
    * {@code computeNode(key) instanceof AbstractNestedFileOpNodes} directly would then miss the
-   * node, while {@link FileOpNodeMemoizingLookup#computeLeafIdsAndUploadOrder} unwraps the future
-   * and walks it.
+   * node, while {@link UploadLayout#computeLeafIdsAndUploadOrder} unwraps the future and walks it.
    */
   private static FileOpNodeOrEmpty resolvedNode(
       FileOpNodeMemoizingLookup lookup, ActionLookupKey key) {
