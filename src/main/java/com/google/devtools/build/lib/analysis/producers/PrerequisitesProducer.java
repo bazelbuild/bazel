@@ -289,6 +289,13 @@ final class PrerequisitesProducer
       ImmutableList<Aspect> propagatingAspects,
       ImmutableList<Aspect> execAspects,
       ConfiguredTargetAndData prerequisite) {
+    var configuration = prerequisite.getConfiguration();
+    // AspectFunction turns aspects on noconfig targets into no-ops, which ConfiguredAspectProducer
+    // then drops, so don't request them.
+    if (configuration != null && configuration.getOptions().hasNoConfig()) {
+      return ImmutableList.of();
+    }
+
     if (prerequisite.isTargetOutputFile()) {
       return propagatingAspects.stream()
           .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
@@ -299,7 +306,7 @@ final class PrerequisitesProducer
       return ImmutableList.of();
     }
 
-    if (prerequisite.getConfiguration().isExecConfiguration()) {
+    if (configuration.isExecConfiguration()) {
       return ImmutableList.<Aspect>builder().addAll(propagatingAspects).addAll(execAspects).build();
     }
 
