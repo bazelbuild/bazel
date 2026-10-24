@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -203,16 +204,6 @@ public class RemoteExecutionServiceTest {
               ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
           .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
           .build();
-  // In the past, Bazel only supports RemoteApi version 2.0.
-  // Use this to ensure we are backward compatible with Servers that only support 2.0.
-  private final ServerCapabilities legacyRemoteExecutorCapabilities =
-      ServerCapabilities.newBuilder()
-          .setCacheCapabilities(cacheCapabilities)
-          .setLowApiVersion(ApiVersion.twoPointZero.toSemVer())
-          .setHighApiVersion(ApiVersion.twoPointZero.toSemVer())
-          .setExecutionCapabilities(ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
-          .build();
-
   private final ServerCapabilities remoteExecutorCapabilities =
       ServerCapabilities.newBuilder()
           .setCacheCapabilities(cacheCapabilities)
@@ -289,25 +280,6 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void legacy_buildRemoteAction_withRegularFileAsOutput() throws Exception {
-    doReturn(legacyRemoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
-    when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
-    PathFragment execPath = execRoot.getRelative("path/to/tree").asFragment();
-    Spawn spawn =
-        new SpawnBuilder("dummy")
-            .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, execPath))
-            .build();
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-
-    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
-
-    assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly(execPath.toString());
-    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
-    assertThat(remoteAction.getCommand().getOutputPathsList()).isEmpty();
-  }
-
-  @Test
   public void buildRemoteAction_withTreeArtifactAsOutput() throws Exception {
     Spawn spawn =
         new SpawnBuilder("dummy")
@@ -323,26 +295,6 @@ public class RemoteExecutionServiceTest {
     assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputPathsList()).containsExactly("path/to/dir");
-  }
-
-  @Test
-  public void legacy_buildRemoteAction_withTreeArtifactAsOutput() throws Exception {
-    doReturn(legacyRemoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
-    when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
-    Spawn spawn =
-        new SpawnBuilder("dummy")
-            .withOutput(
-                ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-                    artifactRoot, PathFragment.create("path/to/dir")))
-            .build();
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-
-    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
-
-    assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
-    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).containsExactly("path/to/dir");
-    assertThat(remoteAction.getCommand().getOutputPathsList()).isEmpty();
   }
 
   @Test
@@ -364,26 +316,6 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void legacy_buildRemoteAction_withUnresolvedSymlinkAsOutput() throws Exception {
-    doReturn(legacyRemoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
-    when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
-    Spawn spawn =
-        new SpawnBuilder("dummy")
-            .withOutput(
-                ActionsTestUtil.createUnresolvedSymlinkArtifactWithExecPath(
-                    artifactRoot, PathFragment.create("path/to/link")))
-            .build();
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-
-    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
-
-    assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly("path/to/link");
-    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
-    assertThat(remoteAction.getCommand().getOutputPathsList()).isEmpty();
-  }
-
-  @Test
   public void buildRemoteAction_withActionInputAsOutput() throws Exception {
     Spawn spawn =
         new SpawnBuilder("dummy")
@@ -400,21 +332,29 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void legacy_buildRemoteAction_withActionInputFileAsOutput() throws Exception {
-    doReturn(legacyRemoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
-    when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
+  public void buildRemoteAction_withMixedOutputs_sortsUnifiedOutputPaths() throws Exception {
     Spawn spawn =
         new SpawnBuilder("dummy")
-            .withOutput(ActionInputHelper.fromPath(PathFragment.create("path/to/file")))
+            .withOutput(
+                ActionsTestUtil.createUnresolvedSymlinkArtifactWithExecPath(
+                    artifactRoot, PathFragment.create("outputs/z-link")))
+            .withOutput(
+                ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+                    artifactRoot, PathFragment.create("outputs/a-tree")))
+            .withOutput(
+                ActionsTestUtil.createArtifactWithExecPath(
+                    artifactRoot, PathFragment.create("outputs/m-file")))
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
-    assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly("path/to/file");
+    assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
-    assertThat(remoteAction.getCommand().getOutputPathsList()).isEmpty();
+    assertThat(remoteAction.getCommand().getOutputPathsList())
+        .containsExactly("outputs/a-tree", "outputs/m-file", "outputs/z-link")
+        .inOrder();
   }
 
   @Test
@@ -1262,6 +1202,82 @@ public class RemoteExecutionServiceTest {
     assertThat(execRoot.getRelative(unicodeToInternal("outputs/dir/東京都")).readSymbolicLink())
         .isEqualTo(PathFragment.create(unicodeToInternal("京都市")));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void cachedLegacySymlinks_downloadAndUploadModernFields(
+      @TestParameter boolean useDiskCache) throws Exception {
+    Path diskRoot = fs.getPath("/disk-cache");
+    diskRoot.createDirectoryAndParents();
+    CombinedCache compatibilityCache =
+        new CombinedCache(
+            useDiskCache ? null : new InMemoryCacheClient(),
+            useDiskCache
+                ? new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true)
+                : null,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    Artifact fileLink = ActionsTestUtil.createArtifact(artifactRoot, "file-link");
+    Artifact directoryLink =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "directory-link");
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(fileLink, directoryLink));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions, compatibilityCache);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    OutputSymlink legacyFileLink =
+        OutputSymlink.newBuilder().setPath("outputs/file-link").setTarget("file-target").build();
+    OutputSymlink legacyDirectoryLink =
+        OutputSymlink.newBuilder()
+            .setPath("outputs/directory-link")
+            .setTarget("directory-target")
+            .build();
+    // Bazel 10 or newer must still accept results cached by older clients or servers.
+    ActionResult legacyResult =
+        ActionResult.newBuilder()
+            .addOutputFileSymlinks(legacyFileLink)
+            .addOutputDirectorySymlinks(legacyDirectoryLink)
+            .build();
+    getFromFuture(
+        compatibilityCache.uploadActionResult(
+            action.getRemoteActionExecutionContext(), action.getActionKey(), legacyResult));
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    RemoteActionResult cachedResult = service.lookupCache(action);
+    assertThat(cachedResult).isNotNull();
+    assertThat(cachedResult.cacheName()).isEqualTo(useDiskCache ? "disk" : "remote");
+    service.downloadOutputs(action, cachedResult);
+
+    assertThat(fileLink.getPath().readSymbolicLink()).isEqualTo(PathFragment.create("file-target"));
+    assertThat(directoryLink.getPath().readSymbolicLink())
+        .isEqualTo(PathFragment.create("directory-target"));
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+
+    // A fresh local result uses only the modern field, even when the previous cache entry did not.
+    execRoot.getRelative("outputs/file-target").getOutputStream().close();
+    execRoot.getRelative("outputs/directory-target").createDirectoryAndParents();
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    uploadOutputsAndWait(service, action, spawnResult);
+
+    CachedActionResult uploadedResult =
+        compatibilityCache.downloadActionResult(
+            action.getRemoteActionExecutionContext(),
+            action.getActionKey(),
+            /* inlineOutErr= */ false,
+            /* inlineOutputFiles= */ ImmutableSet.of());
+    assertThat(uploadedResult).isNotNull();
+    assertThat(uploadedResult.actionResult().getOutputSymlinksList())
+        .containsExactly(legacyFileLink, legacyDirectoryLink);
+    assertThat(uploadedResult.actionResult().getOutputFileSymlinksList()).isEmpty();
+    assertThat(uploadedResult.actionResult().getOutputDirectorySymlinksList()).isEmpty();
   }
 
   @Test
@@ -2501,10 +2517,6 @@ public class RemoteExecutionServiceTest {
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult
-        .addOutputFileSymlinksBuilder()
-        .setPath("outputs/link")
-        .setTarget(targetPath.toString());
-    expectedResult
         .addOutputSymlinksBuilder()
         .setPath("outputs/link")
         .setTarget(targetPath.toString());
@@ -3099,6 +3111,31 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void buildRemoteAction_platformPropertiesArePresentOnActionAndCommand() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withPlatform(
+                PlatformInfo.builder()
+                    .setExecProperties(ImmutableMap.of("cpu", "x86_64", "os", "linux"))
+                    .build())
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getAction().getPlatform().getPropertiesList()).hasSize(2);
+    assertThat(remoteAction.getAction().getPlatform().getProperties(0).getName()).isEqualTo("cpu");
+    assertThat(remoteAction.getAction().getPlatform().getProperties(0).getValue())
+        .isEqualTo("x86_64");
+    assertThat(remoteAction.getAction().getPlatform().getProperties(1).getName()).isEqualTo("os");
+    assertThat(remoteAction.getAction().getPlatform().getProperties(1).getValue())
+        .isEqualTo("linux");
+    assertThat(remoteAction.getCommand().getPlatform())
+        .isEqualTo(remoteAction.getAction().getPlatform());
+  }
+
+  @Test
   public void workerPropertiesNotAddedUnlessMarkToolInputsSet() throws Exception {
     Spawn spawn =
         new SpawnBuilder("some/path/cmd")
@@ -3413,6 +3450,11 @@ public class RemoteExecutionServiceTest {
   }
 
   private RemoteExecutionService newRemoteExecutionService(RemoteOptions remoteOptions) {
+    return newRemoteExecutionService(remoteOptions, cache);
+  }
+
+  private RemoteExecutionService newRemoteExecutionService(
+      RemoteOptions remoteOptions, CombinedCache combinedCache) {
     return new RemoteExecutionService(
         reporter,
         /* verboseFailures= */ true,
@@ -3424,7 +3466,7 @@ public class RemoteExecutionServiceTest {
         digestUtil,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
-        cache,
+        combinedCache,
         executor,
         tempPathGenerator,
         null,
