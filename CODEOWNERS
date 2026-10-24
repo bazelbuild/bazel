@@ -79,7 +79,6 @@ android/ @ahumesky @ted-xie
 
 /tools/coverage/ @lberki
 /tools/test/collect_coverage.sh @lberki
-/tools/test/collect_cc_coverage.sh @lberki
 /tools/test/CoverageOutputGenerator/ @lberki
 
 # Configurability
