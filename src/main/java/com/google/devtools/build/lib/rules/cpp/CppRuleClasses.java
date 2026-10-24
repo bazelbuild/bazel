@@ -37,47 +37,12 @@ public class CppRuleClasses {
   public static final String CPP_MODULES = "cpp_modules";
 
   /**
-   * A string constant for the serialized_diagnostics_file feature. This feature generates the .dia
-   * file.
-   */
-  public static final String SERIALIZED_DIAGNOSTICS_FILE = "serialized_diagnostics_file";
-
-  /** A string constant for the module_map_home_cwd feature. */
-  public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
-
-  /**
-   * A string constant for the module_map_without_extern_module feature.
-   *
-   * <p>This features is a transitional feature; enabling it means that generated module maps will
-   * not have "extern module" declarations inside them; instead, the module maps need to be passed
-   * via the dependent_module_map_files build variable.
-   *
-   * <p>This variable is phrased negatively to aid the roll-out: currently, the default is that
-   * "extern module" declarations are generated.
-   */
-  public static final String MODULE_MAP_WITHOUT_EXTERN_MODULE = "module_map_without_extern_module";
-
-  /** A string constant for the layering_check feature. */
-  public static final String LAYERING_CHECK = "layering_check";
-
-  /**
    * A string constant for the use_header_modules feature.
    *
    * <p>This feature is only used during rollout; we expect to default enable this once we have
    * verified that module-enabled compilation is stable enough.
    */
   public static final String USE_HEADER_MODULES = "use_header_modules";
-
-  /**
-   * A string constant for the generate_submodules feature.
-   *
-   * <p>This feature is only used temporarily to make the switch to using submodules easier. With
-   * submodules, each header of a cc_library is placed into a submodule of the module generated for
-   * the appropriate target. As this influences the layering_check semantics and needs to be synced
-   * with a clang release, we want to be able to switch back and forth easily.
-   */
-  public static final String GENERATE_SUBMODULES = "generate_submodules";
-
 
   /**
    * A string constant for the no_legacy_features feature.
@@ -120,12 +85,6 @@ public class CppRuleClasses {
   /** A string constant for the external_include_paths feature. */
   public static final String EXTERNAL_INCLUDE_PATHS = "external_include_paths";
 
-  /** A string constant for the feature signalling static linking mode. */
-  public static final String STATIC_LINKING_MODE = "static_linking_mode";
-
-  /** A string constant for the feature signalling dynamic linking mode. */
-  public static final String DYNAMIC_LINKING_MODE = "dynamic_linking_mode";
-
   /** A string constant for the ThinLTO feature. */
   public static final String THIN_LTO = "thin_lto";
 
@@ -167,18 +126,8 @@ public class CppRuleClasses {
   /** A string constant for enabling fsafdo for AutoFDO implicitly. */
   public static final String ENABLE_FSAFDO = "enable_fsafdo";
 
-  /** A string constant for enabling memprof_optimize for FDO implicitly. */
-  public static final String ENABLE_FDO_MEMPROF_OPTIMIZE = "enable_fdo_memprof_optimize";
-
-  /** A string constant for allowing memprof_optimize for FDO implicitly. */
-  public static final String FDO_IMPLICIT_MEMPROF_OPTIMIZE = "fdo_implicit_memprof_optimize";
-
   /** A string constant for enabling memprof_optimize for AutoFDO implicitly. */
   public static final String ENABLE_AUTOFDO_MEMPROF_OPTIMIZE = "enable_autofdo_memprof_optimize";
-
-  /** A string constant for allowing memprof_optimize for AutoFDO implicitly. */
-  public static final String AUTOFDO_IMPLICIT_MEMPROF_OPTIMIZE =
-      "autofdo_implicit_memprof_optimize";
 
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
@@ -193,21 +142,6 @@ public class CppRuleClasses {
    */
   public static final String THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS =
       "thin_lto_all_linkstatic_use_shared_nonlto_backends";
-
-  /** A string constant for native deps links. */
-  public static final String NATIVE_DEPS_LINK = "native_deps_link";
-
-  /** A string constant for java launcher links. */
-  public static final String JAVA_LAUNCHER_LINK = "java_launcher_link";
-
-  /** A string constant for python launcher links. */
-  public static final String PY_LAUNCHER_LINK = "py_launcher_link";
-
-  /**
-   * A string constant for the PDB file generation feature, should only be used for toolchains
-   * targeting Windows that include a linker producing PDB files
-   */
-  public static final String GENERATE_PDB_FILE = "generate_pdb_file";
 
   /** A string constant for a feature to copy dynamic libraries to the binary's directory. */
   public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY = "copy_dynamic_libraries_to_binary";
