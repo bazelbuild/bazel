@@ -74,6 +74,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -359,7 +361,8 @@ public class MerkleTreeComputerTest {
   }
 
   @Test
-  public void treeArtifactSubtree_reusedByLaterBuild() throws Exception {
+  public void treeArtifactSubtree_respectsBlobPolicyAcrossBuilds(
+      @TestParameter MerkleTreeComputer.BlobPolicy blobPolicy) throws Exception {
     var fakeFileCache = new FakeActionInputFileCache();
     var treeArtifactInput =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
@@ -382,19 +385,31 @@ public class MerkleTreeComputerTest {
                   ImmutableSet.of(),
                   /* scrubber= */ null,
                   createSpawnExecutionContext(spawn, fakeFileCache),
-                  MerkleTreeComputer.BlobPolicy.KEEP);
+                  blobPolicy);
     }
 
-    assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
+    var expectedUploads =
+        ImmutableMap.of(
+            MerkleTreeComputer.BlobPolicy.DISCARD, 0,
+            MerkleTreeComputer.BlobPolicy.KEEP, 1,
+            MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD, 2);
+    assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(expectedUploads.get(blobPolicy));
   }
 
   @Test
   public void runfilesTreeSubtree_reusedByLaterBuild() throws Exception {
     var fakeFileCache = new FakeActionInputFileCache();
-    var runfile = ActionsTestUtil.createArtifact(artifactRoot, "pkg/tool");
+    var runfile = ActionsTestUtil.createArtifact(artifactRoot, "pkg/wrapper/deep/tool");
     runfile.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(runfile.getPath(), "tool content");
     fakeFileCache.put(runfile, FileArtifactValue.createForTesting(runfile));
+    var implementation = ActionsTestUtil.createArtifact(artifactRoot, "pkg/wrapper/deep/impl/code");
+    implementation.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(implementation.getPath(), "implementation");
+    fakeFileCache.put(implementation, FileArtifactValue.createForTesting(implementation));
+    var initializer = ActionsTestUtil.createArtifact(artifactRoot, "pkg/wrapper/__init__.py");
+    FileSystemUtils.writeContentAsLatin1(initializer.getPath(), "");
+    fakeFileCache.put(initializer, FileArtifactValue.createForTesting(initializer));
     var runfilesTreeArtifact =
         ActionsTestUtil.createRunfilesArtifact(
             artifactRoot,
@@ -403,19 +418,48 @@ public class MerkleTreeComputerTest {
         runfilesTreeArtifact,
         AnalysisTestUtil.createRunfilesTree(
             runfilesTreeArtifact.getExecPath(),
-            new Runfiles.Builder(TestConstants.WORKSPACE_NAME).addArtifact(runfile).build()));
+            new Runfiles.Builder(TestConstants.WORKSPACE_NAME)
+                .addArtifact(runfile)
+                .addArtifact(initializer)
+                .addArtifact(implementation)
+                .build()));
     var spawn = new SpawnBuilder().withInputs(runfilesTreeArtifact).build();
     var uploader = new CountingMerkleTreeUploader();
 
     for (int i = 0; i < 2; i++) {
-      var unused =
-          createMerkleTreeComputer(uploader)
-              .buildForSpawn(
-                  spawn,
-                  ImmutableSet.of(),
-                  /* scrubber= */ null,
-                  createSpawnExecutionContext(spawn, fakeFileCache),
-                  MerkleTreeComputer.BlobPolicy.KEEP);
+      var tree =
+          (MerkleTree.Uploadable)
+              createMerkleTreeComputer(uploader)
+                  .buildForSpawn(
+                      spawn,
+                      ImmutableSet.of(),
+                      /* scrubber= */ null,
+                      createSpawnExecutionContext(spawn, fakeFileCache),
+                      MerkleTreeComputer.BlobPolicy.KEEP);
+      var runfilesDigest = findDirectory(tree, "outputs", "pkg").getDirectories(0).getDigest();
+      assertThat(findDirectory(uploader.blobs, runfilesDigest).hasNodeProperties()).isTrue();
+      assertThat(findDirectory(uploader.blobs, runfilesDigest, WORKSPACE_NAME).hasNodeProperties())
+          .isFalse();
+      // The empty initializer remains an input but does not turn a unary wrapper into a boundary.
+      var wrapper = findDirectory(uploader.blobs, runfilesDigest, WORKSPACE_NAME, "pkg", "wrapper");
+      assertThat(wrapper.hasNodeProperties()).isFalse();
+      assertThat(wrapper.getFiles(0).getDigest().getSizeBytes()).isEqualTo(0);
+      assertThat(
+              findDirectory(
+                      uploader.blobs, runfilesDigest, WORKSPACE_NAME, "pkg", "wrapper", "deep")
+                  .hasNodeProperties())
+          .isTrue();
+      assertThat(
+              findDirectory(
+                      uploader.blobs,
+                      runfilesDigest,
+                      WORKSPACE_NAME,
+                      "pkg",
+                      "wrapper",
+                      "deep",
+                      "impl")
+                  .hasNodeProperties())
+          .isFalse();
     }
 
     assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
@@ -461,8 +505,8 @@ public class MerkleTreeComputerTest {
             execRoot, ArtifactRoot.RootType.OUTPUT, "outputs", "k8-fastbuild-ST-1234", "bin");
     checkNotNull(stRoot.getRoot().asPath()).createDirectoryAndParents();
 
-    Artifact artifact1 = ActionsTestUtil.createArtifact(fastbuildRoot, "pkg/foo.h");
-    Artifact artifact2 = ActionsTestUtil.createArtifact(stRoot, "pkg/foo.h");
+    Artifact artifact1 = ActionsTestUtil.createArtifact(fastbuildRoot, "external/sdk/pkg/foo.h");
+    Artifact artifact2 = ActionsTestUtil.createArtifact(stRoot, "external/sdk/pkg/foo.h");
     artifact1.getPath().getParentDirectory().createDirectoryAndParents();
     artifact2.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(artifact1.getPath(), "same content");
@@ -473,6 +517,21 @@ public class MerkleTreeComputerTest {
     FileArtifactValue metadata2 = FileArtifactValue.createForTesting(artifact2);
     cache.put(artifact1, metadata1);
     cache.put(artifact2, metadata2);
+
+    var sdkSourceRoot =
+        ArtifactRoot.asExternalSourceRoot(Root.fromPath(execRoot.getRelative("external/sdk")));
+    var sdkSource =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sdkSourceRoot, PathFragment.create("external/sdk/go.env"));
+    sdkSource.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(sdkSource.getPath(), "sdk environment");
+    cache.put(sdkSource, FileArtifactValue.createForTesting(sdkSource));
+    var mainSource =
+        ActionsTestUtil.createArtifactWithExecPath(
+            ArtifactRoot.asSourceRoot(Root.fromPath(execRoot)), PathFragment.create("pkg/main.go"));
+    mainSource.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(mainSource.getPath(), "main source");
+    cache.put(mainSource, FileArtifactValue.createForTesting(mainSource));
 
     // PathMapper that strips the config segment
     PathMapper strippingMapper =
@@ -491,17 +550,31 @@ public class MerkleTreeComputerTest {
         };
 
     Spawn spawn =
-        new SpawnBuilder().withInputs(artifact1, artifact2).setPathMapper(strippingMapper).build();
+        new SpawnBuilder()
+            .withInputs(artifact1, artifact2, sdkSource, mainSource)
+            .setPathMapper(strippingMapper)
+            .build();
     var merkleTreeComputer = createMerkleTreeComputer(/* uploader= */ null);
 
     // Should succeed without error — same digest allows the collision
-    var unused =
-        merkleTreeComputer.buildForSpawn(
-            spawn,
-            ImmutableSet.of(),
-            /* scrubber= */ null,
-            createSpawnExecutionContext(spawn, cache),
-            MerkleTreeComputer.BlobPolicy.KEEP);
+    var tree =
+        (MerkleTree.Uploadable)
+            merkleTreeComputer.buildForSpawn(
+                spawn,
+                ImmutableSet.of(),
+                /* scrubber= */ null,
+                createSpawnExecutionContext(spawn, cache),
+                MerkleTreeComputer.BlobPolicy.KEEP);
+    assertThat(tree.inputFiles()).isEqualTo(3);
+    assertThat(findDirectory(tree, "external", "sdk").hasNodeProperties()).isTrue();
+    assertThat(findDirectory(tree, "outputs", "cfg", "bin", "external", "sdk").hasNodeProperties())
+        .isTrue();
+    assertThat(findDirectory(tree, "external").hasNodeProperties()).isFalse();
+    assertThat(findDirectory(tree, "pkg").hasNodeProperties()).isFalse();
+    assertThat(
+            findDirectory(tree, "outputs", "cfg", "bin", "external", "sdk", "pkg")
+                .hasNodeProperties())
+        .isFalse();
   }
 
   /** Relative paths covering the empty path, nesting, siblings and segments sharing a prefix. */
@@ -654,8 +727,12 @@ public class MerkleTreeComputerTest {
 
   private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)
       throws Exception {
-    var blobs = merkleTree.blobs();
-    Directory current = Directory.parseFrom((byte[]) blobs.get(merkleTree.digest()));
+    return findDirectory(merkleTree.blobs(), merkleTree.digest(), pathSegments);
+  }
+
+  private static Directory findDirectory(
+      Map<?, Object> blobs, Digest rootDigest, String... pathSegments) throws Exception {
+    Directory current = Directory.parseFrom((byte[]) blobs.get(rootDigest));
     for (String segment : pathSegments) {
       Digest childDigest =
           current.getDirectoriesList().stream()
@@ -667,9 +744,10 @@ public class MerkleTreeComputerTest {
     return current;
   }
 
-  /** A {@link MerkleTreeUploader} that only counts calls to {@link #ensureInputsPresent}. */
+  /** Records uploaded blobs and counts calls to {@link #ensureInputsPresent}. */
   private static final class CountingMerkleTreeUploader implements MerkleTreeUploader {
     final AtomicInteger ensureInputsPresentCount = new AtomicInteger();
+    final Map<Digest, Object> blobs = new ConcurrentHashMap<>();
 
     @Override
     public ListenableFuture<Void> uploadBlob(
@@ -700,6 +778,7 @@ public class MerkleTreeComputerTest {
     public void ensureInputsPresent(
         RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force) {
       ensureInputsPresentCount.incrementAndGet();
+      blobs.putAll(merkleTree.blobs());
     }
   }
 
