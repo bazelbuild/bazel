@@ -500,7 +500,7 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
 }
 
 int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
-                   wstring* error) {
+                  bool is_directory, wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(symlink_name)) {
     if (error) {
       *error = MakeErrorMessage(
@@ -509,31 +509,45 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
     }
     return CreateSymlinkResult::kError;
   }
-  if (!IsAbsoluteNormalizedWindowsPath(symlink_target)) {
-    if (error) {
-      *error = MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
-          L"expected an absolute Windows path for symlink_target");
-    }
-    return CreateSymlinkResult::kError;
-  }
 
   const wstring name = AddUncPrefixMaybe(symlink_name);
-  const wstring target = AddUncPrefixMaybe(symlink_target);
-
-  DWORD attrs = GetFileAttributesW(target.c_str());
-  if ((attrs != INVALID_FILE_ATTRIBUTES) &&
-      (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
-    // Instead of creating a symlink to a directory use a Junction.
-    return CreateSymlinkResult::kTargetIsDirectory;
+  wstring target;
+  if (HasUncPrefix(symlink_target.c_str()) ||
+      HasDriveSpecifierPrefix(symlink_target.c_str())) {
+    if (!IsAbsoluteNormalizedWindowsPath(symlink_target)) {
+      if (error) {
+        *error = MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+            L"expected a normalized Windows path for symlink_target");
+      }
+      return CreateSymlinkResult::kError;
+    }
+    target = AddUncPrefixMaybe(symlink_target);
+  } else {
+    // A relative target is stored as is and resolved against the symlink's
+    // directory whenever the symlink is followed, so it must not get a UNC
+    // prefix.
+    if (symlink_target.empty() ||
+        symlink_target.find_first_of(L'/') != wstring::npos) {
+      if (error) {
+        *error = MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+            L"expected a non-empty relative path with backslashes for "
+            L"symlink_target");
+      }
+      return CreateSymlinkResult::kError;
+    }
+    target = symlink_target;
   }
 
+  DWORD dir_flag = is_directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
-                           symlinkPrivilegeFlag)) {
+                           symlinkPrivilegeFlag | dir_flag)) {
     if (GetLastError() == ERROR_INVALID_PARAMETER) {
-      // We are on a version of Windows that does not support this flag.
+      // We are on a version of Windows that does not support the symlink
+      // privilege flag.
       // Retry without the flag and return to error handling if necessary.
-      if (CreateSymbolicLinkW(name.c_str(), target.c_str(), 0)) {
+      if (CreateSymbolicLinkW(name.c_str(), target.c_str(), dir_flag)) {
         return CreateSymlinkResult::kSuccess;
       }
     }

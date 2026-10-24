@@ -39,6 +39,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
+  private static final int FILE_ATTRIBUTE_DIRECTORY = 0x10;
+
   private final boolean createSymbolicLinks;
 
   public WindowsFileSystem(DigestHashFunction hashFunction, boolean createSymbolicLinks) {
@@ -93,14 +95,25 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       Path link = getNioPath(linkPath);
       Path target = getNioPath(targetPath);
 
-      if (!createSymbolicLinks && existingFile) {
+      if (createSymbolicLinks && !targetFragment.isAbsolute()) {
+        // Keep a relative target as is, since it may be meant to resolve against a different
+        // location of the symlink, such as in a runfiles tree. Only a symlink can do that: a
+        // junction's target must be absolute. Windows needs to know whether the target is a
+        // directory, which a dangling target of unspecified type is assumed not to be.
+        WindowsFileOperations.createSymlink(
+            link.toString(),
+            targetFragment.getPathString(),
+            /* isDirectory= */ existingDirectory
+                || (!existingFile && type == SymlinkTargetType.DIRECTORY));
+      } else if (!createSymbolicLinks && existingFile) {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
         Files.copy(target, link);
       } else if (createSymbolicLinks
           && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
         // If symlinks are enabled and the target is not an existing or future directory, create a
         // symlink.
-        WindowsFileOperations.createSymlink(link.toString(), target.toString());
+        WindowsFileOperations.createSymlink(
+            link.toString(), target.toString(), /* isDirectory= */ false);
       } else {
         // Otherwise, create a junction.
         WindowsFileOperations.createJunction(link.toString(), target.toString());
@@ -119,6 +132,23 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       return PathFragment.create(
           StringEncoding.platformToInternal(
               WindowsFileOperations.readSymlinkOrJunction(nioPath.toString())));
+    } catch (InvalidPathException e) {
+      FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+      fnfe.initCause(e);
+      throw fnfe;
+    }
+  }
+
+  @Override
+  public SymlinkTargetType getSymlinkTargetType(PathFragment path) throws IOException {
+    // A symlink or junction has FILE_ATTRIBUTE_DIRECTORY iff it was created for a directory.
+    try {
+      int attributes = (int) Files.getAttribute(getNioPath(path), "dos:attributes", NO_FOLLOW);
+      return (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0
+          ? SymlinkTargetType.DIRECTORY
+          : SymlinkTargetType.FILE;
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     } catch (InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);

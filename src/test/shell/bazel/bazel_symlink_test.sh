@@ -361,11 +361,6 @@ EOF
 }
 
 function test_dangling_symlink_created_from_symlink_action() {
-  if is_windows; then
-    warn "Skipping test on Windows: Bazel's FileSystem cannot yet create relative symlinks."
-    return 0
-  fi
-
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
@@ -872,13 +867,11 @@ EOF
 }
 
 function test_unresolved_symlink_as_runfile_local() {
-  if is_windows; then
-    # TODO(#10298): Support unresolved symlinks on Windows.
-    return 0
-  fi
-
   setup_unresolved_symlink_as_runfile
   add_to_bazelrc build --spawn_strategy=local
+  if is_windows; then
+    add_to_bazelrc build --enable_runfiles
+  fi
 
   bazel build //pkg:use_tool || fail "local build failed"
   # Keep the implicitly built //pkg:a around to make the symlink resolve
@@ -888,13 +881,11 @@ function test_unresolved_symlink_as_runfile_local() {
 }
 
 function test_unresolved_symlink_as_runfile_local_inprocess() {
-  if is_windows; then
-    # TODO(#10298): Support unresolved symlinks on Windows.
-    return 0
-  fi
-
   setup_unresolved_symlink_as_runfile
   add_to_bazelrc build --spawn_strategy=local
+  if is_windows; then
+    add_to_bazelrc build --enable_runfiles
+  fi
 
   bazel build //pkg:use_tool || fail "local build failed"
   # Keep the implicitly built //pkg:a around to make the symlink resolve
@@ -917,6 +908,83 @@ function test_unresolved_symlink_as_runfile_symlink() {
   # outside the runfiles tree. The build should still fail as the relative
   # symlink is staged as is and doesn't resolve outside the runfiles tree.
   bazel build //pkg:use_tool_non_hermetically && fail "symlink in runfiles resolved outside the runfiles tree" || true
+}
+
+function test_relative_symlinks_resolve_in_runfiles_tree() {
+  mkdir -p pkg
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+  data_file = ctx.actions.declare_file("data/file.txt")
+  ctx.actions.write(data_file, "hello from file")
+  dir_file = ctx.actions.declare_file("venv/lib_impl/inside.txt")
+  ctx.actions.write(dir_file, "hello from dir")
+
+  # Like the interpreter symlink of a Python virtualenv, this only resolves
+  # inside the runfiles tree.
+  file_link = ctx.actions.declare_symlink("venv/bin/python")
+  ctx.actions.symlink(output = file_link, target_path = "../../data/file.txt")
+
+  # The runfiles tree gets this symlink before the directory it points to.
+  dir_link = ctx.actions.declare_symlink("venv/lib")
+  ctx.actions.symlink(
+      output = dir_link,
+      target_path = "lib_impl",
+      target_type = "directory",
+  )
+
+  script = ctx.actions.declare_file(ctx.label.name + ".sh")
+  ctx.actions.write(
+      output = script,
+      content = """#!/usr/bin/env bash
+set -euo pipefail
+cd "$0.runfiles/{workspace}/pkg"
+[[ "$(readlink venv/bin/python)" == ../../data/file.txt ]] || {{ echo "bad file link: $(readlink venv/bin/python)"; exit 1; }}
+[[ "$(readlink venv/lib)" == lib_impl ]] || {{ echo "bad dir link: $(readlink venv/lib)"; exit 1; }}
+[[ "$(cat venv/bin/python)" == "hello from file" ]] || {{ echo "file link does not resolve"; exit 1; }}
+[[ "$(cat venv/lib/inside.txt)" == "hello from dir" ]] || {{ echo "dir link does not resolve"; exit 1; }}
+""".format(workspace = ctx.workspace_name),
+      is_executable = True,
+  )
+  return DefaultInfo(
+      executable = script,
+      runfiles = ctx.runfiles(files = [data_file, dir_file, file_link, dir_link]),
+  )
+
+r = rule(implementation = _r, executable = True)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "tool")
+genrule(
+    name = "use_tool",
+    outs = ["out"],
+    cmd = "$(location :tool) && touch $@",
+    tools = [":tool"],
+)
+EOF
+
+  if is_windows; then
+    add_to_bazelrc build --enable_runfiles
+  fi
+  # Build the tool both as a tool and as a top-level target in bazel-bin.
+  bazel build //pkg:use_tool //pkg:tool >& $TEST_log || fail "build failed"
+
+  # The declared symlinks and their runfiles keep their relative targets.
+  assert_equals "../../data/file.txt" "$(readlink bazel-bin/pkg/venv/bin/python)"
+  assert_equals "lib_impl" "$(readlink bazel-bin/pkg/venv/lib)"
+  local -r manifest=bazel-bin/pkg/tool.sh.runfiles/MANIFEST
+  assert_contains "^_main/pkg/venv/bin/python ../../data/file.txt$" "$manifest"
+  assert_contains "^_main/pkg/venv/lib lib_impl$" "$manifest"
+
+  if is_windows; then
+    # Unlike MSYS tools, Windows only lists a directory through a symlink that
+    # was created as a directory symlink.
+    for dir in bazel-bin/pkg/venv/lib bazel-bin/pkg/tool.sh.runfiles/_main/pkg/venv/lib; do
+      cmd.exe /C "dir /b ${dir//\//\\}\\" >& $TEST_log || fail "cannot list $dir"
+      expect_log "inside.txt"
+    done
+  fi
 }
 
 run_suite "Tests for symlink artifacts"

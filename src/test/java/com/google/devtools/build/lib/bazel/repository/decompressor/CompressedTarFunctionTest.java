@@ -24,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -168,6 +169,45 @@ public class CompressedTarFunctionTest {
         return new GZIPInputStream(compressedInputStream);
       }
     }.decompress(descriptor);
+  }
+
+  @Test
+  public void testDecompressTarKeepsRelativeSymlinkTargets() throws Exception {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File tarGzFile = folder.newFile("relative_symlinks.tar.gz");
+    try (FileOutputStream fos = new FileOutputStream(tarGzFile);
+        GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
+        TarArchiveOutputStream tos = new TarArchiveOutputStream(gzos)) {
+      for (String file : new String[] {"data/file.txt", "data/dir/inside.txt"}) {
+        TarArchiveEntry entry = new TarArchiveEntry(file);
+        entry.setSize(5);
+        tos.putArchiveEntry(entry);
+        tos.write("hello".getBytes(UTF_8));
+        tos.closeArchiveEntry();
+      }
+      for (String[] link : new String[][] {{"bin/python", "../data/file.txt"}, {"lib", "data/dir"}}) {
+        TarArchiveEntry entry = new TarArchiveEntry(link[0], TarArchiveEntry.LF_SYMLINK);
+        entry.setLinkName(link[1]);
+        tos.putArchiveEntry(entry);
+        tos.closeArchiveEntry();
+      }
+    }
+    Path tarGzPath = fs.getPath(tarGzFile.getAbsolutePath());
+    Path outputDir = tarGzPath.getParentDirectory().getRelative("out");
+
+    decompress(
+        DecompressorDescriptor.builder()
+            .setArchivePath(tarGzPath)
+            .setDestinationPath(outputDir)
+            .build());
+
+    // Relative targets are kept as is on all platforms, including Windows with symlinks enabled.
+    Path fileLink = outputDir.getRelative("bin/python");
+    Path dirLink = outputDir.getRelative("lib");
+    assertThat(fileLink.readSymbolicLink().getPathString()).isEqualTo("../data/file.txt");
+    assertThat(dirLink.readSymbolicLink().getPathString()).isEqualTo("data/dir");
+    assertThat(FileSystemUtils.readContent(fileLink, UTF_8)).isEqualTo("hello");
+    assertThat(dirLink.getDirectoryEntries()).containsExactly(dirLink.getRelative("inside.txt"));
   }
 
   @Test

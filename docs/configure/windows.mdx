@@ -46,6 +46,20 @@ startup --windows_enable_symlinks
 build --enable_runfiles
 ```
 
+With `--windows_enable_symlinks`, a symlink with a relative target, such as one
+created by `ctx.actions.symlink(target_path = "../lib")` or extracted from an
+archive, keeps its relative target, as on Linux and macOS. Windows resolves it
+against the symlink's location when it is followed, so a symlink in a runfiles
+tree resolves within the runfiles tree. Without the flag, Bazel resolves the
+relative target against the symlink's location when it creates the symlink, and
+creates a junction to the resulting absolute path or a copy of the file there.
+
+A relative target that leads out of a directory reached through a junction
+resolves differently than on Linux and macOS. For example, if `C:\view\repo` is
+a junction to `C:\store\repo`, which contains a symlink
+`link -> ..\other\data.txt`, opening `C:\view\repo\link` reaches
+`C:\view\other\data.txt`, not `C:\store\other\data.txt`.
+
 **Note**: Creating symlinks on Windows is an expensive operation. The `--enable_runfiles` flag can potentially create a large amount of file symlinks. Only enable this feature when you need it.
 
 {/* TODO(pcloudy): https://github.com/bazelbuild/bazel/issues/6402
