@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -154,9 +155,119 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
             "--experimental_strict_action_env",
             "--action_env=FOO=bar");
 
-    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options);
+    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options, OS.LINUX);
     assertThat(env.getFixedEnv()).containsEntry("PATH", "/bin:/usr/bin:/sbin:/usr/sbin");
     assertThat(env.getFixedEnv()).containsEntry("FOO", "bar");
+  }
+
+  @Test
+  public void strictActionEnvUsesExecutionOs() throws Exception {
+    BuildOptions options =
+        BuildOptions.of(
+            ImmutableList.of(
+                CoreOptions.class, ShellConfiguration.Options.class, StrictActionEnvOptions.class),
+            "--incompatible_strict_action_env");
+
+    assertThat(BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options, OS.LINUX).getFixedEnv())
+        .containsEntry("PATH", "/bin:/usr/bin:/sbin:/usr/sbin");
+    assertThat(BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options, OS.WINDOWS).getFixedEnv())
+        .containsEntry(
+            "PATH",
+            pathOrDefault(
+                OS.WINDOWS,
+                null,
+                BazelRuleClassProvider.getShellExecutableForOs(
+                    OS.WINDOWS, options.get(ShellConfiguration.Options.class))));
+  }
+
+  @Test
+  public void nonStrictActionEnvIgnoresExecutionOs() throws Exception {
+    BuildOptions options =
+        BuildOptions.of(
+            ImmutableList.of(
+                CoreOptions.class, ShellConfiguration.Options.class, StrictActionEnvOptions.class),
+            "--noincompatible_strict_action_env");
+
+    ActionEnvironment hostEnv =
+        BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options, OS.getCurrent());
+    for (OS os : OS.values()) {
+      assertThat(BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options, os)).isEqualTo(hostEnv);
+    }
+  }
+
+  @Test
+  public void actionEnvironmentFollowsExecutionPlatform() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "linux",
+            constraint_values = ["@platforms//os:linux"],
+        )
+
+        platform(
+            name = "windows",
+            constraint_values = ["@platforms//os:windows"],
+        )
+
+        platform(name = "no_os")
+        """);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = "touch $1",
+                arguments = [out.path],
+                use_default_shell_env = True,
+            )
+            return [DefaultInfo(files = depset([out]))]
+
+        my_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(
+            name = "on_linux",
+            exec_compatible_with = ["@platforms//os:linux"],
+        )
+
+        my_rule(
+            name = "on_windows",
+            exec_compatible_with = ["@platforms//os:windows"],
+        )
+
+        my_rule(name = "anywhere")
+        """);
+
+    useConfiguration(
+        "--incompatible_strict_action_env",
+        "--extra_execution_platforms=//platforms:linux,//platforms:windows");
+    assertThat(getDefaultShellPath("//test:on_linux")).isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin");
+    assertThat(getDefaultShellPath("//test:on_windows"))
+        .isEqualTo(pathOrDefault(OS.WINDOWS, null, getShellExecutableForOs(OS.WINDOWS)));
+
+    // Without an OS constraint, the host OS decides.
+    useConfiguration(
+        "--incompatible_strict_action_env", "--extra_execution_platforms=//platforms:no_os");
+    assertThat(getDefaultShellPath("//test:anywhere"))
+        .isEqualTo(
+            pathOrDefault(OS.getCurrent(), null, getShellExecutableForOs(OS.getCurrent())));
+  }
+
+  private String getDefaultShellPath(String label) throws Exception {
+    var action = getGeneratingAction(getFilesToBuild(getConfiguredTarget(label)).getSingleton());
+    return ((SpawnAction) action).getEnvironment().getFixedEnv().get("PATH");
+  }
+
+  private PathFragment getShellExecutableForOs(OS os) {
+    return BazelRuleClassProvider.getShellExecutableForOs(
+        os, targetConfig.getOptions().get(ShellConfiguration.Options.class));
   }
 
   @Test
