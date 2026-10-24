@@ -54,13 +54,13 @@ public class FileValueTest {
             new FileValue.SymlinkFileValueWithStoredChain(
                 FsUtils.TEST_ROOTED_PATH,
                 new FileStateValue.RegularFileStateValueWithDigest(
-                    /* size= */ 100, /* digest= */ new byte[] {1, 2, 3, 4, 5}),
+                    /* size= */ 100, /* digest= */ new byte[] {1, 2, 3, 4, 5}, false),
                 ImmutableList.of(FsUtils.TEST_ROOTED_PATH),
                 PathFragment.create("somewhere/else")),
             new FileValue.SymlinkFileValueWithoutStoredChain(
                 FsUtils.TEST_ROOTED_PATH,
                 new FileStateValue.RegularFileStateValueWithDigest(
-                    /* size= */ 100, /* digest= */ new byte[] {1, 2, 3, 4, 5}),
+                    /* size= */ 100, /* digest= */ new byte[] {1, 2, 3, 4, 5}, false),
                 PathFragment.create("somewhere/else")));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
