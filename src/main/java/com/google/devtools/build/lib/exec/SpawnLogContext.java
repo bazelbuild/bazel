@@ -218,10 +218,11 @@ public abstract class SpawnLogContext implements ActionContext {
 
     // Obtain a digest from the filesystem.
     FileStatus status = path.stat();
+    byte[] digest =
+        DigestUtils.getDigestWithManualFallback(
+            input != null ? input.getExecPath() : path.asFragment(), path, xattrProvider, status);
     return builder
-        .setHash(
-            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider, status))
-                .toString())
+        .setHash(HashCode.fromBytes(digest).toString())
         .setSizeBytes(status.getSize())
         .build();
   }
