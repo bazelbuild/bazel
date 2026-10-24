@@ -1334,14 +1334,8 @@ public final class Starlark {
     }
 
     StarlarkFunction toplevel =
-        new StarlarkFunction(
-            rfn,
-            prog.getTypeTable(),
-            module,
-            globalIndex,
-            /* defaultValues= */ Tuple.empty(),
-            /* freevars= */ Tuple.empty(),
-            thread.getNextIdentityToken());
+        StarlarkFunction.ofToplevel(
+            rfn, prog.getTypeTable(), module, globalIndex, thread.getNextIdentityToken());
     Object result = Starlark.positionalOnlyCall(thread, toplevel);
     if (prog.getTypeTable() != null) {
       // For globals that don't have a declared static type, we export the value's dynamic type.
@@ -1423,14 +1417,8 @@ public final class Starlark {
     prog = maybeWithTypeInfo(prog, module, semantics, /* loader= */ null);
     Resolver.Function rfn = prog.getResolvedFunction();
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
-    return new StarlarkFunction(
-        rfn,
-        prog.getTypeTable(),
-        module,
-        globalIndex,
-        /* defaultValues= */ Tuple.empty(),
-        /* freevars= */ Tuple.empty(),
-        referenceIdentity);
+    return StarlarkFunction.ofToplevel(
+        rfn, prog.getTypeTable(), module, globalIndex, referenceIdentity);
   }
 
   /**

@@ -236,11 +236,8 @@ final class Eval {
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
 
-    // Nested functions use the same typeTable as their enclosing function, since both were compiled
-    // from the same Program.
     StarlarkFunction fn = fn(fr);
-    @Nullable
-    CallableType functionType = fn.getTypeTable() == null ? null : fn.getTypeTable().getType(rfn);
+    @Nullable CallableType functionType = fn.getChildFunctionType(rfn);
     boolean dynamicTypeCheckingEnabled =
         fr.thread
             .getSemantics()
@@ -294,14 +291,8 @@ final class Eval {
 
     // Nested functions use the same globalIndex as their enclosing function,
     // since both were compiled from the same Program.
-    return new StarlarkFunction(
-        rfn,
-        fn.getTypeTable(),
-        fn.getModule(),
-        fn.globalIndex,
-        Tuple.wrap(defaults),
-        Tuple.wrap(freevars),
-        fr.thread.getNextIdentityToken());
+    return StarlarkFunction.of(
+        rfn, fn, Tuple.wrap(defaults), Tuple.wrap(freevars), fr.thread.getNextIdentityToken());
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)

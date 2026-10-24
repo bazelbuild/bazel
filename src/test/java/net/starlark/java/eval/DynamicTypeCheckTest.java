@@ -246,6 +246,42 @@ public class DynamicTypeCheckTest {
   }
 
   @Test
+  public void nestedFunctionTypes() throws Exception {
+    ev.exec(
+        """
+        def sibling(a: int) -> int:
+            return a
+
+        def outer():
+            def middle(x: str) -> Callable:
+                return lambda y: x + y
+            return middle
+
+        middle_fn = outer()
+        inner_fn = middle_fn("abc")
+        """);
+    StarlarkFunction siblingFn = (StarlarkFunction) ev.lookup("sibling");
+    StarlarkFunction outerFn = (StarlarkFunction) ev.lookup("outer");
+    StarlarkFunction middleFn = (StarlarkFunction) ev.lookup("middle_fn");
+    StarlarkFunction innerFn = (StarlarkFunction) ev.lookup("inner_fn");
+    StarlarkSemantics semantics = ev.getStarlarkThread().getSemantics();
+
+    // Verify that sibling functions didn't duplicate type data.
+    assertThat(siblingFn.getFunctionTypes()).isSameInstanceAs(outerFn.getFunctionTypes());
+    assertThat(siblingFn.getFunctionTypes()).isSameInstanceAs(middleFn.getFunctionTypes());
+    assertThat(siblingFn.getFunctionTypes()).isSameInstanceAs(innerFn.getFunctionTypes());
+
+    assertThat(outerFn.getStarlarkType(semantics).typeRepr()).isEqualTo("<def () -> Any>");
+    assertThat(middleFn.getStarlarkType(semantics).typeRepr())
+        .isEqualTo("<def (x: str) -> Callable>");
+    assertThat(innerFn.getStarlarkType(semantics).typeRepr()).isEqualTo("<def (y: Any) -> Any>");
+
+    // Verify that middle_fn() is type-checked.
+    assertExecThrows(EvalException.class, "middle_fn(123)")
+        .isEqualTo("in call to middle(), parameter 'x' got value of type 'int', want 'str'");
+  }
+
+  @Test
   public void testStarlarkUniverseTypes() {
     StarlarkSemantics semantics = ev.getStarlarkThread().getSemantics();
     TypeContext typeContext = ev.getStarlarkThread().getTypeContext();
