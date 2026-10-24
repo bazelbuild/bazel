@@ -264,7 +264,18 @@ record PlatformKeys(
       }
     }
 
-    return null;
+    // The label may be an alias of an execution platform, such as the default --host_platform.
+    return platformInfos.entrySet().stream()
+        .filter(entry -> entry.getKey().getLabel().equals(platformLabel))
+        .map(entry -> entry.getValue().label())
+        .filter(label -> !label.equals(platformLabel))
+        .findFirst()
+        .flatMap(
+            label ->
+                executionPlatformKeys.stream()
+                    .filter(key -> label.equals(key.getLabel()))
+                    .findFirst())
+        .orElse(null);
   }
 
   @Nullable
