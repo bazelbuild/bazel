@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -82,6 +84,7 @@ import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtrac
 import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCallback;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -770,13 +773,87 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           resolvedAspectClasses.add(((AspectKey) key).getAspectClass());
         }
         values.addAll(
-            targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
+            targetifyValues(
+                null,
+                withoutBaseConfigConditions((AspectKey) key, graph.getDirectDeps(key)),
+                knownCtDeps,
+                resolvedAspectClasses));
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         values.addAll(
             targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
       }
     }
     return values.build();
+  }
+
+  /**
+   * Drops the aspect's base target's select() conditions from the aspect's direct deps. The aspect
+   * depends on them only to evaluate the base target's attributes, so they are deps of the base
+   * target, which is reported separately. Without this, which conditions get reported depends on
+   * which instance of the aspect class targetifyValues examines first. A condition's key that the
+   * aspect's own attributes also depend on is kept.
+   */
+  private Iterable<SkyKey> withoutBaseConfigConditions(AspectKey key, Iterable<SkyKey> deps)
+      throws InterruptedException {
+    T base = getValueFromKey(key.getBaseConfiguredTargetKey());
+    if (base == null) {
+      return deps;
+    }
+    RuleConfiguredTarget baseRule = getRuleConfiguredTarget(base);
+    if (baseRule == null) {
+      // An aspect on an output file evaluates the conditions of the rule generating it.
+      baseRule = getOwningRuleforOutputConfiguredTarget(base);
+    }
+    if (baseRule == null || baseRule.getConfigConditions().isEmpty()) {
+      return deps;
+    }
+    AspectValue aspectValue = getAspectValue(key);
+    if (aspectValue == null || aspectValue.getAspect() == null) {
+      return deps;
+    }
+    Set<Label> aspectLabels = new HashSet<>();
+    Set<Label> untransitionedLabels = new HashSet<>();
+    AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+        aspectValue.getAspect(),
+        DependencyFilter.ALL_DEPS,
+        (attribute, label) -> {
+          aspectLabels.add(label);
+          if (NoTransition.isInstance(attribute.getTransitionFactory())) {
+            untransitionedLabels.add(label);
+          }
+        });
+    // Conditions are evaluated in the base target's configuration, which is the aspect's.
+    BuildConfigurationKey configuration = key.getConfigurationKey();
+    // Skyframe merges equal edges, so the graph doesn't record whether a condition's key is also
+    // the aspect's own dep. An attribute without a transition resolves to the same configured
+    // target as the condition, since flag scoping re-scopes both alike, so that key is kept. A
+    // label named only by attributes with transitions is taken to be the aspect's own dep in the
+    // base configuration unless it also appears in another one. That misreads a label those
+    // attributes put in both configurations: the base key is dropped, though it is still reported
+    // as a dep of the base target.
+    Set<Label> movedLabels = new HashSet<>();
+    for (SkyKey dep : deps) {
+      if (dep.argument() instanceof ConfiguredTargetKey configuredTargetKey
+          && aspectLabels.contains(configuredTargetKey.getLabel())
+          && !configuration.equals(configuredTargetKey.getConfigurationKey())) {
+        movedLabels.add(configuredTargetKey.getLabel());
+      }
+    }
+    Set<ConfiguredTargetKey> droppedConditions = new HashSet<>();
+    for (Label condition : baseRule.getConfigConditions().keySet()) {
+      if (!untransitionedLabels.contains(condition)
+          && (!aspectLabels.contains(condition) || movedLabels.contains(condition))) {
+        droppedConditions.add(
+            ConfiguredTargetKey.builder()
+                .setLabel(condition)
+                .setConfigurationKey(configuration)
+                .build());
+      }
+    }
+    if (droppedConditions.isEmpty()) {
+      return deps;
+    }
+    return Iterables.filter(deps, dep -> !droppedConditions.contains(dep.argument()));
   }
 
   private Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> targetifyValues(
