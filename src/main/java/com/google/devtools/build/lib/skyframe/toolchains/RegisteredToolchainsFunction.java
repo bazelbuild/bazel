@@ -29,36 +29,28 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
-import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.rules.platform.ToolchainRule;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
-import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
 import com.google.devtools.build.lib.util.StringUtil;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.Set;
+import java.util.Collection;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * {@link SkyFunction} that returns all registered toolchains available for toolchain resolution.
+ * {@link SkyFunction} that returns all registered toolchains available for toolchain resolution in
+ * a given target configuration.
  */
 public class RegisteredToolchainsFunction implements SkyFunction {
 
@@ -69,54 +61,30 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     RegisteredToolchainsValue.Key key = (RegisteredToolchainsValue.Key) skyKey;
     BuildConfigurationValue configuration =
         (BuildConfigurationValue) env.getValue(key.getConfigurationKey());
-    RepositoryMappingValue mainRepoMapping =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
-    if (env.valuesMissing()) {
+    if (configuration == null) {
       return null;
     }
 
-    TargetPattern.Parser mainRepoParser =
-        new TargetPattern.Parser(
-            PathFragment.EMPTY_FRAGMENT, RepositoryName.MAIN, mainRepoMapping.repositoryMapping());
-    ImmutableList.Builder<SignedTargetPattern> targetPatternBuilder = new ImmutableList.Builder<>();
-
-    // Get the toolchains from the configuration.
-    // Reverse the list so the last one defined takes precedences.
-    PlatformConfiguration platformConfiguration =
-        configuration.getFragment(PlatformConfiguration.class);
+    // Expand the registered toolchains. This is shared by all configurations with the same
+    // --extra_toolchains.
+    ToolchainDeclarationsValue declarations;
     try {
-      targetPatternBuilder.addAll(
-          TargetPatternUtil.parseAllSigned(
-              platformConfiguration.getExtraToolchains().reverse(), mainRepoParser));
-    } catch (InvalidTargetPatternException e) {
-      throw new RegisteredToolchainsFunctionException(
-          new InvalidToolchainLabelException(e), Transience.PERSISTENT);
+      declarations =
+          (ToolchainDeclarationsValue)
+              env.getValueOrThrow(
+                  ToolchainDeclarationsValue.Key.create(
+                      configuration.getFragment(PlatformConfiguration.class).getExtraToolchains()),
+                  InvalidToolchainLabelException.class);
+    } catch (InvalidToolchainLabelException e) {
+      throw new RegisteredToolchainsFunctionException(e, Transience.PERSISTENT);
     }
-
-    // Get registered toolchains from the external dep graph.
-    ImmutableList<TargetPattern> bzlmodToolchains = getBzlmodToolchains(env);
-    if (bzlmodToolchains == null) {
+    if (declarations == null) {
       return null;
-    }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodToolchains));
-
-    // Expand target patterns.
-    ImmutableSet<Label> toolchainLabels;
-    try {
-      toolchainLabels =
-          TargetPatternUtil.expandTargetPatterns(
-              env, targetPatternBuilder.build(), FilteringPolicies.ruleTypeExplicit("toolchain"));
-      if (env.valuesMissing()) {
-        return null;
-      }
-    } catch (TargetPatternUtil.InvalidTargetPatternException e) {
-      throw new RegisteredToolchainsFunctionException(
-          new InvalidToolchainLabelException(e), Transience.PERSISTENT);
     }
 
     // Load the configured target for each, and get the declared toolchain providers.
     ImmutableList<DeclaredToolchainInfo> registeredToolchains =
-        configureRegisteredToolchains(env, configuration, toolchainLabels);
+        configureRegisteredToolchains(env, configuration, declarations.labels());
     if (env.valuesMissing()) {
       return null;
     }
@@ -152,43 +120,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   }
 
   @Nullable
-  private static ImmutableList<TargetPattern> getBzlmodToolchains(Environment env)
-      throws InterruptedException, RegisteredToolchainsFunctionException {
-    BazelDepGraphValue bazelDepGraphValue =
-        (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
-    if (bazelDepGraphValue == null) {
-      return null;
-    }
-    ImmutableList.Builder<TargetPattern> toolchains = ImmutableList.builder();
-    for (Module module : bazelDepGraphValue.getDepGraph().values()) {
-      if (module.getToolchainsToRegister().isEmpty()) {
-        continue;
-      }
-      RepositoryName repoName =
-          bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey());
-      RepositoryMappingValue repoMapping =
-          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
-      if (repoMapping == null) {
-        continue;
-      }
-      TargetPattern.Parser parser =
-          new TargetPattern.Parser(
-              PathFragment.EMPTY_FRAGMENT, repoName, repoMapping.repositoryMapping());
-      for (String pattern : module.getToolchainsToRegister()) {
-        try {
-          toolchains.add(parser.parse(pattern));
-        } catch (TargetParsingException e) {
-          throw new RegisteredToolchainsFunctionException(
-              new InvalidToolchainLabelException(pattern, e), Transience.PERSISTENT);
-        }
-      }
-    }
-    return env.valuesMissing() ? null : toolchains.build();
-  }
-
-  @Nullable
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
-      Environment env, BuildConfigurationValue configuration, Set<Label> labels)
+      Environment env, BuildConfigurationValue configuration, Collection<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     ImmutableSet<ActionLookupKey> keys =
         labels.stream()
