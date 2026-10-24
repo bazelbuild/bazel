@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +51,12 @@ import javax.net.ssl.SSLException;
  */
 @ThreadSafe
 class HttpConnector {
+
+  /** Supplies request headers, including credentials, before a connection is opened. */
+  @FunctionalInterface
+  interface RequestHeadersProvider {
+    ImmutableMap<String, List<String>> get(URI url) throws IOException;
+  }
 
   private static final int MAX_ATTEMPTS = 8;
   private static final int MAX_REDIRECTS = 40;
@@ -107,9 +112,7 @@ class HttpConnector {
     return Math.round(unscaled * timeoutScaling);
   }
 
-  URLConnection connect(
-      URI originalUrl, Function<URI, ImmutableMap<String, List<String>>> requestHeaders)
-      throws IOException {
+  URLConnection connect(URI originalUrl, RequestHeadersProvider requestHeaders) throws IOException {
 
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
@@ -123,6 +126,9 @@ class HttpConnector {
     int redirects = 0;
     int connectTimeout = scale(MIN_CONNECT_TIMEOUT_MS);
     while (true) {
+      // Resolve credentials before opening a connection so failures are not retried as network
+      // errors or followed by an unauthenticated request.
+      ImmutableMap<String, List<String>> headers = requestHeaders.get(url);
       HttpURLConnection connection = null;
       try {
         ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
@@ -138,7 +144,7 @@ class HttpConnector {
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
         connection.setInstanceFollowRedirects(false);
-        for (Map.Entry<String, List<String>> entry : requestHeaders.apply(url).entrySet()) {
+        for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
             // appears to be compressed.
