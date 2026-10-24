@@ -266,6 +266,17 @@ public interface SpawnRunner {
      */
     SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly);
 
+    /**
+     * Returns the values of {@link #getInputMapping} in no particular order and possibly with
+     * duplicates.
+     *
+     * <p>Prefer this over {@link #getInputMapping} if the input paths aren't needed, as
+     * implementations may avoid computing the mapping.
+     */
+    default Iterable<ActionInput> getExpandedInputs() {
+      return getInputMapping(/* willAccessRepeatedly= */ false).values();
+    }
+
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
 
@@ -319,7 +330,7 @@ public interface SpawnRunner {
             .prefetchFiles(
                 spawn.getResourceOwner(),
                 spawn,
-                () -> getInputMapping(/* willAccessRepeatedly= */ true).values(),
+                this::getExpandedInputs,
                 getInputMetadataProvider(),
                 Priority.MEDIUM,
                 Reason.INPUTS);
