@@ -190,6 +190,7 @@ final class RemoteActionContextProvider {
   public void registerRemoteSpawnStrategy(SpawnStrategyRegistry.Builder registryBuilder) {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    RemoteExecutionService remoteExecutionService = getRemoteExecutionService();
     RemoteSpawnRunner spawnRunner =
         new RemoteSpawnRunner(
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
@@ -197,10 +198,10 @@ final class RemoteActionContextProvider {
             env.getReporter(),
             retryScheduler,
             logDir,
-            getRemoteExecutionService(),
+            remoteExecutionService,
             digestUtil);
     registryBuilder.registerStrategy(
-        new RemoteSpawnStrategy(spawnRunner, executionOptions), "remote");
+        new RemoteSpawnStrategy(remoteExecutionService, spawnRunner, executionOptions), "remote");
   }
 
   /**
