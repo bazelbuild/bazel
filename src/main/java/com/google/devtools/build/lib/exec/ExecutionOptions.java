@@ -330,9 +330,10 @@ public abstract class ExecutionOptions extends OptionsBase {
           - `errors` to also print test logs for failed tests,
           - `all` to print summaries and logs for all tests and
           - `streamed` to output logs for all tests in real time (this will force tests to be
-            executed locally one at a time via `--test_strategy=exclusive`, disabling parallel
+            executed one at a time via `--test_strategy=exclusive`, disabling parallel
             execution and sharding. For parallel execution of multiple tests, use `errors` or
-            `all`).
+            `all`). With remote execution, output is streamed while a test runs only if the
+            remote executor supports live output streams.
           """)
   public abstract TestOutputFormat getTestOutput();
 
