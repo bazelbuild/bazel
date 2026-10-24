@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -94,8 +97,11 @@ public class BuildConfigurationValue
 
   /** Global state necessary to build a BuildConfiguration. */
   public interface GlobalStateProvider {
-    /** Computes the default shell environment for actions from the command line options. */
-    ActionEnvironment getActionEnvironment(BuildOptions options);
+    /**
+     * Computes the default shell environment for actions that execute on {@code executionOs} from
+     * the command line options.
+     */
+    ActionEnvironment getActionEnvironment(BuildOptions options, OS executionOs);
 
     FragmentRegistry getFragmentRegistry();
 
@@ -119,6 +125,10 @@ public class BuildConfigurationValue
    */
   private final ImmutableMap<String, String> globalMakeEnv;
 
+  /** The default action environment for each execution OS. */
+  private final ImmutableMap<OS, ActionEnvironment> actionEnvironments;
+
+  /** The default action environment for actions that execute on the host OS. */
   private final ActionEnvironment actionEnv;
   private final ActionEnvironment testEnv;
 
@@ -244,7 +254,7 @@ public class BuildConfigurationValue
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
-        globalProvider.getActionEnvironment(buildOptions));
+        computeActionEnvironments(buildOptions, globalProvider));
   }
 
   // TODO(blaze-configurability-team): Ideally tests use the above create; however,
@@ -277,7 +287,19 @@ public class BuildConfigurationValue
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
-        globalProvider.getActionEnvironment(buildOptions));
+        computeActionEnvironments(buildOptions, globalProvider));
+  }
+
+  private static ImmutableMap<OS, ActionEnvironment> computeActionEnvironments(
+      BuildOptions buildOptions, GlobalStateProvider globalProvider) {
+    ImmutableMap.Builder<OS, ActionEnvironment> result = ImmutableMap.builder();
+    Map<ActionEnvironment, ActionEnvironment> distinct = new HashMap<>();
+    for (OS os : OS.values()) {
+      ActionEnvironment env = globalProvider.getActionEnvironment(buildOptions, os);
+      // Most OSes share the same environment, so share the instances.
+      result.put(os, distinct.computeIfAbsent(env, e -> e));
+    }
+    return result.buildOrThrow();
   }
 
   private static ImmutableSortedMap<Class<? extends Fragment>, Fragment> getConfigurationFragments(
@@ -305,7 +327,7 @@ public class BuildConfigurationValue
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
       ImmutableSet<String> reservedActionMnemonics,
-      ActionEnvironment actionEnvironment) {
+      ImmutableMap<OS, ActionEnvironment> actionEnvironments) {
     this.fragments =
         fragmentsInterner.intern(
             ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
@@ -325,7 +347,8 @@ public class BuildConfigurationValue
     commandLineBuildVariables =
         ImmutableMap.copyOf(options.getNormalizedCommandLineBuildVariables());
 
-    this.actionEnv = actionEnvironment;
+    this.actionEnvironments = actionEnvironments;
+    this.actionEnv = actionEnvironments.get(OS.getCurrent());
     this.testEnv = setupTestEnvironment();
     this.buildOptionDetails =
         BuildOptionDetails.forOptions(
@@ -541,8 +564,25 @@ public class BuildConfigurationValue
     out.printf("  %s\n", this.options);
   }
 
+  /**
+   * Returns the default environment for actions that execute on the host OS.
+   *
+   * <p>Prefer {@link #getActionEnvironment(PlatformInfo)} when the action's execution platform is
+   * known.
+   */
   public ActionEnvironment getActionEnvironment() {
     return actionEnv;
+  }
+
+  /**
+   * Returns the default environment for actions that execute on {@code executionPlatform}.
+   *
+   * <p>Falls back to the host OS's environment if the platform is null or its OS is not one that
+   * Bazel knows about.
+   */
+  public ActionEnvironment getActionEnvironment(@Nullable PlatformInfo executionPlatform) {
+    OS os = getOsFromConstraintsOrHost(executionPlatform);
+    return os == OS.UNKNOWN ? actionEnv : actionEnvironments.get(os);
   }
 
   /**

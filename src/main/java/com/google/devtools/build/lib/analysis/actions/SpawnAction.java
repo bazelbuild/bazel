@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -606,33 +607,30 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   public static ActionEnvironment createActionEnvironment(
       BuildConfigurationValue configuration,
+      @Nullable PlatformInfo executionPlatform,
       boolean useDefaultShellEnvironment,
       ImmutableMap<String, String> environment) {
     ActionEnvironment env;
+    ActionEnvironment defaultEnv = configuration.getActionEnvironment(executionPlatform);
     if (useDefaultShellEnvironment && !environment.isEmpty()) {
       // Inherited variables override fixed variables in ActionEnvironment. Since we want the
       // fixed part of the action-provided environment to override the inherited part of the
       // user-provided environment, we have to explicitly filter the inherited part.
       var userFilteredInheritedEnv =
-          Sets.difference(
-                  configuration.getActionEnvironment().getInheritedEnv(), environment.keySet())
-              .immutableCopy();
+          Sets.difference(defaultEnv.getInheritedEnv(), environment.keySet()).immutableCopy();
       // Do not create a new ActionEnvironment in the common case where no vars have been filtered
       // out.
-      if (userFilteredInheritedEnv.size()
-          == configuration.getActionEnvironment().getInheritedEnv().size()) {
-        env = configuration.getActionEnvironment();
+      if (userFilteredInheritedEnv.size() == defaultEnv.getInheritedEnv().size()) {
+        env = defaultEnv;
       } else {
         env =
             ActionEnvironment.create(
-                configuration.getActionEnvironment().getFixedEnv(),
-                userFilteredInheritedEnv,
-                configuration.getActionEnvironment().getUnsetEnv());
+                defaultEnv.getFixedEnv(), userFilteredInheritedEnv, defaultEnv.getUnsetEnv());
       }
       env = env.withAdditionalFixedVariables(environment);
     } else if (useDefaultShellEnvironment) {
       // This produces the same result as the previous case, but without the overhead.
-      env = configuration.getActionEnvironment();
+      env = defaultEnv;
     } else {
       env = ActionEnvironment.create(environment);
     }
@@ -714,7 +712,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       }
       CommandLines commandLines = result.build();
       ActionEnvironment env =
-          createActionEnvironment(configuration, useDefaultShellEnvironment, environment);
+          createActionEnvironment(
+              configuration,
+              owner.getExecutionPlatform(),
+              useDefaultShellEnvironment,
+              environment);
       return buildSpawnAction(owner, commandLines, configuration, env);
     }
 

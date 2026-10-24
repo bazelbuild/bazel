@@ -241,7 +241,7 @@ public final class JavaCompileActionBuilder {
     ActionEnvironment actionEnvironment =
         ruleContext
             .getConfiguration()
-            .getActionEnvironment()
+            .getActionEnvironment(ruleContext.getExecutionPlatform(execGroup))
             .withAdditionalFixedVariables(utf8Environment);
 
     return new JavaCompileAction(

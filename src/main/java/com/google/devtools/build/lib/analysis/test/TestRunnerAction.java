@@ -279,7 +279,7 @@ public class TestRunnerAction extends AbstractAction
     this.extraTestEnv = extraTestEnv;
     this.requiredClientEnvVariables =
         LazySetConcatenation.from(
-            configuration.getActionEnvironment().getInheritedEnv(),
+            getEnvironment().getInheritedEnv(),
             configuration.getTestActionEnvironment().getInheritedEnv(),
             this.extraTestEnv.getInheritedEnv());
     this.cancelConcurrentTests = cancelConcurrentTests;
@@ -352,7 +352,7 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public final ActionEnvironment getEnvironment() {
-    return configuration.getActionEnvironment();
+    return configuration.getActionEnvironment(getOwner().getExecutionPlatform());
   }
 
   public BuildConfigurationValue getConfiguration() {
@@ -528,7 +528,7 @@ public class TestRunnerAction extends AbstractAction
     extraTestEnv.addTo(fp);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
-    configuration.getActionEnvironment().addTo(fp);
+    getEnvironment().addTo(fp);
     configuration.getTestActionEnvironment().addTo(fp);
     // The 'requiredClientEnvVariables' are handled by Skyframe and don't need to be added here.
     fp.addString(testProperties.getSize().toString());
