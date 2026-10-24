@@ -98,4 +98,49 @@ public final class PlatformUtilsTest {
             .build();
     assertThat(PlatformUtils.getPlatformProto(spawn, remoteOptions())).isEqualTo(expected);
   }
+
+  @Test
+  public void getPlatformProto_dropsBazelOnlyExecutionRequirements() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withCombinedExecProperties(
+                ImmutableMap.of(
+                    "no-remote-exec", "1",
+                    "supports-path-mapping", "1",
+                    "disable-local-prefetch", "1",
+                    "local", "1",
+                    "worker-key-mnemonic", "Foo",
+                    "requires-network", "1",
+                    "block-network", "1",
+                    "resources:cpu", "2",
+                    "container-image", "docker://foo"))
+            .build();
+    Platform expected =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("block-network").setValue("1"))
+            .addProperties(
+                Platform.Property.newBuilder().setName("container-image").setValue("docker://foo"))
+            .addProperties(Platform.Property.newBuilder().setName("requires-network").setValue("1"))
+            .addProperties(Platform.Property.newBuilder().setName("resources:cpu").setValue("2"))
+            .build();
+    assertThat(PlatformUtils.getPlatformProto(spawn, null)).isEqualTo(expected);
+  }
+
+  @Test
+  public void getPlatformProto_onlyBazelOnlyExecutionRequirements_treatedAsUnset()
+      throws Exception {
+    ImmutableMap<String, String> execProperties = ImmutableMap.of("no-remote-exec", "1");
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withPlatform(PlatformInfo.builder().setExecProperties(execProperties).build())
+            .withCombinedExecProperties(execProperties)
+            .build();
+    Platform expected =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
+            .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
+            .build();
+    assertThat(PlatformUtils.getPlatformProto(spawn, remoteOptions())).isEqualTo(expected);
+    assertThat(PlatformUtils.getPlatformProto(spawn, null)).isNull();
+  }
 }
