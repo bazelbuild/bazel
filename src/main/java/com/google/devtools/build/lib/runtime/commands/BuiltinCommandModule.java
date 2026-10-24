@@ -14,8 +14,15 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.query2.query.hash.DirectTargetHashFunction;
+import com.google.devtools.build.lib.query2.query.hash.RegisteredToolchainsByTypeFunction;
+import com.google.devtools.build.lib.query2.query.hash.RepoContentDigestFunction;
+import com.google.devtools.build.lib.query2.query.hash.SourceFileDigestFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.common.options.OptionsParsingResult;
 
 /** Internal module for the built-in commands. */
@@ -49,5 +56,17 @@ public class BuiltinCommandModule extends BlazeModule {
     if (LicenseCommand.isSupported()) {
       builder.addCommands(new LicenseCommand());
     }
+  }
+
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    // Used by query --generate_hashes.
+    builder
+        .addSkyFunction(DirectTargetHashFunction.NAME, new DirectTargetHashFunction(directories))
+        .addSkyFunction(SourceFileDigestFunction.NAME, new SourceFileDigestFunction())
+        .addSkyFunction(RepoContentDigestFunction.NAME, new RepoContentDigestFunction(directories))
+        .addSkyFunction(
+            RegisteredToolchainsByTypeFunction.NAME, new RegisteredToolchainsByTypeFunction());
   }
 }

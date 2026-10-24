@@ -96,6 +96,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/query2/compat:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/engine:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/hash:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/repository:srcs",
