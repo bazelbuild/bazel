@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
@@ -94,6 +95,9 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
     "{scope: 'badvalue'}",
     "{scope: 'Universal'}",
     "{scope: 'exec:--//test_flags:../bar'}",
+    // Package-relative labels aren't supported.
+    "{scope: 'exec:--:bar'}",
+    "{scope: 'exec:--bar'}",
   })
   public void invalidScope_isAnError(String scope) throws Exception {
     scratch.file(
@@ -113,6 +117,84 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
     assertThat(exception)
         .hasMessageThat()
         .contains("Invalid \"scope\" attribute value \"%s\"".formatted(scope));
+  }
+
+  @Test
+  @TestParameters({
+    "{reference: '//test_flags:bar', expected: '//test_flags:bar'}",
+    "{reference: '@@//test_flags:bar', expected: '//test_flags:bar'}",
+    "{reference: '@my_rules_x//:bar', expected: '@@rules_x+//:bar'}",
+  })
+  public void customExecScope_resolvesReferenceInRepoOfBuildSetting(
+      String reference, String expected) throws Exception {
+    setUpRulesX(
+        """
+        load(":defs.bzl", "bool_flag")
+        bool_flag(
+            name = "bar",
+            build_setting_default = True,
+            visibility = ["//visibility:public"],
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:build_setting.bzl", "bool_flag")
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+            scope = "exec:--%s",
+        )
+        bool_flag(
+            name = "bar",
+            build_setting_default = True,
+        )
+        """
+            .formatted(reference));
+
+    StarlarkBuildSettingsDetailsValue details = executeFunction("//test_flags:foo");
+
+    assertThat(details.customExecScopeValues())
+        .containsExactly(
+            Label.parseCanonical("//test_flags:foo"),
+            new StarlarkBuildSettingsDetailsValue.CustomExecScopeValue(
+                Label.parseCanonical("//test_flags:foo"),
+                false,
+                Label.parseCanonical(expected),
+                true));
+  }
+
+  @Test
+  @TestParameters({
+    "{reference: '//:bar'}",
+    "{reference: '@rules_x//:bar'}",
+  })
+  public void customExecScope_inOtherRepo_resolvesReferenceInThatRepo(String reference)
+      throws Exception {
+    setUpRulesX(
+        """
+        load(":defs.bzl", "bool_flag")
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+            scope = "exec:--%s",
+        )
+        bool_flag(
+            name = "bar",
+            build_setting_default = True,
+        )
+        """
+            .formatted(reference));
+
+    StarlarkBuildSettingsDetailsValue details = executeFunction("@@rules_x+//:foo");
+
+    assertThat(details.customExecScopeValues().get(Label.parseCanonical("@@rules_x+//:foo")))
+        .isEqualTo(
+            new StarlarkBuildSettingsDetailsValue.CustomExecScopeValue(
+                Label.parseCanonical("@@rules_x+//:foo"),
+                false,
+                Label.parseCanonical("@@rules_x+//:bar"),
+                true));
   }
 
   @Test
@@ -285,6 +367,26 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
     assertThat(details.buildSettingToScopeType()).containsExactly(foo, DEFAULT);
     assertThat(details.projectScopes()).isEmpty();
     assertThat(details.hasProjectScopedBuildSettings()).isFalse();
+  }
+
+  /** Adds a module {@code rules_x} with the given BUILD file, available as {@code @my_rules_x}. */
+  private void setUpRulesX(String buildFile) throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel", "bazel_dep(name = 'rules_x', version = '1.0', repo_name = 'my_rules_x')");
+    registry.addModule(
+        createModuleKey("rules_x", "1.0"), "module(name = 'rules_x', version = '1.0')");
+    scratch.file("modules/rules_x+1.0/REPO.bazel");
+    scratch.file(
+        "modules/rules_x+1.0/defs.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+        """);
+    scratch.file("modules/rules_x+1.0/BUILD", buildFile);
+    invalidatePackages();
   }
 
   private StarlarkBuildSettingsDetailsValue executeFunction(String buildSetting) throws Exception {
