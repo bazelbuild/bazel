@@ -259,7 +259,7 @@ public final class SymlinkTreeHelper {
           at.deleteTree();
         }
         at.createDirectoryAndParents();
-        createMissingEntries(at, targetPathFn);
+        createMissingEntries(at, targetPathFn, fileSymlinksAreCopies);
         return;
       }
       // If the directory already exists, ensure it has appropriate permissions.
@@ -297,23 +297,42 @@ public final class SymlinkTreeHelper {
         }
       }
 
-      createMissingEntries(at, targetPathFn);
+      createMissingEntries(at, targetPathFn, fileSymlinksAreCopies);
     }
 
-    void createMissingEntries(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
+    void createMissingEntries(
+        Path at, TargetPathFunction<T> targetPathFn, boolean fileSymlinksAreCopies)
+        throws IOException {
       for (Map.Entry<String, T> entry : symlinks.entrySet()) {
         Path next = at.getChild(entry.getKey());
         T value = entry.getValue();
         if (value == null) {
           FileSystemUtils.createEmptyFile(next);
         } else {
-          next.createSymbolicLink(targetPathFn.get(value));
+          PathFragment target = targetPathFn.get(value);
+          try {
+            next.createSymbolicLink(target);
+          } catch (IOException e) {
+            // A symlink may have appeared after the parent directory was listed.
+            FileSystemUtils.ensureSymbolicLink(next, target);
+          }
         }
       }
       for (Map.Entry<String, Directory<T>> entry : directories.entrySet()) {
         Path next = at.getChild(entry.getKey());
-        next.createDirectory();
-        entry.getValue().createMissingEntries(next, targetPathFn);
+        boolean created;
+        try {
+          created = next.createDirectory();
+        } catch (IOException e) {
+          // A non-directory entry may have appeared after the parent directory was listed.
+          created = false;
+        }
+        if (created) {
+          // Only a directory created by this call can skip reconciliation.
+          entry.getValue().createMissingEntries(next, targetPathFn, fileSymlinksAreCopies);
+        } else {
+          entry.getValue().syncTreeRecursively(next, targetPathFn, fileSymlinksAreCopies);
+        }
       }
     }
   }
