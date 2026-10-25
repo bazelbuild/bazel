@@ -198,4 +198,87 @@ public final class SymlinkTreeHelperTest {
     // recreated so that the file system can replace it with a copy of the now existing file.
     assertThat(fs.symlinksCreated.get()).isEqualTo(supportsSymlinks ? 0 : 1);
   }
+
+  @Test
+  public void filesetChildReplacesConflictingParentLink(@TestParameter boolean existing)
+      throws Exception {
+    Path root = execRoot.getRelative("prefix.runfiles");
+    Path target = execRoot.getChild("target");
+    FileSystemUtils.writeContent(target, UTF_8, "preserved");
+    if (existing) {
+      root.createDirectoryAndParents();
+      root.getChild("parent").createSymbolicLink(target.asFragment());
+    }
+    var helper =
+        new SymlinkTreeHelper(
+            execRoot.getChild("manifest"), root.getChild("MANIFEST"), root, WORKSPACE_NAME);
+    helper.createFilesetSymlinks(
+        Map.of(
+            PathFragment.create("parent"), target.asFragment(),
+            PathFragment.create("parent/child"), target.asFragment()));
+
+    assertThat(root.getChild("parent").isDirectory()).isTrue();
+    assertThat(root.getRelative("parent/child").readSymbolicLink()).isEqualTo(target.asFragment());
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("preserved");
+  }
+
+  @Test
+  public void reconcilesDirectoryCreatedAfterParentListing() throws Exception {
+    PathFragment raced = PathFragment.create("/tree/raced");
+    FileSystem racingFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          private boolean injected;
+
+          @Override
+          public boolean createDirectory(PathFragment path) throws IOException {
+            if (path.equals(raced) && !injected) {
+              injected = true;
+              super.createDirectory(path);
+              FileSystemUtils.createEmptyFile(getPath(path).getChild("obsolete"));
+              getPath(path).chmod(0000);
+              return false;
+            }
+            return super.createDirectory(path);
+          }
+        };
+    Path root = racingFs.getPath("/tree");
+    Artifact target = ActionsTestUtil.createArtifact(outputRoot, "target");
+    var helper =
+        new SymlinkTreeHelper(
+            racingFs.getPath("/manifest"), root.getChild("MANIFEST"), root, WORKSPACE_NAME);
+    helper.createRunfilesSymlinks(Map.of(PathFragment.create("raced/nested/link"), target));
+
+    assertThat(root.getRelative("raced/obsolete").exists()).isFalse();
+    assertThat(root.getRelative("raced/nested/link").readSymbolicLink())
+        .isEqualTo(target.getPath().asFragment());
+  }
+
+  @Test
+  public void reconcilesSymlinkCreatedAfterParentListing(@TestParameter boolean correctTarget)
+      throws Exception {
+    PathFragment raced = PathFragment.create("/tree/link");
+    FileSystem racingFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          private boolean injected;
+
+          @Override
+          public void createSymbolicLink(
+              PathFragment path, PathFragment target, SymlinkTargetType type) throws IOException {
+            if (path.equals(raced) && !injected) {
+              injected = true;
+              super.createSymbolicLink(
+                  path, correctTarget ? target : PathFragment.create("/old-target"), type);
+            }
+            super.createSymbolicLink(path, target, type);
+          }
+        };
+    Path root = racingFs.getPath("/tree");
+    Artifact target = ActionsTestUtil.createArtifact(outputRoot, "target");
+    var helper =
+        new SymlinkTreeHelper(
+            racingFs.getPath("/manifest"), root.getChild("MANIFEST"), root, WORKSPACE_NAME);
+    helper.createRunfilesSymlinks(Map.of(PathFragment.create("link"), target));
+
+    assertThat(root.getChild("link").readSymbolicLink()).isEqualTo(target.getPath().asFragment());
+  }
 }
