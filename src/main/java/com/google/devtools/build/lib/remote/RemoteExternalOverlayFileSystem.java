@@ -324,11 +324,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
               /* locationIndex= */ 1,
               expirationTime,
               /* inMemoryOutput= */ false));
-      fs.setExecutable(filePath, file.getIsExecutable());
       // The RE API does not track whether a file is readable or writable. We choose to make all
       // files readable and not writable to ensure that other repo rules can't accidentally modify
       // the cached repo.
-      fs.setWritable(filePath, false);
+      fs.chmod(filePath, file.getIsExecutable() ? 0555 : 0444);
     }
     for (var symlink : dir.getSymlinksList()) {
       String name = unicodeToInternal(symlink.getName());
