@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -41,6 +42,7 @@ public final class IgnoredSubdirectories {
       new IgnoredSubdirectories(ImmutableSet.of(), ImmutableList.of(), ImmutableSet.of());
 
   private static final Splitter SLASH_SPLITTER = Splitter.on("/");
+  private static final CharMatcher WILDCARDS = CharMatcher.anyOf("*?");
 
   private final ImmutableSet<PathFragment> prefixes;
 
@@ -49,6 +51,7 @@ public final class IgnoredSubdirectories {
   // allocate new objects.
   private final ImmutableList<String> patterns;
   private final ImmutableList<String[]> splitPatterns;
+  private final ImmutableList<String> requiredLiterals;
   private final ImmutableSet<PathFragment> traversalExclusions;
 
   public static ObjectCodec<IgnoredSubdirectories> ignoredSubdirectoriesCodec() {
@@ -90,10 +93,17 @@ public final class IgnoredSubdirectories {
       ImmutableSet<PathFragment> traversalExclusions) {
     this.prefixes = prefixes;
     this.patterns = patterns;
-    this.splitPatterns =
-        patterns.stream()
-            .map(p -> Iterables.toArray(SLASH_SPLITTER.split(p), String.class))
-            .collect(toImmutableList());
+    ImmutableList.Builder<String[]> splitPatterns =
+        ImmutableList.builderWithExpectedSize(patterns.size());
+    ImmutableList.Builder<String> requiredLiterals =
+        ImmutableList.builderWithExpectedSize(patterns.size());
+    for (String pattern : patterns) {
+      String[] segments = Iterables.toArray(SLASH_SPLITTER.split(pattern), String.class);
+      splitPatterns.add(segments);
+      requiredLiterals.add(requiredLiteral(segments));
+    }
+    this.splitPatterns = splitPatterns.build();
+    this.requiredLiterals = requiredLiterals.build();
     this.traversalExclusions = traversalExclusions;
   }
 
@@ -207,6 +217,47 @@ public final class IgnoredSubdirectories {
     REPO_BAZEL,
   }
 
+  /** Finds a required substring to reject paths before allocating their segments. */
+  private static String requiredLiteral(String[] pattern) {
+    String longest = "";
+    for (String segment : pattern) {
+      // Parentheses have legacy glob semantics; let the matcher handle those patterns.
+      if (segment.indexOf('(') >= 0 || segment.indexOf(')') >= 0) {
+        return "";
+      }
+      int start = 0;
+      while (start < segment.length()) {
+        int end = WILDCARDS.indexIn(segment, start);
+        if (end < 0) {
+          end = segment.length();
+        }
+        if (end - start > longest.length()) {
+          longest = segment.substring(start, end);
+        }
+        start = end + 1;
+      }
+    }
+    return longest;
+  }
+
+  private int matchingPatternIndex(PathFragment directory) {
+    String[] segments = null;
+    String path = directory.getPathString();
+    for (int i = 0; i < patterns.size(); i++) {
+      String requiredLiteral = requiredLiterals.get(i);
+      if (!requiredLiteral.isEmpty() && !path.contains(requiredLiteral)) {
+        continue;
+      }
+      if (segments == null) {
+        segments = Iterables.toArray(directory.segments(), String.class);
+      }
+      if (UnixGlob.matchesPrefix(splitPatterns.get(i), segments)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   /** Returns the reason why a given directory is ignored or {@code null} if none. */
   @Nullable
   public IgnoredReason matchingEntryReason(PathFragment directory) {
@@ -216,14 +267,7 @@ public final class IgnoredSubdirectories {
       }
     }
 
-    String[] segmentArray = Iterables.toArray(directory.segments(), String.class);
-    for (int i = 0; i < patterns.size(); i++) {
-      if (UnixGlob.matchesPrefix(splitPatterns.get(i), segmentArray)) {
-        return IgnoredReason.REPO_BAZEL;
-      }
-    }
-
-    return null;
+    return matchingPatternIndex(directory) >= 0 ? IgnoredReason.REPO_BAZEL : null;
   }
 
   /** Returns the entry that matches a given directory or {@code null} if none. */
@@ -235,14 +279,8 @@ public final class IgnoredSubdirectories {
       }
     }
 
-    String[] segmentArray = Iterables.toArray(directory.segments(), String.class);
-    for (int i = 0; i < patterns.size(); i++) {
-      if (UnixGlob.matchesPrefix(splitPatterns.get(i), segmentArray)) {
-        return patterns.get(i);
-      }
-    }
-
-    return null;
+    int index = matchingPatternIndex(directory);
+    return index >= 0 ? patterns.get(index) : null;
   }
 
   /** Returns true if the directory matches any traversal exclusion or standard ignored entry. */
