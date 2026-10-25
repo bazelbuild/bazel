@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
@@ -25,6 +27,16 @@ import javax.annotation.Nullable;
 @AutoCodec
 public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
   public static final String CUSTOM_EXEC_SCOPE_PREFIX = "exec:--";
+
+  /**
+   * Parses the flag referenced by a scope type of the form {@code exec:--<flag>} as a repo-relative
+   * label in the given context of the build setting's repository.
+   */
+  public static Label parseCustomExecReference(String scopeType, Label.RepoContext repoContext)
+      throws LabelSyntaxException {
+    return Label.parseWithRepoContext(
+        scopeType.substring(CUSTOM_EXEC_SCOPE_PREFIX.length()), repoContext);
+  }
 
   /** Type of supported scopes. */
   @AutoCodec

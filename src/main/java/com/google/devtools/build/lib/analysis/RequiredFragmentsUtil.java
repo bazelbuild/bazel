@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -132,9 +133,16 @@ public final class RequiredFragmentsUtil {
       if (attributes.has("scope", Type.STRING)) {
         String scope = attributes.get("scope", Type.STRING);
         if (scope != null && scope.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-          requiredFragments.addStarlarkOption(
-              Label.parseCanonicalUnchecked(
-                  scope.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length())));
+          try {
+            requiredFragments.addStarlarkOption(
+                Scope.parseCustomExecReference(
+                    scope,
+                    Label.RepoContext.of(
+                        target.getLabel().getRepository(),
+                        target.getPackageMetadata().repositoryMapping())));
+          } catch (LabelSyntaxException e) {
+            // Reported as an error when the scope is applied.
+          }
         }
       }
     }

@@ -522,9 +522,11 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
 
   private static Label getCustomExecReference(Rule rule, Scope.ScopeType scopeType)
       throws TransitionException {
-    String reference = scopeType.scopeType().substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length());
     try {
-      return Label.parseCanonical(reference);
+      return Scope.parseCustomExecReference(
+          scopeType.scopeType(),
+          Label.RepoContext.of(
+              rule.getLabel().getRepository(), rule.getPackageMetadata().repositoryMapping()));
     } catch (LabelSyntaxException e) {
       throw new TransitionException(
           String.format(

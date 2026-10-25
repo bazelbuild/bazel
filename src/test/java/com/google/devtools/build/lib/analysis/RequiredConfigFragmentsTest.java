@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
@@ -986,5 +987,63 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         .containsAtLeast(
             Label.parseCanonicalUnchecked("//a:target_flag"),
             Label.parseCanonicalUnchecked("//a:host_flag"));
+  }
+
+  @Test
+  public void customExecScopePartnerFlagResolvedInRepoOfBuildSetting() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel", "bazel_dep(name = 'rules_x', version = '1.0', repo_name = 'my_rules_x')");
+    registry.addModule(
+        createModuleKey("rules_x", "1.0"), "module(name = 'rules_x', version = '1.0')");
+    scratch.file("modules/rules_x+1.0/REPO.bazel");
+    scratch.file(
+        "modules/rules_x+1.0/defs.bzl",
+        """
+        def _flag_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _flag_impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+        """);
+    scratch.file(
+        "modules/rules_x+1.0/BUILD",
+        """
+        load(":defs.bzl", "string_flag")
+
+        string_flag(
+            name = "host_flag",
+            build_setting_default = "host_default",
+            scope = "universal",
+        )
+
+        string_flag(
+            name = "target_flag",
+            build_setting_default = "target_default",
+            scope = "exec:--//:host_flag",
+            visibility = ["//visibility:public"],
+        )
+        """);
+    invalidatePackages();
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = "gen",
+            srcs = ["@my_rules_x//:target_flag"],
+            outs = ["gen.out"],
+            cmd = "touch $@",
+        )
+        """);
+    useConfiguration("--include_config_fragments_provider=transitive");
+
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:gen").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.starlarkOptions())
+        .containsAtLeast(
+            Label.parseCanonicalUnchecked("@@rules_x+//:target_flag"),
+            Label.parseCanonicalUnchecked("@@rules_x+//:host_flag"));
   }
 }
