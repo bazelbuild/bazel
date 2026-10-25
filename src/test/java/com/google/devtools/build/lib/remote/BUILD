@@ -395,6 +395,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:rewinding_tests_helper",
         "//src/test/java/com/google/devtools/build/lib/testutil:action_event_recorder",
         "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",
         "//third_party/java/truth",

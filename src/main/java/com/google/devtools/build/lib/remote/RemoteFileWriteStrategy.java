@@ -18,8 +18,8 @@ import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.function.Predicate;
 
 /**
  * A {@link FileWriteActionContext} that stores the contents of the file in the disk and/or remote
@@ -51,11 +52,9 @@ import java.time.Instant;
  * run on a {@link RemoteActionFileSystem} or if the output has to be downloaded anyway according to
  * {@code --remote_download_outputs} or {@code --remote_download_regex}.
  *
- * <p>The contents are always stored in the disk cache if there is one. They are uploaded to the
- * remote cache if it doesn't have them yet and uploads are enabled. If there is no disk cache and
- * uploads to the remote cache are disabled, the contents are only recorded as a remote output if
- * the remote cache already has them and the file is written to disk otherwise. If the caches lose
- * the contents later, action rewinding re-executes the action to store them again.
+ * <p>Contents are stored in each writable cache. Remote uploads are deduplicated by digest, unless
+ * the action was rewound after eviction. If no cache is writable, a remote output is recorded only
+ * when the remote cache already has the contents; otherwise the file is written locally.
  */
 public final class RemoteFileWriteStrategy implements FileWriteActionContext {
   private final FileWriteActionContext localStrategy;
@@ -67,6 +66,7 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
   private final Duration remoteCacheTtl;
   private final boolean remoteUploadEnabled;
   private final boolean verboseFailures;
+  private final Predicate<ActionAnalysisMetadata> wasRewound;
 
   public RemoteFileWriteStrategy(
       FileWriteActionContext localStrategy,
@@ -77,7 +77,8 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
       String commandId,
       Duration remoteCacheTtl,
       boolean remoteUploadEnabled,
-      boolean verboseFailures) {
+      boolean verboseFailures,
+      Predicate<ActionAnalysisMetadata> wasRewound) {
     this.localStrategy = localStrategy;
     this.combinedCache = combinedCache;
     this.remoteOutputChecker = remoteOutputChecker;
@@ -87,6 +88,7 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
     this.remoteCacheTtl = remoteCacheTtl;
     this.remoteUploadEnabled = remoteUploadEnabled;
     this.verboseFailures = verboseFailures;
+    this.wasRewound = wasRewound;
   }
 
   @Override
@@ -120,7 +122,7 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
 
       var context = RemoteActionExecutionContext.create(buildRequestMetadata(action));
       try {
-        if (!storeInCaches(context, digest, deterministicWriter, output)) {
+        if (!storeInCaches(context, digest, deterministicWriter, output, wasRewound.test(action))) {
           // No cache has the contents and Bazel isn't allowed to store them in any, so the file
           // has to exist locally for consumers to be able to use it.
           return localStrategy.writeOutputToFile(
@@ -163,8 +165,7 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
   }
 
   /**
-   * Stores the contents in every cache that Bazel is allowed to write to and that doesn't have them
-   * yet.
+   * Stores the contents in every cache that Bazel is allowed to write to.
    *
    * @return whether at least one cache has the contents afterwards
    */
@@ -172,27 +173,32 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
       RemoteActionExecutionContext context,
       Digest digest,
       DeterministicWriter deterministicWriter,
-      Artifact output)
+      Artifact output,
+      boolean forceUpload)
       throws IOException, InterruptedException {
     // The disk cache is always writable and skips the write if it already has the contents.
     boolean writeToDiskCache = combinedCache.hasDiskCache();
-    boolean presentInRemoteCache = false;
-    boolean uploadToRemoteCache = false;
-    if (combinedCache.hasRemoteCache()) {
-      ImmutableSet<Digest> missingDigests =
-          getFromFuture(combinedCache.findMissingDigests(context, ImmutableList.of(digest)));
-      presentInRemoteCache = missingDigests.isEmpty();
-      uploadToRemoteCache = !presentInRemoteCache && remoteUploadEnabled;
-    }
+    boolean uploadToRemoteCache = combinedCache.hasRemoteCache() && remoteUploadEnabled;
     if (writeToDiskCache || uploadToRemoteCache) {
+      // Presence checks and uploads share the upload cache. Rewinding must bypass it after
+      // eviction.
       getFromFuture(
-          combinedCache.uploadBlob(
+          combinedCache.uploadBlobIfMissing(
               context.withWriteCachePolicy(
                   CachePolicy.create(uploadToRemoteCache, writeToDiskCache)),
               digest,
-              new DeterministicWriterBlob(deterministicWriter, output)));
+              new DeterministicWriterBlob(deterministicWriter, output),
+              /* force= */ forceUpload));
+      return true;
     }
-    return writeToDiskCache || presentInRemoteCache || uploadToRemoteCache;
+    return combinedCache.hasRemoteCache()
+        && getFromFuture(
+                combinedCache.findMissingDigests(
+                    context.withWriteCachePolicy(
+                        CachePolicy.create(
+                            /* allowRemoteCache= */ true, /* allowDiskCache= */ false)),
+                    ImmutableList.of(digest)))
+            .isEmpty();
   }
 
   private RequestMetadata buildRequestMetadata(AbstractAction action) {

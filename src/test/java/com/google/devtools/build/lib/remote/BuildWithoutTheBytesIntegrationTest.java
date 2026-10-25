@@ -22,6 +22,8 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -52,6 +54,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -224,6 +227,48 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     } else {
       assertOnlyOutputContent("//:foo", "foo", "hello");
     }
+  }
+
+  @Test
+  public void remoteFileWrite_evictedInSameBuild_uploadsAgain() throws Exception {
+    writeFileWriteRules();
+    write(
+        "a/BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        genrule(
+            name = 'bar',
+            srcs = [':foo'],
+            outs = ['bar.out'],
+            cmd = 'cat $(SRCS) > $@',
+        )
+        """);
+    var evicted = new AtomicBoolean();
+    getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              @Subscribe
+              public void onActionExecuted(ActionExecutedEvent event) throws Exception {
+                if (!evicted.get()
+                    && event
+                        .getAction()
+                        .getPrimaryOutput()
+                        .getRootRelativePath()
+                        .getPathString()
+                        .equals("a/foo")) {
+                  evictAllBlobs();
+                  evicted.set(true);
+                }
+              }
+            });
+    addOptions("--file_write_strategy=remote", "--strategy_regexp=.*bar=local");
+    enableActionRewinding();
+
+    buildTarget("//a:bar");
+
+    assertThat(evicted.get()).isTrue();
+    assertValidOutputFile("a/bar.out", "hello");
   }
 
   @Test

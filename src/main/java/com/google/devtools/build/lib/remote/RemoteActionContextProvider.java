@@ -249,7 +249,8 @@ final class RemoteActionContextProvider {
             // Remote execution uploads action inputs regardless of the setting for local results.
             /* remoteUploadEnabled= */ remoteExecutor != null
                 || remoteOptions.getRemoteUploadLocalResults(),
-            executionOptions.getVerboseFailures());
+            executionOptions.getVerboseFailures(),
+            env.getSkyframeExecutor()::wasActionRewound);
     registryBuilder.register(FileWriteActionContext.class, fileWriteStrategy, "remote");
     registryBuilder.register(
         TemplateExpansionContext.class,
