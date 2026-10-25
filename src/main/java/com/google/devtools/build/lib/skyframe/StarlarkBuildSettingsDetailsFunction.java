@@ -531,7 +531,11 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       throws TransitionException {
     String reference = scopeType.scopeType().substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length());
     try {
-      return Label.parseCanonical(reference);
+      // Resolve the reference as a repo-relative label in the build setting's repository.
+      return Label.parseWithRepoContext(
+          reference,
+          Label.RepoContext.of(
+              rule.getLabel().getRepository(), rule.getPackageMetadata().repositoryMapping()));
     } catch (LabelSyntaxException e) {
       throw new TransitionException(
           String.format(
