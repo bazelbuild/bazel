@@ -21,6 +21,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -61,8 +62,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -81,6 +85,7 @@ public final class RemoteFileWriteStrategyTest {
   private final Scratch scratch = new Scratch(fileSystem);
   private final InMemoryCacheClient cacheClient = spy(new InMemoryCacheClient());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
+  private final Set<AbstractAction> rewoundActions = new HashSet<>();
   private Path execRoot;
   private RemoteActionFileSystem actionFileSystem;
   private AbstractAction action;
@@ -127,20 +132,54 @@ public final class RemoteFileWriteStrategyTest {
   }
 
   @Test
-  public void alreadyStoredRemotely_skipsUpload() throws Exception {
-    var prepopulatedCacheClient =
-        spy(new InMemoryCacheClient(ImmutableMap.of(CONTENT_DIGEST, CONTENT.getBytes(UTF_8))));
-    var strategy = createStrategy(RemoteOutputsMode.MINIMAL, prepopulatedCacheClient);
-
-    var unused =
+  public void identicalContents_shareCacheCheckAndUpload() throws Exception {
+    var strategy = createStrategy(RemoteOutputsMode.MINIMAL, cacheClient);
+    var context = createActionExecutionContext(actionFileSystem);
+    var unusedFirst =
         strategy.writeOutputToFile(
-            action,
-            createActionExecutionContext(actionFileSystem),
+            action, context, writer(CONTENT), /* makeExecutable= */ false, /* isRemotable= */ true);
+    var otherOutput =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            output.getRoot(), PathFragment.create("pkg/other"));
+    var unusedSecond =
+        strategy.writeOutputToFile(
+            new NullAction(otherOutput),
+            context,
             writer(CONTENT),
             /* makeExecutable= */ false,
             /* isRemotable= */ true);
 
-    verify(prepopulatedCacheClient, never()).uploadBlobImpl(any(), any(), any());
+    verify(cacheClient).uploadBlobImpl(any(), any(), any());
+    verify(cacheClient).findMissingDigests(any(), any());
+    assertStoredRemotely(cacheClient);
+    assertThat(getRemoteMetadata().isRemote()).isTrue();
+    assertThat(output.getPath().exists()).isFalse();
+  }
+
+  @Test
+  public void evictedAfterUpload_uploadsAgainWithSameCacheClient() throws Exception {
+    var strategy = createStrategy(RemoteOutputsMode.MINIMAL, cacheClient);
+    var context = createActionExecutionContext(actionFileSystem);
+    var unusedFirst =
+        strategy.writeOutputToFile(
+            action, context, writer(CONTENT), /* makeExecutable= */ false, /* isRemotable= */ true);
+    assertStoredRemotely(cacheClient);
+
+    cacheClient.removeCasEntry(CONTENT_DIGEST);
+    rewoundActions.add(action);
+
+    var unusedSecond =
+        strategy.writeOutputToFile(
+            action, context, writer(CONTENT), /* makeExecutable= */ false, /* isRemotable= */ true);
+
+    verify(cacheClient, times(2)).uploadBlobImpl(any(), any(), any());
+    var restoredContents = new ByteArrayOutputStream();
+    getFromFuture(
+        cacheClient.downloadBlob(
+            RemoteActionExecutionContext.create(RequestMetadata.getDefaultInstance()),
+            CONTENT_DIGEST,
+            restoredContents));
+    assertThat(restoredContents.toString(UTF_8)).isEqualTo(CONTENT);
     assertThat(getRemoteMetadata().isRemote()).isTrue();
     assertThat(output.getPath().exists()).isFalse();
   }
@@ -389,7 +428,8 @@ public final class RemoteFileWriteStrategyTest {
         "command-id",
         Duration.ofHours(1),
         remoteUploadEnabled,
-        /* verboseFailures= */ false);
+        /* verboseFailures= */ false,
+        rewoundActions::contains);
   }
 
   private DiskCacheClient createDiskCacheClient() throws IOException {

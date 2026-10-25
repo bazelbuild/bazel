@@ -517,6 +517,21 @@ public class CombinedCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
+    return uploadBlob(context, digest, blob, force, /* checkRemotePresence= */ false);
+  }
+
+  /** Stores a blob in writable caches, checking remote presence before starting a new upload. */
+  public ListenableFuture<Void> uploadBlobIfMissing(
+      RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
+    return uploadBlob(context, digest, blob, force, /* checkRemotePresence= */ true);
+  }
+
+  private ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      Blob blob,
+      boolean force,
+      boolean checkRemotePresence) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -528,7 +543,10 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteCacheFuture = uploadBlobToRemote(context, digest, blob, force);
+      remoteCacheFuture =
+          checkRemotePresence
+              ? remoteCacheClient.uploadBlobIfMissing(context, digest, blob, force)
+              : uploadBlobToRemote(context, digest, blob, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
