@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,11 +40,14 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
@@ -530,6 +534,108 @@ public final class SharedValueDeserializationContextTest {
 
     store.takeFirstRequest().complete();
     verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
+  }
+
+  @Test
+  public void uncompressedSharedValue_roundTripsAcrossBufferBoundary(
+      @TestParameter({"4095", "4096", "4097"}) int byteCount,
+      @TestParameter boolean useDeferredCodec)
+      throws Exception {
+    var store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
+    var fingerprintValueService = FingerprintValueService.createForTesting(store);
+    var codecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .add(
+                    useDeferredCodec
+                        ? new NotNestedSetDeferredCodec(new NestedArrayCodec())
+                        : getDefaultNotNestedSetCodec())
+                .build());
+    byte[] bytes = new byte[byteCount];
+    rng.nextBytes(bytes);
+    Object[] shared = {bytes};
+    var subject = new NotNestedSet(new Object[] {shared, shared});
+    var serialized =
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
+    if (serialized.getFutureToBlockWritesOn() != null) {
+      serialized.getFutureToBlockWritesOn().get(WAIT_TIMEOUT_SECONDS, SECONDS);
+    }
+
+    var result =
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serialized.getObject());
+    // The parent fetch starts the nested shared fetch. Its two references must remain aliases.
+    store.takeFirstRequest().complete();
+    GetRequest child = store.takeFirstRequest();
+    assertThat(result.isDone()).isFalse();
+    byte[] uncompressed = uncompressedSharedValue(child, compressionService);
+    assertThat(uncompressed[0]).isEqualTo((byte) 0);
+    child.response().set(uncompressed);
+
+    var restored = (NotNestedSet) result.get(WAIT_TIMEOUT_SECONDS, SECONDS);
+    assertThat(restored.getContents()[0]).isSameInstanceAs(restored.getContents()[1]);
+    assertThat(((Object[]) restored.getContents()[0])[0]).isEqualTo(bytes);
+    assertThat(store.pollRequest()).isNull();
+  }
+
+  @Test
+  public void uncompressedSharedValue_truncationCompletesPendingReadsExceptionally(
+      @TestParameter({"1", "2", "4096"}) int availableBytes, @TestParameter boolean skyframeLookups)
+      throws Exception {
+    var store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
+    var fingerprintValueService = FingerprintValueService.createForTesting(store);
+    ObjectCodecs codecs = createObjectCodecs();
+    byte[] bytes = new byte[5000];
+    rng.nextBytes(bytes);
+    var subject = new NotNestedSet(new Object[] {new Object[] {bytes}});
+    var serialized =
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
+    if (serialized.getFutureToBlockWritesOn() != null) {
+      serialized.getFutureToBlockWritesOn().get(WAIT_TIMEOUT_SECONDS, SECONDS);
+    }
+
+    ListenableFuture<?> result =
+        skyframeLookups
+            ? (ListenableFuture<?>)
+                SharedValueDeserializationContext.deserializeWithSkyframe(
+                    codecs.getCodecRegistry(),
+                    ImmutableClassToInstanceMap.of(),
+                    compressionService,
+                    fingerprintValueService,
+                    serialized.getObject().newCodedInput())
+            : deserializeWithExecutor(
+                codecs, compressionService, fingerprintValueService, serialized.getObject());
+    store.takeFirstRequest().complete();
+    GetRequest child = store.takeFirstRequest();
+    assertThat(result.isDone()).isFalse();
+    byte[] uncompressed = uncompressedSharedValue(child, compressionService);
+    assertThat(uncompressed.length).isGreaterThan(availableBytes);
+    // Keep the marker, but truncate either the codec header or the length-delimited byte array.
+    child.response().set(Arrays.copyOf(uncompressed, availableBytes));
+
+    var thrown =
+        assertThrows(ExecutionException.class, () -> result.get(WAIT_TIMEOUT_SECONDS, SECONDS));
+    assertThat(Throwables.getRootCause(thrown)).isInstanceOf(InvalidProtocolBufferException.class);
+    assertThat(store.pollRequest()).isNull();
+  }
+
+  private static byte[] uncompressedSharedValue(
+      GetRequest request, CompressionService compressionService) throws IOException {
+    byte[] stored = request.parent().getFingerprintToContents().get(request.fingerprint());
+    if (stored[0] == 0) {
+      return stored;
+    }
+    assertThat(stored[0]).isEqualTo((byte) 1);
+    // Supply the equivalent marker-zero wire payload so these tests exercise the uncompressed
+    // reader even when the serializer chooses compression for values above its size threshold.
+    try (var input =
+        compressionService.newZstdInputStream(
+            new ByteArrayInputStream(stored, 1, stored.length - 1))) {
+      return ByteString.copyFrom(new byte[] {0}).concat(ByteString.readFrom(input)).toByteArray();
+    }
   }
 
   /**

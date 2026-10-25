@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissR
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import java.io.ByteArrayInputStream;
@@ -463,6 +462,16 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
         return;
       }
 
+      // Uncompressed bytes are already in memory. Avoid a stream decoder's 4 KiB buffer
+      // for each small shared value; compressed and chunked values still use streaming.
+      if (bytes.length > 0 && bytes[0] == (byte) 0) {
+        try {
+          deserializeAndComplete(CodedInputStream.newInstance(bytes, 1, bytes.length - 1));
+        } catch (SerializationException | IOException | RuntimeException | Error e) {
+          onFailure(e);
+        }
+        return;
+      }
       deserializeAndComplete(() -> maybeDecompressBytes(bytes));
     }
 
@@ -484,17 +493,16 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
 
     private void deserializeAndComplete(InputStreamSupplier streamSupplier) {
       try (InputStream inputStream = streamSupplier.get()) {
-        deserializeAndComplete(inputStream);
+        deserializeAndComplete(CodedInputStream.newInstance(inputStream));
       } catch (SerializationException | IOException | RuntimeException | Error e) {
         onFailure(e);
       }
     }
 
-    private void deserializeAndComplete(InputStream inputStream)
+    private void deserializeAndComplete(CodedInputStream input)
         throws SerializationException, IOException {
       SharedValueDeserializationContext innerContext = getFreshContext(childFingerprint);
-      DeferredValue<?> deferred =
-          codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
+      DeferredValue<?> deferred = codec.deserializeDeferred(innerContext, input);
       if (skyframeLookupCollector != null) {
         // The codec above is responsible for calling `getSkyValue` so any SkyKey directly requested
         // by this deserialization will be requested by this point and the notification can be sent.
