@@ -23,12 +23,14 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -78,6 +80,22 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
       assertWithMessage(msg).that(file.isWritable()).isEqualTo((bits & 0200) != 0);
       assertWithMessage(msg).that(file.isExecutable()).isEqualTo((bits & 0100) != 0);
     }
+  }
+
+  @Test
+  public void testReaddirPermissions() throws Exception {
+    Path dir = testFS.getPath("/dir");
+    dir.createDirectory();
+    Path file = dir.getChild("file");
+    FileSystemUtils.createEmptyFile(file);
+    dir.setExecutable(false);
+    assertThrows(FileAccessException.class, () -> dir.readdir(Symlinks.NOFOLLOW));
+    dir.setExecutable(true);
+    file.delete();
+    dir.setExecutable(false);
+    assertThat(dir.readdir(Symlinks.NOFOLLOW)).isEmpty();
+    dir.setReadable(false);
+    assertThrows(FileAccessException.class, () -> dir.readdir(Symlinks.NOFOLLOW));
   }
 
   /**
