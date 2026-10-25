@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
@@ -176,6 +177,35 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     assertThat(error)
         .hasMessageThat()
         .contains(String.format("%s/%s", digest.getHash(), digest.getSizeBytes()));
+  }
+
+  @Test
+  public void prefetchFiles_execRootOnOverlayFileSystem_replacesParentFile() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("dir/file", "hello world", metadata, cas);
+    FileSystemUtils.writeContent(a.getPath().getParentDirectory(), StandardCharsets.UTF_8, "stale");
+    RemoteExternalOverlayFileSystem overlayFs =
+        new RemoteExternalOverlayFileSystem(PathFragment.create("/output_base/external"), fs);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(eventBus),
+            "none",
+            "none",
+            newCombinedCache(options, digestUtil, cas),
+            () -> overlayFs.getPath(execRoot.getPathString()),
+            execRoot.getParentDirectory(),
+            tempPathGenerator,
+            DUMMY_REMOTE_OUTPUT_CHECKER,
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.READONLY);
+
+    wait(
+        actionInputFetcher.prefetchFiles(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
   }
 
   private CombinedCache newCombinedCache(
