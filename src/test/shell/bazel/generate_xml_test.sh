@@ -54,7 +54,7 @@ function encode {
 }
 
 function test_simple_ascii() {
-  assert_equals 'Simple ascii' "$(encode "Simple ascii")"
+  assert_equals 'Simple ascii ]]>]]<![CDATA[>' "$(encode "Simple ascii ]]>")"
 }
 
 function test_low_control_chars() {
@@ -86,6 +86,17 @@ function test_generated_testcase_has_classname() {
 
   assert_contains '<testcase[^>]* classname=""' \
       "$TEST_TMPDIR/test.xml"
+}
+
+function test_generated_log_trims_only_trailing_newlines() {
+  printf '\n\nstart\n\nend\n\n' >"$TEST_TMPDIR/test.log"
+  TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/test.log" "$TEST_TMPDIR/test.xml" 1 0
+
+  assert_equals \
+      "$(printf '<![CDATA[\n\nstart\n\nend]]>')" \
+      "$(sed -n '/^<!\[CDATA\[/,/^      <\/system-out>/p' \
+          "$TEST_TMPDIR/test.xml" | sed '$d')"
 }
 
 run_suite "generate-xml.sh tests"
