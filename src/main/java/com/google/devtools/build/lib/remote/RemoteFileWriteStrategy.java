@@ -190,7 +190,9 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
               context.withWriteCachePolicy(
                   CachePolicy.create(uploadToRemoteCache, writeToDiskCache)),
               digest,
-              new DeterministicWriterBlob(deterministicWriter, output)));
+              new DeterministicWriterBlob(deterministicWriter, output),
+              // The remote cache just reported the blob as missing.
+              /* force= */ true));
     }
     return writeToDiskCache || presentInRemoteCache || uploadToRemoteCache;
   }
