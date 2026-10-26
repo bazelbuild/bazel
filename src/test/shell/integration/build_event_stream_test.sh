@@ -1355,11 +1355,11 @@ function test_tool_command_line() {
   expect_log 'command_line_label: "canonical"'
   expect_log 'command_line_label: "tool"'
 
-  # Expect the actual tool command line flag to appear twice, because of the two
-  # bazel command lines that are reported
-  expect_log_n 'combined_form: "--experimental_tool_command_line=' 2
-  expect_log_n 'option_name: "experimental_tool_command_line"' 2
-  expect_log_n 'option_value: "foo bar"' 2
+  # Hidden options should not appear in the option lists of the original or
+  # canonical command line events
+  expect_not_log 'combined_form: "--experimental_tool_command_line='
+  expect_not_log 'option_name: "experimental_tool_command_line"'
+  expect_not_log 'option_value: "foo bar"'
 
   # Check the contents of the tool command line
   expect_log_once 'chunk: "foo bar"'

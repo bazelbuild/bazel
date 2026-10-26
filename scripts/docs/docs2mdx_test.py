@@ -176,6 +176,24 @@ class Docs2MdxHeadingAnchorTest(parameterized.TestCase):
     self.assertNotIn("{#", result)
 
 
+class Docs2MdxCodeFenceTest(unittest.TestCase):
+
+  def test_single_line_fence_is_split_onto_separate_lines(self):
+    md = "Text.\n\n```--output package```\n\nMore text."
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("\n```\n--output package\n```\n", result)
+
+  def test_indented_single_line_fence_keeps_indentation(self):
+    md = "*   Item:\n\n    ```--output graph```\n"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("    ```\n    --output graph\n    ```", result)
+
+  def test_regular_fence_is_unchanged(self):
+    md = "```\nbazel build //foo\n```\n"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("```\nbazel build //foo\n```", result)
+
+
 class Docs2MdxFlagAnchorTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
