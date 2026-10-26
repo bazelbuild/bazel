@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -258,6 +259,7 @@ public final class Resolver extends NodeVisitor {
     private final ImmutableList<Binding> freevars;
     private final ImmutableList<String> globals; // TODO(adonovan): move to Program.
     private final boolean mutationFreeAtTopLevel;
+    private final boolean capturesEnclosingCall;
 
     private Function(
         String name,
@@ -272,7 +274,8 @@ public final class Resolver extends NodeVisitor {
         List<Binding> locals,
         List<Binding> freevars,
         ImmutableList<String> globals,
-        boolean mutationFreeAtTopLevel) {
+        boolean mutationFreeAtTopLevel,
+        boolean capturesEnclosingCall) {
       this.name = name;
       this.location = loc;
       this.functionId = functionId;
@@ -294,6 +297,7 @@ public final class Resolver extends NodeVisitor {
       this.freevars = ImmutableList.copyOf(freevars);
       this.globals = globals;
       this.mutationFreeAtTopLevel = mutationFreeAtTopLevel;
+      this.capturesEnclosingCall = capturesEnclosingCall;
 
       // Create an index of the locals that are cells.
       int ncells = 0;
@@ -385,6 +389,15 @@ public final class Resolver extends NodeVisitor {
      */
     public ImmutableList<Binding> getFreeVars() {
       return freevars;
+    }
+
+    /**
+     * Returns whether closures created from this function hold values from the call of an enclosing
+     * function, either as free variables or as default parameter values. Values bound at the top
+     * level of the file, such as load bindings, don't count.
+     */
+    public boolean capturesEnclosingCall() {
+      return capturesEnclosingCall;
     }
 
     /** Returns the location of the function's identifier. */
@@ -556,6 +569,8 @@ public final class Resolver extends NodeVisitor {
     // the values for the free variables of this function; see Function.getFreeVars.
     // Null for toplevel functions/expressions and type aliases, which have no free variables.
     @Nullable private final ArrayList<Binding> freevars;
+    // Indices of the freevars that hold values from the call of an enclosing function.
+    @Nullable private final BitSet freevarsFromEnclosingCall;
 
     // Bindings for names defined in this block.
     // Also, as an optimization, memoized lookups of enclosing bindings.
@@ -570,6 +585,21 @@ public final class Resolver extends NodeVisitor {
       this.syntax = syntax;
       this.frame = frame;
       this.freevars = freevars;
+      this.freevarsFromEnclosingCall = freevars != null ? new BitSet() : null;
+    }
+
+    boolean isFunction() {
+      return syntax instanceof DefStatement || syntax instanceof LambdaExpression;
+    }
+
+    // Returns the innermost block starting at this one that isn't a comprehension, which owns the
+    // frame of this block.
+    Block frameOwner() {
+      Block b = this;
+      while (b.syntax instanceof Comprehension) {
+        b = b.parent;
+      }
+      return b;
     }
   }
 
@@ -1083,7 +1113,7 @@ public final class Resolver extends NodeVisitor {
         //
         // This step may occur many times if the lookupLexical
         // recursion returns through many functions.
-        if (b.syntax instanceof DefStatement || b.syntax instanceof LambdaExpression) {
+        if (b.isFunction()) {
           Scope scope = bind.getScope();
           if (scope == Scope.LOCAL || scope == Scope.FREE || scope == Scope.CELL) {
             if (scope == Scope.LOCAL) {
@@ -1091,6 +1121,13 @@ public final class Resolver extends NodeVisitor {
             }
             int index = b.freevars.size();
             b.freevars.add(bind);
+            // A local of an enclosing function holds a value from its call. A free variable of an
+            // enclosing function does if it does so for that function.
+            Block owner = b.parent.frameOwner();
+            if (owner.isFunction()
+                && (scope != Scope.FREE || owner.freevarsFromEnclosingCall.get(bind.getIndex()))) {
+              b.freevarsFromEnclosingCall.set(index);
+            }
             bind = newBinding(Scope.FREE, index, /* isSyntactic= */ true, bind.first);
           }
         }
@@ -1211,7 +1248,13 @@ public final class Resolver extends NodeVisitor {
     functionDepth++;
     visitAll(body);
     functionDepth--;
+    boolean capturesEnclosingCall = !locals.freevarsFromEnclosingCall.isEmpty();
     popLocalBlock();
+    // Default values are evaluated in the enclosing environment.
+    if (locals.frameOwner().isFunction()
+        && parameters.stream().anyMatch(param -> param instanceof Parameter.Optional)) {
+      capturesEnclosingCall = true;
+    }
 
     if (cachedGlobals == null) {
       cachedGlobals = ImmutableList.copyOf(globals);
@@ -1230,7 +1273,8 @@ public final class Resolver extends NodeVisitor {
         frame,
         freevars,
         cachedGlobals,
-        /* mutationFreeAtTopLevel= */ false);
+        /* mutationFreeAtTopLevel= */ false,
+        capturesEnclosingCall);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -1434,7 +1478,8 @@ public final class Resolver extends NodeVisitor {
             frame,
             /* freevars= */ ImmutableList.of(),
             ImmutableList.copyOf(r.globals),
-            !r.sawPossibleMutationAtTopLevel));
+            !r.sawPossibleMutationAtTopLevel,
+            /* capturesEnclosingCall= */ false));
   }
 
   /**
@@ -1475,7 +1520,8 @@ public final class Resolver extends NodeVisitor {
         frame,
         /* freevars= */ ImmutableList.of(),
         ImmutableList.copyOf(r.globals),
-        !r.sawPossibleMutationAtTopLevel);
+        !r.sawPossibleMutationAtTopLevel,
+        /* capturesEnclosingCall= */ false);
   }
 
   private void pushLocalBlock(

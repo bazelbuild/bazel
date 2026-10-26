@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import net.starlark.java.syntax.SyntaxError;
 import org.junit.Test;
@@ -665,6 +666,78 @@ public final class FunctionTest {
                     x = lambda v: v + 2
                     """));
     assertThat(thrown).hasMessageThat().contains("'x' redeclared at top level");
+  }
+
+  @Test
+  public void capturesEnclosingCall() throws Exception {
+    ev.exec(
+        """
+        _y = 10
+
+        def top(x, z = _y):
+          return x * _y
+
+        def outer(a):
+          def nested(x):
+            return x * _y
+
+          def with_default(x, y = 1):
+            return x
+
+          def middle(b):
+            return {
+                "middle_none": lambda c: c,
+                "middle_local": lambda c: c + b,
+                "middle_outer": lambda c: c + a,
+            }
+
+          result = {"nested": nested, "local": lambda x: x * a, "default": with_default}
+          result.update(middle(1))
+          return result
+
+        fns = outer(2)
+        top_lambda = lambda x: x
+        comprehension_inner = [lambda: (lambda: i) for i in range(1)][0]()
+        """);
+
+    assertThat(((StarlarkFunction) ev.lookup("top")).capturesEnclosingCall()).isFalse();
+    assertThat(((StarlarkFunction) ev.lookup("top_lambda")).capturesEnclosingCall()).isFalse();
+    assertThat(((StarlarkFunction) ev.lookup("comprehension_inner")).capturesEnclosingCall())
+        .isFalse();
+    var captures = new LinkedHashMap<String, Boolean>();
+    for (var entry :
+        Dict.cast(ev.lookup("fns"), String.class, StarlarkFunction.class, "fns").entrySet()) {
+      captures.put(entry.getKey(), entry.getValue().capturesEnclosingCall());
+    }
+    assertThat(captures)
+        .containsExactly(
+            "nested", false,
+            "local", true,
+            "default", true,
+            "middle_none", false,
+            "middle_local", true,
+            "middle_outer", true);
+  }
+
+  @Test
+  public void canonicalize_sharesInstanceAmongInterchangeableFunctions() throws Exception {
+    ev.exec(
+        """
+        def make(a):
+          return (lambda x: x, lambda x: x + a)
+
+        first = make(1)
+        second = make(2)
+        """);
+    var first = (Tuple) ev.lookup("first");
+    var second = (Tuple) ev.lookup("second");
+
+    var nonCapturing = (StarlarkFunction) first.get(0);
+    assertThat(second.get(0)).isNotEqualTo(nonCapturing);
+    assertThat(((StarlarkFunction) second.get(0)).canonicalize())
+        .isSameInstanceAs(nonCapturing.canonicalize());
+    assertThat(((StarlarkFunction) second.get(1)).canonicalize())
+        .isNotSameInstanceAs(((StarlarkFunction) first.get(1)).canonicalize());
   }
 
   // Regression test for b/385394075

@@ -19,10 +19,12 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkThread.Frame;
@@ -137,6 +139,62 @@ public sealed class StarlarkFunction implements StarlarkCallable {
   /** Whether this function is defined at the top level of a file. */
   public boolean isGlobal() {
     return module.getGlobal(getName()) == this;
+  }
+
+  /**
+   * Returns whether this function holds values from the call of an enclosing function, either as
+   * free variables or as default parameter values. Functions defined at the top level of a file
+   * never do.
+   */
+  public boolean capturesEnclosingCall() {
+    return rfn.capturesEnclosingCall();
+  }
+
+  // Weak values let a canonical instance and its module be collected once nothing else references
+  // the instance.
+  private static final ConcurrentMap<CanonicalKey, StarlarkFunction> canonicalInstances =
+      new MapMaker().weakValues().makeMap();
+
+  /**
+   * Returns an instance shared by all functions created from the same definition in the same module
+   * with the same free variables and default values.
+   *
+   * <p>Such functions behave identically, but each one is only equal to itself.
+   */
+  public StarlarkFunction canonicalize() {
+    StarlarkFunction canonical =
+        canonicalInstances.putIfAbsent(
+            new CanonicalKey(rfn, module, freevars, defaultValues), this);
+    return canonical != null ? canonical : this;
+  }
+
+  private record CanonicalKey(
+      Resolver.Function rfn, Module module, Tuple freevars, Tuple defaultValues) {
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof CanonicalKey other
+          && rfn == other.rfn
+          && module == other.module
+          && sameElements(freevars, other.freevars)
+          && sameElements(defaultValues, other.defaultValues);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * System.identityHashCode(rfn) + System.identityHashCode(module);
+    }
+
+    private static boolean sameElements(Tuple a, Tuple b) {
+      if (a.size() != b.size()) {
+        return false;
+      }
+      for (int i = 0; i < a.size(); i++) {
+        if (a.get(i) != b.get(i)) {
+          return false;
+        }
+      }
+      return true;
+    }
   }
 
   @Override

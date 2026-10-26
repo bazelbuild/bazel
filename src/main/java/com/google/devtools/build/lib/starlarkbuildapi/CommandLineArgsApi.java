@@ -242,9 +242,11 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + " <code>DirectoryExpander</code> argument can be applied to manually obtain"
                     + " the files of a given directory.<p>To avoid unintended retention of large"
                     + " analysis-phase data structures into the execution phase, the"
-                    + " <code>map_each</code> function must be declared by a top-level"
-                    + " <code>def</code> statement; it may not be a nested function closure by"
-                    + " default.<p><i>Warning:</i> <a"
+                    + " <code>map_each</code> function must either be declared by a top-level"
+                    + " <code>def</code> statement or neither use local variables of an enclosing"
+                    + " function nor have default values, such as <code>lambda f:"
+                    + " f.basename</code>, unless <code>allow_closure</code> is"
+                    + " true.<p><i>Warning:</i> <a"
                     + " href='../globals/all.html#print'><code>print()</code></a> statements that"
                     + " are executed during the call to <code>map_each</code> will not produce any"
                     + " visible output."),
@@ -323,9 +325,10 @@ public interface CommandLineArgsApi extends StarlarkValue {
             positional = false,
             defaultValue = "False",
             doc =
-                "If true, allows the use of closures in function parameters like "
-                    + "<code>map_each</code>. Usually this isn't necessary and it risks retaining "
-                    + "large analysis-phase data structures into the execution phase."),
+                "If true, allows functions passed to parameters like <code>map_each</code> to use"
+                    + " local variables of enclosing functions or have default values. Usually"
+                    + " this isn't necessary and it risks retaining large analysis-phase data"
+                    + " structures into the execution phase."),
       },
       useStarlarkThread = true)
   CommandLineArgsApi addAll(

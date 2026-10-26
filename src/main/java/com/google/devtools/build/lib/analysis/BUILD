@@ -1421,6 +1421,7 @@ java_library(
     name = "starlark/template_dict",
     srcs = ["starlark/TemplateDict.java"],
     deps = [
+        ":starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:substitution",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
