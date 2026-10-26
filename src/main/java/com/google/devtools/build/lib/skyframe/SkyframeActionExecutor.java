@@ -897,6 +897,7 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
+      NestedSet<Artifact> evaluatedInputs,
       InputMetadataProvider compositeInputMetadataProvider,
       Environment env,
       @Nullable FileSystem actionFileSystem)
@@ -933,7 +934,10 @@ public final class SkyframeActionExecutor {
     eventHandler.post(new ScanningActionEvent(action));
 
     ActionExecutionException finalException = null;
-    try {
+    try (SilentCloseable lock =
+        outputService
+            .getRewoundActionSynchronizer()
+            .enterInputDiscovery(action, evaluatedInputs, compositeInputMetadataProvider)) {
       NestedSet<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
 
       // Input discovery may have been affected by lost inputs. If an action filesystem is used, it

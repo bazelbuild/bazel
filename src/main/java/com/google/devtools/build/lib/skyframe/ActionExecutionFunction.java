@@ -343,7 +343,14 @@ public final class ActionExecutionFunction implements SkyFunction {
     try {
       result =
           checkCacheAndExecuteIfNeeded(
-              action, state, env, clientEnv, actionLookupData, previousExecution, actionStartTime);
+              action,
+              state,
+              allInputs,
+              env,
+              clientEnv,
+              actionLookupData,
+              previousExecution,
+              actionStartTime);
     } catch (LostInputsActionExecutionException e) {
       return handleLostInputs(
           e,
@@ -664,6 +671,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(
       Action action,
       InputDiscoveryState state,
+      NestedSet<Artifact> allInputs,
       Environment env,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
@@ -740,6 +748,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                 skyframeActionExecutor.discoverInputs(
                     action,
                     actionLookupData,
+                    allInputs,
                     state.compositeInputMetadataProvider,
                     env,
                     state.actionFileSystem);

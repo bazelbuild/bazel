@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -295,6 +296,19 @@ public interface OutputService {
         throws InterruptedException;
 
     /**
+     * Guards an action from the beginning to the end of its {@link Action#discoverInputs input
+     * discovery}, during which it may read the evaluated inputs and its scheduling dependencies.
+     *
+     * <p>The evaluated inputs include inputs restored from the action cache, but may exclude inputs
+     * previously pruned by the action. Those pruned inputs may have been restored in {@link
+     * Action#getInputs} without being evaluated yet. Newly discovered inputs are evaluated before
+     * execution and protected by {@link #enterActionExecution}.
+     */
+    SilentCloseable enterInputDiscovery(
+        Action action, NestedSet<Artifact> evaluatedInputs, InputMetadataProvider metadataProvider)
+        throws InterruptedException;
+
+    /**
      * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
      * that support racy access to action outputs.
      */
@@ -308,6 +322,14 @@ public interface OutputService {
           @Override
           public SilentCloseable enterActionExecution(
               Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterInputDiscovery(
+              Action action,
+              NestedSet<Artifact> evaluatedInputs,
+              InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };
