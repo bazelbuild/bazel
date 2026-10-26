@@ -219,6 +219,7 @@ tasks:
       # Experiment: more parallel tests + longer timeouts on Windows (not for merge).
       - "--local_test_jobs=12"
       - "--test_timeout=72,360,1080,4320"
+      - "--nocache_test_results"
     test_targets:
       - "//src:embedded_tools_size_test"
       - "//src/test/cpp/..."
