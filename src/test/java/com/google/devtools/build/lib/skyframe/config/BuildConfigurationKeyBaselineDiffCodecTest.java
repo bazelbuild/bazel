@@ -74,11 +74,6 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
           Label platformLabel, boolean isExec, boolean trimTestOptions) {
         return baselineOptions;
       }
-
-      @Override
-      public String resolveMnemonic(BuildOptions targetOptions) {
-        return "dummy-mnemonic";
-      }
     };
   }
 
@@ -427,11 +422,6 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
               Label platformLabel, boolean isExec, boolean trimTestOptions) {
             return trimTestOptions ? trimmedBaseline : untrimmedBaseline;
           }
-
-          @Override
-          public String resolveMnemonic(BuildOptions options) {
-            return "dummy-mnemonic";
-          }
         };
     ObjectCodecs codecs = new ObjectCodecs(createRegistry(), createDependencies(provider));
 
@@ -479,11 +469,6 @@ public final class BuildConfigurationKeyBaselineDiffCodecTest {
               Label platformLabel, boolean isExec, boolean trimTestOptions)
               throws SerializationException {
             throw new SerializationException("no baseline available");
-          }
-
-          @Override
-          public String resolveMnemonic(BuildOptions options) {
-            return "dummy-mnemonic";
           }
         };
     ObjectCodecs readingCodecs =
