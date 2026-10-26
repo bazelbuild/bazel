@@ -732,6 +732,7 @@ public class ActionExecutionFunction implements SkyFunction {
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
             ImmutableSet.copyOf(action.getOutputs()),
+            action.producesCopyOutputs(),
             skyframeActionExecutor.getXattrProvider(),
             batchStatter,
             tsgm.get(),

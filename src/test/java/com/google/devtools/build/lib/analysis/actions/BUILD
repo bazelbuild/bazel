@@ -211,6 +211,32 @@ java_test(
 )
 
 java_test(
+    name = "CopyActionTest",
+    srcs = ["CopyActionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
+        "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:copy_action",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SymlinkActionTest",
     srcs = ["SymlinkActionTest.java"],
     deps = [

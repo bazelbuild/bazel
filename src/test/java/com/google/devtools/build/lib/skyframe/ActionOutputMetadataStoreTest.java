@@ -125,10 +125,19 @@ public final class ActionOutputMetadataStoreTest {
       ImmutableSet<Artifact> outputs,
       @Nullable FileSystem actionFs,
       @Nullable BatchStat batchStatter) {
+    return createStore(outputs, actionFs, batchStatter, /* outputsAreCopies= */ false);
+  }
+
+  private ActionOutputMetadataStore createStore(
+      ImmutableSet<Artifact> outputs,
+      @Nullable FileSystem actionFs,
+      @Nullable BatchStat batchStatter,
+      boolean outputsAreCopies) {
     return ActionOutputMetadataStore.create(
         /* archivedTreeArtifactsEnabled= */ false,
         OutputPermissions.READONLY,
         outputs,
+        outputsAreCopies,
         SyscallCache.NO_CACHE,
         batchStatter,
         tsgm,
@@ -234,6 +243,114 @@ public final class ActionOutputMetadataStoreTest {
     ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(treeArtifact));
     assertThat(store.getOutputMetadata(artifact)).isNotNull();
     assertThat(chmodCalls).isEmpty();
+  }
+
+  @Test
+  public void copyOutputFile_markedWhenReadFromDisk() throws Exception {
+    Artifact output =
+        ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, PathFragment.create("out"));
+    scratch.file(output.getPath().getPathString(), "contents");
+
+    // Metadata read before execution (action cache checking) and after it carries the mark.
+    ActionOutputMetadataStore store =
+        createStore(
+            ImmutableSet.of(output), /* actionFs= */ null, /* batchStatter= */ null, true);
+    assertThat(store.getOutputMetadata(output).isCopyOutput()).isTrue();
+    store.prepareForActionExecution();
+    assertThat(store.getOutputMetadata(output).isCopyOutput()).isTrue();
+    assertThat(store.getAllArtifactData().get(output).isCopyOutput()).isTrue();
+  }
+
+  @Test
+  public void nonCopyOutputFile_notMarked() throws Exception {
+    Artifact output =
+        ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, PathFragment.create("out"));
+    scratch.file(output.getPath().getPathString(), "contents");
+
+    ActionOutputMetadataStore store = createStore(ImmutableSet.of(output));
+    assertThat(store.getOutputMetadata(output).isCopyOutput()).isFalse();
+  }
+
+  @Test
+  public void copyOutputFile_injectedValueIsMarked() throws Exception {
+    Artifact output =
+        ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, PathFragment.create("out"));
+    ActionOutputMetadataStore store =
+        createStore(
+            ImmutableSet.of(output), /* actionFs= */ null, /* batchStatter= */ null, true);
+    store.prepareForActionExecution();
+    FileArtifactValue remote = FileArtifactValue.createForRemoteFile(new byte[] {1, 2, 3}, 5, 1);
+
+    store.injectFile(output, remote);
+
+    FileArtifactValue value = store.getOutputMetadata(output);
+    assertThat(value.isCopyOutput()).isTrue();
+    assertThat(value.isRemote()).isTrue();
+    assertThat(value.getDigest()).isEqualTo(remote.getDigest());
+    assertThat(value.getSize()).isEqualTo(5);
+  }
+
+  @Test
+  public void copyOutputTree_childrenMarkedWhenReadFromDisk() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "nested/child2");
+    scratch.file(child1.getPath().getPathString(), "child1");
+    scratch.file(child2.getPath().getPathString(), "child2");
+
+    ActionOutputMetadataStore store =
+        createStore(
+            ImmutableSet.of(treeArtifact), /* actionFs= */ null, /* batchStatter= */ null, true);
+    TreeArtifactValue tree = store.getTreeArtifactValue(treeArtifact);
+
+    assertThat(tree.getChildValues()).hasSize(2);
+    assertThat(tree.getChildValues().values().stream().allMatch(v -> v.isCopyOutput())).isTrue();
+    assertThat(store.getOutputMetadata(child1).isCopyOutput()).isTrue();
+  }
+
+  @Test
+  public void copyOutputTree_childrenMarkedWhenReadFromBatchStat() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
+    Path childPath = scratch.file(child.getPath().getPathString(), "contents");
+    BatchStat batchStatter =
+        paths ->
+            Arrays.asList(
+                FileStatusWithDigestAdapter.maybeAdapt(childPath.statIfFound(Symlinks.NOFOLLOW)));
+
+    ActionOutputMetadataStore store =
+        createStore(
+            ImmutableSet.of(treeArtifact), /* actionFs= */ null, batchStatter, true);
+
+    assertThat(store.getTreeArtifactValue(treeArtifact).getChildValues().get(child).isCopyOutput())
+        .isTrue();
+  }
+
+  @Test
+  public void copyOutputTree_injectedChildrenAreMarked() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "dir");
+    ActionOutputMetadataStore store =
+        createStore(
+            ImmutableSet.of(treeArtifact), /* actionFs= */ null, /* batchStatter= */ null, true);
+    store.prepareForActionExecution();
+    TreeFileArtifact foo = TreeFileArtifact.createTreeOutput(treeArtifact, "foo");
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(treeArtifact)
+            .putChild(foo, FileArtifactValue.createForRemoteFile(new byte[] {1, 2, 3}, 5, 1))
+            .build();
+
+    store.injectTree(treeArtifact, tree);
+
+    TreeArtifactValue stored = store.getTreeArtifactValue(treeArtifact);
+    assertThat(stored.getChildValues().get(foo).isCopyOutput()).isTrue();
+    assertThat(stored.getDigest()).isEqualTo(tree.getDigest());
+    assertThat(store.getOutputMetadata(foo).isCopyOutput()).isTrue();
+    // The final ActionExecutionValue carries the marked children.
+    ActionExecutionValue value = ActionExecutionValue.create(store, null, new NullAction());
+    assertThat(value.getExistingFileArtifactValue(foo).isCopyOutput()).isTrue();
   }
 
   @Test
@@ -677,6 +794,7 @@ public final class ActionOutputMetadataStoreTest {
             /* archivedTreeArtifactsEnabled= */ false,
             OutputPermissions.WRITABLE,
             /* outputs= */ ImmutableSet.of(output),
+            /* outputsAreCopies= */ false,
             SyscallCache.NO_CACHE,
             /* batchStatter= */ null,
             tsgm,

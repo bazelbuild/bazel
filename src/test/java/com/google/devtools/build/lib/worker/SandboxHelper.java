@@ -28,8 +28,10 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper class that sets up a sandbox in a more comprehensible way. Handles setting up
@@ -43,6 +45,7 @@ class SandboxHelper {
   private final Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
   private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
   private final Map<PathFragment, Path> workerFiles = new HashMap<>();
+  private final Set<PathFragment> copies = new HashSet<>();
   private final List<PathFragment> outputFiles = new ArrayList<>();
   private final List<PathFragment> outputDirs = new ArrayList<>();
 
@@ -81,6 +84,18 @@ class SandboxHelper {
     Path absPath = execRoot.getRelative(workspacePath);
     absPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(absPath, contents);
+    return this;
+  }
+
+  /**
+   * Like {@link #addAndCreateInputFile}, but the input is a {@code ctx.actions.copy} output, which
+   * must never be staged as a symlink.
+   */
+  @CanIgnoreReturnValue
+  public SandboxHelper addAndCreateCopyOutputInputFile(
+      String relativePath, String workspacePath, String contents) throws IOException {
+    addAndCreateInputFile(relativePath, workspacePath, contents);
+    copies.add(PathFragment.create(relativePath));
     return this;
   }
 
@@ -185,7 +200,7 @@ class SandboxHelper {
   }
 
   public SandboxInputs getSandboxInputs() {
-    return new SandboxInputs(inputs, virtualInputs, symlinks);
+    return new SandboxInputs(inputs, virtualInputs, symlinks, copies);
   }
 
   public SandboxOutputs getSandboxOutputs() {

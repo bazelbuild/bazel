@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -186,6 +187,21 @@ public final class ActionExecutionValueTest {
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
                 /* richArtifactData= */ null,
                 /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)),
+            // Copy output values, local-like and remote
+            createWithArtifactData(
+                ImmutableMap.of(
+                    output("copy_remote"),
+                    FileArtifactValue.createForCopyOutput(
+                        FileArtifactValue.createForRemoteFileWithMaterializationData(
+                            new byte[] {1, 2, 3},
+                            /* size= */ 10,
+                            /* locationIndex= */ 1,
+                            /* expirationTime= */ null,
+                            /* inMemoryOutput= */ false)),
+                    output("copy_local"),
+                    FileArtifactValue.createForCopyOutput(
+                        FileArtifactValue.createForNormalFile(
+                            new byte[] {4, 5, 6}, /* proxy= */ null, /* size= */ 3)))),
             // Resolved symlink artifact value
             createWithArtifactData(
                 ImmutableMap.of(
@@ -283,6 +299,76 @@ public final class ActionExecutionValueTest {
         /* treeArtifactData= */ ImmutableMap.of(),
         /* richArtifactData= */ null,
         discoveredModules);
+  }
+
+  private static final FileArtifactValue PLAIN_FILE =
+      FileArtifactValue.createForNormalFile(new byte[] {1}, /* proxy= */ null, /* size= */ 1);
+
+  @Test
+  public void copyOutputs_markedValuesAreAccepted() {
+    SpecialArtifact tree = tree("tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+
+    ActionExecutionValue.checkCopyOutputsAreMarked(
+        new ActionsTestUtil.NullAction(),
+        ImmutableMap.of(
+            output("file"),
+            FileArtifactValue.createForCopyOutput(PLAIN_FILE),
+            output("missing"),
+            FileArtifactValue.MISSING_FILE_MARKER),
+        ImmutableMap.of(
+            tree,
+            TreeArtifactValue.newBuilder(tree)
+                .putChild(child, FileArtifactValue.createForCopyOutput(PLAIN_FILE))
+                .build(),
+            tree("missing_tree"),
+            TreeArtifactValue.MISSING_TREE_ARTIFACT,
+            tree("empty_tree"),
+            TreeArtifactValue.empty()));
+  }
+
+  @Test
+  public void copyOutputs_unmarkedFileTripsInvariant() {
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                ActionExecutionValue.checkCopyOutputsAreMarked(
+                    new ActionsTestUtil.NullAction(),
+                    ImmutableMap.of(output("file"), PLAIN_FILE),
+                    ImmutableMap.of()));
+
+    assertThat(e).hasMessageThat().contains("Unmarked file value for copy output");
+  }
+
+  @Test
+  public void copyOutputs_unmarkedRemoteFileTripsInvariant() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            ActionExecutionValue.checkCopyOutputsAreMarked(
+                new ActionsTestUtil.NullAction(),
+                ImmutableMap.of(output("file"), VALUE_1_REMOTE),
+                ImmutableMap.of()));
+  }
+
+  @Test
+  public void copyOutputs_unmarkedTreeChildTripsInvariant() {
+    SpecialArtifact tree = tree("tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                ActionExecutionValue.checkCopyOutputsAreMarked(
+                    new ActionsTestUtil.NullAction(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(
+                        tree,
+                        TreeArtifactValue.newBuilder(tree).putChild(child, PLAIN_FILE).build())));
+
+    assertThat(e).hasMessageThat().contains("in tree");
   }
 
   private static DerivedArtifact output(String rootRelativePath) {

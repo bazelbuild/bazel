@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.CopyAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
@@ -357,6 +359,50 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               progressMessage);
     }
     registerAction(action);
+  }
+
+  @VisibleForTesting
+  static void checkCopyArtifacts(Artifact outputArtifact, Artifact inputArtifact)
+      throws EvalException {
+    if (outputArtifact.isSymlink() || inputArtifact.isSymlink()) {
+      throw Starlark.errorf(
+          "copy() of symlink artifacts is not yet supported: \"output\" and \"src\" must be"
+              + " declared as a file or directory (declare_file() or declare_directory())");
+    }
+    if (outputArtifact.isFileset() || inputArtifact.isFileset()) {
+      throw Starlark.errorf(
+          "copy() of Fileset artifacts is not supported: \"output\" and \"src\" must be"
+              + " declared as a file or directory (declare_file() or declare_directory())");
+    }
+    if (inputArtifact.isTreeArtifact() != outputArtifact.isTreeArtifact()) {
+      String inputType = inputArtifact.isTreeArtifact() ? "directory" : "file";
+      String outputType = outputArtifact.isTreeArtifact() ? "directory" : "file";
+      throw Starlark.errorf(
+          "copy() requires that \"output\" (%s) and \"src\" (%s) be the same type",
+          outputType, inputType);
+    }
+  }
+
+  @Override
+  public void copy(
+      FileApi output, FileApi src, Object progressMessageUnchecked, StarlarkThread thread)
+      throws EvalException {
+    context.checkMutable("actions.copy");
+    RuleContext ruleContext = getRuleContext();
+
+    Artifact outputArtifact = (Artifact) output;
+    Artifact inputArtifact = (Artifact) src;
+
+    checkCopyArtifacts(outputArtifact, inputArtifact);
+
+    String progressMessage =
+        (progressMessageUnchecked != Starlark.NONE)
+            ? (String) progressMessageUnchecked
+            : "Copying %{output}";
+
+    registerAction(
+        CopyAction.create(
+            ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage));
   }
 
   @Override
