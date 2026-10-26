@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
-import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import com.google.common.base.Utf8;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -234,6 +234,6 @@ public class RepositoryUtils {
 
   /** Returns whether the given internal string survives a round trip through Unicode. */
   private static boolean isRepresentableInUtf8(String internal) {
-    return unicodeToInternal(internalToUnicode(internal)).equals(internal);
+    return Utf8.isWellFormed(StringUnsafe.getInternalStringBytes(internal));
   }
 }
