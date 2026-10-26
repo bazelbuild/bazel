@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkdebug.server;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -660,6 +661,42 @@ public class StarlarkDebugServerTest {
     assertThat(response.hasEvaluate()).isTrue();
     assertThat(response.getEvaluate().getResult())
         .isEqualTo(getValueProto("Evaluation result", StarlarkInt.of(2)));
+  }
+
+  @Test
+  public void testNonAsciiPathAndValues() throws Exception {
+    sendStartDebuggingRequest();
+    ParserInput buildFile =
+        createInput(
+            unicodeToInternal("/a/build/file/ünïcödë/BUILD"),
+            unicodeToInternal(
+                """
+                x = "ä"
+                y = [2,3,4]
+                """));
+
+    Location breakpoint =
+        Location.newBuilder().setLineNumber(2).setPath("/a/build/file/ünïcödë/BUILD").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    Thread evaluationThread = execInWorkerThread(buildFile, null);
+    long threadId = evaluationThread.getId();
+
+    DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+    assertThat(event.getThreadPaused().getThread().getLocation())
+        .isEqualTo(breakpoint.toBuilder().setColumnNumber(1).build());
+
+    DebugEvent response =
+        client.sendRequestAndWaitForResponse(
+            DebugRequest.newBuilder()
+                .setSequenceNumber(123)
+                .setEvaluate(
+                    EvaluateRequest.newBuilder()
+                        .setThreadId(threadId)
+                        .setStatement("x + \"ö\"")
+                        .build())
+                .build());
+    assertThat(response.getEvaluate().getResult().getDescription()).isEqualTo("äö");
   }
 
   @Test
