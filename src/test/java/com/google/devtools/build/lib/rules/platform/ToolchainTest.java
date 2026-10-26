@@ -299,4 +299,40 @@ public class ToolchainTest extends BuildViewTestCase {
             + "instance. Is the rule definition for the target you're building setting "
             + "\"toolchains =\" to a toolchain() instead of the expected toolchain_type()?");
   }
+
+  @Test
+  public void featuresNotSupported() throws Exception {
+    checkError(
+        "toolchain",
+        "toolchain1",
+        "no such attribute 'features' in 'toolchain' rule",
+        """
+        toolchain_type(name = "demo_toolchain")
+
+        toolchain(
+            name = "toolchain1",
+            features = ["foo"],
+            toolchain = ":toolchain_def1",
+            toolchain_type = ":demo_toolchain",
+        )
+        """);
+  }
+
+  @Test
+  public void aspectHintsNotSupported() throws Exception {
+    checkError(
+        "toolchain",
+        "toolchain1",
+        "no such attribute 'aspect_hints' in 'toolchain' rule",
+        """
+        toolchain_type(name = "demo_toolchain")
+
+        toolchain(
+            name = "toolchain1",
+            aspect_hints = [":hint"],
+            toolchain = ":toolchain_def1",
+            toolchain_type = ":demo_toolchain",
+        )
+        """);
+  }
 }
