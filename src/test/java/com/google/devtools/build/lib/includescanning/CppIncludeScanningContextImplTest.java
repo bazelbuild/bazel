@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -113,7 +113,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     CppIncludeScanningContextImpl includeScanningContext =
         createIncludeScanningContext(includeScanner);
     CppCompileAction action = getCppCompileAction("//foo");
-    var headerTree = (SpecialArtifact) getArtifact("//foo:headers");
+    var headerTree = (TreeArtifact) getArtifact("//foo:headers");
     var headerTreeFile = TreeFileArtifact.createTreeOutput(headerTree, "file1.h");
     var environment = environmentWithTreeValue(headerTree, headerTreeFile);
     var actionExecutionContext = createActionExecutionContext(environment);
@@ -159,7 +159,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     CppIncludeScanningContextImpl includeScanningContext =
         createIncludeScanningContext(includeScanner);
     CppCompileAction action = getCppCompileAction("//foo");
-    var headerTree = (SpecialArtifact) getArtifact("//foo:headers");
+    var headerTree = (TreeArtifact) getArtifact("//foo:headers");
     var headerTreeFile = TreeFileArtifact.createTreeOutput(headerTree, "file1.h");
     var environment = environmentWithTreeValue(headerTree, headerTreeFile);
     var actionExecutionContext = createActionExecutionContext(environment);
@@ -241,7 +241,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     CppIncludeScanningContextImpl includeScanningContext =
         createIncludeScanningContext(includeScanner);
     CppCompileAction action = getCppCompileAction("//foo");
-    var headerTree = (SpecialArtifact) getArtifact("//foo:headers");
+    var headerTree = (TreeArtifact) getArtifact("//foo:headers");
     var headerTreeFile = TreeFileArtifact.createTreeOutput(headerTree, "file1.h");
     doAnswer(
             invocation -> {
@@ -341,7 +341,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
   }
 
   private static Environment environmentWithTreeValue(
-      SpecialArtifact tree, TreeFileArtifact... treeFiles) {
+      TreeArtifact tree, TreeFileArtifact... treeFiles) {
     var treeValue = TreeArtifactValue.newBuilder(tree);
     for (var treeFile : treeFiles) {
       treeValue.putChild(treeFile, mock(FileArtifactValue.class));

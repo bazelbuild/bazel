@@ -59,7 +59,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
@@ -153,7 +153,7 @@ public final class SkyframeActionExecutor {
         }
 
         @Override
-        public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) {
+        public TreeArtifactValue getTreeArtifactValue(TreeArtifact treeArtifact) {
           throw new IllegalStateException();
         }
 
@@ -179,7 +179,7 @@ public final class SkyframeActionExecutor {
         }
 
         @Override
-        public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
+        public void injectTree(TreeArtifact output, TreeArtifactValue tree) {
           // ActionFS injects only metadata for files.
           throw new UnsupportedOperationException(
               String.format(
@@ -1778,8 +1778,8 @@ public final class SkyframeActionExecutor {
                       output,
                       previousOutputs,
                       metadata,
-                      output.isTreeArtifact()
-                          ? outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output)
+                      output instanceof TreeArtifact treeArtifact
+                          ? outputMetadataStore.getTreeArtifactValue(treeArtifact)
                           : null);
               if (changed != null) {
                 reportChangedRewoundOutput(action, changed, fileOutErr);
@@ -1848,7 +1848,7 @@ public final class SkyframeActionExecutor {
     }
     if (output.isFileset() && filesetOutput != null) {
       outputArtifactsSeen.accumulate(filesetOutput);
-    } else if (!output.isTreeArtifact()) {
+    } else if (!(output instanceof TreeArtifact treeOutput)) {
       outputArtifactsSeen.accumulate(metadata);
       if (isActionCacheHit) {
         outputArtifactsFromActionCache.accumulate(metadata);
@@ -1856,7 +1856,7 @@ public final class SkyframeActionExecutor {
     } else {
       TreeArtifactValue treeArtifactValue;
       try {
-        treeArtifactValue = outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output);
+        treeArtifactValue = outputMetadataStore.getTreeArtifactValue(treeOutput);
       } catch (IOException e) {
         BugReport.sendBugReport(
             new IllegalStateException(

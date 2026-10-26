@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -84,20 +84,20 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
       throws ActionConflictException, ActionExecutionException, InterruptedException;
 
   /** Returns the input TreeArtifacts. */
-  ImmutableList<SpecialArtifact> getInputTreeArtifacts();
+  ImmutableList<TreeArtifact> getInputTreeArtifacts();
 
   /**
    * Helper method to partition/denormalize the flattened list of input {@link TreeFileArtifact}s
-   * into a list multimap of input {@link SpecialArtifact} -> children {@link TreeFileArtifact}s.
+   * into a list multimap of input {@link TreeArtifact} -> children {@link TreeFileArtifact}s.
    */
-  public static ImmutableListMultimap<SpecialArtifact, TreeFileArtifact>
+  public static ImmutableListMultimap<TreeArtifact, TreeFileArtifact>
       getInputTreeArtifactsToChildren(ImmutableList<TreeFileArtifact> inputTreeArtifacts) {
     return inputTreeArtifacts.stream()
         .collect(toImmutableListMultimap(TreeFileArtifact::getParent, x -> x));
   }
 
   @Override
-  default SpecialArtifact getPrimaryInput() {
+  default TreeArtifact getPrimaryInput() {
     return getInputTreeArtifacts().get(0);
   }
 
