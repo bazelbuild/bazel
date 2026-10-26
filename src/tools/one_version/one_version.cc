@@ -14,6 +14,7 @@
 
 #include "src/tools/one_version/one_version.h"
 
+#include <cstdint>
 #include <vector>
 
 #include "src/tools/one_version/duplicate_class_collector.h"
@@ -27,7 +28,7 @@ namespace one_version {
 
 // Record the jar entry (if it's a class file).
 void OneVersion::Add(absl::string_view file_name_of_entry, const CDH *jar_entry,
-                     const Label &label) {
+                     uint32_t label_index) {
   if (absl::ConsumeSuffix(&file_name_of_entry, ".class")) {
     if (
         // module-info.class is a Java 9 Module specifier, and isn't a
@@ -46,8 +47,9 @@ void OneVersion::Add(absl::string_view file_name_of_entry, const CDH *jar_entry,
         // android binary build. Once the depot is migrated to Android
         // databinding v2 (see b/73782031), this will no longer be necessary.
         !absl::EndsWith(file_name_of_entry, "/BR")) {
-      duplicate_class_collector_.Add(
-          file_name_of_entry, ABSL_DIE_IF_NULL(jar_entry)->crc32(), label);
+      duplicate_class_collector_.Add(file_name_of_entry,
+                                     ABSL_DIE_IF_NULL(jar_entry)->crc32(),
+                                     label_index);
     }
   }
 }
