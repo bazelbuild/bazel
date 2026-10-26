@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Converters.TriStateConverter;
@@ -215,6 +216,45 @@ public abstract class SandboxOptions extends OptionsBase {
           "Path to the Windows sandbox binary to use when --experimental_use_windows_sandbox is"
               + " true. If a bare name, use the first binary of that name found in the PATH.")
   public abstract String getWindowsSandboxPath();
+
+  @Option(
+      name = "sandbox_backend",
+      allowMultiple = true,
+      converter = AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Registers a sandbox backend: a spawn strategy that runs actions in an external binary"
+              + " that speaks the Remote Execution API over a unix domain socket. Value is"
+              + " <name>=<binary>, where <name> is the name of the strategy to select with"
+              + " --spawn_strategy, --dynamic_local_strategy, etc., and <binary> is an absolute"
+              + " path or a bare name resolved against PATH. May be repeated to register several"
+              + " backends. Bazel launches the binary lazily as '<binary> serve"
+              + " --socket=<path> <options>', where the options are the values of"
+              + " --sandbox_backend_opt, and kills it when Bazel exits or the registration or its"
+              + " options change. The backend creates the socket once it accepts connections and"
+              + " serves Execution, ByteStream and ContentAddressableStorage.FindMissingBlobs on"
+              + " it. Bazel uploads the input files of an action as file:// URIs instead of"
+              + " contents and expects the backend to execute every action it is sent. A backend"
+              + " whose binary isn't executable declines all spawns, so that Bazel falls through to"
+              + " the next strategy.")
+  public abstract List<Map.Entry<String, String>> getSandboxBackends();
+
+  @Option(
+      name = "sandbox_backend_opt",
+      allowMultiple = true,
+      converter = AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Passes one command line argument to a sandbox backend. Value is <name>=<argument>,"
+              + " where <name> is the name of a backend registered with --sandbox_backend, and it"
+              + " is an error if there is none. Arguments are passed verbatim and in order after"
+              + " the arguments that Bazel adds, one per occurrence of the flag. Changing them"
+              + " restarts the backend.")
+  public abstract List<Map.Entry<String, String>> getSandboxBackendOpts();
 
   public ImmutableSet<Path> getInaccessiblePaths(FileSystem fs) {
     List<Path> inaccessiblePaths = new ArrayList<>();
