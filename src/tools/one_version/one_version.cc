@@ -30,10 +30,11 @@ namespace {
 
 // Returns whether name contains "/R$".
 bool ContainsRInnerClass(absl::string_view name) {
-  // Search for '$' rather than '/' since it is much rarer in class names.
-  for (size_t i = name.find('$'); i != absl::string_view::npos;
-       i = name.find('$', i + 1)) {
-    if (i >= 2 && name[i - 1] == 'R' && name[i - 2] == '/') {
+  // Search for 'R' since it is much rarer in class names than '/' and '$'.
+  for (size_t i = name.find('R', 1);
+       i != absl::string_view::npos && i + 1 < name.size();
+       i = name.find('R', i + 1)) {
+    if (name[i - 1] == '/' && name[i + 1] == '$') {
       return true;
     }
   }
