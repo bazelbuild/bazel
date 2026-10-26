@@ -463,9 +463,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   @Override
   public int getMaterializationPermissions(PathFragment path, int defaultPermissions)
       throws IOException {
-    // Injection prefetches .bzl files before installing the repository's presence marker.
-    if (path.startsWith(externalDirectory) && externalFs.isFile(path, /* followSymlinks= */ true)) {
-      return externalFs.isExecutable(path) ? 0555 : 0444;
+    if (path.startsWith(externalDirectory)) {
+      // injectRemoteRepo prefetches before setting markerFileContents, so fsForPath would select
+      // nativeFs. Read externalFs directly so prefetched files preserve the cached executable bit.
+      var stat = externalFs.statIfFound(path, /* followSymlinks= */ true);
+      if (stat != null && stat.isFile()) {
+        return (stat.getPermissions() & 0100) != 0 ? 0555 : 0444;
+      }
     }
     return defaultPermissions;
   }
