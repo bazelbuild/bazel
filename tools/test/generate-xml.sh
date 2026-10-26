@@ -71,7 +71,11 @@ function encode_stream {
   # Perl - We originally used Perl, but wanted to avoid the dependency.
   #        Recent versions of Perl now error on invalid utf-8 characters.
   # tr   - tr only replaces single-byte sequences, so cannot handle utf-8.
-  LC_ALL=C sed -E \
+  #
+  # LC_ALL is set via env since restoring its own locale after a temporary
+  # assignment can crash bash builds that use libintl, such as Homebrew's, in
+  # subshells.
+  env LC_ALL=C sed -E \
       -e 's/.*/& /g' \
       -e 's/(('\
 "$(echo -e '[\x9\x20-\x7f]')|"\
