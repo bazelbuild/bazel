@@ -11,15 +11,15 @@ toolchains for a project.
 
 In this tutorial you learn how to:
 
-*   Set up the build environment
-*   Use `--toolchain_resolution_debug` to debug toolchain resolution
-*   Configure the C++ toolchain
+*   Set up the build environment, including the starlark C++ rules.
+*   Use `--toolchain_resolution_debug` to debug toolchain resolution.
+*   Configure the C++ toolchain.
 *   Create a Starlark rule that provides additional configuration for the
-    `cc_toolchain` so that Bazel can build the application with `clang`
+    `cc_toolchain` so that Bazel can build the application with `clang`.
 *   Build the C++ binary by running `bazel build //main:hello-world` on a
-    Linux machine
+    Linux machine.
 *   Cross-compile the binary for android by running `bazel build
-    //main:hello-world --platforms=//:android_x86_64`
+    //main:hello-world --platforms=//:android_x86_64`.
 
 ## Before you begin {#before-you-begin}
 
@@ -31,9 +31,14 @@ uses `clang version 19`, which you can install on your system.
 
 Set up your build environment as follows:
 
-1.  If you have not already done so, [download and install Bazel 7.0.2](https://bazel.build/install) or later.
+1.  If you have not already done so, [download and install Bazel 7.1.2](https://bazel.build/install) or later.
 
-2.  Add an empty `MODULE.bazel` file at the root folder.
+2.  Add a `MODULE.bazel` file at the root folder, pulling in `rules_cc` as
+    follows:
+
+    ```python
+    bazel_dep(name = "rules_cc", version = "0.2.22")
+    ```
 
 3.  Add the following `cc_binary` target to the `main/BUILD` file:
 
@@ -50,7 +55,18 @@ Set up your build environment as follows:
     toolchain of the one created in this tutorial. Hence, the `cc_binary` target
     is also built with the default toolchain.
 
-4.  Run the build with the following command:
+4.  Add the `main/hello-world.cc` source file:
+
+    ```cpp
+    #include <iostream>
+
+    int main() {
+        std::cout << "Hello, world!\n";
+        return 0;
+    }
+    ```
+
+5.  Run the build with the following command:
 
     ```bash
     bazel build //main:hello-world
@@ -75,16 +91,18 @@ Set up your build environment as follows:
 To configure the C++ toolchain, repeatedly build the application and eliminate
 each error one by one as described as following.
 
-Note: This tutorial assumes you're using Bazel 7.0.2 or later. If you're using
+Note: This tutorial assumes you're using Bazel 7.1.2 or later. If you're using
 an older release of Bazel, use `--incompatible_enable_cc_toolchain_resolution`
 flag to enable C++ toolchain resolution.
 
-It also assumes `clang version 9.0.1`, although the details should only change
-slightly between different versions of clang.
+It also uses an arbitrary version of `clang`, although the details should only
+change slightly between different versions.
 
 1.  Add `toolchain/BUILD` with
 
     ```python
+    load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+
     filegroup(name = "empty")
 
     cc_toolchain(
@@ -115,11 +133,11 @@ slightly between different versions of clang.
     )
     ```
 
-    Then add appropriate dependencies and register the toolchain with
+    Then add appropriate dependencies and register the toolchain in
     `MODULE.bazel` with
 
     ```python
-    bazel_dep(name = "platforms", version = "0.0.10")
+    bazel_dep(name = "platforms", version = "1.1.0")
     register_toolchains(
         "//toolchain:cc_toolchain_for_linux_x86_64"
     )
@@ -132,7 +150,7 @@ slightly between different versions of clang.
     `linux_x86_64_toolchain_config` target, Bazel throws the following error:
 
     ```bash
-    ERROR: toolchain/BUILD:4:13: in toolchain_config attribute of cc_toolchain rule //toolchain:linux_x86_64_toolchain: rule '//toolchain:linux_x86_64_toolchain_config' does not exist.
+    ERROR: toolchain/BUILD:5:13: in toolchain_config attribute of cc_toolchain rule //toolchain:linux_x86_64_toolchain: rule '//toolchain:linux_x86_64_toolchain_config' does not exist.
     ```
 
 3.  In the `toolchain/BUILD` file, define an empty filegroup as follows:
@@ -155,6 +173,9 @@ slightly between different versions of clang.
     `toolchain/cc_toolchain_config.bzl` file with the following content:
 
     ```python
+    load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+    load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+
     def _impl(ctx):
         return cc_common.create_cc_toolchain_config_info(
             ctx = ctx,
@@ -193,22 +214,22 @@ slightly between different versions of clang.
 5.  Run the build again. Bazel throws the following error:
 
     ```bash
-    .../BUILD:1:1: C++ compilation of rule '//:hello-world' failed (Exit 1)
+    .../BUILD:1:1: C++ compilation of rule '//main:hello-world' failed (Exit 1)
     src/main/tools/linux-sandbox-pid1.cc:421:
     "execvp(toolchain/DUMMY_GCC_TOOL, 0x11f20e0)": No such file or directory
-    Target //:hello-world failed to build`
+    Target //main:hello-world failed to build`
     ```
 
     At this point, Bazel has enough information to attempt building the code but
     it still does not know what tools to use to complete the required build
     actions. You will modify the Starlark rule implementation to tell Bazel what
     tools to use. For that, you need the `tool_path()` constructor from
-    [`@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl`](https://source.bazel.build/bazel/+/4eea5c62a566d21832c93e4c18ec559e75d5c1ce:tools/cpp/cc_toolchain_config_lib.bzl;l=400):
+    [`@rules_cc//cc:cc_toolchain_config_lib.bzl`](https://github.com/bazelbuild/rules_cc/blob/aff544134bc9d29006f27adbe63d824dfe1436f6/cc/cc_toolchain_config_lib.bzl#L445):
 
     ```python
     # toolchain/cc_toolchain_config.bzl:
     # NEW
-    load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl", "tool_path")
+    load("@rules_cc//cc:cc_toolchain_config_lib.bzl", "tool_path")
 
     def _impl(ctx):
         tool_paths = [ # NEW
@@ -322,10 +343,10 @@ slightly between different versions of clang.
 
     ```python
     # NEW
-    load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+    load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
     # NEW
     load(
-        "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+        "@rules_cc//cc:cc_toolchain_config_lib.bzl",
         "feature",    # NEW
         "flag_group", # NEW
         "flag_set",   # NEW
