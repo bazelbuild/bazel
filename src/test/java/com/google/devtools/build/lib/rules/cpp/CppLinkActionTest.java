@@ -483,17 +483,17 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
     ResourceSetOrBuilder resourceSetOrBuilder = linkAction.getResourceSetOrBuilder();
-    assertThat(resourceSetOrBuilder.buildResourceSet(OS.DARWIN, 100))
+    assertThat(resourceSetOrBuilder.buildResourceSet(OS.DARWIN, () -> 100))
         .isEqualTo(ResourceSet.createWithRamCpu(20, 1));
-    assertThat(resourceSetOrBuilder.buildResourceSet(OS.DARWIN, 1000))
+    assertThat(resourceSetOrBuilder.buildResourceSet(OS.DARWIN, () -> 1000))
         .isEqualTo(ResourceSet.createWithRamCpu(65, 1));
-    assertThat(resourceSetOrBuilder.buildResourceSet(OS.LINUX, 100))
+    assertThat(resourceSetOrBuilder.buildResourceSet(OS.LINUX, () -> 100))
         .isEqualTo(ResourceSet.createWithRamCpu(50, 1));
-    assertThat(resourceSetOrBuilder.buildResourceSet(OS.LINUX, 10000))
+    assertThat(resourceSetOrBuilder.buildResourceSet(OS.LINUX, () -> 10000))
         .isEqualTo(ResourceSet.createWithRamCpu(900, 1));
-    assertThat(resourceSetOrBuilder.buildResourceSet(OS.WINDOWS, 0))
+    assertThat(resourceSetOrBuilder.buildResourceSet(OS.WINDOWS, () -> 0))
         .isEqualTo(ResourceSet.createWithRamCpu(1500, 1));
-    assertThat(resourceSetOrBuilder.buildResourceSet(OS.WINDOWS, 1000))
+    assertThat(resourceSetOrBuilder.buildResourceSet(OS.WINDOWS, () -> 1000))
         .isEqualTo(ResourceSet.createWithRamCpu(2500, 1));
   }
 

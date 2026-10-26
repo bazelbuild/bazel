@@ -107,7 +107,7 @@ public class WorkerSpawnRunnerTest {
         .when(metricsCollector)
         .registerWorker(
             anyInt(), anyLong(), any(), anyString(), anyBoolean(), anyBoolean(), anyInt(), any());
-    when(spawn.getLocalResources()).thenReturn(ResourceSet.createWithRamCpu(100, 1));
+    when(spawn.getLocalResources(any())).thenReturn(ResourceSet.createWithRamCpu(100, 1));
     when(spawn.getPathMapper()).thenReturn(PathMapper.NOOP);
     when(resourceManager.acquireResources(any(), any(), any())).thenReturn(resourceHandle);
     when(resourceHandle.getWorker()).thenReturn(worker);

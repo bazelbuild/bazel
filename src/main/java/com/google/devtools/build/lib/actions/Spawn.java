@@ -177,8 +177,12 @@ public interface Spawn extends DescribableExecutionUnit {
   /**
    * Returns the amount of resources needed for local execution. Calling this may trigger an
    * expensive computation: do not call unless actually needed!
+   *
+   * <p>Only the first call's {@code inputMetadataProvider} is taken into account, as the result is
+   * cached.
    */
-  ResourceSet getLocalResources() throws ExecException, InterruptedException;
+  ResourceSet getLocalResources(InputMetadataProvider inputMetadataProvider)
+      throws ExecException, InterruptedException;
 
   /** Returns a mnemonic (string constant) for this kind of spawn. */
   @Override

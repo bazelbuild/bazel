@@ -963,7 +963,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     @Override
-    public ResourceSet buildResourceSet(OS os, int inputsSize)
+    public ResourceSet buildResourceSet(OS os, InputsStats inputsStats)
         throws ExecException, InterruptedException {
       try (Mutability mu = Mutability.create("resource_set_builder_function")) {
         // Only numerical values are retained from the result, so a transient SymbolGenerator
@@ -971,7 +971,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         StarlarkThread thread =
             StarlarkThread.create(
                 mu, semantics, "resource_set callback", SymbolGenerator.createTransient());
-        StarlarkInt inputInt = StarlarkInt.of(inputsSize);
+        StarlarkInt inputInt = StarlarkInt.of(inputsStats.getInputsSize());
         Object response =
             Starlark.positionalOnlyCall(thread, this.fn, os.getCanonicalName(), inputInt);
         Map<String, Object> resourceSetMapRaw =
@@ -1068,7 +1068,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     @Override
-    public ResourceSet buildResourceSet(OS os, int inputsSize) {
+    public ResourceSet buildResourceSet(OS os, InputsStats inputsStats) {
       return ResourceSet.createWithRamCpu(memoryMb, cpuUsage);
     }
   }

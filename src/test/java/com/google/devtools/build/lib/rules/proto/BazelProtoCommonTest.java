@@ -156,9 +156,9 @@ compile_rule = rule(_impl,
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
     SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    assertThat(spawnAction.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 0))
+    assertThat(spawnAction.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, () -> 0))
         .isEqualTo(ResourceSet.createWithRamCpu(25, 1));
-    assertThat(spawnAction.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+    assertThat(spawnAction.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2))
         .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
   }
 
