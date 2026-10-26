@@ -425,6 +425,7 @@ public class BuildRequest implements OptionsProvider {
         getOptions(ExecutionOptions.class).getTestStrategy().equals("exclusive"),
         OutputGroupInfo.determineOutputGroups(
             buildOptions.getOutputGroups(),
+            buildOptions.getExtraDefaultOutputGroups(),
             validationMode(),
             /* shouldRunTests= */ shouldRunTests()),
         buildOptions.getIncompatibleFailOnUnknownOutputGroups(),

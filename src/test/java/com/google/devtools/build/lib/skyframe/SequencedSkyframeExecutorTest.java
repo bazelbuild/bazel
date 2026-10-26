@@ -2282,7 +2282,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       new TopLevelArtifactContext(
                           /* runTestsExclusively= */ false,
                           OutputGroupInfo.determineOutputGroups(
-                              ImmutableList.of(),
+                              /* outputGroups= */ ImmutableList.of(),
+                              /* extraDefaultOutputGroups= */ ImmutableList.of(),
                               OutputGroupInfo.ValidationMode.OUTPUT_GROUP,
                               /* shouldRunTests= */ false),
                           /* failOnUnknownOutputGroups= */ false,

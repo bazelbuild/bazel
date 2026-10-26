@@ -653,7 +653,7 @@ public class BuildView {
           configuredTargets,
           aspects.values(),
           topLevelOptions,
-          ImmutableSet.copyOf(buildRequestOptions.getHideOutputGroupResults()),
+          buildRequestOptions.getAllHiddenOutputGroupResults(),
           eventHandler);
     }
 
