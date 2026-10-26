@@ -13,16 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
-import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
@@ -103,10 +99,7 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
     mnemonicToCount.merge(action.getMnemonic(), 1, Integer::sum);
     ActionOwner actionOwner = action.getOwner();
     if (actionOwner != null) {
-      BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
-      BuildEventStreamProtos.Configuration configProto =
-          configuration.asStreamProto(/* context= */ null).getConfiguration();
-      configurationToCount.merge(unicodeToInternal(configProto.getMnemonic()), 1, Integer::sum);
+      configurationToCount.merge(actionOwner.getBuildConfigurationMnemonic(), 1, Integer::sum);
 
       if (actionOwner.getExecutionPlatform() != null) {
         execPlatformToCount.merge(
