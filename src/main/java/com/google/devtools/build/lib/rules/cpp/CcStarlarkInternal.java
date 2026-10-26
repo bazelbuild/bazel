@@ -454,6 +454,13 @@ public class CcStarlarkInternal implements StarlarkValue {
     if (!targetPathFragment.isAbsolute()) {
       throw Starlark.errorf("target_path must be an absolute path, got '%s'", targetPath);
     }
+    CppConfiguration cppConfiguration =
+        ctx.getRuleContext().getConfiguration().getFragment(CppConfiguration.class);
+    if (cppConfiguration == null || !cppConfiguration.isAllowedFdoAbsoluteSymlinkPath(targetPath)) {
+      throw Starlark.errorf(
+          "absolute_symlink target_path '%s' must match a configured FDO or Propeller profile path",
+          targetPath);
+    }
     SymlinkAction action =
         SymlinkAction.toAbsolutePath(
             ctx.getRuleContext().getActionOwner(), targetPathFragment, output, progressMessage);
