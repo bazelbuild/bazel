@@ -101,11 +101,12 @@ public class ModuleFileGlobals {
         @Param(
             name = "version",
             doc =
-                "The version of the module. Can be omitted only if this module is the root module"
-                    + " (as in, if it's not going to be depended on by another module). The version"
-                    + " must be in a relaxed SemVer format; see <a"
-                    + " href=\"/external/module#version_format\">the documentation</a> for more"
-                    + " details.",
+                "The version of the module. Can be omitted if this module is the root module (as"
+                    + " in, if it's not going to be depended on by another module) or if it is"
+                    + " fetched from a registry, in which case it defaults to the version the"
+                    + " module is published under in the registry. The version must be in a relaxed"
+                    + " SemVer format; see <a href=\"/external/module#version_format\">the"
+                    + " documentation</a> for more details.",
             named = true,
             positional = false,
             defaultValue = "''"),
@@ -180,10 +181,17 @@ public class ModuleFileGlobals {
       context.addRepoNameUsage(repoName, "as the module's own repo name", thread.getCallStack());
     }
     Version parsedVersion;
-    try {
-      parsedVersion = Version.parse(version);
-    } catch (ParseException e) {
-      throw new EvalException("Invalid version in module()", e);
+    if (version.isEmpty()) {
+      // The version of a module from a registry is already known, so there is no need to repeat it
+      // in its MODULE.bazel file. For the root module and modules with non-registry overrides, the
+      // version in the key is empty.
+      parsedVersion = context.getModuleBuilder().getKey().version();
+    } else {
+      try {
+        parsedVersion = Version.parse(version);
+      } catch (ParseException e) {
+        throw new EvalException("Invalid version in module()", e);
+      }
     }
     context
         .getModuleBuilder()
