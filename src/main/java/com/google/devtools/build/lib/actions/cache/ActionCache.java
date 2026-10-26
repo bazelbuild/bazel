@@ -85,6 +85,8 @@ public interface ActionCache {
     public static final ActionCache.Entry CORRUPTED =
         new Entry(null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
 
+    private static final byte[] EMPTY_DIGEST = new byte[1];
+
     // Digest of all relevant properties of the action for cache invalidation purposes.
     // Null if the entry is corrupted.
     @Nullable private final byte[] digest;
@@ -517,12 +519,18 @@ public interface ActionCache {
       }
 
       private static byte[] computeMapDigest(Map<String, String> map) {
-        byte[] result = new byte[0];
+        if (map.isEmpty()) {
+          return EMPTY_DIGEST;
+        }
+        // Reuse Fingerprint and scratch buffer to avoid per-entry allocations.
         Fingerprint fp = new Fingerprint();
+        byte[] result = new byte[fp.getDigestLength()];
+        byte[] scratch = new byte[result.length];
         for (Map.Entry<String, String> entry : map.entrySet()) {
           fp.addString(entry.getKey());
           fp.addString(entry.getValue());
-          result = DigestUtils.combineUnordered(result, fp.digestAndReset());
+          fp.digestAndReset(scratch, 0, scratch.length);
+          result = DigestUtils.combineUnordered(result, scratch);
         }
         return result;
       }
