@@ -61,6 +61,9 @@ function encode_stream {
   # 4. Replace the string ']]>' with ']]>]]<![CDATA[>' to prevent escaping the
   #    surrounding CDATA block.
   #
+  # Lines containing only allowed ASCII characters skip steps 1-3 and jump
+  # directly to :cdata for step 4.
+  #
   # Sed supports the necessary operations as of version 4.4, but not in all
   # earlier versions. Specifically, we have found that sed 4.1.5 is not 8-bit
   # safe even when set to an 8-bit locale.
@@ -71,7 +74,6 @@ function encode_stream {
   # Perl - We originally used Perl, but wanted to avoid the dependency.
   #        Recent versions of Perl now error on invalid utf-8 characters.
   # tr   - tr only replaces single-byte sequences, so cannot handle utf-8.
-  # Lines containing only allowed ASCII characters need no UTF-8 repair.
   LC_ALL=C sed -E \
       -e "/^$(echo -e '[\x9\x20-\x7f]')*$/b cdata" \
       -e 's/.*/& /g' \
