@@ -573,13 +573,15 @@ public class InMemoryFileSystem extends FileSystem {
       }
       // The entries already carry their types; avoid walking from the root for each child.
       Collection<String> children = dirInfo.getAllChildren();
-      List<Dirent> result = new ArrayList<>(children.size());
+      int childCount = children.size() - 2;
+      if (childCount > 0 && !dirInfo.isExecutable()) {
+        // Preserve the error on the first real child that FileSystem.readdir would stat.
+        return super.readdir(path, false);
+      }
+      List<Dirent> result = new ArrayList<>(childCount);
       for (String child : children) {
         if (child.equals(".") || child.equals("..")) {
           continue;
-        }
-        if (!dirInfo.isExecutable()) {
-          throw Errno.EACCES.exception(path.getChild(child));
         }
         result.add(new Dirent(child, direntFromStat(dirInfo.getChild(child))));
       }
