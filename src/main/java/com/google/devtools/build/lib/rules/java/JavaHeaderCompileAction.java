@@ -221,8 +221,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
     private boolean parallelism = true;
 
-    private boolean outputRootRelativePath = true;
-
     private String fixDepsTool = null;
 
     private Builder(RuleContext ruleContext) {
@@ -425,12 +423,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public Builder enableOutputRootRelativePath(boolean outputRootRelativePath) {
-      this.outputRootRelativePath = outputRootRelativePath;
-      return this;
-    }
-
     /** Builds and registers the action for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain)
         throws RuleErrorException, InterruptedException {
@@ -518,7 +510,9 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .addExecPath("--output", outputJar)
               .addPath(
                   "--output_root_relative_path",
-                  outputRootRelativePath ? outputJar.getRootRelativePath() : null)
+                  javaConfiguration.experimentalTurbineOutputRootRelativePath()
+                      ? outputJar.getRootRelativePath()
+                      : null)
               .addExecPath("--header_compilation_output", headerCompilationOutputJar)
               .addExecPath("--gensrc_output", gensrcOutputJar)
               .addExecPath("--resource_output", resourceOutputJar)
