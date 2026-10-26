@@ -150,8 +150,6 @@ public sealed class StarlarkFunction implements StarlarkCallable {
     return rfn.capturesEnclosingCall();
   }
 
-  // Weak values let a canonical instance and its module be collected once nothing else references
-  // the instance.
   private static final ConcurrentMap<CanonicalKey, StarlarkFunction> canonicalInstances =
       new MapMaker().weakValues().makeMap();
 
