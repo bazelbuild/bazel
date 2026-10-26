@@ -86,9 +86,9 @@ public interface NativePosixFilesService extends BlazeService {
   public interface Stat {
     int mode();
 
-    long mtime();
+    long mtimeNanos();
 
-    long ctime();
+    long ctimeNanos();
 
     long size();
 

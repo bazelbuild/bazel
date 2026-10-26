@@ -477,8 +477,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       //     directory may not be detected since we use the mtime of the directory for
       //     up-to-dateness checks)
       //   - A symlink to a source directory due to Filesets
-      return FileArtifactValue.createForDirectoryWithMtime(
-          artifactPathResolver.toPath(artifact).getLastModifiedTime());
+      return FileArtifactValue.createForDirectoryWithMtime(value.getModifiedTime());
     }
 
     if (type.isSpecialFile()) {
@@ -617,7 +616,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     if (stat.isDirectory()) {
-      return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
+      return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTimeNanos());
     }
 
     if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {
