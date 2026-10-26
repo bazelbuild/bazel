@@ -29,7 +29,9 @@ import com.dylibso.chicory.runtime.InterpreterMachine;
 import com.dylibso.chicory.runtime.Machine;
 import com.dylibso.chicory.wasm.ChicoryException;
 import com.dylibso.chicory.wasm.WasmModule;
+import com.dylibso.chicory.wasm.types.FunctionType;
 import com.dylibso.chicory.wasm.types.MemoryLimits;
+import com.dylibso.chicory.wasm.types.ValType;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Scheduler;
@@ -91,6 +93,16 @@ final class StarlarkWasmModule implements StarlarkValue {
 
   private static final StarlarkWasmCompilationCache compilationCache =
       new StarlarkWasmCompilationCache();
+
+  // (input_ptr, input_len, output_ptr_ptr, output_len_ptr) -> return_code
+  private static final FunctionType EXEC_FN_TYPE =
+      FunctionType.of(
+          new ValType[] {ValType.I32, ValType.I32, ValType.I32, ValType.I32},
+          new ValType[] {ValType.I32});
+
+  // (size, align) -> ptr
+  private static final FunctionType ALLOC_FN_TYPE =
+      FunctionType.of(new ValType[] {ValType.I32, ValType.I32}, new ValType[] {ValType.I32});
 
   private final StarlarkPath path;
   private final Object origPath;
@@ -235,11 +247,12 @@ final class StarlarkWasmModule implements StarlarkValue {
     if (allocFn == null) {
       throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", allocFnName);
     }
+    checkFnType(instance, allocFnName, ALLOC_FN_TYPE);
     ExportFunction execFn = instance.export(execFnName);
-    // TODO: #26092 - Validate execFn has the expected signature?
     if (execFn == null) {
       throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", execFnName);
     }
+    checkFnType(instance, execFnName, EXEC_FN_TYPE);
 
     int inputLen = Math.toIntExact(input.length);
     int inputPtr = alloc(allocFnName, allocFn, inputLen, 1);
@@ -327,6 +340,20 @@ final class StarlarkWasmModule implements StarlarkValue {
       return 1;
     }
     return (int) Math.min((long) MAX_PAGES, Math.ceilDiv(memLimitBytes, PAGE_SIZE));
+  }
+
+  // Both exports are called positionally and their first result is read back, so a
+  // module whose export has a different type would otherwise be invoked anyway --
+  // returning a meaningless value, or throwing ArrayIndexOutOfBoundsException if it
+  // declares no results at all.
+  private static void checkFnType(Instance instance, String fnName, FunctionType want)
+      throws EvalException {
+    FunctionType got = instance.exportType(fnName);
+    if (!want.equals(got)) {
+      throw Starlark.errorf(
+          "WebAssembly module export \"%s\" has type %s, but Bazel requires %s",
+          fnName, got, want);
+    }
   }
 
   static int alloc(String allocFnName, ExportFunction allocFn, int size, int align)
