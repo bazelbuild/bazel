@@ -258,7 +258,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
         }
 
         try {
-          Digest d = digestUtil.compute(temp);
+          Digest d = digestUtil.compute(temp, temp.stat());
           getFromFuture(cache.uploadFile(context, d, temp));
           try {
             temp.delete();
@@ -288,15 +288,12 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
   private static class NoOpStreamObserver<T> implements StreamObserver<T> {
     @Override
-    public void onNext(T value) {
-    }
+    public void onNext(T value) {}
 
     @Override
-    public void onError(Throwable t) {
-    }
+    public void onError(Throwable t) {}
 
     @Override
-    public void onCompleted() {
-    }
+    public void onCompleted() {}
   }
 }
