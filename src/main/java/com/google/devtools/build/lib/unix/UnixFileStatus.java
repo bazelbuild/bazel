@@ -25,16 +25,16 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 public final class UnixFileStatus implements FileStatus {
 
   private final int mode;
-  private final long mtime; // milliseconds since Unix epoch
-  private final long ctime; // milliseconds since Unix epoch
+  private final long mtimeNanos;
+  private final long ctimeNanos;
   private final long size;
   private final long ino;
 
   /** Constructs a {@link UnixFileStatus} from a {@link NativePosixFilesService.Stat}. */
   UnixFileStatus(NativePosixFilesService.Stat stat) {
     this.mode = stat.mode();
-    this.mtime = stat.mtime();
-    this.ctime = stat.ctime();
+    this.mtimeNanos = stat.mtimeNanos();
+    this.ctimeNanos = stat.ctimeNanos();
     this.size = stat.size();
     this.ino = stat.ino();
   }
@@ -81,20 +81,30 @@ public final class UnixFileStatus implements FileStatus {
 
   @Override
   public long getLastModifiedTime() {
-    return mtime;
+    return Math.floorDiv(mtimeNanos, 1_000_000);
+  }
+
+  @Override
+  public long getLastModifiedTimeNanos() {
+    return mtimeNanos;
   }
 
   @Override
   public long getLastChangeTime() {
-    return ctime;
+    return Math.floorDiv(ctimeNanos, 1_000_000);
+  }
+
+  @Override
+  public long getLastChangeTimeNanos() {
+    return ctimeNanos;
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("mode", String.format("0%06o", mode))
-        .add("mtime", mtime)
-        .add("ctime", ctime)
+        .add("mtimeNanos", mtimeNanos)
+        .add("ctimeNanos", ctimeNanos)
         .add("size", size)
         .add("ino", ino)
         .toString();
