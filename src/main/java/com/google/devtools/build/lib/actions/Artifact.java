@@ -697,8 +697,7 @@ public abstract sealed class Artifact
     String execPathString = execPath.getPathString();
     if (root.isSourceRoot()) {
       if (root.isExternal()) {
-        // Drop the leading "external" or ".." segment.
-        return execPathString.substring(execPathString.indexOf(PathFragment.SEPARATOR_CHAR) + 1);
+        return execPathString.substring(EXTERNAL_PATH_PREFIX_WITH_SEPARATOR.length());
       }
       return mainRepoRunfilesDirectory + PathFragment.SEPARATOR_CHAR + execPathString;
     }
