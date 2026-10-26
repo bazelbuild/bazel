@@ -264,14 +264,14 @@ public final class FileArtifactValueTest {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     path.setLastModifiedTime(123);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -279,14 +279,14 @@ public final class FileArtifactValueTest {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -294,15 +294,15 @@ public final class FileArtifactValueTest {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
     path.setLastModifiedTime(0);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -310,15 +310,15 @@ public final class FileArtifactValueTest {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "cOntent");
     path.setLastModifiedTime(0);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -326,15 +326,15 @@ public final class FileArtifactValueTest {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
     FileSystemUtils.writeContentAsLatin1(path, "content");
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -342,9 +342,9 @@ public final class FileArtifactValueTest {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
     FileSystemUtils.writeContentAsLatin1(path, "content");
@@ -352,9 +352,9 @@ public final class FileArtifactValueTest {
     // This is not necessarily the intended behavior, but a consequence of the need to avoid
     // false positives due to hard link creation/deletion. "Breaking" this test in the future while
     // preserving the behavior on other test cases would thus be a welcome change.
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
   }
 
   @Test
@@ -375,14 +375,14 @@ public final class FileArtifactValueTest {
     Path newPath = scratchFile(tempDirJvm + "/dir/artifact2", 0L, "new content", realFs);
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     newPath.renameTo(path);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -402,23 +402,23 @@ public final class FileArtifactValueTest {
     Path path = scratchFile(tempDirJvm + "/dir/artifact1", 0L, "content", realFs);
     FileArtifactValue value = createForTesting(path);
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
     path.createHardLink(realFs.getPath(tempDirJvm + "/dir/artifact1_link"));
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
   }
 
   @Test
   public void testUptodateCheckDeleteFile() throws Exception {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
     FileArtifactValue value = createForTesting(path);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     path.delete();
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -426,10 +426,10 @@ public final class FileArtifactValueTest {
     // For now, we don't attempt to detect changes to directories.
     Path path = scratchDir("/dir", 0L);
     FileArtifactValue value = createForTesting(path);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     path.delete();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
   }
 
   @Test
@@ -437,13 +437,13 @@ public final class FileArtifactValueTest {
     // For now, we don't attempt to detect changes to directories.
     Path path = scratchFile("/dir/file", 0L, "");
     FileArtifactValue value = createForTesting(path);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
     // If we only check ctime, then we need to change the clock here, or we get a ctime match on the
     // stat.
     path.delete();
     path.createDirectoryAndParents();
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
@@ -454,13 +454,13 @@ public final class FileArtifactValueTest {
     FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
 
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isFalse();
 
     path.delete();
     path.createSymbolicLink(PathFragment.create("modified_target_path"));
 
     clock.advanceMillis(1);
-    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
   }
 
   @Test
