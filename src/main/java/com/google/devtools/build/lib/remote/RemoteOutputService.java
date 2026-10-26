@@ -97,6 +97,7 @@ public class RemoteOutputService implements OutputService {
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       InputMetadataProvider inputArtifactData,
+      ActionInputMap checkedInputs,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     checkNotNull(actionInputFetcher, "actionInputFetcher");
@@ -105,6 +106,8 @@ public class RemoteOutputService implements OutputService {
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
+        checkedInputs,
+        outputArtifacts,
         actionInputFetcher);
   }
 
