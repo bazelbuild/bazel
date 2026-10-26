@@ -317,6 +317,11 @@ public class UploadManifest {
     return digestToFile;
   }
 
+  /** Returns a directory tree already serialized for this upload. */
+  Tree getDirectoryTree(Digest digest) throws IOException {
+    return Tree.parseFrom(checkNotNull(digestToBlobs.get(digest)));
+  }
+
   @Nullable
   public Digest getStdoutDigest() {
     return stdoutDigest;
