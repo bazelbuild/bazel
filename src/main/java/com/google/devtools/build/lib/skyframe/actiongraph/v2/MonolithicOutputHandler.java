@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Action;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
@@ -25,18 +25,20 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2.PathFragment;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.RuleClass;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Target;
 import com.google.protobuf.util.JsonFormat;
+import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 
 /** Handles the monolithic output channel. Supports only the JSON format. */
 public class MonolithicOutputHandler implements AqueryOutputHandler {
   private final ActionGraphContainer.Builder actionGraphContainerBuilder =
       ActionGraphContainer.newBuilder();
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
-  private final PrintStream printStream;
+  private final OutputStream out;
 
-  public MonolithicOutputHandler(PrintStream printStream) {
-    this.printStream = printStream;
+  public MonolithicOutputHandler(OutputStream out) {
+    this.out = out;
   }
 
   @Override
@@ -81,7 +83,9 @@ public class MonolithicOutputHandler implements AqueryOutputHandler {
 
   @Override
   public void close() throws IOException {
-    printStream.print(unicodeToInternal(jsonPrinter.print(actionGraphContainerBuilder.build())));
-    printStream.println();
+    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, UTF_8));
+    jsonPrinter.appendTo(actionGraphContainerBuilder.build(), writer);
+    writer.newLine();
+    writer.flush();
   }
 }

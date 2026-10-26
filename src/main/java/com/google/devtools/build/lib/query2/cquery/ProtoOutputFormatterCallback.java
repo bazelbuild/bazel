@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
-import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +55,8 @@ import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -253,8 +255,10 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       case DELIMITED_BINARY -> message.writeDelimitedTo(outputStream);
       case TEXT -> TextFormat.printer().print(message, printStream);
       case JSON -> {
-        printStream.append(unicodeToInternal(jsonPrinter.print(message)));
-        printStream.append('\n');
+        Writer writer = new OutputStreamWriter(outputStream, UTF_8);
+        jsonPrinter.appendTo(message, writer);
+        writer.append('\n');
+        writer.flush();
       }
     }
   }
