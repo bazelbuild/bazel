@@ -621,17 +621,17 @@ public final class StarlarkRepositoryContextTest {
     var executableSrc = scratch.file(root.getRelative("foo.sh").getPathString(), "foobar");
     executableSrc.setExecutable(true);
 
-    context.copy(src.getPathString(), "bar/baz", "auto", thread);
-    context.copy(executableSrc.getPathString(), "bar/baz.sh", "no", thread);
+    context.copy(src.getPathString(), "bar/baz", true, "auto", thread);
+    context.copy(executableSrc.getPathString(), "bar/baz.sh", false, "no", thread);
 
     var dst = outputDirectory.getRelative("bar/baz");
     testOutputFile(dst, "foobar\n");
     assertThat(dst.isSymbolicLink()).isFalse();
-    assertThat(dst.isExecutable()).isFalse();
+    assertThat(dst.isExecutable()).isTrue();
     assertThat(dst.isWritable()).isTrue();
-    var executableDst = outputDirectory.getRelative("bar/baz.sh");
-    testOutputFile(executableDst, "foobar\n");
-    assertThat(executableDst.isExecutable()).isTrue();
+    var nonExecutableDst = outputDirectory.getRelative("bar/baz.sh");
+    testOutputFile(nonExecutableDst, "foobar\n");
+    assertThat(nonExecutableDst.isExecutable()).isFalse();
     assertThat(context.getRecordedInputs().stream().map(RepoRecordedInput.WithValue::input))
         .containsExactly(
             new RepoRecordedInput.File(
@@ -645,13 +645,20 @@ public final class StarlarkRepositoryContextTest {
     var src = scratch.file(root.getRelative("foo").getPathString(), "new");
     context.createFile(context.getPath("target"), "old", false, false, thread);
     context.symlink(context.getPath("target"), context.getPath("link"), thread);
+    var targetDir = scratch.dir(root.getRelative("target_dir").getPathString());
+    outputDirectory.getChild("dir_link").createSymbolicLink(targetDir);
 
-    context.copy(src.getPathString(), "link", "auto", thread);
+    context.copy(src.getPathString(), "link", true, "auto", thread);
+    context.copy(src.getPathString(), "dir_link", true, "auto", thread);
 
     var dst = outputDirectory.getChild("link");
     testOutputFile(dst, "new\n");
     assertThat(dst.isSymbolicLink()).isFalse();
     testOutputFile(outputDirectory.getChild("target"), "old");
+    var dirLinkDst = outputDirectory.getChild("dir_link");
+    testOutputFile(dirLinkDst, "new\n");
+    assertThat(dirLinkDst.isSymbolicLink()).isFalse();
+    assertThat(targetDir.getDirectoryEntries()).isEmpty();
   }
 
   @Test
@@ -673,7 +680,7 @@ public final class StarlarkRepositoryContextTest {
     srcDir.getRelative("dir_link").createSymbolicLink(outsideFile.getParentDirectory());
     srcDir.getRelative("sub/relative_link").createSymbolicLink(PathFragment.create("../file"));
 
-    context.copy(srcDir.getPathString(), "out/dir", "auto", thread);
+    context.copy(srcDir.getPathString(), "out/dir", false, "auto", thread);
 
     var dstDir = outputDirectory.getRelative("out/dir");
     var dstFile = dstDir.getRelative("file");
@@ -682,7 +689,7 @@ public final class StarlarkRepositoryContextTest {
     assertThat(dstFile.isWritable()).isTrue();
     var dstTool = dstDir.getRelative("sub/tool.sh");
     testOutputFile(dstTool, "tool\n");
-    assertThat(dstTool.isExecutable()).isTrue();
+    assertThat(dstTool.isExecutable()).isFalse();
     assertThat(dstDir.getRelative("empty").isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(dstDir.getRelative("file_link").isSymbolicLink()).isFalse();
     testOutputFile(dstDir.getRelative("file_link"), "outside\n");
@@ -707,7 +714,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(context.getPath("out/sub/overwritten"), "old", false, false, thread);
     context.createFile(context.getPath("out/sub/kept"), "kept", false, false, thread);
 
-    context.copy(srcDir.getPathString(), "out", "no", thread);
+    context.copy(srcDir.getPathString(), "out", true, "no", thread);
 
     testOutputFile(outputDirectory.getRelative("out/sub/overwritten"), "new\n");
     testOutputFile(outputDirectory.getRelative("out/sub/kept"), "kept");
@@ -726,44 +733,96 @@ public final class StarlarkRepositoryContextTest {
     var cycleException =
         assertThrows(
             RepositoryFunctionException.class,
-            () -> context.copy(cyclicDir.getPathString(), "bar", "no", thread));
+            () -> context.copy(cyclicDir.getPathString(), "bar", true, "no", thread));
     assertThat(cycleException)
         .hasCauseThat()
         .hasMessageThat()
         .isEqualTo(
             "Could not copy /wsRoot/cyclic to /outputDir/bar: /wsRoot/cyclic is part of a symlink"
                 + " cycle");
+    assertThat(cycleException.isTransient()).isFalse();
 
     var danglingException =
         assertThrows(
             RepositoryFunctionException.class,
-            () -> context.copy(danglingDir.getPathString(), "baz", "no", thread));
+            () -> context.copy(danglingDir.getPathString(), "baz", true, "no", thread));
     assertThat(danglingException)
         .hasCauseThat()
         .hasMessageThat()
-        .startsWith("Could not copy /wsRoot/dangling to /outputDir/baz: ");
+        .isEqualTo(
+            "Could not copy /wsRoot/dangling to /outputDir/baz: /wsRoot/dangling/link is a"
+                + " dangling symlink");
+    assertThat(danglingException.isTransient()).isFalse();
 
     var overlapException =
         assertThrows(
             RepositoryFunctionException.class,
-            () -> context.copy("nested", "nested/copy", "no", thread));
+            () -> context.copy("nested", "nested/copy", true, "no", thread));
     assertThat(overlapException)
         .hasCauseThat()
         .hasMessageThat()
         .isEqualTo(
             "Could not copy /outputDir/nested to /outputDir/nested/copy: /outputDir/nested and"
                 + " /outputDir/nested/copy overlap");
+    assertThat(overlapException.isTransient()).isFalse();
+  }
+
+  @Test
+  public void testCopyDirectoryDestinationErrors() throws Exception {
+    setUpRepo("test");
+    scratch.file(root.getRelative("dir/sub/file").getPathString(), "file");
+    var srcDir = root.getRelative("dir");
+    var targetDir = scratch.dir(root.getRelative("target_dir").getPathString());
+    outputDirectory.getChild("link").createSymbolicLink(targetDir);
+    outputDirectory.getRelative("nested_link").createDirectory();
+    outputDirectory.getRelative("nested_link/sub").createSymbolicLink(targetDir);
+    context.createFile(context.getPath("file"), "", false, false, thread);
+
+    var linkException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(srcDir.getPathString(), "link", true, "no", thread));
+    assertThat(linkException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("Could not copy /wsRoot/dir to /outputDir/link: /outputDir/link is a symlink");
+    assertThat(linkException.isTransient()).isFalse();
+
+    var nestedLinkException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(srcDir.getPathString(), "nested_link", true, "no", thread));
+    assertThat(nestedLinkException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/dir to /outputDir/nested_link: /outputDir/nested_link/sub is"
+                + " a symlink");
+    assertThat(nestedLinkException.isTransient()).isFalse();
+    assertThat(targetDir.getDirectoryEntries()).isEmpty();
+
+    var fileException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(srcDir.getPathString(), "file", true, "no", thread));
+    assertThat(fileException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/dir to /outputDir/file: /outputDir/file is not a directory");
+    assertThat(fileException.isTransient()).isFalse();
   }
 
   @Test
   public void testCopyErrors() throws Exception {
     setUpRepo("test");
     var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
+    outputDirectory.getChild("empty").createDirectory();
 
     var outsideException =
         assertThrows(
             RepositoryFunctionException.class,
-            () -> context.copy(src.getPathString(), "/bar", "auto", thread));
+            () -> context.copy(src.getPathString(), "/bar", true, "auto", thread));
     assertThat(outsideException)
         .hasCauseThat()
         .hasMessageThat()
@@ -772,11 +831,23 @@ public final class StarlarkRepositoryContextTest {
     var missingException =
         assertThrows(
             RepositoryFunctionException.class,
-            () -> context.copy("/wsRoot/missing", "bar", "auto", thread));
+            () -> context.copy("/wsRoot/missing", "bar", true, "auto", thread));
     assertThat(missingException)
         .hasCauseThat()
         .hasMessageThat()
         .startsWith("Could not copy /wsRoot/missing to /outputDir/bar: ");
+
+    var directoryException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(src.getPathString(), "empty", true, "auto", thread));
+    assertThat(directoryException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/foo to /outputDir/empty: /outputDir/empty is a directory");
+    assertThat(directoryException.isTransient()).isFalse();
+    assertThat(outputDirectory.getChild("empty").isDirectory()).isTrue();
   }
 
   private static void testOutputFile(Path path, String content) throws IOException {

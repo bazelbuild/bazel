@@ -3156,7 +3156,8 @@ EOF
 def _r(rctx):
   rctx.file("BUILD", "filegroup(name='r')")
   rctx.file("copy/sub/kept.txt", "kept")
-  rctx.copy("${outside_dir}/tree", "copy")
+  rctx.copy("${outside_dir}/tree", "copy", executable = False)
+  rctx.copy("${outside_dir}/tree/tool.sh", "copy/tool.sh")
   print("I see: " + rctx.read("copy/sub/data.txt").strip())
 r=repository_rule(_r)
 EOF

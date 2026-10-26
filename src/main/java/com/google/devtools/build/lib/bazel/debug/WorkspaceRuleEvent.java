@@ -274,17 +274,22 @@ public final class WorkspaceRuleEvent implements Postable {
 
   /** Creates a new WorkspaceRuleEvent for a copy event. */
   public static WorkspaceRuleEvent newCopyEvent(
-      String src, String dst, String context, Location location) {
-    CopyEvent e = WorkspaceLogProtos.CopyEvent.newBuilder().setSrc(src).setDst(dst).build();
+      String src, String dst, boolean executable, String context, Location location) {
+    CopyEvent e =
+        WorkspaceLogProtos.CopyEvent.newBuilder()
+            .setSrc(internalToUnicode(src))
+            .setDst(internalToUnicode(dst))
+            .setExecutable(executable)
+            .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setCopyEvent(e);
     if (location != null) {
-      result = result.setLocation(location.toString());
+      result = result.setLocation(internalToUnicode(location.toString()));
     }
     if (context != null) {
-      result = result.setContext(context);
+      result = result.setContext(internalToUnicode(context));
     }
     return new WorkspaceRuleEvent(result.build());
   }

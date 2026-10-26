@@ -809,7 +809,7 @@ class RepoContentsCacheTest(test_base.TestBase):
                 '  rctx.file("BUILD", "filegroup(name=\'haha\','
                 " srcs=['data.txt', 'tool.sh'])\")"
             ),
-            '  rctx.copy(Label("@//:data.txt"), "data.txt")',
+            '  rctx.copy(Label("@//:data.txt"), "data.txt", executable = False)',
             '  rctx.copy(Label("@//:tool.sh"), "tool.sh")',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',

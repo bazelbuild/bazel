@@ -102,6 +102,8 @@ message CopyEvent {
   string src = 1;
   // The path of the copy.
   string dst = 2;
+  // Whether the copied files are executable.
+  bool executable = 3;
 }
 
 // Information on "delete" event in repository_ctx.
