@@ -50,8 +50,7 @@ public final class CpuProfilerTest {
     // Start writing profile to temporary file.
     File profile = java.io.File.createTempFile("pprof", ".gz", null);
     OutputStream prof = new FileOutputStream(profile);
-    boolean success =
-        Starlark.startCpuProfile(prof, Duration.ofMillis(10), /* utf8ByteStrings= */ false);
+    boolean success = Starlark.startCpuProfile(prof, Duration.ofMillis(10));
 
     if (!success) {
       System.err.println("Failed to start cpu profiler");
