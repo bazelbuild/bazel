@@ -490,13 +490,13 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     streamer.registerOutErrProvider(
         new BuildEventStreamer.OutErrProvider() {
           @Override
-          public Iterable<String> getOut() {
-            return out.readAndReset();
+          public Iterable<String> getOut(boolean isFinal) {
+            return out.readAndReset(isFinal);
           }
 
           @Override
-          public Iterable<String> getErr() {
-            return err.readAndReset();
+          public Iterable<String> getErr(boolean isFinal) {
+            return err.readAndReset(isFinal);
           }
         });
     err.registerStreamer(streamer);

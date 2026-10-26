@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+
 import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,6 +33,6 @@ public final class ServerLogPathServiceImpl implements ServerLogPathService {
     return LogHandlerQuerier.getConfiguredInstance()
         .getLoggerFilePath(logger)
         .map(Path::toAbsolutePath)
-        .map(Object::toString);
+        .map(path -> platformToInternal(path.toString()));
   }
 }

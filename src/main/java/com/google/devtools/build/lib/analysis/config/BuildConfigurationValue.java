@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
@@ -995,16 +997,18 @@ public class BuildConfigurationValue
     BuildEventId eventId = getEventId();
     BuildEventStreamProtos.BuildEvent.Builder builder =
         BuildEventStreamProtos.BuildEvent.newBuilder();
-    builder
-        .setId(eventId)
-        .setConfiguration(
-            BuildEventStreamProtos.Configuration.newBuilder()
-                .setMnemonic(getMnemonic())
-                .setPlatformName(cpu)
-                .putAllMakeVariable(getMakeEnvironment())
-                .setCpu(cpu)
-                .setIsTool(isToolConfiguration())
-                .build());
+    BuildEventStreamProtos.Configuration.Builder configuration =
+        BuildEventStreamProtos.Configuration.newBuilder()
+            .setMnemonic(internalToUnicode(getMnemonic()))
+            .setPlatformName(internalToUnicode(cpu))
+            .setCpu(internalToUnicode(cpu))
+            .setIsTool(isToolConfiguration());
+    // Distinct keys that aren't valid UTF-8 can map to the same Unicode string.
+    getMakeEnvironment()
+        .forEach(
+            (key, value) ->
+                configuration.putMakeVariable(internalToUnicode(key), internalToUnicode(value)));
+    builder.setId(eventId).setConfiguration(configuration.build());
     return new BuildConfigurationEvent(eventId, builder.build());
   }
 

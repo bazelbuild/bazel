@@ -22,7 +22,8 @@ import java.util.Optional;
 @SkybridgeInterface
 public interface ServerLogPathService extends BlazeService {
   /**
-   * Returns the path to the server info log, or empty if it is not yet available.
+   * Returns the path to the server info log as an internal string, or empty if it is not yet
+   * available.
    *
    * @throws IOException if the log location cannot be determined
    */

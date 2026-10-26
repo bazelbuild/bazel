@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventservice.client;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -251,7 +252,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
       StringBuilder sb = new StringBuilder();
       sb.append(status.getCode().name());
       if (!Strings.isNullOrEmpty(status.getDescription())) {
-        sb.append(": ").append(status.getDescription());
+        sb.append(": ").append(unicodeToInternal(status.getDescription()));
       }
       return sb.toString();
     }

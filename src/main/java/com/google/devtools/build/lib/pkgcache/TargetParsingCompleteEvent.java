@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -185,8 +186,10 @@ public final class TargetParsingCompleteEvent implements BuildEventWithOrderCons
         (suite, tests) ->
             expanded
                 .addTestSuiteExpansionsBuilder()
-                .setSuiteLabel(suite.toString())
-                .addAllTestLabels(Collections2.transform(tests, Label::toString)));
+                .setSuiteLabel(StringEncoding.internalToUnicode(suite.toString()))
+                .addAllTestLabels(
+                    Collections2.transform(
+                        tests, test -> StringEncoding.internalToUnicode(test.toString()))));
 
     return GenericBuildEvent.protoChaining(this).setExpanded(expanded).build();
   }
