@@ -801,6 +801,47 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).module().getName()).isEqualTo("foo");
   }
 
+  @Test
+  public void testRegistryModuleVersionOmitted() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("foo", "1.0"),
+                "module(name='foo')",
+                "ext = use_extension('//:defs.bzl', 'ext')",
+                "use_repo(ext, my_repo='repo_{version}')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("foo", "1.0"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    InterimModule module = result.get(skyKey).module();
+    assertThat(module.getVersion()).isEqualTo(Version.parse("1.0"));
+    assertThat(module.getExtensionUsages().get(0).getProxies().get(0).getImports())
+        .containsExactly("my_repo", "repo_1.0");
+  }
+
+  @Test
+  public void testRegistryModuleVersionMismatch() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("foo", "1.0"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains("the MODULE.bazel file of foo@1.0 declares a different version (2.0)");
+  }
+
   @Ignore(
       "b/389163906 - figure out how to convert this class to BuildViewTestCase; the presence of the"
           + " many builtin modules in the default AnalysisMock makes it very hard")
