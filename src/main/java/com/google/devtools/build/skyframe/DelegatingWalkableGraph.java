@@ -114,7 +114,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   public Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_DEPS, keys);
-    Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
+    Map<SkyKey, Iterable<SkyKey>> result = HashMap.newHashMap(entries.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
       // Note that the situation described in #getReverseDeps doesn't apply here. If the nodes for
       // `keys` are done, then their direct deps must be done too.
@@ -138,7 +138,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_RDEPS, keys);
-    Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
+    Map<SkyKey, Iterable<SkyKey>> result = HashMap.newHashMap(entries.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
       // SkyQuery may be operating on a Skyframe graph that contains more nodes and edges than its
       // universe. In this situation, Blaze's eager invalidation strategy may mean here we can
