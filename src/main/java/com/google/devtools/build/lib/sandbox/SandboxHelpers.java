@@ -841,13 +841,35 @@ public final class SandboxHelpers {
    * Updates a {@link SandboxContents} previously created by {@link #createContentMap} to reflect
    * any filesystem modifications that occurred after the given timestamp.
    *
-   * <p>This is necessary because an action may delete some of its inputs or create additional
-   * declared outputs. We assume that a ctime check on directories is sufficient to detect such
-   * modifications and avoid a full filesystem traversal.
+   * <p>This is necessary because an action may modify its inputs or create additional outputs.
+   * Directory ctimes let us avoid listing unchanged directories. Empty input files need their own
+   * ctime checks because modifying a file does not change its parent's ctime.
    */
   public static void updateContentMap(Path root, long timestamp, SandboxContents stashContents)
       throws IOException, InterruptedException {
-    if (root.stat().getLastChangeTime() > timestamp) {
+    // As in TimestampGranularityMonitor, account for filesystems that round down to whole seconds.
+    // Changes in the same timestamp bucket cannot be distinguished from sandbox setup.
+    timestamp = timestamp / 1000 * 1000;
+    boolean directoryChanged = root.stat().getLastChangeTime() >= timestamp;
+    for (var iterator = stashContents.fileMap().entrySet().iterator(); iterator.hasNext(); ) {
+      var entry = iterator.next();
+      if (entry.getValue() != null) {
+        continue;
+      }
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path path = root.getChild(entry.getKey());
+      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+      if (stat == null
+          || !stat.isFile()
+          || stat.getSize() != 0
+          || stat.getLastChangeTime() >= timestamp) {
+        path.deleteTree();
+        iterator.remove();
+      }
+    }
+    if (directoryChanged) {
       Set<String> dirsToKeep = new HashSet<>();
       Set<String> filesAndSymlinksToKeep = new HashSet<>();
       for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
@@ -856,7 +878,8 @@ public final class SandboxHelpers {
         }
         Path absPath = root.getChild(dirent.getName());
         if (dirent.getType().equals(SYMLINK)) {
-          if (stashContents.fileMap().get(dirent.getName()) != null) {
+          PathFragment expectedTarget = stashContents.fileMap().get(dirent.getName());
+          if (expectedTarget != null && expectedTarget.equals(absPath.readSymbolicLink())) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
             absPath.delete();
@@ -871,8 +894,7 @@ public final class SandboxHelpers {
           }
         } else if (dirent.getType().equals(FILE)) {
           if (stashContents.fileMap().containsKey(dirent.getName())
-              && stashContents.fileMap().get(dirent.getName()) == null
-              && absPath.stat().getLastChangeTime() <= timestamp) {
+              && stashContents.fileMap().get(dirent.getName()) == null) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
             absPath.delete();
