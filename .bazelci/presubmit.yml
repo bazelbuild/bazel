@@ -216,6 +216,8 @@ tasks:
       - "--config=ci-windows"
       # We need to keep --test_tag_filters here for the bazel-diff integration.
       - "--test_tag_filters=-no_presubmit,-no_windows,-slow"
+      # Experiment baseline: force tests to run (not for merge).
+      - "--nocache_test_results"
     test_targets:
       - "//src:embedded_tools_size_test"
       - "//src/test/cpp/..."
