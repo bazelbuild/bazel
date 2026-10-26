@@ -59,6 +59,50 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
     if not any(['is a dangling symbolic link' in l for l in stderr]):
       self.fail('FAIL:\n | stderr:\n | %s' % '\n | '.join(stderr))
 
+  def testRelativeDirectorySymlinkNotRerunWithDiskCache(self):
+    # A relative symlink to a directory is materialized as a junction, which
+    # stores an absolute target. With a disk cache, actions run against the
+    # remote action filesystem, which used to record the relative target, so
+    # the output check reran the symlink action on every build.
+    self.ScratchFile(
+        'foo/defs.bzl',
+        [
+            'def _impl(ctx):',
+            '    d = ctx.actions.declare_directory("store/pkg")',
+            '    ctx.actions.run_shell(',
+            '        outputs = [d],',
+            '        command = "mkdir -p %s && echo hi > %s/a.txt"',
+            '            % (d.path, d.path),',
+            '    )',
+            '    s = ctx.actions.declare_symlink("store/link")',
+            '    ctx.actions.symlink(',
+            '        output = s,',
+            '        target_path = "pkg",',
+            '        target_type = "directory",',
+            '    )',
+            '    return [DefaultInfo(files = depset([d, s]))]',
+            '',
+            'dir_link = rule(implementation = _impl)',
+        ],
+    )
+    self.ScratchFile(
+        'foo/BUILD',
+        ['load(":defs.bzl", "dir_link")', 'dir_link(name = "link")'],
+    )
+    disk_cache = self.ScratchDir('disk_cache')
+    explain = self.Path('explain.txt')
+    args = [
+        'build',
+        '--disk_cache=' + disk_cache,
+        '--experimental_check_output_files',
+        '//foo:link',
+    ]
+    self.RunBazel(args)
+    self.RunBazel(args + ['--explain=' + explain])
+    with open(explain, 'r') as f:
+      rerun = [l for l in f if 'Creating symlink' in l]
+    self.assertEqual(rerun, [])
+
 
 if __name__ == '__main__':
   absltest.main()

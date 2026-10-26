@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -1015,6 +1016,74 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
         .isEqualTo(targetPath);
+  }
+
+  @Test
+  public void createSymbolicLink_unresolvedSymlink_localFilesystemRewritesTarget()
+      throws Exception {
+    // arrange
+    ActionInputMap inputs = new ActionInputMap(1);
+    SpecialArtifact outputArtifact =
+        ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "dir/out");
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment linkPath = outputArtifact.getPath().asFragment();
+    PathFragment relativeTarget = PathFragment.create("../some/path");
+    PathFragment absoluteTarget = linkPath.getParentDirectory().getRelative(relativeTarget);
+    actionFs.createDirectoryAndParents(linkPath.getParentDirectory());
+    // Simulate a Windows junction, which can only store an absolute target.
+    doAnswer(
+            invocation -> {
+              fs.createSymbolicLink(
+                  linkPath, absoluteTarget, invocation.getArgument(2, SymlinkTargetType.class));
+              return null;
+            })
+        .when(fs)
+        .createSymbolicLink(eq(linkPath), eq(relativeTarget), any());
+
+    // act
+    actionFs.getPath(linkPath).createSymbolicLink(relativeTarget, SymlinkTargetType.DIRECTORY);
+
+    // assert
+    assertThat(actionFs.readSymbolicLink(linkPath)).isEqualTo(absoluteTarget);
+    assertThat(actionFs.getRemoteOutputTree().getPath(linkPath).readSymbolicLink())
+        .isEqualTo(absoluteTarget);
+    assertThat(actionFs.getLocalFileSystem().getPath(linkPath).readSymbolicLink())
+        .isEqualTo(absoluteTarget);
+    // The metadata recorded during action execution must match the metadata computed from the
+    // local filesystem when outputs are checked in a subsequent build.
+    assertThat(FileArtifactValue.createForUnresolvedSymlink(actionFs.getPath(linkPath)))
+        .isEqualTo(
+            FileArtifactValue.createForUnresolvedSymlink(
+                actionFs.getLocalFileSystem().getPath(linkPath)));
+  }
+
+  @Test
+  public void createSymbolicLink_unresolvedSymlink_localFilesystemCopiesTarget()
+      throws Exception {
+    // arrange
+    ActionInputMap inputs = new ActionInputMap(1);
+    SpecialArtifact outputArtifact =
+        ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "out");
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment linkPath = outputArtifact.getPath().asFragment();
+    PathFragment targetPath = PathFragment.create("some/file");
+    // Simulate Windows without --windows_enable_symlinks, which copies existing files instead.
+    doAnswer(
+            invocation -> {
+              FileSystemUtils.writeContent(fs.getPath(linkPath), UTF_8, "contents");
+              return null;
+            })
+        .when(fs)
+        .createSymbolicLink(eq(linkPath), eq(targetPath), any());
+
+    // act
+    actionFs.getPath(linkPath).createSymbolicLink(targetPath);
+
+    // assert
+    assertThat(actionFs.getRemoteOutputTree().getPath(linkPath).readSymbolicLink())
+        .isEqualTo(targetPath);
+    assertThat(actionFs.getLocalFileSystem().getPath(linkPath).isFile(Symlinks.NOFOLLOW))
+        .isTrue();
   }
 
   @Test
