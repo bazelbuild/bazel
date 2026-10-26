@@ -165,6 +165,7 @@ java_library(
 java_library(
     name = "runtime/safe_request_logging",
     srcs = ["runtime/SafeRequestLogging.java"],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
