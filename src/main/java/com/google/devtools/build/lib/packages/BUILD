@@ -99,6 +99,10 @@ java_library(
             "StructProvider.java",
             "TriState.java",
             "VendorThreadContext.java",
+            "AspectPropagationEdgesSupplier.java",
+            "AttributeValueSource.java",
+            "BazelStarlarkEnvironment.java",
+            "StarlarkGlobals.java",
             "AspectPropagationPredicate.java",
             "BuiltinRestriction.java",
             "BuiltinsInternalModule.java",
@@ -121,7 +125,10 @@ java_library(
     exports = [
         ":advertised_provider_set",
         ":aspect_parameters",
+        ":aspect_propagation_edges_supplier",
         ":aspect_propagation_predicate",
+        ":attribute_value_source",
+        ":bazel_starlark_environment",
         ":build_file_name",
         ":builtin_restriction",
         ":builtins_internal_module",
@@ -145,7 +152,10 @@ java_library(
     deps = [
         ":advertised_provider_set",
         ":aspect_parameters",
+        ":aspect_propagation_edges_supplier",
         ":aspect_propagation_predicate",
+        ":attribute_value_source",
+        ":bazel_starlark_environment",
         ":build_file_name",
         ":builtin_restriction",
         ":builtins_internal_module",
@@ -670,5 +680,44 @@ java_library(
     srcs = ["FunctionSplitTransitionAllowlist.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+java_library(
+    name = "attribute_value_source",
+    srcs = ["AttributeValueSource.java"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "aspect_propagation_edges_supplier",
+    srcs = ["AspectPropagationEdgesSupplier.java"],
+    deps = [
+        ":attribute_value_source",
+        ":label_converter",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "bazel_starlark_environment",
+    srcs = [
+        "BazelStarlarkEnvironment.java",
+        "StarlarkGlobals.java",
+    ],
+    deps = [
+        ":builtins_internal_module",
+        ":provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
