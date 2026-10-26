@@ -259,7 +259,7 @@ public final class Resolver extends NodeVisitor {
     private final ImmutableList<Binding> freevars;
     private final ImmutableList<String> globals; // TODO(adonovan): move to Program.
     private final boolean mutationFreeAtTopLevel;
-    private final boolean capturesEnclosingCall;
+    private final boolean dependsOnEnclosingCall;
 
     private Function(
         String name,
@@ -275,7 +275,7 @@ public final class Resolver extends NodeVisitor {
         List<Binding> freevars,
         ImmutableList<String> globals,
         boolean mutationFreeAtTopLevel,
-        boolean capturesEnclosingCall) {
+        boolean dependsOnEnclosingCall) {
       this.name = name;
       this.location = loc;
       this.functionId = functionId;
@@ -297,7 +297,7 @@ public final class Resolver extends NodeVisitor {
       this.freevars = ImmutableList.copyOf(freevars);
       this.globals = globals;
       this.mutationFreeAtTopLevel = mutationFreeAtTopLevel;
-      this.capturesEnclosingCall = capturesEnclosingCall;
+      this.dependsOnEnclosingCall = dependsOnEnclosingCall;
 
       // Create an index of the locals that are cells.
       int ncells = 0;
@@ -396,8 +396,8 @@ public final class Resolver extends NodeVisitor {
      * function, either as free variables or as default parameter values. Values bound at the top
      * level of the file, such as load bindings, don't count.
      */
-    public boolean capturesEnclosingCall() {
-      return capturesEnclosingCall;
+    public boolean dependsOnEnclosingCall() {
+      return dependsOnEnclosingCall;
     }
 
     /** Returns the location of the function's identifier. */
@@ -1248,12 +1248,12 @@ public final class Resolver extends NodeVisitor {
     functionDepth++;
     visitAll(body);
     functionDepth--;
-    boolean capturesEnclosingCall = !locals.freevarsFromEnclosingCall.isEmpty();
+    boolean dependsOnEnclosingCall = !locals.freevarsFromEnclosingCall.isEmpty();
     popLocalBlock();
     // Default values are evaluated in the enclosing environment.
     if (locals.frameOwner().isFunction()
         && parameters.stream().anyMatch(param -> param instanceof Parameter.Optional)) {
-      capturesEnclosingCall = true;
+      dependsOnEnclosingCall = true;
     }
 
     if (cachedGlobals == null) {
@@ -1274,7 +1274,7 @@ public final class Resolver extends NodeVisitor {
         freevars,
         cachedGlobals,
         /* mutationFreeAtTopLevel= */ false,
-        capturesEnclosingCall);
+        dependsOnEnclosingCall);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -1479,7 +1479,7 @@ public final class Resolver extends NodeVisitor {
             /* freevars= */ ImmutableList.of(),
             ImmutableList.copyOf(r.globals),
             !r.sawPossibleMutationAtTopLevel,
-            /* capturesEnclosingCall= */ false));
+            /* dependsOnEnclosingCall= */ false));
   }
 
   /**
@@ -1521,7 +1521,7 @@ public final class Resolver extends NodeVisitor {
         /* freevars= */ ImmutableList.of(),
         ImmutableList.copyOf(r.globals),
         !r.sawPossibleMutationAtTopLevel,
-        /* capturesEnclosingCall= */ false);
+        /* dependsOnEnclosingCall= */ false);
   }
 
   private void pushLocalBlock(

@@ -67,7 +67,7 @@ public abstract class Args implements CommandLineArgsApi {
     if (!(fn instanceof StarlarkFunction sfn) || sfn.isGlobal()) {
       return fn;
     }
-    if (!sfn.capturesEnclosingCall()) {
+    if (!sfn.dependsOnEnclosingCall()) {
       // A single instance per definition is retained like a global function.
       return sfn.canonicalize();
     }

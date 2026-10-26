@@ -146,54 +146,31 @@ public sealed class StarlarkFunction implements StarlarkCallable {
    * free variables or as default parameter values. Functions defined at the top level of a file
    * never do.
    */
-  public boolean capturesEnclosingCall() {
-    return rfn.capturesEnclosingCall();
+  public boolean dependsOnEnclosingCall() {
+    return rfn.dependsOnEnclosingCall();
   }
 
   private static final ConcurrentMap<CanonicalKey, StarlarkFunction> canonicalInstances =
       new MapMaker().weakValues().makeMap();
 
   /**
-   * Returns an instance shared by all functions created from the same definition in the same module
-   * with the same free variables and default values.
+   * Returns an instance shared by all functions without default values that are created from the
+   * same definition in the same module with the same free variables, or this function if it has
+   * default values.
    *
    * <p>Such functions behave identically, but each one is only equal to itself.
    */
   public StarlarkFunction canonicalize() {
+    if (!defaultValues.isEmpty()) {
+      return this;
+    }
     StarlarkFunction canonical =
-        canonicalInstances.putIfAbsent(
-            new CanonicalKey(rfn, module, freevars, defaultValues), this);
+        canonicalInstances.putIfAbsent(new CanonicalKey(rfn, module, freevars), this);
     return canonical != null ? canonical : this;
   }
 
-  private record CanonicalKey(
-      Resolver.Function rfn, Module module, Tuple freevars, Tuple defaultValues) {
-    @Override
-    public boolean equals(Object o) {
-      return o instanceof CanonicalKey other
-          && rfn == other.rfn
-          && module == other.module
-          && sameElements(freevars, other.freevars)
-          && sameElements(defaultValues, other.defaultValues);
-    }
-
-    @Override
-    public int hashCode() {
-      return 31 * System.identityHashCode(rfn) + System.identityHashCode(module);
-    }
-
-    private static boolean sameElements(Tuple a, Tuple b) {
-      if (a.size() != b.size()) {
-        return false;
-      }
-      for (int i = 0; i < a.size(); i++) {
-        if (a.get(i) != b.get(i)) {
-          return false;
-        }
-      }
-      return true;
-    }
-  }
+  // All components, including the cells in freevars, have identity equality.
+  private record CanonicalKey(Resolver.Function rfn, Module module, Tuple freevars) {}
 
   @Override
   public StarlarkType getStarlarkType(StarlarkSemantics semantics) {

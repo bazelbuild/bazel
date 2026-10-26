@@ -281,7 +281,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
 
       boolean hasCapturingMapEach =
-          arg.mapEach instanceof StarlarkFunction fn && fn.capturesEnclosingCall();
+          arg.mapEach instanceof StarlarkFunction fn && fn.dependsOnEnclosingCall();
       recipe.add(
           VectorArg.create(
               arg.nestedSet != null,

@@ -669,7 +669,7 @@ public final class FunctionTest {
   }
 
   @Test
-  public void capturesEnclosingCall() throws Exception {
+  public void dependsOnEnclosingCall() throws Exception {
     ev.exec(
         """
         _y = 10
@@ -700,16 +700,16 @@ public final class FunctionTest {
         comprehension_inner = [lambda: (lambda: i) for i in range(1)][0]()
         """);
 
-    assertThat(((StarlarkFunction) ev.lookup("top")).capturesEnclosingCall()).isFalse();
-    assertThat(((StarlarkFunction) ev.lookup("top_lambda")).capturesEnclosingCall()).isFalse();
-    assertThat(((StarlarkFunction) ev.lookup("comprehension_inner")).capturesEnclosingCall())
+    assertThat(((StarlarkFunction) ev.lookup("top")).dependsOnEnclosingCall()).isFalse();
+    assertThat(((StarlarkFunction) ev.lookup("top_lambda")).dependsOnEnclosingCall()).isFalse();
+    assertThat(((StarlarkFunction) ev.lookup("comprehension_inner")).dependsOnEnclosingCall())
         .isFalse();
-    var captures = new LinkedHashMap<String, Boolean>();
+    var dependsOnCall = new LinkedHashMap<String, Boolean>();
     for (var entry :
         Dict.cast(ev.lookup("fns"), String.class, StarlarkFunction.class, "fns").entrySet()) {
-      captures.put(entry.getKey(), entry.getValue().capturesEnclosingCall());
+      dependsOnCall.put(entry.getKey(), entry.getValue().dependsOnEnclosingCall());
     }
-    assertThat(captures)
+    assertThat(dependsOnCall)
         .containsExactly(
             "nested", false,
             "local", true,
