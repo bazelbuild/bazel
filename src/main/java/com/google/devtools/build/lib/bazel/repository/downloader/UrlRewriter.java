@@ -92,6 +92,30 @@ public class UrlRewriter {
     return !stripped.contains("urlencode(");
   }
 
+  static void validateReplacement(Pattern pattern, String replacement) {
+    int groupCount = pattern.matcher("").groupCount();
+    Matcher tokenMatcher = REPLACEMENT_TOKEN_PATTERN.matcher(replacement);
+    while (tokenMatcher.find()) {
+      String token = tokenMatcher.group();
+      if (token.startsWith("\\")) {
+        continue;
+      }
+      int groupIndex = getGroupIndex(token);
+      if (groupIndex > groupCount) {
+        throw new IndexOutOfBoundsException("No group " + groupIndex);
+      }
+    }
+
+    String stripped = REPLACEMENT_TOKEN_PATTERN.matcher(replacement).replaceAll("");
+    if (stripped.contains("$")) {
+      throw new IllegalArgumentException("Illegal group reference");
+    }
+  }
+
+  private static int getGroupIndex(String token) {
+    return Integer.parseInt(token.replaceAll("\\D+", ""));
+  }
+
   private final UrlRewriterConfig config;
 
   @VisibleForTesting
@@ -320,11 +344,11 @@ public class UrlRewriter {
     while (m.find()) {
       String token = m.group();
       if (token.contains("urlencode")) {
-        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        int groupIndex = getGroupIndex(token);
         String val = Strings.nullToEmpty(matcher.group(groupIndex));
         m.appendReplacement(sb, Matcher.quoteReplacement(escapeUrlPath(val)));
       } else if (token.startsWith("$")) {
-        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        int groupIndex = getGroupIndex(token);
         String val = Strings.nullToEmpty(matcher.group(groupIndex));
         m.appendReplacement(sb, Matcher.quoteReplacement(val));
       } else if (token.startsWith("\\")) {
