@@ -1240,7 +1240,7 @@ public abstract class FileSystemTest {
     String testData = "abc19";
 
     FileSystemUtils.writeContentAsLatin1(xFile, testData);
-    String resultData = new String(FileSystemUtils.readContentAsLatin1(xFile));
+    String resultData = FileSystemUtils.readContentAsLatin1(xFile);
 
     assertThat(resultData).isEqualTo(testData);
   }

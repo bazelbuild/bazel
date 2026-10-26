@@ -679,8 +679,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.writeIsoLatin1(file1, "nobody says ");
     FileSystemUtils.writeIsoLatin1(file1, "mary had");
     FileSystemUtils.appendIsoLatin1(file1, "a little lamb");
-    assertThat(new String(FileSystemUtils.readContentAsLatin1(file1)))
-        .isEqualTo("mary had\na little lamb\n");
+    assertThat(FileSystemUtils.readContentAsLatin1(file1)).isEqualTo("mary had\na little lamb\n");
   }
 
   @Test
@@ -786,7 +785,7 @@ public class FileSystemUtilsTest {
     Path file = fileSystem.getPath("/does/not/exist/yet.txt");
     FileSystemUtils.writeIsoLatin1(file, "Line 1", "Line 2", "Line 3");
     String expected = "Line 1\nLine 2\nLine 3\n";
-    String actual = new String(FileSystemUtils.readContentAsLatin1(file));
+    String actual = FileSystemUtils.readContentAsLatin1(file);
     assertThat(actual).isEqualTo(expected);
   }
 

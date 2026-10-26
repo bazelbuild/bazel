@@ -1581,7 +1581,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     Path path = execRoot.getRelative(tree.getExecPath().getChild(relativeFilePath));
     assertThat(path.exists()).isTrue();
-    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    String actualContents = FileSystemUtils.readContentAsLatin1(path);
     for (String expected : expectedContents) {
       assertThat(actualContents).contains(expected);
     }

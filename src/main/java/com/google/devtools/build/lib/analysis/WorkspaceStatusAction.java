@@ -132,7 +132,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
         Splitter.on('\n')
             .trimResults(CharMatcher.is('\r'))
             .omitEmptyStrings()
-            .split(new String(FileSystemUtils.readContentAsLatin1(file)))) {
+            .split(FileSystemUtils.readContentAsLatin1(file))) {
       List<String> items = lineSplitter.splitToList(line);
       result.put(items.get(0), items.size() >= 2 ? items.get(1) : "");
     }

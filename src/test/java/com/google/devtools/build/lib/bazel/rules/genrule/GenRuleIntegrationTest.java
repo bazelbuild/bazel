@@ -96,7 +96,7 @@ public class GenRuleIntegrationTest extends BuildIntegrationTestCase {
   }
 
   private String getContents(Path outputFile) throws IOException {
-    return new String(FileSystemUtils.readContentAsLatin1(outputFile));
+    return FileSystemUtils.readContentAsLatin1(outputFile);
   }
 
   @Test
