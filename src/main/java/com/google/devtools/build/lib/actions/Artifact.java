@@ -131,6 +131,10 @@ public abstract sealed class Artifact
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
 
+  /** The name of the main repository's directory in runfiles trees. */
+  public static final StarlarkSemantics.Key<String> MAIN_REPO_RUNFILES_DIRECTORY =
+      new StarlarkSemantics.Key<>("main_repo_runfiles_directory", "_main");
+
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SerializationConstant
   @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
@@ -680,6 +684,23 @@ public abstract sealed class Artifact
   @Override
   public final String getRunfilesPathString() {
     return getRunfilesPath().getPathString();
+  }
+
+  /**
+   * Returns the path of this artifact relative to the root of a runfiles tree, which is the path
+   * runfiles libraries accept.
+   */
+  public final PathFragment getRlocationPath(String mainRepoRunfilesDirectory) {
+    PathFragment runfilesPath = getRunfilesPath();
+    if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
+      return runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
+    }
+    return PathFragment.create(mainRepoRunfilesDirectory).getRelative(runfilesPath);
+  }
+
+  @Override
+  public final String getRlocationPathForStarlark(StarlarkSemantics semantics) {
+    return getRlocationPath(semantics.get(MAIN_REPO_RUNFILES_DIRECTORY)).getPathString();
   }
 
   public final String prettyPrint() {

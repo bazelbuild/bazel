@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -348,14 +347,7 @@ public final class LocationExpander {
       return switch (pathType) {
         case LOCATION -> artifact.getRunfilesPath();
         case EXEC -> artifact.getExecPath();
-        case RLOCATION -> {
-          PathFragment runfilesPath = artifact.getRunfilesPath();
-          if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
-            yield runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
-          } else {
-            yield PathFragment.create(workspaceRunfilesDirectory).getRelative(runfilesPath);
-          }
-        }
+        case RLOCATION -> artifact.getRlocationPath(workspaceRunfilesDirectory);
       };
     }
 
