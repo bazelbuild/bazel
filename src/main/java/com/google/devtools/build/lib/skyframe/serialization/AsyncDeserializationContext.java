@@ -82,18 +82,6 @@ public interface AsyncDeserializationContext extends LeafDeserializationContext 
       throws IOException, SerializationException;
 
   /**
-   * Similar to the {@code offset} based {@link #deserialize} above, but includes a {@code done}
-   * callback.
-   *
-   * <p>The {@code done} callback is called once the assignment is complete, which is useful for
-   * container codecs that perform reference counting. The {@code done} callback is always called,
-   * even if the deserialized value is null.
-   */
-  @Deprecated // TODO: b/331765692 - delete this method
-  void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
-      throws IOException, SerializationException;
-
-  /**
    * Parses the next object from {@code codedIn} and writes it into {@code arr} at {@code index}.
    *
    * <p>Deserialization may complete asynchronously, for example, when the input requires a Skyframe

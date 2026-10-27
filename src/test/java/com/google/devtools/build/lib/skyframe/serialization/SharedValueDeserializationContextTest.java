@@ -262,7 +262,6 @@ public final class SharedValueDeserializationContextTest {
   private enum DeserializeOverloadSelector {
     OFFSET,
     SETTER,
-    OFFSET_WITH_DONE_CALLBACK,
     ARRAY_ELEMENT_WITH_DONE_CALLBACK
   }
 
@@ -327,18 +326,6 @@ public final class SharedValueDeserializationContextTest {
                 container.second = second;
                 verifyDeserializedNotNestedSet(expectedSecond, second);
               });
-          break;
-        case OFFSET_WITH_DONE_CALLBACK:
-          context.deserialize(
-              codedIn,
-              value,
-              NotNestedSetContainer.FIRST_OFFSET,
-              () -> verifyDeserializedNotNestedSet(expectedFirst, value.first));
-          context.deserialize(
-              codedIn,
-              value,
-              NotNestedSetContainer.SECOND_OFFSET,
-              () -> verifyDeserializedNotNestedSet(expectedSecond, value.second));
           break;
         case ARRAY_ELEMENT_WITH_DONE_CALLBACK:
           {
