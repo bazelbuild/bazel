@@ -142,7 +142,7 @@ public final class AspectCompleteEvent
   }
 
   @Override
-  public Collection<BuildEventId> postedAfter() {
+  public ImmutableList<BuildEventId> postedAfter() {
     if (rootCauses.isEmpty()) {
       return ImmutableList.of();
     }
