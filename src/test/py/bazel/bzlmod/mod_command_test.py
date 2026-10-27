@@ -970,6 +970,39 @@ class ModCommandTest(test_base.TestBase):
     stdout = '\n'.join(stdout)
     self.assertEqual('', stdout)
 
+  def testShowRepoUnicode(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'data_repo = use_repo_rule("//:repo.bzl", "data_repo")',
+            'data_repo(name = "unicode", data = "äöü€🌱")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _impl(ctx):',
+            '  ctx.file("BUILD")',
+            'data_repo = repository_rule(_impl, attrs = {"data": attr.string()})',
+        ],
+    )
+
+    # --charset=ascii is set in the .bazelrc and only affects the tree.
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@unicode'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('  data = "äöü€🌱",', stdout)
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--output=streamed_jsonproto', '@unicode'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('"äöü€🌱"', '\n'.join(stdout))
+
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
         [

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -207,6 +208,27 @@ public final class PatchUtilTest {
     assertThat(FileSystemUtils.readLines(oldFile, UTF_8)).isEqualTo(newContent);
     // new file should not change
     assertThat(FileSystemUtils.readLines(newFile, UTF_8)).containsExactly("line one");
+  }
+
+  @Test
+  public void testNonAsciiFileNameAndContent() throws IOException, PatchFailedException {
+    // A single 0xE4 byte, which isn't valid UTF-8.
+    String latin1Line = "line \u00e4";
+    Path file =
+        scratch.file(unicodeToInternal("/root/fïlé.txt"), latin1Line, unicodeToInternal("old ü"));
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            unicodeToInternal("--- a/fïlé.txt"),
+            unicodeToInternal("+++ b/fïlé.txt"),
+            "@@ -1,2 +1,2 @@",
+            " " + latin1Line,
+            unicodeToInternal("-old ü"),
+            unicodeToInternal("+new €"));
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLinesAsLatin1(file))
+        .containsExactly(latin1Line, unicodeToInternal("new €"))
+        .inOrder();
   }
 
   @Test
