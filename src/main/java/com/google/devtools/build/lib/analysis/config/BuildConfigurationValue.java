@@ -293,11 +293,8 @@ public class BuildConfigurationValue
   private static ImmutableMap<OS, ActionEnvironment> computeActionEnvironments(
       BuildOptions buildOptions, GlobalStateProvider globalProvider) {
     ImmutableMap.Builder<OS, ActionEnvironment> result = ImmutableMap.builder();
-    Map<ActionEnvironment, ActionEnvironment> distinct = new HashMap<>();
     for (OS os : OS.values()) {
-      ActionEnvironment env = globalProvider.getActionEnvironment(buildOptions, os);
-      // Most OSes share the same environment, so share the instances.
-      result.put(os, distinct.computeIfAbsent(env, e -> e));
+      result.put(os, globalProvider.getActionEnvironment(buildOptions, os));
     }
     return result.buildOrThrow();
   }
@@ -577,12 +574,10 @@ public class BuildConfigurationValue
   /**
    * Returns the default environment for actions that execute on {@code executionPlatform}.
    *
-   * <p>Falls back to the host OS's environment if the platform is null or its OS is not one that
-   * Bazel knows about.
+   * <p>Falls back to the host OS's environment if the platform is null or has no OS constraint.
    */
   public ActionEnvironment getActionEnvironment(@Nullable PlatformInfo executionPlatform) {
-    OS os = getOsFromConstraintsOrHost(executionPlatform);
-    return os == OS.UNKNOWN ? actionEnv : actionEnvironments.get(os);
+    return actionEnvironments.get(getOsFromConstraintsOrHost(executionPlatform));
   }
 
   /**

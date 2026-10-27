@@ -210,6 +210,16 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
             constraint_values = ["@platforms//os:windows"],
         )
 
+        constraint_value(
+            name = "plan9",
+            constraint_setting = "@platforms//os:os",
+        )
+
+        platform(
+            name = "unknown_os",
+            constraint_values = [":plan9"],
+        )
+
         platform(name = "no_os")
         """);
     scratch.file(
@@ -251,6 +261,11 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
     assertThat(getDefaultShellPath("//test:on_linux")).isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin");
     assertThat(getDefaultShellPath("//test:on_windows"))
         .isEqualTo(pathOrDefault(OS.WINDOWS, null, getShellExecutableForOs(OS.WINDOWS)));
+
+    // An OS that Bazel doesn't know about gets the generic Unix environment.
+    useConfiguration(
+        "--incompatible_strict_action_env", "--extra_execution_platforms=//platforms:unknown_os");
+    assertThat(getDefaultShellPath("//test:anywhere")).isEqualTo("/bin:/usr/bin:/sbin:/usr/sbin");
 
     // Without an OS constraint, the host OS decides.
     useConfiguration(
