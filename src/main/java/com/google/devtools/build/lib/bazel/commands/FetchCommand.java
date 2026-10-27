@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -186,8 +187,7 @@ public final class FetchCommand implements BlazeCommand {
           (e != null && e.getMessage() != null)
               ? e.getMessage()
               : "Unexpected error during fetching all external deps.";
-      return createFailedBlazeCommandResult(
-          env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
+      return fetchFailure(env.getReporter(), message, e);
     }
 
     env.getReporter().handle(Event.info("All external dependencies fetched successfully."));
@@ -206,8 +206,7 @@ public final class FetchCommand implements BlazeCommand {
     } catch (RepositoryFetcherException e) {
       String message =
           e.getMessage() != null ? e.getMessage() : "Unexpected error during repository fetching.";
-      return createFailedBlazeCommandResult(
-          env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
+      return fetchFailure(env.getReporter(), message, e.getCause());
     }
 
     String notFoundRepos =
@@ -233,14 +232,25 @@ public final class FetchCommand implements BlazeCommand {
     try {
       var unused = TargetFetcher.fetchTargets(env, options, targets);
     } catch (TargetFetcherException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), Code.QUERY_EVALUATION_ERROR, e.getMessage());
+      return fetchFailure(env.getReporter(), e.getMessage(), e);
     }
     env.getReporter()
         .handle(
             Event.info(
                 "All external dependencies for the requested targets fetched successfully."));
     return BlazeCommandResult.success();
+  }
+
+  private static BlazeCommandResult fetchFailure(
+      Reporter reporter, String message, @Nullable Throwable cause) {
+    if (cause instanceof DetailedException e) {
+      FailureDetail detail = e.getDetailedExitCode().getFailureDetail();
+      if (detail != null
+          && detail.getFilesystem().getCode() == FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED) {
+        return createFailedBlazeCommandResult(reporter, message, DetailedExitCode.of(detail));
+      }
+    }
+    return createFailedBlazeCommandResult(reporter, Code.QUERY_EVALUATION_ERROR, message);
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
