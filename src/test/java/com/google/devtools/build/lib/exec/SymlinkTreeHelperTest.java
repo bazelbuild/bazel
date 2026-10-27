@@ -198,4 +198,64 @@ public final class SymlinkTreeHelperTest {
     // recreated so that the file system can replace it with a copy of the now existing file.
     assertThat(fs.symlinksCreated.get()).isEqualTo(supportsSymlinks ? 0 : 1);
   }
+
+  /**
+   * An in-memory file system that records the type each symlink is created with, like Windows
+   * does.
+   */
+  private static final class SymlinkTypeRecordingFileSystem extends InMemoryFileSystem {
+    private final Map<PathFragment, SymlinkTargetType> types = new HashMap<>();
+
+    SymlinkTypeRecordingFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public synchronized void createSymbolicLink(
+        PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
+        throws IOException {
+      super.createSymbolicLink(linkPath, targetFragment, type);
+      types.put(linkPath, type);
+    }
+
+    @Override
+    public synchronized SymlinkTargetType getSymlinkTargetType(PathFragment path) {
+      return types.getOrDefault(path, SymlinkTargetType.UNSPECIFIED);
+    }
+  }
+
+  @Test
+  public void createRunfilesSymlinks_keepsTypeOfUnresolvedSymlink(
+      @TestParameter SymlinkTargetType type) throws Exception {
+    SymlinkTypeRecordingFileSystem fs = new SymlinkTypeRecordingFileSystem();
+    Path execRoot = fs.getPath("/execroot");
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
+    outputRoot.getRoot().asPath().createDirectoryAndParents();
+    Path treeRoot = execRoot.getRelative("foo.runfiles");
+    SymlinkTreeHelper helper =
+        new SymlinkTreeHelper(
+            execRoot.getRelative("foo.runfiles_manifest"),
+            execRoot.getRelative("foo.runfiles/MANIFEST"),
+            treeRoot,
+            WORKSPACE_NAME);
+
+    // The target doesn't exist, so only the type that the symlink was created with tells what it
+    // will be.
+    Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "symlink");
+    symlink.getPath().createSymbolicLink(PathFragment.create("../nonexistent"), type);
+    Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
+    FileSystemUtils.writeContent(file.getPath(), UTF_8, "content");
+
+    HashMap<PathFragment, Artifact> symlinkMap = new HashMap<>();
+    symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/symlink"), symlink);
+    symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file);
+    helper.createRunfilesSymlinks(symlinkMap);
+
+    Path treeSymlink = treeRoot.getRelative(WORKSPACE_NAME + "/symlink");
+    assertThat(treeSymlink.readSymbolicLink()).isEqualTo(PathFragment.create("../nonexistent"));
+    assertThat(treeSymlink.getSymlinkTargetType()).isEqualTo(type);
+    // Links to other artifacts leave their target's type to the file system.
+    assertThat(treeRoot.getRelative(WORKSPACE_NAME + "/file").getSymlinkTargetType())
+        .isEqualTo(SymlinkTargetType.UNSPECIFIED);
+  }
 }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
@@ -419,6 +420,183 @@ public class WindowsFileSystemTest {
     assertThat(linkChildPath.exists()).isTrue();
     assertThat(linkChildPath.isFile()).isTrue();
     assertThat(FileSystemUtils.readContent(linkChildPath, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkToExistingFile(@TestParameter SymlinkTargetType targetType)
+      throws Exception {
+    Path linkPath = scratchRoot.getRelative("dir/link");
+    Path targetPath = scratchRoot.getRelative("target/file");
+    PathFragment relativeTarget = PathFragment.create("../target/file");
+    linkPath.getParentDirectory().createDirectory();
+    targetPath.getParentDirectory().createDirectory();
+    FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
+
+    linkPath.createSymbolicLink(relativeTarget, targetType);
+
+    if (createSymbolicLinks) {
+      assertThat(linkPath.isSymbolicLink()).isTrue();
+      assertThat(linkPath.readSymbolicLink()).isEqualTo(relativeTarget);
+    } else {
+      assertThat(linkPath.isSymbolicLink()).isFalse();
+    }
+    assertThat(linkPath.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkToExistingDirectory(
+      @TestParameter SymlinkTargetType targetType) throws Exception {
+    Path linkPath = scratchRoot.getRelative("dir/link");
+    Path targetPath = scratchRoot.getRelative("target/dir");
+    PathFragment relativeTarget = PathFragment.create("../target/dir");
+    linkPath.getParentDirectory().createDirectory();
+    targetPath.createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(targetPath.getRelative("hello.txt"), "hello");
+
+    linkPath.createSymbolicLink(relativeTarget, targetType);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    if (createSymbolicLinks) {
+      assertThat(linkPath.readSymbolicLink()).isEqualTo(relativeTarget);
+    } else {
+      // A junction can only have an absolute target.
+      assertThat(linkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+    }
+    assertThat(linkPath.isDirectory()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath.getRelative("hello.txt"), ISO_8859_1))
+        .isEqualTo("hello");
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkToNonExistingFile(
+      @TestParameter({"UNSPECIFIED", "FILE"}) SymlinkTargetType targetType) throws Exception {
+    // Without symlinks, our only recourse is to create a dangling junction to an absolute path.
+    assumeTrue(createSymbolicLinks);
+
+    Path linkPath = scratchRoot.getRelative("dir/link");
+    Path targetPath = scratchRoot.getRelative("target/file");
+    PathFragment relativeTarget = PathFragment.create("../target/file");
+    linkPath.getParentDirectory().createDirectory();
+
+    linkPath.createSymbolicLink(relativeTarget, targetType);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(relativeTarget);
+    assertThat(linkPath.exists()).isFalse();
+
+    targetPath.getParentDirectory().createDirectory();
+    FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
+
+    assertThat(linkPath.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkToNonExistingDirectory() throws Exception {
+    assumeTrue(createSymbolicLinks);
+
+    Path linkPath = scratchRoot.getRelative("dir/link");
+    Path targetPath = scratchRoot.getRelative("target/dir");
+    PathFragment relativeTarget = PathFragment.create("../target/dir");
+    linkPath.getParentDirectory().createDirectory();
+
+    linkPath.createSymbolicLink(relativeTarget, SymlinkTargetType.DIRECTORY);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(relativeTarget);
+    assertThat(linkPath.exists()).isFalse();
+
+    targetPath.createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(targetPath.getRelative("hello.txt"), "hello");
+
+    assertThat(linkPath.isDirectory()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath.getRelative("hello.txt"), ISO_8859_1))
+        .isEqualTo("hello");
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkResolvesAgainstItsCurrentLocation(
+      @TestParameter({"UNSPECIFIED", "FILE"}) SymlinkTargetType targetType) throws Exception {
+    assumeTrue(createSymbolicLinks);
+
+    // The symlink is created where its target doesn't exist, then moved to where it does. This is
+    // what happens to the relative symlinks of a runfiles tree.
+    Path linkPath = scratchRoot.getRelative("a/link");
+    PathFragment relativeTarget = PathFragment.create("../target");
+    linkPath.getParentDirectory().createDirectory();
+    linkPath.createSymbolicLink(relativeTarget, targetType);
+    Path movedLinkPath = scratchRoot.getRelative("b/c/link");
+    movedLinkPath.getParentDirectory().createDirectoryAndParents();
+    linkPath.renameTo(movedLinkPath);
+    FileSystemUtils.writeContentAsLatin1(scratchRoot.getRelative("b/target"), "hello");
+
+    assertThat(movedLinkPath.readSymbolicLink()).isEqualTo(relativeTarget);
+    assertThat(FileSystemUtils.readContent(movedLinkPath, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkUnderJunctionAndDirectorySymlink() throws Exception {
+    assumeTrue(createSymbolicLinks);
+
+    // Windows, not Bazel, resolves a relative target. Through a junction, ".." leads to the parent
+    // of the junction, and through a directory symlink, to the parent of the directory it points
+    // to. An absolute target would resolve the same way through both.
+    Path view = scratchRoot.getRelative("view");
+    Path store = scratchRoot.getRelative("store");
+    Path repo = store.getRelative("repo");
+    view.createDirectory();
+    repo.createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(view.getRelative("marker.txt"), "logical parent");
+    FileSystemUtils.writeContentAsLatin1(store.getRelative("marker.txt"), "physical parent");
+    repo.getRelative("link").createSymbolicLink(PathFragment.create("../marker.txt"));
+    testUtil.createJunctions(ImmutableMap.of("view/junction", "store/repo"));
+    Files.createSymbolicLink(
+        fs.getNioPath(view.getRelative("symlink").asFragment()),
+        fs.getNioPath(repo.asFragment()));
+
+    assertThat(FileSystemUtils.readContent(view.getRelative("junction/link"), ISO_8859_1))
+        .isEqualTo("logical parent");
+    assertThat(FileSystemUtils.readContent(view.getRelative("symlink/link"), ISO_8859_1))
+        .isEqualTo("physical parent");
+  }
+
+  @Test
+  public void testGetSymlinkTargetTypeOfLinkToExistingTarget(
+      @TestParameter({"FILE", "DIRECTORY"}) SymlinkTargetType existingType,
+      @TestParameter boolean relative)
+      throws Exception {
+    Path linkPath = scratchRoot.getRelative("link");
+    Path targetPath = scratchRoot.getRelative("target");
+    if (existingType == SymlinkTargetType.DIRECTORY) {
+      targetPath.createDirectory();
+    } else {
+      FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
+    }
+
+    linkPath.createSymbolicLink(
+        relative ? PathFragment.create("target") : targetPath.asFragment(),
+        SymlinkTargetType.UNSPECIFIED);
+
+    // A copy of a file is a file too.
+    assertThat(linkPath.getSymlinkTargetType()).isEqualTo(existingType);
+  }
+
+  @Test
+  public void testGetSymlinkTargetTypeOfDanglingLink(
+      @TestParameter({"FILE", "DIRECTORY"}) SymlinkTargetType targetType,
+      @TestParameter boolean relative)
+      throws Exception {
+    // Without symlinks, our only recourse is to create a dangling junction.
+    assumeTrue(createSymbolicLinks);
+
+    Path linkPath = scratchRoot.getRelative("link");
+    Path targetPath = scratchRoot.getRelative("target");
+
+    linkPath.createSymbolicLink(
+        relative ? PathFragment.create("target") : targetPath.asFragment(), targetType);
+
+    assertThat(linkPath.getSymlinkTargetType()).isEqualTo(targetType);
   }
 
   @Test

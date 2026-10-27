@@ -569,6 +569,19 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
+   * Returns the type of target that the symbolic link at the current path was created for, which
+   * can be passed to {@link #createSymbolicLink(PathFragment, SymlinkTargetType)} to create an
+   * equivalent symbolic link elsewhere.
+   *
+   * <p>This is {@link SymlinkTargetType#UNSPECIFIED} unless the file system records the type in
+   * the symbolic link itself, as Windows does. The result is unspecified if the current path is
+   * not a symbolic link.
+   */
+  public SymlinkTargetType getSymlinkTargetType() throws IOException {
+    return fileSystem.getSymlinkTargetType(asFragment());
+  }
+
+  /**
    * If the current path is a symbolic link, returns the target of this symbolic link. The semantics
    * are intentionally left underspecified otherwise to permit efficient implementations.
    *
