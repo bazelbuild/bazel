@@ -1031,7 +1031,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // RegularFileStateValue with actual digest will be transformed with the same digest
     byte[] expectedBytes = new byte[] {1, 2, 3};
     RegularFileStateValueWithDigest withDigest =
-        new RegularFileStateValueWithDigest(/* size= */ 10L, /* digest= */ expectedBytes);
+        new RegularFileStateValueWithDigest(/* size= */ 10L, /* digest= */ expectedBytes, false);
     HasDigest result =
         RecursiveFilesystemTraversalFunction.withDigest(withDigest, null, SyscallCache.NO_CACHE);
     assertThat(result).isInstanceOf(FileArtifactValue.class);
@@ -1055,7 +1055,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     RegularFileStateValueWithContentsProxy withoutDigest =
         new RegularFileStateValueWithContentsProxy(
-            status.getSize(), /* contentsProxy= */ FileContentsProxy.create(status));
+            status.getSize(), /* contentsProxy= */ FileContentsProxy.create(status), false);
     HasDigest withoutDigestResult =
         RecursiveFilesystemTraversalFunction.withDigest(
             withoutDigest, rootedPath.asPath(), SyscallCache.NO_CACHE);
