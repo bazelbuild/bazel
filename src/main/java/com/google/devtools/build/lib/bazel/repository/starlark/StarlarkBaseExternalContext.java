@@ -1672,6 +1672,10 @@ Strip the given number of leading components from file paths on extraction. Only
    * Copies the files in the directory {@code src} to the existing directory {@code dst} in the same
    * way as {@link #copyFile} would copy each of them individually, following all symlinks.
    *
+   * <p>We don't use {@link FileSystemUtils#copyTreesBelow} as it would copy symlinks as-is, but
+   * tree watches only take the resolved content into account (which is the only consistent behavior
+   * across Unix and Windows).
+   *
    * @param src the directory to copy, with all symlinks resolved
    * @param dstRoot the directory that the top-level source directory is copied to, with all
    *     symlinks resolved
