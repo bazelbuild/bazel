@@ -15,41 +15,50 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * A {@link BulkDeleter} that deletes paths under an exec root, removing the child directories of
- * each tree in parallel. Returns only after every path is gone.
+ * A {@link BulkDeleter} that moves each stale output tree into a trash directory on the same file
+ * system and deletes it on one low-priority background thread, so an action's prepare step costs
+ * one rename per tree regardless of the tree's size or shape.
+ *
+ * <p>Every invocation gets its own trash directory under {@code trashRoot}. Trash left by an
+ * earlier invocation that did not finish is deleted in the background first.
  */
 public final class LocalBulkDeleter implements BulkDeleter {
-  private static final ExecutorService POOL =
-      Executors.newFixedThreadPool(
-          Runtime.getRuntime().availableProcessors(),
-          new ThreadFactoryBuilder().setNameFormat("local-bulk-delete-%d").setDaemon(true).build());
-
   private final Path execRoot;
+  private final Path trashRoot;
+  private final Path trash;
+  private final AtomicLong trashCount = new AtomicLong();
+  private final ExecutorService reaper =
+      Executors.newSingleThreadExecutor(
+          new ThreadFactoryBuilder()
+              .setNameFormat("local-bulk-delete")
+              .setDaemon(true)
+              .setPriority(Thread.MIN_PRIORITY)
+              .build());
 
-  public LocalBulkDeleter(Path execRoot) {
+  public LocalBulkDeleter(Path execRoot, Path trashRoot, String invocationId) {
     this.execRoot = checkNotNull(execRoot);
+    this.trashRoot = checkNotNull(trashRoot);
+    this.trash = trashRoot.getChild(invocationId);
+    reaper.execute(this::deleteEarlierTrash);
   }
 
   @Override
-  public void bulkDelete(Iterable<PathFragment> paths) throws IOException, InterruptedException {
+  public void bulkDelete(Iterable<PathFragment> paths) throws IOException {
     for (PathFragment fragment : paths) {
       Path path = execRoot.getRelative(fragment);
       try {
         // A file, a symlink, a missing path, and an empty directory are one remove(3).
-        // The directory walk is only for a path that still has children.
         path.delete();
         continue;
       } catch (IOException ignored) {
@@ -63,60 +72,56 @@ public final class LocalBulkDeleter implements BulkDeleter {
           // The delete below reports the real failure.
         }
       }
-      ImmutableList<Path> childDirectories = childDirectories(path);
-      if (!childDirectories.isEmpty()) {
-        path.setWritable(true);
-        deleteInParallel(childDirectories);
+      if (!path.isDirectory(Symlinks.NOFOLLOW) || !moveToTrash(path)) {
+        path.deleteTree();
       }
-      path.deleteTree();
     }
   }
 
-  private static ImmutableList<Path> childDirectories(Path path) {
-    ImmutableList.Builder<Path> directories = ImmutableList.builder();
+  /** Waits until every tree moved to the trash so far is deleted. */
+  public void awaitPendingDeletes() throws InterruptedException {
+    reaper.shutdown();
+    reaper.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+  }
+
+  private boolean moveToTrash(Path path) {
+    Path target = trash.getChild(Long.toString(trashCount.getAndIncrement()));
     try {
-      if (!path.isDirectory(Symlinks.NOFOLLOW)) {
-        return ImmutableList.of();
-      }
-      for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
-        if (dirent.getType() == Dirent.Type.DIRECTORY) {
-          directories.add(path.getChild(dirent.getName()));
-        }
-      }
+      trash.createDirectoryAndParents();
+      // Moving a directory to a new parent rewrites its ".." entry, which needs write access.
+      path.setWritable(true);
+      path.renameTo(target);
     } catch (IOException e) {
-      return ImmutableList.of();
+      return false;
     }
-    return directories.build();
+    try {
+      reaper.execute(() -> deleteQuietly(target));
+    } catch (RejectedExecutionException e) {
+      deleteQuietly(target);
+    }
+    return true;
   }
 
-  // Waits for every task even if interrupted, so no delete outlives the action's prepare.
-  private static void deleteInParallel(ImmutableList<Path> directories) throws IOException {
-    List<Future<?>> futures = new ArrayList<>(directories.size());
-    for (Path directory : directories) {
-      futures.add(
-          POOL.submit(
-              () -> {
-                directory.deleteTree();
-                return null;
-              }));
-    }
-    IOException error = null;
-    for (Future<?> future : futures) {
-      try {
-        Uninterruptibles.getUninterruptibly(future);
-      } catch (ExecutionException e) {
-        Throwables.throwIfUnchecked(e.getCause());
-        IOException cause =
-            e.getCause() instanceof IOException io ? io : new IOException(e.getCause());
-        if (error == null) {
-          error = cause;
-        } else {
-          error.addSuppressed(cause);
+  private void deleteEarlierTrash() {
+    try {
+      if (!trashRoot.isDirectory(Symlinks.NOFOLLOW)) {
+        return;
+      }
+      for (Path earlier : trashRoot.getDirectoryEntries()) {
+        if (!earlier.equals(trash)) {
+          deleteQuietly(earlier);
         }
       }
+    } catch (IOException ignored) {
+      // The next invocation retries.
     }
-    if (error != null) {
-      throw error;
+  }
+
+  private static void deleteQuietly(Path path) {
+    try (SilentCloseable c = Profiler.instance().profile("LocalBulkDeleter.deleteTree")) {
+      path.deleteTree();
+    } catch (IOException ignored) {
+      // The tree stays in the trash and the next invocation retries.
     }
   }
 }

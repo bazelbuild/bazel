@@ -28,6 +28,7 @@ public final class LocalBulkDeleterTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private Path execRoot;
   private Path outsideTarget;
+  private Path trashRoot;
   private LocalBulkDeleter deleter;
 
   @Before
@@ -46,7 +47,32 @@ public final class LocalBulkDeleterTest {
     FileSystemUtils.writeContent(
         execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/sibling.txt"), UTF_8, "sibling");
 
-    deleter = new LocalBulkDeleter(execRoot);
+    trashRoot = fs.getPath("/output_base/_bulk_delete_trash");
+    deleter = new LocalBulkDeleter(execRoot, trashRoot, "this-build");
+  }
+
+  @Test
+  public void trashIsEmptyAfterPendingDeletesFinish() throws Exception {
+    deleter.bulkDelete(
+        ImmutableList.of(PathFragment.create("bazel-out/k8-fastbuild/bin/pkg/stale")));
+
+    deleter.awaitPendingDeletes();
+
+    assertThat(trashRoot.getRelative("this-build").getDirectoryEntries()).isEmpty();
+    assertThat(FileSystemUtils.readContent(outsideTarget, UTF_8)).isEqualTo("keep me");
+  }
+
+  @Test
+  public void deletesTrashLeftByEarlierBuild() throws Exception {
+    deleter.awaitPendingDeletes();
+    Path leftover = trashRoot.getRelative("earlier-build/0/nested");
+    leftover.createDirectoryAndParents();
+    FileSystemUtils.writeContent(leftover.getRelative("f"), UTF_8, "x");
+
+    LocalBulkDeleter next = new LocalBulkDeleter(execRoot, trashRoot, "next-build");
+    next.awaitPendingDeletes();
+
+    assertThat(trashRoot.getDirectoryEntries()).isEmpty();
   }
 
   @Test
