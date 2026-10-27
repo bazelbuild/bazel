@@ -614,9 +614,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       var symlinkChain = ImmutableList.<Symlink>builder();
       Path currentPath = inputPath;
       Path symlinkPath;
-      var maxAttempt = 32;
+      int remaining = FileSystem.MAX_SYMLINKS;
       while ((symlinkPath = getFirstSymlinkOnPath(currentPath)) != null) {
-        if (maxAttempt-- == 0) {
+        if (remaining-- == 0) {
+          if (metadata.getType() == FileStateType.SYMLINK) {
+            // An unresolved link must be planted even when its target cannot be followed.
+            break;
+          }
           throw new FileSymlinkLoopException(
               inputPath.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
         }
@@ -644,9 +648,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     try {
       resolvedParent = parent.resolveSymbolicLinks();
     } catch (IOException e) {
-      // The parent doesn't exist or is reached through a dangling symlink or a symlink loop, which
-      // are reproduced verbatim.
-      resolvedParent = parent;
+      // An unresolvable parent can itself contain a link that must be planted. Scan from
+      // the filesystem root so we encounter that link before looking below it.
+      resolvedParent = parent.getFileSystem().getPath(parent.asFragment().getDriveStr());
     }
     // Only the path itself and those of its ancestors that aren't also ancestors of the resolved
     // parent can be symlinks.
