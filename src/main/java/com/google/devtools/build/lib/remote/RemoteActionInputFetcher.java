@@ -143,9 +143,8 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
                 digest.getSizeBytes())),
         IOException.class,
         e -> {
-          if (action != null
-              && execRoot.getFileSystem() instanceof LazyMaterializer materializer) {
-            var repoError = materializer.getRepoInputError(finalPath.asFragment(), e);
+          if (execRoot.getFileSystem() instanceof LazyMaterializer materializer) {
+            var repoError = materializer.getRepoDownloadError(finalPath.asFragment(), e);
             if (repoError != null) {
               return immediateFailedFuture(repoError);
             }
