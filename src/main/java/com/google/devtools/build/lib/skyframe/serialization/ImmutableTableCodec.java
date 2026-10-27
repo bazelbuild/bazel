@@ -13,13 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table.Cell;
-
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -46,7 +42,6 @@ public class ImmutableTableCodec extends DeferredObjectCodec<ImmutableTable> {
     }
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public DeferredValue<ImmutableTable> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
@@ -60,12 +55,10 @@ public class ImmutableTableCodec extends DeferredObjectCodec<ImmutableTable> {
     }
 
     EntryBuffer buffer = new EntryBuffer(size);
-    long offset = ARRAY_OBJECT_BASE_OFFSET;
     for (int i = 0; i < size; i++) {
-      context.deserialize(codedIn, buffer.rowKeys, offset);
-      context.deserialize(codedIn, buffer.columnKeys, offset);
-      context.deserialize(codedIn, buffer.values, offset);
-      offset += ARRAY_OBJECT_INDEX_SCALE;
+      context.deserializeArrayElement(codedIn, buffer.rowKeys, i);
+      context.deserializeArrayElement(codedIn, buffer.columnKeys, i);
+      context.deserializeArrayElement(codedIn, buffer.values, i);
     }
     return buffer;
   }
