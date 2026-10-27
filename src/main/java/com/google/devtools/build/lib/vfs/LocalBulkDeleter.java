@@ -19,9 +19,9 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -38,8 +38,13 @@ public final class LocalBulkDeleter implements BulkDeleter {
   private final Path trashRoot;
   private final Path trash;
   private final AtomicLong trashCount = new AtomicLong();
-  private final ExecutorService reaper =
-      Executors.newSingleThreadExecutor(
+  private final ThreadPoolExecutor reaper =
+      new ThreadPoolExecutor(
+          1,
+          1,
+          10,
+          TimeUnit.SECONDS,
+          new LinkedBlockingQueue<>(),
           new ThreadFactoryBuilder()
               .setNameFormat("local-bulk-delete")
               .setDaemon(true)
@@ -50,6 +55,8 @@ public final class LocalBulkDeleter implements BulkDeleter {
     this.execRoot = checkNotNull(execRoot);
     this.trashRoot = checkNotNull(trashRoot);
     this.trash = trashRoot.getChild(invocationId);
+    // An invocation that never reaches finalizeBuild must not leave an idle thread behind.
+    reaper.allowCoreThreadTimeOut(true);
     reaper.execute(this::deleteEarlierTrash);
   }
 
