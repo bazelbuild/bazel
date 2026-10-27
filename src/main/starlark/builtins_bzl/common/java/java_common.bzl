@@ -28,6 +28,7 @@ def _internal_exports() -> struct:
     return struct(
         create_compilation_action = _java_common_internal.create_compilation_action,
         create_header_compilation_action = _java_common_internal.create_header_compilation_action,
+        create_jvm_compile_action = _java_common_internal.create_jvm_compile_action,
         check_java_toolchain_is_declared_on_rule = _java_common_internal._check_java_toolchain_is_declared_on_rule,
         check_provider_instances = _java_common_internal.check_provider_instances,
         collect_native_deps_dirs = _java_common_internal.collect_native_deps_dirs,

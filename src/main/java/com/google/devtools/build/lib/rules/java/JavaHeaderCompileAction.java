@@ -663,12 +663,13 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               /* outputs= */ outputs.build(),
               /* env= */ actionEnvironment,
               /* executionInfo= */ executionInfo.buildKeepingLast(),
-              /* extraActionInfoSupplier= */ null,
               /* executableLine= */ executableLine,
               /* flagLine= */ commandLine.build(),
               /* extraCommandLineArgs= */ ImmutableList.of(),
               /* configuration= */ ruleContext.getConfiguration(),
               /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
+              /* additionalArtifactsForPathMapping= */ NestedSetBuilder.emptySet(
+                  Order.STABLE_ORDER),
               /* outputDepsProto= */ outputDepsProto,
               /* classpathMode= */ classpathMode));
     }
