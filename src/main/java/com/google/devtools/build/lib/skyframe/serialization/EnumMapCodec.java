@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.devtools.build.lib.skyframe.serialization.ClassCodec.classCodec;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
-import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 
 import com.google.protobuf.CodedInputStream;
@@ -74,7 +72,6 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
     }
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public EnumMap deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
@@ -89,11 +86,7 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
     for (int i = 0; i < size; i++) {
       int ordinal = codedIn.readInt32();
       buffer.setEnum(i, enums[ordinal]);
-      context.deserialize(
-          codedIn,
-          buffer.values,
-          ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i,
-          /* done= */ (Runnable) buffer);
+      context.deserializeArrayElement(codedIn, buffer.values, i, /* done= */ buffer);
     }
     return result;
   }
