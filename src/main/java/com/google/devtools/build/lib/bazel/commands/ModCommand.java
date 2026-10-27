@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -303,6 +304,10 @@ public final class ModCommand implements BlazeCommand {
               .reportCycles(cycleInfo, cycleInfo.getFirst().getTopKey(), env.getReporter());
         }
         Exception e = evaluationResult.getError().getException();
+        var eviction = remoteFileEviction(e);
+        if (eviction != null && env.getAttemptNumber() == 1) {
+          return BlazeCommandResult.detailedExitCode(eviction);
+        }
         String message = "Unexpected error during module graph evaluation.";
         if (e != null) {
           message = e.getMessage();
@@ -330,6 +335,17 @@ public final class ModCommand implements BlazeCommand {
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    }
+
+    // Retry before printing a partial graph or applying tidy's module-file edits.
+    if (env.getAttemptNumber() == 1 && (moduleInspector != null || modTidyValue != null)) {
+      var errors = moduleInspector != null ? moduleInspector.errors() : modTidyValue.errors();
+      for (var error : errors) {
+        var eviction = remoteFileEviction(error);
+        if (eviction != null) {
+          return BlazeCommandResult.detailedExitCode(eviction);
+        }
+      }
     }
 
     // Handle commands that do not require BazelModuleInspectorValue.
@@ -825,6 +841,20 @@ public final class ModCommand implements BlazeCommand {
               baseModuleUnusedDeps));
     }
     return extensionsBuilder.build();
+  }
+
+  @Nullable
+  private static DetailedExitCode remoteFileEviction(@Nullable Exception error) {
+    if (error instanceof DetailedException detailed) {
+      var exitCode = detailed.getDetailedExitCode();
+      var detail = exitCode.getFailureDetail();
+      if (detail != null
+          && detail.getFilesystem().getCode()
+              == FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED) {
+        return exitCode;
+      }
+    }
+    return null;
   }
 
   private static BlazeCommandResult reportAndCreateFailureResult(

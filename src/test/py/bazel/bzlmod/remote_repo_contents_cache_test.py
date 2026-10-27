@@ -2136,6 +2136,125 @@ class RemoteRepoContentsCacheTest(
     if CROSS_REPO_SYMLINKS_CACHEABLE:
       self.assertFalse(os.path.exists(os.path.join(my_repo_dir, 'BUILD')))
 
+  def testLostRemoteFile_mod(self):
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:defs.bzl", "repo")',
+            'repo(name = "data")',
+            'ext = use_extension("//:defs.bzl", "ext")',
+        ],
+    )
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def _repo(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "unique-mod-input")',
+            '  return rctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(_repo)',
+            'def _ext(mctx):',
+            '  mctx.read(Label("@data//:data.txt"))',
+            '  repo(name = "generated")',
+            '  return mctx.extension_metadata(',
+            '      root_module_direct_deps = ["generated"],',
+            '      root_module_direct_dev_deps = [], reproducible = True)',
+            'ext = module_extension(_ext)',
+        ],
+    )
+    graph = ['mod', 'graph', '--extension_info=all']
+    _, expected, _ = self.RunBazel(graph)
+    for args in [graph, ['mod', 'tidy']]:
+      self.RunBazel(['clean', '--expunge'])
+      self.RunBazel(['query', '@data//:data.txt'])
+      self.DeleteCasEntry(b'unique-mod-input')
+      _, stdout, stderr = self.RunBazel(args)
+      self.assertEqual(
+          1,
+          stderr.count(
+              'Found transient remote cache error, retrying the build...'
+          ),
+      )
+      if args == graph:
+        self.assertEqual(stdout, expected)
+    with open(self.Path('MODULE.bazel')) as f:
+      self.assertIn('use_repo(ext, "generated")', f.read())
+
+  def testLostRemoteBuildFile_query(self):
+    self.ScratchFile('BUILD.bazel', ['filegroup(name = "local")'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "cached")',
+        ],
+    )
+    build_file = 'filegroup(name = "from_repo")'
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _impl(ctx):',
+            """  ctx.file("BUILD.bazel", "filegroup(name='warm')")""",
+            f'  ctx.file("pkg/BUILD.bazel", {build_file!r})',
+            '  return ctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(implementation = _impl)',
+        ],
+    )
+
+    target = '@cached//pkg:from_repo'
+    self.RunBazel(['query', target])
+
+    def restore_then_evict():
+      # The worker checks the CAS on lookup. Evict only after Bazel has
+      # restored the repo tree, while the subpackage BUILD file is still remote.
+      self.RunBazel(['clean', '--expunge'])
+      self.RunBazel(['query', '@cached//:warm'])
+      self.DeleteCasEntry(build_file.encode())
+
+    restore_then_evict()
+    _, stdout, stderr = self.RunBazel(['query', target])
+    self.assertEqual(stdout, [target])
+    self.assertEqual(
+        stderr.count('Found transient remote cache error, retrying the query...'),
+        1,
+    )
+
+    # Only a regular output file can be overwritten after emitting partial results.
+    restore_then_evict()
+    args = [
+        'query', '--keep_going', '--order_output=no', f'set(//:local {target})'
+    ]
+    _, stdout, _ = self.RunBazel(args + ['--output_file=results'])
+    self.assertEmpty(stdout)
+    with open(self.Path('results'), encoding='utf-8') as f:
+      self.assertCountEqual(f.read().splitlines(), ['//:local', target])
+
+    restore_then_evict()
+    code, stdout, stderr = self.RunBazel(args, allow_failure=True)
+    self.assertEqual(code, 3)
+    self.assertEqual(stdout, ['//:local'])
+    self.assertNotIn('retrying the query', '\n'.join(stderr))
+
+    if not self.IsWindows():
+      # Repopulate the CAS after the deliberately partial query.
+      self.RunBazel(['clean', '--expunge'])
+      self.RunBazel(['query', target])
+      restore_then_evict()
+      fifo = self.Path('fifo')
+      os.mkfifo(fifo)
+      fd = os.open(fifo, os.O_RDWR | os.O_NONBLOCK)
+      try:
+        code, stdout, stderr = self.RunBazel(
+            args + ['--output_file=fifo'], allow_failure=True
+        )
+        self.assertEqual(code, 3)
+        self.assertEmpty(stdout)
+        self.assertEqual(os.read(fd, 4096), b'//:local\n')
+        self.assertNotIn('retrying the query', '\n'.join(stderr))
+      finally:
+        os.close(fd)
+
   def testMemoryPressureRestartDuringCachedFetch(self):
     # Regression test for a cached repo fetch that is interrupted by memory
     # pressure (Skyframe drops the fetch's WorkerSkyKeyComputeState, which
