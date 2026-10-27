@@ -492,6 +492,31 @@ EOF
   done
 }
 
+function test_starlark_cpu_profile_unicode_file_name() {
+  if is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  echo 'load("ünïcödë.bzl", "main"); main()' > $pkg/BUILD
+  cat > $pkg/ünïcödë.bzl <<'EOF'
+def main():
+   for i in range(2000):
+      foo()
+def foo():
+   list(range(10000))
+   sorted(range(10000))
+EOF
+  bazel query --starlark_cpu_profile="${TEST_TMPDIR}/pprof.gz" $pkg/BUILD
+  gunzip "${TEST_TMPDIR}/pprof.gz"
+  # Force a C locale to match the UTF-8 bytes of the file name in the binary
+  # profile.
+  LC_ALL=C grep -aq "$pkg/ünïcödë.bzl" "${TEST_TMPDIR}/pprof" ||
+    fail "file name not found in profiler output"
+}
+
 function test_starlark_cpu_profile_after_early_failure() {
   if is_windows; then
     echo "Starlark profiler is not supported on Microsoft Windows."

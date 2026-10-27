@@ -101,7 +101,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
               CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
               printStream,
               new LinkedBlockingQueue<>(BLOCKING_QUEUE_SIZE));
-      case JSON -> new MonolithicOutputHandler(printStream);
+      case JSON -> new MonolithicOutputHandler(out);
     };
   }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.profiler.memory.AllocationTrackerService.AllocationSampler;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -397,7 +398,7 @@ public final class AllocationTracker implements AllocationSampler, Debug.ThreadH
       return table.computeIfAbsent(
           str,
           key -> {
-            profile.addStringTable(key);
+            profile.addStringTable(StringEncoding.internalToUnicode(key));
             return index++;
           });
     }

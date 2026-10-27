@@ -1430,7 +1430,17 @@ public final class Starlark {
    *     operating system's profiling resources for this process are already in use.
    */
   public static boolean startCpuProfile(OutputStream out, Duration period) {
-    return CpuProfiler.start(out, period);
+    return CpuProfiler.start(out, period, /* utf8ByteStrings= */ false);
+  }
+
+  /**
+   * Like {@link #startCpuProfile(OutputStream, Duration)}, but for file and function names that are
+   * UTF-8 byte strings if {@code utf8ByteStrings} is true, see {@link
+   * StarlarkSemantics#INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS}.
+   */
+  public static boolean startCpuProfile(
+      OutputStream out, Duration period, boolean utf8ByteStrings) {
+    return CpuProfiler.start(out, period, utf8ByteStrings);
   }
 
   /**

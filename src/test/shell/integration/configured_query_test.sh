@@ -236,6 +236,38 @@ EOF
     || fail "Expected the UTF-8 label in configured_rule_input: $(grep -F csv output)"
 }
 
+function test_unicode_jsonproto() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch "$pkg/文.csv"
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "data",
+    srcs = ["文.csv"],
+)
+EOF
+
+  bazel cquery "//$pkg:data" --output=jsonproto \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "\"//$pkg:文.csv\"" output
+}
+
+function test_unicode_starlark_file() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+filegroup(name = "文")
+EOF
+  cat > "$pkg/输出.star" <<'EOF'
+def format(target):
+    return "标签: " + str(target.label)
+EOF
+
+  bazel cquery "//$pkg:文" --output=starlark --starlark:file="$pkg/输出.star" \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "^标签: .*//$pkg:文$" output
+}
+
 function test_transitions_incompatible_target() {
   local -r pkg=$FUNCNAME
 

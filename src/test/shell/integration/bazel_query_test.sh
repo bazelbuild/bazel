@@ -1545,6 +1545,26 @@ EOF
   LC_CTYPE=C grep -q "//foo:äöüÄÖÜß🌱" $TEST_log || fail "Expected Unicode target in query output"
 }
 
+function test_unicode_query_xml_and_graph() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(
+    name = "äöüÄÖÜß",
+    srcs = ["文.txt"],
+)
+EOF
+  touch foo/文.txt
+
+  bazel query --output=xml //foo:äöüÄÖÜß >& $TEST_log || fail "Expected success"
+  expect_log '<rule .*name="//foo:äöüÄÖÜß"'
+  expect_log '<rule-input name="//foo:文.txt"/>'
+
+  bazel query --output=graph 'deps(//foo:äöüÄÖÜß)' >& $TEST_log \
+    || fail "Expected success"
+  expect_log '"//foo:äöüÄÖÜß" -> "//foo:文.txt"'
+}
+
 function test_label_kind() {
   is_bazel || return 0
   mkdir -p foo bar || fail "Couldn't make directories"
