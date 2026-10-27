@@ -145,6 +145,14 @@ filegroup(
         "extensions.bzl",
         "generate-xml.sh",
         "test-setup.sh",
+        # Sources of the Windows test wrapper, which are built from source if
+        # Bazel isn't running on Windows.
+        "windows/tw.cc",
+        "windows/tw.h",
+        "windows/tw_main.cc",
+        "windows/tw_manifest.xml",
+        "windows/tw_resources.rc",
+        "windows/xml_main.cc",
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "tw",

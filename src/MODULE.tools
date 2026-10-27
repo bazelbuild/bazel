@@ -40,7 +40,7 @@ bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf"
 # //src/java_tools/{buildjar,import_deps_checker}, and java_toolchains above.
 bazel_dep(name = "rules_java", version = "9.9.0")
 
-# //tools/{cpp,jdk,objc,osx,res}, //tools/build_defs/cc, //src/main/{cpp/util,native},
+# //tools/{cpp,jdk,objc,osx,res,test}, //tools/build_defs/cc, //src/main/{cpp/util,native},
 # //src/tools/launcher, //third_party/{def_parser,ijar}.
 bazel_dep(name = "rules_cc", version = "0.2.25")
 
@@ -54,7 +54,7 @@ bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "apple_support", version = "2.8.4")
 
 # //third_party/ijar (zipper built from source when the execution platform differs
-# from the host).
+# from the host, Windows test wrapper built from source when the host isn't Windows).
 bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
 
 winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_configure")
