@@ -1949,9 +1949,8 @@ Strip the given number of leading components from file paths on extraction. Only
       return;
     }
     try {
-      // DirTree can only be recorded for directories, so we have to additionally track the type of
-      // the file. When checking for invalidation, the type is verified first and if it doesn't
-      // match, the directory entries are never requested.
+      // Requesting a DirTree for a path that is no longer a directory fails the build rather than
+      // invalidating the repo, so the type is recorded first and checked before the DirTree.
       getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
       getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath, excludes));
     } catch (IOException e) {
