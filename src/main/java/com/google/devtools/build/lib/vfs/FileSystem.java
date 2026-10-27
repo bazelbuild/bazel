@@ -584,6 +584,19 @@ public abstract class FileSystem {
   public abstract PathFragment readSymbolicLink(PathFragment path) throws IOException;
 
   /**
+   * Returns true only if the unnormalized target text of the symbolic link equals {@code target}.
+   *
+   * <p>Unlike {@link #readSymbolicLink}, this must not discard relative path components before
+   * comparing: resolving {@code symlink/../file} can differ from resolving {@code file}.
+   * Implementations that cannot make this guarantee return false, allowing a conservative fallback.
+   *
+   * @throws IOException if reading the link fails
+   */
+  public boolean hasExactSymlinkTarget(PathFragment path, PathFragment target) throws IOException {
+    return false;
+  }
+
+  /**
    * Returns the target of a symbolic link, under the assumption that the given path is indeed a
    * symbolic link (this assumption permits efficient implementations). See {@link
    * Path#readSymbolicLinkUnchecked} for specification.
