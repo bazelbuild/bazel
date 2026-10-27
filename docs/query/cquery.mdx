@@ -414,6 +414,31 @@ file targets have a null configuration.
 [providers](/extending/rules#providers)
 (for example, `"DefaultInfo"`) and whose values are their Starlark values.
 Providers whose values are not legal Starlark values are omitted from this map.
+Providers returned by aspects are not included; use
+[`aspects(target)`](#aspects) for those.
+
+##### aspects(target) {#aspects}
+
+`aspects(target)` returns a map whose keys are the names of the top-level
+aspects applied to `target` with
+[`--aspects`](/reference/command-line-reference#flag--aspects) (for example,
+`"//tools:defs.bzl%my_aspect"`). Each value is a list with one struct per
+application of that aspect to `target`, with these fields:
+
+*   `providers`: a map of the providers returned by the aspect, in the same
+    format as [`providers(target)`](#providers).
+*   `base_aspects`: the names of the aspects that this aspect was applied on top
+    of, for example because it `requires` them.
+
+For top-level aspects the list has a single entry.
+
+If no aspects were applied to `target`, or if
+[`--include_aspects`](#include-aspects) is disabled, the map is empty. Aspects
+that propagate to the dependencies of the top-level targets are not included.
+
+Just like rules the name of the aspect is bound to the first assignment
+`my_aspect = aspect(...)`. But it can be used through reexports or aliases
+`alias = my_aspect`. The output for `aspects(target)` is the original name.
 
 #### Examples {#output-format-definition-examples}
 
@@ -514,6 +539,24 @@ Extract a value from a user defined Provider.
     return ""
 
   $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
+```
+
+Extract a value from a provider returned by an aspect, without building any
+targets.
+
+```
+  $ cat example.cquery
+
+  def format(target):
+    values = []
+    for application in aspects(target).get("//tools:defs.bzl%my_aspect", []):
+      info = application.providers.get("//tools:defs.bzl%MyAspectInfo")
+      if info:
+        values.append(info.value)
+    return " ".join(values)
+
+  $ bazel cquery //baz --aspects=//tools:defs.bzl%my_aspect \
+      --output=starlark --starlark:file=example.cquery
 ```
 
 ## cquery vs. query {#cquery-vs-query}

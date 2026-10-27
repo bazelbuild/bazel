@@ -1542,6 +1542,192 @@ EOF
   assert_contains "some_value" output
 }
 
+function write_aspects_test_files() {
+  local -r pkg=$1
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load(":defs.bzl", "my_rule")
+my_rule(name="myrule")
+EOF
+  cat > $pkg/defs.bzl <<'EOF'
+MyRuleInfo = provider(fields = ["value"])
+FirstAspectInfo = provider(fields = ["value"])
+SecondAspectInfo = provider(fields = ["value"])
+
+def _my_rule_impl(ctx):
+    return [MyRuleInfo(value = "rule_value")]
+
+my_rule = rule(implementation = _my_rule_impl)
+
+def _first_aspect_impl(target, ctx):
+    return [FirstAspectInfo(value = "first_value " + str(target.label))]
+
+first_aspect = aspect(implementation = _first_aspect_impl)
+
+def _second_aspect_impl(target, ctx):
+    return [SecondAspectInfo(value = "second_value")]
+
+second_aspect = aspect(implementation = _second_aspect_impl)
+EOF
+}
+
+function test_starlark_output_aspects_function() {
+  local -r pkg=$FUNCNAME
+  write_aspects_test_files $pkg
+  cat > $pkg/outfunc.bzl <<EOF
+def format(target):
+    a = aspects(target)
+    first = a["//$pkg:defs.bzl%first_aspect"][0].providers
+    second = a["//$pkg:defs.bzl%second_aspect"][0].providers
+    return "\n".join([
+        "first=" + first["//$pkg:defs.bzl%FirstAspectInfo"].value,
+        "second=" + second["//$pkg:defs.bzl%SecondAspectInfo"].value,
+        "rule_provider_in_aspect=" + str("//$pkg:defs.bzl%MyRuleInfo" in first),
+        "aspect_provider_in_target=" + str("//$pkg:defs.bzl%FirstAspectInfo" in providers(target)),
+    ])
+EOF
+  bazel cquery "//$pkg:myrule" --output=starlark --starlark:file="$pkg/outfunc.bzl" \
+    --aspects="//$pkg:defs.bzl%first_aspect,//$pkg:defs.bzl%second_aspect" \
+    >output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "^first=first_value @*//$pkg:myrule$" output
+  assert_contains "^second=second_value$" output
+  assert_contains "^rule_provider_in_aspect=False$" output
+  assert_contains "^aspect_provider_in_target=False$" output
+}
+
+function test_starlark_output_aspects_function_for_alias() {
+  local -r pkg=$FUNCNAME
+  write_aspects_test_files $pkg
+  cat >> $pkg/BUILD <<EOF
+alias(name="myalias", actual="myrule")
+EOF
+  cat > $pkg/outfunc.bzl <<EOF
+def format(target):
+    a = aspects(target)["//$pkg:defs.bzl%first_aspect"][0].providers
+    return "first=" + a["//$pkg:defs.bzl%FirstAspectInfo"].value
+EOF
+  bazel cquery "//$pkg:myalias" --output=starlark --starlark:file="$pkg/outfunc.bzl" \
+    --aspects="//$pkg:defs.bzl%first_aspect" \
+    >output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "^first=first_value @*//$pkg:myrule$" output
+}
+
+function test_starlark_output_aspects_function_aliased_aspect() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load(":defs.bzl", "my_rule")
+my_rule(name="myrule")
+EOF
+  cat > $pkg/defs.bzl <<'EOF'
+MyAspectInfo = provider(fields = ["value"])
+
+def _my_rule_impl(ctx):
+    return []
+
+my_rule = rule(implementation = _my_rule_impl)
+
+def _my_aspect_impl(target, ctx):
+    return [MyAspectInfo(value = "my_value")]
+
+my_aspect = aspect(implementation = _my_aspect_impl)
+
+alias = my_aspect
+EOF
+  cat > $pkg/outfunc.bzl <<EOF
+def format(target):
+    a = aspects(target)
+    p = a["//$pkg:defs.bzl%my_aspect"][0].providers
+    return "\n".join(["key=" + k for k in a.keys()] + [
+        "value=" + p["//$pkg:defs.bzl%MyAspectInfo"].value,
+    ])
+EOF
+  bazel cquery "//$pkg:myrule" --output=starlark --starlark:file="$pkg/outfunc.bzl" \
+    --aspects="//$pkg:defs.bzl%alias" \
+    >output 2>"$TEST_log" || fail "Expected success"
+
+  cat output >> "$TEST_log"
+  # The aspect is reported under the name it was exported with, not the name
+  # used on the command line.
+  assert_contains "^key=//$pkg:defs.bzl%my_aspect$" output
+  assert_not_contains "%alias" output
+  assert_contains "^value=my_value$" output
+}
+
+function test_starlark_output_aspects_function_top_level_rule_transition() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load(":defs.bzl", "app", "lib")
+app(name = "app", deps = [":lib"])
+lib(name = "lib")
+EOF
+  cat > $pkg/defs.bzl <<'EOF'
+AInfo = provider(fields = ["value"])
+
+def _a_impl(target, ctx):
+    return [AInfo(value = "a on " + ctx.var["COMPILATION_MODE"])]
+
+a = aspect(implementation = _a_impl)
+
+def _transition_impl(settings, attr):
+    return {"//command_line_option:compilation_mode": "dbg"}
+
+to_dbg = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//command_line_option:compilation_mode"],
+)
+
+def _impl(ctx):
+    return []
+
+app = rule(
+    implementation = _impl,
+    cfg = to_dbg,
+    attrs = {"deps": attr.label_list(aspects = [a])},
+)
+lib = rule(implementation = _impl)
+EOF
+  cat > $pkg/outfunc.bzl <<EOF
+def format(target):
+    lines = []
+    for name, applications in aspects(target).items():
+        for app in applications:
+            lines.append("%s %s: %s" % (
+                target.label, name, app.providers["//$pkg:defs.bzl%AInfo"].value))
+    return "\n".join(lines) if lines else str(target.label) + " none"
+EOF
+  bazel cquery "deps(//$pkg:app) intersect //$pkg:*" --compilation_mode=fastbuild \
+    --aspects="//$pkg:defs.bzl%a" --output=starlark --starlark:file="$pkg/outfunc.bzl" \
+    >output 2>"$TEST_log" || fail "Expected success"
+
+  cat output >> "$TEST_log"
+  # The top-level aspect is applied to app in its transitioned configuration.
+  assert_contains "^@*//$pkg:app //$pkg:defs.bzl%a: a on dbg$" output
+}
+
+function test_starlark_output_aspects_function_no_aspects() {
+  local -r pkg=$FUNCNAME
+  write_aspects_test_files $pkg
+  bazel cquery "//$pkg:myrule" --output=starlark --starlark:expr="aspects(target)" \
+    >output 2>"$TEST_log" || fail "Expected success"
+
+  assert_equals "{}" "$(cat output)"
+}
+
+function test_starlark_output_aspects_function_include_aspects_false() {
+  local -r pkg=$FUNCNAME
+  write_aspects_test_files $pkg
+  bazel cquery "//$pkg:myrule" --output=starlark --starlark:expr="aspects(target)" \
+    --aspects="//$pkg:defs.bzl%first_aspect" --noinclude_aspects \
+    >output 2>"$TEST_log" || fail "Expected success"
+
+  assert_equals "{}" "$(cat output)"
+}
+
 function test_bazelignore_error_cquery_nocrash() {
   local -r pkg=$FUNCNAME
 
