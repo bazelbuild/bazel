@@ -320,6 +320,30 @@ public class PatchUtil {
                   + " %d",
               outputDirectory.getPathString(), path, loc));
     }
+    try {
+      Path realOutputDirectory = null;
+      for (Path ancestor = filePath;
+          ancestor != null && !ancestor.equals(outputDirectory);
+          ancestor = ancestor.getParentDirectory()) {
+        if (ancestor.isSymbolicLink()) {
+          if (realOutputDirectory == null) {
+            realOutputDirectory = outputDirectory.resolveSymbolicLinks();
+          }
+          Path resolved = ancestor.resolveSymbolicLinks();
+          if (!resolved.startsWith(realOutputDirectory)) {
+            throw new PatchFailedException(
+                String.format(
+                    "Cannot patch file outside of external repository (%s), file path = \"%s\" at"
+                        + " line %d (resolves to %s)",
+                    outputDirectory.getPathString(), path, loc, resolved.getPathString()));
+          }
+        }
+      }
+    } catch (IOException e) {
+      throw new PatchFailedException(
+          String.format(
+              "Cannot resolve file path \"%s\" at line %d: %s", path, loc, e.getMessage()));
+    }
     return filePath;
   }
 
