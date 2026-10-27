@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,5 +125,29 @@ public final class SandboxModuleTest {
     assertThat(failingSandboxBase.exists()).isFalse();
     assertThat(sandboxModule.treeDeleter).isInstanceOf(AsynchronousTreeDeleter.class);
     sandboxModule.blazeShutdown();
+  }
+
+  @Test
+  public void checkHermeticLinuxSandboxSupported_hermeticAndUnsupported_throws() {
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                SandboxModule.checkHermeticLinuxSandboxSupported(
+                    /* useHermetic= */ true, Optional.of("Process exited with status 1")));
+
+    assertThat(e).hasMessageThat().contains("--experimental_use_hermetic_linux_sandbox");
+    assertThat(e).hasMessageThat().contains("Process exited with status 1");
+  }
+
+  @Test
+  public void checkHermeticLinuxSandboxSupported_hermeticAndSupported_succeeds() throws Exception {
+    SandboxModule.checkHermeticLinuxSandboxSupported(/* useHermetic= */ true, Optional.empty());
+  }
+
+  @Test
+  public void checkHermeticLinuxSandboxSupported_notHermetic_succeeds() throws Exception {
+    SandboxModule.checkHermeticLinuxSandboxSupported(
+        /* useHermetic= */ false, Optional.of("Process exited with status 1"));
   }
 }
