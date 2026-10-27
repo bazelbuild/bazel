@@ -114,6 +114,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -143,9 +144,11 @@ public class BazelRepositoryModule extends BlazeModule {
   private ImmutableMap<String, PathFragment> overrides = ImmutableMap.of();
   private ImmutableMap<String, PathFragment> injections = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
+  private ImmutableMap<String, PathFragment> moduleInjections = ImmutableMap.of();
   private FileSystem filesystem;
   private ImmutableSet<String> registries;
   private ImmutableMap<String, ImmutableSet<String>> moduleMirrors;
+  private ImmutableSet<String> watchedRegistries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -534,7 +537,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
       if (repoOptions.moduleOverrides != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
-        for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
+        for (RepositoryOptions.ModuleNameAndPath override : repoOptions.moduleOverrides) {
           if (override.path().isEmpty()) {
             moduleOverrideMap.remove(override.moduleName());
             continue;
@@ -551,6 +554,25 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       } else {
         moduleOverrides = ImmutableMap.of();
+      }
+
+      if (repoOptions.moduleInjections != null) {
+        Map<String, PathFragment> moduleInjectionMap = new LinkedHashMap<>();
+        for (RepositoryOptions.ModuleNameAndPath injection : repoOptions.moduleInjections) {
+          if (injection.path().isEmpty()) {
+            moduleInjectionMap.remove(injection.moduleName());
+            continue;
+          }
+          String modulePath = getAbsolutePath(injection.path(), env);
+          moduleInjectionMap.put(injection.moduleName(), PathFragment.create(modulePath));
+        }
+        ImmutableMap<String, PathFragment> newModuleInjections =
+            ImmutableMap.copyOf(moduleInjectionMap);
+        if (!Maps.difference(moduleInjections, newModuleInjections).areEqual()) {
+          moduleInjections = newModuleInjections;
+        }
+      } else {
+        moduleInjections = ImmutableMap.of();
       }
 
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
@@ -620,6 +642,8 @@ public class BazelRepositoryModule extends BlazeModule {
       } else {
         registries = DEFAULT_REGISTRIES;
       }
+      watchedRegistries =
+          parseWatchedRegistries(repoOptions.watchedRegistries, registries, env.getWorkspace());
       if (repoOptions.moduleMirrors != null && !repoOptions.moduleMirrors.isEmpty()) {
         var registryToMirrors =
             repoOptions.moduleMirrors.stream()
@@ -678,6 +702,44 @@ public class BazelRepositoryModule extends BlazeModule {
         throw new IllegalStateException(e);
       }
     }
+  }
+
+  /**
+   * Returns the normalized URLs of the {@code --watch_registry} registries with {@code %workspace%}
+   * expanded, as {@link RegistryFunction} sees them.
+   */
+  private static ImmutableSet<String> parseWatchedRegistries(
+      @Nullable List<String> watchedRegistryOptions,
+      ImmutableSet<String> registries,
+      @Nullable Path workspace)
+      throws AbruptExitException {
+    if (watchedRegistryOptions == null) {
+      return ImmutableSet.of();
+    }
+    var watched = ImmutableSet.<String>builder();
+    for (String registry : watchedRegistryOptions) {
+      String url = normalizeBaseUrl(registry);
+      if (!registries.contains(url)) {
+        throw invalidWatchedRegistry(
+            registry, "it must also be passed with --registry", Code.UNKNOWN_REGISTRY);
+      }
+      if (workspace != null) {
+        url = url.replace("%workspace%", workspace.getPathString());
+      }
+      try {
+        RegistryFunction.getWatchedRegistryPath(url);
+      } catch (URISyntaxException e) {
+        throw invalidWatchedRegistry(registry, e.getMessage(), Code.INVALID_REGISTRY_URL);
+      }
+      watched.add(url);
+    }
+    return watched.build();
+  }
+
+  private static AbruptExitException invalidWatchedRegistry(
+      String registry, String reason, Code code) {
+    return new AbruptExitException(
+        detailedExitCode("Invalid --watch_registry=%s: %s".formatted(registry, reason), code));
   }
 
   private static String normalizeBaseUrl(String baseUrl) {
@@ -751,6 +813,7 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
+        PrecomputedValue.injected(ModuleFileFunction.INJECTED_MODULES, moduleInjections),
         PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, fetchDisabled),
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.
@@ -761,6 +824,7 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, moduleMirrors),
+        PrecomputedValue.injected(RegistryFunction.WATCHED_REGISTRIES, watchedRegistries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),
