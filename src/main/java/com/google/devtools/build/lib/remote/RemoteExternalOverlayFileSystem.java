@@ -575,17 +575,23 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
           // The symlink chain is reproduced verbatim on the native file system, but its target may
           // lie outside the materialized subtree and has to be materialized as well so that the
           // chain doesn't dangle.
+          FileStatus targetStat;
           Path target;
           try {
+            targetStat = child.statIfFound();
+            if (targetStat == null) {
+              // A missing component or a non-directory ancestor makes the link dangling.
+              continue;
+            }
             target = child.resolveSymbolicLinks();
           } catch (FileNotFoundException | FileSymlinkLoopException e) {
-            // Dangling symlinks and symlink loops are reproduced verbatim.
+            // The link itself is still materialized.
             continue;
           }
           // TODO(#30160): RepositoryUtils.replantSymlinks currently ensures that all symlinks
           // within a remotely cacheable external repo stay within that repo. If that changes, new
           // logic has to be added here to prefetch such files correctly.
-          if (target.isDirectory(Symlinks.NOFOLLOW)) {
+          if (targetStat.isDirectory()) {
             collectAndCreateDirectories(target, files, symlinks, visitedDirs);
           } else {
             files.add(target.asFragment());

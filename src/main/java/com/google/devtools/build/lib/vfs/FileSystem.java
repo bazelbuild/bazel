@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -51,7 +52,8 @@ public abstract class FileSystem {
 
   // The maximum number of symbolic links that may be traversed by resolveSymbolicLinks() while
   // canonicalizing a path before it gives up and throws a FileSymlinkLoopException.
-  public static final int MAX_SYMLINKS = 32;
+  // Linux permits 40 dereferences in a single pathname lookup.
+  public static final int MAX_SYMLINKS = OS.getCurrent() == OS.LINUX ? 40 : 32;
 
   // Standard error message suffixes to be used for consistency across different FileSystem
   // implementations.
