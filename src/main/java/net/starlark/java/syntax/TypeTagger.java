@@ -21,9 +21,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
+import java.util.BitSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -343,17 +343,21 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   private Types.GeneralCallableType createFunctionType(
-      ImmutableList<Parameter> parameters, @Nullable Expression returnTypeExpr) {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
-    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+      Resolver.Function resolvedFunction,
+      ImmutableList<Parameter> parameters,
+      @Nullable Expression returnTypeExpr) {
+    int numNonResidual = resolvedFunction.getNumNonResidualParameters();
+    ImmutableList<String> names = resolvedFunction.getParameterNames().subList(0, numNonResidual);
+    // Non-null only if there's at least one non-Any type non-residual parameter.
+    ImmutableList.Builder<StarlarkType> types = null;
+    BitSet mandatoryIndices = new BitSet();
 
     int nparams = parameters.size();
     int numPositionalParameters = 0;
+    int paramIndex = 0;
     Parameter.Star star = null;
     Parameter.StarStar starStar = null;
-    int i;
-    for (i = 0; i < nparams; i++) {
+    for (int i = 0; i < nparams; i++) {
       Parameter param = parameters.get(i);
       if (param instanceof Parameter.Star pstar) {
         star = pstar;
@@ -367,14 +371,25 @@ public final class TypeTagger extends NodeVisitor {
         numPositionalParameters++;
       }
 
-      String name = param.getName();
       Expression typeExpr = param.getType();
-
-      names.add(name);
-      types.add(typeExpr == null ? Types.ANY : extractType(typeExpr));
-      if (param instanceof Parameter.Mandatory) {
-        mandatoryParameters.add(name);
+      StarlarkType paramType = Types.ANY;
+      if (typeExpr != null) {
+        paramType = extractType(typeExpr);
+        if (!paramType.equals(Types.ANY) && types == null) {
+          types = ImmutableList.builderWithExpectedSize(numNonResidual);
+          for (int j = 0; j < paramIndex; j++) {
+            types.add(Types.ANY);
+          }
+        }
       }
+      if (types != null) {
+        types.add(paramType);
+      }
+
+      if (param instanceof Parameter.Mandatory) {
+        mandatoryIndices.set(paramIndex);
+      }
+      paramIndex++;
     }
 
     StarlarkType varargsType = null;
@@ -395,11 +410,11 @@ public final class TypeTagger extends NodeVisitor {
     }
 
     return Types.generalCallable(
-        names.build(),
-        types.build(),
+        names,
+        types == null ? null : types.build(),
         /* numPositionalOnlyParameters= */ 0,
         numPositionalParameters,
-        mandatoryParameters.build(),
+        Types.MandatoryParamIndices.of(mandatoryIndices),
         varargsType,
         kwargsType,
         returnType);
@@ -563,7 +578,8 @@ public final class TypeTagger extends NodeVisitor {
   public void visit(DefStatement def) {
     Resolver.Function resolvedFunction = def.getResolvedFunction();
     functionStack.push(resolvedFunction);
-    Types.GeneralCallableType type = createFunctionType(def.getParameters(), def.getReturnType());
+    Types.GeneralCallableType type =
+        createFunctionType(resolvedFunction, def.getParameters(), def.getReturnType());
     setType(resolvedFunction, type);
     setType(def, def.getIdentifier(), type);
     // Parameter types handled by visit(Parameter).
@@ -671,10 +687,10 @@ public final class TypeTagger extends NodeVisitor {
 
   @Override
   public void visit(LambdaExpression lambda) {
+    Resolver.Function resolvedFunction = lambda.getResolvedFunction();
     Types.GeneralCallableType type =
-        createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
-    setType(lambda.getResolvedFunction(), type);
-
+        createFunctionType(resolvedFunction, lambda.getParameters(), /* returnTypeExpr= */ null);
+    setType(resolvedFunction, type);
     super.visit(lambda);
   }
 
