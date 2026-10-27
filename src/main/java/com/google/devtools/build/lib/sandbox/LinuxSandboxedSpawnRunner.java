@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -127,7 +127,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       cmd.execute(ByteStreams.nullOutputStream(), stderr);
     } catch (CommandException e) {
       String reason = e.getMessage();
-      String stderrText = stderr.toString(UTF_8).trim();
+      String stderrText = stderr.toString(ISO_8859_1).trim();
       if (!stderrText.isEmpty()) {
         reason += ": " + stderrText;
       }

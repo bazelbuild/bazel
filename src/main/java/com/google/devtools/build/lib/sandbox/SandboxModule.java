@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toCollection;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -197,24 +196,6 @@ public final class SandboxModule extends BlazeModule {
     };
   }
 
-  /**
-   * Throws if the hermetic linux sandbox was requested but linux-sandbox is unavailable, since the
-   * "sandboxed" strategy would otherwise fall back to processwrapper-sandbox, which mounts the
-   * whole host filesystem.
-   */
-  @VisibleForTesting
-  static void checkHermeticLinuxSandboxSupported(
-      boolean useHermetic, Optional<String> linuxSandboxUnsupportedReason) throws IOException {
-    if (useHermetic && linuxSandboxUnsupportedReason.isPresent()) {
-      throw new IOException(
-          "--experimental_use_hermetic_linux_sandbox requires linux-sandbox, which is not"
-              + " supported on this machine ("
-              + linuxSandboxUnsupportedReason.get()
-              + "). Enable user and mount namespaces or pass"
-              + " --noexperimental_use_hermetic_linux_sandbox.");
-    }
-  }
-
   private void setup(CommandEnvironment cmdEnv, SpawnStrategyRegistry.Builder builder)
       throws IOException, InterruptedException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
@@ -281,8 +262,17 @@ public final class SandboxModule extends BlazeModule {
     Optional<String> linuxSandboxUnsupportedReason =
         LinuxSandboxedSpawnRunner.getUnsupportedReason(cmdEnv);
     boolean linuxSandboxSupported = linuxSandboxUnsupportedReason.isEmpty();
-    if (OS.getCurrent() == OS.LINUX) {
-      checkHermeticLinuxSandboxSupported(options.getUseHermetic(), linuxSandboxUnsupportedReason);
+    // Without linux-sandbox, the "sandboxed" strategy falls back to processwrapper-sandbox, which
+    // exposes the whole host filesystem, so fail rather than silently dropping hermeticity.
+    if (OS.getCurrent() == OS.LINUX
+        && options.getUseHermetic()
+        && linuxSandboxUnsupportedReason.isPresent()) {
+      throw new IOException(
+          "--experimental_use_hermetic_linux_sandbox requires linux-sandbox, which is not"
+              + " supported on this machine ("
+              + linuxSandboxUnsupportedReason.get()
+              + "). Enable user and mount namespaces or pass"
+              + " --noexperimental_use_hermetic_linux_sandbox.");
     }
     boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
 
