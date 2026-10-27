@@ -89,11 +89,14 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetChange
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeCreateJunction(
     JNIEnv* env, jclass clazz, jstring name, jstring target,
-    jobjectArray error_msg_holder) {
+    jstring print_name, jobjectArray error_msg_holder) {
   std::wstring wname(bazel::windows::GetJavaWstring(env, name));
   std::wstring wtarget(bazel::windows::GetJavaWstring(env, target));
+  // `print_name` may be null, in which case `wprint_name` is empty.
+  std::wstring wprint_name(bazel::windows::GetJavaWstring(env, print_name));
   std::wstring error;
-  int result = bazel::windows::CreateJunction(wname, wtarget, &error);
+  int result =
+      bazel::windows::CreateJunction(wname, wtarget, wprint_name, &error);
   if (result != bazel::windows::CreateJunctionResult::kSuccess &&
       !error.empty() && CanReportError(env, error_msg_holder)) {
     ReportLastError(bazel::windows::MakeErrorMessage(
@@ -127,13 +130,21 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeReadSymli
     JNIEnv* env, jclass clazz, jstring name, jobjectArray target_holder,
     jobjectArray error_msg_holder) {
   std::wstring wname(bazel::windows::GetJavaWstring(env, name));
-  std::wstring target, error;
-  int result = bazel::windows::ReadSymlinkOrJunction(wname, &target, &error);
+  std::wstring target, print_name, error;
+  int result = bazel::windows::ReadSymlinkOrJunction(wname, &target,
+                                                     &print_name, &error);
   if (result == bazel::windows::ReadSymlinkOrJunctionResult::kSuccess) {
     env->SetObjectArrayElement(
         target_holder, 0,
         env->NewString(reinterpret_cast<const jchar*>(target.c_str()),
                        target.size()));
+    // The second element, if any, receives a junction's display name.
+    if (!print_name.empty() && env->GetArrayLength(target_holder) > 1) {
+      env->SetObjectArrayElement(
+          target_holder, 1,
+          env->NewString(reinterpret_cast<const jchar*>(print_name.c_str()),
+                         print_name.size()));
+    }
   } else {
     if (!error.empty() && CanReportError(env, error_msg_holder)) {
       ReportLastError(bazel::windows::MakeErrorMessage(

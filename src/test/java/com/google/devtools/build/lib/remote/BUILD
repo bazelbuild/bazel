@@ -225,6 +225,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party/google/bytestream:bytestream_grpc",
         "//third_party/google/bytestream:bytestream_java_proto",
         "//third_party/google/longrunning:operations_java_proto",

@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -51,6 +52,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -63,6 +67,8 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -1084,6 +1090,89 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(actionFs.getLocalFileSystem().getPath(linkPath).isFile(Symlinks.NOFOLLOW))
         .isTrue();
+  }
+
+  @Test
+  public void createSymbolicLink_relativeDirectorySymlinkOnWindows_metadataIsStableAndRelative()
+      throws Exception {
+    // On Windows, a symlink to a directory is materialized as a junction, which can only store an
+    // absolute target.
+    assumeTrue(OS.getCurrent() == OS.WINDOWS);
+    PathFragment relativeTarget = PathFragment.create("../store/pkg");
+
+    // Simulate two workspaces with different output bases.
+    byte[] digest1 = createDirectorySymlinkOnNativeFilesystem("a", relativeTarget);
+    byte[] digest2 = createDirectorySymlinkOnNativeFilesystem("b/c", relativeTarget);
+
+    // The metadata reflects the requested relative target, so it doesn't depend on the location of
+    // the output base and can be shared through a remote cache.
+    assertThat(digest1).isEqualTo(digest2);
+    assertThat(digest1).isEqualTo(getUnresolvedSymlinkDigest(relativeTarget));
+  }
+
+  @Test
+  public void createSymbolicLink_absoluteDirectorySymlinkOnWindows_metadataIsStableAndAbsolute()
+      throws Exception {
+    assumeTrue(OS.getCurrent() == OS.WINDOWS);
+    Path base = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
+    PathFragment absoluteTarget = base.getRelative("store/pkg").asFragment();
+
+    byte[] digest = createDirectorySymlinkOnNativeFilesystem(base, absoluteTarget);
+
+    assertThat(digest).isEqualTo(getUnresolvedSymlinkDigest(absoluteTarget));
+  }
+
+  /**
+   * Creates a directory symlink output through a {@link RemoteActionFileSystem} backed by the
+   * native filesystem, and checks that the metadata computed during action execution matches the
+   * metadata computed from the local filesystem when outputs are checked in a subsequent build.
+   *
+   * @return the digest of the symlink's metadata
+   */
+  private byte[] createDirectorySymlinkOnNativeFilesystem(String execRootPath, PathFragment target)
+      throws Exception {
+    Path base = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
+    return createDirectorySymlinkOnNativeFilesystem(base.getRelative(execRootPath), target);
+  }
+
+  private byte[] createDirectorySymlinkOnNativeFilesystem(Path execRoot, PathFragment target)
+      throws Exception {
+    FileSystem nativeFs = execRoot.getFileSystem();
+    doReturn(DUMMY_REMOTE_OUTPUT_CHECKER).when(inputFetcher).getRemoteOutputChecker();
+    RemoteActionFileSystem actionFs =
+        new RemoteActionFileSystem(
+            nativeFs,
+            execRoot.asFragment(),
+            RELATIVE_OUTPUT_PATH,
+            new ActionInputMap(0),
+            inputFetcher);
+    actionFs.updateContext(mock(ActionExecutionMetadata.class));
+    PathFragment linkPath =
+        execRoot.getRelative(RELATIVE_OUTPUT_PATH).getRelative("node_modules/pkg").asFragment();
+    actionFs.createDirectoryAndParents(linkPath.getParentDirectory());
+
+    actionFs.getPath(linkPath).createSymbolicLink(target, SymlinkTargetType.DIRECTORY);
+
+    // A junction or symlink was created, and its target is reported as requested.
+    assertThat(nativeFs.getPath(linkPath).isSymbolicLink()).isTrue();
+    assertThat(nativeFs.getPath(linkPath).readSymbolicLink()).isEqualTo(target);
+    assertThat(actionFs.getRemoteOutputTree().getPath(linkPath).readSymbolicLink())
+        .isEqualTo(target);
+    // The metadata recorded during action execution must match the metadata computed from the
+    // local filesystem, or else the action would be rerun on the next build.
+    byte[] recordedDigest =
+        FileArtifactValue.createForUnresolvedSymlink(actionFs.getPath(linkPath)).getDigest();
+    byte[] localDigest =
+        FileArtifactValue.createForUnresolvedSymlink(nativeFs.getPath(linkPath)).getDigest();
+    assertThat(recordedDigest).isEqualTo(localDigest);
+    return localDigest;
+  }
+
+  private static byte[] getUnresolvedSymlinkDigest(PathFragment target) throws IOException {
+    FileSystem inMemoryFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path link = inMemoryFs.getPath("/link");
+    link.createSymbolicLink(target);
+    return FileArtifactValue.createForUnresolvedSymlink(link).getDigest();
   }
 
   @Test

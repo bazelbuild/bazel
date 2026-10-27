@@ -178,6 +178,48 @@ TEST_F(WindowsFileOperationsTest, TestCanCreateDanglingJunction) {
             CreateJunctionResult::kSuccess);
 }
 
+TEST_F(WindowsFileOperationsTest, TestCreateJunctionWithPrintName) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring target = tmp + L"\\target" WLINE;
+  wstring parent = tmp + L"\\parent" WLINE;
+  wstring name = parent + L"\\junc";
+  EXPECT_TRUE(CreateDirectoryW(target.c_str(), nullptr));
+  EXPECT_TRUE(CreateDirectoryW(parent.c_str(), nullptr));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(target + L"\\foo"));
+  wstring print_name = L"..\\target" WLINE;
+
+  ASSERT_EQ(CreateJunction(name, target, print_name, nullptr),
+            CreateJunctionResult::kSuccess);
+
+  // The print name doesn't affect where the junction points to.
+  ASSERT_NE(INVALID_FILE_ATTRIBUTES,
+            ::GetFileAttributesW((name + L"\\foo").c_str()));
+  wstring actual_target, actual_print_name;
+  ASSERT_EQ(ReadSymlinkOrJunction(name, &actual_target, &actual_print_name,
+                                  nullptr),
+            ReadSymlinkOrJunctionResult::kSuccess);
+  ASSERT_EQ(actual_target, L"\\??\\" + target.substr(4));
+  ASSERT_EQ(actual_print_name, print_name);
+  // Creating the junction again with the same target succeeds.
+  ASSERT_EQ(CreateJunction(name, target, print_name, nullptr),
+            CreateJunctionResult::kSuccess);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCreateJunctionWithoutPrintName) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  ASSERT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
+
+  // The print name defaults to the target.
+  wstring actual_target, actual_print_name;
+  ASSERT_EQ(ReadSymlinkOrJunction(name, &actual_target, &actual_print_name,
+                                  nullptr),
+            ReadSymlinkOrJunctionResult::kSuccess);
+  ASSERT_EQ(actual_print_name, target.substr(4));
+}
+
 TEST_F(WindowsFileOperationsTest, TestCreateJunctionChecksExistingJunction) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring name = tmp + L"\\junc" WLINE;

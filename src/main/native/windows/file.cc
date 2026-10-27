@@ -229,6 +229,11 @@ typedef struct _REPARSE_DATA_BUFFER {
 
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error) {
+  return CreateJunction(junction_name, junction_target, L"", error);
+}
+
+int CreateJunction(const wstring& junction_name, const wstring& junction_target,
+                   const wstring& junction_print_name, wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(junction_name)) {
     if (error) {
       *error = MakeErrorMessage(
@@ -280,6 +285,21 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     }
     return CreateJunctionResult::kTargetNameTooLong;
   }
+  // By default, the display name is the target (see below). A custom display
+  // name must fit into the reparse buffer next to the target; if it doesn't,
+  // fall back to the default.
+  const WCHAR* print_name = target;
+  size_t print_name_size = target_size;
+  if (!junction_print_name.empty() &&
+      /* prefix */ 4 + target_size + junction_print_name.size() +
+              /* two null terminators */ 2 <=
+          (MAXIMUM_REPARSE_DATA_BUFFER_SIZE -
+           offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)) /
+              sizeof(WCHAR)) {
+    print_name = junction_print_name.c_str();
+    print_name_size = junction_print_name.size();
+  }
+
   const wstring name = HasUncPrefix(junction_name.c_str())
                            ? junction_name
                            : (wstring(L"\\\\?\\") + junction_name);
@@ -411,7 +431,7 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
         reparse_buffer->MountPointReparseBuffer.SubstituteNameLength +
         /* null-terminator */ sizeof(WCHAR);
     reparse_buffer->MountPointReparseBuffer.PrintNameLength =
-        target_size * sizeof(WCHAR);
+        print_name_size * sizeof(WCHAR);
 
     reparse_buffer->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
     reparse_buffer->ReparseDataLength =
@@ -443,9 +463,12 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     // behaves. Using a dummy or fake display name would be misleading, it would
     // make the output of `dir` look like:
     //   2017-01-18  01:37 PM    <JUNCTION>     juncname [dummy string]
+    // The caller may instead pass the relative path from which the target was
+    // computed, which `dir` then shows like the target of a relative symlink.
     memcpy((uint8_t*)reparse_buffer->MountPointReparseBuffer.PathBuffer +
                reparse_buffer->MountPointReparseBuffer.PrintNameOffset,
-           target, reparse_buffer->MountPointReparseBuffer.PrintNameLength);
+           print_name,
+           reparse_buffer->MountPointReparseBuffer.PrintNameLength);
 
     DWORD bytes_returned;
     if (!::DeviceIoControl(
@@ -550,6 +573,14 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
 
 int ReadSymlinkOrJunction(const wstring& path, wstring* result,
                           wstring* error) {
+  return ReadSymlinkOrJunction(path, result, nullptr, error);
+}
+
+int ReadSymlinkOrJunction(const wstring& path, wstring* result,
+                          wstring* print_name, wstring* error) {
+  if (print_name) {
+    print_name->clear();
+  }
   if (!IsAbsoluteNormalizedWindowsPath(path)) {
     if (error) {
       *error = MakeErrorMessage(
@@ -631,6 +662,13 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
                      buf->MountPointReparseBuffer.SubstituteNameOffset);
       *result = wstring(
           p, buf->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR));
+      if (print_name) {
+        wchar_t* q =
+            (wchar_t*)(((uint8_t*)buf->MountPointReparseBuffer.PathBuffer) +
+                       buf->MountPointReparseBuffer.PrintNameOffset);
+        *print_name = wstring(
+            q, buf->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR));
+      }
       return ReadSymlinkOrJunctionResult::kSuccess;
     }
     case IO_REPARSE_TAG_PROJFS: {
