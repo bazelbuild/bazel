@@ -27,6 +27,7 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Reporter;
@@ -40,6 +41,10 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -200,6 +205,179 @@ public final class RemoteExternalOverlayFileSystemTest {
     } finally {
       overlay.afterCommand();
     }
+  }
+
+  @Test
+  public void ensureSubtreeMaterialized_onlyOncePerCommandAndInjection() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var cache = new InMemoryCombinedCache(digestUtil);
+    var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var externalRoot = PathFragment.create("/output/external");
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
+    var reporter = new Reporter();
+    var repo = RepositoryName.create("cached_repo");
+    var file = externalRoot.getRelative("cached_repo/dir/file");
+    var fileFetches = new AtomicInteger();
+    var prefetcher = mock(AbstractActionInputPrefetcher.class);
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Iterable<? extends ActionInput> inputs = invocation.getArgument(1);
+              for (var input : inputs) {
+                if (input.getExecPath().equals(file)) {
+                  fileFetches.incrementAndGet();
+                }
+              }
+              return immediateVoidFuture();
+            });
+    var subDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("file")
+                    .setDigest(digestUtil.compute("contents".getBytes(UTF_8))))
+            .build();
+    var rootDir =
+        Directory.newBuilder()
+            .addDirectories(
+                DirectoryNode.newBuilder().setName("dir").setDigest(digestUtil.compute(subDir)))
+            .build();
+    var tree = Tree.newBuilder().setRoot(rootDir).addChildren(subDir).build();
+
+    overlay.beforeCommand(
+        cache,
+        prefetcher,
+        reporter,
+        "build-request",
+        "command",
+        () -> mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    try {
+      assertThat(overlay.injectRemoteRepo(repo, tree, "marker")).isTrue();
+
+      // Further actions consuming the source directory don't have to materialize it again.
+      overlay.ensureSubtreeMaterialized(file.getParentDirectory());
+      overlay.ensureSubtreeMaterialized(file.getParentDirectory());
+      assertThat(fileFetches.get()).isEqualTo(1);
+
+      // Injecting the repo again, e.g. after a refetch, deletes it.
+      assertThat(overlay.injectRemoteRepo(repo, tree, "marker")).isTrue();
+      overlay.ensureSubtreeMaterialized(file.getParentDirectory());
+      assertThat(fileFetches.get()).isEqualTo(2);
+    } finally {
+      overlay.afterCommand();
+    }
+
+    overlay.beforeCommand(
+        cache,
+        prefetcher,
+        reporter,
+        "build-request",
+        "command2",
+        () -> mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    try {
+      // The materialized files may have been modified in between commands.
+      overlay.ensureSubtreeMaterialized(file.getParentDirectory());
+      assertThat(fileFetches.get()).isEqualTo(3);
+    } finally {
+      overlay.afterCommand();
+    }
+  }
+
+  @Test
+  public void ensureSubtreeMaterialized_reinjectedDuringMaterialization_materializesNewContents()
+      throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var cache = new InMemoryCombinedCache(digestUtil);
+    var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var externalRoot = PathFragment.create("/output/external");
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
+    var repo = RepositoryName.create("cached_repo");
+    var file = externalRoot.getRelative("cached_repo/dir/file");
+    var contentsByHash = new ConcurrentHashMap<String, String>();
+    var fileFetches = new AtomicInteger();
+    var firstFetchStarted = new CountDownLatch(1);
+    var finishFirstFetch = new CountDownLatch(1);
+    var prefetcher = mock(AbstractActionInputPrefetcher.class);
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Iterable<? extends ActionInput> inputs = invocation.getArgument(1);
+              AbstractActionInputPrefetcher.MetadataSupplier metadataSupplier =
+                  invocation.getArgument(2);
+              for (var input : inputs) {
+                if (!input.getExecPath().equals(file)) {
+                  continue;
+                }
+                // Download the contents that are current when the download starts.
+                var hash = HashCode.fromBytes(metadataSupplier.getMetadata(input).getDigest());
+                String contents = contentsByHash.get(hash.toString());
+                if (fileFetches.incrementAndGet() == 1) {
+                  firstFetchStarted.countDown();
+                  finishFirstFetch.await();
+                }
+                var path = nativeFs.getPath(file);
+                path.getParentDirectory().createDirectoryAndParents();
+                FileSystemUtils.writeContent(path, UTF_8, contents);
+              }
+              return immediateVoidFuture();
+            });
+    overlay.beforeCommand(
+        cache,
+        prefetcher,
+        new Reporter(),
+        "build-request",
+        "command",
+        () -> mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    var executor = Executors.newSingleThreadExecutor();
+    try {
+      assertThat(
+              overlay.injectRemoteRepo(
+                  repo, treeWithFile(digestUtil, "old", contentsByHash), "marker"))
+          .isTrue();
+      var materialization =
+          executor.submit(
+              () -> {
+                overlay.ensureSubtreeMaterialized(file.getParentDirectory());
+                return null;
+              });
+      firstFetchStarted.await();
+
+      // The repo is replaced while the old contents are being downloaded.
+      assertThat(
+              overlay.injectRemoteRepo(
+                  repo, treeWithFile(digestUtil, "new", contentsByHash), "marker"))
+          .isTrue();
+      finishFirstFetch.countDown();
+      materialization.get();
+
+      assertThat(FileSystemUtils.readContent(nativeFs.getPath(file), UTF_8)).isEqualTo("new");
+      assertThat(fileFetches.get()).isEqualTo(2);
+      // The new contents are recorded as materialized.
+      overlay.ensureSubtreeMaterialized(file.getParentDirectory());
+      assertThat(fileFetches.get()).isEqualTo(2);
+    } finally {
+      executor.shutdownNow();
+      overlay.afterCommand();
+    }
+  }
+
+  private static Tree treeWithFile(
+      DigestUtil digestUtil, String contents, Map<String, String> contentsByHash) {
+    var digest = digestUtil.compute(contents.getBytes(UTF_8));
+    contentsByHash.put(digest.getHash(), contents);
+    var subDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("file").setDigest(digest))
+            .build();
+    var rootDir =
+        Directory.newBuilder()
+            .addDirectories(
+                DirectoryNode.newBuilder().setName("dir").setDigest(digestUtil.compute(subDir)))
+            .build();
+    return Tree.newBuilder().setRoot(rootDir).addChildren(subDir).build();
   }
 
   @Test

@@ -77,6 +77,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -100,6 +101,18 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   // externalFs.
   private final ConcurrentHashMap<String, String> markerFileContents = new ConcurrentHashMap<>();
   private final Set<String> reposWithLostFiles = ConcurrentHashMap.newKeySet();
+  // Keyed by the root of the subtree, with the generation of its repo as attributes.
+  private final TaskDeduplicator<PathFragment, Long, Void> subtreeMaterializations =
+      new TaskDeduplicator<>();
+  // The subtrees of in-memory repos that have been materialized to nativeFs during the current
+  // command, mapped to the generation of their repo at the time. As long as that generation is
+  // current, they don't have to be materialized again for each action that consumes them.
+  private final ConcurrentHashMap<PathFragment, Long> materializedSubtrees =
+      new ConcurrentHashMap<>();
+  // Incremented whenever a path in a repo or above all repos is deleted or replaced, which may
+  // leave subtrees of the repo materialized before incomplete or stale.
+  private final ConcurrentHashMap<String, AtomicLong> repoGenerations = new ConcurrentHashMap<>();
+  private final AtomicLong externalDirectoryGeneration = new AtomicLong();
 
   // Per-build information that is set in beforeCommand and cleared in afterCommand.
   @Nullable private CombinedCache cache;
@@ -174,6 +187,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // refetching is not atomic.
     materializedRepos.forEach(this::evictInMemoryRepo);
     reposWithLostFiles.forEach(this::evictInMemoryRepo);
+    // The materialized files may be modified or deleted between commands.
+    materializedSubtrees.clear();
+    repoGenerations.clear();
     // The evaluator may have been replaced during the command.
     invalidateRepoDirectories(evaluator.get(), reposWithLostFiles);
     reposWithLostFiles.clear();
@@ -189,6 +205,30 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     }
     materializedRepos.remove(repoName);
     markerFileContents.remove(repoName);
+    invalidateMaterializedSubtrees(externalDirectory.getChild(repoName));
+  }
+
+  /**
+   * Invalidates the materialized subtrees of the repo that contains the given path, or of all repos
+   * if the path contains the external directory, as they may no longer be complete or up to date
+   * after the path has been deleted or replaced.
+   */
+  private void invalidateMaterializedSubtrees(PathFragment path) {
+    if (externalDirectory.startsWith(path)) {
+      externalDirectoryGeneration.incrementAndGet();
+    } else if (path.startsWith(externalDirectory)) {
+      repoGenerations
+          .computeIfAbsent(
+              path.getSegment(externalDirectorySegmentCount), unused -> new AtomicLong())
+          .incrementAndGet();
+    }
+  }
+
+  /** Returns the current generation of the given repo with respect to materialized subtrees. */
+  private long getSubtreeGeneration(String repoName) {
+    // Both counters only ever increase, so their sum changes whenever either of them does.
+    var repoGeneration = repoGenerations.get(repoName);
+    return externalDirectoryGeneration.get() + (repoGeneration == null ? 0 : repoGeneration.get());
   }
 
   /** Invalidates the {@link SkyFunctions#REPOSITORY_DIRECTORY} nodes of the given repos. */
@@ -208,6 +248,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * success.
    */
   public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
+      throws IOException, InterruptedException {
+    // Subtrees of the repo materialized before or during the injection may be stale or incomplete,
+    // no matter how its previous contents are removed.
+    var repoDir = externalDirectory.getChild(repo.getName());
+    invalidateMaterializedSubtrees(repoDir);
+    try {
+      return doInjectRemoteRepo(repo, remoteContents, markerFile);
+    } finally {
+      invalidateMaterializedSubtrees(repoDir);
+    }
+  }
+
+  private boolean doInjectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
       throws IOException, InterruptedException {
     var repoDir = externalDirectory.getChild(repo.getName());
     deleteTree(repoDir);
@@ -535,7 +588,57 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     if (fsForPath(path) != externalFs) {
       return;
     }
-    materializeSubtree(path);
+    String repoName = path.getSegment(externalDirectorySegmentCount);
+    long generation = getSubtreeGeneration(repoName);
+    if (isSubtreeMaterialized(path, generation)) {
+      return;
+    }
+    // A source directory is typically consumed by many actions, which would otherwise all walk
+    // and check the entire subtree.
+    var unused =
+        getFromFuture(
+            subtreeMaterializations.execute(
+                path,
+                generation,
+                // A materialization that started before the subtree was last invalidated may not
+                // reflect its current contents.
+                /* canJoin= */ ongoingGeneration -> ongoingGeneration == generation,
+                () -> {
+                  // Another caller may have finished since the check above.
+                  if (isSubtreeMaterialized(path, generation)) {
+                    return immediateVoidFuture();
+                  }
+                  return materializationExecutor.submit(
+                      () -> {
+                        materializeSubtreeUntilValid(path, repoName);
+                        return null;
+                      });
+                }));
+  }
+
+  private boolean isSubtreeMaterialized(PathFragment path, long generation) {
+    Long materializedGeneration = materializedSubtrees.get(path);
+    return materializedGeneration != null && materializedGeneration == generation;
+  }
+
+  /**
+   * Materializes the subtree rooted at the given path and records it as materialized, repeating the
+   * materialization if the subtree is invalidated in the meantime. Callers waiting for the
+   * materialization can then rely on the current contents of the subtree being available.
+   */
+  private void materializeSubtreeUntilValid(PathFragment path, String repoName)
+      throws IOException, InterruptedException {
+    // The repo may no longer be served from memory, e.g. while it is being injected again or if it
+    // has been refetched without a cache hit, in which case there is nothing to materialize.
+    while (fsForPath(path) == externalFs) {
+      long generation = getSubtreeGeneration(repoName);
+      materializeSubtree(path);
+      if (getSubtreeGeneration(repoName) == generation) {
+        // A concurrent materialization may have recorded a newer generation already.
+        materializedSubtrees.merge(path, generation, Math::max);
+        return;
+      }
+    }
   }
 
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
@@ -623,14 +726,22 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
 
   @Override
   public void deleteTree(PathFragment path) throws IOException {
-    nativeFs.deleteTree(path);
-    externalFs.deleteTree(path);
+    try {
+      nativeFs.deleteTree(path);
+      externalFs.deleteTree(path);
+    } finally {
+      invalidateMaterializedSubtrees(path);
+    }
   }
 
   @Override
   public void deleteTreesBelow(PathFragment dir) throws IOException {
-    nativeFs.deleteTreesBelow(dir);
-    externalFs.deleteTreesBelow(dir);
+    try {
+      nativeFs.deleteTreesBelow(dir);
+      externalFs.deleteTreesBelow(dir);
+    } finally {
+      invalidateMaterializedSubtrees(dir);
+    }
   }
 
   // All other methods delegate to the file system given by this method. It is important to override
@@ -665,7 +776,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
 
   @Override
   public boolean delete(PathFragment path) throws IOException {
-    return fsForPath(path).delete(path);
+    try {
+      return fsForPath(path).delete(path);
+    } finally {
+      invalidateMaterializedSubtrees(path);
+    }
   }
 
   @Override
