@@ -148,6 +148,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -918,11 +919,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return args.build();
   }
 
+  @Nullable
+  protected CommandLines getCommandLines(Action action) {
+    return switch (action) {
+      case SpawnAction spawnAction -> spawnAction.getCommandLines();
+      case JavaCompileAction javaCompileAction -> javaCompileAction.getCommandLines();
+      case null, default -> null;
+    };
+  }
+
   /** Locates the first parameter file used by the action and returns its command line. */
   @Nullable
   protected final CommandLine paramFileCommandLineForAction(Action action) {
-    if (action instanceof SpawnAction spawnAction) {
-      CommandLines commandLines = spawnAction.getCommandLines();
+    CommandLines commandLines = getCommandLines(action);
+    if (commandLines != null) {
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           return pair.commandLine;
@@ -957,8 +967,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected final String paramFileStringContentsForAction(Action action)
       throws CommandLineExpansionException, InterruptedException, IOException {
-    if (action instanceof SpawnAction spawnAction) {
-      CommandLines commandLines = spawnAction.getCommandLines();
+    CommandLines commandLines = getCommandLines(action);
+    if (commandLines != null) {
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
