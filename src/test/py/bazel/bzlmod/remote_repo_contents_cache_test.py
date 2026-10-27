@@ -75,6 +75,58 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
+  def testNonUtf8RepositoryPathsAreRefetched(self):
+    if not self.IsLinux():
+      self.skipTest('requires arbitrary POSIX filename bytes')
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        ['repo = use_repo_rule("//:repo.bzl", "repo")']
+        + [
+            f'repo(name = "{kind}", kind = "{kind}")'
+            for kind in ('names', 'target', 'valid')
+        ],
+    )
+    self.ScratchFile(
+        'make.sh',
+        [
+            r'replacement=$(printf "\357\277\275")',
+            'case "$1" in',
+            r'  names) echo original > "$(printf "\377")"; echo other > "$replacement";;',
+            r'  target) ln -s "$(printf "\376")" link;;',
+            '  valid) echo valid > "$replacement";;',
+            'esac',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _impl(ctx):',
+            '  result = ctx.execute(["sh", ctx.path(Label("//:make.sh")), ctx.attr.kind])',
+            '  if result.return_code: fail(result.stderr)',
+            '  ctx.file("BUILD.bazel", "filegroup(name=\'ok\')")',
+            '  print("FETCHED " + ctx.attr.kind)',
+            '  return ctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_impl, attrs={"kind": attr.string()})',
+        ],
+    )
+
+    args = ['query', 'set(@names//:ok @target//:ok @valid//:ok)']
+    self.RunBazel(args)
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args)
+    log = '\n'.join(stderr)
+    self.assertIn('FETCHED names', log)
+    self.assertIn('FETCHED target', log)
+    self.assertNotIn('FETCHED valid', log)
+    names = os.fsencode(self.RepoDir('names'))
+    with open(os.path.join(names, b'\xff'), 'rb') as f:
+      self.assertEqual(f.read(), b'original\n')
+    with open(os.path.join(names, '\ufffd'.encode()), 'rb') as f:
+      self.assertEqual(f.read(), b'other\n')
+    link = os.path.join(os.fsencode(self.RepoDir('target')), b'link')
+    self.assertEqual(os.readlink(link), b'\xfe')
+
   def testLocalRepoContentsCacheInteraction(self):
     self.ScratchFile(
         'MODULE.bazel',
