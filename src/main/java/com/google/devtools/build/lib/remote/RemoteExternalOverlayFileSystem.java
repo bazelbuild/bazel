@@ -497,7 +497,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
 
   @Override
   @Nullable
-  public IOException getRepoInputError(PathFragment path, IOException cause) {
+  public IOException getRepoDownloadError(PathFragment path, IOException cause) {
     if (fsForPath(path) != externalFs) {
       return null;
     }
@@ -577,10 +577,18 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       }
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(files);
-    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
-    prefetch(symlinks);
+    try {
+      prefetch(files);
+      // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
+      // target.
+      prefetch(symlinks);
+    } catch (BulkTransferException e) {
+      var eviction = e.getLostRepoFile();
+      if (eviction != null) {
+        throw eviction;
+      }
+      throw e;
+    }
   }
 
   private void collectAndCreateDirectories(

@@ -2286,6 +2286,43 @@ class RemoteRepoContentsCacheTest(
           ' memory-pressure compute state drop and served from the cache'
       )
 
+  def testLostRemoteFile_topLevelSource(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    args = ['build', '@my_repo//:data.txt', '--remote_download_toplevel']
+    repo_dir = self.RepoDir('my_repo')
+    self.RunBazel(args + ['--nobuild'])
+    self.RunBazel(['clean', '--expunge'])
+    self.RunBazel(args + ['--nobuild'])
+    data_file = os.path.join(repo_dir, 'data.txt')
+    self.assertFalse(os.path.exists(data_file))
+
+    self.DeleteCasEntry(b'hello')
+    _, _, stderr = self.RunBazel(args)
+    self.assertEqual(
+        1, stderr.count('Found transient remote cache error, retrying the build...')
+    )
+    with open(data_file) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):
@@ -2755,6 +2792,12 @@ class RemoteRepoContentsCacheTest(
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
   def testRunWithSourceDirectoryInRunfiles(self):
+    self.doTestRunWithSourceDirectoryInRunfiles(evict=False)
+
+  def testRunWithEvictedSourceDirectoryInRunfiles(self):
+    self.doTestRunWithSourceDirectoryInRunfiles(evict=True)
+
+  def doTestRunWithSourceDirectoryInRunfiles(self, *, evict):
     if self.IsWindows():
       self.skipTest('requires a shell script')
     self.ScratchFile(
@@ -2823,10 +2866,13 @@ class RemoteRepoContentsCacheTest(
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'dir/data.txt')))
 
-    # Running the binary downloads them since it has the source directory in
-    # its runfiles.
+    if evict:
+      self.DeleteCasEntry(b'hello from a source directory')
     _, stdout, stderr = self.RunBazel(['run', '//main:launcher'])
-    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    if evict:
+      self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    else:
+      self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertIn('hello from a source directory', '\n'.join(stdout))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'dir/data.txt')))
 

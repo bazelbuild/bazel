@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.remote.common;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import build.bazel.remote.execution.v2.Digest;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,6 +27,22 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class BulkTransferExceptionTest {
+
+  @Test
+  public void repositoryEvictionRequiresEveryFailedTransferToBeRecoverable() {
+    BulkTransferException failures = new BulkTransferException();
+    failures.add(new CacheNotFoundException(Digest.getDefaultInstance()));
+    assertThat(failures.getLostRepoFile()).isNull();
+
+    DetailedIOException eviction =
+        new DetailedIOException(
+            "missing source", null, Filesystem.Code.REMOTE_FILE_EVICTED, Transience.TRANSIENT);
+    failures.add(eviction);
+    assertThat(failures.getLostRepoFile()).isSameInstanceAs(eviction);
+
+    failures.add(new IOException("permission denied"));
+    assertThat(failures.getLostRepoFile()).isNull();
+  }
 
   @Test
   public void shouldProvideGenericMessageIfNoAddedException() {
