@@ -283,11 +283,30 @@ public class UrlRewriter {
 
   private static boolean isMatchingHostName(URI url, String host) {
     String urlHost = url.getHost();
-    return urlHost != null && (host.equals(urlHost) || urlHost.endsWith("." + host));
+    if (urlHost == null) {
+      return false;
+    }
+    String lowerUrlHost = Ascii.toLowerCase(urlHost);
+    return host.equals(lowerUrlHost) || lowerUrlHost.endsWith("." + host);
   }
 
   private ImmutableList<RewrittenURL> applyRewriteRules(URI url) {
     String withoutScheme = url.toString().substring(url.getScheme().length() + 3);
+    String host = url.getHost();
+    if (host != null) {
+      String lowerHost = Ascii.toLowerCase(host);
+      if (!host.equals(lowerHost)) {
+        // Splice the lowercased host into withoutScheme (after any "userInfo@") while leaving the
+        // raw port, path, query, and fragment untouched.
+        String userInfo = url.getRawUserInfo();
+        int hostStart = userInfo == null ? 0 : userInfo.length() + 1;
+        int hostEnd = hostStart + host.length();
+        if (withoutScheme.regionMatches(hostStart, host, 0, host.length())) {
+          withoutScheme =
+              withoutScheme.substring(0, hostStart) + lowerHost + withoutScheme.substring(hostEnd);
+        }
+      }
+    }
 
     ImmutableSet.Builder<String> rewrittenUrls = ImmutableSet.builder();
 

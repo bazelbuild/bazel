@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -155,14 +156,14 @@ class UrlRewriterConfig {
               throw parseException(
                   "Only the host name is allowed after `allow`: " + line, location);
             }
-            allowList.add(parts.get(1));
+            allowList.add(Ascii.toLowerCase(parts.get(1)));
           }
           case "block" -> {
             if (parts.size() != 2) {
               throw parseException(
                   "Only the host name is allowed after `block`: " + line, location);
             }
-            blockList.add(parts.get(1));
+            blockList.add(Ascii.toLowerCase(parts.get(1)));
           }
           case "rewrite" -> {
             if (parts.size() != 3) {
