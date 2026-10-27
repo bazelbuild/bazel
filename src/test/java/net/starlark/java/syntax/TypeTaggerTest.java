@@ -22,7 +22,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.BooleanSubject;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver.Module;
 import org.junit.Test;
@@ -71,14 +73,18 @@ public class TypeTaggerTest {
       return typeTable().getType(function);
     }
 
-    /** Returns the type of a global. Does not support vars that are bound in a list assignment. */
+    /** Returns the type of a global. */
     @Nullable
     private StarlarkType getType(String name) {
       for (Statement stmt : file().getStatements()) {
         switch (stmt) {
           case AssignmentStatement assign -> {
-            if (assign.getLHS() instanceof Identifier id && id.getName().equals(name)) {
-              return typeTable().getType(id.getBinding());
+            List<Identifier> ids = new ArrayList<>();
+            collectAssignmentLhsIdentifiers(assign.getLHS(), ids);
+            for (Identifier id : ids) {
+              if (id.getName().equals(name)) {
+                return typeTable().getType(id.getBinding());
+              }
             }
           }
           case DefStatement def -> {
@@ -115,6 +121,18 @@ public class TypeTaggerTest {
       assertThat(lambda.getResolvedFunction()).isNotNull();
       return getType(lambda.getResolvedFunction());
     }
+
+    private void collectAssignmentLhsIdentifiers(Expression assignLHS, List<Identifier> ids) {
+      switch (assignLHS) {
+        case Identifier id -> ids.add(id);
+        case ListExpression list -> {
+          for (Expression elem : list.getElements()) {
+            collectAssignmentLhsIdentifiers(elem, ids);
+          }
+        }
+        default -> {} // Ignore index exprs.
+      }
+    }
   }
 
   /**
@@ -133,6 +151,7 @@ public class TypeTaggerTest {
   }
 
   /** As in {@link #tagFilePossiblyFailing} but asserts that even type tagging succeeded. */
+  @CanIgnoreReturnValue
   private Result tagFile(String... lines) throws Exception {
     Result result = tagFilePossiblyFailing(lines);
     assertThat(result.typeTable().errors()).isEmpty();
@@ -405,9 +424,10 @@ public class TypeTaggerTest {
   }
 
   @Test
-  public void annotationMustBeAtFirstOccurrence_innerFunction() throws Exception {
-    // Every function definition implicitly annotates its identifier as at least a Callable, even
-    // if the definition has no parameter or return type annotations.
+  public void annotationMustBeAtFirstOccurrence_innerFunction_inTypedCode() throws Exception {
+    // In a file containing any typed code, every function definition implicitly annotates its
+    // identifier as at least a Callable, even if the definition has no parameter or return type
+    // annotations.
     assertInvalid(
         "function 'g' was previously declared",
         """
@@ -416,10 +436,36 @@ public class TypeTaggerTest {
                 pass
             def g():
                 pass
+
+        def h():
+            x: Any  # typed code
+            pass
         """);
 
     assertInvalid(
         "function 'g' was previously declared",
+        """
+        def f():
+            g = 1
+            def g():
+                pass
+
+        _: Any  # typed code
+        """);
+  }
+
+  @Test
+  public void redeclaredInnerFunctions_ignoredInUntypedCode() throws Exception {
+    tagFile(
+        """
+        def f():
+            def g():
+                pass
+            def g():
+                pass
+        """);
+
+    tagFile(
         """
         def f():
             g = 1
@@ -809,7 +855,7 @@ public class TypeTaggerTest {
   }
 
   @Test
-  public void loadedTypeConstructor_cannotBeRebound() throws Exception {
+  public void loadedTypeConstructor_cannotBeRebound_inTypedCode() throws Exception {
     loader =
         importName ->
             TestUtils.LoadableModule.ofTypesAndConstructors(
@@ -830,6 +876,7 @@ public class TypeTaggerTest {
         """
         load("//x:x.bzl", "numeric")
         numeric = 123
+        _: Any  # enable type syntax
         """);
 
     assertInvalid(
@@ -837,6 +884,7 @@ public class TypeTaggerTest {
         """
         load("//x:x.bzl", "numeric")
         foo, bar, numeric = 123, 456, 789
+        _: Any  # enable type syntax
         """);
 
     assertInvalid(
@@ -844,8 +892,41 @@ public class TypeTaggerTest {
         """
         load("//x:x.bzl", "numeric")
         def numeric(x):
-            return cast(int|float, x)
+            return cast(int|float, x)  # `cast` means typed code!
         """);
+  }
+
+  @Test
+  public void loadedTypeConstructor_canBeRebound_inUntypedCode() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    options.allowToplevelRebinding(true).loadBindsGlobally(true);
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            numeric = 123
+            """);
+    assertThat(result.getType("numeric")).isEqualTo(Types.ANY);
+
+    result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            foo, bar, numeric = 123, 456, 789
+            """);
+    assertThat(result.getType("numeric")).isEqualTo(Types.ANY);
+
+    result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            def numeric(x):
+                return x + 0
+            """);
+    assertThat(result.getType("numeric")).isInstanceOf(Types.CallableType.class);
   }
 
   @Test

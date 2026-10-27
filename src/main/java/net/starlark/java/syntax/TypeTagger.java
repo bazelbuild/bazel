@@ -113,6 +113,18 @@ public final class TypeTagger extends NodeVisitor {
     typeTable.addError(new SyntaxError(loc, String.format(format, args)));
   }
 
+  // Formats and reports an error at the start of the specified node.
+  @FormatMethod
+  private void errorfOnlyInTypedCode(Node node, String format, Object... args) {
+    errorfOnlyInTypedCode(node.getStartLocation(), format, args);
+  }
+
+  // Formats and reports an error at the specified location.
+  @FormatMethod
+  private void errorfOnlyInTypedCode(Location loc, String format, Object... args) {
+    typeTable.addErrorRelevantOnlyInTypedCode(new SyntaxError(loc, String.format(format, args)));
+  }
+
   private TypeTagger(TypeTable typeTable, Resolver.Module module, @Nullable Loader loader) {
     this.typeTable = typeTable;
     this.module = module;
@@ -423,14 +435,17 @@ public final class TypeTagger extends NodeVisitor {
         //
         // When a violation occurs at a def statement, we use a more specific error message to avoid
         // confusing the user.
-        errorf(id, "function '%s' was previously declared", id.getName());
+        errorfOnlyInTypedCode(id, "function '%s' was previously declared", id.getName());
       } else {
-        errorf(id, "type annotation on '%s' may only appear at its declaration", id.getName());
+        errorfOnlyInTypedCode(
+            id, "type annotation on '%s' may only appear at its declaration", id.getName());
       }
       if (binding.isSyntactic()) {
-        errorf(binding.getFirst(), "'%s' previously declared here", id.getName());
+        errorfOnlyInTypedCode(binding.getFirst(), "'%s' previously declared here", id.getName());
       }
       errorIfTypeConstructor(node, id);
+      // We don't have a usable type for this binding.
+      typeTable.setDeclaredType(binding, null);
       return;
     }
 
@@ -495,8 +510,9 @@ public final class TypeTagger extends NodeVisitor {
       // redeclaration only within the same program (the same set of statements passed to
       // TypeTagger/TypeChecker); but redeclaration in a different program which happens to mutate
       // the same globals should be fine.
-      errorf(node, "type '%s' redeclared", id.getName());
-      errorf(id.getBinding().getFirst(), "'%s' previously declared here", id.getName());
+      errorfOnlyInTypedCode(node, "type '%s' redeclared", id.getName());
+      errorfOnlyInTypedCode(
+          id.getBinding().getFirst(), "'%s' previously declared here", id.getName());
       return true;
     }
     return false;
