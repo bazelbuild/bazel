@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
@@ -187,7 +187,7 @@ public class RemoteActionFileSystem extends FileSystem {
    * <p>Safe for concurrent access.
    */
   private class TreeArtifactDirectoryCache {
-    private final Set<SpecialArtifact> cachedTrees = new HashSet<>();
+    private final Set<TreeArtifact> cachedTrees = new HashSet<>();
     private final HashMap<PathFragment, HashSet<Dirent>> dirToEntries = new HashMap<>();
 
     @Nullable
@@ -201,7 +201,7 @@ public class RemoteActionFileSystem extends FileSystem {
       if (treeMetadata == null || treeMetadata.getChildren().isEmpty()) {
         return;
       }
-      SpecialArtifact parent = Iterables.getFirst(treeMetadata.getChildren(), null).getParent();
+      TreeArtifact parent = Iterables.getFirst(treeMetadata.getChildren(), null).getParent();
       if (!cachedTrees.contains(parent)) {
         insertTree(treeMetadata);
         cachedTrees.add(parent);
@@ -741,6 +741,11 @@ public class RemoteActionFileSystem extends FileSystem {
 
       @Override
       public long getLastModifiedTime() {
+        return Math.floorDiv(getLastModifiedTimeNanos(), 1_000_000);
+      }
+
+      @Override
+      public long getLastModifiedTimeNanos() {
         try {
           return m.getModifiedTime();
         } catch (UnsupportedOperationException e) {
@@ -752,6 +757,11 @@ public class RemoteActionFileSystem extends FileSystem {
       @Override
       public long getLastChangeTime() {
         return getLastModifiedTime();
+      }
+
+      @Override
+      public long getLastChangeTimeNanos() {
+        return getLastModifiedTimeNanos();
       }
 
       @Override

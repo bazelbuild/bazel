@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
-import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -786,14 +785,8 @@ public class RunCommand implements BlazeCommand {
                   .build()),
           builtTargets.stopTime);
     }
-    TestTargetExecutionSettings settings = testAction.getExecutionSettings();
-    // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
-    Preconditions.checkState(
-        settings.getRunfilesSymlinksCreated()
-            == options.getOptions(CoreOptions.class).getBuildRunfileLinks());
-
     Path execRoot = env.getExecRoot();
-    Path runfilesDir = settings.getRunfilesDir();
+    Path runfilesDir = testAction.getExecutionSettings().getRunfilesDir();
     if (runfilesDir == null) {
       runfilesDir = builtTargets.targetToRunRunfilesDir.getParentDirectory();
     }

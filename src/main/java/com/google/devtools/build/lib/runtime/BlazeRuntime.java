@@ -2046,7 +2046,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private static int readPidFile(Path pidFile) throws AbruptExitException {
     try {
-      return Integer.parseInt(new String(FileSystemUtils.readContentAsLatin1(pidFile)));
+      return Integer.parseInt(FileSystemUtils.readContentAsLatin1(pidFile));
     } catch (IOException e) {
       throw createFilesystemExitException(
           "Server pid file read failed: " + e.getMessage(),

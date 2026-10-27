@@ -61,9 +61,8 @@ enum StatTimes {
   STAT_CTIME,  // status change
 };
 
-// Returns milliseconds since Unix epoch from the given struct stat field.
-uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
-                               StatTimes t);
+// Returns nanoseconds since Unix epoch from the given struct stat field.
+int64_t StatEpochNanoseconds(const portable_stat_struct& statbuf, StatTimes t);
 
 // Runs getxattr(2). If the attribute is not found or extended attributes are
 // not supported by the filesystem, returns -1 and sets attr_not_found to true.

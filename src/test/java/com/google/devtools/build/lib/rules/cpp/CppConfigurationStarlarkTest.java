@@ -130,6 +130,46 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
+  @Test
+  public void testAbsoluteSymlinkRejectsUnconfiguredPath() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/rule.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "def _impl(ctx):",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.profdata')",
+        "  cc_common.absolute_symlink(",
+        "      ctx = ctx,",
+        "      output = out,",
+        "      target_path = ctx.attr.target_path,",
+        "      progress_message = 'Symlinking profile',",
+        "  )",
+        "  return [DefaultInfo(files = depset([out]))]",
+        "symlink_rule = rule(",
+        "    implementation = _impl,",
+        "    fragments = ['cpp'],",
+        "    attrs = {'target_path': attr.string()},",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':rule.bzl', 'symlink_rule')",
+        "symlink_rule(name = 'unconfigured', target_path = '/tmp/arbitrary/file.profdata')",
+        "symlink_rule(name = 'configured', target_path = '/tmp/configured/profile.profdata')");
+
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () -> getConfiguredTarget("//bazel_internal/test_rules/cc:unconfigured"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "absolute_symlink target_path '/tmp/arbitrary/file.profdata' must match a configured"
+                + " FDO or Propeller profile path");
+
+    useConfiguration(
+        "--enable_remaining_fdo_absolute_paths", "--fdo_optimize=/tmp/configured/profile.profdata");
+    assertThat(getConfiguredTarget("//bazel_internal/test_rules/cc:configured")).isNotNull();
+  }
+
   private void writeRuleReturning(String returns) throws IOException {
     writeRuleReturning("foo", "lib.bzl", "bar", returns);
   }

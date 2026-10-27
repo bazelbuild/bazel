@@ -122,7 +122,7 @@ public class PidFileWatcher {
   private static boolean pidFileValid(Path pidFile, int expectedPid) {
     String pidFileContents;
     try {
-      pidFileContents = new String(FileSystemUtils.readContentAsLatin1(pidFile));
+      pidFileContents = FileSystemUtils.readContentAsLatin1(pidFile);
     } catch (IOException e) {
       logger.atInfo().log("Cannot read PID file: %s", e.getMessage());
       return false;

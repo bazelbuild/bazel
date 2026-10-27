@@ -205,7 +205,7 @@ class RemoteRepoContentsCacheTest(
         [
             'def _repo_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
-            '  rctx.watch(Label("@//:data.txt"))',
+            '  rctx.watch(Label("@//:data file.txt"))',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
@@ -215,20 +215,20 @@ class RemoteRepoContentsCacheTest(
     repo_dir = self.RepoDir('my_repo')
 
     # First fetch: not cached
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change recorded inputs: not cached
-    self.ScratchFile('data.txt', ['two'])
+    self.ScratchFile('data file.txt', ['two'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change back to previous recorded inputs: cached (even after expunging)
     self.RunBazel(['clean', '--expunge'])
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
@@ -403,6 +403,44 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
     # The recorded input with a space in its name is found in the cache.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testRecordedInputs_missingRepoMapping(self):
+    # Constructing a Label with an apparent repo name that isn't mapped records
+    # the missing mapping, which must validate as missing when the repo is
+    # looked up again.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  unused = Label("@optional_missing//:unused")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "data")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The marker file is still valid after a restart of the server.
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The cache entry is found after expunging.
     self.RunBazel(['clean', '--expunge'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))

@@ -147,7 +147,8 @@ struct ReadSymlinkOrJunctionResult {
 // see http://superuser.com/a/343079. In Bazel we only ever create junctions.
 int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error);
 
-// Retrieves the FILETIME at which `path` was last changed, including metadata.
+// Retrieves the time at which `path` was last changed, including metadata, in
+// nanoseconds since the Unix epoch.
 //
 // `path` should be an absolute, normalized, Windows-style path, with "\\?\"
 // prefix if it's longer than MAX_PATH.

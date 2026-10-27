@@ -96,6 +96,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> pluginList;
   private final boolean experimentalTurbineAnnotationProcessing;
   private final int experimentalTurbineCpuReservation;
+  private final boolean experimentalTurbineOutputRootRelativePath;
   private final boolean experimentalEnableJspecify;
   private final boolean disallowJavaImportExports;
 
@@ -150,6 +151,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.getExperimentalTurbineAnnotationProcessing();
     this.experimentalTurbineCpuReservation = javaOptions.getTurbineCpuReservation();
+    this.experimentalTurbineOutputRootRelativePath =
+        javaOptions.getExperimentalTurbineOutputRootRelativePath();
     this.experimentalEnableJspecify = javaOptions.getExperimentalEnableJspecify();
   }
 
@@ -391,6 +394,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public int experimentalTurbineCpuReservation() {
     return experimentalTurbineCpuReservation;
+  }
+
+  public boolean experimentalTurbineOutputRootRelativePath() {
+    return experimentalTurbineOutputRootRelativePath;
   }
 
   public boolean experimentalEnableJspecify() {

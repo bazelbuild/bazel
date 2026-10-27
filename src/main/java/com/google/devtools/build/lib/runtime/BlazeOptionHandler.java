@@ -710,7 +710,7 @@ public final class BlazeOptionHandler {
         String.format(
             "%1$s should not be called from a %1$s output directory. ", runtime.getProductName());
     try {
-      String realWorkspace = new String(FileSystemUtils.readContentAsLatin1(doNotBuildFile));
+      String realWorkspace = FileSystemUtils.readContentAsLatin1(doNotBuildFile);
       message += String.format("The pertinent workspace directory is: '%s'", realWorkspace);
     } catch (IOException e) {
       // We are exiting anyway.

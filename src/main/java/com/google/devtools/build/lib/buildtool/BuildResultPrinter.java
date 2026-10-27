@@ -163,7 +163,7 @@ class BuildResultPrinter {
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
     TopLevelArtifactContext context = request.getTopLevelArtifactContext();
     ImmutableSet<String> outputGroupsToHide =
-        ImmutableSet.copyOf(request.getBuildOptions().getHideOutputGroupResults());
+        request.getBuildOptions().getAllHiddenOutputGroupResults();
 
     // `essentialBudget` tracks the number of non-empty successful/skipped results that can be
     // printed under --show_result.

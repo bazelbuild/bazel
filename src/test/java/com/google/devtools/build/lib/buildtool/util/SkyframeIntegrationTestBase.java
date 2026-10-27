@@ -65,7 +65,7 @@ public abstract class SkyframeIntegrationTestBase extends BuildIntegrationTestCa
   protected void assertCharContentsIgnoringOrderAndWhitespace(
       String expectedCharContents, String target) throws Exception {
     Path path = Iterables.getOnlyElement(getArtifacts(target)).getPath();
-    char[] actualChars = FileSystemUtils.readContentAsLatin1(path);
+    char[] actualChars = FileSystemUtils.readContentAsLatin1(path).toCharArray();
     char[] expectedChars = expectedCharContents.toCharArray();
     Arrays.sort(actualChars);
     Arrays.sort(expectedChars);

@@ -96,7 +96,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
   protected void checkCanWriteNonExecutableFile() throws Exception {
     ActionResult actionResult = action.execute(context);
     assertThat(actionResult.spawnResults()).isEmpty();
-    String content = new String(FileSystemUtils.readContentAsLatin1(output));
+    String content = FileSystemUtils.readContentAsLatin1(output);
     assertThat(content).isEqualTo("Hello World");
     assertThat(output.isExecutable()).isFalse();
   }
@@ -107,7 +107,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
     Action action = createAction(NULL_ACTION_OWNER, outputArtifact, "echo 'Hello World'", true);
     ActionResult actionResult = action.execute(context);
     assertThat(actionResult.spawnResults()).isEmpty();
-    String content = new String(FileSystemUtils.readContentAsLatin1(output));
+    String content = FileSystemUtils.readContentAsLatin1(output);
     assertThat(content).isEqualTo("echo 'Hello World'");
     assertThat(output.isExecutable()).isTrue();
   }

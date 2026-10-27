@@ -49,7 +49,8 @@ public final class RecordAlignedBufferedOutputStream extends OutputStream {
 
   @Override
   public void write(int b) throws IOException {
-    write(new byte[] {(byte) b}, 0, 1);
+    ensureAvailable(1);
+    buf[writeOff++] = (byte) b;
   }
 
   @Override
@@ -59,14 +60,7 @@ public final class RecordAlignedBufferedOutputStream extends OutputStream {
 
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
-    if (len > buf.length - writeOff) {
-      // First try to make space by flushing.
-      flush();
-      if (len > buf.length - writeOff) {
-        // If the buffer is too small to fit a single record, grow it to the next power of two.
-        buf = Arrays.copyOf(buf, ceilingPowerOfTwo(writeOff + len));
-      }
-    }
+    ensureAvailable(len);
     System.arraycopy(b, off, buf, writeOff, len);
     writeOff += len;
   }
@@ -86,5 +80,16 @@ public final class RecordAlignedBufferedOutputStream extends OutputStream {
   public void close() throws IOException {
     flush();
     out.close();
+  }
+
+  private void ensureAvailable(int len) throws IOException {
+    if (len > buf.length - writeOff) {
+      // First try to make space by flushing.
+      flush();
+      if (len > buf.length - writeOff) {
+        // If the buffer is too small to fit a single record, grow it to the next power of two.
+        buf = Arrays.copyOf(buf, ceilingPowerOfTwo(writeOff + len));
+      }
+    }
   }
 }
