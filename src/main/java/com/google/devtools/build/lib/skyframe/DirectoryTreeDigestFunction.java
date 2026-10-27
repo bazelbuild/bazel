@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -35,6 +37,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
@@ -80,6 +83,11 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .sorted()
             .collect(toImmutableSet());
 
+    if (hasNonUtf8Bytes(rootedPath.asPath().getPathString())
+        || sortedDirents.stream().anyMatch(DirectoryTreeDigestFunction::hasNonUtf8Bytes)) {
+      return buildScopedDigest(env);
+    }
+
     // Turn each entry into a FileValue.
     ImmutableList<Pair<RootedPath, FileValue>> fileValues =
         getFileValues(env, sortedDirents, rootedPath);
@@ -104,10 +112,15 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
         FileValue fileValue = rootedPathAndFileValue.getSecond();
         fp.addInt(fileValue.realFileStateValue().getType().ordinal());
         if (fileValue.isFile()) {
+          RootedPath realPath = fileValue.realRootedPath(direntRootedPath);
+          if (!realPath.equals(direntRootedPath)
+              && hasNonUtf8Bytes(realPath.asPath().getPathString())) {
+            return buildScopedDigest(env);
+          }
           byte[] digest = fileValue.realFileStateValue().getDigest();
           if (digest == null) {
             // Fast digest not available, or it would have been in the FileValue.
-            digest = fileValue.realRootedPath(direntRootedPath).asPath().getDigest();
+            digest = realPath.asPath().getDigest();
           }
           fp.addBytes(digest);
         }
@@ -117,6 +130,22 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
     }
 
     return DirectoryTreeDigestValue.of(fp.hexDigestAndReset());
+  }
+
+  private static boolean hasNonUtf8Bytes(String name) {
+    return !StringUnsafe.isAscii(name)
+        && !Utf8.isWellFormed(StringUnsafe.getInternalStringBytes(name));
+  }
+
+  @Nullable
+  private static DirectoryTreeDigestValue buildScopedDigest(Environment env)
+      throws InterruptedException {
+    // A Java file read in a UTF-8 locale can open a different native filename. Even a
+    // byte-preserving reader must not reuse a digest written by such a client.
+    UUID buildId = PrecomputedValue.BUILD_ID.get(env);
+    return buildId == null
+        ? null
+        : DirectoryTreeDigestValue.of(new Fingerprint().addUUID(buildId).hexDigestAndReset());
   }
 
   @Nullable
