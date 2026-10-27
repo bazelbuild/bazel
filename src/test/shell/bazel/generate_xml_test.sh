@@ -88,4 +88,35 @@ function test_generated_testcase_has_classname() {
       "$TEST_TMPDIR/test.xml"
 }
 
+function test_combined_raw_logs_are_encoded_as_one_stream() {
+  printf 'test stdout\n\n' >"$TEST_TMPDIR/test.out"
+  printf 'coverage stderr \xc3' >"$TEST_TMPDIR/coverage.err"
+  printf '\xa9 coverage stdout ]]' >"$TEST_TMPDIR/coverage.out"
+  printf '> test stderr' >"$TEST_TMPDIR/test.err"
+
+  TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/test.out" "$TEST_TMPDIR/test.xml" 1 0 \
+      "$TEST_TMPDIR/coverage.err" "$TEST_TMPDIR/coverage.out" \
+      "$TEST_TMPDIR/test.err"
+
+  assert_equals \
+      "$(printf '<![CDATA[test stdout\n\ncoverage stderr \xc3\xa9 coverage stdout ]]>]]<![CDATA[> test stderr]]>')" \
+      "$(sed -n '/^<!\[CDATA\[/,/^      <\/system-out>/p' \
+          "$TEST_TMPDIR/test.xml" | sed '$d')"
+}
+
+function test_missing_primary_log_with_only_stderr() {
+  printf 'test stderr' >"$TEST_TMPDIR/test.err"
+
+  TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.out" "$TEST_TMPDIR/test.xml" 1 1 \
+      "$TEST_TMPDIR/missing-coverage.err" "$TEST_TMPDIR/missing-coverage.out" \
+      "$TEST_TMPDIR/test.err"
+
+  assert_equals '<![CDATA[test stderr]]>' \
+      "$(grep '^<!\[CDATA\[' "$TEST_TMPDIR/test.xml")"
+  assert_contains '<error message="exited with error code 1">' \
+      "$TEST_TMPDIR/test.xml"
+}
+
 run_suite "generate-xml.sh tests"

@@ -2141,6 +2141,139 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_deferredLogs_haveMetadataWithoutDownloading(
+      @TestParameter({"0", "1"}) int exitCode) throws Exception {
+    outErr =
+        new FileOutErr(
+            execRoot.getRelative("outputs/stdout"), execRoot.getRelative("outputs/stderr"));
+    // Missing CAS blobs make an accidental eager download fail this test.
+    Digest stdout = digestUtil.computeAsUtf8("stdout");
+    Digest stderr = digestUtil.computeAsUtf8("stderr");
+    RemoteActionResult result =
+        RemoteActionResult.createFromResponse(
+            ExecuteResponse.newBuilder()
+                .setResult(
+                    ActionResult.newBuilder()
+                        .setExitCode(exitCode)
+                        .setStdoutDigest(stdout)
+                        .setStderrDigest(stderr))
+                .build());
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = spy(newSpawnExecutionContext(spawn));
+    RemoteActionFileSystem actionFs = context.getActionFileSystem();
+    outErr =
+        new FileOutErr(
+            actionFs.getPath(outErr.getOutputPathFragment()),
+            actionFs.getPath(outErr.getErrorPathFragment()));
+    doReturn(outErr).when(context).getFileOutErr();
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    service.downloadOutputs(service.buildRemoteAction(spawn, context), result);
+
+    // Query sizes before a path accessor can invalidate FileOutErr's size cache.
+    assertThat(outErr.hasRecordedOutput()).isTrue();
+    assertThat(outErr.outSize()).isEqualTo(stdout.getSizeBytes());
+    assertThat(outErr.errSize()).isEqualTo(stderr.getSizeBytes());
+    assertThat(actionFs.getDigest(outErr.getOutputPathFragment()))
+        .isEqualTo(toBinaryDigest(stdout));
+    assertThat(actionFs.getDigest(outErr.getErrorPathFragment())).isEqualTo(toBinaryDigest(stderr));
+  }
+
+  @Test
+  public void downloadOutputs_deferredLogs_inlineStdoutAndDigestStderr() throws Exception {
+    outErr =
+        new FileOutErr(
+            execRoot.getRelative("outputs/stdout"), execRoot.getRelative("outputs/stderr"));
+    // Raw stdout takes precedence even when both fields are supplied. Neither digest is in CAS.
+    Digest stderr = digestUtil.computeAsUtf8("deferred stderr");
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(
+            CachedActionResult.remote(
+                ActionResult.newBuilder()
+                    .setStdoutRaw(ByteString.copyFromUtf8("inline stdout"))
+                    .setStdoutDigest(digestUtil.computeAsUtf8("inline stdout"))
+                    .setStderrDigest(stderr)
+                    .build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    service.downloadOutputs(service.buildRemoteAction(spawn, context), result);
+
+    assertThat(outErr.outAsLatin1()).isEqualTo("inline stdout");
+    assertThat(context.getActionFileSystem().getDigest(outErr.getErrorPathFragment()))
+        .isEqualTo(toBinaryDigest(stderr));
+    assertThat(outErr.getErrorPath().exists()).isFalse();
+  }
+
+  @Test
+  public void downloadOutputs_deferredLogs_existingStderrPrefixPreserved() throws Exception {
+    outErr =
+        new FileOutErr(
+            execRoot.getRelative("outputs/stdout"), execRoot.getRelative("outputs/stderr"));
+    outErr.getErrorStream().write("execution message\n".getBytes(UTF_8));
+    Digest stdoutDigest = digestUtil.computeAsUtf8("deferred stdout");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setStdoutDigest(stdoutDigest)
+            .setStderrDigest(cache.addContents(remoteActionExecutionContext, "action stderr"))
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    service.downloadOutputs(service.buildRemoteAction(spawn, context), result);
+
+    assertThat(outErr.errAsLatin1()).isEqualTo("execution message\naction stderr");
+    assertThat(context.getActionFileSystem().getDigest(outErr.getOutputPathFragment()))
+        .isEqualTo(toBinaryDigest(stdoutDigest));
+  }
+
+  private enum EagerLogReason {
+    EXPLICIT_REQUEST(true, false, com.google.rpc.Code.OK_VALUE),
+    SPECULATION(false, true, com.google.rpc.Code.OK_VALUE),
+    ERROR_RESPONSE(false, false, com.google.rpc.Code.DEADLINE_EXCEEDED_VALUE);
+
+    final boolean downloadLogs;
+    final boolean speculating;
+    final int statusCode;
+
+    EagerLogReason(boolean downloadLogs, boolean speculating, int statusCode) {
+      this.downloadLogs = downloadLogs;
+      this.speculating = speculating;
+      this.statusCode = statusCode;
+    }
+  }
+
+  @Test
+  public void downloadOutputs_eagerLogs(@TestParameter EagerLogReason reason) throws Exception {
+    remoteOptions.setRemoteDownloadStdoutStderr(reason.downloadLogs);
+    outErr =
+        new FileOutErr(
+            execRoot.getRelative("outputs/stdout"), execRoot.getRelative("outputs/stderr"));
+    RemoteActionResult result =
+        RemoteActionResult.createFromResponse(
+            ExecuteResponse.newBuilder()
+                .setResult(
+                    ActionResult.newBuilder()
+                        .setStdoutDigest(cache.addContents(remoteActionExecutionContext, "stdout"))
+                        .setStderrDigest(cache.addContents(remoteActionExecutionContext, "stderr")))
+                .setStatus(com.google.rpc.Status.newBuilder().setCode(reason.statusCode))
+                .build());
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = spy(newSpawnExecutionContext(spawn));
+    doReturn(reason.speculating).when(context).speculating();
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    service.downloadOutputs(service.buildRemoteAction(spawn, context), result);
+
+    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    outErr.printErr("runner diagnostic");
+    assertThat(outErr.errAsLatin1()).isEqualTo("stderrrunner diagnostic");
+  }
+
+  @Test
   public void downloadOutputs_inMemoryOutput_doNotDownload() throws Exception {
     // Test that downloading an in memory output works
 

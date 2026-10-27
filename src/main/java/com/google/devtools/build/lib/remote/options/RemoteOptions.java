@@ -641,6 +641,20 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
 
   public abstract void setRemoteOutputsMode(RemoteOutputsMode value);
 
+  @Option(
+      name = "remote_download_stdouterr",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If true, eagerly download remote action stdout and stderr. By default, defer"
+              + " digest-backed logs until they are read, when supported by the action filesystem."
+              + " This also applies to failed actions. Inline logs and stdout redirected to an"
+              + " output artifact are unaffected.")
+  public abstract boolean getRemoteDownloadStdoutStderr();
+
+  public abstract void setRemoteDownloadStdoutStderr(boolean value);
+
   /** Outputs strategy flag parser */
   public static class RemoteOutputsStrategyConverter extends EnumConverter<RemoteOutputsMode> {
     public RemoteOutputsStrategyConverter() {
