@@ -191,7 +191,9 @@ public final class GoogleAuthUtils {
         sslContextBuilder.trustManager(new File(internalToPlatform(rootCert)));
       } catch (Exception e) {
         String message = "Failed to init TLS infrastructure using '%s' as root certificate: %s";
-        message = String.format(message, rootCert, platformToInternal(e.getMessage()));
+        message =
+            String.format(
+                message, rootCert, platformToInternal(Strings.nullToEmpty(e.getMessage())));
         throw new IOException(message, e);
       }
     }
@@ -201,7 +203,9 @@ public final class GoogleAuthUtils {
             new File(internalToPlatform(clientCert)), new File(internalToPlatform(clientKey)));
       } catch (Exception e) {
         String message = "Failed to init TLS infrastructure using '%s' as client certificate: %s";
-        message = String.format(message, clientCert, platformToInternal(e.getMessage()));
+        message =
+            String.format(
+                message, clientCert, platformToInternal(Strings.nullToEmpty(e.getMessage())));
         throw new IOException(message, e);
       }
     }
