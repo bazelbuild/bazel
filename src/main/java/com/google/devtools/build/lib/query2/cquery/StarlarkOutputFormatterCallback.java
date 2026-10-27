@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
 import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -161,7 +162,9 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
                 eventHandler);
       } catch (IOException ex) {
         throw new QueryException(
-            exceptionMessagePrefix + "failed to read " + platformToInternal(ex.getMessage()),
+            exceptionMessagePrefix
+                + "failed to read "
+                + platformToInternal(Strings.nullToEmpty(ex.getMessage())),
             Query.Code.QUERY_FILE_READ_FAILURE);
       } catch (StarlarkUtil.InvalidUtf8Exception ex) {
         throw new QueryException(
