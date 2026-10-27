@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -58,7 +58,7 @@ import org.junit.runners.JUnit4;
 public class ParamFileWriteActionTest extends BuildViewTestCase {
   private ArtifactRoot rootDir;
   private Artifact outputArtifact;
-  private SpecialArtifact treeArtifact;
+  private TreeArtifact treeArtifact;
 
   @Before
   public void createArtifacts() throws Exception {
@@ -141,7 +141,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
             """);
   }
 
-  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
+  private TreeArtifact createTreeArtifact(String rootRelativePath) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         rootDir, rootDir.getExecPath().getRelative(rootRelativePath));
   }

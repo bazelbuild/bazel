@@ -454,8 +454,11 @@ EOF
 function test_deferred_download_two_parallel_downloads() {
   local server_dir="${TEST_TMPDIR}/server_dir"
   local gate_socket="${server_dir}/gate_socket"
-  local served_apple="APPLE"
-  local served_banana="BANANA"
+  # Make the downloads unique so that they can't be served from a repository
+  # cache shared with earlier runs, which would never contact the server.
+  local nonce=$(mktemp -u XXXXXXXX)
+  local served_apple="APPLE ${nonce}"
+  local served_banana="BANANA ${nonce}"
   local apple_sha256=$(echo "${served_apple}" | sha256sum | cut -f1 -d' ')
   local banana_sha256=$(echo "${served_banana}" | sha256sum | cut -f1 -d' ')
 
@@ -556,7 +559,9 @@ function test_deferred_download_smoke() {
   local server_dir="${TEST_TMPDIR}/server_dir"
   local served_socket="${server_dir}/served_socket"
   local gate_socket="${server_dir}/gate_socket"
-  local served_string="DEFERRED"
+  # Make the download unique so that it can't be served from a repository cache
+  # shared with earlier runs, which would never contact the server.
+  local served_string="DEFERRED $(mktemp -u XXXXXXXX)"
   local served_sha256=$(echo "${served_string}" | sha256sum | cut -f1 -d' ')
 
   mkdir -p "${server_dir}"

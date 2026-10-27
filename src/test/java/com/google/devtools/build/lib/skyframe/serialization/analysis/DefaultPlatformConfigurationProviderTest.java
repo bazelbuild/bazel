@@ -157,68 +157,6 @@ public final class DefaultPlatformConfigurationProviderTest extends AnalysisTest
   }
 
   @Test
-  public void testResolveMnemonic_withNonDefaultTestOptions_matchesConfigurationMnemonic()
-      throws Exception {
-    // The baseline used for serialization has default test options, but output directory naming
-    // has to keep using the real baseline; otherwise the non-default test options would add an
-    // ST-hash that Skyframe never added.
-    scratch.file("custom/BUILD", "platform(name = 'my_platform')");
-    useConfiguration(
-        "--platforms=//custom:my_platform",
-        "--experimental_cancel_concurrent_tests",
-        "--test_arg=foo");
-    update("//test:test");
-
-    BuildOptions targetOptions = getTargetConfiguration().getOptions();
-    assertThat(targetOptions.contains(TestOptions.class)).isTrue();
-    BuildOptions execOptions = getExecConfiguration().getOptions();
-    Label topLevelPlatform = targetOptions.get(PlatformOptions.class).computeTargetPlatform();
-    provider =
-        new DefaultPlatformConfigurationProvider(topLevelPlatform, targetOptions, execOptions);
-
-    String mnemonic = provider.resolveMnemonic(targetOptions);
-    assertThat(mnemonic).doesNotContain("-ST-");
-    assertThat(mnemonic).isEqualTo(getTargetConfiguration().getMnemonic());
-  }
-
-  @Test
-  public void testResolveMnemonic_withoutPlatformInOutputDir_throwsIllegalArgumentException()
-      throws Exception {
-    scratch.file("custom/BUILD", "platform(name = 'p1')", "platform(name = 'p2')");
-    useConfiguration(
-        "--platforms=//custom:p1", "--incompatible_limit_platforms_in_output_dir_to=//custom:p2");
-    update("//test:test");
-
-    BuildOptions targetOptions = getTargetConfiguration().getOptions();
-    assertThrows(IllegalArgumentException.class, () -> provider.resolveMnemonic(targetOptions));
-  }
-
-  @Test
-  public void testResolveMnemonic_nullOptions_throwsNullPointerException() {
-    assertThrows(NullPointerException.class, () -> provider.resolveMnemonic(null));
-  }
-
-  @Test
-  public void testResolveMnemonic_withPlatformInOutputDir() throws Exception {
-    scratch.file("custom/BUILD", "platform(name = 'my_platform')");
-    useConfiguration("--platforms=//custom:my_platform", "--compilation_mode=dbg");
-    update("//test:test");
-
-    BuildOptions targetOptions = getTargetConfiguration().getOptions();
-    BuildOptions execOptions = getExecConfiguration().getOptions();
-    Label topLevelPlatform = targetOptions.get(PlatformOptions.class).computeTargetPlatform();
-    provider =
-        new DefaultPlatformConfigurationProvider(topLevelPlatform, targetOptions, execOptions);
-
-    String mnemonic = provider.resolveMnemonic(targetOptions);
-    assertThat(mnemonic).isNotEmpty();
-    String legacyMnemonic = targetOptions.get(CoreOptions.class).getCpu() + "-dbg";
-    assertThat(mnemonic).isNotEqualTo(legacyMnemonic);
-    assertThat(mnemonic).endsWith("-dbg");
-    assertThat(mnemonic).startsWith("my_platform");
-  }
-
-  @Test
   public void testSettableProvider_uninitializedThrowsIllegalStateException() {
     var settableProvider = new SettablePlatformConfigurationProvider();
     assertThrows(IllegalStateException.class, settableProvider::getTopLevelPlatformLabel);

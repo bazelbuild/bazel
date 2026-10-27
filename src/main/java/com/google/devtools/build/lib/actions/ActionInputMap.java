@@ -23,7 +23,9 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -207,17 +209,17 @@ public final class ActionInputMap implements InputMetadataProvider {
   @Nullable
   @Override
   public FileArtifactValue getInputMetadataChecked(ActionInput input) {
-    if (isRunfilesTree(input)) {
+    if (input instanceof RunfilesArtifact) {
       RunfilesArtifactValue runfilesMetadata = getRunfilesMetadata(input);
       return runfilesMetadata == null ? null : runfilesMetadata.getMetadata();
     }
-    if (isFileset(input)) {
+    if (input instanceof FilesetArtifact) {
       FilesetOutputTree filesetOutput = getFileset(input);
       return filesetOutput == null ? null : filesetOutput.getMetadata();
     }
 
     if (input instanceof TreeFileArtifact treeFileArtifact) {
-      SpecialArtifact parent = treeFileArtifact.getParent();
+      TreeArtifact parent = treeFileArtifact.getParent();
       int treeIndex = getIndex(parent.getExecPath());
       // If the parent is a subtree artifact, and the subtree is not found, fallback to check the
       // top-level tree artifact.
@@ -265,7 +267,7 @@ public final class ActionInputMap implements InputMetadataProvider {
   @Nullable
   @Override
   public FilesetOutputTree getFileset(ActionInput input) {
-    checkArgument(isFileset(input), input);
+    checkArgument(input instanceof FilesetArtifact, input);
 
     return filesets.get(input);
   }
@@ -278,7 +280,7 @@ public final class ActionInputMap implements InputMetadataProvider {
   @Nullable
   @Override
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
-    checkArgument(isRunfilesTree(input), input);
+    checkArgument(input instanceof RunfilesArtifact, input);
 
     int index = getIndex(input.getExecPath());
     if (index == -1) {
@@ -335,7 +337,7 @@ public final class ActionInputMap implements InputMetadataProvider {
   @Nullable
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput input) {
-    checkArgument(isTreeArtifact(input), input);
+    checkArgument(input instanceof TreeArtifact, input);
     return getTreeMetadata(input.getExecPath());
   }
 
@@ -388,17 +390,17 @@ public final class ActionInputMap implements InputMetadataProvider {
 
   public void put(ActionInput input, FileArtifactValue metadata) {
     checkArgument(
-        !isTreeArtifact(input),
+        !(input instanceof TreeArtifact),
         "Can't add tree artifact: %s using put -- please use putTreeArtifact for that",
         input);
     checkArgument(
-        !isRunfilesTree(input),
+        !(input instanceof RunfilesArtifact),
         "Can't add runfiles tree: %s using put -- please use putRunfilesMetadata for that",
         input);
 
     int oldIndex = putIfAbsent(input, metadata);
     checkArgument(
-        oldIndex == -1 || !isTreeArtifact(keys[oldIndex]),
+        oldIndex == -1 || !(keys[oldIndex] instanceof TreeArtifact),
         "Tried to overwrite tree artifact with a file: '%s' with the same exec path",
         input);
   }
@@ -425,7 +427,7 @@ public final class ActionInputMap implements InputMetadataProvider {
     int oldIndex = putIfAbsent(tree, PLACEHOLDER);
     if (oldIndex != -1) {
       checkArgument(
-          isTreeArtifact(keys[oldIndex]),
+          keys[oldIndex] instanceof TreeArtifact,
           "Tried to overwrite file with a tree artifact: '%s' with the same exec path",
           tree);
       return;
@@ -502,17 +504,5 @@ public final class ActionInputMap implements InputMetadataProvider {
         .add("first-fifty-keys", Arrays.stream(keys).limit(50).collect(toList()))
         .add("first-fifty-values", Arrays.stream(values).limit(50).collect(toList()))
         .toString();
-  }
-
-  private static boolean isTreeArtifact(ActionInput input) {
-    return input instanceof Artifact artifact && artifact.isTreeArtifact();
-  }
-
-  private static boolean isRunfilesTree(ActionInput input) {
-    return input instanceof Artifact artifact && artifact.isRunfilesTree();
-  }
-
-  private static boolean isFileset(ActionInput input) {
-    return input instanceof Artifact artifact && artifact.isFileset();
   }
 }

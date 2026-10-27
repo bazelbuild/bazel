@@ -60,7 +60,7 @@ public class DigestUtils {
 
     private CachedDigest(FileStatus status, byte[] digest) throws IOException {
       this.nodeId = status.getNodeId();
-      this.changeTime = status.getLastChangeTime();
+      this.changeTime = status.getLastChangeTimeNanos();
       this.size = status.getSize();
       this.digest = digest;
     }
@@ -68,7 +68,7 @@ public class DigestUtils {
     /** Returns whether the digest is still valid for a file with the given metadata. */
     private boolean matches(FileStatus status) throws IOException {
       return nodeId == status.getNodeId()
-          && changeTime == status.getLastChangeTime()
+          && changeTime == status.getLastChangeTimeNanos()
           && size == status.getSize();
     }
   }

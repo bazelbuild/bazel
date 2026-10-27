@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -380,14 +380,13 @@ public final class HeaderDiscoveryTest {
         PathMapper.NOOP);
   }
 
-  private SpecialArtifact treeArtifact(Path path) {
-    return SpecialArtifact.create(
+  private TreeArtifact treeArtifact(Path path) {
+    return TreeArtifact.create(
         derivedArtifactRoot,
         derivedArtifactRoot
             .getExecPath()
             .getRelative(derivedArtifactRoot.getRoot().relativize(path)),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        Artifact.SpecialArtifactType.TREE);
+        ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
   private SourceArtifact sourceArtifact(String execPath) {

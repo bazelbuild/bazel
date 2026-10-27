@@ -99,6 +99,23 @@ java_library(
             "StructProvider.java",
             "TriState.java",
             "VendorThreadContext.java",
+            "AspectPropagationEdgesSupplier.java",
+            "AttributeValueSource.java",
+            "BazelStarlarkEnvironment.java",
+            "StarlarkGlobals.java",
+            "AspectPropagationPredicate.java",
+            "BuiltinRestriction.java",
+            "BuiltinsInternalModule.java",
+            "CachingPackageLocator.java",
+            "DotBazelFileSyntaxChecker.java",
+            "EnumFilterConverter.java",
+            "FunctionSplitTransitionAllowlist.java",
+            "PredicateWithMessage.java",
+            "Proto.java",
+            "RelativePackageNameResolver.java",
+            "RepoFileGlobals.java",
+            "TargetSuggester.java",
+            "VendorFileGlobals.java",
         ],
     ),
     visibility = [
@@ -108,23 +125,47 @@ java_library(
     exports = [
         ":advertised_provider_set",
         ":aspect_parameters",
+        ":aspect_propagation_edges_supplier",
+        ":aspect_propagation_predicate",
+        ":attribute_value_source",
+        ":bazel_starlark_environment",
         ":build_file_name",
+        ":builtin_restriction",
+        ":builtins_internal_module",
+        ":caching_package_locator",
         ":configuration_fragment_policy",
+        ":dot_bazel_file_syntax_checker",
+        ":enum_filter_converter",
+        ":function_split_transition_allowlist",
         ":label_converter",
         ":license",
         ":no_such_package_exception",
         ":package_loading_exceptions",
+        ":predicate_with_message",
+        ":relative_package_name_resolver",
+        ":repo_file_globals",
         ":required_providers",
+        ":target_suggester",
         ":thread_contexts",
         ":tristate",
     ],
     deps = [
         ":advertised_provider_set",
         ":aspect_parameters",
+        ":aspect_propagation_edges_supplier",
+        ":aspect_propagation_predicate",
+        ":attribute_value_source",
+        ":bazel_starlark_environment",
         ":build_file_name",
+        ":builtin_restriction",
+        ":builtins_internal_module",
         ":bzl_visibility",
+        ":caching_package_locator",
         ":configuration_fragment_policy",
         ":declared_exec_group",
+        ":dot_bazel_file_syntax_checker",
+        ":enum_filter_converter",
+        ":function_split_transition_allowlist",
         ":globber",
         ":globber_utils",
         ":label_converter",
@@ -134,10 +175,14 @@ java_library(
         ":package_loading_exceptions",
         ":package_piece_identifier",
         ":package_specification",
+        ":predicate_with_message",
         ":provider",
+        ":relative_package_name_resolver",
+        ":repo_file_globals",
         ":required_providers",
         ":rule_visibility",
         ":starlark_exportable",
+        ":target_suggester",
         ":thread_contexts",
         ":tristate",
         "//src/main/java/com/google/devtools/build/docgen/annot",
@@ -512,5 +557,167 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+    ],
+)
+
+java_library(
+    name = "caching_package_locator",
+    srcs = ["CachingPackageLocator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "dot_bazel_file_syntax_checker",
+    srcs = ["DotBazelFileSyntaxChecker.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "enum_filter_converter",
+    srcs = ["EnumFilterConverter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
+    name = "predicate_with_message",
+    srcs = ["PredicateWithMessage.java"],
+    deps = [
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "relative_package_name_resolver",
+    srcs = ["RelativePackageNameResolver.java"],
+    deps = [
+        ":package_loading_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "target_suggester",
+    srcs = ["TargetSuggester.java"],
+    deps = [
+        "//src/main/java/net/starlark/java/spelling",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "repo_file_globals",
+    srcs = [
+        "RepoFileGlobals.java",
+        "VendorFileGlobals.java",
+    ],
+    deps = [
+        ":thread_contexts",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "builtin_restriction",
+    srcs = [
+        "BuiltinRestriction.java",
+        "Proto.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "aspect_propagation_predicate",
+    srcs = ["AspectPropagationPredicate.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "builtins_internal_module",
+    srcs = ["BuiltinsInternalModule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "function_split_transition_allowlist",
+    srcs = ["FunctionSplitTransitionAllowlist.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+java_library(
+    name = "attribute_value_source",
+    srcs = ["AttributeValueSource.java"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "aspect_propagation_edges_supplier",
+    srcs = ["AspectPropagationEdgesSupplier.java"],
+    deps = [
+        ":attribute_value_source",
+        ":label_converter",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "bazel_starlark_environment",
+    srcs = [
+        "BazelStarlarkEnvironment.java",
+        "StarlarkGlobals.java",
+    ],
+    deps = [
+        ":builtins_internal_module",
+        ":provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
