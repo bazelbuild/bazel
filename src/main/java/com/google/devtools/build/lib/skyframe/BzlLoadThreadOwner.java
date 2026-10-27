@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.skyframe.serialization.ByteStringCodec.byteStringCodec;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -35,6 +37,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HexFormat;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.SymbolGenerator;
 
 /**
@@ -49,17 +52,58 @@ import net.starlark.java.eval.SymbolGenerator;
  * <p>If a {@link BzlLoadThreadOwner} object differs from one produced from the current {@link
  * BzlLoadValue} at the same key, it indicates that the first thread owner is a "zombie module" left
  * over from a previous Bazel invocation, and should not be used.
+ *
+ * <p>Equality is deliberately <em>not</em> based on {@link Module} identity. A {@link BzlLoadValue}
+ * may be dropped from Skyframe with {@code --discard_analysis_cache} and later recomputed within
+ * the same invocation, yielding a distinct but equivalent {@link Module}. Starlark values tokenized
+ * by the old module must still compare equal to values tokenized by the new one. Instead, two
+ * owners are equal if they have the same key, the same {@link StarlarkSemantics}, and the same
+ * transitive digest.
  */
-// Note that we rely on (1) Module having identity semantics, and (2) the Module object being
-// owned by BzlLoadValue and therefore being unique for a given key within a single Bazel
-// invocation.
-public record BzlLoadThreadOwner(BzlLoadValue.Key key, Module module) {
+public final class BzlLoadThreadOwner {
 
   private static final Interner<BzlLoadThreadOwner> interner = BlazeInterners.newWeakInterner();
 
-  public BzlLoadThreadOwner {
-    checkNotNull(key);
-    checkNotNull(module);
+  private final BzlLoadValue.Key key;
+  private final Module module;
+
+  private BzlLoadThreadOwner(BzlLoadValue.Key key, Module module) {
+    this.key = checkNotNull(key);
+    this.module = checkNotNull(module);
+  }
+
+  public BzlLoadValue.Key key() {
+    return key;
+  }
+
+  public Module module() {
+    return module;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof BzlLoadThreadOwner that) || !key.equals(that.key)) {
+      return false;
+    }
+    if (module == that.module) {
+      return true;
+    }
+    return module.getSemantics().equals(that.module.getSemantics())
+        && Arrays.equals(getTransitiveDigest(module), getTransitiveDigest(that.module));
+  }
+
+  @Override
+  public int hashCode() {
+    return 31 * HashCodes.hashObjects(key, module.getSemantics())
+        + Arrays.hashCode(getTransitiveDigest(module));
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this).add("key", key).add("module", module).toString();
   }
 
   public static BzlLoadThreadOwner of(BzlLoadValue.Key key, Module module) {
@@ -73,11 +117,6 @@ public record BzlLoadThreadOwner(BzlLoadValue.Key key, Module module) {
   public static SymbolGenerator<BzlLoadThreadOwner> createGenerator(
       BzlLoadValue.Key key, Module module) {
     return SymbolGenerator.create(BzlLoadThreadOwner.of(key, module));
-  }
-
-  public static SymbolGenerator<BzlLoadThreadOwner> createGenerator(
-      BzlLoadValue.Key key, BzlLoadValue value) {
-    return SymbolGenerator.create(BzlLoadThreadOwner.of(key, value));
   }
 
   @VisibleForSerialization

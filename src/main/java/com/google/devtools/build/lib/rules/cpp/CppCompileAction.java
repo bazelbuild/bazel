@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -142,6 +143,7 @@ public class CppCompileAction extends AbstractAction
   private final NestedSet<Artifact> additionalPrunableHeaders;
 
   @Nullable private final Artifact grepIncludes;
+  @Nullable private final PlatformInfo grepIncludesExecutionPlatform;
   private final boolean shareable;
   private final boolean shouldScanIncludes;
   private final boolean usePic;
@@ -268,6 +270,7 @@ public class CppCompileAction extends AbstractAction
       boolean needsIncludeValidation,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       ImmutableList<Artifact> additionalOutputs,
       NestedSet<Artifact> moduleFiles,
       Artifact modmapInputFile) {
@@ -307,6 +310,7 @@ public class CppCompileAction extends AbstractAction
     this.usedModules = null;
     this.topLevelModules = null;
     this.grepIncludes = grepIncludes;
+    this.grepIncludesExecutionPlatform = grepIncludesExecutionPlatform;
     this.dotdFile = isGenerateDotdFile(sourceFile) ? dotdFile : null;
 
     NestedSetBuilder<Artifact> allowedDerivedInputsBuilder =
@@ -346,6 +350,7 @@ public class CppCompileAction extends AbstractAction
       NestedSet<Artifact> allowedDerivedInputs,
       NestedSet<Artifact> additionalPrunableHeaders,
       @Nullable Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       boolean shareable,
       boolean shouldScanIncludes,
       boolean usePic,
@@ -372,6 +377,7 @@ public class CppCompileAction extends AbstractAction
     this.allowedDerivedInputs = allowedDerivedInputs;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.grepIncludes = grepIncludes;
+    this.grepIncludesExecutionPlatform = grepIncludesExecutionPlatform;
     this.shareable = shareable;
     this.shouldScanIncludes = shouldScanIncludes;
     this.usePic = usePic;
@@ -794,6 +800,11 @@ public class CppCompileAction extends AbstractAction
   @Nullable
   public Artifact getGrepIncludes() {
     return grepIncludes;
+  }
+
+  @Nullable
+  public PlatformInfo getGrepIncludesExecutionPlatform() {
+    return grepIncludesExecutionPlatform;
   }
 
   /**

@@ -640,6 +640,11 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void select_typeIsInterned() throws Exception {
+    assertThat(SelectorValue.Type.of(Types.INT)).isSameInstanceAs(SelectorValue.Type.of(Types.INT));
+  }
+
+  @Test
   public void select_validBinaryOperator() throws Exception {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");

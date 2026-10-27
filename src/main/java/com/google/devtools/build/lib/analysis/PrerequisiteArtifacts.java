@@ -21,8 +21,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.List;
 
 /**
  * Contains a sequence of prerequisite artifacts and supplies methods for filtering and reporting
@@ -63,12 +65,28 @@ public final class PrerequisiteArtifacts {
 
   public static NestedSet<Artifact> nestedSet(
       PrerequisitesCollection prerequisitesCollection, String attributeName) {
-    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (FileProvider target :
-        prerequisitesCollection.getPrerequisites(attributeName, FileProvider.class)) {
-      result.addTransitive(target.getFilesToBuild());
+    return nestedSet(prerequisitesCollection.getPrerequisites(attributeName));
+  }
+
+  /**
+   * Returns the union of the files to build of all given prerequisites that have a {@link
+   * FileProvider}, in stable order.
+   */
+  public static NestedSet<Artifact> nestedSet(
+      List<? extends TransitiveInfoCollection> prerequisites) {
+    // Lazily initialize the builder to avoid an allocation when no prerequisites provide files.
+    NestedSetBuilder<Artifact> result = null;
+    for (int i = 0; i < prerequisites.size(); i++) {
+      FileProvider fileProvider = prerequisites.get(i).getProvider(FileProvider.class);
+      if (fileProvider == null) {
+        continue;
+      }
+      if (result == null) {
+        result = NestedSetBuilder.stableOrder();
+      }
+      result.addTransitive(fileProvider.getFilesToBuild());
     }
-    return result.build();
+    return result == null ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : result.build();
   }
 
   /**

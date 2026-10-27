@@ -110,6 +110,7 @@ public final class RunfilesArtifactValue implements RichArtifactData {
       result.addBytes(treeValues.get(i).getDigest());
     }
 
+    result.addInt(filesets.size());
     for (int i = 0; i < filesets.size(); i++) {
       FilesetOutputTree fileset = filesetValues.get(i);
       fileset.addTo(result);
@@ -205,7 +206,7 @@ public final class RunfilesArtifactValue implements RichArtifactData {
         .add("trees", trees)
         .add("treeValues", treeValues)
         .add("filesets", filesets)
-        .add("filesetValues", fileValues)
+        .add("filesetValues", filesetValues)
         .toString();
   }
 }

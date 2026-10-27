@@ -265,7 +265,8 @@ public final class StarlarkRuleContext
 
       // Populate ctx.attr.
       StarlarkAttributesCollection.Builder builder =
-          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
+          StarlarkAttributesCollection.builder(
+              this, ruleContext.getRulePrerequisitesCollection(), attributes.size());
       for (Attribute attribute : attributes) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
@@ -281,7 +282,9 @@ public final class StarlarkRuleContext
 
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(
-              this, ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection());
+              this,
+              ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection(),
+              attributes.size());
       for (Attribute attribute : attributes) {
         Object defaultValue = attribute.getDefaultValue(null);
         if (defaultValue instanceof ComputedDefault computedDefault) {
@@ -293,7 +296,8 @@ public final class StarlarkRuleContext
 
       this.splitAttributes = null;
       StarlarkAttributesCollection.Builder ruleBuilder =
-          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
+          StarlarkAttributesCollection.builder(
+              this, ruleContext.getRulePrerequisitesCollection(), rule.getAttributes().size());
       try {
         Dict<String, String> makeVariables =
             ((AspectContext) ruleContext)

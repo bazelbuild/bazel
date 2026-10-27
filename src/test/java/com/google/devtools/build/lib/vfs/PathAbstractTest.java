@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -51,9 +52,35 @@ public abstract class PathAbstractTest {
   }
 
   @Test
+  public void testGetChildWorks() {
+    Path path = create("/foo/bar");
+    assertThat(path.getChild("hi")).isEqualTo(create("/foo/bar/hi"));
+    assertThat(path.getChild(".hi")).isEqualTo(create("/foo/bar/.hi"));
+    assertThat(path.getChild("..hi")).isEqualTo(create("/foo/bar/..hi"));
+  }
+
+  @Test
+  public void testGetChildRejectsInvalidBaseNames() {
+    Path path = create("/foo/bar");
+    assertThrows(IllegalArgumentException.class, () -> path.getChild(""));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("."));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild(".."));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("x/y"));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("/y"));
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("y/"));
+  }
+
+  @Test
   public void testNormalStringsDoNotAllocate() {
     String normal1 = "/a/b/hello.txt";
     assertThat(create(normal1).getPathString()).isSameInstanceAs(normal1);
+
+    String root = "/";
+    assertThat(create(root).getPathString()).isSameInstanceAs(root);
+
+    String trailingDotsInSegments = "/a./b../hello.txt.";
+    assertThat(create(trailingDotsInSegments).getPathString())
+        .isSameInstanceAs(trailingDotsInSegments);
 
     // Check our testing strategy
     String notNormal = "/a/../b";

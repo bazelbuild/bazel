@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
 import org.junit.runner.notification.RunListener;
 
 /** Utility class for real test runs. This is a legacy Dagger module. */
@@ -47,7 +46,7 @@ class JUnit4RunnerModule {
 
   @SuppressWarnings("CatchAndPrintStackTrace") // see comment below
   static OutputStream provideXmlStream(JUnit4Config config) {
-    @Nullable Path path = config.getXmlOutputPath();
+    Path path = config.getXmlOutputPath();
 
     if (path != null) {
       try {

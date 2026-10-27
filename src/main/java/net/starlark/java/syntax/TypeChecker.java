@@ -75,7 +75,7 @@ public final class TypeChecker extends NodeVisitor {
   // Formats and reports an error at the specified location.
   @FormatMethod
   private void errorf(Location loc, String format, Object... args) {
-    typeTable.errors.add(new SyntaxError(loc, String.format(format, args)));
+    typeTable.addError(new SyntaxError(loc, String.format(format, args)));
   }
 
   private void binaryOperatorError(

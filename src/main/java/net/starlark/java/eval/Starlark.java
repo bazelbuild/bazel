@@ -1292,16 +1292,10 @@ public final class Starlark {
     return execFileProgram(prog, module, thread);
   }
 
-  /** Variant of {@link #execFile} that creates a module for the given predeclared environment. */
-  // TODO(adonovan): is this needed?
-  public static Object execFile(
-      ParserInput input,
-      FileOptions options,
-      Map<String, Object> predeclared,
-      StarlarkThread thread)
+  /** Variant of {@link #execFile} that uses an appropriate default {@link FileOptions}. */
+  public static Object execFile(ParserInput input, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
-    Module module = Module.withPredeclared(thread.getSemantics(), predeclared);
-    return execFile(input, options, module, thread);
+    return execFile(input, thread.getSemantics().getDefaultFileOptions(), module, thread);
   }
 
   /**
@@ -1340,14 +1334,8 @@ public final class Starlark {
     }
 
     StarlarkFunction toplevel =
-        new StarlarkFunction(
-            rfn,
-            prog.getTypeTable(),
-            module,
-            globalIndex,
-            /* defaultValues= */ Tuple.empty(),
-            /* freevars= */ Tuple.empty(),
-            thread.getNextIdentityToken());
+        StarlarkFunction.ofToplevel(
+            rfn, prog.getTypeTable(), module, globalIndex, thread.getNextIdentityToken());
     Object result = Starlark.positionalOnlyCall(thread, toplevel);
     if (prog.getTypeTable() != null) {
       // For globals that don't have a declared static type, we export the value's dynamic type.
@@ -1378,6 +1366,9 @@ public final class Starlark {
    * Parses the input as an expression, resolves it in the specified module environment, compiles
    * it, evaluates it, and returns its value.
    *
+   * @param options the {@link FileOptions} to use for parsing and resolving the input. The caller
+   *     must ensure that these options are compatible with {@link StarlarkThread}'s semantics; see
+   *     {@link StarlarkSemantics#updateFileOptions}.
    * @throws SyntaxError.Exception if there were (static) scanner, parser, resolver, type tagger, or
    *     static type checker errors.
    * @throws EvalException if there was a (dynamic) evaluation error.
@@ -1392,16 +1383,17 @@ public final class Starlark {
     return Starlark.positionalOnlyCall(thread, fn);
   }
 
-  /** Variant of {@link #eval} that creates a module for the given predeclared environment. */
-  // TODO(adonovan): is this needed?
-  public static Object eval(
-      ParserInput input,
-      FileOptions options,
-      Map<String, Object> predeclared,
-      StarlarkThread thread)
+  /** Variant of {@link #eval} that uses an appropriate default {@link FileOptions}. */
+  public static Object eval(ParserInput input, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
-    Module module = Module.withPredeclared(thread.getSemantics(), predeclared);
-    return eval(input, options, module, thread);
+    StarlarkFunction fn =
+        newExprFunction(
+            input,
+            thread.getSemantics().getDefaultFileOptions(),
+            module,
+            thread.getSemantics(),
+            thread.getNextIdentityToken());
+    return Starlark.positionalOnlyCall(thread, fn);
   }
 
   /**
@@ -1425,14 +1417,8 @@ public final class Starlark {
     prog = maybeWithTypeInfo(prog, module, semantics, /* loader= */ null);
     Resolver.Function rfn = prog.getResolvedFunction();
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
-    return new StarlarkFunction(
-        rfn,
-        prog.getTypeTable(),
-        module,
-        globalIndex,
-        /* defaultValues= */ Tuple.empty(),
-        /* freevars= */ Tuple.empty(),
-        referenceIdentity);
+    return StarlarkFunction.ofToplevel(
+        rfn, prog.getTypeTable(), module, globalIndex, referenceIdentity);
   }
 
   /**

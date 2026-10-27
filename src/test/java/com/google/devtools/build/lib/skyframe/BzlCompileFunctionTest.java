@@ -349,15 +349,16 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
   public void testBzlFileSize_allowlistedExempt() throws Exception {
     scratch.file("tools/allowlist/BUILD");
     scratch.file(
-        "tools/allowlist/allowlist.scl",
-        "ALLOWED = [",
-        "    \"other/file.bzl\",",
-        "    \"pkg/foo.bzl\",",
-        "]");
+        "tools/allowlist/allowlist.allowlist.scl",
+        "\"\"\"Oversized bzl allowlist.\"\"\"",
+        "ALLOWED = {",
+        "    \"other/file.bzl\": True,",
+        "    \"pkg/foo.bzl\": {\"reason\": \"b/564114066\", \"tags\": [\"legacy\", 1]},",
+        "}");
     setBuildLanguageOptions(
         "--max_bzl_file_size=1000",
         "--soft_max_bzl_file_size=500",
-        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
 
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl", "x = '" + "a".repeat(2000) + "'");
@@ -374,11 +375,11 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
   public void testBzlFileSize_allowlistFileModified_invalidatesSkyframeCache() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("tools/allowlist/BUILD");
-    scratch.file("tools/allowlist/allowlist.scl", "ALLOWED = [\"other/file.bzl\"]");
+    scratch.file("tools/allowlist/allowlist.allowlist.scl", "ALLOWED = {\"other/file.bzl\": True}");
     setBuildLanguageOptions(
         "--max_bzl_file_size=1000",
         "--soft_max_bzl_file_size=500",
-        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
 
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl", "x = '" + "a".repeat(2000) + "'");
@@ -391,7 +392,8 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
     // Add pkg/foo.bzl to the allowlist file; Skyframe must invalidate the failed node and succeed.
     scratch.overwriteFile(
-        "tools/allowlist/allowlist.scl", "ALLOWED = [\"other/file.bzl\", \"pkg/foo.bzl\"]");
+        "tools/allowlist/allowlist.allowlist.scl",
+        "ALLOWED = {\"other/file.bzl\": True, \"pkg/foo.bzl\": True}");
     invalidatePackages(/* alsoConfigs= */ false);
     eventCollector.clear();
     EvaluationResult<BzlCompileValue> allowlistedResult =
@@ -401,7 +403,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     assertNoEvents();
 
     // Remove pkg/foo.bzl from the allowlist file; Skyframe must invalidate the cached success.
-    scratch.overwriteFile("tools/allowlist/allowlist.scl", "ALLOWED = []");
+    scratch.overwriteFile("tools/allowlist/allowlist.allowlist.scl", "ALLOWED = {}");
     invalidatePackages(/* alsoConfigs= */ false);
     EvaluationResult<BzlCompileValue> removedResult =
         SkyframeExecutorTestUtils.evaluate(
@@ -415,16 +417,17 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("tools/allowlist/BUILD");
     scratch.file(
-        "tools/allowlist/allowlist.scl",
-        "# Long comment that makes allowlist.scl itself exceed 15 bytes in file size",
-        "ALLOWED = [\"pkg/foo.bzl\"]");
+        "tools/allowlist/allowlist.allowlist.scl",
+        "# Long comment that makes allowlist.allowlist.scl itself exceed 15 bytes in file size",
+        "ALLOWED = {\"pkg/foo.bzl\": True}");
     setBuildLanguageOptions(
         "--max_bzl_file_size=15",
         "--soft_max_bzl_file_size=5",
-        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
 
     SkyKey allowlistKey =
-        BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//tools/allowlist:allowlist.scl"));
+        BzlCompileValue.key(
+            root, Label.parseCanonicalUnchecked("//tools/allowlist:allowlist.allowlist.scl"));
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), allowlistKey, /* keepGoing= */ false, reporter);
@@ -434,16 +437,70 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBzlFileSize_allowlistFileMissingAllowedSymbol_failsCompilation()
-      throws Exception {
+  public void testBzlFileSize_allowlistInvalidEntries_failsCompilation() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("tools/allowlist/BUILD");
-    scratch.file("tools/allowlist/allowlist.scl", "NOT_ALLOWED = []");
+    scratch.file("tools/allowlist/other.scl", "X = 1");
     setBuildLanguageOptions(
         "--max_bzl_file_size=1000",
         "--soft_max_bzl_file_size=500",
-        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl", "x = '" + "a".repeat(2000) + "'");
 
+    assertAllowlistError(
+        "cannot contain load statements",
+        "load(':other.scl', 'X')",
+        "ALLOWED = {\"pkg/foo.bzl\": True}");
+    assertAllowlistError(
+        "must only define a single top-level 'ALLOWED' symbol",
+        "X = 1",
+        "ALLOWED = {\"pkg/foo.bzl\": True}");
+    assertAllowlistError(
+        "'ALLOWED' must be a dict with string keys", "ALLOWED = [\"pkg/foo.bzl\"]");
+    assertAllowlistError("all keys in 'ALLOWED' must be string literals", "ALLOWED = {1: True}");
+    assertAllowlistError(
+        "values in 'ALLOWED' must only contain literals (key \"pkg/foo.bzl\" at"
+            + " /workspace/tools/allowlist/allowlist.allowlist.scl:1:27)",
+        "ALLOWED = {\"pkg/foo.bzl\": len(\"abc\")}");
+    assertAllowlistError(
+        "duplicate key \"pkg/foo.bzl\" in 'ALLOWED' at /workspace/tools/allowlist/"
+            + "allowlist.allowlist.scl:3:5",
+        "ALLOWED = {",
+        "    \"pkg/foo.bzl\": \"b/1\",",
+        "    \"pkg/foo.bzl\": \"b/2\",",
+        "}");
+    assertAllowlistError(
+        "invalid key \"//pkg:foo.bzl\" in 'ALLOWED'", "ALLOWED = {\"//pkg:foo.bzl\": True}");
+    assertAllowlistError(
+        "invalid key \"./pkg/foo.bzl\" in 'ALLOWED'", "ALLOWED = {\"./pkg/foo.bzl\": True}");
+    assertAllowlistError(
+        "invalid key \"@@ext/pkg/foo.bzl\" in 'ALLOWED'",
+        "ALLOWED = {\"@@ext/pkg/foo.bzl\": True}");
+    assertAllowlistError(
+        "invalid key \"@@//pkg/foo.bzl\" in 'ALLOWED'", "ALLOWED = {\"@@//pkg/foo.bzl\": True}");
+  }
+
+  private void assertAllowlistError(String expectedError, String... allowlistLines)
+      throws Exception {
+    scratch.overwriteFile("tools/allowlist/allowlist.allowlist.scl", allowlistLines);
+    invalidatePackages(/* alsoConfigs= */ false);
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
+    assertThat(result.get(skyKey).getError()).contains(expectedError);
+  }
+
+  @Test
+  public void testBzlFileSize_allowlistMissing_failsCompilation() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("tools/allowlist/BUILD");
+    setBuildLanguageOptions(
+        "--max_bzl_file_size=1000",
+        "--soft_max_bzl_file_size=500",
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl", "x = '" + "a".repeat(2000) + "'");
 
@@ -452,18 +509,107 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
-    assertThat(result.get(skyKey).getError()).contains("does not define an 'ALLOWED' symbol");
+    assertThat(result.get(skyKey).getError())
+        .contains(
+            "Failed to compile allowlist file '//tools/allowlist:allowlist.allowlist.scl':"
+                + " cannot load '//tools/allowlist:allowlist.allowlist.scl': no such file");
+  }
+
+  @Test
+  public void testBzlFileSize_allowlistCrossesPackageBoundary_failsCompilation() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("tools/allowlist/BUILD");
+    scratch.file(
+        "tools/allowlist/sub/allowlist.allowlist.scl", "ALLOWED = {\"pkg/foo.bzl\": True}");
+    setBuildLanguageOptions(
+        "--max_bzl_file_size=1000",
+        "--soft_max_bzl_file_size=500",
+        "--bzl_file_size_limit_allowlist=//tools/allowlist/sub:allowlist.allowlist.scl");
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl", "x = '" + "a".repeat(2000) + "'");
+
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
+    assertThat(result.get(skyKey).getError())
+        .contains(
+            "Failed to load allowlist file '//tools/allowlist/sub:allowlist.allowlist.scl': Label"
+                + " '//tools/allowlist/sub:allowlist.allowlist.scl' is invalid because"
+                + " 'tools/allowlist/sub' is not a package; perhaps you meant to put the colon"
+                + " here: '//tools/allowlist:sub/allowlist.allowlist.scl'?");
+  }
+
+  @Test
+  public void testBzlFileSize_allowlistKeysAreRepoQualified() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("tools/allowlist/BUILD");
+    scratch.file("tools/allowlist/allowlist.allowlist.scl", "ALLOWED = {\"pkg/foo.bzl\": True}");
+    setBuildLanguageOptions(
+        "--max_bzl_file_size=1000",
+        "--soft_max_bzl_file_size=500",
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl", "x = '" + "a".repeat(2000) + "'");
+
+    // Both keys read the same file under the same root, but belong to different repositories.
+    SkyKey mainKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
+    SkyKey extKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("@@ext//pkg:foo.bzl"));
+
+    // A main-repo key does not exempt the same path in another repository.
+    EvaluationResult<BzlCompileValue> mainResult =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), mainKey, /* keepGoing= */ false, reporter);
+    assertThat(mainResult.get(mainKey).lookupSuccessful()).isTrue();
+    EvaluationResult<BzlCompileValue> extResult =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), extKey, /* keepGoing= */ false, reporter);
+    assertThat(extResult.get(extKey).lookupSuccessful()).isFalse();
+
+    // A repo-qualified key exempts only the file in that repository.
+    scratch.overwriteFile(
+        "tools/allowlist/allowlist.allowlist.scl",
+        "ALLOWED = {\"@@ext//pkg/foo.bzl\": True, \"root_file.bzl\": True,"
+            + " \"@@ext//root_file.bzl\": True}");
+    invalidatePackages(/* alsoConfigs= */ false);
+    mainResult =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), mainKey, /* keepGoing= */ false, reporter);
+    assertThat(mainResult.get(mainKey).lookupSuccessful()).isFalse();
+    extResult =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), extKey, /* keepGoing= */ false, reporter);
+    assertThat(extResult.get(extKey).lookupSuccessful()).isTrue();
+
+    // Root-package files use "root_file.bzl" in the main repo and "@@ext//root_file.bzl" in
+    // external repos.
+    scratch.file("BUILD");
+    scratch.file("root_file.bzl", "x = '" + "a".repeat(2000) + "'");
+    SkyKey mainRootKey =
+        BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//:root_file.bzl"));
+    SkyKey extRootKey =
+        BzlCompileValue.key(root, Label.parseCanonicalUnchecked("@@ext//:root_file.bzl"));
+    EvaluationResult<BzlCompileValue> mainRootResult =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), mainRootKey, /* keepGoing= */ false, reporter);
+    assertThat(mainRootResult.get(mainRootKey).lookupSuccessful()).isTrue();
+    EvaluationResult<BzlCompileValue> extRootResult =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), extRootKey, /* keepGoing= */ false, reporter);
+    assertThat(extRootResult.get(extRootKey).lookupSuccessful()).isTrue();
   }
 
   @Test
   public void testBzlFileSize_allowlistChange_onlyInvalidatesOversizedBzlFiles() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("tools/allowlist/BUILD");
-    scratch.file("tools/allowlist/allowlist.scl", "ALLOWED = [\"pkg/oversized.bzl\"]");
+    scratch.file(
+        "tools/allowlist/allowlist.allowlist.scl", "ALLOWED = {\"pkg/oversized.bzl\": True}");
     setBuildLanguageOptions(
         "--max_bzl_file_size=1000",
         "--soft_max_bzl_file_size=500",
-        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl");
+        "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl");
 
     scratch.file("pkg/BUILD");
     scratch.file("pkg/normal.bzl", "x = 1"); // normal: size < 500
@@ -484,7 +630,8 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     assertThat(initialOversizedResult.get(oversizedKey).lookupSuccessful()).isTrue();
 
     // Verify Skyframe dependency graph:
-    Label allowlistLabel = Label.parseCanonicalUnchecked("//tools/allowlist:allowlist.scl");
+    Label allowlistLabel =
+        Label.parseCanonicalUnchecked("//tools/allowlist:allowlist.allowlist.scl");
     SkyKey allowlistFileKey =
         FileValue.key(RootedPath.toRootedPath(root, allowlistLabel.toPathFragment()));
     SkyKey allowlistCompileKey = BzlCompileValue.key(root, allowlistLabel);
@@ -501,11 +648,11 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
     assertThat(normalDeps).doesNotContain(allowlistFileKey);
     assertThat(normalDeps).doesNotContain(allowlistCompileKey);
-    assertThat(oversizedDeps).contains(allowlistFileKey);
+    assertThat(oversizedDeps).doesNotContain(allowlistFileKey);
     assertThat(oversizedDeps).contains(allowlistCompileKey);
 
-    // Modify allowlist.scl: remove pkg/oversized.bzl
-    scratch.overwriteFile("tools/allowlist/allowlist.scl", "ALLOWED = []");
+    // Modify allowlist.allowlist.scl: remove pkg/oversized.bzl
+    scratch.overwriteFile("tools/allowlist/allowlist.allowlist.scl", "ALLOWED = {}");
     invalidatePackages(/* alsoConfigs= */ false);
 
     // Evaluate both again.

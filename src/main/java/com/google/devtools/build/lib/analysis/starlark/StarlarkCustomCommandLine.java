@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -528,7 +527,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if (seenTreeArtifacts.isEmpty() || !artifact.hasParent()) {
         return false;
       }
-      SpecialArtifact parent = artifact.getParent();
+      Artifact parent = artifact.getParent();
       // Loop to handle subtree artifacts, even though in practice subtrees can only have one
       // ancestor tree.
       while (parent != null) {

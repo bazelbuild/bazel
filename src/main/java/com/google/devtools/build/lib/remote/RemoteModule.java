@@ -348,7 +348,7 @@ public final class RemoteModule extends BlazeModule {
           env.getReporter(),
           buildRequestId,
           invocationId,
-          env.getSkyframeExecutor().getEvaluator(),
+          env.getSkyframeExecutor()::getEvaluator,
           remoteOptions.getRemoteCacheTtl());
     }
   }
@@ -1111,6 +1111,9 @@ public final class RemoteModule extends BlazeModule {
                   rpcLogFileRef));
     }
 
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.clearPreviousCommand();
+    }
     lastRemoteOutputChecker = remoteOutputChecker;
     lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
@@ -1435,6 +1438,11 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   RemoteActionContextProvider getActionContextProvider() {
     return actionContextProvider;
+  }
+
+  @VisibleForTesting
+  RemoteOutputChecker getRemoteOutputChecker() {
+    return remoteOutputChecker;
   }
 
   @VisibleForTesting

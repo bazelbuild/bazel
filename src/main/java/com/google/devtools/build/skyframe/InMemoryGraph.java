@@ -130,16 +130,4 @@ public interface InMemoryGraph extends ProcessableGraph {
   @Nullable
   InMemoryNodeEntry getIfPresent(SkyKey key);
 
-  /**
-   * Minimizes the size of the data structure backing the graph. May be costly to run (O(n)).
-   *
-   * <p>Must NOT be called concurrently with any other methods.
-   *
-   * <p>Useful after removing large numbers of nodes from the in-memory graph, and the data
-   * structure used doesn't have automatic resizing (e.g. ConcurrentHashMap).
-   *
-   * <p>WARNING: Implementations have to take care of existing references into the data structure if
-   * replaced by a new one (e.g. functions that close over the data structure).
-   */
-  void shrinkNodeMap();
 }

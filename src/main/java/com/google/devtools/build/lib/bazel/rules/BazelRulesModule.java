@@ -49,6 +49,19 @@ public final class BazelRulesModule extends BlazeModule {
   @OptionsClass
   public abstract static class BuildGraveyardOptions extends OptionsBase {
 
+    /**
+     * @deprecated Native mobile-install is no longer supported; this flag is a no-op.
+     */
+    @Deprecated
+    @Option(
+        name = "mode",
+        defaultValue = "skylark",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op flag. Only skylark mode is supported.")
+    public abstract String getMode();
+
     @Deprecated
     @Option(
         name = "use_target_platform_for_tests",
@@ -648,6 +661,98 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getExperimentalCcImplementationDeps();
+
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_frontier_violation_check",
+        defaultValue = "strict",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract String getExperimentalFrontierViolationCheck();
+
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_frontier_violation_verbose",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalFrontierViolationVerbose();
+
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_enable_skyfocus",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalEnableSkyfocus();
+
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_skyfocus_dump_keys",
+        defaultValue = "none",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract String getExperimentalSkyfocusDumpKeys();
+
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_skyfocus_dump_post_gc_stats",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalSkyfocusDumpPostGcStats();
+
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_skyfocus_handling_strategy",
+        defaultValue = "strict",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract String getExperimentalSkyfocusHandlingStrategy();
+
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_active_directories",
+        defaultValue = "",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract List<String> getActiveDirectories();
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -1573,6 +1678,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getExperimentalEnableSclDialect();
+
+    @Deprecated
+    @Option(
+        name = "incompatible_no_implicit_watch_label",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getIncompatibleNoImplicitWatchLabel();
   }
 
   @Override

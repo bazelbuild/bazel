@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import java.time.Duration;
 
 /**
- * This event is fired once the analysis cache has been cleared. Analysis cache clearing is
- * triggered at the beginning of execution phase if --discard_analysis_phase is set.
+ * Event posted after the analysis cache has been cleared. Analysis cache clearing is triggered at
+ * the beginning of execution phase if {@code --discard_analysis_cache} is set.
  */
 public final class AnalysisCacheClearEvent {
   private final Duration clearTime;

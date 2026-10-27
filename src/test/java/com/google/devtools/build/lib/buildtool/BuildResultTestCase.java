@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -186,6 +188,33 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     assertThat(stderr).contains("/groups/t_default.txt\n");
     assertThat(stderr).contains("/groups/t_shared.txt\n");
     assertThat(stderr).doesNotContain("t_custom.txt");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_suppressesUnknownOutputGroupWarning() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions(
+        "--output_groups=+hidden_missing,+shown_missing",
+        "--hide_output_group_results=hidden_missing");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("Output group 'hidden_missing' was requested");
+    assertThat(stderr).contains("Output group 'shown_missing' was requested");
+  }
+
+  @Test
+  public void testHideOutputGroupResults_doesNotSuppressUnknownOutputGroupError() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions(
+        "--output_groups=+hidden_missing",
+        "--hide_output_group_results=hidden_missing",
+        "--incompatible_fail_on_unknown_output_groups");
+    ViewCreationFailedException e =
+        assertThrows(ViewCreationFailedException.class, () -> buildTarget("//groups:t"));
+    assertThat(e).hasMessageThat().contains("Output group 'hidden_missing' was requested");
   }
 
   @Test

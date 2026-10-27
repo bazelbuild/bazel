@@ -351,6 +351,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         needsIncludeValidation,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
+        ccToolchain.getGrepIncludesExecutionPlatform(),
         additionalOutputs,
         moduleFiles,
         modmapInputFile);

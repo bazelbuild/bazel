@@ -33,7 +33,7 @@ jobs:
                 // Copybara closes (rather than merges) PRs, so GitHub does not associate
                 // the commit with its PR. Follow the trailer and confirm this commit closed it.
                 const { data: original } = await github.rest.repos.getCommit({ owner, repo, ref: rolledBackSha });
-                const closes = [...original.commit.message.matchAll(/^Closes #(\d+)\.$/gm)];
+                const closes = [...original.commit.message.matchAll(/^Closes #(\d+)\.?$/gm)];
                 if (!closes.length) continue;
                 const issue_number = Number(closes.at(-1)[1]);
                 const events = await github.paginate(github.rest.issues.listEvents, { owner, repo, issue_number, per_page: 100 });

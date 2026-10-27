@@ -162,10 +162,25 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testCommonAncestor() {
-    assertThat(commonAncestor(topDir, topDir)).isEqualTo(topDir);
+  public void testCommonAncestor() throws IOException {
+    createTestDirectoryTree();
+    assertThat(commonAncestor(topDir, topDir)).isSameInstanceAs(topDir);
     assertThat(commonAncestor(file1, file3)).isEqualTo(topDir);
     assertThat(commonAncestor(file1, dirLink)).isEqualTo(topDir);
+    assertThat(commonAncestor(topDir, file3)).isSameInstanceAs(topDir);
+    assertThat(commonAncestor(file3, topDir)).isSameInstanceAs(topDir);
+    assertThat(commonAncestor(PathFragment.create("foo/bar"), PathFragment.create("foo/baz")))
+        .isEqualTo(PathFragment.create("foo"));
+    assertThat(commonAncestor(PathFragment.create("foo/bar"), PathFragment.create("foo/barbaz")))
+        .isEqualTo(PathFragment.create("foo"));
+    assertThat(commonAncestor(PathFragment.create("foo"), PathFragment.create("bar")))
+        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(commonAncestor(PathFragment.create("/foo"), PathFragment.create("foo"))).isNull();
+    assertThrows(NullPointerException.class, () -> commonAncestor((Path) null, topDir));
+    assertThrows(NullPointerException.class, () -> commonAncestor(topDir, (Path) null));
+    PathFragment foo = PathFragment.create("foo");
+    assertThrows(NullPointerException.class, () -> commonAncestor((PathFragment) null, foo));
+    assertThrows(NullPointerException.class, () -> commonAncestor(foo, (PathFragment) null));
   }
 
   @Test
@@ -664,8 +679,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.writeIsoLatin1(file1, "nobody says ");
     FileSystemUtils.writeIsoLatin1(file1, "mary had");
     FileSystemUtils.appendIsoLatin1(file1, "a little lamb");
-    assertThat(new String(FileSystemUtils.readContentAsLatin1(file1)))
-        .isEqualTo("mary had\na little lamb\n");
+    assertThat(FileSystemUtils.readContentAsLatin1(file1)).isEqualTo("mary had\na little lamb\n");
   }
 
   @Test
@@ -771,7 +785,7 @@ public class FileSystemUtilsTest {
     Path file = fileSystem.getPath("/does/not/exist/yet.txt");
     FileSystemUtils.writeIsoLatin1(file, "Line 1", "Line 2", "Line 3");
     String expected = "Line 1\nLine 2\nLine 3\n";
-    String actual = new String(FileSystemUtils.readContentAsLatin1(file));
+    String actual = FileSystemUtils.readContentAsLatin1(file);
     assertThat(actual).isEqualTo(expected);
   }
 

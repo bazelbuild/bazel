@@ -21,7 +21,6 @@ filegroup(
         "proguard_allowlister_test_input.pgcfg",
         "proguard_allowlister_test_lib.cc",
         "proguard_allowlister_test_lib.h",
-        "remote_java_repository.bzl",
         "toolchain_utils.bzl",
     ],
 )
@@ -42,7 +41,6 @@ filegroup(
         "proguard_allowlister.cc",
         "proguard_allowlister_lib.cc",
         "proguard_allowlister_lib.h",
-        "remote_java_repository.bzl",
         "toolchain_utils.bzl",
     ],
     visibility = ["//tools:__pkg__"],

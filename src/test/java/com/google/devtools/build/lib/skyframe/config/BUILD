@@ -126,6 +126,8 @@ java_test(
     srcs = ["BuildConfigurationKeyBaselineDiffCodecTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
@@ -137,6 +139,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:baseline_diff_codec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:platform_providers",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:default_platform_configuration_provider",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",

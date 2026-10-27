@@ -289,7 +289,7 @@ public final class Resolver extends NodeVisitor {
       }
       this.parameterNames = names.build();
 
-      this.isToplevel = name.equals("<toplevel>");
+      this.isToplevel = name.equals("<toplevel>") || name.equals("<expr>");
       this.locals = ImmutableList.copyOf(locals);
       this.freevars = ImmutableList.copyOf(freevars);
       this.globals = globals;
@@ -326,7 +326,7 @@ public final class Resolver extends NodeVisitor {
      * <p>If this function is the toplevel function of a file or expression, its sequence number is
      * the highest function sequence number in the program.
      */
-    int getFunctionId() {
+    public int getFunctionId() {
       return functionId;
     }
 
@@ -445,7 +445,7 @@ public final class Resolver extends NodeVisitor {
 
     /**
      * isToplevel indicates that this is the <toplevel> function containing top-level statements of
-     * a file.
+     * a file, or the <expr> function evaluating a standalone expression.
      */
     // TODO(adonovan): remove this when we remove Bazel's "export" hack,
     // or switch to a compiled representation of function bodies.
@@ -1362,14 +1362,15 @@ public final class Resolver extends NodeVisitor {
       }
 
       if (statement instanceof LoadStatement) {
-        if (firstStatement == null) {
-          continue;
+        if (firstStatement != null) {
+          errorf(
+              statement,
+              "load statements must appear before any other statement (first non-load statement at"
+                  + " line %d)",
+              firstStatement.getStartLocation().line());
+          return;
         }
-        errorf(statement, "load statements must appear before any other statement");
-        errorf(firstStatement, "\tfirst non-load statement appears here");
-      }
-
-      if (firstStatement == null) {
+      } else if (firstStatement == null) {
         firstStatement = statement;
       }
     }

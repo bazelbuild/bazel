@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
@@ -370,21 +371,25 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
 
   /**
    * Helper container for checkConstraints: stores both a set of deps that need to be
-   * constraint-checked and the subset of those deps that only appear inside selects.
+   * constraint-checked and the subset of those deps that support static constraint checking.
    */
   private static class DepsToCheck {
     private final Set<TransitiveInfoCollection> allDeps;
-    private final Set<TransitiveInfoCollection> selectOnlyDeps;
-    DepsToCheck(Set<TransitiveInfoCollection> depsToCheck,
-        Set<TransitiveInfoCollection> selectOnlyDeps) {
+    private final Set<TransitiveInfoCollection> staticallyCheckableDeps;
+
+    DepsToCheck(
+        Set<TransitiveInfoCollection> depsToCheck,
+        Set<TransitiveInfoCollection> staticallyCheckableDeps) {
       this.allDeps = depsToCheck;
-      this.selectOnlyDeps = selectOnlyDeps;
+      this.staticallyCheckableDeps = staticallyCheckableDeps;
     }
+
     Set<TransitiveInfoCollection> allDeps() {
       return allDeps;
     }
-    boolean isSelectOnly(TransitiveInfoCollection dep) {
-      return selectOnlyDeps.contains(dep);
+
+    boolean canStaticallyCheck(TransitiveInfoCollection dep) {
+      return staticallyCheckableDeps.contains(dep);
     }
   }
 
@@ -431,7 +436,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     DepsToCheck depsToCheck = getConstraintCheckedDependencies(ruleContext);
 
     for (TransitiveInfoCollection dep : depsToCheck.allDeps()) {
-      if (!depsToCheck.isSelectOnly(dep)) {
+      if (depsToCheck.canStaticallyCheck(dep)) {
         // TODO(bazel-team): support static constraint checking for selects. A selectable constraint
         // is valid if the union of all deps in the select includes all of this rule's static
         // environments. Determining that requires following the select paths that don't get chosen,
@@ -719,12 +724,12 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
 
   /**
    * Returns all dependencies that should be constraint-checked against the current rule, including
-   * both "unconditional" deps (outside selects) and deps that only appear in selects.
+   * both statically checked deps and deps that only refine environments because they depend on the
+   * build configuration (in selects or late-bound aliases).
    */
   private static DepsToCheck getConstraintCheckedDependencies(RuleContext ruleContext) {
     Set<TransitiveInfoCollection> depsToCheck = new LinkedHashSet<>();
-    Set<TransitiveInfoCollection> selectOnlyDeps = new LinkedHashSet<>();
-    Set<TransitiveInfoCollection> depsOutsideSelects = new LinkedHashSet<>();
+    Set<TransitiveInfoCollection> staticallyCheckableDeps = new LinkedHashSet<>();
 
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : attributes.getAttributeNames()) {
@@ -763,20 +768,20 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         // checking, but for now just pass them by.
         if (dep.getProvider(SupportedEnvironmentsProvider.class) != null) {
           depsToCheck.add(dep);
-          if (!selectOnlyDepsForThisAttribute.contains(depLabelInSelect)) {
-            depsOutsideSelects.add(dep);
+          // Both select() entries and late-bound aliases (e.g. label_flag, label_setting) resolve
+          // based on the build configuration, so refine environments rather than checking them
+          // statically across all configurations.
+          boolean isConfigurationBased =
+              selectOnlyDepsForThisAttribute.contains(depLabelInSelect)
+                  || dep.getProvider(AliasProvider.LateBoundAliasProvider.class) != null;
+          if (!isConfigurationBased) {
+            staticallyCheckableDeps.add(dep);
           }
         }
       }
     }
 
-    for (TransitiveInfoCollection dep : depsToCheck) {
-      if (!depsOutsideSelects.contains(dep)) {
-        selectOnlyDeps.add(dep);
-      }
-    }
-
-    return new DepsToCheck(depsToCheck, selectOnlyDeps);
+    return new DepsToCheck(depsToCheck, staticallyCheckableDeps);
   }
 
   /**
@@ -818,7 +823,12 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
   private static <T> void addSelectValuesToSet(BuildType.Selector<T> select, Set<Label> set) {
     Type<T> type = select.getOriginalType();
     LabelVisitor visitor = (label, dummy) -> set.add(label);
-    select.forEach((label, value) -> type.visitLabels(visitor, value, /* context= */ null));
+    select.forEach(
+        (label, value) -> {
+          if (value != null) {
+            type.visitLabels(visitor, value, /* context= */ null);
+          }
+        });
   }
 
   /**

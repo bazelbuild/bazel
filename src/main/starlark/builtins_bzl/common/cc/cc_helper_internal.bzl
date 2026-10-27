@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# LINT.IfChange(forked_exports)
 """
 Utility functions for C++ rules that don't depend on cc_common.
 
@@ -20,6 +19,7 @@ Only use those within C++ implementation. The others need to go through cc_commo
 
 _: Any  # Enable type checking.
 
+# LINT.IfChange(create_compile_action_api_allowlisted_packages)
 CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [
     ("", "devtools/rust/cc_interop"),
     ("", "third_party/crubit"),
@@ -27,47 +27,4 @@ CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [
     ("", "third_party/bazel_rules/rules_cc"),
 ]
 
-PRIVATE_STARLARKIFICATION_ALLOWLIST = [
-    ("_builtins", ""),
-    # Android rules
-    ("", "tools/build_defs/android"),
-    ("", "third_party/bazel_rules/rules_android"),
-    ("build_bazel_rules_android", ""),
-    ("rules_android", ""),
-    # Apple rules
-    ("", "third_party/bazel_rules/rules_apple"),
-    ("apple_support", ""),
-    ("build_bazel_apple_support", ""),
-    ("rules_apple", ""),
-    ("build_bazel_rules_apple", ""),
-    # C++ rules
-    ("", "bazel_internal/test_rules/cc"),
-    ("", "third_party/bazel_rules/rules_cc"),
-    ("", "tools/build_defs/cc"),
-    ("rules_cc", ""),
-    # CUDA rules
-    ("", "third_party/gpus/cuda"),
-    # Go rules
-    ("", "tools/build_defs/go"),
-    # Java rules
-    ("", "third_party/bazel_rules/rules_java"),
-    ("rules_java", ""),
-    # Objc rules
-    ("", "tools/build_defs/objc"),
-    # Protobuf rules
-    ("", "third_party/protobuf"),
-    ("protobuf", ""),
-    ("com_google_protobuf", ""),
-    ("", "third_party/upb"),
-    # Rust rules
-    ("", "third_party/bazel_rules/rules_rust/rust/private"),
-    ("rules_rust", "rust/private"),
-    # Python rules
-    ("", "third_party/bazel_rules/rules_python"),
-    # Various
-    ("", "gdm/devtools/build_defs/contrib"),
-    ("", "research/colab"),
-    ("", "javatests/com/google/devtools/grok/kythe"),
-] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
-
-# LINT.ThenChange(@rules_cc//cc/common/visibility.bzl:forked_exports)
+# LINT.ThenChange(@rules_cc//cc/private/visibility.bzl:create_compile_action_api_allowlisted_packages)

@@ -59,7 +59,6 @@ import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.unix.DomainSocketAddress;
-import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -68,7 +67,6 @@ import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
@@ -159,11 +157,6 @@ public final class HttpCacheClient extends RemoteCacheClient {
                   ? Result.TRANSIENT_FAILURE
                   : Result.PERMANENT_FAILURE;
             }
-            // Workaround for a netty bug: https://github.com/netty/netty/issues/11815. Remove this
-            // once it is fixed in the upstream.
-            case DecoderException decoder
-                when decoder.getMessage().endsWith("functions:OPENSSL_internal:BAD_DECRYPT") ->
-                Result.TRANSIENT_FAILURE;
             case null, default -> Result.PERMANENT_FAILURE;
           };
 
@@ -675,6 +668,11 @@ public final class HttpCacheClient extends RemoteCacheClient {
   }
 
   @Override
+  public ListenableFuture<ServerCapabilities> serverCapabilities() {
+    return Futures.immediateFuture(getServerCapabilities());
+  }
+
+  @Override
   public ListenableFuture<String> getAuthority() {
     return Futures.immediateFuture("");
   }
@@ -889,10 +887,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
 
   private static SslContext createSSLContext(AuthAndTLSOptions authAndTlsOptions)
       throws IOException {
-    // OpenSsl gives us a > 2x speed improvement on fast networks, but requires netty tcnative
-    // to be there which is not available on all platforms and environments.
-    SslProvider sslProvider = OpenSsl.isAvailable() ? SslProvider.OPENSSL : SslProvider.JDK;
-    SslContextBuilder sslContextBuilder = SslContextBuilder.forClient().sslProvider(sslProvider);
+    SslContextBuilder sslContextBuilder =
+        SslContextBuilder.forClient().sslProvider(SslProvider.JDK);
 
     // Root CA certificate
     if (authAndTlsOptions.getTlsCertificate() != null) {

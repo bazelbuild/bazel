@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ModifiedOutputsReceiver;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -157,7 +156,7 @@ public final class FilesystemValueCheckerTest {
   private final ArgumentCaptor<Artifact> modifiedOutputsCaptor =
       ArgumentCaptor.forClass(Artifact.class);
 
-  private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
+  private TreeArtifact createTreeArtifact(String relPath) throws IOException {
     String outSegment = "bin";
     Path outputDir = fs.getPath("/" + outSegment);
     Path outputPath = outputDir.getRelative(relPath);
@@ -313,7 +312,6 @@ public final class FilesystemValueCheckerTest {
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
             new AtomicReference<>(ImmutableSet.of()),
-            CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
 
     differencer = new SequencedRecordingDifferencer();
@@ -338,7 +336,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_unchangedEmptyTreeArtifactWithArchivedFile_noDirtyKeys()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
     ActionExecutionValue actionExecutionValue =
         actionValueWithTreeArtifacts(
@@ -351,7 +349,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_unchangedTreeArtifactWithArchivedFile_noDirtyKeys()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     ActionExecutionValue actionExecutionValue =
         actionValueWithTreeArtifacts(
             ImmutableList.of(
@@ -365,7 +363,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_editedArchivedFileForEmptyTreeArtifact_reportsChange()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
     ArchivedTreeArtifact archivedTreeArtifact =
         createArchivedTreeArtifactWithContent(treeArtifact, "old content");
@@ -379,7 +377,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_editedArchivedFileForTreeArtifact_reportsChange()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     ArchivedTreeArtifact archivedTreeArtifact =
         createArchivedTreeArtifactWithContent(treeArtifact, "old content");
     ActionExecutionValue actionExecutionValue =
@@ -398,7 +396,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_deletedArchivedFileForTreeArtifact_reportsChange()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifactWithContent(treeArtifact);
     ActionExecutionValue actionExecutionValue =
         actionValueWithTreeArtifacts(
@@ -416,7 +414,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_deletedArchivedFileForEmptyTreeArtifact_reportsChange()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifactWithContent(treeArtifact);
     ActionExecutionValue actionExecutionValue =
         actionValueWithTreeArtifacts(ImmutableList.of(), ImmutableList.of(archivedTreeArtifact));
@@ -428,7 +426,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_editedFileForTreeArtifactWithArchivedFile_reportsChange()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     TreeFileArtifact child1 =
         createTreeFileArtifactWithContent(
             treeArtifact, /* parentRelativePath= */ "file1", "old content");
@@ -447,12 +445,12 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_treeArtifactWithArchivedArtifact_reportsOnlyChangedKey()
       throws Exception {
-    SpecialArtifact unchangedTreeArtifact = createTreeArtifact("dir1");
+    TreeArtifact unchangedTreeArtifact = createTreeArtifact("dir1");
     ActionExecutionValue unchangedValue =
         actionValueWithTreeArtifacts(
             ImmutableList.of(createTreeFileArtifactWithContent(unchangedTreeArtifact, "child")),
             ImmutableList.of(createArchivedTreeArtifactWithContent(unchangedTreeArtifact)));
-    SpecialArtifact changedTreeArtifact = createTreeArtifact("dir2");
+    TreeArtifact changedTreeArtifact = createTreeArtifact("dir2");
     ArchivedTreeArtifact changedArchivedTreeArtifact =
         createArchivedTreeArtifactWithContent(changedTreeArtifact, "old content");
     ActionExecutionValue changedValue =
@@ -490,7 +488,7 @@ public final class FilesystemValueCheckerTest {
   }
 
   private TreeFileArtifact createTreeFileArtifactWithContent(
-      SpecialArtifact treeArtifact, String parentRelativePath, String... contentLines)
+      TreeArtifact treeArtifact, String parentRelativePath, String... contentLines)
       throws IOException {
     TreeFileArtifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, parentRelativePath);
     writeFile(artifact.getPath(), contentLines);
@@ -498,7 +496,7 @@ public final class FilesystemValueCheckerTest {
   }
 
   private ArchivedTreeArtifact createArchivedTreeArtifactWithContent(
-      SpecialArtifact treeArtifact, String... contentLines) throws IOException {
+      TreeArtifact treeArtifact, String... contentLines) throws IOException {
     ArchivedTreeArtifact artifact = ArchivedTreeArtifact.createForTree(treeArtifact);
     writeFile(artifact.getPath(), contentLines);
     return artifact;
@@ -900,7 +898,7 @@ public final class FilesystemValueCheckerTest {
       @TestParameter({"", "subdir"}) String touchedTreePath,
       @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "subdir/file");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "text");
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -929,7 +927,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_deleteEmptyTreeDirectory_returnsTreeKey(
       @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     tree.getPath().createDirectoryAndParents();
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     differencer.inject(
@@ -957,7 +955,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_treeDirectoryReplacedWithSymlink_returnsTreeKey()
       throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     tree.getPath().createDirectoryAndParents();
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     differencer.inject(
@@ -988,7 +986,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_modifiedTreeFile_returnsTreeKey(
       @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "text");
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -1017,7 +1015,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_addedTreeFile_returnsTreeKey(
       @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file1");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath());
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -1047,7 +1045,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_addedTreeFileToEmptyTree_returnsTreeKey(
       @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     tree.getPath().createDirectoryAndParents();
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     differencer.inject(
@@ -1076,7 +1074,7 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_deletedTreeFile_returnsTreeKey(
       @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath());
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -1104,10 +1102,10 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   public void getDirtyActionValues_everythingModified_returnsAllKeys() throws Exception {
-    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeArtifact tree1 = createTreeArtifact("tree1");
     TreeFileArtifact tree1File = TreeFileArtifact.createTreeOutput(tree1, "file");
     FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "text");
-    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeArtifact tree2 = createTreeArtifact("tree2");
     TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
     FileSystemUtils.writeIsoLatin1(tree2File.getPath());
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -1142,10 +1140,10 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_changedFileNotInModifiedSet_returnsKeysFromSetOnly(
       @TestParameter boolean reportFirst) throws Exception {
-    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeArtifact tree1 = createTreeArtifact("tree1");
     TreeFileArtifact tree1File = TreeFileArtifact.createTreeOutput(tree1, "file");
     FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "text");
-    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeArtifact tree2 = createTreeArtifact("tree2");
     TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
     FileSystemUtils.writeIsoLatin1(tree2File.getPath());
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -1184,13 +1182,13 @@ public final class FilesystemValueCheckerTest {
   @Test
   public void getDirtyActionValues_middleFileSkippedInModifiedFileSet_returnsKeysFromSetOnly()
       throws Exception {
-    SpecialArtifact treeA = createTreeArtifact("a_tree");
+    TreeArtifact treeA = createTreeArtifact("a_tree");
     TreeFileArtifact treeAFile = TreeFileArtifact.createTreeOutput(treeA, "file");
     FileSystemUtils.writeIsoLatin1(treeAFile.getPath());
-    SpecialArtifact treeB = createTreeArtifact("b_tree");
+    TreeArtifact treeB = createTreeArtifact("b_tree");
     TreeFileArtifact treeBFile = TreeFileArtifact.createTreeOutput(treeB, "file");
     FileSystemUtils.writeIsoLatin1(treeBFile.getPath());
-    SpecialArtifact treeC = createTreeArtifact("c_tree");
+    TreeArtifact treeC = createTreeArtifact("c_tree");
     TreeFileArtifact treeCFile = TreeFileArtifact.createTreeOutput(treeC, "file");
     FileSystemUtils.writeIsoLatin1(treeCFile.getPath());
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -1232,7 +1230,7 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   public void getDirtyActionValues_nothingModified_returnsEmptyDiff() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath());
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -1410,7 +1408,7 @@ public final class FilesystemValueCheckerTest {
     return ActionsTestUtil.createActionExecutionValue(ImmutableMap.copyOf(artifactData));
   }
 
-  private static Delta actionValueWithTreeArtifact(SpecialArtifact output, TreeArtifactValue tree) {
+  private static Delta actionValueWithTreeArtifact(TreeArtifact output, TreeArtifactValue tree) {
     return Delta.justNew(
         ActionsTestUtil.createActionExecutionValue(
             /* artifactData= */ ImmutableMap.of(), ImmutableMap.of(output, tree)));
@@ -1671,7 +1669,7 @@ public final class FilesystemValueCheckerTest {
     // Test that change to local tree files invalidates generating action.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
     TreeArtifactValue tree =
         TreeArtifactValue.newBuilder(treeArtifact)
@@ -1732,7 +1730,7 @@ public final class FilesystemValueCheckerTest {
     // partially downloaded, the generating action is not marked as dirty.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
     var fooMetadata = createRemoteMetadata("foo-content");
     TreeArtifactValue tree =
@@ -1800,7 +1798,7 @@ public final class FilesystemValueCheckerTest {
     // actions are not marked as dirty if contents proxy is set.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
     var fooMetadata = createRemoteMetadata("foo-content");
     var barMetadata = createRemoteMetadata("bar-content");
@@ -1868,7 +1866,7 @@ public final class FilesystemValueCheckerTest {
     // Test that if injected remote tree artifacts are expired, they are considered as dirty.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
     TreeArtifactValue tree =
         TreeArtifactValue.newBuilder(treeArtifact)
@@ -1911,7 +1909,7 @@ public final class FilesystemValueCheckerTest {
     // considered as dirty.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
-    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
     TreeArtifactValue tree =
         TreeArtifactValue.newBuilder(treeArtifact)

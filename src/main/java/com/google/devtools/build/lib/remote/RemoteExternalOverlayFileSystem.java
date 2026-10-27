@@ -78,6 +78,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -106,7 +107,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   @Nullable private Reporter reporter;
   @Nullable private String buildRequestId;
   @Nullable private String commandId;
-  @Nullable private MemoizingEvaluator evaluator;
+  @Nullable private Supplier<MemoizingEvaluator> evaluator;
   @Nullable private Duration remoteCacheTtl;
   @Nullable private ListeningExecutorService materializationExecutor;
 
@@ -124,7 +125,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       Reporter reporter,
       String buildRequestId,
       String commandId,
-      MemoizingEvaluator evaluator,
+      Supplier<MemoizingEvaluator> evaluator,
       Duration remoteCacheTtl) {
     checkState(
         this.cache == null
@@ -173,7 +174,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // refetching is not atomic.
     materializedRepos.forEach(this::evictInMemoryRepo);
     reposWithLostFiles.forEach(this::evictInMemoryRepo);
-    invalidateRepoDirectories(evaluator, reposWithLostFiles);
+    // The evaluator may have been replaced during the command.
+    invalidateRepoDirectories(evaluator.get(), reposWithLostFiles);
     reposWithLostFiles.clear();
     this.evaluator = null;
   }
@@ -214,7 +216,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
-                toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
+                toImmutableMap(cache.digestUtil()::compute, directory -> directory, (a, b) -> a));
     var filesToPrefetch = new LinkedHashSet<PathFragment>();
     var symlinksToPrefetch = new ArrayList<PathFragment>();
     externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
@@ -394,7 +396,15 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
-      // The repo has not been injected into the in-memory file system.
+      // The repo has not been injected into the in-memory file system, or has already been
+      // materialized. If it is a native repo, it may still contain symlinks into repos that are
+      // served from memory, which must be materialized before the native repo is accessed
+      // non-hermetically.
+      String repoName = repo.getName();
+      if (!materializedRepos.contains(repoName)) {
+        materializeSymlinkTargetReposBelow(
+            nativeFs.getPath(externalDirectory.getChild(repoName)), reporter);
+      }
       return;
     }
     var unused =
@@ -414,6 +424,58 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                         return null;
                       });
                 }));
+  }
+
+  /**
+   * Materializes the repos served from memory that symlinks below the given native directory point
+   * to, following chains of native symlinks on the way.
+   */
+  private void materializeSymlinkTargetReposBelow(Path nativeDir, ExtendedEventHandler reporter)
+      throws IOException, InterruptedException {
+    if (markerFileContents.isEmpty() || !nativeDir.isDirectory(Symlinks.NOFOLLOW)) {
+      return;
+    }
+    for (Dirent dirent : nativeDir.readdir(Symlinks.NOFOLLOW)) {
+      if (markerFileContents.isEmpty()) {
+        return;
+      }
+      Path child = nativeDir.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, reporter);
+        case SYMLINK -> {
+          PathFragment target = resolveNativeSymlinkIntoMemory(child);
+          if (target != null) {
+            ensureMaterialized(
+                RepositoryName.createUnvalidated(target.getSegment(externalDirectorySegmentCount)),
+                reporter);
+          }
+        }
+        default -> {}
+      }
+    }
+  }
+
+  /**
+   * Returns the path served from memory that the given native symlink points to, possibly through
+   * further native symlinks, or null if it doesn't point into memory.
+   */
+  @Nullable
+  private PathFragment resolveNativeSymlinkIntoMemory(Path nativeSymlink) throws IOException {
+    PathFragment current = nativeSymlink.asFragment();
+    Set<PathFragment> visited = new HashSet<>();
+    while (visited.add(current)) {
+      if (fsForPath(current) == externalFs) {
+        return current;
+      }
+      Path path = nativeFs.getPath(current);
+      FileStatus status = path.statIfFound(Symlinks.NOFOLLOW);
+      if (status == null || !status.isSymbolicLink()) {
+        return null;
+      }
+      PathFragment target = path.readSymbolicLink();
+      current = target.isAbsolute() ? target : current.getParentDirectory().getRelative(target);
+    }
+    return null;
   }
 
   private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
@@ -479,10 +541,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
     var files = new LinkedHashSet<PathFragment>();
     var symlinks = new LinkedHashSet<PathFragment>();
-    var root = externalFs.getPath(path);
-    if (root.isSymbolicLink()) {
-      symlinks.add(path);
-      root = root.resolveSymbolicLinks();
+    // The path or any of the directories above it may be a symlink. Reproduce these symlinks on the
+    // native file system and materialize the subtree at the path they resolve to, as creating the
+    // directories along the given path instead would turn the symlinks into regular directories.
+    var root = externalFs.getPath(path.subFragment(0, externalDirectorySegmentCount + 1));
+    for (String segment : path.subFragment(externalDirectorySegmentCount + 1).segments()) {
+      root = root.getChild(segment);
+      if (root.isSymbolicLink()) {
+        symlinks.add(root.asFragment());
+        root = root.resolveSymbolicLinks();
+      }
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
     prefetch(files);
@@ -860,6 +928,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     }
 
     @Override
+    @SuppressWarnings("UnsynchronizedOverridesSynchronized")
     public InputStream getInputStream(PathFragment path) throws IOException {
       // Symlinks are never prefetched to the native file system themselves, only the regular file
       // they resolve to, so follow them before reading a prefetched file. Either end of the chain

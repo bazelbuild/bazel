@@ -107,7 +107,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
             treeDeleter,
             sandboxContents.get());
       } else {
-        // No in-memory stashes enabled but there is a stash.
+        // No in-memory stashes enabled or there is a stash without recorded in-memory contents.
         // When reusing an old sandbox, we do a full traversal of the parent directory of
         // `sandboxExecRoot`.
         SandboxHelpers.cleanExisting(
@@ -117,7 +117,6 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
             dirsToCreate,
             sandboxExecRoot,
             treeDeleter);
-        return;
       }
     }
 

@@ -206,14 +206,74 @@ static int SelectMaxImportDepth() {
              : OptionProcessor::MaxImportDepth;
 }
 
+struct ClientLocks {
+  std::optional<LockHandle> install_base_lock;
+  std::optional<LockHandle> output_base_lock;
+};
+
+static std::pair<ClientLocks, DurationMillis> AcquireClientLocks(
+    const StartupOptions &startup_options) {
+  ClientLocks locks;
+  DurationMillis wait_time;
+
+  if (startup_options.lock_install_base) {
+    // Take a shared lock on the install base, because two simultaneous commands
+    // may run against the same install base. The lock file is a sibling of the
+    // install base directory to make it possible to synchronize concurrent
+    // creation through an atomic rename. An exclusive lock is only required to
+    // run automatic garbage collection of stale install bases.
+    // Always block waiting for the lock: in the event that the install base is
+    // currently being garbage collected, we want to recreate it.
+    blaze_util::Path install_base_parent =
+        startup_options.install_base.GetParent();
+    blaze_util::MakeDirectories(install_base_parent, 0777);
+    auto install_base_result = blaze::AcquireLock(
+        "install base",
+        install_base_parent.GetRelative(
+            startup_options.install_base.GetBaseName() + ".lock"),
+        LockMode::kShared, startup_options.batch,
+        /* timeout= */ absl::InfiniteDuration());
+    locks.install_base_lock = install_base_result.first;
+    wait_time += install_base_result.second;
+  }
+
+  // Take an exclusive lock on the output base, because two simultaneous
+  // commands may not run against the same output base.
+  auto output_base_result = blaze::AcquireLock(
+      "output base", startup_options.output_base.GetRelative("lock"),
+      LockMode::kExclusive, startup_options.batch,
+      startup_options.block_for_lock_timeout);
+  locks.output_base_lock = output_base_result.first;
+  wait_time += output_base_result.second;
+
+  return std::make_pair(std::move(locks), wait_time);
+}
+
+static void ReleaseClientLocks(bool lock_install_base, ClientLocks *locks) {
+  if (!locks->output_base_lock.has_value()) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "ReleaseLocks() called but the output base lock has already been "
+           "released.";
+  }
+  blaze::ReleaseLock(*locks->output_base_lock);
+  locks->output_base_lock = std::nullopt;
+
+  if (lock_install_base) {
+    if (!locks->install_base_lock.has_value()) {
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "ReleaseLocks() called but the install base lock has already been "
+             "released.";
+    }
+    blaze::ReleaseLock(*locks->install_base_lock);
+    locks->install_base_lock = std::nullopt;
+  }
+}
+
 class BlazeServer final {
  public:
-  explicit BlazeServer(const StartupOptions &startup_options,
-                       CommandExtensionAdder* command_extension_adder);
-
-  // Acquires locks for the install and output bases this server is running in.
-  // Returns the time spent waiting for locks.
-  DurationMillis AcquireLocks();
+  BlazeServer(const StartupOptions &startup_options,
+              CommandExtensionAdder *command_extension_adder,
+              ClientLocks locks);
 
   // Whether there is an active connection to a server.
   bool Connected() const { return client_.get(); }
@@ -250,8 +310,7 @@ class BlazeServer final {
   const ServerProcessInfo &ProcessInfo() const { return process_info_; }
 
  private:
-  std::optional<LockHandle> install_base_lock_;
-  std::optional<LockHandle> output_base_lock_;
+  ClientLocks locks_;
 
   enum CancelThreadAction {
     NOTHING,
@@ -284,12 +343,10 @@ class BlazeServer final {
 
   ServerProcessInfo process_info_;
   const int connect_timeout_secs_;
-  const bool batch_;
   const absl::Duration block_for_lock_timeout_;
   const bool quiet_;
   const bool preemptible_;
   const bool lock_install_base_;
-  const blaze_util::Path install_base_;
   const blaze_util::Path output_base_;
   CommandExtensionAdder* command_extension_adder_;
 };
@@ -303,64 +360,8 @@ static BlazeServer *blaze_server;
 // _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
 // objects before those.
 
-DurationMillis BlazeServer::AcquireLocks() {
-  DurationMillis wait_time;
-
-  if (lock_install_base_) {
-    // Take a shared lock on the install base, because two simultaneous commands
-    // may run against the same install base. The lock file is a sibling of the
-    // install base directory to make it possible to synchronize concurrent
-    // creation through an atomic rename. An exclusive lock is only required to
-    // run automatic garbage collection of stale install bases.
-    // Always block waiting for the lock: in the event that the install base is
-    // currently being garbage collected, we want to recreate it.
-    if (install_base_lock_.has_value()) {
-      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-          << "AcquireLocks() called but the install base lock is already held.";
-    }
-    blaze_util::Path install_base_parent = install_base_.GetParent();
-    blaze_util::MakeDirectories(install_base_parent, 0777);
-    auto install_base_result = blaze::AcquireLock(
-        "install base",
-        install_base_parent.GetRelative(install_base_.GetBaseName() + ".lock"),
-        LockMode::kShared, batch_, /* timeout= */ absl::InfiniteDuration());
-    install_base_lock_ = install_base_result.first;
-    wait_time += install_base_result.second;
-  }
-
-  // Take an exclusive lock on the output base, because two simultaneous
-  // commands may not run against the same output base.
-  if (output_base_lock_.has_value()) {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "AcquireLocks() called but the output base lock is already held.";
-  }
-  auto output_base_result =
-      blaze::AcquireLock("output base", output_base_.GetRelative("lock"),
-                         LockMode::kExclusive, batch_, block_for_lock_timeout_);
-  output_base_lock_ = output_base_result.first;
-  wait_time += output_base_result.second;
-
-  return wait_time;
-}
-
 void BlazeServer::ReleaseLocks() {
-  if (!output_base_lock_.has_value()) {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "ReleaseLocks() called but the output base lock has already been "
-           "released.";
-  }
-  blaze::ReleaseLock(*output_base_lock_);
-  output_base_lock_ = std::nullopt;
-
-  if (lock_install_base_) {
-    if (!install_base_lock_.has_value()) {
-      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-          << "ReleaseLocks() called but the install base lock has already been "
-             "released.";
-    }
-    blaze::ReleaseLock(*install_base_lock_);
-    install_base_lock_ = std::nullopt;
-  }
+  ReleaseClientLocks(lock_install_base_, &locks_);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -380,7 +381,6 @@ static string EscapeForOptionSource(const string &input) {
 // Returns the JVM command argument array.
 static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                                        const string &server_jar_path,
-                                       const vector<string> &archive_contents,
                                        const string &install_md5,
                                        const WorkspaceLayout &workspace_layout,
                                        const string &workspace,
@@ -422,18 +422,20 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   blaze_util::Path real_install_dir =
       blaze_util::Path(startup_options.install_base);
 
-  for (const auto &it : archive_contents) {
-    if (IsSharedLibrary(it)) {
-      string libpath(real_install_dir.GetRelative(blaze_util::Dirname(it))
-                         .AsJvmArgument());
-      // Only add the library path if it's not added yet.
-      if (java_library_paths.insert(libpath).second) {
-        if (java_library_paths.size() > 1) {
-          java_library_path << kListSeparator;
-        }
-        java_library_path << libpath;
-      }
+  vector<blaze_util::Path> extracted_files;
+  blaze_util::GetAllFilesUnder(real_install_dir, &extracted_files);
+  for (const auto &it : extracted_files) {
+    if (IsSharedLibrary(it.GetBaseName())) {
+      java_library_paths.insert(it.GetParent().AsJvmArgument());
     }
+  }
+  bool first_libpath = true;
+  for (const auto &libpath : java_library_paths) {
+    if (!first_libpath) {
+      java_library_path << kListSeparator;
+    }
+    first_libpath = false;
+    java_library_path << libpath;
   }
   result.push_back(java_library_path.str());
 
@@ -651,6 +653,26 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   }
 
   result.push_back(option_sources);
+
+#if defined(__OpenBSD__)
+  // When spawning the server's JVM process, we normally set argv[0] to
+  // "bazel(workspace)". On OpenBSD, doing so causes the JVM process to fail
+  // during startup; ld.so fails to find a shared library that exists in
+  // /usr/local/jdk-1.8.0/jre/lib/amd64. Setting LD_LIBRARY_PATH does not help,
+  // but setting argv[0] to the JVM binary's path
+  // (/usr/local/jdk-1.8.0/bin/java) allows the JVM process to run. The JVM
+  // process apparently tries to compute a path to where the shared libraries
+  // should be, via a relative path from the JVM executable's path -- but
+  // OpenBSD does not provide a way for a process to determine a path to its
+  // own executable, and so the JVM falls back to searching the PATH for
+  // argv[0], which of course fails when argv[0] looks like "bazel(workspace)".
+  //
+  // TODO(aldersondrive): This hack is unnecessary on FreeBSD, but the relevant
+  // OpenJDK code doesn't seem to include anything FreeBSD-specific.
+  // Investigate why and possibly remove this.
+  result[0] = startup_options.GetExe(jvm_path, server_jar_path).AsNativePath();
+#endif
+
   return result;
 }
 
@@ -723,8 +745,8 @@ static bool IsServerMode(const string &command) {
 // @Command(mustRunInWorkspace = false).
 static bool CanRunOutsideWorkspace(const string& command) {
   return command == "canonicalize-flags" || command == "dump" ||
-         command == "help" || command == "license" || command == "shutdown" ||
-         command == "version";
+         command == "help" || command == "info" || command == "license" ||
+         command == "shutdown" || command == "version";
 }
 
 // Returns the path of the file that the server JVM reads its arguments from on
@@ -734,12 +756,60 @@ static blaze_util::Path GetServerJvmArgFilePath(
   return output_base.GetRelative("server_jvm.args");
 }
 
+// Returns the server's PID from the pid file, or -1 if there was an error.
+static int GetServerPid(const blaze_util::Path &server_dir) {
+  // Note: there is no race here on startup since the server creates
+  // the pid file strictly before it binds the socket.
+  blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
+  string bufstr;
+  int result;
+  if (!blaze_util::ReadFile(pid_file, &bufstr, 32) ||
+      !blaze_util::safe_strto32(bufstr, &result)) {
+    return -1;
+  }
+
+  return result;
+}
+
+static bool NeedsNewInstallationSymlink(const StartupOptions &startup_options) {
+  const blaze_util::Path install_base_symlink =
+      startup_options.output_base.GetRelative("install");
+  blaze_util::Path prev_install_base;
+  return !blaze_util::ReadDirectorySymlink(install_base_symlink,
+                                           &prev_install_base) ||
+         !blaze_util::ArePathsEquivalent(prev_install_base,
+                                         startup_options.install_base);
+}
+
+static void UpdateInstallationSymlink(const StartupOptions &startup_options) {
+  const blaze_util::Path install_base_symlink =
+      startup_options.output_base.GetRelative("install");
+  blaze_util::UnlinkPath(install_base_symlink);
+  if (!SymlinkDirectories(startup_options.install_base,
+                          install_base_symlink)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "failed to create installation symlink '"
+        << install_base_symlink.AsPrintablePath()
+        << "': " << GetLastErrorString();
+  }
+
+  // Update the mtime of the install base so that cleanup tools can
+  // find install bases that haven't been used for a long time.
+  // Ignore permissions errors (i.e. if the install base is not writable).
+  if (!SetMtimeToNowIfPossible(
+          blaze_util::Path(startup_options.install_base))) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "failed to set timestamp on '"
+        << startup_options.install_base.AsPrintablePath()
+        << "': " << GetLastErrorString();
+  }
+}
+
 // Replace this process with the blaze server. Does not exit.
 static void RunServerMode(
     const blaze_util::Path &server_exe, const vector<string> &server_exe_args,
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
-    const string &workspace, const OptionProcessor &option_processor,
-    const StartupOptions &startup_options, BlazeServer *server) {
+    const string &workspace, const StartupOptions &startup_options) {
   if (startup_options.batch) {
     BAZEL_DIE(blaze_exit_code::BAD_ARGV)
         << "exec-server command is not compatible with --batch";
@@ -747,14 +817,24 @@ static void RunServerMode(
 
   BAZEL_LOG(INFO) << "Running in server mode.";
 
-  if (server->Connected()) {
+  int server_pid = GetServerPid(server_dir);
+  if (server_pid > 0 &&
+      VerifyServerProcess(server_pid, startup_options.output_base)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "exec-server failed, please shut down existing server pid="
-        << server->ProcessInfo().server_pid_ << " and retry.";
+        << server_pid << " and retry.";
+  }
+
+  if (NeedsNewInstallationSymlink(startup_options)) {
+    UpdateInstallationSymlink(startup_options);
   }
 
   EnsureServerDir(server_dir);
 
+  // Remove any stale server.starttime file from a previous daemon run so
+  // VerifyServerProcess checks /proc/<pid>/stat without comparing against an
+  // outdated start time.
+  (void)blaze_util::UnlinkPath(server_dir.GetRelative("server.starttime"));
   blaze_util::WriteFile(blaze::GetProcessIdAsString(),
                         server_dir.GetRelative("server.pid.txt"));
   blaze_util::WriteFile(GetArgumentString(server_exe_args),
@@ -866,22 +946,6 @@ static void WriteFileToStderrOrDie(const blaze_util::Path &path) {
     fwrite(buffer, 1, num_read, stderr);
   }
   fclose(fp);
-}
-
-// After connecting to the Blaze server, return its PID, or -1 if there was an
-// error.
-static int GetServerPid(const blaze_util::Path &server_dir) {
-  // Note: there is no race here on startup since the server creates
-  // the pid file strictly before it binds the socket.
-  blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
-  string bufstr;
-  int result;
-  if (!blaze_util::ReadFile(pid_file, &bufstr, 32) ||
-      !blaze_util::safe_strto32(bufstr, &result)) {
-    return -1;
-  }
-
-  return result;
 }
 
 // Connect to the server process or exit if it doesn't work out.
@@ -1183,13 +1247,7 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
   // target dirs don't match, or if the symlink was not present, then kill any
   // running servers. Lastly, symlink to our installation so others know which
   // installation is running.
-  const blaze_util::Path install_base_symlink =
-      startup_options.output_base.GetRelative("install");
-  blaze_util::Path prev_install_base;
-  if (!blaze_util::ReadDirectorySymlink(install_base_symlink,
-                                        &prev_install_base) ||
-      !blaze_util::ArePathsEquivalent(prev_install_base,
-                                      startup_options.install_base)) {
+  if (NeedsNewInstallationSymlink(startup_options)) {
     if (server->Connected()) {
       BAZEL_LOG(INFO)
           << "Killing running server because it is using another version of "
@@ -1198,25 +1256,7 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
       logging_info->restart_reason = NEW_VERSION;
     }
 
-    blaze_util::UnlinkPath(install_base_symlink);
-    if (!SymlinkDirectories(startup_options.install_base,
-                            install_base_symlink)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to create installation symlink '"
-          << install_base_symlink.AsPrintablePath()
-          << "': " << GetLastErrorString();
-    }
-
-    // Update the mtime of the install base so that cleanup tools can
-    // find install bases that haven't been used for a long time.
-    // Ignore permissions errors (i.e. if the install base is not writable).
-    if (!SetMtimeToNowIfPossible(
-            blaze_util::Path(startup_options.install_base))) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to set timestamp on '"
-          << startup_options.install_base.AsPrintablePath()
-          << "': " << GetLastErrorString();
-    }
+    UpdateInstallationSymlink(startup_options);
   }
 }
 
@@ -1555,19 +1595,33 @@ static void RunLauncher(const string& self_path,
                         LoggingInfo* logging_info,
                         StartupInterceptor* interceptor,
                         CommandExtensionAdder* command_extension_adder) {
-  blaze_server = new BlazeServer(startup_options, command_extension_adder);
-
-  const std::optional<DurationMillis> command_wait_duration =
-      blaze_server->AcquireLocks();
-  const uint64_t wait_ms =
-      command_wait_duration.has_value() ? command_wait_duration->millis : 0;
-  BAZEL_LOG(INFO) << "Acquired the client lock, waited " << wait_ms
-                  << " milliseconds";
+  auto [client_locks, command_wait_duration] =
+      AcquireClientLocks(startup_options);
+  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
+                  << command_wait_duration.millis << " milliseconds";
 
   WarnFilesystemType(startup_options.output_base);
 
   const std::optional<DurationMillis> extract_data_duration = ExtractData(
       self_path, archive_contents, install_md5, startup_options, logging_info);
+
+  const blaze_util::Path server_dir =
+      blaze_util::Path(startup_options.output_base).GetRelative("server");
+  if (IsServerMode(option_processor.GetCommand())) {
+    const blaze_util::Path jvm_path = startup_options.GetJvm();
+    const string server_jar_path = startup_options.GetServerJarFilename();
+    const blaze_util::Path server_exe =
+        startup_options.GetExe(jvm_path, server_jar_path);
+    vector<string> server_exe_args = GetServerExeArgs(
+        jvm_path, server_jar_path, install_md5, workspace_layout, workspace,
+        startup_options);
+    RunServerMode(server_exe, server_exe_args, server_dir, workspace_layout,
+                  workspace, startup_options);
+    return;
+  }
+
+  blaze_server = new BlazeServer(startup_options, command_extension_adder,
+                                 std::move(client_locks));
 
   blaze_server->Connect();
 
@@ -1582,32 +1636,14 @@ static void RunLauncher(const string& self_path,
   EnsureCorrectRunningVersion(startup_options, logging_info, blaze_server);
 
   const blaze_util::Path jvm_path = startup_options.GetJvm();
-  const string server_jar_path = GetServerJarPath(archive_contents);
+  const string server_jar_path = startup_options.GetServerJarFilename();
 
   const blaze_util::Path server_exe =
       startup_options.GetExe(jvm_path, server_jar_path);
 
   vector<string> server_exe_args =
-      GetServerExeArgs(jvm_path, server_jar_path, archive_contents, install_md5,
-                       workspace_layout, workspace, startup_options);
-#if defined(__OpenBSD__)
-  // When spawning the server's JVM process, we normally set argv[0] to
-  // "bazel(workspace)". On OpenBSD, doing so causes the JVM process to fail
-  // during startup; ld.so fails to find a shared library that exists in
-  // /usr/local/jdk-1.8.0/jre/lib/amd64. Setting LD_LIBRARY_PATH does not help,
-  // but setting argv[0] to the JVM binary's path
-  // (/usr/local/jdk-1.8.0/bin/java) allows the JVM process to run. The JVM
-  // process apparently tries to compute a path to where the shared libraries
-  // should be, via a relative path from the JVM executable's path -- but
-  // OpenBSD does not provide a way for a process to determine a path to its
-  // own executable, and so the JVM falls back to searching the PATH for
-  // argv[0], which of course fails when argv[0] looks like "bazel(workspace)".
-  //
-  // TODO(aldersondrive): This hack is unnecessary on FreeBSD, but the relevant
-  // OpenJDK code doesn't seem to include anything FreeBSD-specific.
-  // Investigate why and possibly remove this.
-  server_exe_args[0] = server_exe.AsNativePath();
-#endif
+      GetServerExeArgs(jvm_path, server_jar_path, install_md5, workspace_layout,
+                       workspace, startup_options);
 
   if (KillRunningServerIfDifferentStartupOptions(
           startup_options, server_exe_args, logging_info, blaze_server) &&
@@ -1615,12 +1651,7 @@ static void RunLauncher(const string& self_path,
     return;
   }
 
-  const blaze_util::Path server_dir =
-      blaze_util::Path(startup_options.output_base).GetRelative("server");
-  if (IsServerMode(option_processor.GetCommand())) {
-    RunServerMode(server_exe, server_exe_args, server_dir, workspace_layout,
-                  workspace, option_processor, startup_options, blaze_server);
-  } else if (startup_options.batch) {
+  if (startup_options.batch) {
     RunBatchMode(server_exe, server_exe_args, workspace_layout, workspace,
                  option_processor, startup_options, logging_info,
                  extract_data_duration, command_wait_duration, blaze_server);
@@ -1746,16 +1777,16 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
 }
 
 BlazeServer::BlazeServer(const StartupOptions& startup_options,
-                         CommandExtensionAdder* command_extension_adder)
-    : process_info_(startup_options.output_base,
+                         CommandExtensionAdder* command_extension_adder,
+                         ClientLocks locks)
+    : locks_(std::move(locks)),
+      process_info_(startup_options.output_base,
                     startup_options.server_jvm_out),
       connect_timeout_secs_(startup_options.connect_timeout_secs),
-      batch_(startup_options.batch),
       block_for_lock_timeout_(startup_options.block_for_lock_timeout),
       quiet_(startup_options.quiet),
       preemptible_(startup_options.preemptible),
       lock_install_base_(startup_options.lock_install_base),
-      install_base_(startup_options.install_base),
       output_base_(startup_options.output_base),
       command_extension_adder_(command_extension_adder) {
   pipe_.reset(blaze_util::CreatePipe());

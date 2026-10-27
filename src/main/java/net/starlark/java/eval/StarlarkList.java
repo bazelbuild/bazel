@@ -273,7 +273,8 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     for (int i = 0; i < size; i++) {
       result = 31 * result + elems[i].hashCode();
     }
-    return 6047 + 4673 * result;
+    int h = 6047 + 4673 * result;
+    return h != 0 ? h : 1;
   }
 
   @Override
@@ -308,8 +309,10 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    for (Object elem : elems()) {
-      if (Starlark.checkedEquals(key, elem)) {
+    int size = size();
+    Object[] elems = elems();
+    for (int i = 0; i < size; i++) {
+      if (Starlark.checkedEquals(key, elems[i])) {
         return true;
       }
     }

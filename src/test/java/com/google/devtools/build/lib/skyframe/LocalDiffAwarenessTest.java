@@ -227,6 +227,29 @@ public class LocalDiffAwarenessTest {
         .check();
   }
 
+  // Regression test for https://github.com/bazelbuild/bazel/issues/22417.
+  @Test
+  public void testDirectoryWithSubdirectoryMovedOutAndRecreated() throws Exception {
+    mkdir("dir/sub");
+    captureFirstView(watchFsEnabledProvider);
+
+    // Moving a directory out of the watched tree only produces a deletion event for "dir" itself,
+    // so the watch key of "dir/sub" stays valid and keeps watching the moved-away inode.
+    move("dir", "ignored-dir/moved");
+    new ModifiedFileSetChecker().modify("dir").check();
+
+    // Registering the new "dir/sub" yields a new watch key for a path that is still associated
+    // with the old one. This used to crash with "IllegalArgumentException: value already present".
+    mkdir("dir/sub");
+    new ModifiedFileSetChecker().modify("dir").modify("dir/sub").check();
+
+    // Only the new directory is watched under "dir/sub"; changes to the moved-away one are not
+    // reported under its old path.
+    touch("ignored-dir/moved/sub/stale.txt");
+    touch("dir/sub/new.txt");
+    new ModifiedFileSetChecker().modify("dir/sub/new.txt").check();
+  }
+
   @Test
   public void testLotsOfChanges() throws Exception {
     captureFirstView(watchFsEnabledProvider);

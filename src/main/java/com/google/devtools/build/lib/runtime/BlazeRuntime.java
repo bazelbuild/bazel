@@ -984,7 +984,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     logger.atInfo().log(
         "Starting Bazel server with pid %d, args %s",
-        ProcessHandle.current().pid(), Arrays.toString(args));
+        ProcessHandle.current().pid(), SafeRequestLogging.redactArguments(Arrays.asList(args)));
     try {
       // Run Blaze in server mode.
       exit(
@@ -1156,7 +1156,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         splitStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
     logger.atInfo().log(
         "Running Bazel in batch mode with pid %d, startup args %s",
-        ProcessHandle.current().pid(), commandLineOptions.getStartupArgs());
+        ProcessHandle.current().pid(),
+        SafeRequestLogging.redactArguments(commandLineOptions.getStartupArgs()));
 
     BlazeRuntime runtime;
     InvocationPolicy policy;
@@ -2045,7 +2046,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private static int readPidFile(Path pidFile) throws AbruptExitException {
     try {
-      return Integer.parseInt(new String(FileSystemUtils.readContentAsLatin1(pidFile)));
+      return Integer.parseInt(FileSystemUtils.readContentAsLatin1(pidFile));
     } catch (IOException e) {
       throw createFilesystemExitException(
           "Server pid file read failed: " + e.getMessage(),
@@ -2084,7 +2085,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path workspaceDir = workspace.getWorkspace();
     if (symlinkPrefix != null && workspaceDir != null) {
       OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
-          ruleClassProvider.getSymlinkDefinitions(),
           workspaceDir,
           event -> logger.atWarning().log("%s", event.getMessage()),
           symlinkPrefix);

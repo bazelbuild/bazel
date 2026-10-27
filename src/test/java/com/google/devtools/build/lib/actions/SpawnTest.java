@@ -18,7 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -163,5 +167,58 @@ public final class SpawnTest {
 
     assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
     assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");
+  }
+
+  @Test
+  public void flattenedInputs_empty() {
+    FlattenedInputs flattened = SpawnInputs.empty().plus(ImmutableList.of()).flatten();
+
+    assertThat(flattened).isEmpty();
+    assertThat(flattened.size()).isEqualTo(0);
+    assertThat(flattened.toArray()).isEmpty();
+  }
+
+  @Test
+  public void flattenedInputs_singleSetOrSecondSetOnly() {
+    ActionInput input1 = ActionInputHelper.fromPath("a");
+    ActionInput input2 = ActionInputHelper.fromPath("b");
+    NestedSet<ActionInput> set = NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2);
+
+    FlattenedInputs fromFirst = SpawnInputs.of(set).flatten();
+    assertThat(fromFirst).containsExactly(input1, input2).inOrder();
+    assertThat(fromFirst.toArray()).asList().containsExactly(input1, input2).inOrder();
+
+    FlattenedInputs fromSecond =
+        SpawnInputs.of(NestedSetBuilder.emptySet(Order.STABLE_ORDER), set, ImmutableList.of())
+            .flatten();
+    assertThat(fromSecond).containsExactly(input1, input2).inOrder();
+    assertThat(fromSecond.toArray()).asList().containsExactly(input1, input2).inOrder();
+  }
+
+  @Test
+  public void flattenedInputs_multipleSourcesAndPlus() {
+    ActionInput input1 = ActionInputHelper.fromPath("a");
+    ActionInput input2 = ActionInputHelper.fromPath("b");
+    ActionInput input3 = ActionInputHelper.fromPath("c");
+    ActionInput input4 = ActionInputHelper.fromPath("d");
+    ActionInput input5 = ActionInputHelper.fromPath("e");
+    NestedSet<ActionInput> set1 = NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2);
+    NestedSet<ActionInput> set2 = NestedSetBuilder.create(Order.STABLE_ORDER, input3);
+
+    FlattenedInputs firstAndRest = SpawnInputs.of(set1).plus(ImmutableList.of(input3)).flatten();
+    assertThat(firstAndRest).containsExactly(input1, input2, input3).inOrder();
+    assertThat(firstAndRest.toArray()).asList().containsExactly(input1, input2, input3).inOrder();
+
+    FlattenedInputs flattened =
+        SpawnInputs.of(set1, set2, ImmutableList.of())
+            .plus(ImmutableList.of(input4))
+            .plus(ImmutableList.of(input5))
+            .flatten();
+
+    assertThat(flattened).containsExactly(input1, input2, input3, input4, input5).inOrder();
+    assertThat(flattened.toArray())
+        .asList()
+        .containsExactly(input1, input2, input3, input4, input5)
+        .inOrder();
   }
 }

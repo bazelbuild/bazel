@@ -183,7 +183,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       Module module = Module.withPredeclared(starlarkSemantics, env.buildOrThrow());
 
       StarlarkThread thread = StarlarkThread.createTransient(mu, starlarkSemantics);
-      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(input, module, thread);
       Object formatFn = module.getGlobal("format");
       if (formatFn == null) {
         throw new QueryException(

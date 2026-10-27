@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -702,7 +703,7 @@ public class UploadManifest {
           new IOException("Upload requested for unknown digest: " + digest));
     }
 
-    return combinedCache.uploadBlob(context, digest, blob::newInput, force);
+    return combinedCache.uploadBlob(context, digest, (Blob) blob::newInput, force);
   }
 
   @CanIgnoreReturnValue

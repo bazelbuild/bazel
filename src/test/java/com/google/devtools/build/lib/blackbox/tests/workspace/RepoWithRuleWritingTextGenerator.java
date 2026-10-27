@@ -27,8 +27,7 @@ import java.nio.file.Path;
  *
  * <p>empty MODULE.bazel file,
  *
- * <p>BUILD file, with write_to_file target and pkg_tar target for packing the contents of the
- * generated repository.
+ * <p>BUILD file, with write_to_file target.
  *
  * <p>Intended to be used by workspace tests.
  */
@@ -127,13 +126,7 @@ public class RepoWithRuleWritingTextGenerator {
     Path workspace = PathUtils.writeFileInDir(root, "MODULE.bazel");
     PathUtils.writeFileInDir(root, HELPER_FILE, WRITE_TEXT_TO_FILE);
     if (generateBuildFile) {
-      PathUtils.writeFileInDir(
-          root,
-          "BUILD",
-          "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
-          loadRule(""),
-          callRule(target, outFile, outputText),
-          String.format("pkg_tar(name = \"%s\", srcs = glob([\"*\"]),)", getPkgTarTarget()));
+      PathUtils.writeFileInDir(root, "BUILD", loadRule(""), callRule(target, outFile, outputText));
     }
     return workspace.getParent();
   }
@@ -160,10 +153,5 @@ public class RepoWithRuleWritingTextGenerator {
   static String callRule(String name, String filename, String text) {
     return String.format(
         "%s(name = '%s', filename = '%s', text ='%s')", RULE_NAME, name, filename, text);
-  }
-
-  /** @return name of the generated pkg_tar target */
-  String getPkgTarTarget() {
-    return "pkg_tar_" + target;
   }
 }

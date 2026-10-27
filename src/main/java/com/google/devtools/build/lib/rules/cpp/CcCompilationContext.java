@@ -309,6 +309,10 @@ public final class CcCompilationContext {
     int transitiveInfoCount = transitiveHeaderInfos.size();
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
+    // The 4K and 2K upper bounds keep backing arrays under ~100 KB, safely within G1's default
+    // PLAB and survivor thresholds to prevent premature promotion to Old Gen. For large targets
+    // exceeding these caps, normal rehashing churn in Eden is far cheaper than survivor space
+    // spillover.
     Map<PathFragment, Artifact> pathToLegalArtifact =
         CompactHashMap.createWithExpectedSize(Math.min(transitiveInfoCount * 3, 4096));
     Set<Artifact> modularHeaders =

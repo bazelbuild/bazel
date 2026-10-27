@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
-import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -165,16 +164,13 @@ public /*final*/ class ConfiguredRuleClassProvider
         ImmutableMap.builder();
     private final ImmutableMap.Builder<String, Object> starlarkBuiltinsInternals =
         ImmutableMap.builder();
-    private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
-        ImmutableList.builder();
     private final Set<String> reservedActionMnemonics = new TreeSet<>();
     private Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
     @Nullable private ConstraintSemantics<RuleContext> constraintSemantics;
 
-    // TODO(b/192694287): Remove once we migrate all tests from the allowlist
-    @Nullable private Label networkAllowlistForTests;
     @Nullable private Label noExplicitMnemonicAllowlist;
+    @Nullable private String nestedSetCountLimitMessage;
 
     @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
@@ -340,12 +336,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     public Builder addStarlarkBuiltinsInternal(String name, Object object) {
       this.starlarkBuiltinsInternals.put(name, object);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addSymlinkDefinition(SymlinkDefinition symlinkDefinition) {
-      this.symlinkDefinitions.add(symlinkDefinition);
       return this;
     }
 
@@ -577,28 +567,16 @@ public /*final*/ class ConfiguredRuleClassProvider
           starlarkAccessibleTopLevels.buildOrThrow(),
           starlarkBuiltinsInternals.buildOrThrow(),
           starlarkBootstraps.build(),
-          symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
-          networkAllowlistForTests,
-          noExplicitMnemonicAllowlist);
+          noExplicitMnemonicAllowlist,
+          nestedSetCountLimitMessage);
     }
 
     @Override
     public RepositoryName getToolsRepository() {
       return toolsRepository;
-    }
-
-    @Override
-    public Optional<Label> getNetworkAllowlistForTests() {
-      return Optional.ofNullable(networkAllowlistForTests);
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setNetworkAllowlistForTests(Label allowlist) {
-      networkAllowlistForTests = allowlist;
-      return this;
     }
 
     @Override
@@ -609,6 +587,13 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     public Builder setNoExplicitMnemonicAllowlist(Label allowlist) {
       noExplicitMnemonicAllowlist = allowlist;
+      return this;
+    }
+
+    /** Sets text appended to the error emitted when a target exceeds the nested set limit. */
+    @CanIgnoreReturnValue
+    public Builder setNestedSetCountLimitMessage(String message) {
+      nestedSetCountLimitMessage = message;
       return this;
     }
   }
@@ -663,8 +648,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
-  private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
-
   private final ImmutableSet<String> reservedActionMnemonics;
 
   private final Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider;
@@ -673,9 +656,8 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final ConstraintSemantics<RuleContext> constraintSemantics;
 
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
-  @Nullable private final Label networkAllowlistForTests;
   @Nullable private final Label noExplicitMnemonicAllowlist;
+  @Nullable private final String nestedSetCountLimitMessage;
 
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
@@ -695,12 +677,11 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableMap<String, Object> starlarkBuiltinsInternals,
       ImmutableList<Bootstrap> starlarkBootstraps,
-      ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      @Nullable Label networkAllowlistForTests,
-      @Nullable Label noExplicitMnemonicAllowlist) {
+      @Nullable Label noExplicitMnemonicAllowlist,
+      @Nullable String nestedSetCountLimitMessage) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -714,13 +695,12 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
-    this.networkAllowlistForTests = networkAllowlistForTests;
     this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
+    this.nestedSetCountLimitMessage = nestedSetCountLimitMessage;
 
     ImmutableMap<String, Object> registeredBzlToplevels =
         createRegisteredBzlToplevels(starlarkAccessibleTopLevels, starlarkBootstraps);
@@ -869,33 +849,18 @@ public /*final*/ class ConfiguredRuleClassProvider
     return configurationFragmentMap;
   }
 
-  /**
-   * Returns the symlink definitions introduced by the fragments registered with this rule class
-   * provider.
-   *
-   * <p>This only includes definitions added by {@link Builder#addSymlinkDefinition}, not the
-   * standard symlinks in {@link com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils}.
-   *
-   * <p>Note: Usages of custom symlink definitions should be very rare. This feature was added to
-   * implement the py2-bin / py3-bin symlinks, which have since been removed from Bazel.
-   */
-  // TODO(bazel-team): Delete?
-  public ImmutableList<SymlinkDefinition> getSymlinkDefinitions() {
-    return symlinkDefinitions;
-  }
-
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
   }
 
   @Override
-  public Optional<Label> getNetworkAllowlistForTests() {
-    return Optional.ofNullable(networkAllowlistForTests);
-  }
-
-  @Override
   public Optional<Label> getNoExplicitMnemonicAllowlist() {
     return Optional.ofNullable(noExplicitMnemonicAllowlist);
+  }
+
+  /** Returns text appended to the error emitted when a target exceeds the nested set limit. */
+  public Optional<String> getNestedSetCountLimitMessage() {
+    return Optional.ofNullable(nestedSetCountLimitMessage);
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */

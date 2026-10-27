@@ -744,7 +744,10 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             doc =
                 """
                 If set, indicate the error in the return value \
-                instead of raising an error for failed downloads.
+                instead of raising an error for failed downloads. A failed download may \
+                leave a partially downloaded file at the output path, or a file that \
+                doesn't match <code>sha256</code> or <code>integrity</code>, so check \
+                <code>success</code> before using the file.
                 """),
         @Param(
             name = "canonical_id",
@@ -2421,16 +2424,6 @@ func(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
       }
     }
-    StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
-    try {
-      maybeWatch(
-          starlarkPath,
-          starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL)
-              ? ShouldWatch.NO
-              : ShouldWatch.AUTO);
-    } catch (RepositoryFunctionException e) {
-      throw Starlark.errorf("%s", e.getCause().getMessage());
-    }
-    return starlarkPath;
+    return new StarlarkPath(this, rootedPath.asPath());
   }
 }

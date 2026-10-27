@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -521,11 +522,8 @@ public class RemoteExecutionServiceTest {
     // duplicated in the Merkle tree.
     PathFragment execPath = artifactRoot.getExecPath().getRelative("empty_dir");
     var emptyDirWithDifferentOwner =
-        Artifact.SpecialArtifact.create(
-            artifactRoot,
-            execPath,
-            ActionsTestUtil.YET_ANOTHER_NULL_ARTIFACT_OWNER,
-            Artifact.SpecialArtifactType.TREE);
+        TreeArtifact.create(
+            artifactRoot, execPath, ActionsTestUtil.YET_ANOTHER_NULL_ARTIFACT_OWNER);
     emptyDirWithDifferentOwner.setGeneratingActionKey(
         ActionsTestUtil.YET_ANOTHER_NULL_ACTION_LOOKUP_DATA);
     fakeFileCache.addTreeArtifact(

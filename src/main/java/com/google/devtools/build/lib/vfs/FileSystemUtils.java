@@ -25,6 +25,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.FileNotFoundException;
@@ -69,26 +70,56 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns the common ancestor between two paths, or null if none (including
-   * if they are on different filesystems).
+   * Returns the common ancestor between two paths, or null if none (including if they are on
+   * different filesystems).
    */
+  @Nullable
   public static Path commonAncestor(Path a, Path b) {
-    while (a != null && !b.startsWith(a)) {
-      a = a.getParentDirectory();  // returns null at root
+    if (!a.getFileSystem().equals(b.getFileSystem())) {
+      return null;
     }
-    return a;
+    PathFragment ancestor = commonAncestor(a.asFragment(), b.asFragment());
+    if (ancestor == null) {
+      return null;
+    }
+    if (ancestor.equals(a.asFragment())) {
+      return a;
+    }
+    if (ancestor.equals(b.asFragment())) {
+      return b;
+    }
+    return a.getFileSystem().getPath(ancestor);
   }
 
   /**
    * Returns the longest common ancestor of the two path fragments, or either "/" or "" (depending
    * on whether {@code a} is absolute or relative) if there is none.
    */
+  @Nullable
   public static PathFragment commonAncestor(PathFragment a, PathFragment b) {
-    while (a != null && !b.startsWith(a)) {
-      a = a.getParentDirectory();
+    if (a.getDriveStrLength() != b.getDriveStrLength()) {
+      return null;
     }
-
-    return a;
+    int driveLen = a.getDriveStrLength();
+    int k = a.getCommonPrefixLength(b);
+    if (k < driveLen) {
+      return null;
+    }
+    String sA = a.getPathString();
+    String sB = b.getPathString();
+    if (k == sA.length() && (k == sB.length() || k == driveLen || sB.charAt(k) == '/')) {
+      return a;
+    }
+    if (k == sB.length() && (k == driveLen || sA.charAt(k) == '/')) {
+      return b;
+    }
+    int lastSlash = sA.lastIndexOf('/', k - 1);
+    if (lastSlash < driveLen) {
+      return driveLen == 0
+          ? PathFragment.EMPTY_FRAGMENT
+          : PathFragment.createAlreadyNormalized(sA.substring(0, driveLen));
+    }
+    return PathFragment.createAlreadyNormalized(sA.substring(0, lastSlash));
   }
 
   /**
@@ -665,17 +696,6 @@ public class FileSystemUtils {
   }
 
   /**
-   * Decodes the given byte array assumed to be encoded with ISO-8859-1 encoding (isolatin1).
-   */
-  public static char[] convertFromLatin1(byte[] content) {
-    char[] latin1 = new char[content.length];
-    for (int i = 0; i < latin1.length; i++) { // yeah, latin1 is this easy! :-)
-      latin1[i] = (char) (0xff & content[i]);
-    }
-    return latin1;
-  }
-
-  /**
    * Writes lines to file using ISO-8859-1 encoding (isolatin1).
    */
   @ThreadSafe // but not atomic
@@ -774,23 +794,23 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns the entirety of the specified input stream and returns it as a char
-   * array, decoding characters using ISO-8859-1 (Latin1).
+   * Returns the entirety of the specified input stream as a String, decoding characters using
+   * ISO-8859-1 (Latin1).
    *
    * @throws IOException if there was an error
    */
-  public static char[] readContentAsLatin1(InputStream in) throws IOException {
-    return convertFromLatin1(ByteStreams.toByteArray(in));
+  public static String readContentAsLatin1(InputStream in) throws IOException {
+    return StringUnsafe.newInstance(ByteStreams.toByteArray(in), StringUnsafe.LATIN1);
   }
 
   /**
-   * Returns the entirety of the specified file and returns it as a char array,
-   * decoding characters using ISO-8859-1 (Latin1).
+   * Returns the entirety of the specified file as a String, decoding characters using ISO-8859-1
+   * (Latin1).
    *
    * @throws IOException if there was an error
    */
-  public static char[] readContentAsLatin1(Path inputFile) throws IOException {
-    return convertFromLatin1(readContent(inputFile));
+  public static String readContentAsLatin1(Path inputFile) throws IOException {
+    return StringUnsafe.newInstance(readContent(inputFile), StringUnsafe.LATIN1);
   }
 
   /**

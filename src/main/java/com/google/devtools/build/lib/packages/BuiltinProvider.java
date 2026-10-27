@@ -103,18 +103,6 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
     return StarlarkProviderIdentifier.forKey(key);
   }
 
-  /**
-   * Implement this to mark that a built-in provider should be exported with certain name to
-   * Starlark. Broken: only works for rules, not for aspects. DO NOT USE FOR NEW CODE!
-   *
-   * @deprecated Use declared providers mechanism exclusively to expose providers to both native and
-   *     Starlark code.
-   */
-  @Deprecated
-  public interface WithLegacyStarlarkName {
-    String getStarlarkName();
-  }
-
   /** A serializable reference to a {@link BuiltinProvider}. */
   @Immutable
   public static final class Key extends Provider.Key {

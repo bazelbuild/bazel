@@ -110,7 +110,7 @@ public final class TypeTagger extends NodeVisitor {
   // Formats and reports an error at the specified location.
   @FormatMethod
   private void errorf(Location loc, String format, Object... args) {
-    typeTable.errors.add(new SyntaxError(loc, String.format(format, args)));
+    typeTable.addError(new SyntaxError(loc, String.format(format, args)));
   }
 
   private TypeTagger(TypeTable typeTable, Resolver.Module module, @Nullable Loader loader) {

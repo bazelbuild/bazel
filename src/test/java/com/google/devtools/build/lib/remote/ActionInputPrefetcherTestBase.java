@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
@@ -182,7 +183,7 @@ public abstract class ActionInputPrefetcherTestBase {
     return createRemoteArtifact(pathFragment, contents, /* resolvedPath= */ null, metadata, cas);
   }
 
-  protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
+  protected Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
       String pathFragment,
       Map<String, String> localContentMap,
       Map<String, String> remoteContentMap,
@@ -191,7 +192,7 @@ public abstract class ActionInputPrefetcherTestBase {
       Map<HashCode, byte[]> cas,
       boolean isActionTemplateExpansion)
       throws IOException {
-    SpecialArtifact parent = createTreeArtifactWithGeneratingAction(artifactRoot, pathFragment);
+    TreeArtifact parent = createTreeArtifactWithGeneratingAction(artifactRoot, pathFragment);
 
     TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(parent);
     for (Map.Entry<String, String> entry : localContentMap.entrySet()) {
@@ -238,7 +239,7 @@ public abstract class ActionInputPrefetcherTestBase {
     return Pair.of(parent, treeValue.getChildren().asList());
   }
 
-  protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
+  protected Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
       String pathFragment,
       Map<String, String> localContentMap,
       Map<String, String> remoteContentMap,
@@ -255,7 +256,7 @@ public abstract class ActionInputPrefetcherTestBase {
         /* isActionTemplateExpansion= */ false);
   }
 
-  protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
+  protected Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
       String pathFragment,
       Map<String, String> localContentMap,
       Map<String, String> remoteContentMap,
@@ -273,7 +274,7 @@ public abstract class ActionInputPrefetcherTestBase {
         /* isActionTemplateExpansion= */ false);
   }
 
-  protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>>
+  protected Pair<TreeArtifact, ImmutableList<TreeFileArtifact>>
       createRemoteTreeArtifactForActionTemplateExpansion(
           String pathFragment,
           Map<String, String> localContentMap,
@@ -444,10 +445,48 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchFiles_lostFileRequestedThroughDifferentInputs_failuresNameOwnInput()
+      throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    PathFragment resolvedPath = artifactRoot.getRoot().asPath().getChild("target").asFragment();
+    Artifact first = createRemoteArtifact("first", "hello world", resolvedPath, metadata, cas);
+    Artifact second = createRemoteArtifact("second", "hello world", resolvedPath, metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    SettableFuture<Void> download = SettableFuture.create();
+    mockDownload(prefetcher, cas, () -> download);
+
+    // Both inputs resolve to the same file, so the second one joins the download of the first.
+    ListenableFuture<Void> firstPrefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(first), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    ListenableFuture<Void> secondPrefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(second), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    FileArtifactValue lostMetadata = metadata.get(first);
+    download.setException(
+        new CacheNotFoundException(
+            DigestUtil.buildDigest(lostMetadata.getDigest(), lostMetadata.getSize()),
+            first.getExecPath()));
+
+    for (Artifact input : ImmutableList.of(first, second)) {
+      BulkTransferException e =
+          assertThrows(
+              BulkTransferException.class,
+              () -> getFromFuture(input == first ? firstPrefetch : secondPrefetch));
+      assertThat(
+              e.getLostArtifacts(execPath -> execPath.equals(input.getExecPath()) ? input : null)
+                  .byDigest()
+                  .values())
+          .containsExactly(input);
+    }
+  }
+
+  @Test
   public void prefetchFiles_downloadRemoteTrees() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
@@ -455,7 +494,7 @@ public abstract class ActionInputPrefetcherTestBase {
                 "file1", "content1", "nested_dir/file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
@@ -480,14 +519,14 @@ public abstract class ActionInputPrefetcherTestBase {
   public void prefetchFiles_downloadRemoteTrees_partial() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of("file1", "content1"),
             /* remoteContentMap= */ ImmutableMap.of("file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
@@ -513,7 +552,7 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     PathFragment resolvedPath = artifactRoot.getRoot().asPath().getChild("target").asFragment();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
@@ -522,7 +561,7 @@ public abstract class ActionInputPrefetcherTestBase {
             resolvedPath,
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
@@ -552,7 +591,7 @@ public abstract class ActionInputPrefetcherTestBase {
   public void prefetchFiles_downloadRemoteTrees_forActionTemplateExpansion() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifactForActionTemplateExpansion(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
@@ -560,7 +599,7 @@ public abstract class ActionInputPrefetcherTestBase {
                 "subdir/file1", "content1", "subdir/file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
@@ -622,14 +661,14 @@ public abstract class ActionInputPrefetcherTestBase {
 
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             ImmutableMap.of("file1", "content1"),
             ImmutableMap.of("file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
@@ -650,7 +689,7 @@ public abstract class ActionInputPrefetcherTestBase {
   public void prefetchFiles_treeFiles_minimizeFilesystemOperations() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
@@ -658,7 +697,7 @@ public abstract class ActionInputPrefetcherTestBase {
                 "subdir/file1", "content1", "subdir/file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     PathFragment root = tree.getPath().asFragment();
     PathFragment subdir = tree.getPath().getChild("subdir").asFragment();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
@@ -702,7 +741,7 @@ public abstract class ActionInputPrefetcherTestBase {
   public void prefetchFiles_treeFiles_sequentialCalls_reopenAncestors() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
@@ -710,7 +749,7 @@ public abstract class ActionInputPrefetcherTestBase {
                 "subdir1/file1", "content1", "subdir2/file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
@@ -741,14 +780,14 @@ public abstract class ActionInputPrefetcherTestBase {
   public void prefetchFiles_treeFiles_multipleThreads_waitForPermissionsToBeSet() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
             /* remoteContentMap= */ ImmutableMap.of("subdir/file", "content"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     Artifact child = Iterables.getOnlyElement(treeAndChildren.getSecond());
 
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
@@ -788,7 +827,7 @@ public abstract class ActionInputPrefetcherTestBase {
       throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+    Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
@@ -796,7 +835,7 @@ public abstract class ActionInputPrefetcherTestBase {
                 "subdir1/file1", "content1", "subdir2/file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeArtifact tree = treeAndChildren.getFirst();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
 
     SettableFuture<Void> firstDownload = SettableFuture.create();
@@ -875,14 +914,14 @@ public abstract class ActionInputPrefetcherTestBase {
     int childrenPerTree = 16;
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    ImmutableList.Builder<SpecialArtifact> trees = ImmutableList.builder();
+    ImmutableList.Builder<TreeArtifact> trees = ImmutableList.builder();
     ImmutableList.Builder<ImmutableList<TreeFileArtifact>> childrenByTree = ImmutableList.builder();
     for (int treeIndex = 0; treeIndex < treeCount; treeIndex++) {
       ImmutableMap.Builder<String, String> remoteContent = ImmutableMap.builder();
       for (int childIndex = 0; childIndex < childrenPerTree; childIndex++) {
         remoteContent.put("subdir-" + childIndex + "/file", "content");
       }
-      Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+      Pair<TreeArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
           createRemoteTreeArtifact(
               "dir-" + treeIndex,
               /* localContentMap= */ ImmutableMap.of(),
@@ -892,7 +931,7 @@ public abstract class ActionInputPrefetcherTestBase {
       trees.add(treeAndChildren.getFirst());
       childrenByTree.add(treeAndChildren.getSecond());
     }
-    ImmutableList<SpecialArtifact> treeList = trees.build();
+    ImmutableList<TreeArtifact> treeList = trees.build();
     ImmutableList<ImmutableList<TreeFileArtifact>> childLists = childrenByTree.build();
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 

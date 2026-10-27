@@ -597,6 +597,7 @@ java_test(
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:AllTests"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/buildtool",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
@@ -771,22 +772,6 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
-    name = "SkyfocusIntegrationTest",
-    srcs = ["SkyfocusIntegrationTest.java"],
-    shard_count = 2,
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_state",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
-        "//third_party/java/junit",
         "//third_party/java/truth",
     ],
 )

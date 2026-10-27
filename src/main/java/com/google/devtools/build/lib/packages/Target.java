@@ -128,11 +128,6 @@ public interface Target extends TargetData {
   Rule getAssociatedRule();
 
   /**
-   * Returns the license associated with this target.
-   */
-  License getLicense();
-
-  /**
    * Returns the visibility that was supplied at the point of this target's declaration -- e.g. the
    * {@code visibility} attribute/argument for a rule target or {@code exports_files()} declaration)
    * -- or null if none was given.

@@ -257,9 +257,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
     /**
      * Constructs an ArgumentProcessor for a call to the StarlarkMethod-annotated Java method.
      *
-     * <p>The only work done at construction time is allocating the argument vector, and, only if
-     * the method accepts extra args and/or extra kwargs, allocating the varArgs list and/or kwargs
-     * map.
+     * <p>The only work done at construction time is allocating the argument vector.
      *
      * @param thread the Starlark thread for the call
      * @param desc descriptor for the StarlarkMethod-annotated method
@@ -281,11 +279,9 @@ public sealed class BuiltinFunction implements StarlarkCallable
 
       int n = parameters.length;
       if (desc.acceptsExtraArgs()) {
-        varArgs = new ArrayList<>();
         n++;
       }
       if (desc.acceptsExtraKwargs()) {
-        kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
         n++;
       }
       if (desc.isUseStarlarkThread()) {
@@ -323,7 +319,10 @@ public sealed class BuiltinFunction implements StarlarkCallable
         checkParamValue(param, value);
         vector[paramIndex++] = value;
         argIndex++;
-      } else if (varArgs != null) {
+      } else if (desc.acceptsExtraArgs()) {
+        if (varArgs == null) {
+          varArgs = new ArrayList<>();
+        }
         varArgs.add(value);
       } else {
         unexpectedPositionalArgCount++;
@@ -337,7 +336,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
       // unknown parameter?
       if (index < 0) {
         // spill to **kwargs
-        if (kwargs == null) {
+        if (!desc.acceptsExtraKwargs()) {
           ImmutableList<String> allNames =
               Arrays.stream(parameters)
                   .map(ParamDescriptor::getName)
@@ -346,6 +345,10 @@ public sealed class BuiltinFunction implements StarlarkCallable
               Starlark.errorf(
                   "%s() got unexpected keyword argument '%s'%s",
                   owner.getName(), name, SpellChecker.didYouMean(name, allNames)));
+        }
+
+        if (kwargs == null) {
+          kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
         }
 
         // duplicate named argument?
@@ -361,11 +364,15 @@ public sealed class BuiltinFunction implements StarlarkCallable
       // positional-only param?
       if (!param.isNamed()) {
         // spill to **kwargs
-        if (kwargs == null) {
+        if (!desc.acceptsExtraKwargs()) {
           pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got named argument for positional-only parameter '%s'",
                   owner.getName(), name));
+        }
+
+        if (kwargs == null) {
+          kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
         }
 
         // duplicate named argument?
@@ -442,10 +449,14 @@ public sealed class BuiltinFunction implements StarlarkCallable
 
       int i = parameters.length;
       if (desc.acceptsExtraArgs()) {
-        vector[i++] = Tuple.wrap(varArgs.toArray());
+        vector[i++] =
+            (varArgs == null || varArgs.isEmpty()) ? Tuple.empty() : Tuple.wrap(varArgs.toArray());
       }
       if (desc.acceptsExtraKwargs()) {
-        vector[i++] = Dict.wrap(thread.mutability(), kwargs);
+        vector[i++] =
+            (kwargs == null || kwargs.isEmpty())
+                ? Dict.of(thread.mutability())
+                : Dict.wrap(thread.mutability(), kwargs);
       }
       if (desc.isUseStarlarkThread()) {
         vector[i++] = thread;

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -52,11 +51,9 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converters;
-import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
@@ -72,29 +69,13 @@ import javax.annotation.Nullable;
 @Command(
     name = "mobile-install",
     buildPhase = EXECUTES,
-    options = {MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class},
+    options = {MobileInstallCommand.Options.class, AdbOptions.class},
     inheritsOptionsFrom = {BuildCommand.class},
     shortDescription = "Installs targets to mobile devices.",
     completion = "label",
     allowResidue = true,
     help = "resource:mobile-install.txt")
 public class MobileInstallCommand implements BlazeCommand {
-
-  /** An enumeration of all the modes that mobile-install supports. */
-  public enum Mode {
-    CLASSIC,
-    CLASSIC_INTERNAL_TEST_DO_NOT_USE,
-    SKYLARK
-  }
-
-  /**
-   * Converter for the --mode option.
-   */
-  public static class ModeConverter extends EnumConverter<Mode> {
-    public ModeConverter() {
-      super(Mode.class, "mode");
-    }
-  }
 
   /** Command line options for the 'mobile-install' command. */
   @OptionsClass
@@ -121,19 +102,6 @@ public class MobileInstallCommand implements BlazeCommand {
                 + " using that information to avoid unnecessary work. If false (the default),"
                 + " always do a full install.")
     public abstract boolean getIncremental();
-
-    // TODO(b/230747847): This flag should be deleted, but with proper vetting (incompatible
-    // change, monitoring, etc).
-    @Deprecated // Native mobile-install is no longer supported.
-    @Option(
-        name = "mode",
-        defaultValue = "skylark",
-        converter = ModeConverter.class,
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-        help = "Deprecated no-effect flag. Only skylark mode is still supported.")
-    public abstract Mode getMode();
 
     @Option(
         name = "mobile_install_aspect",
@@ -246,7 +214,7 @@ public class MobileInstallCommand implements BlazeCommand {
     }
     ConfiguredTarget targetToRun = Iterables.getOnlyElement(successfulTargets);
     Options mobileInstallOptions = options.getOptions(Options.class);
-    WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
+    AdbOptions adbOptions = options.getOptions(AdbOptions.class);
 
     if (!mobileInstallOptions.getMobileInstallSupportedRules().isEmpty()) {
       String message =

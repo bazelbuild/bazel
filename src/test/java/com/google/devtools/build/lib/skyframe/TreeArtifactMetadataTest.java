@@ -28,8 +28,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -93,12 +92,12 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   private TreeArtifactValue doTestTreeArtifacts(Iterable<PathFragment> children) throws Exception {
-    SpecialArtifact output = createTreeArtifact("output");
+    TreeArtifact output = createTreeArtifact("output");
     return doTestTreeArtifacts(output, children);
   }
 
-  private TreeArtifactValue doTestTreeArtifacts(
-      SpecialArtifact tree, Iterable<PathFragment> children) throws Exception {
+  private TreeArtifactValue doTestTreeArtifacts(TreeArtifact tree, Iterable<PathFragment> children)
+      throws Exception {
     TreeArtifactValue value = evaluateTreeArtifact(tree, children);
     assertThat(value.getChildPaths()).containsExactlyElementsIn(ImmutableSet.copyOf(children));
     assertThat(value.getChildren())
@@ -208,15 +207,12 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     writeFile(path, contents);
   }
 
-  private SpecialArtifact createTreeArtifact(String path) throws IOException {
+  private TreeArtifact createTreeArtifact(String path) throws IOException {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = root.getRelative(execPath);
-    SpecialArtifact output =
-        SpecialArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
-            execPath,
-            ALL_OWNER,
-            SpecialArtifactType.TREE);
+    TreeArtifact output =
+        TreeArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, ALL_OWNER);
     actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     fullPath.createDirectoryAndParents();
     return output;
@@ -268,7 +264,7 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       ActionLookupValue actionLookupValue =
           (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
-      SpecialArtifact output = (SpecialArtifact) Iterables.getOnlyElement(action.getOutputs());
+      TreeArtifact output = (TreeArtifact) Iterables.getOnlyElement(action.getOutputs());
       TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(output);
       for (PathFragment subpath : testTreeArtifactContents) {
         try {

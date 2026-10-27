@@ -1354,14 +1354,16 @@ int GetTerminalColumns() {
     }
   }
 
-  HANDLE stdout_handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
-  if (stdout_handle != INVALID_HANDLE_VALUE) {
-    // stdout_handle may be invalid when stdout is redirected.
-    CONSOLE_SCREEN_BUFFER_INFO screen_info;
-    if (GetConsoleScreenBufferInfo(stdout_handle, &screen_info)) {
-      int width = 1 + screen_info.srWindow.Right - screen_info.srWindow.Left;
-      if (width > 1) {
-        return width;
+  for (DWORD std_handle : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
+    HANDLE handle = ::GetStdHandle(std_handle);
+    if (handle != INVALID_HANDLE_VALUE) {
+      // handle may be invalid when the stream is redirected.
+      CONSOLE_SCREEN_BUFFER_INFO screen_info;
+      if (GetConsoleScreenBufferInfo(handle, &screen_info)) {
+        int width = 1 + screen_info.srWindow.Right - screen_info.srWindow.Left;
+        if (width > 1) {
+          return width;
+        }
       }
     }
   }

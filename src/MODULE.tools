@@ -20,11 +20,7 @@ xcode_configure = use_extension("@apple_support//xcode:xcode_configure.bzl", "xc
 use_repo(xcode_configure, "local_config_xcode")
 
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
-use_repo(
-    java_toolchains,
-    "local_jdk",
-    "remote_java_tools",
-)
+use_repo(java_toolchains, "remote_java_tools")
 
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")

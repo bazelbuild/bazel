@@ -24,9 +24,8 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelL
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
-import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
+import com.google.devtools.build.lib.util.OptionsUtils.WorkspacePathFragmentConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -238,7 +237,8 @@ public abstract class PlatformOptions extends FragmentOptions {
    * for the build.
    */
   private static final class PlatformMappingKeyConverter implements Converter<PlatformMappingKey> {
-    private final PathFragmentConverter pathConverter = new PathFragmentConverter();
+    private final WorkspacePathFragmentConverter pathConverter =
+        new WorkspacePathFragmentConverter();
 
     @Override
     public PlatformMappingKey convert(String input, @Nullable Object conversionContext)
@@ -246,11 +246,7 @@ public abstract class PlatformOptions extends FragmentOptions {
       if (input.isEmpty()) {
         return PlatformMappingKey.DEFAULT;
       }
-      PathFragment path = pathConverter.convert(input);
-      if (path.isAbsolute()) {
-        throw new OptionsParsingException("Expected relative path but got '" + input + "'.");
-      }
-      return PlatformMappingKey.createExplicitlySet(path);
+      return PlatformMappingKey.createExplicitlySet(pathConverter.convert(input));
     }
 
     @Override

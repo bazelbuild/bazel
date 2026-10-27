@@ -13,6 +13,10 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -34,12 +38,16 @@ import net.starlark.java.syntax.Types;
     name = "function",
     category = "core",
     doc = "The type of functions declared in Starlark.")
-public final class StarlarkFunction implements StarlarkCallable {
+public sealed class StarlarkFunction implements StarlarkCallable {
 
   final Resolver.Function rfn;
-  // TODO: #27370 - at eval time, we need only types of functions and globals; we could save some
-  // memory by skipping the other types.
-  @Nullable private final TypeTable typeTable;
+  // Types of functions in this module, indexed by their Resolver.Function#getFunctionId(),
+  // excluding <toplevel>/<expr>. Null if type tagging was not enabled. Note that functions need to
+  // know both their own type (see getStarlarkType) and the types of their inner functions created
+  // during evaluation (see getChildFunctionType). We could save a little bit of memory by turning
+  // this into an `Object typeData` which holds only the function's own type if there are no inner
+  // functions, and the full functionTypes array otherwise; but the complexity seems not worth it.
+  @Nullable private final Types.CallableType[] functionTypes;
   private final Module module; // a function closes over its defining module
 
   // Index in Module.globals of ith Program global (Resolver.Binding(GLOBAL).index).
@@ -61,16 +69,45 @@ public final class StarlarkFunction implements StarlarkCallable {
   // This may be mutated by export.
   private SymbolGenerator.Symbol<?> token;
 
-  StarlarkFunction(
+  /** Creates a new StarlarkFunction for an ordinary function (not <toplevel> or <expr>). */
+  static StarlarkFunction of(
+      Resolver.Function rfn,
+      StarlarkFunction outerFn,
+      Tuple defaultValues,
+      Tuple freevars,
+      SymbolGenerator.Symbol<?> token) {
+    checkState(!rfn.isToplevel());
+    return new StarlarkFunction(
+        rfn,
+        outerFn.functionTypes,
+        outerFn.module,
+        outerFn.globalIndex,
+        defaultValues,
+        freevars,
+        token);
+  }
+
+  /** Creates a new StarlarkFunction for <toplevel> or <expr>. */
+  static StarlarkFunction ofToplevel(
       Resolver.Function rfn,
       @Nullable TypeTable typeTable,
+      Module module,
+      int[] globalIndex,
+      SymbolGenerator.Symbol<?> token) {
+    checkState(rfn.isToplevel());
+    return new Toplevel(rfn, typeTable, module, globalIndex, token);
+  }
+
+  private StarlarkFunction(
+      Resolver.Function rfn,
+      @Nullable Types.CallableType[] functionTypes,
       Module module,
       int[] globalIndex,
       Tuple defaultValues,
       Tuple freevars,
       SymbolGenerator.Symbol<?> token) {
     this.rfn = rfn;
-    this.typeTable = typeTable;
+    this.functionTypes = functionTypes;
     this.module = module;
     this.globalIndex = globalIndex;
     this.defaultValues = defaultValues;
@@ -104,16 +141,34 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
-    if (typeTable == null) {
-      return Types.ANY;
+    @Nullable StarlarkType functionType = null;
+    if (functionTypes != null) {
+      functionType = functionTypes[rfn.getFunctionId()];
     }
-    @Nullable StarlarkType functionType = typeTable.getType(rfn);
     return functionType != null ? functionType : Types.ANY;
   }
 
+  /**
+   * If this function is <toplevel> or <expr>, returns the file's {@link TypeTable} if type checking
+   * is enabled, or null if type checking is disabled.
+   *
+   * @throws IllegalStateException if this function is not <toplevel> or <expr>
+   */
   @Nullable
   TypeTable getTypeTable() {
-    return typeTable;
+    throw new IllegalStateException("Only the toplevel function stores the file's TypeTable");
+  }
+
+  @Nullable
+  @VisibleForTesting
+  Types.CallableType[] getFunctionTypes() {
+    return functionTypes;
+  }
+
+  /** Returns the Starlark type of an inner function instantiated by this function's evaluation. */
+  @Nullable
+  Types.CallableType getChildFunctionType(Resolver.Function childRfn) {
+    return functionTypes != null ? functionTypes[childRfn.getFunctionId()] : null;
   }
 
   // TODO(adonovan): many functions would be simpler if
@@ -616,6 +671,42 @@ public final class StarlarkFunction implements StarlarkCallable {
       }
 
       return returnValue;
+    }
+  }
+
+  private static final class Toplevel extends StarlarkFunction {
+    @Nullable private final TypeTable typeTable;
+
+    private Toplevel(
+        Resolver.Function rfn,
+        @Nullable TypeTable typeTable,
+        Module module,
+        int[] globalIndex,
+        SymbolGenerator.Symbol<?> token) {
+      checkArgument(rfn.isToplevel());
+      super(
+          rfn,
+          typeTable == null ? null : typeTable.getNonToplevelFunctionTypes(),
+          module,
+          globalIndex,
+          /* defaultValues= */ Tuple.empty(),
+          /* freevars= */ Tuple.empty(),
+          token);
+      this.typeTable = typeTable;
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+      if (typeTable != null) {
+        return typeTable.getType(rfn);
+      }
+      return Types.ANY;
+    }
+
+    @Nullable
+    @Override
+    TypeTable getTypeTable() {
+      return typeTable;
     }
   }
 }

@@ -63,6 +63,11 @@ public final class BuildLanguageInfoItem extends InfoItem {
   }
 
   @Override
+  public boolean requiresWorkspace() {
+    return true;
+  }
+
+  @Override
   public boolean needsSyncPackageLoading() {
     // Requires CommandEnvironment.syncPackageLoading to be called in order to initialize the
     // skyframe executor.

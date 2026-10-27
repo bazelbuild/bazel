@@ -454,6 +454,70 @@ public final class NestedSetTest {
     }
   }
 
+  private static NestedSet<String> nestedSetOfAbc() {
+    NestedSet<String> ab = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    NestedSet<String> bc = NestedSetBuilder.<String>stableOrder().add("b").add("c").build();
+    return NestedSetBuilder.<String>stableOrder().addTransitive(ab).addTransitive(bc).build();
+  }
+
+  @Test
+  public void toList_nested_isCached() {
+    NestedSet<String> set = nestedSetOfAbc();
+
+    ImmutableList<String> first = set.toList();
+
+    assertThat(first).containsExactly("a", "b", "c").inOrder();
+    assertThat(set.toList()).isSameInstanceAs(first);
+  }
+
+  @Test
+  public void toList_nested_afterClearCachedListRepresentation_isRecomputed() {
+    NestedSet<String> set = nestedSetOfAbc();
+    ImmutableList<String> first = set.toList();
+
+    set.clearCachedListRepresentation();
+    ImmutableList<String> second = set.toList();
+
+    assertThat(second).isEqualTo(first);
+    assertThat(second).isNotSameInstanceAs(first);
+  }
+
+  @Test
+  public void toList_nested_cacheIsSharedBetweenSetsWithSameChildren() {
+    NestedSet<String> set = nestedSetOfAbc();
+    NestedSet<String> sameChildren =
+        NestedSet.create(Order.STABLE_ORDER, set.getApproxDepth(), set.getChildren());
+    NestedSet<String> sameChildrenLinkOrder =
+        NestedSet.create(LINK_ORDER, set.getApproxDepth(), set.getChildren());
+    assertThat(sameChildren).isNotSameInstanceAs(set);
+
+    ImmutableList<String> list = set.toList();
+
+    assertThat(sameChildren.toList()).isSameInstanceAs(list);
+    assertThat(sameChildrenLinkOrder.toList()).containsExactly("c", "b", "a").inOrder();
+    sameChildren.clearCachedListRepresentation();
+    assertThat(set.toList()).isNotSameInstanceAs(list);
+  }
+
+  @Test
+  public void toList_nested_fromStorage_isCachedOnceDeserialized() {
+    NestedSet<String> contents = nestedSetOfAbc();
+    SettableFuture<Object[]> future = SettableFuture.create();
+    NestedSet<String> deserializing =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, future);
+    deserializing.clearCachedListRepresentation(); // No-op while not ready.
+
+    future.set((Object[]) contents.getChildren());
+    ImmutableList<String> first = deserializing.toList();
+
+    assertThat(first).containsExactly("a", "b", "c").inOrder();
+    assertThat(deserializing.toList()).isSameInstanceAs(first);
+    deserializing.clearCachedListRepresentation();
+    ImmutableList<String> second = deserializing.toList();
+    assertThat(second).isEqualTo(first);
+    assertThat(second).isNotSameInstanceAs(first);
+  }
+
   @Test
   public void hoistingKeepsSetSmall() {
     NestedSet<String> first = NestedSetBuilder.<String>stableOrder().add("a").build();
@@ -819,7 +883,7 @@ public final class NestedSetTest {
     NestedSet<String> set2 = b2.build();
     assertThat(set2.toList()).containsExactly("a", "b").inOrder();
 
-    // 3 transitive sets (promotes to CompactHashSet) + duplicates
+    // 3 transitive sets (grows the array) + duplicates
     NestedSetBuilder<String> b3 =
         NestedSetBuilder.<String>stableOrder()
             .addTransitive(sub1)
@@ -828,6 +892,69 @@ public final class NestedSetTest {
             .addTransitive(sub2);
     NestedSet<String> set3 = b3.build();
     assertThat(set3.toList()).containsExactly("a", "b", "c").inOrder();
+  }
+
+  @Test
+  public void builder_manyTransitiveSets_deduplicatesAndPreservesOrder() {
+    List<NestedSet<String>> subsets = new ArrayList<>();
+    List<String> expected = new ArrayList<>();
+    for (int i = 0; i < 40; i++) {
+      subsets.add(NestedSetBuilder.<String>stableOrder().add("a" + i).add("b" + i).build());
+      expected.add("a" + i);
+      expected.add("b" + i);
+    }
+    NestedSetBuilder<String> builder = NestedSetBuilder.stableOrder();
+    for (int i = 0; i < subsets.size(); i++) {
+      builder.addTransitive(subsets.get(i));
+      // Re-add a previously added set, both before and after switching to a hash set.
+      builder.addTransitive(subsets.get(i / 2));
+    }
+
+    NestedSet<String> set = builder.build();
+
+    assertThat(set.toList()).containsExactlyElementsIn(expected).inOrder();
+    assertThat(set.getNonLeaves()).hasSize(subsets.size());
+  }
+
+  @Test
+  public void hoisting_singletonTransitiveSets_deduplicatesByEqualityAgainstEachOtherAndDirects() {
+    for (int count : new int[] {5, 20}) {
+      for (Order order : ImmutableList.of(Order.STABLE_ORDER, Order.NAIVE_LINK_ORDER)) {
+        NestedSetBuilder<String> builder = NestedSetBuilder.newBuilder(order);
+        builder.add("d0").add("x3").add("d1");
+        for (int round = 0; round < 2; round++) {
+          for (int i = 0; i < count; i++) {
+            // Distinct but equal singleton sets, which the builder can't deduplicate by identity.
+            builder.addTransitive(NestedSetBuilder.<String>newBuilder(order).add("x" + i).build());
+          }
+        }
+        List<String> expected = new ArrayList<>();
+        if (order == Order.STABLE_ORDER) {
+          // Transitive members first: the direct "x3" is dropped.
+          for (int i = 0; i < count; i++) {
+            expected.add("x" + i);
+          }
+          expected.add("d0");
+          expected.add("d1");
+        } else {
+          // Direct members first: the hoisted "x3" is dropped.
+          expected.add("d0");
+          expected.add("x3");
+          expected.add("d1");
+          for (int i = 0; i < count; i++) {
+            if (i != 3) {
+              expected.add("x" + i);
+            }
+          }
+        }
+
+        NestedSet<String> set = builder.build();
+
+        // The set is flat, so toList() returns its children without further deduplication.
+        assertThat(set.getNonLeaves()).isEmpty();
+        assertThat(set.toList()).containsExactlyElementsIn(expected).inOrder();
+      }
+    }
   }
 
   @Test

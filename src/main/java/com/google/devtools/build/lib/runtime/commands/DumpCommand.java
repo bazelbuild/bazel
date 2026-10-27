@@ -382,8 +382,6 @@ public class DumpCommand implements BlazeCommand {
     RDEPS,
     CHANGED,
     FUNCTION_GRAPH,
-    ACTIVE_DIRECTORIES,
-    ACTIVE_DIRECTORIES_FRONTIER_DEPS,
   }
 
   /** Enum converter for SkyframeDumpOption. */
@@ -535,10 +533,6 @@ public class DumpCommand implements BlazeCommand {
         case CHANGED ->
             dumpChangedValues(env.getSkyframeExecutor(), out, dumpOptions.getSkyKeyFilter());
         case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.getSkyKeyFilter());
-        case ACTIVE_DIRECTORIES ->
-            env.getSkyframeExecutor().getSkyfocusState().dumpActiveDirectories(out);
-        case ACTIVE_DIRECTORIES_FRONTIER_DEPS ->
-            env.getSkyframeExecutor().getSkyfocusState().dumpFrontierSet(out);
         case OFF -> {}
       }
 
@@ -712,8 +706,7 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private static void dumpRuleStats(
-      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out)
-      throws InterruptedException {
+      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out) {
     SkyframeStats skyframeStats = executor.getSkyframeStats();
     if (skyframeStats.ruleStats().isEmpty()) {
       out.print("No rules in Bazel server, please run a build command first.");

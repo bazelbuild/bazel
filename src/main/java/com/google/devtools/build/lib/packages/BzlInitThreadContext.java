@@ -44,8 +44,6 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
 
   private final RepositoryName toolsRepository;
 
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
-  private final Optional<Label> networkAllowlistForTests;
   private final Optional<Label> noExplicitMnemonicAllowlist;
 
   // Used for `configuration_field`.
@@ -57,7 +55,6 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
    * @param bzlFile the name of the .bzl being initialized
    * @param transitiveDigest the hash of that file and its transitive load()s
    * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
-   * @param networkAllowlistForTests an allowlist for rule classes created by this thread
    * @param noExplicitMnemonicAllowlist an allowlist for explicit mnemonic enforcement
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
@@ -67,7 +64,6 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
       Label bzlFile,
       byte[] transitiveDigest,
       RepositoryName toolsRepository,
-      Optional<Label> networkAllowlistForTests,
       Optional<Label> noExplicitMnemonicAllowlist,
       ImmutableMap<String, Class<?>> fragmentNameToClass,
       RepositoryMapping mainRepoMapping) {
@@ -75,7 +71,6 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;
-    this.networkAllowlistForTests = networkAllowlistForTests;
     this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
     this.fragmentNameToClass = fragmentNameToClass;
   }
@@ -138,13 +133,6 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
   @Override
   public RepositoryName getToolsRepository() {
     return toolsRepository;
-  }
-
-  /** Returns a label for network allowlist for tests if one should be added. */
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
-  @Override
-  public Optional<Label> getNetworkAllowlistForTests() {
-    return networkAllowlistForTests;
   }
 
   /**

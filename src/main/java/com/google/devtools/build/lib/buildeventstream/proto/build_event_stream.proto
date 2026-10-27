@@ -1671,6 +1671,21 @@ message BuildMetrics {
       int64 request_count = 3;
     }
     repeated Peer peers = 30;
+
+    // Wall times of the phases of a synchronous Skycache upload. Unset unless
+    // this build uploaded synchronously.
+    message UploadPhaseTimings {
+      // Materializing the file dependency graph of the selected nodes.
+      int64 materialize_node_graph_micros = 1;
+      // Assigning dense leaf IDs and computing the upload order.
+      int64 compute_leaf_ids_and_upload_order_micros = 2;
+      // Serializing every selected node and issuing its writes, without
+      // waiting for the writes to complete.
+      int64 drive_uploads_micros = 3;
+      // The rest of the upload, mostly waiting for writes to complete.
+      int64 await_writes_micros = 4;
+    }
+    UploadPhaseTimings upload_phase_timings = 31;
   }
 
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;

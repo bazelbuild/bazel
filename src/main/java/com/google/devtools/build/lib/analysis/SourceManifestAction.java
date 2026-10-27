@@ -470,7 +470,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           throws IOException {
         manifestWriter.append(rootRelativePath.getPathString());
         manifestWriter.append('\n');
-        manifestWriter.flush();
       }
 
       @Override

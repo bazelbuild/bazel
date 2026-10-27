@@ -548,6 +548,11 @@ std::vector<BlazercOption> OptionProcessor::GetBlazercOptions(
   if (IsEmacsTerminal() && !quiet) {
     result.push_back({terminal_rc_source, "common", "--emacs"});
   }
+  std::string default_tool_tag = GetEnv("BLAZE_DEFAULT_TOOL_TAG");
+  if (!default_tool_tag.empty()) {
+    result.push_back(
+        {terminal_rc_source, "common", "--tool_tag=" + default_tool_tag});
+  }
 
   for (const auto* blazerc : blazercs) {
     for (const auto& command_options : blazerc->options()) {

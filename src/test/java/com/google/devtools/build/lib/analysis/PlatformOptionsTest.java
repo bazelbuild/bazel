@@ -118,6 +118,13 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
   }
 
   @Test
+  public void platformMappings_uplevelPath_throws() {
+    assertThrows(
+        OptionsParsingException.class,
+        () -> createWithPrefix(PLATFORM_MAPPINGS_PREFIX, "../a/b/platform_mappings"));
+  }
+
+  @Test
   public void hostPlatformEmpty_default() throws Exception {
     PlatformOptions options = createWithPrefix(HOST_PLATFORM_PREFIX, "");
     assertThat(options.getHostPlatform())

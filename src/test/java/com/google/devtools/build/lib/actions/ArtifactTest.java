@@ -25,11 +25,14 @@ import com.google.common.testing.EquivalenceTester;
 import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
@@ -254,7 +257,7 @@ public final class ArtifactTest {
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
     anotherArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
 
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             rootDir, rootDir.getExecPath().getRelative("tree"));
     TreeFileArtifact treeChild = TreeFileArtifact.createTreeOutput(tree, "child");
@@ -263,7 +266,7 @@ public final class ArtifactTest {
         ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
             tree, PathFragment.create("custom"), PathFragment.create("archived.zip"));
 
-    SpecialArtifact templateExpansionTree =
+    TreeArtifact templateExpansionTree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             rootDir, rootDir.getExecPath().getRelative("template"));
     TreeFileArtifact expansionOutput =
@@ -273,13 +276,41 @@ public final class ArtifactTest {
             ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
     expansionOutput.setGeneratingActionKey(
         ActionLookupData.create(ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER, 0));
-    SpecialArtifact expansionSubdir =
-        SpecialArtifact.createSubTreeArtifact(
+    TreeArtifact expansionSubdir =
+        TreeArtifact.createSubTreeArtifact(
             templateExpansionTree,
             PathFragment.create("subdir"),
             ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
     expansionSubdir.setGeneratingActionKey(
         ActionLookupData.create(ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER, 1));
+
+    FilesetArtifact fileset =
+        FilesetArtifact.create(
+            rootDir,
+            rootDir.getExecPath().getRelative("fileset"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    fileset.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+
+    RunfilesArtifact runfiles =
+        RunfilesArtifact.create(
+            rootDir,
+            rootDir.getExecPath().getRelative("runfiles"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    runfiles.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+
+    UnresolvedSymlinkArtifact symlink =
+        UnresolvedSymlinkArtifact.create(
+            rootDir,
+            rootDir.getExecPath().getRelative("symlink"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    symlink.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+
+    ConstantMetadataArtifact constantMetadata =
+        ConstantMetadataArtifact.create(
+            rootDir,
+            rootDir.getExecPath().getRelative("stamp"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    constantMetadata.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
 
     SerializationTester tester =
         new SerializationTester(
@@ -290,7 +321,11 @@ public final class ArtifactTest {
                 archivedTree,
                 customArchivedTree,
                 expansionOutput,
-                expansionSubdir)
+                expansionSubdir,
+                fileset,
+                runfiles,
+                symlink,
+                constantMetadata)
             .addDependency(FileSystem.class, scratch.getFileSystem())
             .addDependency(
                 RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
@@ -538,7 +573,7 @@ public final class ArtifactTest {
   public void archivedTreeArtifact_create_returnsArtifactInArchivedRoot() {
     ArtifactRoot root =
         ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "blaze-out", "fastbuild");
-    SpecialArtifact tree = createTreeArtifact(root, "tree");
+    TreeArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(tree);
 
@@ -555,7 +590,7 @@ public final class ArtifactTest {
   public void archivedTreeArtifact_create_returnsArtifactWithGeneratingActionFromParent() {
     ActionLookupKey actionLookupKey = mock(ActionLookupKey.class);
     ActionLookupData actionLookupData = ActionLookupData.create(actionLookupKey, 0);
-    SpecialArtifact tree = createTreeArtifact(rootDir, "tree", actionLookupData);
+    TreeArtifact tree = createTreeArtifact(rootDir, "tree", actionLookupData);
 
     ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(tree);
 
@@ -569,7 +604,7 @@ public final class ArtifactTest {
   public void archivedTreeArtifact_createWithCustomDerivedTreeRoot_returnsArtifactWithCustomRoot() {
     ArtifactRoot root =
         ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "blaze-out", "fastbuild");
-    SpecialArtifact tree = createTreeArtifact(root, "dir/tree");
+    TreeArtifact tree = createTreeArtifact(root, "dir/tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
         ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
@@ -723,18 +758,17 @@ public final class ArtifactTest {
         .test();
   }
 
-  private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {
+  private static TreeArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {
     return createTreeArtifact(root, relativePath, ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
   }
 
-  private static SpecialArtifact createTreeArtifact(
+  private static TreeArtifact createTreeArtifact(
       ArtifactRoot root, String relativePath, ActionLookupData actionLookupData) {
-    SpecialArtifact treeArtifact =
-        SpecialArtifact.create(
+    TreeArtifact treeArtifact =
+        TreeArtifact.create(
             root,
             root.getExecPath().getRelative(relativePath),
-            actionLookupData.getActionLookupKey(),
-            SpecialArtifactType.TREE);
+            actionLookupData.getActionLookupKey());
     treeArtifact.setGeneratingActionKey(actionLookupData);
     return treeArtifact;
   }

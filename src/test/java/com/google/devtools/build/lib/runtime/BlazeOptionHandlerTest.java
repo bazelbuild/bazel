@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -955,6 +956,143 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testParseOptions_repeatConfigWithoutRepeatableFlags() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=foo",
+                "--default_override=0:build=--test_string=rc",
+                "--default_override=0:build:foo=--test_string=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    // The result is the same as if foo had only been expanded on the command line.
+    assertThat(options.getTestString()).isEqualTo("foo");
+  }
+
+  @Test
+  public void testParseOptions_repeatSubConfigWithoutRepeatableFlags() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--test_multiple_string=foo",
+                "--default_override=0:build:foo=--config=baz",
+                "--default_override=0:build:bar=--config=baz",
+                "--default_override=0:build:baz=--test_string=baz",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=bar"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    // The repeatable flag set by foo can't have been set by baz as bar doesn't result in one.
+    assertThat(eventHandler.getEvents()).isEmpty();
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.getTestMultipleString()).containsExactly("foo");
+    assertThat(options.getTestString()).isEqualTo("baz");
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithExpansionToRepeatableFlag() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--test_expansion_to_repeatable",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.getTestMultipleString())
+        .containsExactly(
+            "expandedFirstValue",
+            "expandedSecondValue",
+            "expandedFirstValue",
+            "expandedSecondValue")
+        .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithImplicitRequirement() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--test_implicit_requirement=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    // The implicit requirements of an option may be repeatable.
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithStarlarkFlag() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--//f=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(parser.getResidue()).isEmpty();
+    // The Starlark flag may be repeatable.
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+    assertThat(parser.getSkippedArgs()).containsExactly("--//f=foo", "--//f=foo").inOrder();
+  }
+
+  @Test
+  public void testParseOptions_repeatConfigWithResidue() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=foo"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
+    assertThat(parser.getResidue()).containsExactly("foo", "foo").inOrder();
+  }
+
+  @Test
   public void testParseOptions_configCycleLength1() {
     DetailedExitCode unused =
         optionHandler.parseOptions(
@@ -1268,5 +1406,88 @@ public class BlazeOptionHandlerTest {
         .containsExactly(
             "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_string=fromConf");
+  }
+
+  @Test
+  public void testParseOptions_startupOptionAfterCommand() throws Exception {
+    for (String flag :
+        ImmutableList.of(
+            "--host_jvm_args=-Xmx1g",
+            "--nobatch",
+            "--nohost_jvm_debug",
+            "--ignore_all_rc_files",
+            "--noignore_all_rc_files",
+            "--bazelrc=/somewhere/.bazelrc",
+            "--nosystem_rc")) {
+      String flagName = flag.contains("=") ? flag.substring(0, flag.indexOf('=')) : flag;
+      StoredEventHandler localEvents = new StoredEventHandler();
+      DetailedExitCode exitCode =
+          optionHandler.parseOptions(
+              ImmutableList.of("build", flag), localEvents, ImmutableList.builder());
+      assertThat(exitCode.isSuccess()).isFalse();
+      String expectedMessage =
+          String.format(
+              "Unrecognized option: %s (%s is a startup option and must appear before the"
+                  + " 'build' command)",
+              flag, flagName);
+      assertThat(exitCode.getFailureDetail().getMessage())
+          .isEqualTo("Error parsing options: " + expectedMessage);
+      assertThat(localEvents.getEvents())
+          .containsExactly(
+              Event.error(flag + " :: " + expectedMessage)
+                  .withTag(BlazeOptionHandler.BAD_OPTION_TAG));
+    }
+
+    // Separate-token argument (--host_jvm_args -Xmx1g) and command spellcheck suppression
+    // (--nobatch with BuildRequestOptions registered, which would otherwise suggest --nobuild).
+    BlazeOptionHandlerTestHelper helperWithBuildOptions =
+        new BlazeOptionHandlerTestHelper(
+            ImmutableList.of(
+                TestOptions.class,
+                CommonCommandOptions.class,
+                ClientOptions.class,
+                BuildRequestOptions.class),
+            /* allowResidue= */ true,
+            /* aliasFlag= */ null,
+            /* skipStarlarkPrefixes= */ true);
+    DetailedExitCode noEqualsExit =
+        optionHandler.parseOptions(
+            ImmutableList.of("build", "--host_jvm_args", "-Xmx1g"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(noEqualsExit.getFailureDetail().getMessage())
+        .isEqualTo(
+            "Error parsing options: Unrecognized option: --host_jvm_args (--host_jvm_args is a"
+                + " startup option and must appear before the 'build' command)");
+    DetailedExitCode spellcheckExit =
+        helperWithBuildOptions
+            .getOptionHandler()
+            .parseOptions(
+                ImmutableList.of("build", "--nobatch"),
+                helperWithBuildOptions.getEventHandler(),
+                ImmutableList.builder());
+    assertThat(spellcheckExit.getFailureDetail().getMessage())
+        .isEqualTo(
+            "Error parsing options: Unrecognized option: --nobatch (--nobatch is a startup"
+                + " option and must appear before the 'build' command)");
+  }
+
+  @Test
+  public void testParseOptions_nonStartupOrHiddenOptionAfterCommand() {
+    for (String flag :
+        ImmutableList.of(
+            "--completely_unknown_option=foo",
+            "--no",
+            "--nohost_jvm_args",
+            "--nobazelrc",
+            "--workspace_directory=/tmp")) {
+      StoredEventHandler localEvents = new StoredEventHandler();
+      DetailedExitCode exitCode =
+          optionHandler.parseOptions(
+              ImmutableList.of("build", flag), localEvents, ImmutableList.builder());
+      assertThat(exitCode.isSuccess()).isFalse();
+      assertThat(exitCode.getFailureDetail().getMessage())
+          .isEqualTo("Error parsing options: Unrecognized option: " + flag);
+    }
   }
 }

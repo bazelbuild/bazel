@@ -634,6 +634,13 @@ public final class CppConfiguration extends Fragment
     return fdoPath == null ? null : fdoPath.toString();
   }
 
+  boolean isAllowedFdoAbsoluteSymlinkPath(String targetPath) {
+    return targetPath.equals(fdoPath)
+        || targetPath.equals(csFdoAbsolutePath)
+        || targetPath.equals(propellerOptimizeAbsoluteCCProfile)
+        || targetPath.equals(propellerOptimizeAbsoluteLdProfile);
+  }
+
   @StarlarkConfigurationField(name = "fdo_optimize", doc = "The label specified in --fdo_optimize")
   public Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;

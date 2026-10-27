@@ -43,10 +43,12 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -236,8 +238,7 @@ public final class ActionsTestUtil {
         /* actionFileSystem= */ null,
         discoveredModulesPruner,
         SyscallCache.NO_CACHE,
-        ThreadStateReceiver.NULL_INSTANCE,
-        /* fileSystemSupportsInputDiscovery= */ true);
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   /** Creates an {@link ActionExecutionValue} with only file outputs. */
@@ -277,40 +278,36 @@ public final class ActionsTestUtil {
         : DerivedArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
-  public static SpecialArtifact createRunfilesArtifact(ArtifactRoot root, String execPath) {
-    return SpecialArtifact.create(
-        root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.RUNFILES);
+  public static RunfilesArtifact createRunfilesArtifact(ArtifactRoot root, String execPath) {
+    return RunfilesArtifact.create(root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER);
   }
 
-  public static SpecialArtifact createFilesetArtifact(ArtifactRoot root, String execPath) {
-    return SpecialArtifact.create(
-        root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.FILESET);
+  public static FilesetArtifact createFilesetArtifact(ArtifactRoot root, String execPath) {
+    return FilesetArtifact.create(root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER);
   }
 
-  public static SpecialArtifact createTreeArtifactWithGeneratingAction(
+  public static TreeArtifact createTreeArtifactWithGeneratingAction(
       ArtifactRoot root, PathFragment execPath) {
-    SpecialArtifact treeArtifact =
-        SpecialArtifact.create(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
+    TreeArtifact treeArtifact = TreeArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
     treeArtifact.setGeneratingActionKey(NULL_ACTION_LOOKUP_DATA);
     return treeArtifact;
   }
 
-  public static SpecialArtifact createTreeArtifactWithGeneratingAction(
+  public static TreeArtifact createTreeArtifactWithGeneratingAction(
       ArtifactRoot root, String rootRelativePath) {
     return createTreeArtifactWithGeneratingAction(
         root, root.getExecPath().getRelative(rootRelativePath));
   }
 
-  public static SpecialArtifact createUnresolvedSymlinkArtifact(
+  public static UnresolvedSymlinkArtifact createUnresolvedSymlinkArtifact(
       ArtifactRoot root, String execPath) {
     return createUnresolvedSymlinkArtifactWithExecPath(
         root, root.getExecPath().getRelative(execPath));
   }
 
-  public static SpecialArtifact createUnresolvedSymlinkArtifactWithExecPath(
+  public static UnresolvedSymlinkArtifact createUnresolvedSymlinkArtifactWithExecPath(
       ArtifactRoot root, PathFragment execPath) {
-    return SpecialArtifact.create(
-        root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.UNRESOLVED_SYMLINK);
+    return UnresolvedSymlinkArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
   public static void assertNoArtifactEndingWith(RuleConfiguredTarget target, String path) {
@@ -867,7 +864,7 @@ public final class ActionsTestUtil {
   }
 
   public static SpawnActionTemplate createDummySpawnActionTemplate(
-      SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
+      TreeArtifact inputTreeArtifact, TreeArtifact outputTreeArtifact) {
     return new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
         .setCommandLineTemplate(CustomCommandLine.builder().build())
         .setExecutable(PathFragment.create("bin/executable"))
@@ -1029,7 +1026,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)
+    public TreeArtifactValue getTreeArtifactValue(TreeArtifact treeArtifact)
         throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
@@ -1040,7 +1037,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void injectTree(SpecialArtifact treeArtifact, TreeArtifactValue tree) {
+    public void injectTree(TreeArtifact treeArtifact, TreeArtifactValue tree) {
       throw new UnsupportedOperationException();
     }
 

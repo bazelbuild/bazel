@@ -469,7 +469,7 @@ No matching toolchains found for target platform //platforms:linux:
     Execution constraints mismatch for platform //platforms:linux:
       - //constraints:os: requires //constraints:mac (platform has //constraints:linux)
 To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
-For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro\
 """);
   }
 
@@ -501,7 +501,7 @@ No matching toolchains found for target platform //platforms:linux:
     Target constraints mismatch:
       - //constraints:os: requires //constraints:mac (platform has //constraints:linux)
 To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
-For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro\
 """);
   }
 
@@ -540,7 +540,7 @@ No matching toolchains found for target platform //platforms:linux:
       - //constraints:os: requires //constraints:mac (platform has //constraints:linux)
       - //constraints:setting_with_default: requires //constraints:default_value (platform has //constraints:non_default_value)
 To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
-For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro\
 """);
   }
 
@@ -587,7 +587,7 @@ No matching toolchains found for target platform //platforms:linux:
     Execution constraints mismatch:
       - Incompatible with all 2 execution platform(s)
 To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
-For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro\
 """);
   }
 

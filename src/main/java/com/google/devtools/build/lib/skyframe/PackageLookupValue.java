@@ -87,11 +87,6 @@ public abstract class PackageLookupValue implements SkyValue {
     return new InvalidNamePackageLookupValue(errorMsg);
   }
 
-  public static PackageLookupValue incorrectRepositoryReference(
-      PackageIdentifier invalidPackage, PackageIdentifier correctPackage) {
-    return new IncorrectRepositoryReferencePackageLookupValue(invalidPackage, correctPackage);
-  }
-
   /**
    * For a successful package lookup, returns the root (package path entry) that the package resides
    * in.
@@ -299,66 +294,6 @@ public abstract class PackageLookupValue implements SkyValue {
     }
   }
 
-  /** Value indicating the package name was in error. */
-  public static class IncorrectRepositoryReferencePackageLookupValue
-      extends UnsuccessfulPackageLookupValue {
-
-    private final PackageIdentifier invalidPackageIdentifier;
-    private final PackageIdentifier correctedPackageIdentifier;
-
-    IncorrectRepositoryReferencePackageLookupValue(
-        PackageIdentifier invalidPackageIdentifier, PackageIdentifier correctedPackageIdentifier) {
-      this.invalidPackageIdentifier = invalidPackageIdentifier;
-      this.correctedPackageIdentifier = correctedPackageIdentifier;
-    }
-
-    PackageIdentifier getInvalidPackageIdentifier() {
-      return invalidPackageIdentifier;
-    }
-
-    PackageIdentifier getCorrectedPackageIdentifier() {
-      return correctedPackageIdentifier;
-    }
-
-    @Override
-    ErrorReason getErrorReason() {
-      return ErrorReason.INVALID_PACKAGE_NAME;
-    }
-
-    @Override
-    public String getErrorMsg() {
-      return String.format(
-          "Invalid package reference %s crosses into repository %s:"
-              + " did you mean to use %s instead?",
-          invalidPackageIdentifier,
-          correctedPackageIdentifier.getRepository(),
-          correctedPackageIdentifier);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue other)) {
-        return false;
-      }
-      return Objects.equal(invalidPackageIdentifier, other.invalidPackageIdentifier)
-          && Objects.equal(correctedPackageIdentifier, other.correctedPackageIdentifier);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(invalidPackageIdentifier, correctedPackageIdentifier);
-    }
-
-    @Override
-    public String toString() {
-      return String.format(
-          "%s: invalidPackageIdentifier: %s, corrected: %s",
-          this.getClass().getSimpleName(),
-          this.invalidPackageIdentifier,
-          this.correctedPackageIdentifier);
-    }
-  }
-
   /** Marker value for a deleted package. */
   public static class DeletedPackageLookupValue extends UnsuccessfulPackageLookupValue {
     private final String errorMsg;
@@ -464,13 +399,6 @@ public abstract class PackageLookupValue implements SkyValue {
                 + subpackageIdentifier
                 + " option";
       }
-    } else if (packageLookupValue instanceof IncorrectRepositoryReferencePackageLookupValue) {
-      message =
-          String.format(
-              "Label '%s' is invalid because '%s' is a subpackage",
-              label,
-              ((IncorrectRepositoryReferencePackageLookupValue) packageLookupValue)
-                  .correctedPackageIdentifier);
     }
     return message;
   }
