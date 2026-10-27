@@ -80,7 +80,10 @@ public class BazelRuleClassProvider {
         help =
             """
             If true, Bazel uses an environment with a static value for PATH and does not
-            inherit `LD_LIBRARY_PATH`. Use `--action_env=ENV_VARIABLE` if you want to
+            inherit `LD_LIBRARY_PATH`. The default PATH depends on the OS of the action's
+            execution platform, falling back to the OS Bazel runs on if the platform has no
+            `@platforms//os` constraint, and to a generic Unix PATH if Bazel doesn't recognize
+            the platform's OS. Use `--action_env=ENV_VARIABLE` if you want to
             inherit specific environment variables from the client, but note that doing so
             can prevent cross-user caching if a shared cache is used.
             """)
@@ -130,9 +133,6 @@ public class BazelRuleClassProvider {
 
   @VisibleForTesting
   static PathFragment getShellExecutableForOs(OS os, ShellConfiguration.Options options) {
-    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
-    // which may be different for remote execution. For now, this can be overridden with
-    // --shell_executable, so at least there's a workaround.
     return getDefaultPathFromOptions(options) != null
         ? getDefaultPathFromOptions(options)
         : SHELL_EXECUTABLES.getOrDefault(os, FALLBACK_SHELL);
