@@ -1651,11 +1651,9 @@ Strip the given number of leading components from file paths on extraction. Only
       throw Starlark.errorf("%s is a directory", dst);
     }
     FileSystemUtils.copyFile(src, dst);
-    // The copy inherits the permissions of the source, which may be read-only, but has to remain
-    // modifiable by later steps of the repo rule such as patching. Its executable bit doesn't
-    // depend on the source since watching the source only tracks its contents.
-    dst.setWritable(true);
-    dst.setExecutable(executable);
+    // The copy has to remain modifiable by later steps of the repo rule such as patching. Its
+    // permissions don't depend on the source since watching the source only tracks its contents.
+    dst.chmod(executable ? 0755 : 0644);
   }
 
   /** Creates {@code dir} unless it already exists as a directory, never following symlinks. */

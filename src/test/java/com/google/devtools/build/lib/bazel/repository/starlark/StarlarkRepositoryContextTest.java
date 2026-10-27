@@ -616,10 +616,9 @@ public final class StarlarkRepositoryContextTest {
   public void testCopy() throws Exception {
     setUpRepo("test");
     var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
-    src.setExecutable(false);
-    src.setWritable(false);
+    src.chmod(0400);
     var executableSrc = scratch.file(root.getRelative("foo.sh").getPathString(), "foobar");
-    executableSrc.setExecutable(true);
+    executableSrc.chmod(0700);
 
     context.copy(src.getPathString(), "bar/baz", true, "auto", thread);
     context.copy(executableSrc.getPathString(), "bar/baz.sh", false, "no", thread);
@@ -627,11 +626,10 @@ public final class StarlarkRepositoryContextTest {
     var dst = outputDirectory.getRelative("bar/baz");
     testOutputFile(dst, "foobar\n");
     assertThat(dst.isSymbolicLink()).isFalse();
-    assertThat(dst.isExecutable()).isTrue();
-    assertThat(dst.isWritable()).isTrue();
+    assertThat(dst.stat().getPermissions()).isEqualTo(0755);
     var nonExecutableDst = outputDirectory.getRelative("bar/baz.sh");
     testOutputFile(nonExecutableDst, "foobar\n");
-    assertThat(nonExecutableDst.isExecutable()).isFalse();
+    assertThat(nonExecutableDst.stat().getPermissions()).isEqualTo(0644);
     assertThat(context.getRecordedInputs().stream().map(RepoRecordedInput.WithValue::input))
         .containsExactly(
             new RepoRecordedInput.File(
