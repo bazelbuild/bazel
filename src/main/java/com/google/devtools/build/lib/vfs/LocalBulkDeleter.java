@@ -88,7 +88,9 @@ public final class LocalBulkDeleter implements BulkDeleter {
   /** Waits until every tree moved to the trash so far is deleted. */
   public void awaitPendingDeletes() throws InterruptedException {
     reaper.shutdown();
-    reaper.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+    try (SilentCloseable c = Profiler.instance().profile("LocalBulkDeleter.awaitPendingDeletes")) {
+      reaper.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+    }
   }
 
   private boolean moveToTrash(Path path) {
