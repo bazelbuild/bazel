@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicod
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.CopyEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExecuteWasmEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExtractEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.FileEvent;
@@ -262,6 +263,28 @@ public final class WorkspaceRuleEvent implements Postable {
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setOsEvent(e);
+    if (location != null) {
+      result = result.setLocation(internalToUnicode(location.toString()));
+    }
+    if (context != null) {
+      result = result.setContext(internalToUnicode(context));
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a copy event. */
+  public static WorkspaceRuleEvent newCopyEvent(
+      String src, String dst, boolean executable, String context, Location location) {
+    CopyEvent e =
+        WorkspaceLogProtos.CopyEvent.newBuilder()
+            .setSrc(internalToUnicode(src))
+            .setDst(internalToUnicode(dst))
+            .setExecutable(executable)
+            .build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setCopyEvent(e);
     if (location != null) {
       result = result.setLocation(internalToUnicode(location.toString()));
     }
