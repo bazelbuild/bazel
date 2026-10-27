@@ -1440,6 +1440,48 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('pkg/sub/data.txt', log)
     self.assertIn('main/out.txt', log)
 
+  def testUnnormalizedPosixSymlinkTargets(self):
+    if self.IsWindows():
+      self.skipTest('Tests POSIX symlink resolution')
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            "  rctx.file('BUILD', 'filegroup(name=\"target\")')",
+            '  rctx.file("data", "lexical")',
+            '  rctx.file("dir/data", "physical")',
+            '  rctx.file("dir/nested/file", "")',
+            '  rctx.symlink("dir/nested", "alias")',
+            '  rctx.execute(["ln", "-s", "alias/../data", "link"])',
+            '  rctx.execute(["ln", "-s", "absent/../data", "dangling"])',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    def check():
+      _, _, stderr = self.RunBazel(['query', '@my_repo//:target'])
+      self.assertIn('JUST FETCHED', '\n'.join(stderr))
+      repo = self.RepoDir('my_repo')
+      self.assertEqual(os.readlink(os.path.join(repo, 'link')), 'alias/../data')
+      with open(os.path.join(repo, 'link')) as f:
+        self.assertEqual(f.read(), 'physical')
+      self.assertTrue(os.path.islink(os.path.join(repo, 'dangling')))
+      self.assertFalse(os.path.exists(os.path.join(repo, 'dangling')))
+
+    check()
+    self.RunBazel(['clean', '--expunge'])
+    check()
+
   def testRepoSymlinkChainMaterializationIsConsistent(self):
     # Full repo materialization (triggered by another repo accessing my_repo)
     # and lazy action-input materialization (triggered by a local action
