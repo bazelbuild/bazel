@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -231,9 +232,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
         Instant.now().plus(remoteCacheTtl));
     addSymlinkTargetsToPrefetch(symlinksToPrefetch, filesToPrefetch);
     try {
+      // The native repo directory has just been deleted and its files can't be accessed before
+      // the repo has been injected, so they can be downloaded without checking for up-to-date
+      // copies. This doesn't apply to symlink targets outside the repo, which a repo with a cache
+      // entry can't have.
+      var newFiles = ImmutableList.<PathFragment>builder();
+      var otherFiles = ImmutableList.<PathFragment>builder();
+      for (var file : filesToPrefetch) {
+        (file.startsWith(repoDir) ? newFiles : otherFiles).add(file);
+      }
       // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
       // would be more efficient.
-      prefetch(filesToPrefetch);
+      prefetch(newFiles.build(), /* newFiles= */ true);
+      prefetch(otherFiles.build(), /* newFiles= */ false);
     } catch (BulkTransferException e) {
       if (e.allCausedByCacheNotFoundException()) {
         // The cache has lost the prefetched files, which should be treated just like a cache miss.
@@ -494,20 +505,36 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     markerFileSibling.renameTo(markerFile);
   }
 
-  private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
+  /**
+   * Prefetches the given paths to the native file system.
+   *
+   * @param newFiles whether the paths are known not to exist on the native file system and can't be
+   *     accessed until this method returns
+   */
+  private void prefetch(Iterable<PathFragment> paths, boolean newFiles)
+      throws IOException, InterruptedException {
     // These paths may have been prefetched and then deleted again earlier in this invocation, e.g.
     // by an injection whose fetch was subsequently restarted due to memory pressure. The
     // prefetcher's download cache would otherwise consider them downloaded already and not even
     // verify they exist on the local file system.
     inputPrefetcher.invalidateDownloads(paths);
+    var inputs = Iterables.transform(paths, ActionInputHelper::fromPath);
+    MetadataSupplier metadataSupplier =
+        actionInput -> externalFs.getMetadata(actionInput.getExecPath());
     var unused =
         getFromFuture(
-            inputPrefetcher.prefetchFilesInterruptibly(
-                /* action= */ null,
-                Iterables.transform(paths, ActionInputHelper::fromPath),
-                actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
-                ActionInputPrefetcher.Priority.CRITICAL,
-                ActionInputPrefetcher.Reason.INPUTS));
+            newFiles
+                ? inputPrefetcher.prefetchNewFilesInterruptibly(
+                    inputs,
+                    metadataSupplier,
+                    ActionInputPrefetcher.Priority.CRITICAL,
+                    ActionInputPrefetcher.Reason.INPUTS)
+                : inputPrefetcher.prefetchFilesInterruptibly(
+                    /* action= */ null,
+                    inputs,
+                    metadataSupplier,
+                    ActionInputPrefetcher.Priority.CRITICAL,
+                    ActionInputPrefetcher.Reason.INPUTS));
   }
 
   /**
@@ -553,10 +580,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       }
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(files);
+    prefetch(files, /* newFiles= */ false);
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
     // target.
-    prefetch(symlinks);
+    prefetch(symlinks, /* newFiles= */ false);
   }
 
   private void collectAndCreateDirectories(
