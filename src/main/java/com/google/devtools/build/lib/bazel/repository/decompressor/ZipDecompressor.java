@@ -15,7 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.devtools.build.lib.bazel.repository.decompressor.StripPrefixedPath.maybeDeprefixSymlink;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -26,6 +27,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -34,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipException;
 import javax.annotation.Nullable;
 
 /**
@@ -84,13 +88,15 @@ public class ZipDecompressor implements Decompressor {
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
 
-    try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
+    var archiveFile = descriptor.archivePath().getPathFile();
+    try (ZipReader reader = openZipReader(archiveFile)) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
+            StripPrefixedPath.maybeDeprefix(
+                entryName.getBytes(ISO_8859_1), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
@@ -109,12 +115,20 @@ public class ZipDecompressor implements Decompressor {
         Set<String> prefixes = new HashSet<>();
         for (ZipFileEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), "", 0);
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(ISO_8859_1), "", 0);
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }
         throw new CouldNotFindPrefixException(prefix, prefixes);
       }
+    } catch (ZipException e) {
+      if (e.getMessage() == null) {
+        throw e;
+      }
+      // ZipReader quotes the archive's file name as a platform string.
+      var internalMessage =
+          e.getMessage().replace(archiveFile.getName(), platformToInternal(archiveFile.getName()));
+      throw (ZipException) new ZipException(internalMessage).initCause(e);
     }
 
     for (Map.Entry<Path, PathFragment> symlink : symlinks.entrySet()) {
@@ -122,6 +136,15 @@ public class ZipDecompressor implements Decompressor {
     }
 
     return destinationDirectory;
+  }
+
+  private static ZipReader openZipReader(File archiveFile) throws IOException {
+    try {
+      return new ZipReader(archiveFile, ISO_8859_1);
+    } catch (FileNotFoundException e) {
+      throw (FileNotFoundException)
+          new FileNotFoundException(platformToInternal(e.getMessage())).initCause(e);
+    }
   }
 
   private static void extractZipEntry(
@@ -163,11 +186,11 @@ public class ZipDecompressor implements Decompressor {
       if (!target.isAbsolute() && !targetPath.startsWith(destinationDirectory)) {
         throw new IOException(
             "Zip entries cannot refer to files outside of their directory: "
-                + reader.getFilename()
+                + platformToInternal(reader.getFilename())
                 + " has a symlink "
                 + strippedRelativePath
                 + " pointing to "
-                + new String(buffer, UTF_8));
+                + new String(buffer, ISO_8859_1));
       }
 
       symlinks.put(

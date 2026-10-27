@@ -3943,6 +3943,40 @@ EOF
   assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
 }
 
+function test_download_non_ascii_file_url() {
+  mkdir -p "${TEST_TMPDIR}/dïr_€"
+  echo "content" > "${TEST_TMPDIR}/dïr_€/fïlé_€.txt"
+  if is_windows; then
+    local base_url="file:///$(cygpath -m "${TEST_TMPDIR}")"
+  else
+    local base_url="file://${TEST_TMPDIR}"
+  fi
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download("${base_url}/dïr_€/fïlé_€.txt", "raw.txt")
+  repository_ctx.download(
+    "${base_url}/d%C3%AFr_%E2%82%AC/f%C3%AFl%C3%A9_%E2%82%AC.txt",
+    "encoded.txt",
+  )
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "content" "$output_base/external/+repo+foo/raw.txt"
+  assert_contains "content" "$output_base/external/+repo+foo/encoded.txt"
+}
+
 function test_read_roundtrip_utf8() {
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')

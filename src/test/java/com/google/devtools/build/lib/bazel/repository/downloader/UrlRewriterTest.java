@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -394,6 +395,28 @@ public class UrlRewriterTest {
                 URI.create("https://myopencorp.com/no_creds/bar"), true),
             UrlRewriter.RewrittenURL.create(
                 URI.create("https://should-not-be-overridden.com/"), false));
+  }
+
+  @Test
+  public void rewritingUrlsWithNonAsciiCharactersAndAuthHeaders() throws Exception {
+    String config = "rewrite example.com/(.*) üser:pässwörd@mycorp.com/€/$1";
+    UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<UrlRewriter.RewrittenURL> amended =
+        munger.amend(ImmutableList.of(URI.create("https://example.com/foo")));
+    Map<URI, Map<String, List<String>>> updatedAuthHeaders =
+        munger.updateAuthHeaders(amended, ImmutableMap.of(), null);
+
+    var expectedUrl = URI.create("https://%C3%BCser:p%C3%A4ssw%C3%B6rd@mycorp.com/%E2%82%AC/foo");
+    assertThat(amended).containsExactly(UrlRewriter.RewrittenURL.create(expectedUrl, true));
+    assertThat(updatedAuthHeaders)
+        .containsExactly(
+            expectedUrl,
+            ImmutableMap.of(
+                "Authorization",
+                ImmutableList.of(
+                    BasicHttpAuthenticationEncoder.encode(
+                        unicodeToInternal("üser"), unicodeToInternal("pässwörd")))));
   }
 
   @Test

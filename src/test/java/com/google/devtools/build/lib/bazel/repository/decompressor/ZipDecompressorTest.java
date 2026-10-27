@@ -17,10 +17,13 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.ROOT_FOLDER_NAME;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
@@ -161,6 +164,24 @@ public class ZipDecompressorTest {
 
     Path innerDir = outputDir.getRelative(INNER_FOLDER_NAME);
     assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
+  }
+
+  @Test
+  public void testDecompressWithNonAsciiRenamedFilesAndPrefix() throws Exception {
+    Path zipFile = createZipFile("prefix-ä/€.txt", "content");
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(zipFile)
+            .setDestinationPath(zipFile.getParentDirectory().getRelative("out"))
+            .setPrefix(unicodeToInternal("prefix-ä"))
+            .setRenameFiles(
+                ImmutableMap.of(
+                    unicodeToInternal("prefix-ä/€.txt"), unicodeToInternal("prefix-ä/renamed.txt")))
+            .build();
+    Path outputDir = decompress(descriptor);
+
+    assertThat(FileSystemUtils.readContent(outputDir.getRelative("renamed.txt"), UTF_8))
+        .isEqualTo("content");
   }
 
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
