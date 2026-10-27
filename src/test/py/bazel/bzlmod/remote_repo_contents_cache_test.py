@@ -2515,6 +2515,15 @@ class RemoteRepoContentsCacheTest(
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
   def testLostRemoteFile_moduleExtensionMaterialization(self):
+    self.doTestLostModuleExtensionInput(['build', '@other//:copy'])
+
+  def testLostRemoteFile_fetchTarget(self):
+    self.doTestLostModuleExtensionInput(['fetch', '@other//:copy'])
+
+  def testLostRemoteFile_fetchRepo(self):
+    self.doTestLostModuleExtensionInput(['fetch', '--repo=@other'])
+
+  def doTestLostModuleExtensionInput(self, args):
     # Like testLostRemoteFile_fullMaterialization, but with the full
     # materialization triggered by a module extension via module_ctx.path(),
     # whose failures are reported through module extension evaluation rather
@@ -2574,7 +2583,7 @@ class RemoteRepoContentsCacheTest(
     # which discovers the lost file. The unusable cache entry must be
     # discarded and the repo rule run again.
     self.DeleteCasEntry(b'unique-data-file-contents')
-    _, _, stderr = self.RunBazel(['build', '@other//:copy'])
+    _, _, stderr = self.RunBazel(args)
     self.assertEqual(
         1,
         stderr.count(
@@ -2591,7 +2600,7 @@ class RemoteRepoContentsCacheTest(
     # extension evaluation and thus the materialization.
     self.RunBazel(['clean', '--expunge'])
     os.remove(self.Path('MODULE.bazel.lock'))
-    _, _, stderr = self.RunBazel(['build', '@other//:copy'])
+    _, _, stderr = self.RunBazel(args)
     stderr = '\n'.join(stderr)
     self.assertNotIn('JUST FETCHED', stderr)
     self.assertNotIn(
