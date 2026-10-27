@@ -262,6 +262,7 @@ message ExternalRepository {
     BAD_REPO_CONTENTS_CACHE = 5 [(metadata) = { exit_code: 2 }];
     UNKNOWN_REGISTRY = 6 [(metadata) = { exit_code: 2 }];
     SYMLINKING_FAILED = 7 [(metadata) = { exit_code: 2 }];
+    INVALID_REGISTRY_URL = 9 [(metadata) = { exit_code: 2 }];
   }
   Code code = 1;
   // Additional data could include external repository names.
