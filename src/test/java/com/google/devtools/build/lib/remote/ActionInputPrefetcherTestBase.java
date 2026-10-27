@@ -44,6 +44,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -403,6 +404,40 @@ public abstract class ActionInputPrefetcherTestBase {
     verify(prefetcher, times(1))
         .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
+  public void prefetchFiles_externalSymlinkInPlace_notReplanted() throws Exception {
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    byte[] contents = "hello world".getBytes(UTF_8);
+    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
+    cas.put(hashCode, contents);
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            hashCode.asBytes(),
+            contents.length,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
+    // A symlink in an external repo, which is outside the exec root.
+    Path link = fs.getPath("/external/repo/sub/link");
+    link.getParentDirectory().createDirectoryAndParents();
+    link.createSymbolicLink(PathFragment.create("../target"));
+    ActionInput input = ActionInputHelper.fromPath(link.asFragment());
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(input), unused -> metadata, Priority.MEDIUM, Reason.INPUTS));
+    prefetcher.invalidateDownloads(ImmutableList.of(link.asFragment()));
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(input), unused -> metadata, Priority.MEDIUM, Reason.INPUTS));
+
+    // Replacing the symlink would make it briefly disappear for concurrently running actions.
+    verify(fs, never()).delete(link.asFragment());
+    assertThat(link.readSymbolicLink()).isEqualTo(PathFragment.create("../target"));
+    assertThat(FileSystemUtils.readContent(link, UTF_8)).isEqualTo("hello world");
   }
 
   @Test
