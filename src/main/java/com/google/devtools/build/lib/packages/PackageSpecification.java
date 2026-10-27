@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -461,6 +462,7 @@ public abstract class PackageSpecification {
    * <p>For modeling a {@code package_group}'s transitive contents (i.e., via the {@code includes}
    * attribute), see {@link PackageSpecificationProvider}.
    */
+  @AutoCodec
   @AutoValue
   public abstract static class PackageGroupContents
       implements NestedSetsShouldBeInternedByEquality {
@@ -547,12 +549,32 @@ public abstract class PackageSpecification {
         throw new IllegalStateException(spec.toString());
       }
 
-      return new AutoValue_PackageSpecification_PackageGroupContents(
+      return createForSerialization(
           singlePackagePositivesBuilder.build(),
           allPackagesBeneathPositivesBuilder.build(),
           hasPositiveAllPackages,
           singlePackageNegativesBuilder.build(),
           allPackagesBeneathNegativesBuilder.build(),
+          hasPrivate,
+          hasNegativeAllPackages);
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Instantiator
+    static PackageGroupContents createForSerialization(
+        ImmutableSet<PackageIdentifier> singlePackagePositives,
+        ImmutableList<PackageIdentifier> allPackagesBeneathPositives,
+        boolean hasPositiveAllPackages,
+        ImmutableSet<PackageIdentifier> singlePackageNegatives,
+        ImmutableList<PackageIdentifier> allPackagesBeneathNegatives,
+        boolean hasPrivate,
+        boolean hasNegativeAllPackages) {
+      return new AutoValue_PackageSpecification_PackageGroupContents(
+          singlePackagePositives,
+          allPackagesBeneathPositives,
+          hasPositiveAllPackages,
+          singlePackageNegatives,
+          allPackagesBeneathNegatives,
           hasPrivate,
           hasNegativeAllPackages);
     }

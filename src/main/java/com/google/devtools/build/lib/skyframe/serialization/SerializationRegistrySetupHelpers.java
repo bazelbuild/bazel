@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -170,7 +171,8 @@ public final class SerializationRegistrySetupHelpers {
             AliasConfiguredTarget.class,
             BuildConfigurationValue.class,
             InlineFileArtifactValue.class,
-            AspectKeyCreator.AspectKey.class);
+            AspectKeyCreator.AspectKey.class,
+            PackageGroupContents.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 
