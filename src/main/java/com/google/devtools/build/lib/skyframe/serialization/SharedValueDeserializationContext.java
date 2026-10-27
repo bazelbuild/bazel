@@ -324,6 +324,33 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
   }
 
   @Override
+  public void deserializeArrayElement(
+      CodedInputStream codedIn, Object[] arr, int index, Runnable done)
+      throws IOException, SerializationException {
+    Object result = processTagAndDeserialize(codedIn);
+    if (result == null) {
+      done.run();
+      return;
+    }
+
+    if (result instanceof ListenableFuture<?> futureResult) {
+      addReadStatusFuture(
+          Futures.transform(
+              futureResult,
+              value -> {
+                arr[index] = value;
+                done.run();
+                return null;
+              },
+              directExecutor()));
+      return;
+    }
+
+    arr[index] = result;
+    done.run();
+  }
+
+  @Override
   public <T> void getSharedValue(
       CodedInputStream codedIn,
       @Nullable Object distinguisher,

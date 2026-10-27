@@ -106,6 +106,18 @@ public interface AsyncDeserializationContext extends LeafDeserializationContext 
       throws IOException, SerializationException;
 
   /**
+   * Similar to {@link #deserializeArrayElement(CodedInputStream, Object[], int)}, but includes a
+   * {@code done} callback.
+   *
+   * <p>The {@code done} callback is called once the assignment is complete, which is useful for
+   * container codecs that buffer elements before populating the container. The {@code done}
+   * callback is always called, even if the deserialized value is null.
+   */
+  @SuppressWarnings("AvoidObjectArrays") // explicit, low-level array handling
+  void deserializeArrayElement(CodedInputStream codedIn, Object[] arr, int index, Runnable done)
+      throws IOException, SerializationException;
+
+  /**
    * Reads a value from key value storage into {@code obj}.
    *
    * <p>Reads the next fingerprint from {@code codedIn}, fetches the corresponding remote value and

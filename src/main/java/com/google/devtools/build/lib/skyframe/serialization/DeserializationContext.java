@@ -91,6 +91,14 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
   }
 
   @Override
+  public void deserializeArrayElement(
+      CodedInputStream codedIn, Object[] arr, int index, Runnable done)
+      throws IOException, SerializationException {
+    deserializeArrayElement(codedIn, arr, index);
+    done.run();
+  }
+
+  @Override
   public <T> void getSharedValue(
       CodedInputStream codedIn,
       @Nullable Object distinguisher,
