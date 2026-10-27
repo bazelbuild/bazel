@@ -348,39 +348,32 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                           + entry,
                       e);
                 }
-                // No need to do reverse dep surgery on nodes that are deleted/about to be deleted
-                // anyway.
-                Map<SkyKey, ? extends NodeEntry> depMap =
-                    graph.getBatchMap(
-                        key,
-                        Reason.INVALIDATION,
-                        Iterables.filter(
-                            directDeps,
-                            k ->
-                                !state.visitedKeysAcrossInterruptions.containsKey(k)
-                                    && !pendingVisitations.contains(
-                                        Pair.of(k, InvalidationType.DELETED))));
-                if (!depMap.isEmpty()) {
-                  for (Map.Entry<SkyKey, ? extends NodeEntry> directDepEntry : depMap.entrySet()) {
-                    NodeEntry dep = directDepEntry.getValue();
-                    if (dep == null) {
-                      continue;
-                    }
-                    if (dep.isDone()) {
-                      state.doneKeysWithRdepsToRemove.putIfAbsent(
-                          directDepEntry.getKey(), Boolean.TRUE);
-                      continue;
-                    }
-                    try {
-                      dep.removeReverseDep(key);
-                    } catch (InterruptedException e) {
-                      throw new IllegalStateException(
-                          "Deletion cannot happen on a graph that may have blocking operations: "
-                              + key
-                              + ", "
-                              + entry,
-                          e);
-                    }
+                // Direct deps are already unique; no temporary map is needed to deduplicate them.
+                NodeBatch deps = graph.getBatch(key, Reason.INVALIDATION, directDeps);
+                for (SkyKey depKey : directDeps) {
+                  // No need to do reverse dep surgery on nodes that are deleted/about to be deleted
+                  // anyway.
+                  if (state.visitedKeysAcrossInterruptions.containsKey(depKey)
+                      || pendingVisitations.contains(Pair.of(depKey, InvalidationType.DELETED))) {
+                    continue;
+                  }
+                  NodeEntry dep = deps.get(depKey);
+                  if (dep == null) {
+                    continue;
+                  }
+                  if (dep.isDone()) {
+                    state.doneKeysWithRdepsToRemove.putIfAbsent(depKey, Boolean.TRUE);
+                    continue;
+                  }
+                  try {
+                    dep.removeReverseDep(key);
+                  } catch (InterruptedException e) {
+                    throw new IllegalStateException(
+                        "Deletion cannot happen on a graph that may have blocking operations: "
+                            + key
+                            + ", "
+                            + entry,
+                        e);
                   }
                 }
               }
