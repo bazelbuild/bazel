@@ -52,6 +52,7 @@ public final class Bazel {
           com.google.devtools.build.lib.runtime.MemoryPressureModule.class,
           com.google.devtools.build.lib.runtime.ThreadDumpModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,
+          com.google.devtools.build.lib.platform.SystemMemoryPressureModule.class,
           com.google.devtools.build.lib.platform.SystemSuspensionModule.class,
           BazelFileSystemModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
