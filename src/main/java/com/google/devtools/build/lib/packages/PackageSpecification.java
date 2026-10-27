@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -463,8 +462,14 @@ public abstract class PackageSpecification {
    * attribute), see {@link PackageSpecificationProvider}.
    */
   @AutoCodec
-  @AutoValue
-  public abstract static class PackageGroupContents
+  public record PackageGroupContents(
+      ImmutableSet<PackageIdentifier> singlePackagePositives,
+      ImmutableList<PackageIdentifier> allPackagesBeneathPositives,
+      boolean hasPositiveAllPackages,
+      ImmutableSet<PackageIdentifier> singlePackageNegatives,
+      ImmutableList<PackageIdentifier> allPackagesBeneathNegatives,
+      boolean hasPrivate,
+      boolean hasNegativeAllPackages)
       implements NestedSetsShouldBeInternedByEquality {
     // This class is optimized for memory and cpu.
     // TODO(b/279784354): Further improvements are possible.
@@ -478,20 +483,6 @@ public abstract class PackageSpecification {
     // negatives first since package_group semantics require we check all negatives no matter what.
     // Both of these cpu optimizations combine well in practice since there are some package_group
     // targets with very large lists of negative single package specifications.
-
-    abstract ImmutableSet<PackageIdentifier> singlePackagePositives();
-
-    abstract ImmutableList<PackageIdentifier> allPackagesBeneathPositives();
-
-    abstract boolean hasPositiveAllPackages();
-
-    abstract ImmutableSet<PackageIdentifier> singlePackageNegatives();
-
-    abstract ImmutableList<PackageIdentifier> allPackagesBeneathNegatives();
-
-    abstract boolean hasPrivate();
-
-    abstract boolean hasNegativeAllPackages();
 
     /**
      * Creates a {@link PackageGroupContents} representing a collection of {@link
@@ -549,32 +540,12 @@ public abstract class PackageSpecification {
         throw new IllegalStateException(spec.toString());
       }
 
-      return createForSerialization(
+      return new PackageGroupContents(
           singlePackagePositivesBuilder.build(),
           allPackagesBeneathPositivesBuilder.build(),
           hasPositiveAllPackages,
           singlePackageNegativesBuilder.build(),
           allPackagesBeneathNegativesBuilder.build(),
-          hasPrivate,
-          hasNegativeAllPackages);
-    }
-
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static PackageGroupContents createForSerialization(
-        ImmutableSet<PackageIdentifier> singlePackagePositives,
-        ImmutableList<PackageIdentifier> allPackagesBeneathPositives,
-        boolean hasPositiveAllPackages,
-        ImmutableSet<PackageIdentifier> singlePackageNegatives,
-        ImmutableList<PackageIdentifier> allPackagesBeneathNegatives,
-        boolean hasPrivate,
-        boolean hasNegativeAllPackages) {
-      return new AutoValue_PackageSpecification_PackageGroupContents(
-          singlePackagePositives,
-          allPackagesBeneathPositives,
-          hasPositiveAllPackages,
-          singlePackageNegatives,
-          allPackagesBeneathNegatives,
           hasPrivate,
           hasNegativeAllPackages);
     }
