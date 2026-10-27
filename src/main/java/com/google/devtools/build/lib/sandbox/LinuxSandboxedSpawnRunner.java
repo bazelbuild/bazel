@@ -80,16 +80,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * Returns whether the linux sandbox is supported on the local machine by running a small command
-   * in it.
-   */
-  public static boolean isSupported(final CommandEnvironment cmdEnv) throws InterruptedException {
-    return getUnsupportedReason(cmdEnv).isEmpty();
-  }
-
-  /**
    * Returns why the linux sandbox is not supported on the local machine, or empty if it is
-   * supported.
+   * supported, by running a small command in it.
    */
   public static Optional<String> getUnsupportedReason(final CommandEnvironment cmdEnv)
       throws InterruptedException {
