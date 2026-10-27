@@ -3124,6 +3124,66 @@ class RemoteRepoContentsCacheTest(
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertIn('hello from a source executable', '\n'.join(stdout))
 
+  def testMaterializedFilesPreserveExecutableBit(self):
+    if self.IsWindows():
+      self.skipTest('executable bits are not tracked on Windows')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "load(\':defs.bzl\', \'FILES\')\\n'
+            'exports_files(FILES)")',
+            '  rctx.file(',
+            '    "defs.bzl",',
+            '    "FILES = [\'data.txt\', \'tool.sh\']",',
+            '    executable = False,',
+            '  )',
+            '  rctx.file("data.txt", "hello", executable = False)',
+            '  rctx.file("tool.sh", "#!/bin/sh\\n", executable = True)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "check_modes",',
+            '  srcs = ["@my_repo//:data.txt", "@my_repo//:tool.sh"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "! test -x $(location @my_repo//:data.txt) && '
+            'test -x $(location @my_repo//:tool.sh) && touch $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+
+    _, _, stderr = self.RunBazel(['build', '//main:check_modes'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached. The files are materialized for the local action.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:check_modes'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    # .bzl files are prefetched while the repo is injected.
+    defs_mode = os.stat(os.path.join(repo_dir, 'defs.bzl')).st_mode
+    self.assertEqual(defs_mode & 0o111, 0)
+    data_mode = os.stat(os.path.join(repo_dir, 'data.txt')).st_mode
+    self.assertEqual(data_mode & 0o111, 0)
+    tool_mode = os.stat(os.path.join(repo_dir, 'tool.sh')).st_mode
+    self.assertEqual(tool_mode & 0o111, 0o111)
+
   def _setupRepoToVendor(self):
     self.ScratchFile(
         'MODULE.bazel',

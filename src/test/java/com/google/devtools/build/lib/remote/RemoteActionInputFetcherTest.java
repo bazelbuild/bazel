@@ -21,9 +21,11 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
@@ -50,6 +52,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -281,7 +284,145 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         .isEqualTo("hello world");
   }
 
+  @Test
+  public void prefetchFiles_cachedRepoFiles_preserveExecutableBit() throws Exception {
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    // .bzl files are prefetched while the repo is injected.
+                    .addFiles(cachedRepoFile("defs.bzl", "X = 1", false, cas, metadata))
+                    .addFiles(cachedRepoFile("data.txt", "data", false, cas, metadata))
+                    .addFiles(cachedRepoFile("tool.sh", "#!/bin/sh", true, cas, metadata)))
+            .build();
+
+    prefetchFromCachedRepo(
+        tree,
+        newCombinedCache(digestUtil, cas),
+        ImmutableList.of(cachedRepoInput("data.txt"), cachedRepoInput("tool.sh")),
+        metadata);
+
+    assertThat(permissions(CACHED_REPO_DIR.getRelative("defs.bzl"))).isEqualTo(0444);
+    assertThat(permissions(CACHED_REPO_DIR.getRelative("data.txt"))).isEqualTo(0444);
+    assertThat(permissions(CACHED_REPO_DIR.getRelative("tool.sh"))).isEqualTo(0555);
+  }
+
+  @Test
+  public void prefetchFiles_cachedRepoFileWithSymlinkTemplate_keepsSharedPermissions()
+      throws Exception {
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    // With a symlink template, files with the same contents are backed by the same file.
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(cachedRepoFile("tool.sh", "#!/bin/sh", true, cas, metadata))
+                    .addFiles(cachedRepoFile("not_a_tool.sh", "#!/bin/sh", false, cas, metadata)))
+            .build();
+    Path casFile = fs.getPath("/cas/" + Iterables.getOnlyElement(cas.keySet()));
+    casFile.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(casFile, StandardCharsets.UTF_8, "#!/bin/sh");
+    casFile.chmod(0555);
+
+    prefetchFromCachedRepo(
+        tree,
+        newCombinedCache(digestUtil, cas, /* symlinkTemplate= */ "/cas/{hash}"),
+        ImmutableList.of(cachedRepoInput("not_a_tool.sh")),
+        metadata);
+
+    assertThat(fs.getPath(CACHED_REPO_DIR.getRelative("not_a_tool.sh")).resolveSymbolicLinks())
+        .isEqualTo(casFile);
+    assertThat(permissions(casFile.asFragment())).isEqualTo(0555);
+  }
+
+  private static final PathFragment CACHED_REPO_DIR =
+      PathFragment.create("/output_base/external/repo");
+
+  private static FileNode cachedRepoFile(
+      String name,
+      String contents,
+      boolean executable,
+      Map<HashCode, byte[]> cas,
+      Map<ActionInput, FileArtifactValue> metadata) {
+    byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
+    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(bytes);
+    cas.put(hashCode, bytes);
+    metadata.put(
+        cachedRepoInput(name),
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            hashCode.asBytes(),
+            bytes.length,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false));
+    return FileNode.newBuilder()
+        .setName(name)
+        .setDigest(DigestUtil.buildDigest(hashCode.asBytes(), bytes.length))
+        .setIsExecutable(executable)
+        .build();
+  }
+
+  private static ActionInput cachedRepoInput(String name) {
+    return ActionInputHelper.fromPath(CACHED_REPO_DIR.getRelative(name));
+  }
+
+  /**
+   * Injects the given contents as a repo served from memory and prefetches the given inputs from it
+   * with a prefetcher whose exec root lies on the overlay file system, as in production.
+   */
+  private void prefetchFromCachedRepo(
+      Tree tree,
+      CombinedCache combinedCache,
+      ImmutableList<ActionInput> inputs,
+      Map<ActionInput, FileArtifactValue> metadata)
+      throws Exception {
+    RemoteExternalOverlayFileSystem overlayFs =
+        new RemoteExternalOverlayFileSystem(CACHED_REPO_DIR.getParentDirectory(), fs);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(new EventBusEventHandler(eventBus)),
+            "none",
+            "none",
+            combinedCache,
+            overlayFs.getPath(execRoot.getPathString()),
+            tempPathGenerator,
+            DUMMY_REMOTE_OUTPUT_CHECKER,
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.READONLY);
+    overlayFs.beforeCommand(
+        combinedCache,
+        actionInputFetcher,
+        new Reporter(new EventBusEventHandler(eventBus)),
+        "none",
+        "none",
+        /* evaluator= */ () -> null,
+        /* remoteCacheTtl= */ Duration.ofHours(1));
+    try {
+      assertThat(
+              overlayFs.injectRemoteRepo(
+                  RepositoryName.createUnvalidated(CACHED_REPO_DIR.getBaseName()), tree, "MARKER"))
+          .isTrue();
+      wait(
+          actionInputFetcher.prefetchFilesInterruptibly(
+              action, inputs, metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    } finally {
+      overlayFs.afterCommand();
+    }
+  }
+
+  private int permissions(PathFragment path) throws IOException {
+    return fs.getPath(path).stat().getPermissions() & 0777;
+  }
+
   private CombinedCache newCombinedCache(DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
+    return newCombinedCache(digestUtil, cas, /* symlinkTemplate= */ null);
+  }
+
+  private CombinedCache newCombinedCache(
+      DigestUtil digestUtil, Map<HashCode, byte[]> cas, @Nullable String symlinkTemplate) {
     Map<Digest, byte[]> cacheEntries = Maps.newHashMapWithExpectedSize(cas.size());
     for (Map.Entry<HashCode, byte[]> entry : cas.entrySet()) {
       cacheEntries.put(
@@ -291,7 +432,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     return new CombinedCache(
         new InMemoryCacheClient(cacheEntries),
         /* diskCacheClient= */ null,
-        /* symlinkTemplate= */ null,
+        symlinkTemplate,
         digestUtil,
         /* chunkingFunction= */ null,
         new ChunkLocationMap());
