@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.devtools.build.lib.skyframe.serialization.ClassCodec.classCodec;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
-
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,16 +30,23 @@ import java.util.concurrent.atomic.AtomicInteger;
  * there are no "benign" subclasses of {@link EnumMap} in the Bazel codebase that can be used where
  * an {@link EnumMap} was expected.
  */
-// TODO: b/386384684 - remove Unsafe usage
 @SuppressWarnings({"rawtypes", "unchecked"})
 class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
-  /** Used to retrieve the hidden {@link EnumMap#keyType} field. */
-  private static final long KEY_TYPE_OFFSET;
+  /**
+   * Used to retrieve the hidden {@link EnumMap#keyType} field.
+   *
+   * <p>This requires {@code java.base/java.util} to be opened to this module. Note that {@link
+   * MethodHandles.Lookup#unreflectVarHandle} can't be used here because it ignores {@link
+   * java.lang.reflect.Field#setAccessible}.
+   */
+  private static final VarHandle KEY_TYPE;
 
   static {
     try {
-      KEY_TYPE_OFFSET = unsafe().objectFieldOffset(EnumMap.class.getDeclaredField("keyType"));
-    } catch (NoSuchFieldException e) {
+      KEY_TYPE =
+          MethodHandles.privateLookupIn(EnumMap.class, MethodHandles.lookup())
+              .findVarHandle(EnumMap.class, "keyType", Class.class);
+    } catch (ReflectiveOperationException e) {
       throw new ExceptionInInitializerError(e);
     }
   }
@@ -49,7 +56,6 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
     return EnumMap.class;
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public void serialize(SerializationContext context, EnumMap obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
@@ -57,8 +63,7 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
       throw new SerializationException(
           "Cannot serialize subclasses of EnumMap: " + obj.getClass() + " (" + obj + ")");
     }
-    classCodec()
-        .serialize(context, ((Class<?>) unsafe().getObject(obj, KEY_TYPE_OFFSET)), codedOut);
+    classCodec().serialize(context, (Class<?>) KEY_TYPE.get(obj), codedOut);
 
     codedOut.writeInt32NoTag(obj.size());
     if (obj.isEmpty()) {
