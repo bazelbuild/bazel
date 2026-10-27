@@ -39,4 +39,13 @@ public interface LazyMaterializer {
    * <p>Does nothing if the subtree is already backed by the local file system.
    */
   void ensureSubtreeMaterialized(PathFragment path) throws IOException, InterruptedException;
+
+  /**
+   * Returns whether the file at the given path should be executable when it is materialized to the
+   * local file system.
+   *
+   * <p>Returns true if the path isn't a file whose contents are held in memory, which then gets the
+   * same permissions as any other download.
+   */
+  boolean shouldMaterializeAsExecutable(PathFragment path);
 }

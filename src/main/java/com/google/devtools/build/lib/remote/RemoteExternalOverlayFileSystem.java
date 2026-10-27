@@ -538,6 +538,22 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     materializeSubtree(path);
   }
 
+  @Override
+  public boolean shouldMaterializeAsExecutable(PathFragment path) {
+    if (!path.startsWith(externalDirectory)) {
+      return true;
+    }
+    // The files of a repo that are prefetched during its injection are materialized before reads
+    // are served from externalFs, so it has to be consulted directly.
+    var inMemoryPath = externalFs.getPath(path);
+    try {
+      return !inMemoryPath.isFile() || inMemoryPath.isExecutable();
+    } catch (IOException e) {
+      // The file has been removed from memory concurrently.
+      return true;
+    }
+  }
+
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
     var files = new LinkedHashSet<PathFragment>();
     var symlinks = new LinkedHashSet<PathFragment>();
