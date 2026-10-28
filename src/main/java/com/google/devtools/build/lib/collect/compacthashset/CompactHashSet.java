@@ -534,10 +534,13 @@ public class CompactHashSet<E> extends AbstractSet<E> {
 
   @Override
   public void clear() {
+    if (size == 0) {
+      return;
+    }
     modCount++;
     Arrays.fill(elements, 0, size, null);
     Arrays.fill(table, UNSET);
-    Arrays.fill(entries, UNSET);
+    Arrays.fill(entries, 0, size, UNSET);
     this.size = 0;
   }
 }
