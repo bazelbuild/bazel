@@ -481,6 +481,19 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " ctx.fragments.android is undefined. This is a migration flag to move all"
                 + " Android flags  from core Bazel to Python rules.")
     public abstract boolean getDisableAndroidFragment();
+
+    // TODO(blaze-configurability-team): Deprecate this.
+    @Override
+    public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+        throws OutputDirectoriesContext.AddToMnemonicException {
+      if (getDisableAndroidFragment()) {
+        return;
+      }
+      ctx.markAsExplicitInOutputPathFor("Android configuration distinguisher");
+      if (getConfigurationDistinguisher().suffix != null) {
+        ctx.addToMnemonic(getConfigurationDistinguisher().suffix);
+      }
+    }
   }
 
   private final ConfigurationDistinguisher configurationDistinguisher;
@@ -658,16 +671,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public String getOutputDirectoryName() {
     return configurationDistinguisher.suffix;
-  }
-
-  // TODO(blaze-configurability-team): Deprecate this.
-  @Override
-  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
-      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
-    ctx.markAsExplicitInOutputPathFor("Android configuration distinguisher");
-    if (configurationDistinguisher.suffix != null) {
-      ctx.addToMnemonic(configurationDistinguisher.suffix);
-    }
   }
 
   @Override

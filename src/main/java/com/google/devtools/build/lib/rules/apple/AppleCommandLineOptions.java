@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,6 +29,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsClass;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
@@ -281,6 +283,27 @@ public abstract class AppleCommandLineOptions extends FragmentOptions {
     }
 
     return DottedVersion.maybeUnwrap(option);
+  }
+
+  @Override
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws OutputDirectoriesContext.AddToMnemonicException {
+    if (getDisableAppleFragment()) {
+      return;
+    }
+    List<String> components = new ArrayList<>();
+    if (!getAppleSplitCpu().isEmpty()) {
+      components.add(getApplePlatformType());
+      components.add(getAppleSplitCpu());
+
+      if (getMinimumOsVersion() != null) {
+        components.add("min" + getMinimumOsVersion());
+      }
+    }
+
+    if (!components.isEmpty()) {
+      ctx.addToMnemonic(Joiner.on('-').join(components));
+    }
   }
 
   /** Flag converter for PlatformType string flag, just converting to lowercase. */

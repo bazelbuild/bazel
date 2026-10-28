@@ -22,11 +22,11 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.config.Fragment.OutputDirectoriesContext;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions.OutputDirectoriesContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
+import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathFragment.InvalidBaseNameException;
@@ -38,9 +38,8 @@ import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
- * Machinery for computing the output path mnemonic given the target options, constructed fragments
- * for those target options, and current baseline options (which will be null in legacy mode or odd
- * parts of the test infra).
+ * Machinery for computing the output path mnemonic given the target options and current baseline
+ * options (which will be null in legacy mode or odd parts of the test infra).
  */
 @VisibleForTesting
 public final class OutputPathMnemonicComputer {
@@ -68,16 +67,16 @@ public final class OutputPathMnemonicComputer {
    * top-level command line), so consumers that need to distinguish output directories cannot rely
    * on {@link BuildOptions} alone.
    *
-   * <p>This bit is set when either (a) the ST-hash segment is non-empty or (b) any {@link Fragment}
-   * consulted {@link OutputDirectoriesContext#getBaseline} while contributing to the mnemonic. It
-   * is intentionally conservative: a fragment that calls {@link
+   * <p>This bit is set when either (a) the ST-hash segment is non-empty or (b) any {@link
+   * FragmentOptions} consulted {@link OutputDirectoriesContext#getBaseline} while contributing to
+   * the mnemonic. It is intentionally conservative: a {@link FragmentOptions} that calls {@link
    * OutputDirectoriesContext#getBaseline} but ends up contributing nothing still sets the bit.
    */
   public record Result(String mnemonic, boolean dependsOnBaseline) {}
 
   /**
    * {@link OutputDirectoriesContext} implementation to pass to {@link
-   * Fragment#processForOutputPathMnemonic}.
+   * FragmentOptions#processForOutputPathMnemonic}.
    */
   private static final class MnemonicContext implements OutputDirectoriesContext {
     @Nullable private final BuildOptions baselineOptions;
@@ -132,14 +131,14 @@ public final class OutputPathMnemonicComputer {
       return this;
     }
 
-    void consume(Fragment fragment) throws InvalidMnemonicException {
+    void consume(FragmentOptions options) throws InvalidMnemonicException {
       try {
-        fragment.processForOutputPathMnemonic(this);
+        options.processForOutputPathMnemonic(this);
       } catch (AddToMnemonicException e) {
         throw new InvalidMnemonicException(
             String.format(
                 "Output directory name '%s' specified by %s",
-                e.badValue, fragment.getClass().getSimpleName()),
+                e.badValue, ClassName.getSimpleNameWithOuter(options.getOptionsClass())),
             e.tunneledException);
       }
     }
@@ -167,9 +166,9 @@ public final class OutputPathMnemonicComputer {
    * Computes the output path mnemonic.
    *
    * <p>The general form is [cpu]-[compilation_mode]-[platform_suffix?]-...-[-ST-hash?] where ... is
-   * any additions requested by the {@link Fragment} via {@link
+   * any additions requested by the {@link FragmentOptions} via {@link
    * OutputDirectoriesContext#addToMnemonic} during calls to {@link
-   * Fragment#processForOutputPathMnemonic}.
+   * FragmentOptions#processForOutputPathMnemonic}.
    *
    * <p>platform_suffix is omitted if empty.
    *
@@ -178,9 +177,7 @@ public final class OutputPathMnemonicComputer {
    * path by a call to {@link OutputDirectoriesContext#markAsExplicitInOutputPathFor}.
    */
   public static Result computeMnemonic(
-      BuildOptions buildOptions,
-      @Nullable BuildOptions baselineOptions,
-      ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
+      BuildOptions buildOptions, @Nullable BuildOptions baselineOptions)
       throws InvalidMnemonicException {
 
     CoreOptions coreOptions = buildOptions.get(CoreOptions.class);
@@ -206,8 +203,8 @@ public final class OutputPathMnemonicComputer {
     }
     ctx.markAsExplicitInOutputPathFor("platform_suffix");
 
-    for (Map.Entry<Class<? extends Fragment>, Fragment> entry : fragments.entrySet()) {
-      ctx.consume(entry.getValue());
+    for (FragmentOptions options : buildOptions.getNativeOptions()) {
+      ctx.consume(options);
     }
 
     ImmutableSet<String> explicitInOutputPathOptions = ctx.getExplicitInOutputPathOptions();
@@ -234,7 +231,7 @@ public final class OutputPathMnemonicComputer {
             buildOptions, Verify.verifyNotNull(baselineOptions), explicitInOutputPathOptions);
     ctx.checkedAddToMnemonic(diffFragment, "Transition directory name fragment");
 
-    // Everything added to the mnemonic above, other than the ST-hash and anything a Fragment
+    // Everything added to the mnemonic above, other than the ST-hash and anything a FragmentOptions
     // derived from getBaseline(), is a function of buildOptions alone.
     boolean dependsOnBaseline = !diffFragment.isEmpty() || ctx.baselineConsulted;
     return new Result(ctx.getMnemonic(), dependsOnBaseline);

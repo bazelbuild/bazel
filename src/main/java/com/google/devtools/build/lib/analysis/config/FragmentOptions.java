@@ -24,6 +24,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -168,6 +169,68 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
   public FragmentOptions getNormalized() {
     return this;
   }
+
+  /** Context needed by implementations of {@link FragmentOptions#processForOutputPathMnemonic}. */
+  public interface OutputDirectoriesContext {
+    /**
+     * If available, returns the baseline version of some FragmentOption.
+     *
+     * <p>Calling this marks the resulting mnemonic as baseline-dependent, so only call it on code
+     * paths that actually need the baseline to decide what to add to the mnemonic.
+     */
+    @Nullable
+    <T extends FragmentOptions> T getBaseline(Class<T> optionsClass);
+
+    /**
+     * Adds given String to the explicit part of the output path.
+     *
+     * <p>A null or empty value is not added to the mnemonic. Ideally this function will eventually
+     * just error when supplied those values.
+     *
+     * @throws AddToMnemonicException if given value cannot be put in an output path.
+     */
+    @CanIgnoreReturnValue
+    OutputDirectoriesContext addToMnemonic(@Nullable String value) throws AddToMnemonicException;
+
+    /**
+     * Mark the option as explicit in output path so it no longer contributes to hash computation.
+     *
+     * <p>Options which are marked must be explicitly included in the output path by {@link
+     * #addToMnemonic} and thus will not be included in the hash of changed options used to
+     * generically disambiguate output directories of different configurations. (See {@link
+     * OutputPathMnemonicComputer}.)
+     *
+     * <p>This tag should only be added to options that can guarantee that any change to that option
+     * corresponds to a change to {@link OutputPathMnemonicComputer#computeMnemonic}. Put
+     * mathematically, given any two BuildOptions instances A and B with respective values for the
+     * marked option a and b (where all other options are the same and there is some potentially
+     * null baseline): {@code a == b iff computeMnemonic(A, baseline) == computeMnemonic(b,
+     * baseline)}
+     *
+     * <p>As a historical note, this used to be implemented as EXPLICIT_IN_OUTPUT_PATH
+     */
+    @CanIgnoreReturnValue
+    OutputDirectoriesContext markAsExplicitInOutputPathFor(String optionName);
+
+    /** Bubble up error with adding to mnemonic (likely a problematic value supplied). */
+    final class AddToMnemonicException extends Exception {
+      final Exception tunneledException;
+      final String badValue;
+
+      AddToMnemonicException(String badValue, Exception e) {
+        super("Invalid option value " + badValue, e);
+        this.tunneledException = e;
+        this.badValue = badValue;
+      }
+    }
+  }
+
+  /**
+   * Processes this set of options to contribute to the output directory mnemonic. See {@link
+   * OutputPathMnemonicComputer#computeMnemonic}.
+   */
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws OutputDirectoriesContext.AddToMnemonicException {}
 
   /**
    * Helper method for subclasses to normalize set valued options. In addition to removing

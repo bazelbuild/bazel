@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
@@ -929,27 +929,26 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .isFalse();
   }
 
+  /** Options that consult the baseline while contributing nothing to the mnemonic. */
+  @OptionsClass
+  public abstract static class BaselineConsultingOptions extends FragmentOptions {
+    @Override
+    public void processForOutputPathMnemonic(OutputDirectoriesContext ctx) {
+      var _ = ctx.getBaseline(CoreOptions.class);
+    }
+  }
+
   @Test
-  public void mnemonicDependsOnBaseline_fragmentConsultsBaseline() throws Exception {
-    BuildOptions options = parseBuildOptions();
-    Fragment fragment =
-        new Fragment() {
-          @Override
-          public void processForOutputPathMnemonic(OutputDirectoriesContext ctx) {
-            var _ = ctx.getBaseline(CoreOptions.class);
-          }
-        };
+  public void mnemonicDependsOnBaseline_optionsConsultBaseline() throws Exception {
+    BuildOptions options =
+        parseBuildOptions().toBuilder()
+            .addFragmentOptions(Options.getDefaults(BaselineConsultingOptions.class))
+            .build();
 
     OutputPathMnemonicComputer.Result result =
-        OutputPathMnemonicComputer.computeMnemonic(
-            options,
-            options,
-            ImmutableSortedMap.<Class<? extends Fragment>, Fragment>orderedBy(
-                    FragmentClassSet.LEXICAL_FRAGMENT_SORTER)
-                .put(fragment.getClass(), fragment)
-                .buildOrThrow());
+        OutputPathMnemonicComputer.computeMnemonic(options, options);
 
-    // No ST-hash (options equal the baseline), yet the fragment looked at the baseline.
+    // No ST-hash (options equal the baseline), yet the options looked at the baseline.
     assertThat(result.mnemonic()).doesNotContain("ST-");
     assertThat(result.dependsOnBaseline()).isTrue();
   }

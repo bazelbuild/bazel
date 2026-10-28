@@ -233,7 +233,7 @@ public class BuildConfigurationValue
         getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
 
     OutputPathMnemonicComputer.Result mnemonic =
-        OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions, fragments);
+        OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions);
 
     return new BuildConfigurationValue(
         buildOptions,
