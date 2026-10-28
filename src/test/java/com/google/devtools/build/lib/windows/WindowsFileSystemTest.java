@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -31,8 +32,10 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -351,6 +354,104 @@ public class WindowsFileSystemTest {
     linkPath.delete();
     assertThat(linkPath.exists()).isFalse();
     assertThat(targetPath.exists()).isTrue();
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkToDirectory(
+      @TestParameter SymlinkTargetType targetType, @TestParameter boolean targetExists)
+      throws Exception {
+    // Only a target of directory type may be dangling, since otherwise a file symlink is preferred.
+    assumeTrue(targetExists || targetType == SymlinkTargetType.DIRECTORY);
+    Path linkPath = scratchRoot.getRelative("node_modules/pkg");
+    Path targetPath = scratchRoot.getRelative("store/pkg");
+    PathFragment relativeTarget = PathFragment.create("../store/pkg");
+    linkPath.getParentDirectory().createDirectoryAndParents();
+    if (targetExists) {
+      targetPath.createDirectoryAndParents();
+    }
+
+    linkPath.createSymbolicLink(relativeTarget, targetType);
+
+    // A junction is created, which can only store an absolute target.
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(WindowsFileOperations.readSymlinkOrJunction(linkPath.getPathString()))
+        .isEqualTo(targetPath.getPathString());
+    // The requested relative target is reported, so that metadata computed from it doesn't depend
+    // on the location of the output base.
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(relativeTarget);
+    assertThat(FileArtifactValue.createForUnresolvedSymlink(linkPath).getDigest())
+        .isEqualTo(getUnresolvedSymlinkDigest(relativeTarget));
+    if (!targetExists) {
+      targetPath.createDirectoryAndParents();
+    }
+    FileSystemUtils.writeContentAsLatin1(targetPath.getRelative("hello.txt"), "hello");
+    assertThat(linkPath.isDirectory()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath.getRelative("hello.txt"), ISO_8859_1))
+        .isEqualTo("hello");
+  }
+
+  @Test
+  public void testRelativeSymbolicLinkToDirectoryIsIndependentOfLocation() throws Exception {
+    PathFragment relativeTarget = PathFragment.create("../store/pkg");
+    Path link1 = scratchRoot.getRelative("base1/node_modules/pkg");
+    Path link2 = scratchRoot.getRelative("other/base2/node_modules/pkg");
+    for (Path link : new Path[] {link1, link2}) {
+      link.getParentDirectory().createDirectoryAndParents();
+      link.getParentDirectory().getRelative(relativeTarget).createDirectoryAndParents();
+      link.createSymbolicLink(relativeTarget, SymlinkTargetType.DIRECTORY);
+    }
+
+    assertThat(FileArtifactValue.createForUnresolvedSymlink(link1))
+        .isEqualTo(FileArtifactValue.createForUnresolvedSymlink(link2));
+  }
+
+  @Test
+  public void testAbsoluteSymbolicLinkToDirectoryReportsAbsoluteTarget() throws Exception {
+    Path linkPath = scratchRoot.getRelative("node_modules/pkg");
+    Path targetPath = scratchRoot.getRelative("store/pkg");
+    linkPath.getParentDirectory().createDirectoryAndParents();
+    targetPath.createDirectoryAndParents();
+
+    linkPath.createSymbolicLink(targetPath.asFragment(), SymlinkTargetType.DIRECTORY);
+
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+    assertThat(FileArtifactValue.createForUnresolvedSymlink(linkPath).getDigest())
+        .isEqualTo(getUnresolvedSymlinkDigest(targetPath.asFragment()));
+  }
+
+  @Test
+  public void testMovedRelativeJunctionReportsAbsoluteTarget() throws Exception {
+    Path linkPath = scratchRoot.getRelative("node_modules/pkg");
+    Path movedLinkPath = scratchRoot.getRelative("elsewhere/deeper/pkg");
+    Path targetPath = scratchRoot.getRelative("store/pkg");
+    linkPath.getParentDirectory().createDirectoryAndParents();
+    movedLinkPath.getParentDirectory().createDirectoryAndParents();
+    targetPath.createDirectoryAndParents();
+    linkPath.createSymbolicLink(PathFragment.create("../store/pkg"), SymlinkTargetType.DIRECTORY);
+
+    linkPath.renameTo(movedLinkPath);
+
+    // The junction still points to the original absolute target, which the relative target no
+    // longer resolves to.
+    assertThat(movedLinkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+    assertThat(movedLinkPath.isDirectory()).isTrue();
+  }
+
+  @Test
+  public void testJunctionCreatedByOtherToolReportsAbsoluteTarget() throws Exception {
+    testUtil.scratchDir("store\\pkg");
+    testUtil.scratchDir("node_modules");
+    testUtil.createJunctions(ImmutableMap.of("node_modules\\pkg", "store\\pkg"));
+
+    assertThat(scratchRoot.getRelative("node_modules/pkg").readSymbolicLink())
+        .isEqualTo(scratchRoot.getRelative("store/pkg").asFragment());
+  }
+
+  private static byte[] getUnresolvedSymlinkDigest(PathFragment target) throws IOException {
+    InMemoryFileSystem inMemoryFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path link = inMemoryFs.getPath("/link");
+    link.createSymbolicLink(target);
+    return FileArtifactValue.createForUnresolvedSymlink(link).getDigest();
   }
 
   @Test

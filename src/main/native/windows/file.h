@@ -184,6 +184,19 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error);
 
+// Like the above, but sets the junction's display name (the "print name" in its
+// reparse data) to `junction_print_name` instead of the target, unless it is
+// empty or doesn't fit. The display name doesn't affect where the junction
+// points to; it's what `dir` shows and what ReadSymlinkOrJunction reports in
+// its `print_name` argument. This allows recording the relative path from which
+// the absolute `junction_target` was computed, since junctions cannot be
+// relative.
+//
+// If the junction already exists and points to `junction_target`, its display
+// name is not changed.
+int CreateJunction(const wstring& junction_name, const wstring& junction_target,
+                   const wstring& junction_print_name, wstring* error);
+
 // Creates a symlink at `symlink_name`, pointing to `symlink_target`.
 // Returns CreateSymlinkResult::kSuccess if could create the symlink.
 // If the target is a directory, this function will return
@@ -198,6 +211,12 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
 // When the method returns 'ReadSymlinkOrJunctionResult::kError' and 'error' is
 // non-null then 'error' receives an error message.
 int ReadSymlinkOrJunction(const wstring& path, wstring* result, wstring* error);
+
+// Like the above, but if `path` is a junction and `print_name` is non-null,
+// also reads the junction's display name (see CreateJunction) into
+// `print_name`. For other kinds of links, `print_name` is cleared.
+int ReadSymlinkOrJunction(const wstring& path, wstring* result,
+                          wstring* print_name, wstring* error);
 
 // Deletes the file, junction, or empty directory at `path`.
 // Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise
