@@ -27,9 +27,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A {@link BulkDeleter} that moves each stale output tree into a trash directory on the same file
- * system and deletes it on a background thread, so an action's prepare step costs one rename per
- * tree regardless of the tree's size or shape. Once the build is over, the remaining trash is
- * deleted on as many threads as there are processors.
+ * system and deletes it on a pool sized to the processor count, so an action's prepare step costs
+ * one rename per tree regardless of the tree's size or shape. The same pool deletes whatever is
+ * still queued when the build ends.
  *
  * <p>Every invocation gets its own trash directory under {@code trashRoot}. Trash left by an
  * earlier invocation that did not finish is deleted in the background first.
@@ -41,8 +41,8 @@ public final class LocalBulkDeleter implements BulkDeleter {
   private final AtomicLong trashCount = new AtomicLong();
   private final ThreadPoolExecutor reaper =
       new ThreadPoolExecutor(
-          1,
-          1,
+          Runtime.getRuntime().availableProcessors(),
+          Runtime.getRuntime().availableProcessors(),
           10,
           TimeUnit.SECONDS,
           new LinkedBlockingQueue<>(),
