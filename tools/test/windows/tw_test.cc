@@ -476,6 +476,34 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
 }
 
+TEST_F(TestWrapperWindowsTest, TestTeeStreamsRemainingDataOnDestruction) {
+  HANDLE read1_h, write1_h;
+  EXPECT_TRUE(CreatePipe(&read1_h, &write1_h, nullptr, 0));
+  bazel::windows::AutoHandle read1(read1_h), write1(write1_h);
+  HANDLE read2_h, write2_h;
+  EXPECT_TRUE(CreatePipe(&read2_h, &write2_h, nullptr, 0));
+  bazel::windows::AutoHandle read2(read2_h), write2(write2_h);
+  HANDLE read3_h, write3_h;
+  EXPECT_TRUE(CreatePipe(&read3_h, &write3_h, nullptr, 0));
+  bazel::windows::AutoHandle read3(read3_h), write3(write3_h);
+
+  std::unique_ptr<bazel::tools::test_wrapper::Tee> tee;
+  EXPECT_TRUE(TestOnly_CreateTee(&read1, &write2, &write3, &tee));
+
+  DWORD written, read;
+  char content[100];
+
+  EXPECT_TRUE(WriteFile(write1, "hello", 5, &written, nullptr));
+  EXPECT_EQ(written, 5);
+  write1 = INVALID_HANDLE_VALUE;
+  tee.reset();
+
+  EXPECT_TRUE(ReadFile(read2, content, 100, &read, nullptr));
+  EXPECT_EQ(std::string(content, read), "hello");
+  EXPECT_TRUE(ReadFile(read3, content, 100, &read, nullptr));
+  EXPECT_EQ(std::string(content, read), "hello");
+}
+
 TEST_F(TestWrapperWindowsTest, TestXmlWriterTestcaseHasClassname) {
   std::wstring tmpdir;
   GET_TEST_TMPDIR(&tmpdir);

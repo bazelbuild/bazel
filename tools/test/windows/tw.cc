@@ -86,6 +86,9 @@ class TeeImpl : Tee {
                      bazel::windows::AutoHandle* output2,
                      std::unique_ptr<Tee>* result);
 
+  // Waits until the thread has streamed all data written to the input.
+  ~TeeImpl() override;
+
  private:
   static DWORD WINAPI ThreadFunc(LPVOID lpParam);
 
@@ -101,6 +104,7 @@ class TeeImpl : Tee {
   bazel::windows::AutoHandle input_;
   bazel::windows::AutoHandle output1_;
   bazel::windows::AutoHandle output2_;
+  bazel::windows::AutoHandle thread_;
 };
 
 // Buffered input stream (based on a Windows HANDLE) with peek-ahead support.
@@ -1501,13 +1505,27 @@ bool TeeImpl::Create(bazel::windows::AutoHandle* input,
                      bazel::windows::AutoHandle* output2,
                      std::unique_ptr<Tee>* result) {
   std::unique_ptr<TeeImpl> tee(new TeeImpl(input, output1, output2));
-  bazel::windows::AutoHandle thread(
-      CreateThread(nullptr, 0, ThreadFunc, tee.get(), 0, nullptr));
-  if (!thread.IsValid()) {
+  tee->thread_ = CreateThread(nullptr, 0, ThreadFunc, tee.get(), 0, nullptr);
+  if (!tee->thread_.IsValid()) {
     return false;
   }
   result->reset(tee.release());
   return true;
+}
+
+TeeImpl::~TeeImpl() {
+  if (!thread_.IsValid()) {
+    return;
+  }
+  // A writer may outlive the job of the test process (see
+  // WaitableProcess::WaitFor), so stop reading from it eventually.
+  static constexpr DWORD kTimeoutMsec = 5000;
+  if (WaitForSingleObject(thread_, kTimeoutMsec) == WAIT_TIMEOUT) {
+    // CancelSynchronousIo has no effect between two I/O calls, so retry.
+    do {
+      CancelSynchronousIo(thread_);
+    } while (WaitForSingleObject(thread_, 10) == WAIT_TIMEOUT);
+  }
 }
 
 DWORD WINAPI TeeImpl::ThreadFunc(LPVOID lpParam) {
