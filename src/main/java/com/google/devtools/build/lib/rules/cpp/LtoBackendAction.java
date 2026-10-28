@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -118,8 +117,7 @@ public final class LtoBackendAction extends SpawnAction {
       NestedSet<Artifact> mandatoryInputs,
       Object rawOutputs,
       CommandLines commandLines,
-      ActionEnvironment environment,
-      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      SpawnAttributes attributes,
       @Nullable BitcodeFiles bitcodeFiles,
       Artifact imports) {
     super(
@@ -127,12 +125,9 @@ public final class LtoBackendAction extends SpawnAction {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         mandatoryInputs,
         rawOutputs,
-        AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
-        environment,
-        sortedExecutionInfo,
         "LTO Backend Compile %{output}",
-        MNEMONIC);
+        attributes);
     this.mandatoryInputs = mandatoryInputs;
     this.bitcodeFiles = bitcodeFiles;
     this.imports = imports;

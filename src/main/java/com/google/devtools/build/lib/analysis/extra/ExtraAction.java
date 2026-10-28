@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -104,10 +103,8 @@ public final class ExtraAction extends SpawnAction {
       Action shadowedAction,
       boolean createDummyOutput,
       CommandLines commandLines,
-      ActionEnvironment environment,
-      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
-      String mnemonic) {
+      SpawnAttributes attributes) {
     super(
         owner,
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -116,12 +113,9 @@ public final class ExtraAction extends SpawnAction {
             /* inputFilesForExtraAction= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             extraActionInputs),
         rawOutputs,
-        AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
-        environment,
-        sortedExecutionInfo,
         progressMessage,
-        mnemonic);
+        attributes);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
     this.extraActionInputs = extraActionInputs;

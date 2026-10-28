@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -92,23 +91,10 @@ public class StarlarkAction extends SpawnAction {
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Object rawOutputs,
-      ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
-      ActionEnvironment env,
-      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
-      String mnemonic) {
-    super(
-        owner,
-        tools,
-        inputs,
-        rawOutputs,
-        resourceSetOrBuilder,
-        commandLines,
-        env,
-        sortedExecutionInfo,
-        progressMessage,
-        mnemonic);
+      SpawnAttributes attributes) {
+    super(owner, tools, inputs, rawOutputs, commandLines, progressMessage, attributes);
   }
 
   @VisibleForTesting
@@ -288,12 +274,9 @@ public class StarlarkAction extends SpawnAction {
         NestedSet<Artifact> tools,
         NestedSet<Artifact> allStarlarkActionInputs,
         Object rawOutputs,
-        ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
-        ActionEnvironment environment,
-        ImmutableSortedMap<String, String> sortedExecutionInfo,
         CharSequence progressMessage,
-        String mnemonic,
+        SpawnAttributes attributes,
         Optional<Artifact> unusedInputsList,
         Optional<Action> shadowedAction,
         @Nullable Artifact stdoutOutput) {
@@ -304,12 +287,9 @@ public class StarlarkAction extends SpawnAction {
               ? createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs)
               : allStarlarkActionInputs,
           rawOutputs,
-          resourceSetOrBuilder,
           commandLines,
-          environment,
-          sortedExecutionInfo,
           progressMessage,
-          mnemonic);
+          attributes);
       this.allStarlarkActionInputs = allStarlarkActionInputs;
       this.originalInputs = getInputs();
       this.mandatoryInputs =
