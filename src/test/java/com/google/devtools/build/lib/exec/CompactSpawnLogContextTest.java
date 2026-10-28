@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -244,7 +244,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
 
   @Test
   public void testUnmaterializedEmptyTreeInput() throws Exception {
-    SpecialArtifact treeInput =
+    TreeArtifact treeInput =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
 
     // Deliberately don't create the directory: an empty tree artifact may not be materialized on

@@ -227,7 +227,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
   /** A node-deleting implementation. */
   static final class DeletingNodeVisitor extends InvalidatingNodeVisitor<InMemoryGraph> {
-    private final Set<SkyKey> visited = Sets.newConcurrentHashSet();
+    private final Set<SkyKey> visited;
     private final boolean traverseGraph;
     private final DeletingInvalidationState state;
 
@@ -241,6 +241,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           progressReceiver,
           state,
           NamedForkJoinPool.newNamedPool("deleting node visitor", DEFAULT_THREAD_COUNT));
+      this.visited = ConcurrentHashMap.newKeySet(pendingVisitations.size());
       this.traverseGraph = traverseGraph;
       this.state = state;
     }

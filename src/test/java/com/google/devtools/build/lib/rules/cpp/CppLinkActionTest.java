@@ -20,7 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
@@ -698,8 +698,8 @@ cc_binary(name = "tool")
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
-    SpecialArtifact testTreeArtifact =
-        (SpecialArtifact) ActionsTestUtil.getInput(linkAction, "library_directory");
+    TreeArtifact testTreeArtifact =
+        (TreeArtifact) ActionsTestUtil.getInput(linkAction, "library_directory");
     TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 

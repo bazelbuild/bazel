@@ -44,15 +44,14 @@ std::string ErrorMessage(int error_number) {
 #endif
 }
 
-uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
-                               StatTimes t) {
+int64_t StatEpochNanoseconds(const portable_stat_struct& statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atim.tv_sec * 1000L + statbuf.st_atim.tv_nsec / 1000000;
+      return statbuf.st_atim.tv_sec * 1000000000L + statbuf.st_atim.tv_nsec;
     case STAT_CTIME:
-      return statbuf.st_ctim.tv_sec * 1000L + statbuf.st_ctim.tv_nsec / 1000000;
+      return statbuf.st_ctim.tv_sec * 1000000000L + statbuf.st_ctim.tv_nsec;
     case STAT_MTIME:
-      return statbuf.st_mtim.tv_sec * 1000L + statbuf.st_mtim.tv_nsec / 1000000;
+      return statbuf.st_mtim.tv_sec * 1000000000L + statbuf.st_mtim.tv_nsec;
   }
   return 0;
 }

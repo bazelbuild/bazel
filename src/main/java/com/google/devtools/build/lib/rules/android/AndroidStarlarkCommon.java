@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -133,8 +133,8 @@ public class AndroidStarlarkCommon implements StarlarkValue {
       throws EvalException, RuleErrorException {
     createTemplatedMergerActions(
         starlarkRuleContext.getRuleContext(),
-        (SpecialArtifact) output,
-        (SpecialArtifact) input,
+        (TreeArtifact) output,
+        (TreeArtifact) input,
         Sequence.cast(dexopts, String.class, "dexopts"),
         dexmerger,
         minSdkVersion.toInt("min_sdk_version"),
@@ -147,8 +147,8 @@ public class AndroidStarlarkCommon implements StarlarkValue {
    */
   private static void createTemplatedMergerActions(
       RuleContext ruleContext,
-      SpecialArtifact outputTree,
-      SpecialArtifact inputTree,
+      TreeArtifact outputTree,
+      TreeArtifact inputTree,
       List<String> dexopts,
       FilesToRunProvider executable,
       int minSdkVersion,

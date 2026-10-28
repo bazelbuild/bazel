@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -206,14 +206,13 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)), path);
   }
 
-  private SpecialArtifact treeArtifact(String path) {
+  private TreeArtifact treeArtifact(String path) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"),
         PathFragment.create("out/" + path));
   }
 
-  private void addNewTreeFileArtifact(SpecialArtifact parent, String relatedPath)
-      throws IOException {
+  private void addNewTreeFileArtifact(TreeArtifact parent, String relatedPath) throws IOException {
     TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(parent, relatedPath);
     artifactFunction.addNewTreeFileArtifact(treeFileArtifact);
   }
@@ -567,10 +566,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // Creating the files will also create the parent directories.
     RootedPath file1 = createFile(childOf(directoryArtifact, "bar.txt"));
     RootedPath file2;
-    if (directoryArtifact.isTreeArtifact()) {
+    if (directoryArtifact instanceof TreeArtifact treeArtifact) {
       file2 = createFile(childOf(directoryArtifact, "qux.txt"));
-      addNewTreeFileArtifact((SpecialArtifact) directoryArtifact, "bar.txt");
-      addNewTreeFileArtifact((SpecialArtifact) directoryArtifact, "qux.txt");
+      addNewTreeFileArtifact(treeArtifact, "bar.txt");
+      addNewTreeFileArtifact(treeArtifact, "qux.txt");
     } else {
       file2 = createFile(childOf(directoryArtifact, "baz/qux.txt"));
     }
@@ -590,8 +589,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     TimestampGranularityUtils.waitForTimestampGranularity(
         directoryArtifact.getPath().stat().getLastChangeTime(), OutErr.SYSTEM_OUT_ERR);
     RootedPath file3 = createFile(childOf(directoryArtifact, "foo.txt"));
-    if (directoryArtifact.isTreeArtifact()) {
-      addNewTreeFileArtifact((SpecialArtifact) directoryArtifact, "foo.txt");
+    if (directoryArtifact instanceof TreeArtifact treeArtifact) {
+      addNewTreeFileArtifact(treeArtifact, "foo.txt");
     }
     if (directoryArtifact.isSourceArtifact()) {
       invalidateDirectory(directoryArtifact);
