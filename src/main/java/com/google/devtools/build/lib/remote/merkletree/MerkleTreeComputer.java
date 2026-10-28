@@ -53,6 +53,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -123,7 +126,7 @@ public final class MerkleTreeComputer {
   // * Incremental builds typically have a large number of cache hits and the only information about
   //   a Merkle tree needed to check for a cache hit is the root digest. We can thus avoid
   //   materializing the full tree unless the cache check fails.
-  // * Certain special artifacts are known to form self-contained Merkle trees that never intersect
+  // * Certain artifacts are known to form self-contained Merkle trees that never intersect
   //   with any other Merkle tree. This includes tree artifacts, runfiles directories and source
   //   directories. The Merkle trees for such artifacts can be computed and uploaded to the remote
   //   cache independently. Only their root digest has to be kept around for inclusion in other
@@ -642,15 +645,14 @@ public final class MerkleTreeComputer {
       var nodeProperties = isToolInput.test(path) ? TOOL_NODE_PROPERTIES : null;
 
       switch (input) {
-        case Artifact.SpecialArtifact specialArtifact
-            when specialArtifact.isTreeArtifact() || specialArtifact.isRunfilesTree() -> {
+        case TreeArtifact _, RunfilesArtifact _ -> {
           var subTreeRoot =
               Preconditions.checkNotNull(subTreeRoots.get(entry), "missing subtree for %s", input);
           currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTreeRoot.digest());
           inputFiles += subTreeRoot.inputFiles();
           inputBytes += subTreeRoot.inputBytes();
         }
-        case Artifact.SpecialArtifact symlink when symlink.isSymlink() -> {
+        case UnresolvedSymlinkArtifact symlink -> {
           var metadata =
               checkNotNull(
                   metadataProvider.getInputMetadata(symlink), "missing metadata: %s", symlink);

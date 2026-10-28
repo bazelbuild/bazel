@@ -161,6 +161,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:execution_graph_java_proto",

@@ -23,8 +23,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -112,7 +111,7 @@ public final class RewoundActionOutputCheckerTest {
 
   @Test
   public void regeneratedContent_comparesTreeChildrenByContent() {
-    SpecialArtifact tree = tree("tree");
+    TreeArtifact tree = tree("tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
     var before =
         createWithTreeArtifactData(
@@ -142,7 +141,7 @@ public final class RewoundActionOutputCheckerTest {
 
   @Test
   public void regeneratedContent_distinguishesEmptyTreeFromMissingMetadata() {
-    SpecialArtifact tree = tree("tree");
+    TreeArtifact tree = tree("tree");
     var empty = createWithTreeArtifactData(ImmutableMap.of(tree, TreeArtifactValue.empty()));
     var missingMetadata = createWithArtifactData(ImmutableMap.of(output("other"), VALUE_1_REMOTE));
 
@@ -160,7 +159,7 @@ public final class RewoundActionOutputCheckerTest {
 
   @Test
   public void regeneratedContent_ignoresTreeArchive() {
-    SpecialArtifact tree = tree("tree");
+    TreeArtifact tree = tree("tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
     var before =
         createWithTreeArtifactData(
@@ -254,13 +253,10 @@ public final class RewoundActionOutputCheckerTest {
     return result;
   }
 
-  private static SpecialArtifact tree(String rootRelativePath) {
-    SpecialArtifact result =
-        SpecialArtifact.create(
-            OUTPUT_ROOT,
-            OUTPUT_ROOT.getExecPath().getRelative(rootRelativePath),
-            KEY,
-            SpecialArtifactType.TREE);
+  private static TreeArtifact tree(String rootRelativePath) {
+    TreeArtifact result =
+        TreeArtifact.create(
+            OUTPUT_ROOT, OUTPUT_ROOT.getExecPath().getRelative(rootRelativePath), KEY);
     result.setGeneratingActionKey(ACTION_LOOKUP_DATA_1);
     return result;
   }

@@ -27,7 +27,11 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -134,27 +138,29 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public ConstantMetadataArtifact getConstantMetadataArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getConstantMetadataArtifact(rootRelativePath, root);
     }
 
     @Override
-    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public RunfilesArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getRunfilesArtifact(rootRelativePath, root);
     }
 
     @Override
-    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getTreeArtifact(rootRelativePath, root);
     }
 
     @Override
-    public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public UnresolvedSymlinkArtifact getSymlinkArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getSymlinkArtifact(rootRelativePath, root);
     }
 
     @Override
-    public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public FilesetArtifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getFilesetArtifact(rootRelativePath, root);
     }
 

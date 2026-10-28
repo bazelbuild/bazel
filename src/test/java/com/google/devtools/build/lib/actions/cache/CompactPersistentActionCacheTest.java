@@ -24,7 +24,7 @@ import static org.mockito.Mockito.verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -526,7 +526,7 @@ public class CompactPersistentActionCacheTest {
   }
 
   private static TreeArtifactValue createTreeMetadata(
-      SpecialArtifact parent,
+      TreeArtifact parent,
       ImmutableMap<String, FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue,
       Optional<PathFragment> resolvedPath) {
@@ -618,7 +618,7 @@ public class CompactPersistentActionCacheTest {
 
   @Test
   public void putAndGet_treeMetadata_onlySavesRemoteFileMetadata() throws IOException {
-    SpecialArtifact artifact =
+    TreeArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
     TreeArtifactValue metadata =
@@ -656,7 +656,7 @@ public class CompactPersistentActionCacheTest {
 
   @Test
   public void putAndGet_treeMetadata_savesRemoteArchivedArtifact() {
-    SpecialArtifact artifact =
+    TreeArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
     TreeArtifactValue metadata =
@@ -681,7 +681,7 @@ public class CompactPersistentActionCacheTest {
 
   @Test
   public void putAndGet_treeMetadata_ignoresLocalArchivedArtifact() throws IOException {
-    SpecialArtifact artifact =
+    TreeArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
     TreeArtifactValue metadata =
@@ -704,7 +704,7 @@ public class CompactPersistentActionCacheTest {
   @Test
   public void putAndGet_treeMetadata_savesResolvedPath() {
     PathFragment resolvedPath = execRoot.getRelative("some/path").asFragment();
-    SpecialArtifact artifact =
+    TreeArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
     TreeArtifactValue metadata =

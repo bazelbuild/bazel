@@ -29,7 +29,7 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -112,7 +112,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   private final ImmutableSet<Artifact> outputs;
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
   private final ConcurrentMap<Artifact, FileArtifactValue> artifactData = new ConcurrentHashMap<>();
-  private final ConcurrentMap<SpecialArtifact, TreeArtifactValue> treeArtifactData =
+  private final ConcurrentMap<TreeArtifact, TreeArtifactValue> treeArtifactData =
       new ConcurrentHashMap<>();
 
   private ActionOutputMetadataStore(
@@ -204,13 +204,13 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return FileArtifactValue.RUNFILES_TREE_MARKER;
     }
 
-    if (artifact.isTreeArtifact()) {
-      TreeArtifactValue tree = getTreeArtifactValue((SpecialArtifact) artifact);
+    if (artifact instanceof TreeArtifact treeArtifact) {
+      TreeArtifactValue tree = getTreeArtifactValue(treeArtifact);
       return tree.getMetadata();
     }
 
     if (artifact.isChildOfDeclaredDirectory()) {
-      TreeArtifactValue tree = getTreeArtifactValue(artifact.getParent());
+      TreeArtifactValue tree = getTreeArtifactValue((TreeArtifact) artifact.getParent());
       FileArtifactValue value =
           tree.getChildValues().getOrDefault(artifact, FileArtifactValue.MISSING_FILE_MARKER);
       return checkExists(value, artifact);
@@ -238,10 +238,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   }
 
   @Override
-  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact)
+  public TreeArtifactValue getTreeArtifactValue(TreeArtifact artifact)
       throws IOException, InterruptedException {
-    checkState(artifact.isTreeArtifact(), "%s is not a tree artifact", artifact);
-
     TreeArtifactValue value = treeArtifactData.get(artifact);
     if (value != null) {
       return checkExists(value, artifact);
@@ -252,7 +250,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     return checkExists(value, artifact);
   }
 
-  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
+  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(TreeArtifact parent)
       throws IOException, InterruptedException {
     Path treeDir = artifactPathResolver.toPath(parent);
     boolean chmod = executionMode.get();
@@ -375,9 +373,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   }
 
   @Override
-  public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
+  public void injectTree(TreeArtifact output, TreeArtifactValue tree) {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
-    checkArgument(output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
     treeArtifactData.put(output, tree);
   }
 

@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -114,8 +114,8 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         "filegroup(name = 'files', srcs = ['dir'])");
     ConfiguredTargetAndData ctAndData = getCtAndData("//:files");
     ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
-    SpecialArtifact tree =
-        (SpecialArtifact) Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    TreeArtifact tree =
+        (TreeArtifact) Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
     TreeFileArtifact fileChild =
         TreeFileArtifact.createTreeOutput(tree, PathFragment.create("dir/file.txt"));
     FileArtifactValue fileMetadata =
@@ -263,7 +263,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   private static CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
-      Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
+      Map<TreeArtifact, TreeArtifactValue> treeMetadata) {
     ActionInputMap inputMap = new ActionInputMap(0);
     metadata.forEach(inputMap::put);
     treeMetadata.forEach(inputMap::putTreeArtifact);

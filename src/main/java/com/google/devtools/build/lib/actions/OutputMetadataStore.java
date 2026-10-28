@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -42,7 +42,7 @@ public interface OutputMetadataStore {
    * @param output an output directory {@linkplain Artifact#isTreeArtifact tree artifact}
    * @param tree a {@link TreeArtifactValue} with the metadata of the files stored in the directory
    */
-  void injectTree(SpecialArtifact output, TreeArtifactValue tree);
+  void injectTree(TreeArtifact output, TreeArtifactValue tree);
 
   /**
    * Returns a {@link FileArtifactValue} for the given {@link Artifact}.
@@ -69,10 +69,9 @@ public interface OutputMetadataStore {
   FileArtifactValue getOutputMetadata(Artifact artifact) throws IOException, InterruptedException;
 
   /**
-   * Returns a {@link TreeArtifactValue} for the given {@link SpecialArtifact}, which must be a tree
-   * artifact (i.e., {@link SpecialArtifact#isTreeArtifact} must return true).
+   * Returns a {@link TreeArtifactValue} for the given {@link TreeArtifact}.
    *
-   * <p>If the metadata of the given {@link SpecialArtifact} has not been injected via {@link
+   * <p>If the metadata of the given {@link TreeArtifact} has not been injected via {@link
    * #injectTree}, it will be computed from the filesystem. This may result in a significant amount
    * of I/O. The result will be cached for future calls to this method.
    *
@@ -86,7 +85,7 @@ public interface OutputMetadataStore {
    * @throws IOException if the metadata cannot be obtained from the filesystem
    * @throws InterruptedException if the current thread is interrupted while computing the metadata
    */
-  TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)
+  TreeArtifactValue getTreeArtifactValue(TreeArtifact treeArtifact)
       throws IOException, InterruptedException;
 
   /**
