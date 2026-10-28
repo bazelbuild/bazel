@@ -362,7 +362,7 @@ java_test(
     name = "BuildWithoutTheBytesIntegrationTest",
     size = "large",
     srcs = ["BuildWithoutTheBytesIntegrationTest.java"],
-    shard_count = 5,
+    shard_count = 15,
     tags = ["requires-network"],
     runtime_deps = [
         "//third_party/java/grpc:util",
