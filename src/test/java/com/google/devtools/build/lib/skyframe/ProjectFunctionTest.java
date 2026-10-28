@@ -17,12 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import org.junit.Before;
 import org.junit.Test;
@@ -68,14 +65,9 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    ImmutableMap<String, PathFragmentPrefixTrie> trie =
-        PathFragmentPrefixTrie.transformValues(value.getProjectDirectories());
-    assertThat(trie.get("default").includes(PathFragment.create("foo"))).isTrue();
-    assertThat(trie.get("default").includes(PathFragment.create("bar"))).isFalse();
-    assertThat(trie.get("a").includes(PathFragment.create("bar"))).isTrue();
-    assertThat(trie.get("a").includes(PathFragment.create("bar/baz"))).isFalse();
-    assertThat(trie.get("a").includes(PathFragment.create("bar/qux"))).isTrue();
-    assertThat(trie.get("b")).isNull();
+    assertThat(value.getProjectDirectories().get("default")).containsExactly("foo");
+    assertThat(value.getProjectDirectories().get("a")).containsExactly("bar", "-bar/baz");
+    assertThat(value.getProjectDirectories().get("b")).isNull();
   }
 
   @Test
@@ -95,10 +87,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultProjectDirectories());
-    assertThat(trie.includes(PathFragment.create("a"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("d"))).isFalse();
+    assertThat(value.getDefaultProjectDirectories()).containsExactly("a", "b/c");
   }
 
   @Test
@@ -119,10 +108,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultProjectDirectories());
-    assertThat(trie.includes(PathFragment.create("a"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("d"))).isFalse();
+    assertThat(value.getDefaultProjectDirectories()).containsExactly("a", "b/c");
   }
 
   @Test

@@ -90,7 +90,6 @@ java_library(
 java_test(
     name = "BazelSkycacheIntegrationTest",
     srcs = ["BazelSkycacheIntegrationTest.java"],
-    tags = ["no_windows"],  # b/380393822 - disable until PathFragmentPrefixTrie handles windows correctly.
     deps = [
         ":SkycacheIntegrationTestBase",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
