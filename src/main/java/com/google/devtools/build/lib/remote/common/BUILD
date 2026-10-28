@@ -28,9 +28,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

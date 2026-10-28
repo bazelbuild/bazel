@@ -21,12 +21,15 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /**
  * Exception which represents a collection of IOExceptions for the purpose of distinguishing remote
@@ -75,6 +78,27 @@ public class BulkTransferException extends IOException {
   public static boolean allCausedByCacheNotFoundException(Throwable e) {
     return e instanceof BulkTransferException bulkTransferException
         && bulkTransferException.allCausedByCacheNotFoundException();
+  }
+
+  /**
+   * Returns a repository eviction if one occurred and every other failed transfer was also a
+   * cache miss. A repository source has no producing action and requires an invocation retry.
+   */
+  @Nullable
+  public DetailedIOException getLostRepoFile() {
+    DetailedIOException eviction = null;
+    for (Throwable cause : getSuppressed()) {
+      if (cause instanceof CacheNotFoundException) {
+        continue;
+      }
+      if (!(cause instanceof DetailedIOException detailed)
+          || detailed.getDetailedExitCode().getFailureDetail().getFilesystem().getCode()
+              != Filesystem.Code.REMOTE_FILE_EVICTED) {
+        return null;
+      }
+      eviction = detailed;
+    }
+    return eviction;
   }
 
   /**
