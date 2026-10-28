@@ -1149,8 +1149,15 @@ EOF
   bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
-  expect_log_n "CppCompileActionTemplate compiling.*.cc" 1 \
-    "Expected exactly 1 CppCompileActionTemplates."
+  # TODO: remove the bazel-specific branch once bazel switches to a version of
+  # rules_cc that uses starlarkified CppCompileActionTemplate.
+  if [[ "${PRODUCT_NAME}" == "bazel" ]]; then
+    expect_log_n "CppCompileActionTemplate compiling.*.cc" 1 \
+      "Expected exactly 1 CppCompileActionTemplate."
+  else
+    expect_log_n "StarlarkMapActionTemplate with output TreeArtifacts" 1 \
+      "Expected exactly 1 StarlarkMapActionTemplate."
+  fi
   assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
   # The tree artifact is also an input of the CppCompileActionTemplate, and must
   # be labeled there too so it is distinguishable from a regular file input.
@@ -1167,8 +1174,17 @@ EOF
   else
     expected_num_actions=2
   fi
-  expect_log_n "CppCompileActionTemplate compiling.*.cc" $expected_num_actions \
-    "Expected exactly $expected_num_actions CppCompileActionTemplates."
+  # TODO: remove the bazel-specific branch once bazel switches to a version of
+  # rules_cc that uses starlarkified CppCompileActionTemplate.
+  if [[ "${PRODUCT_NAME}" == "bazel" ]]; then
+    expect_log_n "CppCompileActionTemplate compiling.*.cc" \
+      $expected_num_actions \
+      "Expected exactly $expected_num_actions CppCompileActionTemplate."
+  else
+    expect_log_n "StarlarkMapActionTemplate with output TreeArtifacts" \
+      $expected_num_actions \
+      "Expected exactly $expected_num_actions StarlarkMapActionTemplate."
+  fi
   assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
 
   bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
