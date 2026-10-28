@@ -258,6 +258,11 @@ public final class TypeTable {
     if (functionTypes.length == 0) {
       return new Types.CallableType[0];
     }
-    return Arrays.copyOfRange(functionTypes, 0, functionTypes.length - 1);
+    return Arrays.copyOfRange(
+        functionTypes,
+        0,
+        functionTypes.length - 1,
+        // Types.GeneralCallableType is package-private
+        Types.CallableType[].class);
   }
 }
