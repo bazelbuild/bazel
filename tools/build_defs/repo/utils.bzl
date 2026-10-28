@@ -359,7 +359,10 @@ def parse_netrc(contents, filename = "a .netrc file"):
     # the end of a `macdef` command.
     netrc = {}
     currentmachinename = None
-    currentmachine = {}
+
+    # TODO(https://github.com/bazelbuild/bazel/issues/32022): make this an annotation
+    # when nullable parser state narrows, with the other parser locals annotated.
+    currentmachine = {}  # type: dict[str, str]
     macdef = None
     currentmacro = ""
     cmd = None
@@ -544,7 +547,7 @@ def get_auth(ctx, urls):
         netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
     else:
         netrc = read_user_netrc(ctx)
-    auth_patterns = {}
+    auth_patterns: dict[str, str] = {}
     if hasattr(ctx.attr, "auth_patterns") and ctx.attr.auth_patterns:
         auth_patterns = ctx.attr.auth_patterns
     return use_netrc(netrc, urls, auth_patterns)
