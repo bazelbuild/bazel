@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -457,7 +458,7 @@ public class BazelRepositoryModule extends BlazeModule {
             CredentialHelperEnvironment.newBuilder()
                 .setEventReporter(env.getReporter())
                 .setWorkspacePath(env.getWorkspace())
-                .setClientEnvironment(env::getClientEnv)
+                .setClientEnvironment(Suppliers.ofInstance(env.getClientEnv()))
                 .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                 .build();
         CredentialHelperProvider credentialHelperProvider =
