@@ -1083,6 +1083,37 @@ public class TypeTaggerTest {
         x: optional_list[int]
         type optional_list[T] = list[T] | None
         """);
+
+    // In particular, this implies that currently, a type alias cannot be used in its own
+    // definition.
+    // TODO: #27370 - Allow self-referential type aliases; they can be useful.
+    assertInvalid(
+        "name 'Node' is not defined",
+        """
+        type Node = str | list[Node]
+        """);
+    assertInvalid(
+        "name 'LinkedList' is not defined",
+        """
+        type LinkedList[T] = tuple[()] | tuple[T, LinkedList[T]]
+        """);
+    // But the following examples are silly, and need to stay illegal.
+    assertInvalid(
+        "name 'T' is not defined",
+        """
+        type T = list[T]
+        """);
+    assertInvalid(
+        "name 'T' is not defined",
+        """
+        type T[U] = None | T[int]
+        """);
+    assertInvalid(
+        "name 'U' is not defined",
+        """
+        type T = U
+        type U = T
+        """);
   }
 
   @Test

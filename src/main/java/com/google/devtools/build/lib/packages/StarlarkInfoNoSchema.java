@@ -64,7 +64,7 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     ImmutableMap.Builder<String, StarlarkType> fieldTypes = ImmutableMap.builderWithExpectedSize(n);
     for (int i = 0; i < n; i++) {
       String name = (String) table[i];
-      StarlarkType type = Starlark.getStarlarkType(table[n + i], semantics);
+      StarlarkType type = Starlark.getStarlarkTypePropagatingStackOverflow(table[n + i], semantics);
       fieldTypes.put(name, type);
     }
     return Types.struct(fieldTypes.buildOrThrow());

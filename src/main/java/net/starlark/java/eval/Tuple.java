@@ -89,7 +89,7 @@ public abstract class Tuple extends AbstractList<Object>
     ImmutableList.Builder<StarlarkType> elementTypes =
         ImmutableList.builderWithExpectedSize(size());
     for (Object elem : this) {
-      elementTypes.add(Starlark.getStarlarkType(elem, semantics));
+      elementTypes.add(Starlark.getStarlarkTypePropagatingStackOverflow(elem, semantics));
     }
     return Types.tuple(elementTypes.build());
   }

@@ -93,7 +93,9 @@ public interface Structure extends StarlarkValue {
         ImmutableMap.builderWithExpectedSize(getFieldNames().size());
     for (String fieldName : getFieldNames()) {
       try {
-        fieldTypes.put(fieldName, Starlark.getStarlarkType(getValue(fieldName), semantics));
+        fieldTypes.put(
+            fieldName,
+            Starlark.getStarlarkTypePropagatingStackOverflow(getValue(fieldName), semantics));
       } catch (EvalException e) {
         // Ignore; if retrieving some internal-only field is an evaluation error, then retrieving it
         // should be a type checking error too.
