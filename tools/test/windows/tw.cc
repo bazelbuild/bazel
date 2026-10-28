@@ -562,20 +562,24 @@ bool ExportTmpPath(const Path& cwd, Path* result) {
   return CreateDirectories(*result);
 }
 
-// Set HOME as required by the Bazel Test Encyclopedia.
-bool ExportHome(const Path& test_tmpdir) {
+// Absolutize HOME, which Bazel sets to the (possibly relative) value of
+// TEST_TMPDIR by default, as required by the Bazel Test Encyclopedia.
+bool ExportHome(const Path& cwd) {
   Path home;
   if (!GetPathEnv(L"HOME", &home)) {
     return false;
   }
-  if (blaze_util::IsAbsolute(home.Get())) {
-    // Respect the user-defined HOME in case they set passed it with
-    // --test_env=HOME or --test_env=HOME=C:\\foo
+  if (home.Get().empty()) {
+    // Respect an empty or unset HOME in case the user passed --test_env=HOME=
+    // or --test_env==HOME.
     return true;
-  } else {
-    // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
-    return SetPathEnv(L"HOME", test_tmpdir);
   }
+  if (home.Absolutize(cwd) && !SetPathEnv(L"HOME", home)) {
+    LogErrorWithArg2(__LINE__, "Failed to set absolutized envvar", L"HOME",
+                     home.Get());
+    return false;
+  }
+  return true;
 }
 
 bool ExportRunfiles(const Path& cwd, const Path& test_srcdir,
@@ -1954,7 +1958,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
                  &runfiles_env_prefix) ||
       !PrintTestLogStartMarker() || !ExportUserName() ||
       !ChdirToRunfiles(exec_root, srcdir) ||
-      !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
+      !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(exec_root) ||
       !ExportRunfiles(exec_root, srcdir, runfiles_env_prefix) ||
       !ExportShardStatusFile(exec_root) || !ExportGtestVariables(tmpdir) ||
       !ExportMiscEnvvars(exec_root) ||

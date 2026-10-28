@@ -88,6 +88,10 @@ public class StandaloneTestStrategy extends TestStrategy {
           .put("PYTHON_RUNFILES", TestPolicy.RUNFILES_DIR)
           .put("RUNFILES_DIR", TestPolicy.RUNFILES_DIR)
           .put("TEST_TMPDIR", TestPolicy.TEST_TMP_DIR)
+          // The test encyclopedia recommends setting HOME to TEST_TMPDIR. Since this is the first
+          // layer of the test environment, users can override it via --test_env=HOME=... or
+          // --test_env=HOME (inherit) and unset it via --test_env==HOME.
+          .put("HOME", TestPolicy.TEST_TMP_DIR)
           .put("RUN_UNDER_RUNFILES", "1")
           .buildOrThrow();
 
