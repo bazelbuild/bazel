@@ -149,7 +149,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
 
   @StarlarkMethod(
       name = "super",
-      doc = "Experimental: Calls parent's implementation function and returns its providers",
+      doc = "Calls parent's implementation function and returns its providers",
       useStarlarkThread = true)
   Object callParent(StarlarkThread thread) throws EvalException, InterruptedException;
 
