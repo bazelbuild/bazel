@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -49,11 +49,11 @@ import net.starlark.java.eval.EvalException;
 public final class CppCompileActionTemplate extends ActionKeyComputer
     implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
-  private final SpecialArtifact sourceTreeArtifact;
-  private final SpecialArtifact outputTreeArtifact;
-  private final SpecialArtifact dotdTreeArtifact;
-  private final SpecialArtifact diagnosticsTreeArtifact;
-  private final SpecialArtifact ltoIndexTreeArtifact;
+  private final TreeArtifact sourceTreeArtifact;
+  private final TreeArtifact outputTreeArtifact;
+  private final TreeArtifact dotdTreeArtifact;
+  private final TreeArtifact diagnosticsTreeArtifact;
+  private final TreeArtifact ltoIndexTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final ImmutableList<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
@@ -77,11 +77,11 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
    * @param actionOwner the owner of this {@link ActionTemplate}.
    */
   CppCompileActionTemplate(
-      SpecialArtifact sourceTreeArtifact,
-      SpecialArtifact outputTreeArtifact,
-      SpecialArtifact dotdTreeArtifact,
-      SpecialArtifact diagnosticsTreeArtifact,
-      SpecialArtifact ltoIndexTreeArtifact,
+      TreeArtifact sourceTreeArtifact,
+      TreeArtifact outputTreeArtifact,
+      TreeArtifact dotdTreeArtifact,
+      TreeArtifact diagnosticsTreeArtifact,
+      TreeArtifact ltoIndexTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       ImmutableList<ArtifactCategory> categories)
@@ -300,7 +300,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+  public ImmutableList<TreeArtifact> getInputTreeArtifacts() {
     return ImmutableList.of(sourceTreeArtifact);
   }
 

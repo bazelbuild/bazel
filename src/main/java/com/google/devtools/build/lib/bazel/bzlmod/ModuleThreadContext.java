@@ -378,10 +378,32 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return currentModuleFilePath;
   }
 
+  /**
+   * Whether a {@code bazel_dep} on the given module has been added, under any repo name. Nodep deps
+   * are not included.
+   */
+  public boolean hasDepOnModule(String moduleName) {
+    return deps.values().stream().anyMatch(dep -> dep.name().equals(moduleName));
+  }
+
+  /** Whether an override for the given module has been added. */
+  public boolean hasOverride(String moduleName) {
+    return overrides.containsKey(moduleName);
+  }
+
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
     if (shouldIgnoreDevDeps()) {
       return;
     }
+    addCommandLineOverride(moduleName, override);
+  }
+
+  /**
+   * Like {@link #addOverride}, but the override is added even if dev dependencies are ignored, as
+   * overrides from command-line flags are explicitly requested by the user.
+   */
+  public void addCommandLineOverride(String moduleName, ModuleOverride override)
+      throws EvalException {
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
       throw Starlark.errorf("multiple overrides for dep %s found", moduleName);

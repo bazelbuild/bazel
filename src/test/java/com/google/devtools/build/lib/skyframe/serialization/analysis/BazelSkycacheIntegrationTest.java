@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
@@ -198,13 +198,12 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
 
     // Verify that tree artifacts (which are DerivedArtifacts that do not have generating action
     // keys)
-    // are serialized as SpecialArtifact keys in the frontier.
-    var specialArtifacts = filterKeys(serializedKeys, SpecialArtifact.class);
-    assertThat(specialArtifacts).isNotEmpty();
+    // are serialized as TreeArtifact keys in the frontier.
+    var treeArtifacts = filterKeys(serializedKeys, TreeArtifact.class);
+    assertThat(treeArtifacts).isNotEmpty();
     assertThat(
-            specialArtifacts.stream()
-                .filter(SpecialArtifact::isTreeArtifact)
-                .map(SpecialArtifact::getRootRelativePathString)
+            treeArtifacts.stream()
+                .map(TreeArtifact::getRootRelativePathString)
                 .collect(toImmutableList()))
         .containsExactly("tree/my_tree_dir");
   }

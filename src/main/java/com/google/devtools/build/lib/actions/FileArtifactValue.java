@@ -103,8 +103,8 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   public abstract byte[] getDigest();
 
   /**
-   * Returns the last modified time; see the documentation of {@link #getDigest} for when this can
-   * and should be called.
+   * Returns the last modified time in nanoseconds since UNIX epoch; see the documentation of {@link
+   * #getDigest} for when this can and should be called.
    */
   public abstract long getModifiedTime();
 
@@ -318,13 +318,14 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     // from the generating action, instead.
     checkState(!artifact.hasKnownGeneratingAction());
     checkState(!artifact.isConstantMetadata());
-    boolean isFile = fileValue.isFile();
+    if (!fileValue.isFile()) {
+      return createForDirectory(artifact.getPath().stat());
+    }
     return create(
         artifact.getPath(),
-        isFile,
-        isFile ? fileValue.getSize() : 0,
-        isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
-        isFile ? fileValue.getDigest() : null,
+        fileValue.getSize(),
+        fileValue.realFileStateValue().getContentsProxy(),
+        fileValue.getDigest(),
         xattrProvider);
   }
 
@@ -348,29 +349,31 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
 
   public static FileArtifactValue createFromStat(
       Path path, FileStatus stat, XattrProvider xattrProvider) throws IOException {
+    if (!stat.isFile()) {
+      return createForDirectory(stat);
+    }
     return create(
         path,
-        stat.isFile(),
         stat.getSize(),
         FileContentsProxy.create(stat),
         stat instanceof FileStatusWithDigest statWithDigest ? statWithDigest.getDigest() : null,
         xattrProvider);
   }
 
+  private static FileArtifactValue createForDirectory(FileStatus stat) throws IOException {
+    // In this case, we need to store the mtime because the action cache uses mtime for
+    // directories to determine if this artifact has changed. We want this code path to go away
+    // somehow.
+    return new DirectoryArtifactValue(stat.getLastModifiedTimeNanos());
+  }
+
   private static FileArtifactValue create(
       Path path,
-      boolean isFile,
       long size,
       FileContentsProxy proxy,
       @Nullable byte[] digest,
       XattrProvider xattrProvider)
       throws IOException {
-    if (!isFile) {
-      // In this case, we need to store the mtime because the action cache uses mtime for
-      // directories to determine if this artifact has changed. We want this code path to go away
-      // somehow.
-      return new DirectoryArtifactValue(path.getLastModifiedTime());
-    }
     if (digest == null) {
       digest =
           DigestUtils.getDigestWithManualFallback(
@@ -404,16 +407,15 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    */
   public static FileArtifactValue createForNormalFileUsingPath(
       Path path, long size, XattrProvider xattrProvider) throws IOException {
-    return create(
-        path, /* isFile= */ true, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
+    return create(path, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
     return new HashedDirectoryArtifactValue(digest);
   }
 
-  public static FileArtifactValue createForDirectoryWithMtime(long mtime) {
-    return new DirectoryArtifactValue(mtime);
+  public static FileArtifactValue createForDirectoryWithMtime(long mtimeNanos) {
+    return new DirectoryArtifactValue(mtimeNanos);
   }
 
   public static FileArtifactValue createForInlineFile(byte[] bytes, HashFunction hashFunction) {

@@ -96,6 +96,6 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
 
   /** Concrete implementation of {@link NativePosixFilesService.Stat} as a record. */
   @SuppressWarnings("GoodTime")
-  public static record StatImpl(int mode, long mtime, long ctime, long size, long ino)
+  public static record StatImpl(int mode, long mtimeNanos, long ctimeNanos, long size, long ino)
       implements NativePosixFilesService.Stat {}
 }
