@@ -82,8 +82,15 @@ public interface RepositoryModuleApi {
             name = "local",
             defaultValue = "False",
             doc =
-                "Indicate that this rule fetches everything from the local system and should be "
-                    + "reevaluated at every fetch.",
+                """
+                Indicate that this rule fetches everything from the local system. In addition \
+                to the usual triggers for refetching a repo (for example, a change to the repo \
+                rule's definition, its attributes, or a file it reads), a local repo is \
+                refetched after every Bazel server restart, because its contents are never \
+                reused from a previous server or from the repo contents cache. It is \
+                <em>not</em> refetched on every build. Local repos are also excluded from \
+                <code>bazel vendor</code> by default.
+                """,
             named = true,
             positional = false),
         @Param(
