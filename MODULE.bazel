@@ -120,7 +120,7 @@ single_version_override(
     module_name = "googleapis",
     patch_strip = 1,
     patches = ["//third_party:googleapis.patch"],
-    version = "0.0.0-20250604-de157ca3",
+    version = "0.0.0-20261020-14a161a9",
 )
 
 # 1. Expose @com_google_protobuf//java/core:lite_runtime_only
