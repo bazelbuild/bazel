@@ -297,6 +297,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -605,7 +606,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         () -> {
           try (SilentCloseable c = Profiler.instance().profile("getDeserializedKeys")) {
             return getEvaluator().getInMemoryGraph().getAllNodeEntries().parallelStream()
-                .filter(e -> e.isDone() && e.getValue() instanceof DeserializedSkyValue)
+                .filter(
+                    e ->
+                        e.isDone()
+                            && e.getValue() instanceof DeserializedSkyValue
+                            && !isLocallyDelegated(e))
                 .map(InMemoryNodeEntry::getKey)
                 .collect(toImmutableSet());
           }
@@ -665,6 +670,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     //
     // Instead, we use the SkyframeProgressReceiver to delete each key from the
     // RemoteAnalysisCachingState *after* the actual Skyframe deletion.
+  }
+
+  /**
+   * Returns true if {@code e} is a pre-transition {@link ConfiguredTargetKey} that missed in
+   * Skycache and delegated locally to a post-transition key whose {@link DeserializedSkyValue} was
+   * returned unchanged.
+   */
+  private boolean isLocallyDelegated(InMemoryNodeEntry e) {
+    if (!(e.getKey() instanceof ConfiguredTargetKey key)
+        || !(e.getValue() instanceof ConfiguredTargetValue value)) {
+      return false;
+    }
+    ConfiguredTarget ct = value.getConfiguredTarget();
+    if (ct == null || Objects.equals(key.getConfigurationKey(), ct.getConfigurationKey())) {
+      return false; // Common case: the value belongs to this key.
+    }
+    InMemoryNodeEntry delegate = getEvaluator().getInMemoryGraph().getIfPresent(ct.getLookupKey());
+    return delegate != null && delegate.isDone() && delegate.getValue() == value;
   }
 
   @VisibleForTesting
