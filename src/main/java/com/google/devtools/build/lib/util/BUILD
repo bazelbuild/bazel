@@ -179,6 +179,7 @@ java_library(
     deps = [
         ":command_failure_utils",
         ":os",
+        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/error_prone:annotations",
