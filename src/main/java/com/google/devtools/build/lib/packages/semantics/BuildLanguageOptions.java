@@ -687,7 +687,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_static_type_checking",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -698,7 +698,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_dynamic_type_checking",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},

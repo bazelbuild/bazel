@@ -111,7 +111,7 @@ public abstract class FileOptions {
         .stringLiteralsAreAsciiOnly(false)
         // LINT.IfChange
         .allowTypeSyntax(true)
-        .resolveTypeSyntax(false)
+        .resolveTypeSyntax(true)
         // LINT.ThenChange(//src/main/java/net/starlark/java/eval/StarlarkSemantics.java)
         .tolerateInvalidTypeExpressions(false);
   }

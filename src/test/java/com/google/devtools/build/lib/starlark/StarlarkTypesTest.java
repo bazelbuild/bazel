@@ -367,31 +367,7 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void typeResolverDoesNotRunByDefault() throws Exception {
-    // If the type resolver were running, it'd complain about the var annotation after x has already
-    // been assigned to.
-    setBuildLanguageOptions("--experimental_starlark_type_syntax");
-    scratch.file(
-        "test/foo.bzl",
-        """
-        def f():
-            x = 1
-            x : int
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load(":foo.bzl", "f")
-        """);
-
-    getTarget("//test:BUILD");
-    assertNoEvents();
-  }
-
-  @Test
-  public void typeResolverDoesRunWithDynamicTypeCheckingFlag() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+  public void typeResolverRunsByDefault() throws Exception {
     scratch.file(
         "test/foo.bzl",
         """
@@ -410,27 +386,31 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void staticTypeCheckingDoesNotRunByDefault() throws Exception {
-    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+  public void typeResolverDoesRunWithOnlyDynamicTypeCheckingFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax",
+        "--noexperimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking");
     scratch.file(
         "test/foo.bzl",
         """
-        x: int = "a"
+        def f():
+            x = 1
+            x : int
         """);
     scratch.file(
         "test/BUILD",
         """
-        load(":foo.bzl", "x")
+        load(":foo.bzl", "f")
         """);
 
-    getTarget("//test:BUILD");
-    assertNoEvents();
+    checkLoadingPhaseError(
+        "//test:BUILD", "type annotation on 'x' may only appear at its declaration");
   }
 
   @Test
-  public void staticTypeCheckingDoesRunWithStaticTypeCheckingFlag() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+  public void staticTypeCheckingRunsByDefault() throws Exception {
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
     scratch.file(
         "test/foo.bzl",
         """

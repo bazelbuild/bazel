@@ -26,7 +26,6 @@ class FlagConstants {
       "+experimental_rule_extension_api";
 
 
-  public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING = "false";
   public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS = "";
 
   public static final String DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX = "true";

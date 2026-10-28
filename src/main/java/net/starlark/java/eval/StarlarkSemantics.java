@@ -308,7 +308,7 @@ public class StarlarkSemantics {
    */
   public static final String EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING =
       // LINT.IfChange
-      "-experimental_starlark_static_type_checking";
+      "+experimental_starlark_static_type_checking";
 
   // LINT.ThenChange(//src/main/java/net/starlark/java/syntax/FileOptions.java)
 
