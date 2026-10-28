@@ -202,7 +202,8 @@ public final class SpawnLogModule extends BlazeModule {
                 compressionService,
                 env.getCommandId(),
                 env.getReporter(),
-                logSpawnPredicate);
+                logSpawnPredicate,
+                executionOptions.getExpandParamFiles());
       } else {
         boolean binaryElseJson = executionOptions.getExecutionLogBinaryFile() != null;
         // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
@@ -222,7 +223,8 @@ public final class SpawnLogModule extends BlazeModule {
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 xattrProvider,
                 uriFuture != null,
-                logSpawnPredicate);
+                logSpawnPredicate,
+                executionOptions.getExpandParamFiles());
       }
     } catch (InterruptedException e) {
       env.getReporter()

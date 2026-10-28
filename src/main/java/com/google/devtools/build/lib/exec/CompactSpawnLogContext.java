@@ -187,9 +187,10 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       CompressionService compressionService,
       UUID invocationId,
       ExtendedEventHandler reporter,
-      Predicate<Spawn> logSpawnPredicate)
+      Predicate<Spawn> logSpawnPredicate,
+      boolean expandParamFiles)
       throws IOException, InterruptedException {
-    super(logSpawnPredicate);
+    super(logSpawnPredicate, expandParamFiles);
     this.execRoot = execRoot;
     this.workspaceName = workspaceName;
     this.remoteOptions = remoteOptions;
@@ -242,7 +243,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
-      builder.addAllArgs(Lists.transform(spawn.getArguments(), StringEncoding::internalToUnicode));
+      builder.addAllArgs(
+          Lists.transform(getLoggedArguments(spawn), StringEncoding::internalToUnicode));
       builder.addAllEnvVars(getEnvironmentVariables(spawn));
       Platform platform = getPlatform(spawn, remoteOptions);
       if (platform != null) {
