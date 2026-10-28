@@ -566,6 +566,15 @@ public final class SkyframeActionExecutor {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    } catch (InterruptedException e) {
+      // Interrupted actions may still have open output streams. Preserve the interruption if
+      // closing the context also fails.
+      try {
+        actionExecutionContext.close();
+      } catch (IOException closeException) {
+        e.addSuppressed(closeException);
+      }
+      throw e;
     }
 
     if (result != null || finalException != null) {
