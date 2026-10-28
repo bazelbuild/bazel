@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+import static com.google.devtools.build.lib.util.StringUtil.formatCount;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.base.Preconditions;
@@ -403,16 +404,16 @@ public final class AnalysisPhaseRunner {
           .handle(
               Event.info(
                   "Found "
-                      + testCount
+                      + formatCount(testCount)
                       + (testCount == 1 ? " test target..." : " test targets...")));
     } else {
       env.getReporter()
           .handle(
               Event.info(
                   "Found "
-                      + targetCount
+                      + formatCount(targetCount)
                       + (targetCount == 1 ? " target and " : " targets and ")
-                      + testCount
+                      + formatCount(testCount)
                       + (testCount == 1 ? " test target..." : " test targets...")));
     }
   }
@@ -421,7 +422,10 @@ public final class AnalysisPhaseRunner {
     int targetCount = targetsToBuild.size();
     env.getReporter()
         .handle(
-            Event.info("Found " + targetCount + (targetCount == 1 ? " target..." : " targets...")));
+            Event.info(
+                "Found "
+                    + formatCount(targetCount)
+                    + (targetCount == 1 ? " target..." : " targets...")));
   }
 
   /**
