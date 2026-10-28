@@ -845,6 +845,13 @@ public final class SandboxHelpers {
     // The file system may stamp files from a clock that is coarser than or lags behind the system
     // clock, so the timestamp is read back from the file system itself.
     root.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    // Files modified in the same tick of a coarse clock as the root share its change time and are
+    // thus considered modified. Linux file systems with multigrain timestamps give a change made
+    // after reading the previous change time within the same tick a fine-grained timestamp, which
+    // is later than all timestamps handed out before and no later than any handed out after it.
+    // Touching the root again after reading its change time thus avoids these false positives.
+    var unused = root.stat();
+    root.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     return root.stat().getLastChangeTimeNanos();
   }
 
