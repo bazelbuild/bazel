@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,8 +57,18 @@ public class PackageZipperTest {
 
     try (OutputStream out = Files.newOutputStream(serverJar);
         ZipOutputStream jar = new ZipOutputStream(out)) {
+      jar.putNextEntry(new ZipEntry("z.txt"));
+      jar.write("shared-prefix-z".getBytes(UTF_8));
+      jar.closeEntry();
       jar.putNextEntry(new ZipEntry("build-data.properties"));
       jar.write("build.label=1.2.3\n".getBytes(UTF_8));
+      jar.closeEntry();
+      jar.putNextEntry(new ZipEntry("a.txt"));
+      jar.write("shared-prefix-a".getBytes(UTF_8));
+      jar.closeEntry();
+      jar.putNextEntry(new ZipEntry("empty-dir/"));
+      jar.closeEntry();
+      jar.putNextEntry(new ZipEntry("empty.txt"));
       jar.closeEntry();
     }
     Files.write(installBaseKey, "0123456789abcdef".getBytes(UTF_8));
@@ -86,5 +97,56 @@ public class PackageZipperTest {
     // The first local file header starts at offset 0.
     byte[] archive = Files.readAllBytes(outputZip);
     assertThat(ZipUtil.get32(archive, LOCAL_HEADER_MOD_TIME_OFFSET)).isEqualTo(DOS_1980_01_01);
+  }
+
+  @Test
+  public void optimizedBundleRepackagesServerJarWithStoredEntries() throws IOException {
+    PackageZipper.main(
+        new String[] {outputZip.toString(), serverJar.toString(), installBaseKey.toString()});
+
+    Path nestedServerJar = tmpDir.resolve("nested-server.jar");
+    try (ZipFile zip = new ZipFile(outputZip.toFile(), UTF_8)) {
+      ZipEntry serverJarEntry = zip.getEntry("A-server.jar");
+      assertThat(serverJarEntry).isNotNull();
+      assertThat(serverJarEntry.getMethod()).isEqualTo(ZipEntry.DEFLATED);
+      try (InputStream in = zip.getInputStream(serverJarEntry)) {
+        Files.copy(in, nestedServerJar);
+      }
+    }
+
+    List<String> names = new ArrayList<>();
+    try (ZipFile origJar = new ZipFile(serverJar.toFile(), UTF_8);
+        ZipFile nestedJar = new ZipFile(nestedServerJar.toFile(), UTF_8)) {
+      for (ZipEntry entry : Collections.list(nestedJar.entries())) {
+        names.add(entry.getName());
+        assertThat(entry.getMethod()).isEqualTo(ZipEntry.STORED);
+        assertThat(ZipUtil.unixToDosTime(entry.getTime())).isEqualTo(DOS_1980_01_01);
+        ZipEntry origEntry = origJar.getEntry(entry.getName());
+        assertThat(origEntry).isNotNull();
+        try (InputStream in = nestedJar.getInputStream(entry);
+            InputStream origIn = origJar.getInputStream(origEntry)) {
+          assertThat(in.readAllBytes()).isEqualTo(origIn.readAllBytes());
+        }
+      }
+    }
+    assertThat(names)
+        .containsExactly("a.txt", "build-data.properties", "empty.txt", "z.txt")
+        .inOrder();
+  }
+
+  @Test
+  public void fastBundleKeepsServerJarAsIs() throws IOException {
+    PackageZipper.main(
+        new String[] {
+          "--fast", outputZip.toString(), serverJar.toString(), installBaseKey.toString()
+        });
+
+    try (ZipFile zip = new ZipFile(outputZip.toFile(), UTF_8)) {
+      ZipEntry serverJarEntry = zip.getEntry("A-server.jar");
+      assertThat(serverJarEntry).isNotNull();
+      try (InputStream in = zip.getInputStream(serverJarEntry)) {
+        assertThat(in.readAllBytes()).isEqualTo(Files.readAllBytes(serverJar));
+      }
+    }
   }
 }
