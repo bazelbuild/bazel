@@ -54,7 +54,6 @@ load(
     "download_remote_files",
     "get_auth",
     "patch",
-    "symlink_files",
     "update_attrs",
     "workspace_and_buildfile",
 )
@@ -217,7 +216,13 @@ def _http_archive_impl(ctx):
 
     remote_files_info = download_remote_files(ctx)
     remote_patches_info = patch(ctx)
-    symlink_files(ctx)
+
+    for path, label in ctx.attr.files.items():
+        src_path = ctx.path(label)
+        if not src_path.exists:
+            fail("Input %s does not exist" % label)
+        ctx.delete(path)
+        ctx.copy(src_path, path)
 
     integrity = struct(
         archive = download_info.integrity,

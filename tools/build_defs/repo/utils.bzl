@@ -116,30 +116,6 @@ def download_remote_files(ctx, auth = None):
     # Wait until the requests are done
     return {path: token.wait() for path, token in pending.items()}
 
-def symlink_files(ctx):
-    # type: (repository_ctx) -> None
-    """Utility function for overlaying local files.
-
-    This is intended to be used in the implementation function of a repository rule. It assumes the
-    parameter `files` is present in `ctx.attr`.
-
-    Files and directories are copied so that the repository remains eligible for the repo contents
-    cache, which can't store symlinks that point out of the repository.
-
-    Existing files will be overwritten.
-
-    Args:
-      ctx: The repository context of the repository rule calling this utility
-        function.
-    """
-    for path, label in ctx.attr.files.items():
-        src_path = ctx.path(label)
-        if not src_path.exists:
-            fail("Input %s does not exist" % label)
-        if ctx.path(path).exists:
-            ctx.delete(path)
-        ctx.copy(src_path, path)
-
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None, patch_directory = None):
     """Implementation of patching an already extracted repository.
 
