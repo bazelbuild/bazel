@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -168,16 +169,6 @@ public class StarlarkAction extends SpawnAction {
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         String mnemonic) {
-      if (unusedInputsList.isPresent()) {
-        // Always download unused_inputs_list file from remote cache.
-        executionInfo =
-            ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
-                .putAll(executionInfo)
-                .put(
-                    ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                    unusedInputsList.get().getExecPathString())
-                .buildOrThrow();
-      }
       return unusedInputsList.isPresent() || shadowedAction.isPresent() || stdoutOutput != null
           ? new EnhancedStarlarkAction(
               owner,
@@ -305,6 +296,20 @@ public class StarlarkAction extends SpawnAction {
     @Override
     public Artifact getStdoutOutput() {
       return stdoutOutput;
+    }
+
+    @Override
+    public ImmutableMap<String, String> getExecutionInfo() {
+      if (unusedInputsList.isEmpty()) {
+        return super.getExecutionInfo();
+      }
+      // Always download unused_inputs_list file from remote cache. The extra entry is added to the
+      // map on demand rather than at action construction time because it defeats interning.
+      return mergeMaps(
+          getExecProperties(),
+          attributes.executionInfo(),
+          ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+          unusedInputsList.get().getExecPathString());
     }
 
     @Override

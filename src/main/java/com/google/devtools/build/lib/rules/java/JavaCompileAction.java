@@ -695,16 +695,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    var result = mergeMaps(super.getExecutionInfo(), executionInfo);
     if (outputDepsProto == null
         || !configuration.getFragment(JavaConfiguration.class).inmemoryJdepsFiles()) {
-      return result;
+      return mergeMaps(super.getExecutionInfo(), executionInfo);
     }
     return mergeMaps(
-        result,
-        ImmutableMap.of(
-            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-            outputDepsProto.getExecPathString()));
+        super.getExecutionInfo(),
+        executionInfo,
+        ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+        outputDepsProto.getExecPathString());
   }
 
   @Override

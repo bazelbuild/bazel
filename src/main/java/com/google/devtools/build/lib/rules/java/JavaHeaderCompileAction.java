@@ -118,16 +118,15 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    var result = super.getExecutionInfo();
     if (!inMemoryJdeps) {
-      return result;
+      return super.getExecutionInfo();
     }
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     return mergeMaps(
-        result,
-        ImmutableMap.of(
-            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-            outputDepsProto.getExecPathString()));
+        getExecProperties(),
+        attributes.executionInfo(),
+        ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+        outputDepsProto.getExecPathString());
   }
 
   @Override
