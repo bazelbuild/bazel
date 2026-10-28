@@ -13,15 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
+import static java.lang.invoke.MethodType.methodType;
 
 import com.google.common.collect.ImmutableList;
-
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Field;
 
 /**
  * An {@link AsyncObjectCodec} for {@link ImmutableList}.
@@ -31,6 +33,20 @@ import java.io.IOException;
  * <ul>
  *   <li>has a number of hidden subclasses; and
  *   <li>marks important fields transient.
+ * </ul>
+ *
+ * <p>To support cycles, we instantiate the ImmutableList before deserializing its elements and then
+ * fill in the elements as they are themselves deserialized by mutating the supposedly-immutable
+ * ImmutableList. This requires reching into its internals.
+ *
+ * <ul>
+ *   <li>Lists with two or more elements are created by calling the {@code RegularImmutableList}
+ *       constructor, which wraps the given array without copying it. The elements are then
+ *       deserialized directly into that array.
+ *   <li>Lists with a single element are created as a {@code SingletonImmutableList} with a
+ *       placeholder element. The final {@code element} field is then overwritten reflectively once
+ *       the actual element is available. Note that this is subject to JEP 500 restrictions on final
+ *       field mutation.
  * </ul>
  */
 @SuppressWarnings("rawtypes") // Intentional erasure of ImmutableList.
@@ -42,14 +58,29 @@ public class ImmutableListCodec extends AsyncObjectCodec<ImmutableList> {
   private static final Class<? extends ImmutableList> REGULAR_IMMUTABLE_LIST_CLASS =
       ImmutableList.<Integer>of(0, 1).getClass();
 
-  private static final long ELEMENT_OFFSET;
-  private static final long ARRAY_OFFSET;
+  /** Temporary element of a singleton list until its actual element is available. */
+  private static final Object PLACEHOLDER = new Object();
+
+  /** {@code (Object[]) -> ImmutableList}, wrapping the array without copying it. */
+  private static final MethodHandle NEW_REGULAR_IMMUTABLE_LIST;
+
+  /** {@code (ImmutableList, Object) -> void}, setting the final {@code element} field. */
+  private static final MethodHandle SET_SINGLETON_ELEMENT;
 
   static {
     try {
-      ELEMENT_OFFSET = getFieldOffset(SINGLETON_IMMUTABLE_LIST_CLASS, "element");
-      ARRAY_OFFSET = getFieldOffset(REGULAR_IMMUTABLE_LIST_CLASS, "array");
-    } catch (NoSuchFieldException e) {
+      NEW_REGULAR_IMMUTABLE_LIST =
+          MethodHandles.privateLookupIn(REGULAR_IMMUTABLE_LIST_CLASS, MethodHandles.lookup())
+              .findConstructor(REGULAR_IMMUTABLE_LIST_CLASS, methodType(void.class, Object[].class))
+              .asType(methodType(ImmutableList.class, Object[].class));
+
+      Field element = SINGLETON_IMMUTABLE_LIST_CLASS.getDeclaredField("element");
+      element.setAccessible(true);
+      SET_SINGLETON_ELEMENT =
+          MethodHandles.lookup()
+              .unreflectSetter(element)
+              .asType(methodType(void.class, ImmutableList.class, Object.class));
+    } catch (ReflectiveOperationException e) {
       throw new ExceptionInInitializerError(e);
     }
   }
@@ -69,7 +100,6 @@ public class ImmutableListCodec extends AsyncObjectCodec<ImmutableList> {
     }
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public ImmutableList deserializeAsync(
       AsyncDeserializationContext context, CodedInputStream codedIn)
@@ -79,32 +109,47 @@ public class ImmutableListCodec extends AsyncObjectCodec<ImmutableList> {
       return ImmutableList.of();
     }
 
-    ImmutableList list;
     if (size == 1) {
-      try {
-        list = (ImmutableList) unsafe().allocateInstance(SINGLETON_IMMUTABLE_LIST_CLASS);
-      } catch (InstantiationException e) {
-        throw new SerializationException(
-            "could not instantiate " + SINGLETON_IMMUTABLE_LIST_CLASS, e);
-      }
+      ImmutableList list = ImmutableList.of(PLACEHOLDER);
       context.registerInitialValue(list);
-
-      context.deserialize(codedIn, list, ELEMENT_OFFSET);
+      context.deserialize(codedIn, list, ImmutableListCodec::setSingletonElement);
       return list;
     }
 
-    try {
-      list = (ImmutableList) unsafe().allocateInstance(REGULAR_IMMUTABLE_LIST_CLASS);
-    } catch (InstantiationException e) {
-      throw new SerializationException("could not instantiate " + REGULAR_IMMUTABLE_LIST_CLASS, e);
-    }
-    context.registerInitialValue(list);
-
     Object[] elements = new Object[size];
+    ImmutableList list = newRegularImmutableList(elements);
+    context.registerInitialValue(list);
     deserializeObjectArray(context, codedIn, elements, size);
-
-    unsafe().putObject(list, ARRAY_OFFSET, elements);
-
     return list;
+  }
+
+  // The two helpers below invoke method handles with invokeExact, which is declared to throw
+  // Throwable. The underlying targets, the RegularImmutableList(Object[]) constructor and a setter
+  // for the SingletonImmutableList.element field, declare no checked exceptions, so only unchecked
+  // exceptions (RuntimeException or Error) can actually be thrown. These are rethrown as is: they
+  // indicate either a programming error, such as a WrongMethodTypeException, or a JVM error, such
+  // as an OutOfMemoryError, neither of which should be converted into a checked exception. Any
+  // other Throwable is impossible, hence the AssertionError.
+  //
+  // Note that if final field mutation is ever denied (JEP 500), the failure happens when the setter
+  // is created in the static initializer, not when it is invoked.
+
+  private static ImmutableList newRegularImmutableList(Object[] elements) {
+    try {
+      return (ImmutableList) NEW_REGULAR_IMMUTABLE_LIST.invokeExact(elements);
+    } catch (Throwable t) {
+      throwIfUnchecked(t);
+      throw new AssertionError("RegularImmutableList(Object[]) threw a checked exception", t);
+    }
+  }
+
+  private static void setSingletonElement(ImmutableList list, Object element) {
+    try {
+      SET_SINGLETON_ELEMENT.invokeExact(list, element);
+    } catch (Throwable t) {
+      throwIfUnchecked(t);
+      throw new AssertionError(
+          "setting SingletonImmutableList.element threw a checked exception", t);
+    }
   }
 }
