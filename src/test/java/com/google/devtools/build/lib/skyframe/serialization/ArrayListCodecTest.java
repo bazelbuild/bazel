@@ -43,8 +43,10 @@ public final class ArrayListCodecTest {
                 new ArrayList<>(Arrays.asList(1, 2, 3, null, 4, 5, 6)))
             .setVerificationFunction(
                 (VerificationFunction<ArrayList<?>>)
-                    (deserialized, subject) ->
-                        assertThat(deserialized).containsExactlyElementsIn(subject).inOrder());
+                    (original, deserialized) -> {
+                      assertThat(deserialized).containsExactlyElementsIn(original).inOrder();
+                      assertThat(deserialized.hashCode()).isEqualTo(original.hashCode());
+                    });
     if (memoize) {
       tester.makeMemoizing();
     }
@@ -64,7 +66,7 @@ public final class ArrayListCodecTest {
         .makeMemoizing()
         .setVerificationFunction(
             (VerificationFunction<ArrayList<Object>>)
-                (deserialized, original) -> {
+                (original, deserialized) -> {
                   assertThat(deserialized).hasSize(3);
                   assertThat(deserialized.get(0)).isEqualTo("before");
                   assertThat(deserialized.get(1)).isSameInstanceAs(deserialized);
@@ -90,7 +92,7 @@ public final class ArrayListCodecTest {
         .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
         .setVerificationFunction(
             (VerificationFunction<ArrayList<NotNestedSet>>)
-                (deserialized, original) -> {
+                (original, deserialized) -> {
                   assertThat(deserialized).hasSize(original.size());
                   assertThat(deserialized.get(1)).isNull();
                   for (int i : new int[] {0, 2, 3}) {
@@ -98,6 +100,10 @@ public final class ArrayListCodecTest {
                         .isEqualTo(dumpStructureWithEquivalenceReduction(original.get(i)));
                   }
                   assertThat(deserialized.get(3)).isSameInstanceAs(deserialized.get(2));
+                  // The elements were set after the list was constructed. Guards against
+                  // precomputed state, like a cached hash code.
+                  ArrayList<NotNestedSet> copy = new ArrayList<>(deserialized);
+                  assertThat(deserialized.hashCode()).isEqualTo(copy.hashCode());
                 })
         .runTests();
   }
