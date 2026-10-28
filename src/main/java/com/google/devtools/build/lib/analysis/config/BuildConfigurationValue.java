@@ -726,6 +726,11 @@ public class BuildConfigurationValue
   }
 
   @Override
+  public CoreOptions.OutputPathsMode getOutputPathsMode() {
+    return options.getOutputPathsMode();
+  }
+
+  @Override
   public boolean isCodeCoverageEnabled() {
     return options.getCollectCodeCoverage();
   }

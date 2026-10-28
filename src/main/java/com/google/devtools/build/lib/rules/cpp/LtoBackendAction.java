@@ -101,8 +101,7 @@ public final class LtoBackendAction extends SpawnAction {
         env,
         executionInfo,
         "LTO Backend Compile %{output}",
-        MNEMONIC,
-        OutputPathsMode.OFF);
+        MNEMONIC);
     mandatoryInputs = inputs;
     Preconditions.checkState(
         (allBitcodeFiles == null) == (importsFile == null),
@@ -133,11 +132,15 @@ public final class LtoBackendAction extends SpawnAction {
         environment,
         sortedExecutionInfo,
         "LTO Backend Compile %{output}",
-        MNEMONIC,
-        OutputPathsMode.OFF);
+        MNEMONIC);
     this.mandatoryInputs = mandatoryInputs;
     this.bitcodeFiles = bitcodeFiles;
     this.imports = imports;
+  }
+
+  @Override
+  protected OutputPathsMode getOutputPathsMode() {
+    return OutputPathsMode.OFF;
   }
 
   @Override

@@ -114,7 +114,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final ResourceSetOrBuilder resourceSetOrBuilder;
   @VisibleForSerialization // protected access required due to b/32473060
   protected final ImmutableSortedMap<String, String> sortedExecutionInfo;
-  private final OutputPathsMode outputPathsMode;
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -145,8 +144,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      String mnemonic) {
     super(owner, inputs, /* outputs= */ outputs);
     this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
@@ -158,7 +156,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.env = env;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.outputPathsMode = outputPathsMode;
   }
 
   /** Constructor for serialization. */
@@ -173,8 +170,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ActionEnvironment env,
       ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      String mnemonic) {
     super(owner, inputs, /* rawOutputs= */ rawOutputs);
     this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
@@ -186,7 +182,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.env = env;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.outputPathsMode = outputPathsMode;
   }
 
   @Override
@@ -209,7 +204,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return commandLines.allArguments(
         PathMappers.create(
             this,
-            outputPathsMode,
+            getOutputPathsMode(),
             this instanceof StarlarkAction,
             /* inputMetadataProvider= */ null));
   }
@@ -368,7 +363,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     PathMapper pathMapper =
         PathMappers.create(
             this,
-            outputPathsMode,
+            getOutputPathsMode(),
             this instanceof StarlarkAction,
             actionExecutionContext.getInputMetadataProvider());
     ExpandedCommandLines expandedCommandLines =
@@ -393,6 +388,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getOwner().getBuildConfigurationInfo().getCommandLineLimits();
   }
 
+  @ForOverride
+  protected OutputPathsMode getOutputPathsMode() {
+    return getOwner().getBuildConfigurationInfo().getOutputPathsMode();
+  }
+
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
@@ -400,6 +400,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
+    OutputPathsMode outputPathsMode = getOutputPathsMode();
     commandLines.addToFingerprint(
         actionKeyContext,
         inputMetadataProvider,
@@ -459,7 +460,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       message.append('\n');
     }
     message.append("  Output paths mode: ");
-    message.append(outputPathsMode);
+    message.append(getOutputPathsMode());
     message.append('\n');
     return message.toString();
   }
@@ -648,7 +649,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     @Nullable private ActionEnvironment actionEnvironment = null;
-    @Nullable private OutputPathsMode outputPathsMode = null;
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
@@ -671,7 +671,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
       this.environment = other.environment;
       this.actionEnvironment = other.actionEnvironment;
-      this.outputPathsMode = other.outputPathsMode;
       this.executionInfo = other.executionInfo;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
       this.executableArg = other.executableArg;
@@ -738,8 +737,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           checkNotNull(actionEnvironment),
           executionInfo,
           progressMessage,
-          mnemonic,
-          checkNotNull(outputPathsMode));
+          mnemonic);
     }
 
     private CommandLines buildCommandLines() {
@@ -814,8 +812,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           env,
           executionInfo,
           progressMessage,
-          mnemonic,
-          PathMappers.getOutputPathsMode(configuration));
+          mnemonic);
     }
 
     /**
@@ -921,18 +918,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setActionEnvironment(ActionEnvironment actionEnvironment) {
       this.actionEnvironment = actionEnvironment;
-      return this;
-    }
-
-    /**
-     * Sets the output paths mode, for when we want to already have it before .build() is called.
-     * This is used for Starlark action templates .buildForStarlarkActionTemplate(), where we do not
-     * have access to the configuration upon action creation time which is required to create the
-     * ActionEnvironment.
-     */
-    @CanIgnoreReturnValue
-    public Builder setOutputPathsMode(OutputPathsMode outputPathsMode) {
-      this.outputPathsMode = outputPathsMode;
       return this;
     }
 

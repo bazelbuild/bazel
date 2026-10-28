@@ -128,7 +128,7 @@ public final class PathMappers {
     if (configuration == null) {
       return OutputPathsMode.OFF;
     }
-    return configuration.getOptions().get(CoreOptions.class).getOutputPathsMode();
+    return configuration.getOutputPathsMode();
   }
 
   /**

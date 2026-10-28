@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -73,8 +72,7 @@ public class StarlarkAction extends SpawnAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      String mnemonic) {
     super(
         owner,
         tools,
@@ -85,8 +83,7 @@ public class StarlarkAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        mnemonic,
-        outputPathsMode);
+        mnemonic);
   }
 
   /** Constructor for serialization. */
@@ -100,8 +97,7 @@ public class StarlarkAction extends SpawnAction {
       ActionEnvironment env,
       ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      String mnemonic) {
     super(
         owner,
         tools,
@@ -112,8 +108,7 @@ public class StarlarkAction extends SpawnAction {
         env,
         sortedExecutionInfo,
         progressMessage,
-        mnemonic,
-        outputPathsMode);
+        mnemonic);
   }
 
   @VisibleForTesting
@@ -197,7 +192,6 @@ public class StarlarkAction extends SpawnAction {
                     unusedInputsList.get().getExecPathString())
                 .buildOrThrow();
       }
-      OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
       return unusedInputsList.isPresent() || shadowedAction.isPresent() || stdoutOutput != null
           ? new EnhancedStarlarkAction(
               owner,
@@ -210,7 +204,6 @@ public class StarlarkAction extends SpawnAction {
               executionInfo,
               progressMessage,
               mnemonic,
-              outputPathsMode,
               unusedInputsList,
               shadowedAction,
               stdoutOutput)
@@ -224,8 +217,7 @@ public class StarlarkAction extends SpawnAction {
               env,
               executionInfo,
               progressMessage,
-              mnemonic,
-              outputPathsMode);
+              mnemonic);
     }
   }
 
@@ -262,7 +254,6 @@ public class StarlarkAction extends SpawnAction {
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         String mnemonic,
-        OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
         Optional<Action> shadowedAction,
         @Nullable Artifact stdoutOutput) {
@@ -278,8 +269,7 @@ public class StarlarkAction extends SpawnAction {
           env,
           executionInfo,
           progressMessage,
-          mnemonic,
-          outputPathsMode);
+          mnemonic);
       this.allStarlarkActionInputs = inputs;
       this.originalInputs = getInputs();
       this.mandatoryInputs =
@@ -304,7 +294,6 @@ public class StarlarkAction extends SpawnAction {
         ImmutableSortedMap<String, String> sortedExecutionInfo,
         CharSequence progressMessage,
         String mnemonic,
-        OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
         Optional<Action> shadowedAction,
         @Nullable Artifact stdoutOutput) {
@@ -320,8 +309,7 @@ public class StarlarkAction extends SpawnAction {
           environment,
           sortedExecutionInfo,
           progressMessage,
-          mnemonic,
-          outputPathsMode);
+          mnemonic);
       this.allStarlarkActionInputs = allStarlarkActionInputs;
       this.originalInputs = getInputs();
       this.mandatoryInputs =

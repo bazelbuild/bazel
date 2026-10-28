@@ -38,10 +38,8 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -99,7 +97,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
       String mnemonic,
-      OutputPathsMode outputPathsMode,
       boolean insertDependencies,
       boolean inMemoryJdeps,
       NestedSet<Artifact> additionalArtifactsForPathMapping) {
@@ -113,8 +110,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        mnemonic,
-        outputPathsMode);
+        mnemonic);
     this.insertDependencies = insertDependencies;
     this.inMemoryJdeps = inMemoryJdeps;
     this.additionalArtifactsForPathMapping = additionalArtifactsForPathMapping;
@@ -612,8 +608,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                         executionInfo.buildKeepingLast(), DIRECT_CLASSPATH_MNEMONIC),
                 /* progressMessage= */ progressMessage,
                 /* mnemonic= */ DIRECT_CLASSPATH_MNEMONIC,
-                /* outputPathsMode= */ PathMappers.getOutputPathsMode(
-                    ruleContext.getConfiguration()),
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
                 // available to downstream actions. Else just do enough work to locally create the
                 // full .jdeps from the .stripped .jdeps produced on the executor.

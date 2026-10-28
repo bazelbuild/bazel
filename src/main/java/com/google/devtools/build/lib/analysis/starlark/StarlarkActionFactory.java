@@ -1220,8 +1220,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .setMnemonic(mnemonic)
             .setResources(resourceSet)
             .setActionEnvironment(actionEnv)
-            .setExecutionInfo(executionInfo)
-            .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
+            .setExecutionInfo(executionInfo);
 
     // Verify whether declare_subdirectory is available for this target. The allowlist may match
     // either the target's package or the .bzl file defining the rule class.

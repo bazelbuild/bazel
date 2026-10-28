@@ -543,6 +543,7 @@ java_library(
     name = "build_configuration_info",
     srcs = ["BuildConfigurationInfo.java"],
     deps = [
+        ":core_options",
         "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_limits",
         "//third_party/java/auto:auto_value",

@@ -84,8 +84,7 @@ public final class ExtraAction extends SpawnAction {
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        mnemonic,
-        OutputPathsMode.OFF);
+        mnemonic);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
 
@@ -122,8 +121,7 @@ public final class ExtraAction extends SpawnAction {
         environment,
         sortedExecutionInfo,
         progressMessage,
-        mnemonic,
-        OutputPathsMode.OFF);
+        mnemonic);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
     this.extraActionInputs = extraActionInputs;
@@ -132,6 +130,11 @@ public final class ExtraAction extends SpawnAction {
   @Override
   protected CommandLineLimits getCommandLineLimits() {
     return CommandLineLimits.UNLIMITED;
+  }
+
+  @Override
+  protected OutputPathsMode getOutputPathsMode() {
+    return OutputPathsMode.OFF;
   }
 
   @Override
