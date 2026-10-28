@@ -1359,6 +1359,36 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_relativeOutputSymlinkTargetEscapingExecRoot_isRejected()
+      throws Exception {
+    Spawn spawn =
+        newSpawnFromResult(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    ActionResult.Builder poisoned = ActionResult.newBuilder();
+    poisoned
+        .addOutputSymlinksBuilder()
+        .setPath("outputs/a/b/link")
+        .setTarget("../../../../escape");
+    RemoteActionResult poisonedResult =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(poisoned.build()));
+
+    IOException expected =
+        assertThrows(IOException.class, () -> service.downloadOutputs(action, poisonedResult));
+
+    assertThat(expected).hasMessageThat().contains("relative target");
+    assertThat(expected).hasMessageThat().contains("escapes the output tree");
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void downloadOutputs_outputSymlinksCompatibility_success() throws Exception {
     // Test that download outputs works when the action result contains both output_symlinks
     // and output_file_symlinks (or output_directory_symlinks).

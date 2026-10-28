@@ -1002,11 +1002,19 @@ public class RemoteExecutionService {
                 "Failed to create symlink %s: the output path escapes the output tree %s",
                 symlink.path(), execRoot));
       }
-      Preconditions.checkNotNull(
+      Path symlinkParent =
+          Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
-              symlink.path())
-          .createDirectoryAndParents();
+              symlink.path());
+      if (!symlink.target().isAbsolute()
+          && !symlinkParent.getRelative(symlink.target()).startsWith(execRoot)) {
+        throw new IOException(
+            String.format(
+                "Failed to create symlink %s: the relative target %s escapes the output tree %s",
+                symlink.path(), symlink.target(), execRoot));
+      }
+      symlinkParent.createDirectoryAndParents();
       // If a directory output is being materialized as a symlink, creating the symlink fails as we
       // must first delete the preexisting empty directory. Since this is rare (and in the future
       // BwoB may no longer eagerly create these directories), we don't delete the directory
