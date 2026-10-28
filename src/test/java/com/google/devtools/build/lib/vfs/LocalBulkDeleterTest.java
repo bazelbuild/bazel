@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +50,46 @@ public final class LocalBulkDeleterTest {
 
     trashRoot = fs.getPath("/output_base/_bulk_delete_trash");
     deleter = new LocalBulkDeleter(execRoot, trashRoot, "this-build");
+  }
+
+  @After
+  public void drainDeleter() throws Exception {
+    deleter.awaitPendingDeletes();
+  }
+
+  @Test
+  public void deletesTopLevelSymlinkToDirectoryWithoutFollowingIt() throws Exception {
+    Path outsideDir = fs.getPath("/elsewhere/linked-dir");
+    outsideDir.createDirectoryAndParents();
+    FileSystemUtils.writeContent(outsideDir.getRelative("kept.txt"), UTF_8, "kept");
+    Path link = execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/dir-link");
+    link.createSymbolicLink(outsideDir);
+
+    deleter.bulkDelete(
+        ImmutableList.of(PathFragment.create("bazel-out/k8-fastbuild/bin/pkg/dir-link")));
+    deleter.awaitPendingDeletes();
+
+    assertThat(link.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(FileSystemUtils.readContent(outsideDir.getRelative("kept.txt"), UTF_8))
+        .isEqualTo("kept");
+  }
+
+  @Test
+  public void deletesEveryTreeAfterManyAreQueued() throws Exception {
+    ImmutableList.Builder<PathFragment> paths = ImmutableList.builder();
+    for (int i = 0; i < 20; i++) {
+      Path tree = execRoot.getRelative("bazel-out/k8-fastbuild/bin/many/t" + i + "/inner");
+      tree.createDirectoryAndParents();
+      FileSystemUtils.writeContent(tree.getRelative("f"), UTF_8, "x");
+      paths.add(PathFragment.create("bazel-out/k8-fastbuild/bin/many/t" + i));
+    }
+
+    deleter.bulkDelete(paths.build());
+    deleter.awaitPendingDeletes();
+
+    assertThat(execRoot.getRelative("bazel-out/k8-fastbuild/bin/many").getDirectoryEntries())
+        .isEmpty();
+    assertThat(trashRoot.getRelative("this-build").getDirectoryEntries()).isEmpty();
   }
 
   @Test

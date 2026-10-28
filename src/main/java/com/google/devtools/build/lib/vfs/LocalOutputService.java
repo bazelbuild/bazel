@@ -15,9 +15,10 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -63,9 +64,7 @@ public class LocalOutputService implements OutputService {
       throws AbruptExitException {
     this.bulkDeleter =
         new LocalBulkDeleter(
-            directories.getExecRoot(workspaceName),
-            directories.getOutputBase().getChild("_bulk_delete_trash"),
-            buildId.toString());
+            directories.getExecRoot(workspaceName), trashRoot(), UUID.randomUUID().toString());
     Path outputPath = directories.getOutputPath(workspaceName);
     Path localOutputPath = directories.getLocalOutputPath();
     try {
@@ -91,10 +90,17 @@ public class LocalOutputService implements OutputService {
   }
 
   @Override
-  public void finalizeBuild(boolean buildSuccessful) throws InterruptedException {
+  public void finalizeBuild(boolean buildSuccessful) {
     LocalBulkDeleter deleter = bulkDeleter;
-    if (deleter != null) {
+    if (deleter == null) {
+      return;
+    }
+    try {
       deleter.awaitPendingDeletes();
+    } catch (InterruptedException e) {
+      // Runs in a finally block, so throwing would replace the build's own failure. The trash is
+      // swept by the next build or by clean.
+      Thread.currentThread().interrupt();
     }
   }
 
@@ -120,13 +126,21 @@ public class LocalOutputService implements OutputService {
 
   @Override
   public BulkDeleter bulkDeleter() {
-    LocalBulkDeleter deleter = bulkDeleter;
-    checkState(deleter != null, "bulkDeleter() called before startBuild()");
-    return deleter;
+    return bulkDeleter;
   }
 
   @Override
-  public void clean() {}
+  public void clean() throws ExecException {
+    try {
+      trashRoot().deleteTree();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.ACTION_OUTPUTS_DELETION_FAILURE);
+    }
+  }
+
+  private Path trashRoot() {
+    return directories.getOutputBase().getChild("_bulk_delete_trash");
+  }
 
   @Override
   public OutputChecker getOutputChecker() {

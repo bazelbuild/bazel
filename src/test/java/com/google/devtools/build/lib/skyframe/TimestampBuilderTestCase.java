@@ -95,7 +95,6 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -356,14 +355,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 ProxyMetadataFactory.NO_PROXIES,
                 null),
             ActionOutputDirectoryHelper.createForTesting(),
-            // Test outputs live outside the exec root that bulk deletion resolves against.
-            new LocalOutputService(directories) {
-              @Nullable
-              @Override
-              public BulkDeleter bulkDeleter() {
-                return null;
-              }
-            },
+            new LocalOutputService(directories),
             /* keepStateAfterBuild= */ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(
             () -> "", EMPTY_COMPLETION_RECEIVER);
