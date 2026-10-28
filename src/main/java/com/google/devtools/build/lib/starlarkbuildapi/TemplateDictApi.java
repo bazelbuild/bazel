@@ -102,9 +102,10 @@ public interface TemplateDictApi extends StarlarkValue {
             positional = false,
             defaultValue = "False",
             doc =
-                "If true, allows the use of closures in function parameters like "
-                    + "<code>map_each</code>. Usually this isn't necessary and it risks retaining "
-                    + "large analysis-phase data structures into the execution phase."),
+                "If true, allows functions passed to parameters like <code>map_each</code> to use"
+                    + " local variables of enclosing functions or have default values. Usually"
+                    + " this isn't necessary and it risks retaining large analysis-phase data"
+                    + " structures into the execution phase."),
       },
       useStarlarkThread = true)
   TemplateDictApi addJoined(

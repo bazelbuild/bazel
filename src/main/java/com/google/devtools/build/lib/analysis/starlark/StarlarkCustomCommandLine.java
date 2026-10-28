@@ -176,7 +176,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private final boolean uniquify;
     private final boolean omitIfEmpty;
     private final boolean hasSingleArg;
-    private final boolean hasNonGlobalMapEach;
+    private final boolean hasCapturingMapEach;
     private final StringificationType stringificationType;
     @Nullable private final Location location;
     @Nullable private final String argName;
@@ -194,7 +194,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         boolean uniquify,
         boolean omitIfEmpty,
         boolean hasSingleArg,
-        boolean hasNonGlobalMapEach,
+        boolean hasCapturingMapEach,
         StringificationType stringificationType,
         @Nullable Location location,
         @Nullable String argName,
@@ -210,7 +210,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.uniquify = uniquify;
       this.omitIfEmpty = omitIfEmpty;
       this.hasSingleArg = hasSingleArg;
-      this.hasNonGlobalMapEach = hasNonGlobalMapEach;
+      this.hasCapturingMapEach = hasCapturingMapEach;
       this.stringificationType = stringificationType;
       this.location = location;
       this.argName = argName;
@@ -230,7 +230,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         boolean uniquify,
         boolean omitIfEmpty,
         boolean hasSingleArg,
-        boolean hasNonGlobalMapEach,
+        boolean hasCapturingMapEach,
         StringificationType stringificationType,
         @Nullable Location location,
         @Nullable String argName,
@@ -248,7 +248,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               uniquify,
               omitIfEmpty,
               hasSingleArg,
-              hasNonGlobalMapEach,
+              hasCapturingMapEach,
               stringificationType,
               location,
               argName,
@@ -278,7 +278,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         checkNotNull(arg.joinWith, "format_joined requires join_with");
       }
 
-      boolean hasNonGlobalMapEach = arg.mapEach instanceof StarlarkFunction fn && !fn.isGlobal();
+      boolean hasCapturingMapEach =
+          arg.mapEach instanceof StarlarkFunction fn && fn.dependsOnEnclosingCall();
       recipe.add(
           VectorArg.create(
               arg.nestedSet != null,
@@ -286,11 +287,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
               arg.uniquify,
               arg.omitIfEmpty,
               arg.nestedSet == null && arg.list.size() == 1,
-              hasNonGlobalMapEach,
+              hasCapturingMapEach,
               arg.nestedSetStringificationType,
               arg.mapEach != null ? arg.location : null,
               arg.argName,
-              hasNonGlobalMapEach ? null : arg.mapEach,
+              hasCapturingMapEach ? null : arg.mapEach,
               arg.mapEach != null ? starlarkSemantics : null,
               arg.formatEach,
               arg.beforeEach,
@@ -298,7 +299,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               arg.formatJoined,
               arg.terminateWith));
 
-      if (hasNonGlobalMapEach) {
+      if (hasCapturingMapEach) {
         values.add(arg.mapEach);
       }
       if (arg.nestedSet != null) {
@@ -337,7 +338,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         @Nullable RepositoryMapping mainRepoMapping)
         throws CommandLineExpansionException, InterruptedException {
       StarlarkCallable mapEach =
-          hasNonGlobalMapEach ? (StarlarkCallable) arguments.get(argi++) : this.mapEach;
+          hasCapturingMapEach ? (StarlarkCallable) arguments.get(argi++) : this.mapEach;
       List<Object> originalValues;
       if (isNestedSet) {
         @SuppressWarnings("unchecked")
@@ -622,7 +623,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // It is thus safe to ignore pathMapper below for anything that relies on the default
       // stringification behavior (which excludes custom mapEach functions).
       StarlarkCallable mapEach =
-          hasNonGlobalMapEach ? (StarlarkCallable) arguments.get(argi++) : this.mapEach;
+          hasCapturingMapEach ? (StarlarkCallable) arguments.get(argi++) : this.mapEach;
       if (isNestedSet) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
@@ -839,7 +840,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           && uniquify == that.uniquify
           && omitIfEmpty == that.omitIfEmpty
           && hasSingleArg == that.hasSingleArg
-          && hasNonGlobalMapEach == that.hasNonGlobalMapEach
+          && hasCapturingMapEach == that.hasCapturingMapEach
           && stringificationType.equals(that.stringificationType)
           && Objects.equals(location, that.location)
           && Objects.equals(argName, that.argName)
@@ -859,7 +860,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       result = 31 * result + Boolean.hashCode(uniquify);
       result = 31 * result + Boolean.hashCode(omitIfEmpty);
       result = 31 * result + Boolean.hashCode(hasSingleArg);
-      result = 31 * result + Boolean.hashCode(hasNonGlobalMapEach);
+      result = 31 * result + Boolean.hashCode(hasCapturingMapEach);
       result =
           31 * result
               + HashCodes.hashObjects(
