@@ -179,10 +179,11 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         actions.addAll(
             aspect.getActions().stream().filter(action -> action instanceof ActionApi).iterator());
       }
-      if (base instanceof RuleConfiguredTarget) {
+      if (base instanceof RuleConfiguredTarget ruleConfiguredTarget) {
         actions.addAll(
-            ((RuleConfiguredTarget) base)
-                .getActions().stream().filter(action -> action instanceof ActionApi).iterator());
+            ruleConfiguredTarget.getActions().stream()
+                .filter(action -> action instanceof ActionApi)
+                .iterator());
       }
       return actions.build();
     }
@@ -279,9 +280,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
         if (providerKey.equals(DefaultInfo.PROVIDER.getKey())) {
           // This was handled when creating FileProvider above.
-          continue;
         } else if (providerKey instanceof Class<?>) {
-          @SuppressWarnings("unchecked")
+          @SuppressWarnings("unchecked") // Class key is always a TransitiveInfoProvider subclass.
           Class<? extends TransitiveInfoProvider> providerClass =
               (Class<? extends TransitiveInfoProvider>) providerKey;
           if (base.getProvider(providerClass) != null || nonBaseProviders.contains(providerClass)) {
@@ -395,6 +395,26 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return base.unwrapIfMerged();
   }
 
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof MergedConfiguredTarget other)) {
+      return false;
+    }
+    return base.equals(other.base) && aspects.equals(other.aspects);
+  }
+
+  @Override
+  public int hashCode() {
+    // Inherit AbstractConfiguredTarget.hashCode() (Objects.hash(getLabel(), getConfigurationKey()))
+    // rather than hashing `aspects`, because ConfiguredAspect implementations (e.g. AspectValue)
+    // do not override Object.hashCode() and would make MergedConfiguredTarget's hash code
+    // non-deterministic across JVMs (regressing b/559659860).
+    return super.hashCode();
+  }
+
   /** Returns only the providers from the aspects. */
   public TransitiveInfoProviderMap getAspectsProviders() throws MergingException {
     TransitiveInfoProviderMapBuilder aspectsProviders = new TransitiveInfoProviderMapBuilder();
@@ -419,14 +439,14 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       }
 
       if (providerKey instanceof Class<?>) {
-        @SuppressWarnings("unchecked")
+        @SuppressWarnings("unchecked") // Class key is always a TransitiveInfoProvider subclass.
         Class<? extends TransitiveInfoProvider> providerClass =
             (Class<? extends TransitiveInfoProvider>) providerKey;
         aspectsProviders.put(
             providerClass, (TransitiveInfoProvider) nonBaseProviders.getProviderInstanceAt(i));
       } else if (providerKey instanceof String legacyId) {
         aspectsProviders.put(legacyId, nonBaseProviders.getProviderInstanceAt(i));
-      } else if (providerKey instanceof Provider.Key key) {
+      } else if (providerKey instanceof Provider.Key) {
         aspectsProviders.put((Info) nonBaseProviders.getProviderInstanceAt(i));
       }
     }
