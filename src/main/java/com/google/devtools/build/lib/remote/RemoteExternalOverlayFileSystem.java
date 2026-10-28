@@ -608,9 +608,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // .bzl files are typically small and the loads between them can form complex DAGs that can only
     // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
     // cache requests.
-    // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
-    // fetched anyway.
-    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+    // The REPO.bazel and .bazelignore files, if present, are dependencies of any package and will
+    // thus have to be fetched anyway. Prefetching them also ensures that their loss from the remote
+    // cache results in a cache miss rather than a build failure.
+    return path.getFileExtension().equals("bzl")
+        || path.getBaseName().equals("REPO.bazel")
+        || path.getBaseName().equals(".bazelignore");
   }
 
   @Override
