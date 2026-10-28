@@ -465,4 +465,64 @@ public class SymlinkForestTest {
     assertThat(linkRoot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).exists()).isFalse();
     assertThat(plantedSymlinks).isEmpty();
   }
+
+  @Test
+  public void testProductPrefixDirInMainRepoIsIgnoredWhenRootPackageNotPresent() throws Exception {
+    Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
+    Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
+    Path linkRoot = outputBase.getRelative("execroot/ws_name");
+    String prefixedDir = TestConstants.PRODUCT_NAME + "-dir";
+
+    linkRoot.createDirectoryAndParents();
+    mainRepo.asPath().createDirectoryAndParents();
+
+    ImmutableMap<PackageIdentifier, Root> packageRootMap =
+        ImmutableMap.<PackageIdentifier, Root>builder()
+            .put(createMainPkg(mainRepo, "dir1/pkg"), mainRepo)
+            .put(createMainPkg(mainRepo, prefixedDir + "/foo"), mainRepo)
+            .buildOrThrow();
+
+    ImmutableList<Path> plantedSymlinks =
+        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME)
+            .plantSymlinkForest();
+
+    assertLinksTo(linkRoot, mainRepo, "dir1");
+    assertThat(linkRoot.getRelative(prefixedDir).exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(plantedSymlinks).containsExactly(linkRoot.getRelative("dir1"));
+  }
+
+  @Test
+  public void testProductPrefixAndExternalDirsInMainRepoAreIgnoredWithMultiplePackagePaths()
+      throws Exception {
+    Root rootA = Root.fromPath(fileSystem.getPath("/A"));
+    Root rootB = Root.fromPath(fileSystem.getPath("/B"));
+    String prefixedDir = TestConstants.PRODUCT_NAME + "-dir";
+
+    ImmutableMap<PackageIdentifier, Root> packageRootMap =
+        ImmutableMap.<PackageIdentifier, Root>builder()
+            .put(createPkg(rootA, rootB, ""), rootA)
+            .put(createPkg(rootA, rootB, "pkgA"), rootA)
+            .put(createPkg(rootA, rootB, "pkgB"), rootB)
+            .put(createPkg(rootA, rootB, prefixedDir + "/foo"), rootA)
+            .put(createPkg(rootA, rootB, "external/foo"), rootB)
+            .buildOrThrow();
+    rootA.getRelative("external").createDirectoryAndParents();
+
+    Path linkRoot = fileSystem.getPath("/linkRoot");
+    linkRoot.createDirectoryAndParents();
+    ImmutableList<Path> plantedSymlinks =
+        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME)
+            .plantSymlinkForest();
+
+    assertLinksTo(linkRoot, rootA, "pkgA");
+    assertLinksTo(linkRoot, rootB, "pkgB");
+    assertLinksTo(linkRoot, rootA, "file");
+    assertThat(linkRoot.getRelative(prefixedDir).exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(linkRoot.getRelative("external").exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(plantedSymlinks)
+        .containsExactly(
+            linkRoot.getRelative("pkgA"),
+            linkRoot.getRelative("pkgB"),
+            linkRoot.getRelative("file"));
+  }
 }
