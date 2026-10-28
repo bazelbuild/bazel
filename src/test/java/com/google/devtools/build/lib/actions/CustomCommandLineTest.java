@@ -21,7 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -588,8 +588,8 @@ public final class CustomCommandLineTest {
   @Test
   public void evaluateTreeFileArtifacts_replacesTreeArtifactsWithChildrenExecPaths()
       throws Exception {
-    SpecialArtifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
-    SpecialArtifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
+    TreeArtifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
+    TreeArtifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
 
     CustomCommandLine commandLineTemplate =
         builder()
@@ -618,7 +618,7 @@ public final class CustomCommandLineTest {
   @Test
   public void addAllMappedTreeFileArtifacts_mapToRelativePath_addsTreeFileRelativePaths()
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact");
 
     TreeFileArtifact treeFileArtifactOne =
         TreeFileArtifact.createTreeOutput(treeArtifact, "children/child1");
@@ -702,7 +702,7 @@ public final class CustomCommandLineTest {
     }
   }
 
-  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
+  private TreeArtifact createTreeArtifact(String rootRelativePath) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         rootDir, rootDir.getExecPath().getRelative(rootRelativePath));
   }

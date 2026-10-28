@@ -32,8 +32,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -522,12 +522,9 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void testDeletedConstantMetadataOutputCausesReexecution() throws Exception {
-    SpecialArtifact output =
-        SpecialArtifact.create(
-            artifactRoot,
-            PathFragment.create("bin/dummy"),
-            NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.CONSTANT_METADATA);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/dummy"), NULL_ARTIFACT_OWNER);
     output.getPath().getParentDirectory().createDirectoryAndParents();
     Action action = new WriteEmptyOutputAction(output);
     runAction(action);
@@ -589,7 +586,7 @@ public final class ActionCacheCheckerTest {
   }
 
   private static TreeArtifactValue createTreeMetadata(
-      SpecialArtifact parent,
+      TreeArtifact parent,
       ImmutableMap<String, ? extends FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue,
       Optional<PathFragment> resolvedPath) {
@@ -911,7 +908,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_remoteFileMetadataSaved() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
@@ -943,7 +940,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_remoteArchivedArtifactSaved() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
         new InjectOutputTreeMetadataAction(
@@ -971,7 +968,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_resolvedPathSaved() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
         new InjectOutputTreeMetadataAction(
@@ -999,7 +996,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_emptyTreeMetadata_saved() throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     TreeArtifactValue treeMetadata =
         createTreeMetadata(
@@ -1040,7 +1037,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_localFileMetadataNotSaved() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     writeIsoLatin1(fileSystem.getPath("/file2"), "");
     ImmutableMap<String, FileArtifactValue> children =
@@ -1074,7 +1071,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_localArchivedArtifactNotSaved() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     writeIsoLatin1(fileSystem.getPath("/archive"), "");
     Action action =
@@ -1099,7 +1096,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_remoteFileMetadataLoaded() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
@@ -1147,7 +1144,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_localFileMetadataLoaded() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children1 =
         ImmutableMap.of(
@@ -1228,7 +1225,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadata_localArchivedArtifactLoaded() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
         new InjectOutputTreeMetadataAction(
@@ -1295,7 +1292,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeFileExpired_treeMetadataNotLoaded() throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
@@ -1339,7 +1336,7 @@ public final class ActionCacheCheckerTest {
   public void saveOutputMetadata_archivedRepresentationExpired_treeMetadataNotLoaded()
       throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
@@ -1383,7 +1380,7 @@ public final class ActionCacheCheckerTest {
   public void saveOutputMetadata_toggleArchivedTreeArtifacts_notLoaded(
       @TestParameter boolean initiallyEnabled) throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
@@ -1440,7 +1437,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadataWithSameLocalFileMetadata_cached() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
@@ -1496,7 +1493,7 @@ public final class ActionCacheCheckerTest {
   public void saveOutputMetadata_treeMetadataWithSameLocalArchivedArtifact_cached()
       throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
-    SpecialArtifact output =
+    TreeArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
         new InjectOutputTreeMetadataAction(
@@ -1537,7 +1534,7 @@ public final class ActionCacheCheckerTest {
   public void saveOutputMetadata_trustedRemoteTreeMetadataFromOutputStore_cached()
       throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
-    SpecialArtifact tree =
+    TreeArtifact tree =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of("file", createRemoteMetadata("content"));
@@ -1575,7 +1572,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_emptyTreeMetadataFromOutputStore_cached() throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
-    SpecialArtifact tree =
+    TreeArtifact tree =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     TreeArtifactValue treeMetadata =
         createTreeMetadata(
@@ -1612,7 +1609,7 @@ public final class ActionCacheCheckerTest {
   public void saveOutputMetadata_untrustedRemoteTreeMetadataFromOutputStore_notCached()
       throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
-    SpecialArtifact tree =
+    TreeArtifact tree =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of("file", createRemoteMetadata("content"));
@@ -2128,7 +2125,7 @@ public final class ActionCacheCheckerTest {
   /** A fake metadata handler that is able to obtain metadata from the file system. */
   private static final class FakeInputMetadataHandler extends FakeInputMetadataHandlerBase {
     private final Map<Artifact, FileArtifactValue> fileMetadata = new HashMap<>();
-    private final Map<SpecialArtifact, TreeArtifactValue> treeMetadata = new HashMap<>();
+    private final Map<TreeArtifact, TreeArtifactValue> treeMetadata = new HashMap<>();
 
     @Override
     public void injectFile(Artifact output, FileArtifactValue metadata) {
@@ -2136,7 +2133,7 @@ public final class ActionCacheCheckerTest {
     }
 
     @Override
-    public void injectTree(SpecialArtifact treeArtifact, TreeArtifactValue tree) {
+    public void injectTree(TreeArtifact treeArtifact, TreeArtifactValue tree) {
       treeMetadata.put(treeArtifact, tree);
     }
 
@@ -2152,8 +2149,8 @@ public final class ActionCacheCheckerTest {
     @Override
     public FileArtifactValue getOutputMetadata(Artifact output)
         throws IOException, InterruptedException {
-      if (output.isTreeArtifact()) {
-        TreeArtifactValue treeArtifactValue = getTreeArtifactValue((SpecialArtifact) output);
+      if (output instanceof TreeArtifact treeOutput) {
+        TreeArtifactValue treeArtifactValue = getTreeArtifactValue(treeOutput);
         if (treeArtifactValue != null) {
           return treeArtifactValue.getMetadata();
         } else {
@@ -2168,7 +2165,7 @@ public final class ActionCacheCheckerTest {
     }
 
     @Override
-    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact output)
+    public TreeArtifactValue getTreeArtifactValue(TreeArtifact output)
         throws IOException, InterruptedException {
       if (treeMetadata.containsKey(output)) {
         return treeMetadata.get(output);
@@ -2251,10 +2248,10 @@ public final class ActionCacheCheckerTest {
   }
 
   private static final class InjectOutputTreeMetadataAction extends NullAction {
-    private final SpecialArtifact output;
+    private final TreeArtifact output;
     private final Deque<TreeArtifactValue> metadataDeque;
 
-    InjectOutputTreeMetadataAction(SpecialArtifact output, TreeArtifactValue... metadata) {
+    InjectOutputTreeMetadataAction(TreeArtifact output, TreeArtifactValue... metadata) {
       super(output);
 
       this.output = output;

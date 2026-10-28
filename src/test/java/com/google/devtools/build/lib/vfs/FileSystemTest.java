@@ -1134,6 +1134,18 @@ public abstract class FileSystemTest {
   }
 
   @Test
+  public void testStatTimesInNanoseconds() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    file.setLastModifiedTime(1L << 34);
+    FileStatus stat = file.stat();
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
+    assertThat(Math.floorDiv(stat.getLastChangeTimeNanos(), 1_000_000))
+        .isEqualTo(stat.getLastChangeTime());
+  }
+
+  @Test
   public void testSetLastModifiedTimeWithSentinel() throws Exception {
     Path file = absolutize("file");
     FileSystemUtils.createEmptyFile(file);

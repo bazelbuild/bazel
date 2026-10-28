@@ -71,8 +71,18 @@ public class FileStatusWithDigestAdapter implements FileStatusWithDigest {
   }
 
   @Override
+  public long getLastModifiedTimeNanos() throws IOException {
+    return stat.getLastModifiedTimeNanos();
+  }
+
+  @Override
   public long getLastChangeTime() throws IOException {
     return stat.getLastChangeTime();
+  }
+
+  @Override
+  public long getLastChangeTimeNanos() throws IOException {
+    return stat.getLastChangeTimeNanos();
   }
 
   @Override
