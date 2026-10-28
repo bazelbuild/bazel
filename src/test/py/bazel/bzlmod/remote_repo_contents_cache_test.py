@@ -75,6 +75,45 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
+  def testWatchTreeRefetchesNonUtf8Inputs(self):
+    if not self.IsLinux():
+      self.skipTest('requires arbitrary POSIX filename bytes')
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "watched")',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo(ctx):',
+            '  tree = ctx.path(Label("//:repo.bzl")).dirname.get_child("inputs")',
+            '  ctx.watch_tree(tree)',
+            '  result = ctx.execute(["cat", tree.get_child("nested").get_child("value")])',
+            '  if result.return_code: fail(result.stderr)',
+            '  ctx.file("BUILD", "filegroup(name=%r)" % result.stdout)',
+            '  print("FETCHED WATCHED")',
+            '  return ctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo)',
+        ],
+    )
+    tree = os.fsencode(self.ScratchDir('inputs/nested'))
+    # Read the raw name through a symlink so the subprocess observes POSIX bytes.
+    os.symlink(b'\xff', os.path.join(tree, b'value'))
+    with open(os.path.join(tree, '\ufffd'.encode()), 'wb') as f:
+      f.write(b'other')
+    args = ['query', '@watched//:*']
+    for payload in ('first', 'second', 'second'):
+      with open(os.path.join(tree, b'\xff'), 'wb') as f:
+        f.write(payload.encode())
+      _, stdout, stderr = self.RunBazel(args)
+      self.assertIn('FETCHED WATCHED', '\n'.join(stderr))
+      self.assertIn('@watched//:' + payload, stdout)
+      self.RunBazel(['clean', '--expunge'])
+
   def testLocalRepoContentsCacheInteraction(self):
     self.ScratchFile(
         'MODULE.bazel',
