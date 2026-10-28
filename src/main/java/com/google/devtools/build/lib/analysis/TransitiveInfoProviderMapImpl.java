@@ -176,23 +176,9 @@ public class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object,
         int length = codedIn.readInt32();
         Object[] values = new Object[length];
         for (int i = 0; i < length; i++) {
-          context.deserialize(codedIn, values, new ArrayFieldSetter(i));
+          context.deserializeArrayElement(codedIn, values, i);
         }
         return () -> values;
-      }
-
-      private static final class ArrayFieldSetter
-          implements AsyncDeserializationContext.FieldSetter<Object[]> {
-        private final int index;
-
-        private ArrayFieldSetter(int index) {
-          this.index = index;
-        }
-
-        @Override
-        public void set(Object[] array, Object value) {
-          array[index] = value;
-        }
       }
     }
   }

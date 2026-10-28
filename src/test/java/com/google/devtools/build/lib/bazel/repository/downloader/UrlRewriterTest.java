@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -397,6 +398,28 @@ public class UrlRewriterTest {
   }
 
   @Test
+  public void rewritingUrlsWithNonAsciiCharactersAndAuthHeaders() throws Exception {
+    String config = "rewrite example.com/(.*) üser:pässwörd@mycorp.com/€/$1";
+    UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<UrlRewriter.RewrittenURL> amended =
+        munger.amend(ImmutableList.of(URI.create("https://example.com/foo")));
+    Map<URI, Map<String, List<String>>> updatedAuthHeaders =
+        munger.updateAuthHeaders(amended, ImmutableMap.of(), null);
+
+    var expectedUrl = URI.create("https://%C3%BCser:p%C3%A4ssw%C3%B6rd@mycorp.com/%E2%82%AC/foo");
+    assertThat(amended).containsExactly(UrlRewriter.RewrittenURL.create(expectedUrl, true));
+    assertThat(updatedAuthHeaders)
+        .containsExactly(
+            expectedUrl,
+            ImmutableMap.of(
+                "Authorization",
+                ImmutableList.of(
+                    BasicHttpAuthenticationEncoder.encode(
+                        unicodeToInternal("üser"), unicodeToInternal("pässwörd")))));
+  }
+
+  @Test
   public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
     ImmutableMap<String, String> clientEnv = ImmutableMap.of();
     Path workingDir = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/workdir");
@@ -531,6 +554,71 @@ public class UrlRewriterTest {
         munger.amend(urls).stream().map(UrlRewriter.RewrittenURL::url).collect(toImmutableList());
 
     assertThat(amended).containsExactly(URI.create("https://mirror.com/foo/bar-baz%3Fqux=1"));
+  }
+
+  @Test
+  public void blockListMatchesUpperCaseUrlHosts() throws Exception {
+    String config = "block example.com";
+    UrlRewriter rewriter = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<URI> urls =
+        ImmutableList.of(
+            URI.create("https://EXAMPLE.com/a.tgz"), URI.create("https://cdn.EXAMPLE.com/a.tgz"));
+
+    ImmutableList<UrlRewriter.RewrittenURL> amended = rewriter.amend(urls);
+    ImmutableList<URI> amendedUris =
+        amended.stream().map(UrlRewriter.RewrittenURL::url).collect(toImmutableList());
+
+    assertThat(amendedUris).isEmpty();
+  }
+
+  @Test
+  public void blockListWithUpperCaseHostMatchesLowerCaseUrl() throws Exception {
+    String config = "block EXAMPLE.com";
+    UrlRewriter rewriter = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<URI> urls = ImmutableList.of(URI.create("https://example.com/a.tgz"));
+
+    ImmutableList<UrlRewriter.RewrittenURL> amended = rewriter.amend(urls);
+    ImmutableList<URI> amendedUris =
+        amended.stream().map(UrlRewriter.RewrittenURL::url).collect(toImmutableList());
+
+    assertThat(amendedUris).isEmpty();
+  }
+
+  @Test
+  public void allowListMatchesMixedCaseUrlWithMixedCaseConfig() throws Exception {
+    String config = "block *\nallow EXAMPLE.com";
+    UrlRewriter rewriter = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<URI> urls =
+        ImmutableList.of(
+            URI.create("https://EXAMPLE.com/a.tgz"), URI.create("https://sub.EXAMPLE.com/a.tgz"));
+
+    ImmutableList<UrlRewriter.RewrittenURL> amended = rewriter.amend(urls);
+    ImmutableList<URI> amendedUris =
+        amended.stream().map(UrlRewriter.RewrittenURL::url).collect(toImmutableList());
+
+    assertThat(amendedUris)
+        .containsExactly(
+            URI.create("https://EXAMPLE.com/a.tgz"), URI.create("https://sub.EXAMPLE.com/a.tgz"))
+        .inOrder();
+  }
+
+  @Test
+  public void rewriteMatchesUpperCaseHostAndPreservesEncoding() throws Exception {
+    String config = "rewrite example.com/(.*) mirror.com/$1";
+    UrlRewriter rewriter = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<URI> urls =
+        ImmutableList.of(URI.create("https://EXAMPLE.com/org%2Frepo/archive/v1.tar.gz?q=a%26b"));
+
+    ImmutableList<UrlRewriter.RewrittenURL> amended = rewriter.amend(urls);
+    ImmutableList<URI> amendedUris =
+        amended.stream().map(UrlRewriter.RewrittenURL::url).collect(toImmutableList());
+
+    assertThat(amendedUris)
+        .containsExactly(URI.create("https://mirror.com/org%2Frepo/archive/v1.tar.gz?q=a%26b"));
   }
 
   @Test

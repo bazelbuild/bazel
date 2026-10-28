@@ -13,11 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
-
 import com.google.common.collect.Sets;
-
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -48,7 +44,6 @@ final class HashSetCodec extends AsyncObjectCodec<HashSet> {
     }
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public HashSet deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
@@ -62,11 +57,7 @@ final class HashSetCodec extends AsyncObjectCodec<HashSet> {
 
     ElementBuffer buffer = new ElementBuffer(set, size);
     for (int i = 0; i < size; i++) {
-      context.deserialize(
-          codedIn,
-          buffer.elements,
-          ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i,
-          /* done= */ (Runnable) buffer);
+      context.deserializeArrayElement(codedIn, buffer.elements, i, /* done= */ buffer);
     }
 
     return set;

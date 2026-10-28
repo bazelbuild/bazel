@@ -278,34 +278,6 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
             directExecutor()));
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
-  @Override
-  @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
-  public void deserialize(CodedInputStream codedIn, Object parent, long offset, Runnable done)
-      throws IOException, SerializationException {
-    Object result = processTagAndDeserialize(codedIn);
-    if (result == null) {
-      done.run();
-      return;
-    }
-
-    if (!(result instanceof ListenableFuture)) {
-      unsafe().putObject(parent, offset, result);
-      done.run();
-      return;
-    }
-
-    addReadStatusFuture(
-        Futures.transform(
-            (ListenableFuture<?>) result,
-            value -> {
-              unsafe().putObject(parent, offset, value);
-              done.run();
-              return null;
-            },
-            directExecutor()));
-  }
-
   @Override
   public void deserializeArrayElement(CodedInputStream codedIn, Object[] arr, int index)
       throws IOException, SerializationException {
@@ -321,6 +293,33 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     }
 
     arr[index] = result;
+  }
+
+  @Override
+  public void deserializeArrayElement(
+      CodedInputStream codedIn, Object[] arr, int index, Runnable done)
+      throws IOException, SerializationException {
+    Object result = processTagAndDeserialize(codedIn);
+    if (result == null) {
+      done.run();
+      return;
+    }
+
+    if (result instanceof ListenableFuture<?> futureResult) {
+      addReadStatusFuture(
+          Futures.transform(
+              futureResult,
+              value -> {
+                arr[index] = value;
+                done.run();
+                return null;
+              },
+              directExecutor()));
+      return;
+    }
+
+    arr[index] = result;
+    done.run();
   }
 
   @Override

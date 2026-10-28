@@ -657,20 +657,12 @@ public abstract sealed class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
+    if (root.isSourceRoot() && root.isExternal()) {
+      // Keep the repository segment instead of stripping and rebuilding it.
+      return LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(execPath.subFragment(1));
+    }
     PathFragment relativePath = getRootRelativePath();
-    // Runfile paths for external artifacts should be prefixed with "../<repo name>".
-    if (root.isSourceRoot()) {
-      if (root.isExternal()) {
-        // External source artifacts have their repo name as the 2nd level directory name in their
-        // exec paths, i.e. external/<repo name>/..., while their root-relative paths are already
-        // relative to the repo root.
-        String repoName = execPath.getSegment(1);
-        relativePath =
-            LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX
-                .getRelative(repoName)
-                .getRelative(relativePath);
-      }
-    } else if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+    if (!root.isSourceRoot() && relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Root-relative paths of external derived artifacts are already prefixed with
       // "external/<repo name>". Just replace "external" with "..".
       relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);

@@ -15,12 +15,15 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -49,6 +52,8 @@ public final class TypeTable {
   private final boolean[] functionsUsingTypeSyntax;
 
   private List<SyntaxError> errors = new ArrayList<>();
+  // Subset of the above errors list.
+  @Nullable private Set<SyntaxError> errorsRelevantOnlyInTypedCode = null;
 
   /** Constructs a {@link TypeTable} large enough to hold typeable entities in the given file. */
   public TypeTable(StarlarkFile file) {
@@ -82,14 +87,48 @@ public final class TypeTable {
     errors.add(error);
   }
 
-  /** Returns the list of errors recorded in the type table. */
-  public ImmutableList<SyntaxError> errors() {
-    return errors == null ? ImmutableList.of() : ImmutableList.copyOf(errors);
+  /** Records a syntax error in the type table. */
+  void addErrorRelevantOnlyInTypedCode(SyntaxError error) {
+    addError(error);
+    if (errorsRelevantOnlyInTypedCode == null) {
+      errorsRelevantOnlyInTypedCode = new LinkedHashSet<>();
+    }
+    errorsRelevantOnlyInTypedCode.add(error);
   }
 
-  /** Returns true if no errors were recorded in the type table. */
+  /**
+   * Returns the list of errors recorded in the type table (excluding errors relevant only in typed
+   * code if the file doesn't use type syntax).
+   */
+  public ImmutableList<SyntaxError> errors() {
+    if (errors == null) {
+      return ImmutableList.of();
+    }
+    if (!toplevelUsesTypeSyntax() && !errors.isEmpty() && errorsRelevantOnlyInTypedCode != null) {
+      return errors.stream()
+          .filter(e -> !errorsRelevantOnlyInTypedCode.contains(e))
+          .collect(toImmutableList());
+    }
+    return ImmutableList.copyOf(errors);
+  }
+
+  /**
+   * Returns true if no errors were recorded in the type table. If the file doesn't use type syntax,
+   * errors relevant only in typed code are ignored.
+   *
+   * <p>Invariant: {@link ok()} is true iff {@link errors()} is empty.
+   */
   public boolean ok() {
-    return errors == null || errors.isEmpty();
+    if (errors == null || errors.isEmpty()) {
+      return true;
+    }
+    if (!toplevelUsesTypeSyntax() && errorsRelevantOnlyInTypedCode != null) {
+      return errors.stream()
+          .filter(e -> !errorsRelevantOnlyInTypedCode.contains(e))
+          .findAny()
+          .isEmpty();
+    }
+    return false;
   }
 
   /**
@@ -190,6 +229,18 @@ public final class TypeTable {
    */
   public boolean usesTypeSyntax(Resolver.Function function) {
     return functionsUsingTypeSyntax[function.getFunctionId()];
+  }
+
+  /**
+   * After type tagging has been performed, returns true if the file's toplevel function is
+   * considered to use static typing syntax (which is true iff any part of the file uses type
+   * syntax).
+   */
+  boolean toplevelUsesTypeSyntax() {
+    if (functionsUsingTypeSyntax.length > 0) {
+      return functionsUsingTypeSyntax[functionsUsingTypeSyntax.length - 1];
+    }
+    return false;
   }
 
   /** Marks the function with the given sequence number as using type syntax. */

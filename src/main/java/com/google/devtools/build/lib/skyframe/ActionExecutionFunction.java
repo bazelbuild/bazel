@@ -362,14 +362,14 @@ public class ActionExecutionFunction implements SkyFunction {
               previousExecution,
               actionStartTime);
     } catch (LostInputsActionExecutionException e) {
+      ImmutableSet<SkyKey> inputDepKeys =
+          getInputDepKeys(
+              /* consumedArtifactsTracker= */ null,
+              allInputs,
+              action.getSchedulingDependencies(),
+              /* state= */ null);
       ActionInputMap inputArtifactData = state.inputArtifactData;
       if (inputArtifactData == null) {
-        ImmutableSet<SkyKey> inputDepKeys =
-            getInputDepKeys(
-                /* consumedArtifactsTracker= */ null,
-                allInputs,
-                action.getSchedulingDependencies(),
-                /* state= */ null);
         // Reconstitute inputArtifactData if it was not present in `state`.
         //
         // This can happen after Skyframe restarts inside `handleLostInputs`, when remote analysis
@@ -392,7 +392,24 @@ public class ActionExecutionFunction implements SkyFunction {
           throw new ActionExecutionFunctionException(e2);
         }
       }
-      return handleLostInputs(e, actionLookupData, action, actionStartTime, env, inputArtifactData);
+      NestedSet<Artifact> discoveredInputs = null;
+      if (action.discoversInputs()) {
+        if (state.discoveredInputs != null) {
+          discoveredInputs = state.discoveredInputs;
+        } else if (action.inputsKnown()) {
+          discoveredInputs = action.getInputs();
+        }
+      }
+
+      return handleLostInputs(
+          e,
+          actionLookupData,
+          action,
+          actionStartTime,
+          env,
+          inputDepKeys,
+          discoveredInputs,
+          inputArtifactData);
     } catch (ActionExecutionException e) {
       // In this case we do not report the error to the action reporter because we have already
       // done it in SkyframeActionExecutor.reportErrorIfNotAbortingMode() method. That method
@@ -481,6 +498,9 @@ public class ActionExecutionFunction implements SkyFunction {
       Action action,
       long actionStartTimeNanos,
       Environment env,
+      ImmutableSet<SkyKey> inputDepKeys,
+      @Nullable // non-null if the Action discovers inputs and input discovery succeeded
+          NestedSet<Artifact> discoveredInputs,
       ActionInputMap inputArtifactData)
       throws InterruptedException, ActionExecutionFunctionException {
     checkState(
@@ -489,18 +509,27 @@ public class ActionExecutionFunction implements SkyFunction {
         actionLookupData,
         e);
 
-    // Use the actual requested keys, including nested sets, even if input-discovery state was
-    // evicted.
-    ImmutableSet.Builder<SkyKey> failedActionDeps =
-        ImmutableSet.<SkyKey>builder()
-            .addAll(checkNotNull(env.getTemporaryDirectDeps()).getAllElementsAsIterable())
-            .addAll(env.getNewlyRequestedDeps());
+    // inputDepKeys only contains keys in the initial, pre-input-discovery Skyframe request. If the
+    // action discovers inputs, we must combine them with discovered input keys.
+    ImmutableSet<SkyKey> failedActionDeps;
     if (e.isFromInputDiscovery()) {
       // The action failed during input discovery. We don't know the discovered inputs, so just add
       // keys of lost inputs in case any of them were discovered.
-      failedActionDeps.addAll(
-          Collections2.transform(
-              e.getLostInputs().values(), input -> Artifact.key((Artifact) input)));
+      failedActionDeps =
+          ImmutableSet.<SkyKey>builder()
+              .addAll(inputDepKeys)
+              .addAll(
+                  Collections2.transform(
+                      e.getLostInputs().values(), input -> Artifact.key((Artifact) input)))
+              .build();
+    } else if (discoveredInputs != null) {
+      failedActionDeps =
+          ImmutableSet.<SkyKey>builder()
+              .addAll(inputDepKeys)
+              .addAll(Artifact.keys(discoveredInputs.toList()))
+              .build();
+    } else {
+      failedActionDeps = inputDepKeys;
     }
 
     RewindPlanResult rewindPlanResult = null;
@@ -509,7 +538,7 @@ public class ActionExecutionFunction implements SkyFunction {
           actionRewindStrategy.prepareRewindPlanForLostInputs(
               actionLookupData,
               action,
-              failedActionDeps.build(),
+              failedActionDeps,
               e,
               inputArtifactData,
               env,
@@ -904,38 +933,13 @@ public class ActionExecutionFunction implements SkyFunction {
             ? state.getOrCreateLateDiscoveredInputArtifactData(unknownDiscoveredInputs.size())
             : state.inputArtifactData;
 
-    boolean nestedInputsReady = false;
-    if (!state.discoveredInputs.isSingleton()) {
-      // Preserve shared header sets instead of retaining one edge per header in every action.
-      SkyKey nestedKey = ArtifactNestedSetKey.create(state.discoveredInputs);
-      try {
-        if (env.getValueOrThrow(nestedKey, ArtifactNestedSetEvalException.class) == null) {
-          return;
-        }
-        nestedInputsReady = true;
-      } catch (ArtifactNestedSetEvalException e) {
-        // Keep the per-artifact error handling below, including missing discovered source files.
-      }
-    }
-    SkyframeLookupResult nonMandatoryDiscovered = null;
-    if (!nestedInputsReady) {
-      nonMandatoryDiscovered = env.getValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
-    }
+    SkyframeLookupResult nonMandatoryDiscovered =
+        env.getValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
     for (Artifact input : unknownDiscoveredInputs) {
       SkyValue retrievedMetadata;
       try {
-        if (nestedInputsReady) {
-          retrievedMetadata = lookupInput(input, ImmutableSet.of(), env);
-          if (retrievedMetadata == null) {
-            // If rewinding finishes with an error, the nested set may still report success.
-            // Request the failed artifact directly so Skyframe propagates its error.
-            retrievedMetadata =
-                env.getValueOrThrow(Artifact.key(input), SourceArtifactException.class);
-          }
-        } else {
-          retrievedMetadata =
-              nonMandatoryDiscovered.getOrThrow(Artifact.key(input), SourceArtifactException.class);
-        }
+        retrievedMetadata =
+            nonMandatoryDiscovered.getOrThrow(Artifact.key(input), SourceArtifactException.class);
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
           throw new IllegalStateException(

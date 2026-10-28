@@ -389,12 +389,22 @@ public final class Starlark {
     };
   }
 
-  /** Returns the type of the given Starlark value. */
-  public static StarlarkType getStarlarkType(Object value, StarlarkSemantics semantics) {
+  private static StarlarkType getStarlarkType(
+      Object value, StarlarkSemantics semantics, boolean checkSelfReferential) {
     return switch (value) {
       case String s -> Types.STR;
       case StarlarkValue x -> {
-        @Nullable StarlarkType type = x.getStarlarkType(semantics);
+        @Nullable StarlarkType type;
+        try {
+          type = x.getStarlarkType(semantics);
+        } catch (StackOverflowError e) {
+          if (checkSelfReferential) {
+            // Self-referential or overly nested value. Fall back to class-derived type.
+            type = null;
+          } else {
+            throw e;
+          }
+        }
         if (type == null) {
           type = CallUtils.getStarlarkBuiltinAutoType(value.getClass());
         }
@@ -406,6 +416,37 @@ public final class Starlark {
         throw new AssertionError("unreachable");
       }
     };
+  }
+
+  /**
+   * Returns the type of the given Starlark value. If computing the type would cause a stack
+   * overflow (as would be the case for a self-referential value), swallows the exception and falls
+   * back to deriving the type from the value's class.
+   *
+   * <p>This method must not be used by implementations of {@link StarlarkValue#getStarlarkType} -
+   * those should use {@link #getStarlarkTypePropagatingStackOverflow} instead.
+   */
+  public static StarlarkType getStarlarkType(Object value, StarlarkSemantics semantics) {
+    return getStarlarkType(value, semantics, /* checkSelfReferential= */ true);
+  }
+
+  /**
+   * Returns the type of the given Starlark value. If computing the type would cause a stack
+   * overflow, propagates the {@link StackOverflowError}.
+   *
+   * <p>This method is intended for use by implementations of {@link StarlarkValue#getStarlarkType},
+   * such as {@link Dict} or {@link StarlarkList}, which recurse back into {@link
+   * Starlark#getStarlarkType} for the types of their elements. Propagating the exception allows the
+   * top-level caller of {@link Starlark#getStarlarkType} to catch it and fall back to deriving the
+   * type from the outermost value's class. Catching the stack overflow too early would result in an
+   * unnecessarily deep type, e.g. one that attempts to unfold the first N (for a large N) levels of
+   * a self-referential value.
+   *
+   * @throws StackOverflowError on self-referential or overly nested values.
+   */
+  public static StarlarkType getStarlarkTypePropagatingStackOverflow(
+      Object value, StarlarkSemantics semantics) {
+    return getStarlarkType(value, semantics, /* checkSelfReferential= */ false);
   }
 
   /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */

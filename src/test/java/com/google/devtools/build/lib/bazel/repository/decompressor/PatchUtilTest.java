@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import org.junit.Before;
@@ -207,6 +209,27 @@ public final class PatchUtilTest {
     assertThat(FileSystemUtils.readLines(oldFile, UTF_8)).isEqualTo(newContent);
     // new file should not change
     assertThat(FileSystemUtils.readLines(newFile, UTF_8)).containsExactly("line one");
+  }
+
+  @Test
+  public void testNonAsciiFileNameAndContent() throws IOException, PatchFailedException {
+    // A single 0xE4 byte, which isn't valid UTF-8.
+    String latin1Line = "line \u00e4";
+    Path file =
+        scratch.file(unicodeToInternal("/root/fïlé.txt"), latin1Line, unicodeToInternal("old ü"));
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            unicodeToInternal("--- a/fïlé.txt"),
+            unicodeToInternal("+++ b/fïlé.txt"),
+            "@@ -1,2 +1,2 @@",
+            " " + latin1Line,
+            unicodeToInternal("-old ü"),
+            unicodeToInternal("+new €"));
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLinesAsLatin1(file))
+        .containsExactly(latin1Line, unicodeToInternal("new €"))
+        .inOrder();
   }
 
   @Test
@@ -922,4 +945,146 @@ public final class PatchUtilTest {
     assertThat(FileSystemUtils.readLines(foo, UTF_8)).containsExactly("foo_new");
     assertThat(FileSystemUtils.readLines(bar, UTF_8)).containsExactly("bar_new");
   }
+
+  @Test
+  public void testPatchFollowsDirectorySymlink_addFile() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("/root/outside"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile2",
+            "--- /dev/null",
+            "+++ a/link/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("foo.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchFollowsDirectorySymlink_rename() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("/root/outside"));
+    scratch.file("/root/outside/foo.txt", "content");
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile3",
+            "diff --git a/link/foo.txt b/bar.txt",
+            "similarity index 100%",
+            "rename from link/foo.txt",
+            "rename to bar.txt");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("foo.txt").exists()).isTrue();
+    assertThat(repoDir.getRelative("bar.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchFollowsRelativeSymlinkOutsideRepository() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("../outside"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile4",
+            "--- /dev/null",
+            "+++ a/link/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("foo.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchIntermediateSymlinkPointingOutsideButLeafPointingInside() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    scratch.dir("/root/repo/sub");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("/root/outside"));
+    outsideDir.getRelative("back").createSymbolicLink(PathFragment.create("/root/repo/sub"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile5",
+            "--- /dev/null",
+            "+++ a/link/back/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("back/foo.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchIntraRepositorySymlink() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    scratch.dir("/root/repo/sub");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("sub"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile6",
+            "--- /dev/null",
+            "+++ a/link/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchUtil.apply(/* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir);
+    assertThat(repoDir.getRelative("sub/foo.txt").exists()).isTrue();
+  }
+
+  @Test
+  public void testPatchOutputDirectoryIsSymlink() throws Exception {
+    Path repoDirReal = scratch.dir("/root/repo_real");
+    Path repoDirLink = scratch.dir("/root").getChild("repo_link");
+    repoDirLink.createSymbolicLink(PathFragment.create("repo_real"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile7",
+            "--- /dev/null",
+            "+++ a/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchUtil.apply(/* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDirLink);
+    assertThat(repoDirReal.getRelative("foo.txt").exists()).isTrue();
+  }
 }
+

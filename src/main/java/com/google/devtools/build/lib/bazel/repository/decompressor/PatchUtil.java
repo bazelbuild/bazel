@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.github.difflib.UnifiedDiffUtils;
 import com.github.difflib.patch.AbstractDelta;
@@ -163,11 +163,11 @@ public class PatchUtil {
   }
 
   private static ImmutableList<String> readFile(Path file) throws IOException {
-    return FileSystemUtils.readLines(file, UTF_8);
+    return FileSystemUtils.readLinesAsLatin1(file);
   }
 
   private static void writeFile(Path file, List<String> content) throws IOException {
-    FileSystemUtils.writeLinesAs(file, UTF_8, content);
+    FileSystemUtils.writeLinesAs(file, ISO_8859_1, content);
   }
 
   private static boolean getReadPermission(int permission) {
@@ -319,6 +319,30 @@ public class PatchUtil {
               "Cannot patch file outside of external repository (%s), file path = \"%s\" at line"
                   + " %d",
               outputDirectory.getPathString(), path, loc));
+    }
+    try {
+      Path realOutputDirectory = null;
+      for (Path ancestor = filePath;
+          ancestor != null && !ancestor.equals(outputDirectory);
+          ancestor = ancestor.getParentDirectory()) {
+        if (ancestor.isSymbolicLink()) {
+          if (realOutputDirectory == null) {
+            realOutputDirectory = outputDirectory.resolveSymbolicLinks();
+          }
+          Path resolved = ancestor.resolveSymbolicLinks();
+          if (!resolved.startsWith(realOutputDirectory)) {
+            throw new PatchFailedException(
+                String.format(
+                    "Cannot patch file outside of external repository (%s), file path = \"%s\" at"
+                        + " line %d (resolves to %s)",
+                    outputDirectory.getPathString(), path, loc, resolved.getPathString()));
+          }
+        }
+      }
+    } catch (IOException e) {
+      throw new PatchFailedException(
+          String.format(
+              "Cannot resolve file path \"%s\" at line %d: %s", path, loc, e.getMessage()));
     }
     return filePath;
   }

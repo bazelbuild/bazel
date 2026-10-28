@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
-import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
@@ -34,17 +32,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -59,78 +53,6 @@ public final class JavaCompileActionBuilder {
   /** Returns true if this is a Java compile action. */
   public static boolean isJavaCompileAction(ActionAnalysisMetadata action) {
     return action != null && action.getMnemonic().equals(MNEMONIC);
-  }
-
-  @ThreadCompatible
-  @Immutable
-  private static final class JavaCompileExtraActionInfoSupplier
-      implements JavaCompileAction.ExtraActionInfoSupplier {
-
-    private final Artifact outputJar;
-
-    /** The list of classpath entries to specify to javac. */
-    private final NestedSet<Artifact> classpathEntries;
-
-    /** The list of bootclasspath entries to specify to javac. */
-    private final NestedSet<Artifact> bootclasspathEntries;
-
-    /** An argument to the javac >= 9 {@code --system} flag. */
-    @Nullable private final Optional<PathFragment> system;
-
-    /** The list of classpath entries to search for annotation processors. */
-    private final NestedSet<Artifact> processorPath;
-
-    /** The list of annotation processor classes to run. */
-    private final NestedSet<String> processorNames;
-
-    /** Set of additional Java source files to compile. */
-    private final ImmutableList<Artifact> sourceJars;
-
-    /** The set of explicit Java source files to compile. */
-    private final ImmutableSet<Artifact> sourceFiles;
-
-    /** The compiler options to pass to javac. */
-    private final ImmutableList<String> javacOpts;
-
-    JavaCompileExtraActionInfoSupplier(
-        Artifact outputJar,
-        NestedSet<Artifact> classpathEntries,
-        NestedSet<Artifact> bootclasspathEntries,
-        Optional<PathFragment> system,
-        NestedSet<Artifact> processorPath,
-        NestedSet<String> processorNames,
-        ImmutableList<Artifact> sourceJars,
-        ImmutableSet<Artifact> sourceFiles,
-        ImmutableList<String> javacOpts) {
-      this.outputJar = outputJar;
-      this.classpathEntries = classpathEntries;
-      this.bootclasspathEntries = bootclasspathEntries;
-      this.system = system;
-      this.processorPath = processorPath;
-      this.processorNames = processorNames;
-      this.sourceJars = sourceJars;
-      this.sourceFiles = sourceFiles;
-      this.javacOpts = javacOpts;
-    }
-
-    @Override
-    public void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments) {
-      JavaCompileInfo.Builder info =
-          JavaCompileInfo.newBuilder()
-              .addAllSourceFile(Artifact.toExecPaths(sourceFiles))
-              .addAllClasspath(Artifact.toExecPaths(classpathEntries.toList()))
-              .addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries.toList()))
-              .addAllSourcepath(Artifact.toExecPaths(sourceJars))
-              .addAllJavacOpt(javacOpts)
-              .addAllProcessor(processorNames.toList())
-              .addAllProcessorpath(Artifact.toExecPaths(processorPath.toList()))
-              .setOutputjar(outputJar.getExecPathString());
-      if (system.isPresent()) {
-        info.setSystem(system.get().toString());
-      }
-      info.addAllArgument(arguments);
-      builder.setExtension(JavaCompileInfo.javaCompileInfo, info.build());
-    }
   }
 
   private final RuleContext ruleContext;
@@ -215,18 +137,6 @@ public final class JavaCompileActionBuilder {
       mandatoryInputsBuilder.add(coverageArtifact);
     }
 
-    JavaCompileExtraActionInfoSupplier extraActionInfoSupplier =
-        new JavaCompileExtraActionInfoSupplier(
-            outputs.output(),
-            classpathEntries,
-            bootClassPath.bootclasspath(),
-            bootClassPath.systemPath(),
-            plugins.processorClasspath(),
-            plugins.processorClasses(),
-            sourceJars,
-            sourceFiles,
-            javacOpts);
-
     // TODO(b/123076347): outputDepsProto should never be null if SJD is enabled
     if (strictJavaDeps == StrictDepsMode.OFF || outputs.depsProto() == null) {
       classpathMode = JavaClasspathMode.OFF;
@@ -260,12 +170,12 @@ public final class JavaCompileActionBuilder {
         /* outputs= */ allOutputs(),
         /* env= */ actionEnvironment,
         /* executionInfo= */ executionInfo,
-        /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine,
         /* flagLine= */ buildParamFileContents(javacOpts),
         /* extraCommandLineArgs= */ extraCommandLineArgs,
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
+        /* additionalArtifactsForPathMapping= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputDepsProto= */ outputs.depsProto(),
         /* classpathMode= */ classpathMode);
   }

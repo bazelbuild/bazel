@@ -817,7 +817,9 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
     }
     return Types.set(
         Types.union(
-            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
+            stream()
+                .map(e -> Starlark.getStarlarkTypePropagatingStackOverflow(e, semantics))
+                .collect(toImmutableSet())));
   }
 
   /**

@@ -1361,6 +1361,115 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('I am running the extension', stderr)
     self.assertIn('I have changed now!', stderr)
 
+  def testModuleExtensionWithCopiedFile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("I am running the extension")',
+            '    ctx.copy(Label("//:hello.txt"), "copy/hello.txt")',
+            '    print(ctx.read("copy/hello.txt"))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('hello.txt', ['I will not stay the same.'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I will not stay the same.', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension', stderr)
+    self.assertNotIn('I will not stay the same.', stderr)
+
+    # Update file and rerun
+    self.ScratchFile('hello.txt', ['I have changed now!'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I have changed now!', stderr)
+
+  def testModuleExtensionWithCopiedDirectory(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("I am running the extension")',
+            (
+                '    src ='
+                ' ctx.path(Label("//:BUILD.bazel")).dirname.get_child("dir")'
+            ),
+            '    ctx.copy(src, "copy")',
+            '    print(ctx.read("copy/sub/hello.txt"))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('dir/sub/hello.txt', ['I will not stay the same.'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I will not stay the same.', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension', stderr)
+    self.assertNotIn('I will not stay the same.', stderr)
+
+    # Update a file in the directory and rerun
+    self.ScratchFile('dir/sub/hello.txt', ['I have changed now!'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I have changed now!', stderr)
+
+    # Add a file to the directory and rerun after a shutdown
+    self.RunBazel(['shutdown'])
+    self.ScratchFile('dir/sub/new.txt')
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+
   def testModuleExtensionModifyingWatchedFile(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/29114: an
     # extension that reads a file, modifies it and then reads it again must not
@@ -3363,6 +3472,61 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertNotIn('Hello from the other side!', ''.join(stderr))
     self.assertIn('Unicode test: äöüÄÖÜß🌱', ''.join(stderr))
+
+  def testUnicodeFacts(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = impl)',
+            'def _mod_ext_impl(ctx):',
+            '    if "äöü€🌱" in ctx.facts:',
+            '        print("Fact: " + ctx.facts["äöü€🌱"])',
+            '    else:',
+            '        print("Fetching facts")',
+            '    repo_rule(name = "hello")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = True,',
+            '        facts = {"äöü€🌱": "ÄÖÜ€🌱"},',
+            '    )',
+            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Fetching facts', ''.join(stderr))
+    with open(self.Path('MODULE.bazel.lock'), 'r', encoding='utf-8') as f:
+      lockfile = f.read()
+    self.assertIn('"äöü€🌱": "ÄÖÜ€🌱"', lockfile)
+
+    # Clean out the hidden lockfile to ensure that the extension is evaluated
+    # again with the facts from the lockfile.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=error']
+    )
+    self.assertIn('Fact: ÄÖÜ€🌱', ''.join(stderr))
+
+    # Facts written with JSON escapes, e.g. by a merge tool, are read
+    # correctly.
+    with open(self.Path('MODULE.bazel.lock'), 'w', encoding='utf-8') as f:
+      f.write(
+          lockfile.replace(
+              '"ÄÖÜ€🌱"', '"\\u00c4\\u00d6\\u00dc\\u20ac\\ud83c\\udf31"'
+          )
+      )
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Fact: ÄÖÜ€🌱', ''.join(stderr))
 
   def testFactsInReproducibleExtension(self):
     self.ScratchFile(

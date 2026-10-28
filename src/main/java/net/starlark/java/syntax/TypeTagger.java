@@ -21,9 +21,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
+import java.util.BitSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -111,6 +111,18 @@ public final class TypeTagger extends NodeVisitor {
   @FormatMethod
   private void errorf(Location loc, String format, Object... args) {
     typeTable.addError(new SyntaxError(loc, String.format(format, args)));
+  }
+
+  // Formats and reports an error at the start of the specified node.
+  @FormatMethod
+  private void errorfOnlyInTypedCode(Node node, String format, Object... args) {
+    errorfOnlyInTypedCode(node.getStartLocation(), format, args);
+  }
+
+  // Formats and reports an error at the specified location.
+  @FormatMethod
+  private void errorfOnlyInTypedCode(Location loc, String format, Object... args) {
+    typeTable.addErrorRelevantOnlyInTypedCode(new SyntaxError(loc, String.format(format, args)));
   }
 
   private TypeTagger(TypeTable typeTable, Resolver.Module module, @Nullable Loader loader) {
@@ -331,17 +343,21 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   private Types.GeneralCallableType createFunctionType(
-      ImmutableList<Parameter> parameters, @Nullable Expression returnTypeExpr) {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
-    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+      Resolver.Function resolvedFunction,
+      ImmutableList<Parameter> parameters,
+      @Nullable Expression returnTypeExpr) {
+    int numNonResidual = resolvedFunction.getNumNonResidualParameters();
+    ImmutableList<String> names = resolvedFunction.getParameterNames().subList(0, numNonResidual);
+    // Non-null only if there's at least one non-Any type non-residual parameter.
+    ImmutableList.Builder<StarlarkType> types = null;
+    BitSet mandatoryIndices = new BitSet();
 
     int nparams = parameters.size();
     int numPositionalParameters = 0;
+    int paramIndex = 0;
     Parameter.Star star = null;
     Parameter.StarStar starStar = null;
-    int i;
-    for (i = 0; i < nparams; i++) {
+    for (int i = 0; i < nparams; i++) {
       Parameter param = parameters.get(i);
       if (param instanceof Parameter.Star pstar) {
         star = pstar;
@@ -355,14 +371,25 @@ public final class TypeTagger extends NodeVisitor {
         numPositionalParameters++;
       }
 
-      String name = param.getName();
       Expression typeExpr = param.getType();
-
-      names.add(name);
-      types.add(typeExpr == null ? Types.ANY : extractType(typeExpr));
-      if (param instanceof Parameter.Mandatory) {
-        mandatoryParameters.add(name);
+      StarlarkType paramType = Types.ANY;
+      if (typeExpr != null) {
+        paramType = extractType(typeExpr);
+        if (!paramType.equals(Types.ANY) && types == null) {
+          types = ImmutableList.builderWithExpectedSize(numNonResidual);
+          for (int j = 0; j < paramIndex; j++) {
+            types.add(Types.ANY);
+          }
+        }
       }
+      if (types != null) {
+        types.add(paramType);
+      }
+
+      if (param instanceof Parameter.Mandatory) {
+        mandatoryIndices.set(paramIndex);
+      }
+      paramIndex++;
     }
 
     StarlarkType varargsType = null;
@@ -383,11 +410,11 @@ public final class TypeTagger extends NodeVisitor {
     }
 
     return Types.generalCallable(
-        names.build(),
-        types.build(),
+        names,
+        types == null ? null : types.build(),
         /* numPositionalOnlyParameters= */ 0,
         numPositionalParameters,
-        mandatoryParameters.build(),
+        Types.MandatoryParamIndices.of(mandatoryIndices),
         varargsType,
         kwargsType,
         returnType);
@@ -423,14 +450,17 @@ public final class TypeTagger extends NodeVisitor {
         //
         // When a violation occurs at a def statement, we use a more specific error message to avoid
         // confusing the user.
-        errorf(id, "function '%s' was previously declared", id.getName());
+        errorfOnlyInTypedCode(id, "function '%s' was previously declared", id.getName());
       } else {
-        errorf(id, "type annotation on '%s' may only appear at its declaration", id.getName());
+        errorfOnlyInTypedCode(
+            id, "type annotation on '%s' may only appear at its declaration", id.getName());
       }
       if (binding.isSyntactic()) {
-        errorf(binding.getFirst(), "'%s' previously declared here", id.getName());
+        errorfOnlyInTypedCode(binding.getFirst(), "'%s' previously declared here", id.getName());
       }
       errorIfTypeConstructor(node, id);
+      // We don't have a usable type for this binding.
+      typeTable.setDeclaredType(binding, null);
       return;
     }
 
@@ -495,8 +525,9 @@ public final class TypeTagger extends NodeVisitor {
       // redeclaration only within the same program (the same set of statements passed to
       // TypeTagger/TypeChecker); but redeclaration in a different program which happens to mutate
       // the same globals should be fine.
-      errorf(node, "type '%s' redeclared", id.getName());
-      errorf(id.getBinding().getFirst(), "'%s' previously declared here", id.getName());
+      errorfOnlyInTypedCode(node, "type '%s' redeclared", id.getName());
+      errorfOnlyInTypedCode(
+          id.getBinding().getFirst(), "'%s' previously declared here", id.getName());
       return true;
     }
     return false;
@@ -547,7 +578,8 @@ public final class TypeTagger extends NodeVisitor {
   public void visit(DefStatement def) {
     Resolver.Function resolvedFunction = def.getResolvedFunction();
     functionStack.push(resolvedFunction);
-    Types.GeneralCallableType type = createFunctionType(def.getParameters(), def.getReturnType());
+    Types.GeneralCallableType type =
+        createFunctionType(resolvedFunction, def.getParameters(), def.getReturnType());
     setType(resolvedFunction, type);
     setType(def, def.getIdentifier(), type);
     // Parameter types handled by visit(Parameter).
@@ -655,10 +687,10 @@ public final class TypeTagger extends NodeVisitor {
 
   @Override
   public void visit(LambdaExpression lambda) {
+    Resolver.Function resolvedFunction = lambda.getResolvedFunction();
     Types.GeneralCallableType type =
-        createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
-    setType(lambda.getResolvedFunction(), type);
-
+        createFunctionType(resolvedFunction, lambda.getParameters(), /* returnTypeExpr= */ null);
+    setType(resolvedFunction, type);
     super.visit(lambda);
   }
 

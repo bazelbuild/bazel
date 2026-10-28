@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -148,7 +147,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * Representation of a sequence of arguments originating from {@code Args.add_all} or {@code
    * Args.add_joined}.
    */
-  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
+  @AutoCodec
   static final class VectorArg {
 
     private static final Interner<VectorArg> interner = BlazeInterners.newWeakInterner();
@@ -189,8 +188,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Nullable private final String formatJoined;
     @Nullable private final String terminateWith;
 
-    @VisibleForSerialization
-    VectorArg(
+    private VectorArg(
         boolean isNestedSet,
         boolean expandDirectories,
         boolean uniquify,
@@ -907,15 +905,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * instances are weakly interned so that all command lines with the same flag "template" share a
    * single instance.
    */
-  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
+  @AutoCodec
   static final class Recipe {
     private static final Interner<Recipe> interner = BlazeInterners.newWeakInterner();
 
     final Object[] elements;
     private final int hashCode;
 
-    @VisibleForSerialization
-    Recipe(Object[] elements) {
+    private Recipe(Object[] elements) {
       this.elements = elements;
       this.hashCode = Arrays.hashCode(elements);
     }

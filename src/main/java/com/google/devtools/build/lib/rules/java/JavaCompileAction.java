@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -52,6 +54,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -85,6 +88,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -116,10 +120,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> transitiveInputs;
   private final NestedSet<Artifact> dependencyArtifacts;
+  private final NestedSet<Artifact> additionalArtifactsForPathMapping;
   @Nullable private final Artifact outputDepsProto;
   private final JavaClasspathMode classpathMode;
-
-  @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
 
   public JavaCompileAction(
       String mnemonic,
@@ -133,12 +136,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ImmutableSet<Artifact> outputs,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
-      @Nullable ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
       CommandLine flagLine,
       ImmutableList<CommandLine> extraCommandLineArgs,
       BuildConfigurationValue configuration,
       NestedSet<Artifact> dependencyArtifacts,
+      NestedSet<Artifact> additionalArtifactsForPathMapping,
       @Nullable Artifact outputDepsProto,
       JavaClasspathMode classpathMode) {
     super(owner, allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts), outputs);
@@ -152,11 +155,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     this.extraCommandLineArgs = extraCommandLineArgs;
     this.configuration = configuration;
     this.progressMessage = progressMessage;
-    this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.directJars = directJars;
     this.mandatoryInputs = mandatoryInputs;
     this.transitiveInputs = transitiveInputs;
     this.dependencyArtifacts = dependencyArtifacts;
+    this.additionalArtifactsForPathMapping = additionalArtifactsForPathMapping;
     this.outputDepsProto = outputDepsProto;
     this.classpathMode = classpathMode;
     checkState(
@@ -192,6 +195,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   public String getMnemonic() {
     return mnemonic;
+  }
+
+  @Override
+  public NestedSet<Artifact> getAdditionalArtifactsForPathMapping() {
+    return additionalArtifactsForPathMapping;
   }
 
   @Override
@@ -251,16 +259,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             Iterables.filter(
                 transitiveCollection, input -> direct.contains(input.getExecPathString())));
     return NestedSetBuilder.wrap(Order.STABLE_ORDER, reducedJars);
-  }
-
-  /**
-   * Similar to {@link
-   * com.google.devtools.build.lib.analysis.actions.SpawnAction.ExtraActionInfoSupplier} but
-   * additionally includes the spawn arguments, which change between direct and fallback
-   * invocations.
-   */
-  interface ExtraActionInfoSupplier {
-    void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments);
   }
 
   private JavaSpawn getReducedSpawn(
@@ -387,6 +385,28 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     if (reducedClasspath == null) {
+      if (outputDepsProto != null) {
+        JavaCompileActionContext javaContext =
+            actionExecutionContext.getContext(JavaCompileActionContext.class);
+        if ((insertDependencies && javaContext != null) || !spawn.getPathMapper().isNoop()) {
+          try {
+            Deps.Dependencies fullOutputDeps =
+                createFullOutputDeps(
+                    primaryResults.getFirst(),
+                    outputDepsProto,
+                    getInputs(),
+                    getAdditionalArtifactsForPathMapping(),
+                    actionExecutionContext,
+                    spawn.getPathMapper());
+            if (insertDependencies && javaContext != null) {
+              javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
+            }
+          } catch (IOException e) {
+            // Left empty. If we cannot read the .jdeps file now, we will read it later or throw an
+            // appropriate error then.
+          }
+        }
+      }
       return ActionResult.create(primaryResults);
     }
 
@@ -541,16 +561,60 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException {
     ExtraActionInfo.Builder builder = super.getExtraActionInfo(actionKeyContext);
-    CommandLines.Builder commandLinesBuilder =
-        CommandLines.builder().addCommandLine(flagLine).addCommandLine(getFullClasspathLine());
+    CommandLines.Builder commandLinesBuilder = CommandLines.builder().addCommandLine(flagLine);
+    if (!transitiveInputs.isEmpty() || classpathMode != JavaClasspathMode.OFF) {
+      commandLinesBuilder.addCommandLine(getFullClasspathLine());
+    }
     for (CommandLine extraCommandLine : extraCommandLineArgs) {
       commandLinesBuilder.addCommandLine(extraCommandLine);
     }
     CommandLines commandLinesWithoutExecutable = commandLinesBuilder.build();
-    if (extraActionInfoSupplier != null) {
-      extraActionInfoSupplier.extend(builder, commandLinesWithoutExecutable.allArguments());
+    ImmutableList<String> arguments = commandLinesWithoutExecutable.allArguments();
+    if (mnemonic.equals("Javac")) {
+      populateExtraActionInfo(builder, arguments);
     }
     return builder;
+  }
+
+  private void populateExtraActionInfo(
+      ExtraActionInfo.Builder builder, ImmutableList<String> arguments) {
+    JavaCompileInfo.Builder info =
+        JavaCompileInfo.newBuilder()
+            .setOutputjar(getPrimaryOutput().getExecPathString())
+            .addAllArgument(arguments);
+    PeekingIterator<String> it = Iterators.peekingIterator(arguments.iterator());
+    while (it.hasNext()) {
+      switch (it.next()) {
+        case "--system" -> {
+          if (it.hasNext()) {
+            info.setSystem(it.next());
+          }
+        }
+        case "--javacopts" -> {
+          while (it.hasNext()) {
+            String opt = it.next();
+            if (opt.equals("--")) {
+              break;
+            }
+            info.addJavacOpt(opt);
+          }
+        }
+        case "--sources" -> collectFlagValues(it, info::addSourceFile);
+        case "--classpath" -> collectFlagValues(it, info::addClasspath);
+        case "--bootclasspath" -> collectFlagValues(it, info::addBootclasspath);
+        case "--source_jars" -> collectFlagValues(it, info::addSourcepath);
+        case "--processors" -> collectFlagValues(it, info::addProcessor);
+        case "--processorpath" -> collectFlagValues(it, info::addProcessorpath);
+        default -> {}
+      }
+    }
+    builder.setExtension(JavaCompileInfo.javaCompileInfo, info.build());
+  }
+
+  private static void collectFlagValues(PeekingIterator<String> it, Consumer<String> consumer) {
+    while (it.hasNext() && !it.peek().startsWith("--")) {
+      consumer.accept(it.next());
+    }
   }
 
   private final class JavaSpawn extends BaseSpawn {
@@ -597,8 +661,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CommandLines.Builder builder =
         CommandLines.builder()
             .addCommandLine(executableLine)
-            .addCommandLine(flagLine, PARAM_FILE_INFO)
-            .addCommandLine(getFullClasspathLine(), PARAM_FILE_INFO);
+            .addCommandLine(flagLine, PARAM_FILE_INFO);
+    if (!transitiveInputs.isEmpty() || classpathMode != JavaClasspathMode.OFF) {
+      builder.addCommandLine(getFullClasspathLine(), PARAM_FILE_INFO);
+    }
     for (CommandLine extraCommandLine : extraCommandLineArgs) {
       builder.addCommandLine(extraCommandLine, PARAM_FILE_INFO);
     }

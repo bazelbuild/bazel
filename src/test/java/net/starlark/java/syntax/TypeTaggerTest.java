@@ -22,7 +22,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.BooleanSubject;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver.Module;
 import org.junit.Test;
@@ -71,14 +73,18 @@ public class TypeTaggerTest {
       return typeTable().getType(function);
     }
 
-    /** Returns the type of a global. Does not support vars that are bound in a list assignment. */
+    /** Returns the type of a global. */
     @Nullable
     private StarlarkType getType(String name) {
       for (Statement stmt : file().getStatements()) {
         switch (stmt) {
           case AssignmentStatement assign -> {
-            if (assign.getLHS() instanceof Identifier id && id.getName().equals(name)) {
-              return typeTable().getType(id.getBinding());
+            List<Identifier> ids = new ArrayList<>();
+            collectAssignmentLhsIdentifiers(assign.getLHS(), ids);
+            for (Identifier id : ids) {
+              if (id.getName().equals(name)) {
+                return typeTable().getType(id.getBinding());
+              }
             }
           }
           case DefStatement def -> {
@@ -115,6 +121,18 @@ public class TypeTaggerTest {
       assertThat(lambda.getResolvedFunction()).isNotNull();
       return getType(lambda.getResolvedFunction());
     }
+
+    private void collectAssignmentLhsIdentifiers(Expression assignLHS, List<Identifier> ids) {
+      switch (assignLHS) {
+        case Identifier id -> ids.add(id);
+        case ListExpression list -> {
+          for (Expression elem : list.getElements()) {
+            collectAssignmentLhsIdentifiers(elem, ids);
+          }
+        }
+        default -> {} // Ignore index exprs.
+      }
+    }
   }
 
   /**
@@ -133,6 +151,7 @@ public class TypeTaggerTest {
   }
 
   /** As in {@link #tagFilePossiblyFailing} but asserts that even type tagging succeeded. */
+  @CanIgnoreReturnValue
   private Result tagFile(String... lines) throws Exception {
     Result result = tagFilePossiblyFailing(lines);
     assertThat(result.typeTable().errors()).isEmpty();
@@ -405,9 +424,10 @@ public class TypeTaggerTest {
   }
 
   @Test
-  public void annotationMustBeAtFirstOccurrence_innerFunction() throws Exception {
-    // Every function definition implicitly annotates its identifier as at least a Callable, even
-    // if the definition has no parameter or return type annotations.
+  public void annotationMustBeAtFirstOccurrence_innerFunction_inTypedCode() throws Exception {
+    // In a file containing any typed code, every function definition implicitly annotates its
+    // identifier as at least a Callable, even if the definition has no parameter or return type
+    // annotations.
     assertInvalid(
         "function 'g' was previously declared",
         """
@@ -416,10 +436,36 @@ public class TypeTaggerTest {
                 pass
             def g():
                 pass
+
+        def h():
+            x: Any  # typed code
+            pass
         """);
 
     assertInvalid(
         "function 'g' was previously declared",
+        """
+        def f():
+            g = 1
+            def g():
+                pass
+
+        _: Any  # typed code
+        """);
+  }
+
+  @Test
+  public void redeclaredInnerFunctions_ignoredInUntypedCode() throws Exception {
+    tagFile(
+        """
+        def f():
+            def g():
+                pass
+            def g():
+                pass
+        """);
+
+    tagFile(
         """
         def f():
             g = 1
@@ -456,15 +502,26 @@ public class TypeTaggerTest {
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a", "b", "d", "e").inOrder();
-    assertThat(type.getParameterTypes())
+    assertThat(type.getParameterTypesIfNonAny())
         .containsExactly(Types.INT, Types.ANY, Types.STR, Types.ANY)
         .inOrder();
     assertThat(type.getNumPositionalOnlyParameters()).isEqualTo(0);
     assertThat(type.getNumPositionalParameters()).isEqualTo(2);
-    assertThat(type.getMandatoryParameters()).containsExactly("a", "e").inOrder();
+    assertThat(getMandatoryParameters(type)).containsExactly("a", "e").inOrder();
     assertThat(type.getVarargsType()).isEqualTo(Types.BOOL);
     assertThat(type.getKwargsType()).isEqualTo(Types.INT);
     assertThat(type.getReturnType()).isEqualTo(Types.BOOL);
+  }
+
+  private static ImmutableList<String> getMandatoryParameters(Types.CallableType type) {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    ImmutableList<String> names = type.getParameterNames();
+    for (int i = 0; i < names.size(); i++) {
+      if (type.isMandatory(i)) {
+        builder.add(names.get(i));
+      }
+    }
+    return builder.build();
   }
 
   @Test
@@ -475,11 +532,12 @@ public class TypeTaggerTest {
             def f(*a, **b):
                 pass
             """);
-    Types.CallableType type = result.getType(getFirstStatement(DefStatement.class, result.file()));
+    Types.GeneralCallableType type =
+        result.getType(getFirstStatement(DefStatement.class, result.file()));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).isEmpty();
-    assertThat(type.getParameterTypes()).isEmpty();
+    assertThat(type.getParameterTypesIfNonAny()).isNull();
     assertThat(type.getVarargsType()).isEqualTo(Types.ANY);
     assertThat(type.getKwargsType()).isEqualTo(Types.ANY);
     assertThat(type.getReturnType()).isEqualTo(Types.ANY);
@@ -509,11 +567,11 @@ public class TypeTaggerTest {
             """);
     var outer = getFirstStatement(DefStatement.class, result.file());
     var inner = getFirstStatement(DefStatement.class, outer);
-    Types.CallableType type = result.getType(inner);
+    Types.GeneralCallableType type = result.getType(inner);
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a");
-    assertThat(type.getParameterTypes()).containsExactly(Types.INT);
+    assertThat(type.getParameterTypesIfNonAny()).containsExactly(Types.INT);
   }
 
   @Test
@@ -524,11 +582,12 @@ public class TypeTaggerTest {
             lambda x: 123
             """);
     var stmt = getFirstStatement(ExpressionStatement.class, result.file());
-    Types.CallableType type = result.getType((LambdaExpression) stmt.getExpression());
+    Types.GeneralCallableType type = result.getType((LambdaExpression) stmt.getExpression());
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("x");
-    assertThat(type.getParameterTypes()).containsExactly(Types.ANY);
+    assertThat(type.getParameterTypesIfNonAny()).isNull();
+    assertThat(type.getParameterType(0)).isEqualTo(Types.ANY);
     assertThat(type.getReturnType()).isEqualTo(Types.ANY);
 
     result =
@@ -607,7 +666,7 @@ public class TypeTaggerTest {
     StarlarkType type = result.getType(stmt.getIdentifier());
 
     assertThat(type).isInstanceOf(Types.CallableType.class);
-    assertThat(((Types.CallableType) type).getParameterTypeByPos(0)).isEqualTo(Types.INT);
+    assertThat(((Types.CallableType) type).getParameterType(0)).isEqualTo(Types.INT);
   }
 
   @Test
@@ -809,7 +868,7 @@ public class TypeTaggerTest {
   }
 
   @Test
-  public void loadedTypeConstructor_cannotBeRebound() throws Exception {
+  public void loadedTypeConstructor_cannotBeRebound_inTypedCode() throws Exception {
     loader =
         importName ->
             TestUtils.LoadableModule.ofTypesAndConstructors(
@@ -830,6 +889,7 @@ public class TypeTaggerTest {
         """
         load("//x:x.bzl", "numeric")
         numeric = 123
+        _: Any  # enable type syntax
         """);
 
     assertInvalid(
@@ -837,6 +897,7 @@ public class TypeTaggerTest {
         """
         load("//x:x.bzl", "numeric")
         foo, bar, numeric = 123, 456, 789
+        _: Any  # enable type syntax
         """);
 
     assertInvalid(
@@ -844,8 +905,41 @@ public class TypeTaggerTest {
         """
         load("//x:x.bzl", "numeric")
         def numeric(x):
-            return cast(int|float, x)
+            return cast(int|float, x)  # `cast` means typed code!
         """);
+  }
+
+  @Test
+  public void loadedTypeConstructor_canBeRebound_inUntypedCode() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    options.allowToplevelRebinding(true).loadBindsGlobally(true);
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            numeric = 123
+            """);
+    assertThat(result.getType("numeric")).isEqualTo(Types.ANY);
+
+    result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            foo, bar, numeric = 123, 456, 789
+            """);
+    assertThat(result.getType("numeric")).isEqualTo(Types.ANY);
+
+    result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            def numeric(x):
+                return x + 0
+            """);
+    assertThat(result.getType("numeric")).isInstanceOf(Types.CallableType.class);
   }
 
   @Test
@@ -989,5 +1083,106 @@ public class TypeTaggerTest {
         x: optional_list[int]
         type optional_list[T] = list[T] | None
         """);
+
+    // In particular, this implies that currently, a type alias cannot be used in its own
+    // definition.
+    // TODO: #27370 - Allow self-referential type aliases; they can be useful.
+    assertInvalid(
+        "name 'Node' is not defined",
+        """
+        type Node = str | list[Node]
+        """);
+    assertInvalid(
+        "name 'LinkedList' is not defined",
+        """
+        type LinkedList[T] = tuple[()] | tuple[T, LinkedList[T]]
+        """);
+    // But the following examples are silly, and need to stay illegal.
+    assertInvalid(
+        "name 'T' is not defined",
+        """
+        type T = list[T]
+        """);
+    assertInvalid(
+        "name 'T' is not defined",
+        """
+        type T[U] = None | T[int]
+        """);
+    assertInvalid(
+        "name 'U' is not defined",
+        """
+        type T = U
+        type U = T
+        """);
+  }
+
+  @Test
+  public void functionType_sharesParameterNamesAndUntypedParameterTypes() throws Exception {
+    Result result =
+        tagFile(
+            """
+            def f(param_a, param_b = 1):
+                pass
+
+            def g(param_x, param_y = 2):
+                pass
+            """);
+    DefStatement fDef = (DefStatement) result.file().getStatements().get(0);
+    DefStatement gDef = (DefStatement) result.file().getStatements().get(1);
+    Types.GeneralCallableType fType = result.getType(fDef);
+    Types.GeneralCallableType gType = result.getType(gDef);
+
+    assertThat(fType.getParameterNames())
+        .isSameInstanceAs(fDef.getResolvedFunction().getParameterNames());
+    assertThat(gType.getParameterNames())
+        .isSameInstanceAs(gDef.getResolvedFunction().getParameterNames());
+    assertThat(fType.getParameterTypesIfNonAny()).isNull();
+    assertThat(gType.getParameterTypesIfNonAny()).isNull();
+    assertThat(fType.getMandatoryParamIndices()).isSameInstanceAs(gType.getMandatoryParamIndices());
+  }
+
+  @Test
+  public void functionType_withCompactMandatoryParamIndices_andMorethan64Parameters()
+      throws Exception {
+    List<String> params = new ArrayList<>();
+    for (int i = 0; i < 60; i++) {
+      params.add("p" + i);
+    }
+    for (int i = 60; i < 70; i++) {
+      params.add("p" + i + " = 1");
+    }
+    Result result = tagFile("def f(" + String.join(", ", params) + "):\n    pass\n");
+    DefStatement fDef = (DefStatement) result.file().getStatements().get(0);
+    Types.GeneralCallableType fType = result.getType(fDef);
+
+    assertThat(fType.getNumMandatoryParameters()).isEqualTo(60);
+    assertThat(fType.isMandatory(0)).isTrue();
+    assertThat(fType.isMandatory(59)).isTrue();
+    assertThat(fType.isMandatory(60)).isFalse();
+    // Verifies that Types.CompactMandatoryParamIndices supports querying indices above its storage
+    // range.
+    assertThat(fType.isMandatory(65)).isFalse();
+    assertThat(fType.isMandatory(69)).isFalse();
+  }
+
+  @Test
+  public void functionType_withMandatoryParamIndicesGreaterThan64() throws Exception {
+    List<String> params = new ArrayList<>();
+    for (int i = 0; i < 65; i++) {
+      params.add("p" + i);
+    }
+    for (int i = 65; i < 70; i++) {
+      params.add("p" + i + " = 1");
+    }
+    Result result = tagFile("def f(" + String.join(", ", params) + "):\n    pass\n");
+    DefStatement fDef = (DefStatement) result.file().getStatements().get(0);
+    Types.GeneralCallableType fType = result.getType(fDef);
+
+    assertThat(fType.getNumMandatoryParameters()).isEqualTo(65);
+    assertThat(fType.isMandatory(0)).isTrue();
+    assertThat(fType.isMandatory(63)).isTrue();
+    assertThat(fType.isMandatory(64)).isTrue();
+    assertThat(fType.isMandatory(65)).isFalse();
+    assertThat(fType.isMandatory(69)).isFalse();
   }
 }

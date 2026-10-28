@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
@@ -79,9 +81,11 @@ public class SevenZDecompressor implements Decompressor {
         if (isNullOrEmpty(entryName)) {
           throw new IOException("7z archive contains unnamed entry");
         }
+        entryName = unicodeToInternal(entryName);
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
+            StripPrefixedPath.maybeDeprefix(
+                entryName.getBytes(ISO_8859_1), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;

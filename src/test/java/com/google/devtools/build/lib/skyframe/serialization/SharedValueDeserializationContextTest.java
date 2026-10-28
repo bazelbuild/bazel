@@ -262,7 +262,7 @@ public final class SharedValueDeserializationContextTest {
   private enum DeserializeOverloadSelector {
     OFFSET,
     SETTER,
-    OFFSET_WITH_DONE_CALLBACK
+    ARRAY_ELEMENT_WITH_DONE_CALLBACK
   }
 
   /** Codec that observes futures through {@link AsyncObjectCodec#deserialize} overloads. */
@@ -327,18 +327,26 @@ public final class SharedValueDeserializationContextTest {
                 verifyDeserializedNotNestedSet(expectedSecond, second);
               });
           break;
-        case OFFSET_WITH_DONE_CALLBACK:
-          context.deserialize(
-              codedIn,
-              value,
-              NotNestedSetContainer.FIRST_OFFSET,
-              () -> verifyDeserializedNotNestedSet(expectedFirst, value.first));
-          context.deserialize(
-              codedIn,
-              value,
-              NotNestedSetContainer.SECOND_OFFSET,
-              () -> verifyDeserializedNotNestedSet(expectedSecond, value.second));
-          break;
+        case ARRAY_ELEMENT_WITH_DONE_CALLBACK:
+          {
+            // Buffers the elements and populates the container only once all callbacks have run.
+            // If any callback were skipped, the container would remain unpopulated and the
+            // SerializationTester's verification would fail.
+            Object[] elements = new Object[2];
+            AtomicInteger remaining = new AtomicInteger(2);
+            Runnable done =
+                () -> {
+                  if (remaining.decrementAndGet() == 0) {
+                    value.first = (NotNestedSet) elements[0];
+                    value.second = (NotNestedSet) elements[1];
+                    verifyDeserializedNotNestedSet(expectedFirst, value.first);
+                    verifyDeserializedNotNestedSet(expectedSecond, value.second);
+                  }
+                };
+            context.deserializeArrayElement(codedIn, elements, 0, done);
+            context.deserializeArrayElement(codedIn, elements, 1, done);
+            break;
+          }
       }
       return value;
     }

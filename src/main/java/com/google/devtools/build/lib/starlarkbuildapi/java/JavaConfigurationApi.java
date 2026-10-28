@@ -159,4 +159,39 @@ public interface JavaConfigurationApi extends StarlarkValue {
       useStarlarkThread = true,
       documented = false)
   boolean autoCreateJavaTestDeployJars(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "fix_deps_tool", useStarlarkThread = true, documented = false)
+  String getFixDepsToolStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_enable_jspecify",
+      useStarlarkThread = true,
+      documented = false)
+  boolean experimentalEnableJspecifyStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_turbine_annotation_processing",
+      useStarlarkThread = true,
+      documented = false)
+  boolean experimentalTurbineAnnotationProcessingStarlark(StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_turbine_cpu_reservation",
+      useStarlarkThread = true,
+      documented = false)
+  int experimentalTurbineCpuReservationStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_turbine_output_root_relative_path",
+      useStarlarkThread = true,
+      documented = false)
+  boolean experimentalTurbineOutputRootRelativePathStarlark(StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "run_local_java_optimizations",
+      useStarlarkThread = true,
+      documented = false)
+  boolean runLocalJavaOptimizationsStarlark(StarlarkThread thread) throws EvalException;
 }
