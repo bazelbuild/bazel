@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -71,37 +73,37 @@ import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
-  // Since checking if sandbox is supported is expensive, we remember what we've checked.
-  private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
+  // Since checking if sandbox is supported is expensive, we remember what we've checked. An empty
+  // value means supported; otherwise it holds the reason the check failed.
+  private static final Map<Path, Optional<String>> unsupportedReasonMap = new HashMap<>();
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * Returns whether the linux sandbox is supported on the local machine by running a small command
-   * in it.
+   * Returns why the linux sandbox is not supported on the local machine, or empty if it is
+   * supported, by running a small command in it.
    */
-  public static boolean isSupported(final CommandEnvironment cmdEnv) throws InterruptedException {
+  public static Optional<String> getUnsupportedReason(final CommandEnvironment cmdEnv)
+      throws InterruptedException {
     if (OS.getCurrent() != OS.LINUX) {
-      return false;
+      return Optional.of("not running on Linux");
     }
     if (!LinuxSandboxUtil.isSupported(cmdEnv.getBlazeWorkspace())) {
-      return false;
+      return Optional.of("the linux-sandbox binary is not available");
     }
     Path linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
-    Boolean isSupported;
-    synchronized (isSupportedMap) {
-      isSupported = isSupportedMap.get(linuxSandbox);
-      if (isSupported != null) {
-        return isSupported;
+    synchronized (unsupportedReasonMap) {
+      Optional<String> unsupportedReason = unsupportedReasonMap.get(linuxSandbox);
+      if (unsupportedReason == null) {
+        unsupportedReason = computeUnsupportedReason(cmdEnv, linuxSandbox);
+        unsupportedReasonMap.put(linuxSandbox, unsupportedReason);
       }
-      isSupported = computeIsSupported(cmdEnv, linuxSandbox);
-      isSupportedMap.put(linuxSandbox, isSupported);
+      return unsupportedReason;
     }
-    return isSupported;
   }
 
-  private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
-      throws InterruptedException {
+  private static Optional<String> computeUnsupportedReason(
+      CommandEnvironment cmdEnv, Path linuxSandbox) throws InterruptedException {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
@@ -112,15 +114,20 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     File cwd = execRoot.getPathFile();
 
     Command cmd = new Command(linuxSandboxArgv, env, cwd, cmdEnv.getClientEnv());
+    ByteArrayOutputStream stderr = new ByteArrayOutputStream();
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
-      cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
+      cmd.execute(ByteStreams.nullOutputStream(), stderr);
     } catch (CommandException e) {
-      logger.atWarning().withCause(e).log(
-          "Checking for linux sandbox support failed: %s", e.getMessage());
-      return false;
+      String reason = e.getMessage();
+      String stderrText = stderr.toString(ISO_8859_1).trim();
+      if (!stderrText.isEmpty()) {
+        reason += ": " + stderrText;
+      }
+      logger.atWarning().withCause(e).log("Checking for linux sandbox support failed: %s", reason);
+      return Optional.of(reason);
     }
 
-    return true;
+    return Optional.empty();
   }
 
   private final FileSystem fileSystem;
