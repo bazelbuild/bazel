@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -1284,7 +1284,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   @Test
   public void testTreeFileDependency() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
 
     // Action A produces the TreeArtifact
@@ -1336,7 +1336,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   @Test
   public void testTreeFileDependency_parentNull() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "file.txt");
 
@@ -1409,11 +1409,11 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   // childA1 inside tree.
   @Test
   public void testTreeFileDependency_fromTemplateExpansion() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
     MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
 
-    SpecialArtifact treeB =
+    TreeArtifact treeB =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
 
     ActionLookupKey templateKey =
@@ -1472,16 +1472,16 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   // the top-level treeB.
   @Test
   public void testTreeFileDependency_nestedSubtree() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
     MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
 
-    SpecialArtifact treeB =
+    TreeArtifact treeB =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
 
     ActionLookupKey templateKey =
         ActionTemplateExpansionValue.key(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0);
-    SpecialArtifact subtree = createSubTreeOutput(treeB, "subtree", templateKey, 0);
+    TreeArtifact subtree = createSubTreeOutput(treeB, "subtree", templateKey, 0);
 
     TreeFileArtifact childA1 = TreeFileArtifact.createTreeOutput(tree, "input_file.txt");
     TreeFileArtifact child =
@@ -1551,11 +1551,11 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   // direct generating action.
   @Test
   public void testSubTreeFileDependency_fromTemplateExpansion() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
     MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
 
-    SpecialArtifact treeB =
+    TreeArtifact treeB =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
 
     ActionLookupKey templateKey1 =
@@ -1568,7 +1568,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     MockAction actionA1 = new MockAction(ImmutableList.of(childA1), ImmutableSet.of(child1));
 
     // actionA2 -> output treeB/subtree (SubTreeArtifact)
-    SpecialArtifact subtree = createSubTreeOutput(treeB, "subtree", templateKey1, 1);
+    TreeArtifact subtree = createSubTreeOutput(treeB, "subtree", templateKey1, 1);
     MockAction actionA2 = new MockAction(ImmutableList.of(childA1), ImmutableSet.of(subtree));
 
     // child2 (treeB/subtree/file2.txt) is inside the subtree, but not explicitly outputted by
@@ -1576,7 +1576,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     TreeFileArtifact child2 =
         TreeFileArtifact.createTemplateExpansionOutput(subtree, "file2.txt", templateKey1);
 
-    SpecialArtifact treeC =
+    TreeArtifact treeC =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeC");
 
     ActionLookupKey templateKey2 =
@@ -1645,11 +1645,11 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   // which generated treeB/file1.txt directly.
   @Test
   public void testTreeFileDependency_nestedExpansion() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
     MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
 
-    SpecialArtifact treeB =
+    TreeArtifact treeB =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
 
     ActionLookupKey templateKey1 =
@@ -1661,7 +1661,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     TreeFileArtifact child1 = createTemplateExpansionOutput(treeB, "file1.txt", templateKey1, 0);
     MockAction actionA1 = new MockAction(ImmutableList.of(childA1), ImmutableSet.of(child1));
 
-    SpecialArtifact treeC =
+    TreeArtifact treeC =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeC");
 
     ActionLookupKey templateKey2 =
@@ -1696,11 +1696,11 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   @Test
   public void testTreeFileDependency_slowSiblingTemplateAction() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
     MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
 
-    SpecialArtifact treeB =
+    TreeArtifact treeB =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
 
     ActionLookupKey templateKey1 =
@@ -1717,7 +1717,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     TreeFileArtifact childB2 = createTemplateExpansionOutput(treeB, "file2.txt", templateKey1, 1);
     MockAction actionA2 = new MockAction(ImmutableList.of(childA2), ImmutableSet.of(childB2));
 
-    SpecialArtifact treeC =
+    TreeArtifact treeC =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeC");
 
     ActionLookupKey templateKey2 =
@@ -1786,11 +1786,11 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   // go through intermediate tree file artifacts (file1.txt) and subdirectories (subtree/file2.txt).
   @Test
   public void testTreeFileDependency_chainWithinExpansion() throws Exception {
-    SpecialArtifact tree =
+    TreeArtifact tree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
     MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
 
-    SpecialArtifact treeB =
+    TreeArtifact treeB =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
 
     ActionLookupKey templateKey =
@@ -1803,7 +1803,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     MockAction actionA1 = new MockAction(ImmutableList.of(childA1), ImmutableSet.of(child1));
 
     // actionA2 -> input treeB/file1.txt, output treeB/subtree (SubTreeArtifact)
-    SpecialArtifact subtree = createSubTreeOutput(treeB, "subtree", templateKey, 1);
+    TreeArtifact subtree = createSubTreeOutput(treeB, "subtree", templateKey, 1);
     MockAction actionA2 = new MockAction(ImmutableList.of(child1), ImmutableSet.of(subtree));
 
     // child2 (treeB/subtree/file2.txt) is inside the subtree, but not explicitly outputted by
@@ -1839,7 +1839,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   @Test
   public void testTreeFileDependency_runningParentActionDoesNotDropCompletedDependency()
       throws Exception {
-    SpecialArtifact treeB =
+    TreeArtifact treeB =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
 
     ActionLookupKey templateKey1 =
@@ -1903,18 +1903,17 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   }
 
   private TreeFileArtifact createTemplateExpansionOutput(
-      SpecialArtifact parent, String relativePath, ActionLookupKey templateKey, int actionIndex) {
+      TreeArtifact parent, String relativePath, ActionLookupKey templateKey, int actionIndex) {
     TreeFileArtifact child =
         TreeFileArtifact.createTemplateExpansionOutput(parent, relativePath, templateKey);
     child.setGeneratingActionKey(ActionLookupData.create(templateKey, actionIndex));
     return child;
   }
 
-  private SpecialArtifact createSubTreeOutput(
-      SpecialArtifact parent, String relativePath, ActionLookupKey templateKey, int actionIndex) {
-    SpecialArtifact subtree =
-        SpecialArtifact.createSubTreeArtifact(
-            parent, PathFragment.create(relativePath), templateKey);
+  private TreeArtifact createSubTreeOutput(
+      TreeArtifact parent, String relativePath, ActionLookupKey templateKey, int actionIndex) {
+    TreeArtifact subtree =
+        TreeArtifact.createSubTreeArtifact(parent, PathFragment.create(relativePath), templateKey);
     subtree.setGeneratingActionKey(ActionLookupData.create(templateKey, actionIndex));
     return subtree;
   }

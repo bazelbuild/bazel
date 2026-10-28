@@ -35,8 +35,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -109,9 +108,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void testActionTemplateExpansionFunction() throws Exception {
-    SpecialArtifact inputTreeArtifact =
+    TreeArtifact inputTreeArtifact =
         createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
-    SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
+    TreeArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
     SpawnActionTemplate spawnActionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
         inputTreeArtifact, outputTreeArtifact);
@@ -133,9 +132,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void testThrowsOnActionConflict() throws Exception {
-    SpecialArtifact inputTreeArtifact =
+    TreeArtifact inputTreeArtifact =
         createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
-    SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
+    TreeArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
     OutputPathMapper mapper = artifact -> PathFragment.create("conflict_path");
     SpawnActionTemplate spawnActionTemplate =
@@ -155,9 +154,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void testThrowsOnArtifactPrefixConflict() throws Exception {
-    SpecialArtifact inputTreeArtifact =
+    TreeArtifact inputTreeArtifact =
         createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
-    SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
+    TreeArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
     OutputPathMapper mapper =
         new OutputPathMapper() {
@@ -189,8 +188,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void cannotDeclareNonTreeOutput() throws Exception {
-    SpecialArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
-    SpecialArtifact outputTree = createTreeArtifact("output");
+    TreeArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
+    TreeArtifact outputTree = createTreeArtifact("output");
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
@@ -223,8 +222,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void cannotGenerateOutputWithWrongOwner() throws Exception {
-    SpecialArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
-    SpecialArtifact outputTree = createTreeArtifact("output");
+    TreeArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
+    TreeArtifact outputTree = createTreeArtifact("output");
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
@@ -252,8 +251,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void cannotGenerateNonTreeFileArtifactOutput() throws Exception {
-    SpecialArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
-    SpecialArtifact outputTree = createTreeArtifact("output");
+    TreeArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
+    TreeArtifact outputTree = createTreeArtifact("output");
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
@@ -283,8 +282,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void cannotGenerateOutputUnderUndeclaredTree() throws Exception {
-    SpecialArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
-    SpecialArtifact outputTree = createTreeArtifact("output");
+    TreeArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
+    TreeArtifact outputTree = createTreeArtifact("output");
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
@@ -314,9 +313,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void canGenerateOutputUnderAdditionalDeclaredTree() throws Exception {
-    SpecialArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
-    SpecialArtifact outputTree = createTreeArtifact("output");
-    SpecialArtifact additionalOutputTree = createTreeArtifact("additional_output");
+    TreeArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
+    TreeArtifact outputTree = createTreeArtifact("output");
+    TreeArtifact additionalOutputTree = createTreeArtifact("additional_output");
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
@@ -348,9 +347,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   @Test
   public void canUseMultipleInputTrees() throws Exception {
-    SpecialArtifact inputTree1 = createAndPopulateTreeArtifact("input1", "child1", "child2");
-    SpecialArtifact inputTree2 = createAndPopulateTreeArtifact("input2", "child1", "child2");
-    SpecialArtifact outputTree = createTreeArtifact("output");
+    TreeArtifact inputTree1 = createAndPopulateTreeArtifact("input1", "child1", "child2");
+    TreeArtifact inputTree2 = createAndPopulateTreeArtifact("input2", "child1", "child2");
+    TreeArtifact outputTree = createTreeArtifact("output");
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(ImmutableList.of(inputTree1, inputTree2), outputTree) {
@@ -360,10 +359,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
               ActionLookupKey artifactOwner,
               EventHandler eventHandler) {
             ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
-            ImmutableListMultimap<SpecialArtifact, TreeFileArtifact> inputTreeArtifactsToChildren =
+            ImmutableListMultimap<TreeArtifact, TreeFileArtifact> inputTreeArtifactsToChildren =
                 ActionTemplate.getInputTreeArtifactsToChildren(inputTreeFileArtifacts);
             int i = 0;
-            for (SpecialArtifact inputTreeArtifact : getInputTreeArtifacts()) {
+            for (TreeArtifact inputTreeArtifact : getInputTreeArtifacts()) {
               actions.add(
                   new DummyAction(
                       NestedSetBuilder.<Artifact>wrap(
@@ -413,18 +412,15 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return new BasicActionLookupValue(actions);
   }
 
-  private SpecialArtifact createTreeArtifact(String path) {
+  private TreeArtifact createTreeArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    return SpecialArtifact.create(
-        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"),
-        execPath,
-        CTKEY,
-        SpecialArtifactType.TREE);
+    return TreeArtifact.create(
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"), execPath, CTKEY);
   }
 
-  private SpecialArtifact createAndPopulateTreeArtifact(String path, String... childRelativePaths)
+  private TreeArtifact createAndPopulateTreeArtifact(String path, String... childRelativePaths)
       throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact(path);
+    TreeArtifact treeArtifact = createTreeArtifact(path);
     treeArtifact.setGeneratingActionKey(ActionLookupData.create(CTKEY, /*actionIndex=*/ 0));
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(treeArtifact);
 
@@ -454,25 +450,21 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   }
 
   private abstract static class TestActionTemplate implements ActionTemplate<DummyAction> {
-    private final ImmutableList<SpecialArtifact> inputTreeArtifacts;
-    private final SpecialArtifact outputTreeArtifact;
+    private final ImmutableList<TreeArtifact> inputTreeArtifacts;
+    private final TreeArtifact outputTreeArtifact;
 
-    TestActionTemplate(SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
+    TestActionTemplate(TreeArtifact inputTreeArtifact, TreeArtifact outputTreeArtifact) {
       this(ImmutableList.of(inputTreeArtifact), outputTreeArtifact);
     }
 
     TestActionTemplate(
-        ImmutableList<SpecialArtifact> inputTreeArtifacts, SpecialArtifact outputTreeArtifact) {
-      for (SpecialArtifact inputTreeArtifact : inputTreeArtifacts) {
-        Preconditions.checkArgument(inputTreeArtifact.isTreeArtifact(), inputTreeArtifact);
-      }
-      Preconditions.checkArgument(outputTreeArtifact.isTreeArtifact(), outputTreeArtifact);
+        ImmutableList<TreeArtifact> inputTreeArtifacts, TreeArtifact outputTreeArtifact) {
       this.inputTreeArtifacts = inputTreeArtifacts;
       this.outputTreeArtifact = outputTreeArtifact;
     }
 
     @Override
-    public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+    public ImmutableList<TreeArtifact> getInputTreeArtifacts() {
       return inputTreeArtifacts;
     }
 
@@ -500,7 +492,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     public String getKey(
         ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       Fingerprint fp = new Fingerprint();
-      for (SpecialArtifact inputTreeArtifact : inputTreeArtifacts) {
+      for (TreeArtifact inputTreeArtifact : inputTreeArtifacts) {
         fp.addPath(inputTreeArtifact.getPath());
       }
       fp.addPath(outputTreeArtifact.getPath());

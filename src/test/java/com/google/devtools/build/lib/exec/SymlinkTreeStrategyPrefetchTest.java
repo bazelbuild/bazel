@@ -30,7 +30,8 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -95,8 +96,9 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
     Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
     Artifact file = getBinArtifactWithNoOwner("dir/file");
     ArtifactRoot root = file.getRoot();
-    SpecialArtifact tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(root, "dir/tree");
-    SpecialArtifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(root, "dir/symlink");
+    TreeArtifact tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(root, "dir/tree");
+    UnresolvedSymlinkArtifact symlink =
+        ActionsTestUtil.createUnresolvedSymlinkArtifact(root, "dir/symlink");
     FileSystemUtils.ensureSymbolicLink(symlink.getPath(), "/path/to/target");
 
     Runfiles runfiles =

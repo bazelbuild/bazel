@@ -22,8 +22,7 @@ import static org.mockito.Mockito.spy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -74,7 +73,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void createsCorrectValue() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
     FileArtifactValue metadata1 = metadataWithId(1);
@@ -96,7 +95,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void createsCorrectValueWithArchivedRepresentation() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
@@ -125,7 +124,7 @@ public final class TreeArtifactValueTest {
   @Test
   public void createsCorrectValueWithResolvedPath() {
     PathFragment targetPath = PathFragment.create("/some/target/path");
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
 
     TreeArtifactValue tree =
         TreeArtifactValue.newBuilder(parent).setResolvedPath(targetPath).build();
@@ -147,7 +146,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void createsCanonicalEmptyInstance() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
 
     TreeArtifactValue emptyTreeFromBuilder = TreeArtifactValue.newBuilder(parent).build();
 
@@ -156,7 +155,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void createsCorrectEmptyValueWithArchivedRepresentation() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
     FileArtifactValue archivedArtifactMetadata = metadataWithId(1);
 
@@ -175,21 +174,8 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void cannotCreateBuilderForNonTreeArtifact() {
-    SpecialArtifact notTreeArtifact =
-        SpecialArtifact.create(
-            root,
-            PathFragment.create("bin/not_tree"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.FILESET);
-
-    assertThrows(
-        IllegalArgumentException.class, () -> TreeArtifactValue.newBuilder(notTreeArtifact));
-  }
-
-  @Test
   public void cannotMixParentsWithinSingleBuilder() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact childOfAnotherParent =
         TreeFileArtifact.createTreeOutput(createTreeArtifact("bin/other_tree"), "child");
 
@@ -202,7 +188,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void cannotAddArchivedRepresentationWithWrongParent() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     ArchivedTreeArtifact archivedDifferentTreeArtifact =
         createArchivedTreeArtifact(createTreeArtifact("bin/other_tree"));
     TreeArtifactValue.Builder builderForParent = TreeArtifactValue.newBuilder(parent);
@@ -215,7 +201,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void orderIndependence() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
     FileArtifactValue metadata1 = metadataWithId(1);
@@ -237,7 +223,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void nullDigests_equal() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
     FileArtifactValue metadataNoDigest = metadataWithIdNoDigest(1);
 
@@ -254,7 +240,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void nullDigestsForArchivedRepresentation_equal() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
     FileArtifactValue metadataNoDigest = metadataWithIdNoDigest(1);
 
@@ -275,7 +261,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void nullDigests_notEqual() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
     FileArtifactValue metadataNoDigest1 = metadataWithIdNoDigest(1);
     FileArtifactValue metadataNoDigest2 = metadataWithIdNoDigest(2);
@@ -294,7 +280,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void nullDigestsForArchivedRepresentation_notEqual() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
     FileArtifactValue metadataNoDigest1 = metadataWithIdNoDigest(1);
     FileArtifactValue metadataNoDigest2 = metadataWithIdNoDigest(2);
@@ -317,7 +303,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void findChildEntryByExecPath_returnsCorrectEntry() {
-    SpecialArtifact tree = createTreeArtifact("bin/tree");
+    TreeArtifact tree = createTreeArtifact("bin/tree");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(tree, "file1");
     FileArtifactValue file1Metadata = metadataWithIdNoDigest(1);
     TreeArtifactValue treeArtifactValue =
@@ -334,7 +320,7 @@ public final class TreeArtifactValueTest {
   public void findChildEntryByExecPath_nonExistentChild_returnsNull(
       @TestParameter({"bin/nonexistent", "a_before_nonexistent", "z_after_nonexistent"})
           String nonexistentPath) {
-    SpecialArtifact tree = createTreeArtifact("bin/tree");
+    TreeArtifact tree = createTreeArtifact("bin/tree");
     TreeArtifactValue treeArtifactValue =
         TreeArtifactValue.newBuilder(tree)
             .putChild(TreeFileArtifact.createTreeOutput(tree, "file"), metadataWithIdNoDigest(1))
@@ -612,7 +598,7 @@ public final class TreeArtifactValueTest {
 
   @Test
   public void multiBuilder_empty_injectsNothing() {
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+    Map<TreeArtifact, TreeArtifactValue> results = new HashMap<>();
 
     TreeArtifactValue.newMultiBuilder().forEach(results::put);
 
@@ -622,8 +608,8 @@ public final class TreeArtifactValueTest {
   @Test
   public void multiBuilder_injectsEmptyTreeArtifact() {
     TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+    TreeArtifact parent = createTreeArtifact("bin/tree");
+    Map<TreeArtifact, TreeArtifactValue> results = new HashMap<>();
 
     treeArtifacts.addTree(parent).forEach(results::put);
 
@@ -633,10 +619,10 @@ public final class TreeArtifactValueTest {
   @Test
   public void multiBuilder_injectsSingleTreeArtifact() {
     TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+    Map<TreeArtifact, TreeArtifactValue> results = new HashMap<>();
 
     treeArtifacts
         .putChild(child1, metadataWithId(1))
@@ -655,12 +641,12 @@ public final class TreeArtifactValueTest {
   @Test
   public void multiBuilder_injectsMultipleTreeArtifacts() {
     TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent1 = createTreeArtifact("bin/tree1");
+    TreeArtifact parent1 = createTreeArtifact("bin/tree1");
     TreeFileArtifact parent1Child1 = TreeFileArtifact.createTreeOutput(parent1, "child1");
     TreeFileArtifact parent1Child2 = TreeFileArtifact.createTreeOutput(parent1, "child2");
-    SpecialArtifact parent2 = createTreeArtifact("bin/tree2");
+    TreeArtifact parent2 = createTreeArtifact("bin/tree2");
     TreeFileArtifact parent2Child = TreeFileArtifact.createTreeOutput(parent2, "child");
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+    Map<TreeArtifact, TreeArtifactValue> results = new HashMap<>();
 
     treeArtifacts
         .putChild(parent1Child1, metadataWithId(1))
@@ -684,12 +670,12 @@ public final class TreeArtifactValueTest {
   @Test
   public void multiBuilder_injectsTreeArtifactWithArchivedRepresentation() {
     TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
     FileArtifactValue childMetadata = metadataWithId(1);
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
     FileArtifactValue archivedTreeArtifactMetadata = metadataWithId(2);
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+    Map<TreeArtifact, TreeArtifactValue> results = new HashMap<>();
 
     builder
         .putChild(child, childMetadata)
@@ -708,10 +694,10 @@ public final class TreeArtifactValueTest {
   @Test
   public void multiBuilder_injectsEmptyTreeArtifactWithArchivedRepresentation() {
     TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeArtifact parent = createTreeArtifact("bin/tree");
     ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
     FileArtifactValue metadata = metadataWithId(1);
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+    Map<TreeArtifact, TreeArtifactValue> results = new HashMap<>();
 
     builder.setArchivedRepresentation(archivedTreeArtifact, metadata).forEach(results::put);
 
@@ -726,15 +712,15 @@ public final class TreeArtifactValueTest {
   @Test
   public void multiBuilder_injectsTreeArtifactsWithAndWithoutArchivedRepresentation() {
     TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent1 = createTreeArtifact("bin/tree1");
+    TreeArtifact parent1 = createTreeArtifact("bin/tree1");
     ArchivedTreeArtifact archivedArtifact1 = createArchivedTreeArtifact(parent1);
     FileArtifactValue archivedArtifact1Metadata = metadataWithId(1);
     TreeFileArtifact parent1Child = TreeFileArtifact.createTreeOutput(parent1, "child");
     FileArtifactValue parent1ChildMetadata = metadataWithId(2);
-    SpecialArtifact parent2 = createTreeArtifact("bin/tree2");
+    TreeArtifact parent2 = createTreeArtifact("bin/tree2");
     TreeFileArtifact parent2Child = TreeFileArtifact.createTreeOutput(parent2, "child");
     FileArtifactValue parent2ChildMetadata = metadataWithId(3);
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+    Map<TreeArtifact, TreeArtifactValue> results = new HashMap<>();
 
     builder
         .setArchivedRepresentation(archivedArtifact1, archivedArtifact1Metadata)
@@ -755,15 +741,15 @@ public final class TreeArtifactValueTest {
                 .build());
   }
 
-  private static ArchivedTreeArtifact createArchivedTreeArtifact(SpecialArtifact specialArtifact) {
-    return ArchivedTreeArtifact.createForTree(specialArtifact);
+  private static ArchivedTreeArtifact createArchivedTreeArtifact(TreeArtifact treeArtifact) {
+    return ArchivedTreeArtifact.createForTree(treeArtifact);
   }
 
-  private SpecialArtifact createTreeArtifact(String execPath) {
+  private TreeArtifact createTreeArtifact(String execPath) {
     return createTreeArtifact(execPath, root);
   }
 
-  private static SpecialArtifact createTreeArtifact(String execPath, ArtifactRoot root) {
+  private static TreeArtifact createTreeArtifact(String execPath, ArtifactRoot root) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         root, PathFragment.create(execPath));
   }

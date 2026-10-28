@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -80,10 +81,7 @@ public interface RunfilesTree {
   /** Fingerprints this runfiles tree. */
   void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths);
 
-  /**
-   * Whether the runfiles tree contains any {@link Artifact.SpecialArtifactType#CONSTANT_METADATA}
-   * artifacts.
-   */
+  /** Whether the runfiles tree contains any {@link ConstantMetadataArtifact} artifacts. */
   default boolean containsConstantMetadata() {
     return getArtifacts().toList().stream().anyMatch(Artifact::isConstantMetadata);
   }
