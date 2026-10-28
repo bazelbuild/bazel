@@ -28,10 +28,9 @@ public abstract class TimestampGranularityUtils {
   private TimestampGranularityUtils() {}
 
   /** Wait enough such that changes to a file with the given ctime will have observable effects. */
-  public static void waitForTimestampGranularity(long ctimeMillis, OutErr outErr) {
+  public static void waitForTimestampGranularity(long ctimeNanos, OutErr outErr) {
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
-    tsgm.setCommandStartTime();
-    tsgm.notifyDependenceOnFileTime(null, ctimeMillis);
+    tsgm.notifyDependenceOnFileTime(null, ctimeNanos);
     tsgm.waitForTimestampGranularity(outErr);
   }
 }

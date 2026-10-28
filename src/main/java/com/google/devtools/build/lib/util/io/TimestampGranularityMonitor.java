@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -21,12 +22,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * A utility class for dealing with filesystem timestamp granularity issues.
  *
- * <p>
- * Consider a sequence of commands such as
+ * <p>Consider a sequence of commands such as
+ *
  * <pre>
  *     echo ... &gt; foo/bar
  *     blaze query ...
@@ -34,73 +38,45 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  *     blaze query ...
  * </pre>
  *
- * If these commands all run very fast, it is possible that the timestamp
- * on foo/bar is not changed by the second command, even though some time has
- * passed, because the times are the same when rounded to the file system
- * timestamp granularity (often 1 second).
- * For performance, we assume that files whose
- * timestamps haven't changed can safely be cached without reexamining their contents.
- * But this assumption would be violated in the above scenario.
+ * For performance, we assume that files whose size and timestamps haven't changed can safely be
+ * cached without reexamining their contents. If the file system only records timestamps in whole
+ * seconds and these commands all run within the same second, foo/bar has the same timestamps after
+ * the second write as after the first, which violates this assumption.
  *
- * <p>
- * To address this, we record the current time at the start of executing
- * a Blaze command, and whenever we check the timestamp of a source file
- * or BUILD file, we check if the timestamp of that source file matches
- * the current time.  If so, we set a flag.  At the end of the command,
- * if the flag was set, then we wait until the clock has advanced, so
- * that any file modifications performed after the command exits will
- * result in a different file timestamp.
+ * <p>To address this, whenever we check the timestamp of a file whose contents we don't track
+ * otherwise, we record until when a change to the file could still be given the same timestamp. At
+ * the end of the command, we wait until that time has passed, so that any file modification
+ * performed after the command exits results in a different file timestamp.
  *
- * <p>
- * This class implicitly assumes that each filesystem's clock
- * is the same as either System.currentTimeMillis() or
- * System.currentTimeMillis() rounded down to the nearest second.
- * That is not strictly correct; there might be clock skew between
- * the cpu clock and the file system clocks (e.g. for NFS file systems),
- * and some file systems might have different granularity (e.g. the old
- * DOS FAT filesystem has TWO-second granularity timestamps).
- * Clock skew can be addressed using NTP.
- * Other granularities could be addressed by small changes to this class,
- * if it turns out to be needed.
+ * <p>File systems don't report the granularity of their timestamps, so we infer it from the change
+ * time itself: a change time that is a whole number of seconds or milliseconds is assumed to come
+ * from a file system with that granularity. Finer timestamps don't require waiting: either the file
+ * system gives a change made after a stat a later timestamp (e.g. APFS, or Linux 6.13+ with
+ * multigrain timestamps), or it takes timestamps from a clock that advances in ticks of a few
+ * milliseconds, which is less than the time between two changes made before and after a command.
  *
- * <p>
- * Another alternative design that we considered was to write to a file and
- * read its timestamp.  But doing that is a little tricky because we don't have
- * a FileSystem or Path handy.  Also, if we were going to do this, the stamp
- * file that is used should be in the same file system as the input files.
- * But the input file system(s) might not be writeable, and even if it is,
- * it's hard for Blaze to find a writable file on the same filesystem as the
- * input files.
+ * <p>This class assumes that the file system's clock agrees with {@link Clock#currentTimeMillis()}
+ * up to a small slack, which may not hold for network file systems. Waiting can't make up for a
+ * file system clock that is ahead of ours, so such timestamps are ignored.
  */
 @ThreadCompatible
 public class TimestampGranularityMonitor {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /**
-   * The time of the start of the current Blaze command,
-   * in milliseconds.
-   */
-  private long commandStartTimeMillis;
+  private static final long NANOS_PER_MILLI = 1_000_000;
+  private static final long NANOS_PER_SECOND = 1_000_000_000;
 
   /**
-   * The time of the start of the current Blaze command,
-   * in milliseconds, rounded to one second granularity.
+   * How far the file system's clock may deviate from ours, e.g. because it only advances once per
+   * scheduler tick.
    */
-  private long commandStartTimeMillisRounded;
+  private static final long SLACK_NANOS = 50 * NANOS_PER_MILLI;
 
-  /**
-   * True iff we detected a source file or BUILD file whose (unrounded)
-   * timestamp matched the time at the start of the current Blaze command
-   * rounded to the nearest second.
-   */
-  private volatile boolean waitASecond;
+  /** The time until which to wait at the end of the command and the file that requires it. */
+  private record Deadline(long nanos, @Nullable PathFragment path) {}
 
-  /**
-   * True iff we detected a source file or BUILD file whose timestamp
-   * exactly matched the time at the start of the current Blaze command
-   * (measuring both in integral numbers of milliseconds).
-   */
-  private volatile boolean waitAMillisecond;
+  private final AtomicReference<Deadline> deadline =
+      new AtomicReference<>(new Deadline(Long.MIN_VALUE, null));
 
   private final Clock clock;
 
@@ -109,98 +85,91 @@ public class TimestampGranularityMonitor {
   }
 
   /**
-   * Record the time at which the Blaze command started.
-   * This is needed for use by waitForTimestampGranularity().
-   */
-  public void setCommandStartTime() {
-    this.commandStartTimeMillis = clock.currentTimeMillis();
-    this.commandStartTimeMillisRounded = roundDown(this.commandStartTimeMillis);
-    this.waitASecond = false;
-    this.waitAMillisecond = false;
-  }
-
-  /**
-   * Record that the output of this Blaze command depended on the contents
-   * of a build file or source file with the specified time stamp.
+   * Record that the output of this Blaze command depended on the contents of a build file or source
+   * file with the specified change time.
    */
   @ThreadSafe
-  public void notifyDependenceOnFileTime(PathFragment path, long ctimeMillis) {
-    if (!this.waitAMillisecond && ctimeMillis == this.commandStartTimeMillis) {
-      if (path != null) {
-        logger.atInfo().log(
-            "Will have to wait for a millisecond on completion because of %s", path);
-      }
-      this.waitAMillisecond = true;
+  public void notifyDependenceOnFileTime(@Nullable PathFragment path, long ctimeNanos) {
+    long granularityNanos;
+    if (ctimeNanos % NANOS_PER_SECOND == 0) {
+      granularityNanos = NANOS_PER_SECOND + SLACK_NANOS;
+    } else if (ctimeNanos % NANOS_PER_MILLI == 0) {
+      granularityNanos = NANOS_PER_MILLI;
+    } else {
+      return;
     }
-    if (!this.waitASecond && ctimeMillis == this.commandStartTimeMillisRounded) {
-      if (path != null) {
-        logger.atInfo().log("Will have to wait for a second on completion because of %s", path);
-      }
-      this.waitASecond = true;
+    long deadlineNanos = ctimeNanos + granularityNanos;
+    if (deadlineNanos <= deadline.get().nanos()) {
+      return;
     }
+    if (ctimeNanos > currentTimeNanos() + SLACK_NANOS) {
+      // The file system's clock is ahead of ours, so waiting on ours wouldn't help.
+      return;
+    }
+    deadline.accumulateAndGet(
+        new Deadline(deadlineNanos, path), (a, b) -> a.nanos() >= b.nanos() ? a : b);
   }
 
   /**
-   * If needed, wait until the next "tick" of the filesystem timestamp clock.
-   * This is done to ensure that files created after the current Blaze command
-   * finishes will have timestamps different than files created before the
-   * current Blaze command started.  Otherwise a sequence of commands
-   * such as
+   * If needed, wait until the next "tick" of the filesystem timestamp clock. This is done to ensure
+   * that files changed after the current Blaze command finishes will have timestamps different than
+   * the ones it observed. Otherwise a sequence of commands such as
+   *
    * <pre>
    *     echo ... &gt; foo/BUILD
    *     blaze query ...
    *     echo ... &gt; foo/BUILD
    *     blaze query ...
    * </pre>
-   * could return wrong results, due to the contents of package foo
-   * being cached even though foo/BUILD changed.
+   *
+   * could return wrong results, due to the contents of package foo being cached even though
+   * foo/BUILD changed.
    */
   public void waitForTimestampGranularity(OutErr outErr) {
-    if (this.waitASecond || this.waitAMillisecond) {
-      long before = clock.currentTimeMillis();
-      long startedWaiting = Profiler.instance().nanoTimeMaybe();
-      boolean interrupted = false;
-
-      if (waitASecond) {
-        // 50ms slack after the whole-second boundary
-        while (clock.currentTimeMillis() < commandStartTimeMillisRounded + 1050) {
-          try {
-            Thread.sleep(50 /* milliseconds */);
-          } catch (InterruptedException e) {
-            if (!interrupted) {
-              outErr.printErrLn("INFO: Hang on a second...");
-              interrupted = true;
-            }
-          }
-        }
-      } else {
-        while (clock.currentTimeMillis() == commandStartTimeMillis) {
-          try {
-            Thread.sleep(1 /* milliseconds */);
-          } catch (InterruptedException e) {
-            if (!interrupted) {
-              outErr.printErrLn("INFO: Hang on a millisecond...");
-              interrupted = true;
-            }
-          }
-        }
-      }
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
-
-      Profiler.instance().logSimpleTask(startedWaiting, ProfilerTask.WAIT,
-                                        "Timestamp granularity");
-      logger.atInfo().log(
-          "Waited for %dms for file system to catch up", clock.currentTimeMillis() - before);
+    Duration remainingWait = getRemainingWait();
+    if (remainingWait.isZero()) {
+      return;
     }
+    Deadline deadline = this.deadline.get();
+    if (deadline.path() != null) {
+      logger.atInfo().log(
+          "Waiting for %dms on completion because of %s",
+          remainingWait.toMillis(),
+          deadline.path());
+    }
+    long before = clock.currentTimeMillis();
+    long startedWaiting = Profiler.instance().nanoTimeMaybe();
+    boolean interrupted = false;
+
+    while (!remainingWait.isZero()) {
+      try {
+        Thread.sleep(remainingWait);
+      } catch (InterruptedException e) {
+        if (!interrupted) {
+          outErr.printErrLn("INFO: Hang on a second...");
+          interrupted = true;
+        }
+      }
+      remainingWait = getRemainingWait();
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
+
+    Profiler.instance().logSimpleTask(startedWaiting, ProfilerTask.WAIT, "Timestamp granularity");
+    logger.atInfo().log(
+        "Waited for %dms for file system to catch up", clock.currentTimeMillis() - before);
   }
 
-  /**
-   * Rounds the specified time, in milliseconds, down to the nearest second,
-   * and returns the result in milliseconds.
-   */
-  private static long roundDown(long millis) {
-    return millis / 1000 * 1000;
+  /** Returns how much longer {@link #waitForTimestampGranularity} has to wait. */
+  @VisibleForTesting
+  Duration getRemainingWait() {
+    long deadlineNanos = deadline.get().nanos();
+    long nowNanos = currentTimeNanos();
+    return deadlineNanos > nowNanos ? Duration.ofNanos(deadlineNanos - nowNanos) : Duration.ZERO;
+  }
+
+  private long currentTimeNanos() {
+    return clock.currentTimeMillis() * NANOS_PER_MILLI;
   }
 }

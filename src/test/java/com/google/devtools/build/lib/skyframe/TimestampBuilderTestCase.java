@@ -495,7 +495,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   protected void buildArtifacts(Builder builder, Executor executor, Artifact... artifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
-    tsgm.setCommandStartTime();
     Set<Artifact> artifactsToBuild = Sets.newHashSet(artifacts);
     try {
       builder.buildArtifacts(
