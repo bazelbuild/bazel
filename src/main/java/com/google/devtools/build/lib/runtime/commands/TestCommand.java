@@ -88,7 +88,7 @@ public class TestCommand implements BlazeCommand {
       if (testOutput == TestOutputFormat.STREAMED) {
         optionsParser.parse(
             PriorityCategory.SOFTWARE_REQUIREMENT,
-            "streamed output requires locally run tests, without sharding",
+            "streamed output requires tests to run one at a time, without sharding",
             ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
       }
     } catch (OptionsParsingException e) {
