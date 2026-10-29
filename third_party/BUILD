@@ -333,13 +333,13 @@ java_library(
     name = "async_profiler_native",
     resource_strip_prefix = select({
         "//src/conditions:darwin": get_repo_root("async_profiler_macos"),
-        "//src/conditions:linux_arm": get_repo_root("async_profiler_linux_arm64"),
+        "//src/conditions:linux_aarch64": get_repo_root("async_profiler_linux_arm64"),
         "//src/conditions:linux_x86_64": get_repo_root("async_profiler_linux_x64"),
         "//conditions:default": None,
     }),
     resources = select({
         "//src/conditions:darwin": ["@async_profiler_macos//:libasyncProfiler"],
-        "//src/conditions:linux_arm": ["@async_profiler_linux_arm64//:libasyncProfiler"],
+        "//src/conditions:linux_aarch64": ["@async_profiler_linux_arm64//:libasyncProfiler"],
         "//src/conditions:linux_x86_64": ["@async_profiler_linux_x64//:libasyncProfiler"],
         "//conditions:default": [],
     }),
