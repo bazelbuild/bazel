@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
@@ -104,6 +105,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
           PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
+          PrecomputedValue.injected(ModuleFileFunction.INJECTED_MODULES, ImmutableMap.of()),
           PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
           PrecomputedValue.injected(
               RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE,
@@ -113,6 +115,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               ModuleFileFunction.REGISTRIES, BazelRepositoryModule.DEFAULT_REGISTRIES),
           PrecomputedValue.injected(
               RegistryFunction.MODULE_MIRRORS, BazelRepositoryModule.DEFAULT_MODULE_MIRRORS),
+          PrecomputedValue.injected(RegistryFunction.WATCHED_REGISTRIES, ImmutableSet.of()),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
           PrecomputedValue.injected(
               BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
