@@ -105,7 +105,7 @@ import javax.annotation.Nullable;
  */
 public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCache {
   // Salts all cache keys; change it whenever previously cached entries may no longer be valid.
-  private static final UUID GUID = UUID.fromString("06a53d89-9f52-46ed-8064-f7af6ba27769");
+  private static final UUID GUID = UUID.fromString("65a9a9e2-7cfd-4c1c-ad80-648dcfa16b84");
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
