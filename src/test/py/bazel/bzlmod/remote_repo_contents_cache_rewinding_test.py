@@ -211,6 +211,53 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
 
+  def testLostRemoteFile_bazelignore(self):
+    # The .bazelignore file of a repo is only read when one of its packages is
+    # first looked up, which can happen long after the repo has been retrieved
+    # from the cache. It is prefetched so that its loss can't fail the build.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'root\')")',
+            '  rctx.file(".bazelignore", "ignored")',
+            '  rctx.file("ignored/BUILD", "fail(\'not ignored\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//...'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached. Fetching the repo doesn't look up any of its
+    # packages.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@my_repo'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, '.bazelignore')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # Lose the .bazelignore file, which is only read now.
+    self.DeleteCasEntry(b'ignored')
+    _, _, stderr = self.RunBazel(['build', '@my_repo//...'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn(
+        'Found transient remote cache error, retrying the build...', stderr
+    )
+
   def testLostRemoteFile_remoteExecutionUpload(self):
     # Regression test for a crash when a file in a remotely cached repo has
     # been evicted after the analysis phase and this is only noticed while
