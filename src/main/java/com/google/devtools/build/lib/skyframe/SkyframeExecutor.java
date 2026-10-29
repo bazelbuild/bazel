@@ -4423,7 +4423,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         .setUnnecessaryTemporaryStateDropperReceiver(unnecessaryTemporaryStateDropperReceiver);
   }
 
-  void dropUnnecessaryTemporarySkyframeState() {
+  @VisibleForTesting
+  public void dropUnnecessaryTemporarySkyframeState() {
     dropper.drop();
   }
 

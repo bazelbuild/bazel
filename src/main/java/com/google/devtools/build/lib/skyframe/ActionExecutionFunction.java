@@ -273,6 +273,22 @@ public class ActionExecutionFunction implements SkyFunction {
     InputDiscoveryState state;
     if (action.discoversInputs()) {
       state = env.getState(InputDiscoveryState::new);
+      if (previousExecution != null
+          && !previousExecution.isDone()
+          && state.discoveredInputs == null) {
+        // This path is only reached when the previous execution failed with lost inputs and needed
+        // a Skyframe restart to prepare the rewind plan, since otherwise prepareForRewinding would
+        // have already cleaned up previousExecution. Because InputDiscoveryState is not guaranteed
+        // to survive Skyframe restarts and can be evicted from the compute state cache under memory
+        // pressure, clean up the stale ActionExecutionState so this evaluation re-runs
+        // checkInputs() and discoverInputs().
+        skyframeActionExecutor.prepareForRewinding(
+            actionLookupData,
+            action,
+            /* depsToRewind= */ ImmutableList.of(),
+            /* lostOwnOutputs= */ false);
+        previousExecution = null;
+      }
     } else {
       // Because this is a new state, all conditionals below about whether state has already done
       // something will return false, and so we will execute all necessary steps.
