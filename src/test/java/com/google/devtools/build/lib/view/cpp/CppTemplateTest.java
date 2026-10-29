@@ -70,14 +70,9 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
       assertThrows(BuildFailedException.class, () -> buildTarget("//tree:cc"));
       events.assertContainsError(
           Pattern.compile(
-              // TODO: remove the expression part before the | once bazel switches to a version of
-              // rules_cc that uses starlarkified CppCompileActionTemplate.
               "tree/BUILD:[0-9]+:[0-9]+: Compiling all C\\+\\+ files in tree/dir failed: Artifact"
                   + " '.*/tree/dir/other.file' expanded from the directory artifact '.*/tree/dir'"
-                  + " is neither header nor source file"
-                  + "|"
-                  + "Error: Artifact '.*/tree/dir/other.file' expanded from the directory"
-                  + " artifact '.*/tree/dir' is neither header nor source file"));
+                  + " is neither header nor source file"));
     }
   }
 
@@ -133,13 +128,8 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
     assertThrows(BuildFailedException.class, () -> buildTarget("//tree:cc"));
     events.assertContainsError(
         Pattern.compile(
-            // TODO: remove the expression part before the | once bazel switches to a version of
-            // rules_cc that uses starlarkified CppCompileActionTemplate.
             "tree/BUILD:[0-9]+:[0-9]+: Compiling all C\\+\\+ files in tree/dir failed: Expected"
-                + " action_config for 'c\\+\\+-compile' to be configured"
-                + "|"
-                + "Error in create_cc_compile_action:"
-                + " Expected action_config for 'c\\+\\+-compile' to be configured"));
+                + " action_config for 'c\\+\\+-compile' to be configured"));
   }
 
   @Test
