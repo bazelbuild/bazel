@@ -67,7 +67,8 @@ import javax.annotation.Nullable;
  *       for {@link BuildOptionsScopeValue} via {@link BuildOptionsScopesFunction} is performed.
  *   <li>If the ScopeType for a flag is ScopeType.PROJECT, and the flag is not in the scope of the
  *       current package, the flag is reset to its baseline value if it is present in the baseline.
- *       If the flag is not present in the baseline, it is removed. This is to ensure that we do not
+ *       With {@code scope_reset = "default"}, it is removed regardless of the baseline value. If
+ *       the flag is not present in the baseline, it is removed. This is to ensure that we do not
  *       trigger an addition ST-<hash>, which defeats the purpose of scoping.
  *   <li>If the ScopeType for a flag is ScopeType.PROJECT, and the flag is in the scope of the
  *       current package, the flag keeps its current value.
@@ -289,6 +290,16 @@ public final class BuildConfigurationKeyProducer<C>
     }
 
     var resolvedOptions = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
+    if (label == null
+        && buildOptionsScopeValue.getFullyResolvedScopes().values().stream()
+            .noneMatch(
+                scope ->
+                    scope.scopeType().scopeType().equals(Scope.ScopeType.PROJECT)
+                        && !scope.resetToDefault())) {
+      // Default-reset flags only need a baseline at actual target boundaries. In particular,
+      // baseline platform mapping must not recursively request the baseline it is computing.
+      return finishConfigurationKeyProcessing(resolvedOptions);
+    }
     tasks.lookUp(
         BaselineOptionsValue.key(
             resolvedOptions.get(CoreOptions.class).getIsExec(),
@@ -300,8 +311,13 @@ public final class BuildConfigurationKeyProducer<C>
 
   private StateMachine applyScopes(Tasks tasks) {
     BuildOptions resolved = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
+    // Default-reset flags can be out of scope even when unchanged from the command line.
+    boolean resetsToDefault =
+        buildOptionsScopeValue.getFullyResolvedScopes().values().stream()
+            .anyMatch(Scope::resetToDefault);
     BuildOptions finalBuildOptions =
-        baselineConfiguration.getStarlarkOptions().equals(resolved.getStarlarkOptions())
+        !resetsToDefault
+                && baselineConfiguration.getStarlarkOptions().equals(resolved.getStarlarkOptions())
             ? resolved
             : resetFlags(buildOptionsScopeValue, baselineConfiguration, label);
     return finishConfigurationKeyProcessing(finalBuildOptions);
@@ -316,6 +332,7 @@ public final class BuildConfigurationKeyProducer<C>
    * If a flag is considered to be out of scope, resetFlags does either of the following:
    *
    * <ul>
+   *   <li>If the flag opts into default reset, remove it regardless of the baseline.
    *   <li>If the flag is not present in the baseline configuration, remove the flag from the {@link
    *       BuildOptions}.
    *   <li>If the flag is present in the baseline configuration, set the flag to the baseline value.
@@ -331,7 +348,6 @@ public final class BuildConfigurationKeyProducer<C>
       BuildOptions baselineConfiguration,
       @Nullable Label label) {
     Preconditions.checkNotNull(buildOptionsScopeValue);
-
 
     BuildOptions transitionedOptionsWithScopeType =
         buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
@@ -356,7 +372,15 @@ public final class BuildConfigurationKeyProducer<C>
       } else if (scope.scopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);
-        if (flagValue != baselineValue && !isInScope(label, scope.scopeDefinition())) {
+        if (scope.resetToDefault()) {
+          // Headless configurations also feed owned exec tools: defer reset until a target is
+          // known.
+          if (label != null && !isInScope(label, scope.scopeDefinition())) {
+            // Absence is the canonical representation of a setting's declared default.
+            optionsWithScopeTypesBuilder.removeStarlarkOption(flagLabel);
+            flagsRemoved = true;
+          }
+        } else if (flagValue != baselineValue && !isInScope(label, scope.scopeDefinition())) {
           if (baselineValue == null) {
             optionsWithScopeTypesBuilder.removeStarlarkOption(flagLabel);
             flagsRemoved = true;

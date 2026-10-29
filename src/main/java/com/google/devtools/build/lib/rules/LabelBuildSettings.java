@@ -88,6 +88,10 @@ public final class LabelBuildSettings {
             attr("scope", STRING)
                 .value("default")
                 .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+        .add(
+            attr("scope_reset", STRING)
+                .value("baseline")
+                .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .add(attr("on_leave_scope", NODEP_LABEL).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()

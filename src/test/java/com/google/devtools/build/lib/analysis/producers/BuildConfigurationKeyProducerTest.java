@@ -155,6 +155,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
             implementation = _impl,
             build_setting = config.string(flag = True),
             attrs = {
+              "scope_reset": attr.string(default = "baseline"),
               "scope": attr.string(
                   doc = "The scope",
                   default = "universal",
@@ -858,6 +859,253 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         .contains(
             "//flag:foo: invalid value in 'scope' attribute: has to be one of 'universal' or"
                 + " 'project' instead of 'Project");
+  }
+
+  private void createProjectDefaultResetFlag() throws Exception {
+    createStarlarkFlagRule();
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+        basic_flag(
+            name = "version",
+            scope = "project",
+            scope_reset = "default",
+            build_setting_default = "neutral",
+        )
+        basic_flag(
+            name = "legacy",
+            scope = "project",
+            build_setting_default = "neutral",
+        )
+        basic_flag(
+            name = "universal",
+            scope = "universal",
+            build_setting_default = "neutral",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(project_directories = ["//python"])
+        """);
+    invalidatePackages(false);
+  }
+
+  private void setBaselineOptions(BuildOptions options) throws Exception {
+    getSkyframeExecutor()
+        .injectExtraPrecomputedValues(
+            new ImmutableList.Builder<PrecomputedValue.Injected>()
+                .add(
+                    PrecomputedValue.injected(
+                        BaselineOptionsFunction.BASELINE_CONFIGURATION, options))
+                .addAll(AnalysisMock.get().getPrecomputedValues())
+                .build());
+  }
+
+  @Test
+  public void projectDefaultReset_resetsCommandLineValue_evenWhenItMatchesBaseline()
+      throws Exception {
+    createProjectDefaultResetFlag();
+    BuildOptions options =
+        createBuildOptions(
+            "--//flag:version=3.11", "--//flag:legacy=legacy", "--//flag:universal=universal");
+    setBaselineOptions(options);
+
+    BuildOptions result =
+        fetch(options, Label.parseCanonicalUnchecked("//native:core")).getOptions();
+
+    assertThat(result.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//flag:legacy"), "legacy",
+            Label.parseCanonicalUnchecked("//flag:universal"), "universal");
+    assertThat(result.getScopeTypeMap())
+        .doesNotContainKey(Label.parseCanonicalUnchecked("//flag:version"));
+  }
+
+  @Test
+  public void projectDefaultReset_preservesInScopeCommandLineValue() throws Exception {
+    createProjectDefaultResetFlag();
+    BuildOptions options = createBuildOptions("--//flag:version=3.11");
+    setBaselineOptions(options);
+
+    BuildOptions result =
+        fetch(options, Label.parseCanonicalUnchecked("//python:binding")).getOptions();
+
+    assertThat(result.getStarlarkOptions())
+        .containsEntry(Label.parseCanonicalUnchecked("//flag:version"), "3.11");
+  }
+
+  @Test
+  public void projectDefaultReset_canonicalizesDifferentCommandLineBaselines() throws Exception {
+    createProjectDefaultResetFlag();
+    BuildOptions first = createBuildOptions("--//flag:version=3.11");
+    setBaselineOptions(first);
+    BuildConfigurationKey firstKey = fetch(first, Label.parseCanonicalUnchecked("//native:core"));
+    BuildOptions second = createBuildOptions("--//flag:version=3.12");
+    setBaselineOptions(second);
+    BuildConfigurationKey secondKey = fetch(second, Label.parseCanonicalUnchecked("//native:core"));
+
+    assertThat(firstKey).isEqualTo(secondKey);
+    assertThat(firstKey.getOptions().getStarlarkOptions()).isEmpty();
+  }
+
+  @Test
+  public void projectDefaultReset_resetsTransitionedValue_andKeepsLegacyBaseline()
+      throws Exception {
+    createProjectDefaultResetFlag();
+    BuildOptions baseline = createBuildOptions("--//flag:version=3.11", "--//flag:legacy=baseline");
+    setBaselineOptions(baseline);
+    BuildOptions transitioned =
+        createBuildOptions("--//flag:version=3.12", "--//flag:legacy=transitioned");
+
+    BuildOptions result =
+        fetch(transitioned, Label.parseCanonicalUnchecked("//native:core")).getOptions();
+
+    assertThat(result.getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//flag:legacy"), "baseline");
+  }
+
+  @Test
+  public void projectDefaultReset_resolvesPolicyForTransitionIntroducedFlag() throws Exception {
+    createProjectDefaultResetFlag();
+    BuildOptions transitioned =
+        createBuildOptions().toBuilder()
+            .addStarlarkOption(Label.parseCanonicalUnchecked("//flag:version"), "3.12")
+            .build();
+
+    BuildOptions outside =
+        fetch(transitioned, Label.parseCanonicalUnchecked("//native:core")).getOptions();
+    BuildOptions inside =
+        fetch(transitioned, Label.parseCanonicalUnchecked("//python:binding")).getOptions();
+
+    assertThat(outside.getStarlarkOptions()).isEmpty();
+    assertThat(inside.getStarlarkOptions())
+        .containsEntry(Label.parseCanonicalUnchecked("//flag:version"), "3.12");
+  }
+
+  @Test
+  public void projectDefaultReset_usesDeclaredDefaultsForBooleanAndListSettings() throws Exception {
+    scratch.file(
+        "flag/def.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+            attrs = {"scope": attr.string(), "scope_reset": attr.string(default = "default")},
+        )
+        list_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string_list(flag = True),
+            attrs = {"scope": attr.string(), "scope_reset": attr.string(default = "default")},
+        )
+        """);
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "bool_flag", "list_flag")
+        bool_flag(name = "bool", scope = "project", build_setting_default = False)
+        list_flag(name = "list", scope = "project", build_setting_default = ["base"])
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(project_directories = ["//python"])
+        """);
+    invalidatePackages(false);
+    BuildOptions options = createBuildOptions("--//flag:bool=true", "--//flag:list=custom");
+    setBaselineOptions(options);
+
+    assertThat(
+            fetch(options, Label.parseCanonicalUnchecked("//native:core"))
+                .getOptions()
+                .getStarlarkOptions())
+        .isEmpty();
+    assertThat(
+            fetch(options, Label.parseCanonicalUnchecked("//python:binding"))
+                .getOptions()
+                .getStarlarkOptions())
+        .containsExactlyEntriesIn(options.getStarlarkOptions());
+  }
+
+  @Test
+  public void projectDefaultReset_supportsNativeLabelFlags() throws Exception {
+    scratch.file(
+        "flag/BUILD",
+        """
+        filegroup(name = "default")
+        filegroup(name = "selected")
+        label_flag(
+            name = "version",
+            scope = "project",
+            scope_reset = "default",
+            build_setting_default = ":default",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(project_directories = ["//python"])
+        """);
+    invalidatePackages(false);
+    BuildOptions options = createBuildOptions("--//flag:version=//flag:selected");
+    setBaselineOptions(options);
+
+    assertThat(
+            fetch(options, Label.parseCanonicalUnchecked("//native:core"))
+                .getOptions()
+                .getStarlarkOptions())
+        .isEmpty();
+    assertThat(
+            fetch(options, Label.parseCanonicalUnchecked("//python:binding"))
+                .getOptions()
+                .getStarlarkOptions())
+        .containsExactlyEntriesIn(options.getStarlarkOptions());
+  }
+
+  @Test
+  public void projectDefaultReset_defersHeadlessResetForOwnedExecTools() throws Exception {
+    createProjectDefaultResetFlag();
+    BuildOptions options = createBuildOptions("--//flag:version=3.11");
+    setBaselineOptions(options);
+
+    BuildOptions headless = fetch(options, null).getOptions();
+
+    assertThat(headless.getStarlarkOptions())
+        .containsEntry(Label.parseCanonicalUnchecked("//flag:version"), "3.11");
+    assertThat(
+            fetch(headless, Label.parseCanonicalUnchecked("//native:core"))
+                .getOptions()
+                .getStarlarkOptions())
+        .isEmpty();
+  }
+
+  @Test
+  public void projectDefaultReset_handlesPlatformIntroducedFlagsWithoutBaselineCycle()
+      throws Exception {
+    createProjectDefaultResetFlag();
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(name = "sample", flags = ["--//flag:version=3.11"])
+        """);
+    invalidatePackages(false);
+    BuildOptions options = createBuildOptions("--platforms=//platforms:sample");
+    setBaselineOptions(options);
+
+    assertThat(
+            fetch(options, Label.parseCanonicalUnchecked("//native:core"))
+                .getOptions()
+                .getStarlarkOptions())
+        .isEmpty();
+    assertThat(
+            fetch(options, Label.parseCanonicalUnchecked("//python:binding"))
+                .getOptions()
+                .getStarlarkOptions())
+        .containsEntry(Label.parseCanonicalUnchecked("//flag:version"), "3.11");
   }
 
   private static final String CONTEXT = "context";

@@ -215,6 +215,34 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
             new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null));
   }
 
+  @Test
+  public void projectScope_reportsInvalidResetPolicy() throws Exception {
+    scratch.file(
+        "flag/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(), "scope_reset": attr.string()},
+        )
+        """);
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":defs.bzl", "string_flag")
+        string_flag(name = "version", build_setting_default = "neutral", scope = "project", scope_reset = "defualt")
+        """);
+    BuildOptions options = createBuildOptions("--//flag:version=3.11");
+    var key =
+        BuildOptionsScopeValue.Key.create(
+            options, ImmutableList.of(Label.parseCanonical("//flag:version")));
+
+    var error = assertThrows(InvalidConfigurationException.class, () -> executeFunction(key));
+
+    assertThat(error).hasMessageThat().contains("//flag:version");
+    assertThat(error).hasMessageThat().contains("scope_reset 'defualt'");
+  }
+
   private BuildOptionsScopeValue executeFunction(BuildOptionsScopeValue.Key key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     EvaluationResult<BuildOptionsScopeValue> result =

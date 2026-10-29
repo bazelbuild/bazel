@@ -190,6 +190,53 @@ bool_flag(
 )
 ```
 
+#### Project boundary reset policy
+
+A setting with `scope = "project"` keeps its value inside the active directories
+of its nearest `PROJECT.scl`. Outside that boundary, it normally resets to the
+command-line baseline. To reset to its declared `build_setting_default` instead,
+opt into `scope_reset = "default"`:
+
+```python
+version_flag = rule(
+    implementation = lambda ctx: [],
+    build_setting = config.string(flag = True),
+    attrs = {
+        "scope": attr.string(),
+        "scope_reset": attr.string(default = "baseline"),
+    },
+)
+
+# BUILD
+version_flag(
+    name = "python_version",
+    build_setting_default = "neutral",
+    scope = "project",
+    scope_reset = "default",
+)
+```
+
+For example, `flags/PROJECT.scl` can own the flags and bindings while leaving a
+`//native` library outside the boundary:
+
+```python
+project = {"active_directories": {"default": ["//flags", "//bindings"]}}
+```
+
+The rule author declares the string attributes; the setting owner opts in on the
+instance. `label_flag` and `label_setting` provide them natively. Omitting
+`scope_reset`, or setting it to `"baseline"`, preserves existing behavior. The
+policy applies to project scope; it does not change target or universal scope.
+It is independent of `on_leave_scope`, which supplies a typed value when leaving
+target scope on an exec transition.
+
+This lets native dependencies outside the Python project share a configuration
+across command-line Python version selections while bindings and owned exec tools
+keep the selected version. Resetting removes the override, so boolean, list and
+label settings use their own declared defaults without a separate reset value.
+Project ownership is explicit: every consumer that needs the selected value must
+remain inside the declared boundary.
+
 ### Predefined settings {#predefined-settings}
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/use_skylib_build_setting)
