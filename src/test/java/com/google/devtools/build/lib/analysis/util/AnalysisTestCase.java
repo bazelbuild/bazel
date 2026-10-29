@@ -230,7 +230,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     .addAll(analysisMock.getPrecomputedValues())
                     .add(
                         PrecomputedValue.injected(
-                            ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
                     .build())
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
@@ -261,7 +261,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl()))));
+                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl()))));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
