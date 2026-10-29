@@ -37,6 +37,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -475,6 +477,15 @@ public class UploadManifest {
       return out.toByteString();
     }
 
+    // REAPI strings cannot represent arbitrary POSIX bytes. A replacement character would
+    // change a symlink target or collapse distinct directory entries into one name.
+    private static void checkPathEncoding(String path) throws IOException {
+      if (!Utf8.isWellFormed(StringUnsafe.getInternalStringBytes(path))) {
+        throw new IOException(
+            "Remote cache directory entries and symlink targets must be valid UTF-8");
+      }
+    }
+
     private void visit(Path path, Dirent.Type type) {
       try {
         if (type == Dirent.Type.FILE) {
@@ -484,6 +495,7 @@ public class UploadManifest {
         if (type == Dirent.Type.DIRECTORY) {
           visitAsDirectory(path);
           for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+            checkPathEncoding(dirent.getName());
             Path childPath = path.getChild(dirent.getName());
             Dirent.Type childType = dirent.getType();
             execute(() -> visit(childPath, childType));
@@ -500,6 +512,7 @@ public class UploadManifest {
           }
           if (statFollow == null || !target.isAbsolute()) {
             // Symlink uploaded as a symlink.
+            checkPathEncoding(target.getPathString());
             if (target.isAbsolute()) {
               checkAbsoluteSymlinkAllowed(path, target);
             }
