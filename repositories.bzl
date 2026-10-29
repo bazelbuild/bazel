@@ -63,6 +63,7 @@ DIST_ARCHIVE_REPOS = [
     "rules_swift+",
     "stardoc+",
     "tar.bzl+",
+    "toml.bzl+",
     "with_cfg.bzl+",
     "xds+",
     "zlib+",
