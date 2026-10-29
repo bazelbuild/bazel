@@ -21,13 +21,13 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -167,7 +167,7 @@ public interface OutputService {
 
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, EnvironmentalExecException, InterruptedException;
+      throws IOException, ExecException, InterruptedException;
 
   @Nullable
   BatchStat getBatchStatter();
@@ -297,9 +297,15 @@ public interface OutputService {
 
     /**
      * Guards an action from the beginning to the end of its {@link Action#discoverInputs input
-     * discovery}, during which it may read any of its inputs and scheduling dependencies.
+     * discovery}, during which it may read the evaluated inputs and its scheduling dependencies.
+     *
+     * <p>The evaluated inputs include inputs restored from the action cache, but may exclude inputs
+     * previously pruned by the action. Those pruned inputs may have been restored in {@link
+     * Action#getInputs} without being evaluated yet. Newly discovered inputs are evaluated before
+     * execution and protected by {@link #enterActionExecution}.
      */
-    SilentCloseable enterInputDiscovery(Action action, InputMetadataProvider metadataProvider)
+    SilentCloseable enterInputDiscovery(
+        Action action, NestedSet<Artifact> evaluatedInputs, InputMetadataProvider metadataProvider)
         throws InterruptedException;
 
     /**
@@ -321,7 +327,9 @@ public interface OutputService {
 
           @Override
           public SilentCloseable enterInputDiscovery(
-              Action action, InputMetadataProvider metadataProvider) {
+              Action action,
+              NestedSet<Artifact> evaluatedInputs,
+              InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };

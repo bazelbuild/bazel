@@ -310,8 +310,8 @@ static jobject NewStat(JNIEnv* env, const portable_stat_struct& stat_ref) {
       getConstructorID(env, stat_class, "(IJJJJ)V");
   return env->NewObject(
       stat_class, file_status_class_ctor, static_cast<jint>(stat_ref.st_mode),
-      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
-      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
+      static_cast<jlong>(StatEpochNanoseconds(stat_ref, STAT_MTIME)),
+      static_cast<jlong>(StatEpochNanoseconds(stat_ref, STAT_CTIME)),
       static_cast<jlong>(stat_ref.st_size),
       static_cast<jlong>(stat_ref.st_ino));
 }

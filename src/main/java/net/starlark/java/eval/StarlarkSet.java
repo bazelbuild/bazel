@@ -707,7 +707,7 @@ set([1, 2, 3]).difference([0, 1], [3, 4])  # set([2])
   public StarlarkSet<?> difference(Tuple others, StarlarkThread thread) throws EvalException {
     LinkedHashSet<Object> newContents = new LinkedHashSet<>(contents);
     for (Object other : others) {
-      newContents.removeAll(toHashableCollection(other, "difference argument"));
+      removeAll(newContents, toHashableCollection(other, "difference argument"));
     }
     return wrapOrImmutableCopy(thread.mutability(), newContents);
   }
@@ -736,7 +736,23 @@ s.difference_update([0, 1], [4, 5])  # None; s is set([3])
   public void differenceUpdate(Tuple others) throws EvalException {
     Starlark.checkMutable(this);
     for (Object other : others) {
-      contents.removeAll(toHashableCollection(other, "intersection_update argument"));
+      removeAll(contents, toHashableCollection(other, "intersection_update argument"));
+    }
+  }
+
+  private static void removeAll(Set<?> set, Collection<?> other) {
+    // A few linear membership checks are cheaper than hashing a much larger sequence.
+    if (set.size() <= 8 || other instanceof Set<?> || other instanceof RangeList) {
+      set.removeAll(other);
+    } else {
+      // AbstractSet.removeAll can search a list once per set element. Remove each
+      // input directly to keep subtraction linear for sequences too.
+      for (Object element : other) {
+        set.remove(element);
+        if (set.isEmpty()) {
+          break;
+        }
+      }
     }
   }
 

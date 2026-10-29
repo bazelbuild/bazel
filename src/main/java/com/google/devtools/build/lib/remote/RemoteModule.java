@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -348,7 +349,7 @@ public final class RemoteModule extends BlazeModule {
           env.getReporter(),
           buildRequestId,
           invocationId,
-          env.getSkyframeExecutor().getEvaluator(),
+          env.getSkyframeExecutor()::getEvaluator,
           remoteOptions.getRemoteCacheTtl());
     }
   }
@@ -596,7 +597,7 @@ public final class RemoteModule extends BlazeModule {
               CredentialHelperEnvironment.newBuilder()
                   .setEventReporter(env.getReporter())
                   .setWorkspacePath(env.getWorkspace())
-                  .setClientEnvironment(env::getClientEnv)
+                  .setClientEnvironment(Suppliers.ofInstance(env.getClientEnv()))
                   .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                   .build(),
               credentialModule.getCredentialCache(),

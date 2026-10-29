@@ -21,8 +21,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -84,19 +83,17 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Path relativeSymlinkPath = outputDir.getRoot().asPath().getChild("relative_symlink");
     relativeSymlinkPath.createSymbolicLink(PathFragment.create("../some/relative/path"));
     relativeSymlink =
-        SpecialArtifact.create(
+        UnresolvedSymlinkArtifact.create(
             outputDir,
             outputDir.getExecPath().getChild("relative_symlink"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.UNRESOLVED_SYMLINK);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     Path absoluteSymlinkPath = outputDir.getRoot().asPath().getChild("absolute_symlink");
     absoluteSymlinkPath.createSymbolicLink(PathFragment.create("/absolute/path"));
     absoluteSymlink =
-        SpecialArtifact.create(
+        UnresolvedSymlinkArtifact.create(
             outputDir,
             outputDir.getExecPath().getChild("absolute_symlink"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.UNRESOLVED_SYMLINK);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
   private SourceManifestAction createSymlinkAction() {

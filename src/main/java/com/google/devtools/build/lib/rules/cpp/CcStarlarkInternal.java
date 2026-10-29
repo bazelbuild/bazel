@@ -28,7 +28,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.Expander;
@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -990,7 +991,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Sequence<?> additionalIncludeScanningRoots,
       boolean usePic,
       Sequence<?> outputCategoriesUnchecked,
-      SpecialArtifact outputFiles,
+      TreeArtifact outputFiles,
       Object dotdTreeArtifact,
       Object diagnosticsTreeArtifact,
       Object ltoIndexingTreeArtifact,
@@ -1043,7 +1044,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             needsIncludeValidation,
             executionInfo);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    SpecialArtifact sourceArtifact = (SpecialArtifact) source;
+    TreeArtifact sourceArtifact = (TreeArtifact) source;
     builder.setVariables(compileBuildVariables);
 
     try {
@@ -1051,9 +1052,9 @@ public class CcStarlarkInternal implements StarlarkValue {
           new CppCompileActionTemplate(
               sourceArtifact,
               outputFiles,
-              CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class),
-              CcModule.nullIfNone(diagnosticsTreeArtifact, SpecialArtifact.class),
-              CcModule.nullIfNone(ltoIndexingTreeArtifact, SpecialArtifact.class),
+              CcModule.nullIfNone(dotdTreeArtifact, TreeArtifact.class),
+              CcModule.nullIfNone(diagnosticsTreeArtifact, TreeArtifact.class),
+              CcModule.nullIfNone(ltoIndexingTreeArtifact, TreeArtifact.class),
               builder,
               CcToolchainProvider.create(ccToolchain),
               outputCategories.build());
@@ -1089,9 +1090,11 @@ public class CcStarlarkInternal implements StarlarkValue {
             .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
             .addExecutionInfo(executionInfo);
     if (additionalCompilationInputs.size() > 0) {
-      builder.addMandatoryInputs(
+      List<Artifact> inputs =
           Sequence.cast(
-              additionalCompilationInputs, Artifact.class, "additional_compilation_inputs"));
+              additionalCompilationInputs, Artifact.class, "additional_compilation_inputs");
+      builder.addMandatoryInputs(inputs);
+      builder.addAdditionalIncludeScanningRoots(inputs);
     }
     if (additionalIncludeScanningRoots.size() > 0) {
       builder.addAdditionalIncludeScanningRoots(
@@ -1262,7 +1265,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true,
             allowedTypes = {
-              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = TreeArtifact.class),
               @ParamType(type = NoneType.class)
             }),
         @Param(
@@ -1270,7 +1273,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true,
             allowedTypes = {
-              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = TreeArtifact.class),
               @ParamType(type = NoneType.class)
             }),
         @Param(
@@ -1278,7 +1281,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true,
             allowedTypes = {
-              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = TreeArtifact.class),
               @ParamType(type = NoneType.class)
             }),
         @Param(
@@ -1286,7 +1289,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true,
             allowedTypes = {
-              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = TreeArtifact.class),
               @ParamType(type = NoneType.class)
             }),
         @Param(name = "env", positional = false, named = true),
@@ -1312,10 +1315,10 @@ public class CcStarlarkInternal implements StarlarkValue {
             : new BitcodeFiles(Depset.cast(allBitcodeFiles, Artifact.class, "bitcode_files"));
     LtoBackendActionTemplate actionTemplate =
         new LtoBackendActionTemplate(
-            indexObj instanceof SpecialArtifact index ? index : null,
-            bitcodeFileObj instanceof SpecialArtifact bitcodeFile ? bitcodeFile : null,
-            objectFileObj instanceof SpecialArtifact objectFile ? objectFile : null,
-            dwoFileObj instanceof SpecialArtifact dwoFile ? dwoFile : null,
+            indexObj instanceof TreeArtifact index ? index : null,
+            bitcodeFileObj instanceof TreeArtifact bitcodeFile ? bitcodeFile : null,
+            objectFileObj instanceof TreeArtifact objectFile ? objectFile : null,
+            dwoFileObj instanceof TreeArtifact dwoFile ? dwoFile : null,
             featureConfiguration,
             Depset.cast(additionalInputs, Artifact.class, "additional_inputs"),
             ActionEnvironment.create(

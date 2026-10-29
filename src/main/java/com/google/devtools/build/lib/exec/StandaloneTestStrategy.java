@@ -28,7 +28,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -88,6 +88,10 @@ public class StandaloneTestStrategy extends TestStrategy {
           .put("PYTHON_RUNFILES", TestPolicy.RUNFILES_DIR)
           .put("RUNFILES_DIR", TestPolicy.RUNFILES_DIR)
           .put("TEST_TMPDIR", TestPolicy.TEST_TMP_DIR)
+          // The test encyclopedia recommends setting HOME to TEST_TMPDIR. Since this is the first
+          // layer of the test environment, users can override it via --test_env=HOME=... or
+          // --test_env=HOME (inherit) and unset it via --test_env==HOME.
+          .put("HOME", TestPolicy.TEST_TMP_DIR)
           .put("RUN_UNDER_RUNFILES", "1")
           .buildOrThrow();
 
@@ -774,8 +778,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
             actionExecutionContext
                 .getOutputMetadataStore()
-                .getTreeArtifactValue(
-                    (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
+                .getTreeArtifactValue((TreeArtifact) testAction.getCoverageDirectoryTreeArtifact())
                 .getChildren();
         ImmutableSet<Artifact> coverageSpawnMetadata =
             ImmutableSet.<Artifact>builder()

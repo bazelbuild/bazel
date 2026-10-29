@@ -26,7 +26,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link FileContentsProxy}. */
 @RunWith(JUnit4.class)
 public class FileContentsProxyTest {
-  /** A simple implementation of FileStatus for testing. */
+  /** A simple implementation of FileStatus for testing with times in nanoseconds. */
   private static final class InjectedStat implements FileStatus {
     private final long mtime;
     private final long ctime;
@@ -74,11 +74,21 @@ public class FileContentsProxyTest {
 
     @Override
     public long getLastModifiedTime() {
+      return Math.floorDiv(mtime, 1_000_000);
+    }
+
+    @Override
+    public long getLastModifiedTimeNanos() {
       return mtime;
     }
 
     @Override
     public long getLastChangeTime() {
+      return Math.floorDiv(ctime, 1_000_000);
+    }
+
+    @Override
+    public long getLastChangeTimeNanos() {
       return ctime;
     }
 
@@ -101,13 +111,31 @@ public class FileContentsProxyTest {
   }
 
   @Test
+  public void isModified_mtimeChangeWithinTheSameMillisecond() throws Exception {
+    FileContentsProxy before =
+        FileContentsProxy.create(
+            new InjectedStat(
+                /* mtime= */ 1_000_001, /* ctime= */ 1_000_001, /* size= */ 3, /* nodeId= */ 4));
+    FileContentsProxy after =
+        FileContentsProxy.create(
+            new InjectedStat(
+                /* mtime= */ 1_000_002, /* ctime= */ 1_000_002, /* size= */ 3, /* nodeId= */ 4));
+
+    assertThat(before).isNotEqualTo(after);
+    assertThat(before.isModified(after)).isTrue();
+  }
+
+  @Test
   public void toMetadataOnlyFileStatusRoundTrip() throws Exception {
     FileStatus stat =
-        new InjectedStat(/* mtime= */ 1, /* ctime= */ 2, /* size= */ 3, /* nodeId= */ 4);
+        new InjectedStat(
+            /* mtime= */ 1_000_001, /* ctime= */ 2_000_002, /* size= */ 3, /* nodeId= */ 4);
     FileStatus partial = FileContentsProxy.create(stat).toMetadataOnlyFileStatus(stat.getSize());
 
     assertThat(partial.getLastModifiedTime()).isEqualTo(stat.getLastModifiedTime());
+    assertThat(partial.getLastModifiedTimeNanos()).isEqualTo(stat.getLastModifiedTimeNanos());
     assertThat(partial.getLastChangeTime()).isEqualTo(stat.getLastChangeTime());
+    assertThat(partial.getLastChangeTimeNanos()).isEqualTo(stat.getLastChangeTimeNanos());
     assertThat(partial.getNodeId()).isEqualTo(stat.getNodeId());
     assertThat(partial.getSize()).isEqualTo(stat.getSize());
   }

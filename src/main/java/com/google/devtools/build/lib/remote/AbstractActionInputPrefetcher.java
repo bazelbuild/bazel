@@ -29,6 +29,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
@@ -40,18 +41,20 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -550,7 +553,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (!(input instanceof TreeFileArtifact treeFile)) {
       return null;
     }
-    SpecialArtifact treeArtifact = treeFile.getParent();
+    TreeArtifact treeArtifact = treeFile.getParent();
     FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
     if (treeMetadata == null) {
       // There are two cases where tree metadata is legitimately not available:
@@ -587,7 +590,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact treeFile) {
-      SpecialArtifact treeArtifact = treeFile.getParent();
+      TreeArtifact treeArtifact = treeFile.getParent();
       FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
       if (treeMetadata == null) {
         // There are two cases where tree metadata is legitimately not available:
@@ -947,7 +950,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, InterruptedException {
+      throws IOException, LostInputsExecException, InterruptedException {
     List<Artifact> outputsToDownload = new ArrayList<>();
     for (Artifact output : action.getOutputs()) {
       if (outputMetadataStore.artifactOmitted(output)) {
@@ -959,9 +962,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         continue;
       }
 
-      if (output.isTreeArtifact()) {
+      if (output instanceof TreeArtifact treeOutput) {
         outputMetadataStore
-            .getTreeArtifactValue((SpecialArtifact) output)
+            .getTreeArtifactValue(treeOutput)
             .getChildValues()
             .forEach(
                 (child, childMetadata) -> {
@@ -985,6 +988,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 output -> outputMetadataStore.getOutputMetadata((Artifact) output),
                 Priority.HIGH,
                 Reason.OUTPUTS));
+      } catch (BulkTransferException e) {
+        // Outputs whose blobs the remote cache has lost are recreated by rewinding.
+        var lostOutputs =
+            e.getLostArtifacts(Maps.uniqueIndex(outputsToDownload, Artifact::getExecPath)::get);
+        if (lostOutputs.isEmpty()) {
+          throw e;
+        }
+        throw new LostInputsExecException(lostOutputs.byDigest(), e);
       }
     }
   }
