@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -57,15 +58,19 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.InOrder;
 
 /** Tests for {@link RemoteRewoundActionSynchronizer}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class RemoteRewoundActionSynchronizerTest {
   private static final long DEADLOCK_TIMEOUT_MILLIS = 10_000;
 
@@ -170,8 +175,8 @@ public final class RemoteRewoundActionSynchronizerTest {
    * uploads registered by either owner.
    */
   @Test
-  public void sharedAction_rewoundUnderOtherOwner_waitsForConsumerAndCancelsUpload()
-      throws Exception {
+  public void sharedAction_rewoundUnderOtherOwner_waitsForConsumerAndCancelsUpload(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -192,9 +197,7 @@ public final class RemoteRewoundActionSynchronizerTest {
     var upload = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
     var unused = synchronizer.registerOutputUploadTask(action, upload);
 
-    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
-    // exclude every rewound action regardless of which keys guard the consumed output.
-    rewind(newAction());
+    maybeInflateFineLocks(inflateFineLocksFirst);
 
     var otherPreparation = new TestThread(() -> rewind(otherAction));
     try (SilentCloseable execution =
@@ -214,7 +217,8 @@ public final class RemoteRewoundActionSynchronizerTest {
    * that are not declared inputs, so their producers must not be rewound while it is running.
    */
   @Test
-  public void inputDiscovery_locksProducersOfSchedulingDependencies() throws Exception {
+  public void inputDiscovery_locksProducersOfSchedulingDependencies(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -234,9 +238,7 @@ public final class RemoteRewoundActionSynchronizerTest {
     mockActions(owner, ImmutableList.of(headerProducer, sourceProducer, compile));
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
 
-    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
-    // exclude every rewound action regardless of which keys guard the discovery.
-    rewind(newAction());
+    maybeInflateFineLocks(inflateFineLocksFirst);
 
     var headerProducerPreparation = new TestThread(() -> rewind(headerProducer));
     try (SilentCloseable discovery =
@@ -255,7 +257,8 @@ public final class RemoteRewoundActionSynchronizerTest {
    * excluded, as it doesn't write to disk.
    */
   @Test
-  public void runfilesTreeConsumer_excludesOnlyProducersOfItsRunfiles() throws Exception {
+  public void runfilesTreeConsumer_excludesOnlyProducersOfItsRunfiles(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -294,9 +297,7 @@ public final class RemoteRewoundActionSynchronizerTest {
             ImmutableList.of());
     when(metadataProvider.getRunfilesMetadata(runfiles)).thenReturn(runfilesValue);
 
-    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
-    // exclude every rewound action regardless of which keys guard the runfiles tree.
-    rewind(newAction());
+    maybeInflateFineLocks(inflateFineLocksFirst);
 
     var preparation = new TestThread(() -> rewind(producer));
     var unrelatedPreparation = new TestThread(() -> rewind(unrelatedProducer));
@@ -319,7 +320,8 @@ public final class RemoteRewoundActionSynchronizerTest {
    * generating their artifacts must still be excluded while the handler processes them.
    */
   @Test
-  public void outputProcessing_waitsForRewoundRunfilesProducer() throws Exception {
+  public void outputProcessing_waitsForRewoundRunfilesProducer(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -335,9 +337,7 @@ public final class RemoteRewoundActionSynchronizerTest {
         .thenReturn(immediateVoidFuture());
     RemoteImportantOutputHandler handler = newImportantOutputHandler(runfile);
 
-    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
-    // exclude every rewound action regardless of which keys guard the processed outputs.
-    rewind(newAction());
+    maybeInflateFineLocks(inflateFineLocksFirst);
 
     var processing =
         new TestThread(
@@ -357,8 +357,8 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   @Test
-  public void outputProcessing_excludesOnlyRewindingOfProducersOfOutputsAndRunfiles()
-      throws Exception {
+  public void outputProcessing_excludesOnlyRewindingOfProducersOfOutputsAndRunfiles(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -385,9 +385,7 @@ public final class RemoteRewoundActionSynchronizerTest {
         .thenReturn(download);
     RemoteImportantOutputHandler handler = newImportantOutputHandler(importantOutput, runfile);
 
-    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
-    // exclude every rewound action regardless of which keys guard the processed outputs.
-    rewind(newAction());
+    maybeInflateFineLocks(inflateFineLocksFirst);
 
     var processing =
         new TestThread(
@@ -423,8 +421,8 @@ public final class RemoteRewoundActionSynchronizerTest {
    * subdirectory and which thus doesn't generate any of the tree's files.
    */
   @Test
-  public void expandedActionRewound_emptySubdirectoryProducer_waitsForTreeConsumer()
-      throws Exception {
+  public void expandedActionRewound_emptySubdirectoryProducer_waitsForTreeConsumer(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -442,9 +440,7 @@ public final class RemoteRewoundActionSynchronizerTest {
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
     mockTemplateExpansion(owner, ImmutableList.of(producer));
 
-    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
-    // exclude the producer regardless of which keys guard the tree.
-    rewind(newAction());
+    maybeInflateFineLocks(inflateFineLocksFirst);
 
     var preparation = new TestThread(() -> rewind(producer));
     try (SilentCloseable execution =
@@ -461,7 +457,8 @@ public final class RemoteRewoundActionSynchronizerTest {
    * rewinding, whereas it does exclude the rewinding of the actions populating its own tree.
    */
   @Test
-  public void expandedActionRewound_treeConsumer_excludesOnlyProducersOfItsTree() throws Exception {
+  public void expandedActionRewound_treeConsumer_excludesOnlyProducersOfItsTree(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -485,9 +482,7 @@ public final class RemoteRewoundActionSynchronizerTest {
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
     mockTemplateExpansion(owner, ImmutableList.of(firstProducer, secondProducer));
 
-    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
-    // exclude the consumer regardless of which keys guard the trees.
-    rewind(newAction());
+    maybeInflateFineLocks(inflateFineLocksFirst);
 
     try (SilentCloseable secondPreparation =
         synchronizer.enterActionPreparation(secondProducer, /* wasRewound= */ true)) {
@@ -610,6 +605,220 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   /**
+   * While a rewound action waits for a consumer of its outputs that started before the fine locks
+   * were inflated, other consumers are admitted.
+   */
+  @Test
+  public void rewoundActionAwaitingRegisteredConsumer_admitsOtherConsumers() throws Exception {
+    var fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    var file = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "file");
+    file.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    var producer = newAction(ImmutableList.of(file), ImmutableList.of());
+    var otherFile = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "other");
+    otherFile.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    var otherProducer = newAction(ImmutableList.of(otherFile), ImmutableList.of());
+    var consumerOutput = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    var consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(file));
+    var otherConsumerOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "other_consumer.out");
+    otherConsumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 3));
+    var otherConsumer =
+        newAction(ImmutableList.of(otherConsumerOutput), ImmutableList.of(otherFile));
+    mockActions(owner, ImmutableList.of(producer, otherProducer, consumer, otherConsumer));
+    var metadataProvider = mock(InputMetadataProvider.class);
+
+    var preparation = new TestThread(() -> rewind(producer));
+    var otherExecution =
+        new TestThread(
+            () -> {
+              try (var _ =
+                  synchronizer.enterActionExecution(
+                      otherConsumer, /* wasRewound= */ false, metadataProvider)) {}
+            });
+    try (var _ =
+        synchronizer.enterActionExecution(consumer, /* wasRewound= */ false, metadataProvider)) {
+      preparation.start();
+      waitUntilBlocked(preparation);
+      otherExecution.start();
+      otherExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    }
+    preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  /**
+   * A rewound action reads the metadata provider of a consumer that registered before the fine
+   * locks were inflated to find out whether it consumes the rewound action's outputs. Since the
+   * consumer may mutate the provider once unregistered, unregistration waits for the rewound
+   * action.
+   */
+  @Test
+  public void unregistration_waitsForRewoundActionReadingConsumerMetadata() throws Exception {
+    var fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    var file = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "file");
+    file.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    var producer = newAction(ImmutableList.of(file), ImmutableList.of());
+    var unrelatedFile = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "unrelated");
+    unrelatedFile.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    var unrelatedProducer = newAction(ImmutableList.of(unrelatedFile), ImmutableList.of());
+    var runfiles = ActionsTestUtil.createRunfilesArtifact(root, "out/runfiles");
+    runfiles.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    var runfilesAction = newAction(ImmutableList.of(runfiles), ImmutableList.of(file));
+    var consumerOutput = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 3));
+    var consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(runfiles));
+    mockActions(owner, ImmutableList.of(producer, unrelatedProducer, runfilesAction, consumer));
+    var runfilesValue =
+        new RunfilesArtifactValue(
+            mock(RunfilesTree.class),
+            ImmutableList.of(file),
+            ImmutableList.of(FileArtifactValue.createForNormalFile(new byte[32], null, 0)),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of());
+    var metadataRead = new CountDownLatch(1);
+    var metadataReleased = new CountDownLatch(1);
+    var metadataProvider = mock(InputMetadataProvider.class);
+    when(metadataProvider.getRunfilesMetadata(runfiles))
+        .thenAnswer(
+            _ -> {
+              metadataRead.countDown();
+              metadataReleased.await();
+              return runfilesValue;
+            });
+
+    var execution =
+        synchronizer.enterActionExecution(consumer, /* wasRewound= */ false, metadataProvider);
+    var unrelatedPreparation = new TestThread(() -> rewind(unrelatedProducer));
+    unrelatedPreparation.start();
+    var unregistration = new TestThread(execution::close);
+    try {
+      assertThat(metadataRead.await(DEADLOCK_TIMEOUT_MILLIS, MILLISECONDS)).isTrue();
+      unregistration.start();
+      Thread.State state;
+      while ((state = unregistration.getState()) != Thread.State.BLOCKED) {
+        assertThat(state).isNotEqualTo(Thread.State.TERMINATED);
+        Thread.onSpinWait();
+      }
+    } finally {
+      metadataReleased.countDown();
+    }
+
+    unregistration.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    unrelatedPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  @Test
+  public void enterActionExecution_interrupted_throws(@TestParameter boolean inflateFineLocksFirst)
+      throws Exception {
+    maybeInflateFineLocks(inflateFineLocksFirst);
+
+    Thread.currentThread().interrupt();
+
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            synchronizer.enterActionExecution(
+                newAction(), /* wasRewound= */ false, mock(InputMetadataProvider.class)));
+  }
+
+  @Test
+  public void rewoundActionInterruptedWhileAwaitingRegisteredConsumer_canBeRewoundAgain()
+      throws Exception {
+    var fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    var file = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "file");
+    file.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    var producer = newAction(ImmutableList.of(file), ImmutableList.of());
+    var consumerOutput = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    var consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(file));
+    mockActions(owner, ImmutableList.of(producer, consumer));
+
+    var preparation =
+        new TestThread(() -> assertThrows(InterruptedException.class, () -> rewind(producer)));
+    try (var _ =
+        synchronizer.enterActionExecution(
+            consumer, /* wasRewound= */ false, mock(InputMetadataProvider.class))) {
+      preparation.start();
+      waitUntilBlocked(preparation);
+      preparation.interrupt();
+      preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    }
+
+    rewind(producer);
+  }
+
+  /**
+   * A consumer that races with the first rewound action either finds the fine locks inflated or is
+   * found registered by the rewound action, so it never executes while the rewound action holds its
+   * write lock. The race is only hit with some probability per iteration.
+   */
+  @Test
+  public void consumersRacingWithFirstRewinding_neverOverlapRewoundAction() throws Exception {
+    var fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    var file = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "file");
+    file.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    var producer = newAction(ImmutableList.of(file), ImmutableList.of());
+    var consumerOutput = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    var consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(file));
+    mockActions(owner, ImmutableList.of(producer, consumer));
+    var metadataProvider = mock(InputMetadataProvider.class);
+
+    var rewindingThread = Thread.currentThread();
+    for (int i = 0; i < 3000; i++) {
+      var synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
+      var rewinding = new AtomicBoolean();
+      var start = new CountDownLatch(1);
+      var consumerExecutions = new ArrayList<TestThread>();
+      for (int j = 0; j < 4; j++) {
+        var consumerExecution =
+            new TestThread(
+                () -> {
+                  start.await();
+                  try (var _ =
+                      synchronizer.enterActionExecution(
+                          consumer, /* wasRewound= */ false, metadataProvider)) {
+                    // Stay until the rewound action either waits, possibly for this consumer, or
+                    // holds its write lock.
+                    while (!rewinding.get() && !isBlocked(rewindingThread)) {
+                      Thread.onSpinWait();
+                    }
+                    assertThat(rewinding.get()).isFalse();
+                  }
+                });
+        consumerExecution.start();
+        consumerExecutions.add(consumerExecution);
+      }
+
+      start.countDown();
+      try (var _ = synchronizer.enterActionPreparation(producer, /* wasRewound= */ true)) {
+        rewinding.set(true);
+        // Keep the write lock until every consumer has either finished or blocked on it, so that a
+        // consumer that wrongly executes concurrently observes the flag.
+        for (TestThread consumerExecution : consumerExecutions) {
+          while (consumerExecution.isAlive() && !isBlocked(consumerExecution)) {
+            Thread.onSpinWait();
+          }
+        }
+        rewinding.set(false);
+      }
+      for (TestThread consumerExecution : consumerExecutions) {
+        consumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+      }
+    }
+  }
+
+  /**
    * Makes the given owner's only action an {@link ActionTemplate} whose expansion consists of the
    * given actions.
    */
@@ -670,12 +879,29 @@ public final class RemoteRewoundActionSynchronizerTest {
         graph, remoteOutputChecker, actionInputFetcher, synchronizer);
   }
 
+  private static boolean isBlocked(Thread thread) {
+    return switch (thread.getState()) {
+      case BLOCKED, WAITING, TIMED_WAITING -> true;
+      case NEW, RUNNABLE, TERMINATED -> false;
+    };
+  }
+
   @SuppressWarnings("ThreadPriorityCheck")
   private static void waitUntilBlocked(Thread thread) {
     Thread.State state;
     while ((state = thread.getState()) != Thread.State.WAITING) {
       assertThat(state).isNotEqualTo(Thread.State.TERMINATED);
       Thread.yield();
+    }
+  }
+
+  /**
+   * Inflates the fine locks by rewinding an unrelated action if requested. Otherwise, consumers
+   * entered before the first rewinding only register themselves.
+   */
+  private void maybeInflateFineLocks(boolean inflate) throws Exception {
+    if (inflate) {
+      rewind(newAction());
     }
   }
 
