@@ -518,6 +518,12 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             on_leave_scope = "another_value"
         )
         string_flag(
+            name = "flag_in_exec_config_set_to_default",
+            build_setting_default = "default",
+            scope = "target",
+            on_leave_scope = "default"
+        )
+        string_flag(
             name = "project_scope",
             build_setting_default = "default",
             scope = "project",
@@ -546,6 +552,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 "custom",
                 "//test:flag_in_exec_config_set_to_another_value",
                 "target_value",
+                "//test:flag_in_exec_config_set_to_default",
+                "target_value",
                 "//test:flag_in_exec_config_reference_another_flag_value",
                 "target_value"),
             "--experimental_exclude_starlark_flags_from_exec_config="
@@ -568,6 +576,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
               Label.parseCanonicalUnchecked("//test:default_scope"),
               "custom");
     } else {
+      // //test:flag_in_exec_config_set_to_default and
+      // //test:flag_in_exec_config_reference_another_flag_value take values equal to their
+      // defaults.
       assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
               Label.parseCanonicalUnchecked(
@@ -579,10 +590,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
               // this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
-              "another_value",
-              Label.parseCanonicalUnchecked(
-                  "//test:flag_in_exec_config_reference_another_flag_value"),
-              "default");
+              "another_value");
     }
   }
 
@@ -637,6 +645,83 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     if (!setReferencedFlag) {
       assertThat(targetOptions.getStarlarkOptions())
           .doesNotContainKey(Label.parseCanonicalUnchecked("//other:flag"));
+    }
+  }
+
+  @Test
+  public void starlarkFlagExecScope_hostFlagAliasAtFlagDefault_unsetsFlag(
+      @TestParameter boolean allowsMultiple) throws Exception {
+    scratch.file(
+        "test/flags.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True, allow_multiple = %s),
+            attrs = {"scope": attr.string()},
+        )
+        """
+            .formatted(allowsMultiple ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":flags.bzl", "string_flag")
+        string_flag(
+            name = "flag",
+            build_setting_default = "default",
+            scope = "exec:--//test:host_flag",
+        )
+        string_flag(name = "host_flag", build_setting_default = "default")
+        """);
+    BuildOptions targetOptions =
+        parseBuildOptions(
+            ImmutableMap.of("//test:flag", allowsMultiple ? ImmutableList.of("custom") : "custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true",
+            "--flag_alias=host_flag=//test:host_flag");
+
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
+    assertThat(execOptions.getStarlarkOptions())
+        .doesNotContainKey(Label.parseCanonicalUnchecked("//test:flag"));
+  }
+
+  @Test
+  public void starlarkFlagOnLeaveScope_allowsMultiple(@TestParameter boolean onLeaveScopeIsDefault)
+      throws Exception {
+    scratch.file(
+        "test/flags.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True, allow_multiple = True),
+            attrs = {"scope": attr.string(), "on_leave_scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":flags.bzl", "string_flag")
+        string_flag(
+            name = "flag",
+            build_setting_default = "default",
+            scope = "target",
+            on_leave_scope = "%s",
+        )
+        """
+            .formatted(onLeaveScopeIsDefault ? "default" : "exec"));
+    BuildOptions targetOptions =
+        parseBuildOptions(
+            ImmutableMap.of("//test:flag", ImmutableList.of("custom")),
+            "--experimental_exclude_starlark_flags_from_exec_config=true");
+
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
+    Label flag = Label.parseCanonicalUnchecked("//test:flag");
+    if (onLeaveScopeIsDefault) {
+      assertThat(execOptions.getStarlarkOptions()).doesNotContainKey(flag);
+    } else {
+      assertThat(execOptions.getStarlarkOptions()).containsEntry(flag, ImmutableList.of("exec"));
     }
   }
 

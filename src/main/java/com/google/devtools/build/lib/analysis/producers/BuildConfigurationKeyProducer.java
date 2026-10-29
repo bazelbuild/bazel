@@ -158,8 +158,9 @@ public final class BuildConfigurationKeyProducer<C>
               targetPlatforms.getFirst(),
               options.get(CoreOptions.class).getCommandLineFlagAliasesMap(),
               this,
-              this::checkTargetPlatformFlags));
-      return runAfter;
+              DONE));
+      // Not the PlatformProducer's runAfter so that it also waits for the flag details lookup.
+      return this::checkTargetPlatformFlags;
     } else {
       Verify.verify(targetPlatforms.isEmpty());
       return this::mergeFromPlatformMapping;

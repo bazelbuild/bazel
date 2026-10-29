@@ -128,23 +128,19 @@ public final class StarlarkTransitionCache {
     return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
+  /**
+   * Adds the default values of unset flags with a custom exec scope, so that the exec transition
+   * sets them to the value of the flag they reference.
+   */
   public static BuildOptions getDefaultStarlarkOptionsForCustomExec(
       BuildOptions.Builder optionsWithDefaults,
       StarlarkBuildSettingsDetailsValue details,
       BuildOptions fromOptions) {
-    for (Label customExecSetting : details.customExecScopeValues().keySet()) {
-      if (optionsWithDefaults == null) {
-        optionsWithDefaults = fromOptions.toBuilder();
-      }
-
-      CustomExecScopeValue customExecScopeValue =
-          details.customExecScopeValues().get(customExecSetting);
-
-      if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.hostFlag())) {
-        optionsWithDefaults.addStarlarkOption(
-            customExecScopeValue.hostFlag(), customExecScopeValue.hostFlagDefault());
-      }
+    for (CustomExecScopeValue customExecScopeValue : details.customExecScopeValues().values()) {
       if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.flag())) {
+        if (optionsWithDefaults == null) {
+          optionsWithDefaults = fromOptions.toBuilder();
+        }
         optionsWithDefaults.addStarlarkOption(
             customExecScopeValue.flag(), customExecScopeValue.flagDefault());
       }
