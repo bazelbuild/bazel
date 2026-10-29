@@ -953,6 +953,105 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void actionRewinding_prunedRunfilesInput_recovers() throws Exception {
+    var cacheWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = cacheWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + cacheWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/rules.bzl",
+          """
+          def _tool_impl(ctx):
+              ctx.actions.write(
+                  ctx.outputs.executable,
+                  '#!/bin/sh\\ncat "$1" > "$2"; echo "$3" > "$4"\\n',
+                  is_executable = True,
+              )
+              return [DefaultInfo(
+                  executable = ctx.outputs.executable,
+                  runfiles = ctx.runfiles(files = [ctx.file.data]),
+              )]
+
+          tool = rule(
+              implementation = _tool_impl,
+              attrs = {"data": attr.label(allow_single_file = True)},
+              executable = True,
+          )
+
+          def _prune_impl(ctx):
+              output = ctx.actions.declare_file(ctx.label.name + ".out")
+              unused = ctx.actions.declare_file(ctx.label.name + ".unused")
+              tool = ctx.attr.tool[DefaultInfo].files_to_run
+              ctx.actions.run(
+                  executable = "%s",
+                  tools = [tool],
+                  inputs = [ctx.file.src],
+                  outputs = [output, unused],
+                  arguments = [
+                      tool.executable.path,
+                      ctx.file.src.path,
+                      output.path,
+                      tool.executable.path + ".runfiles",
+                      unused.path,
+                  ],
+                  unused_inputs_list = unused,
+              )
+              return [DefaultInfo(files = depset([output]))]
+
+          prune = rule(
+              implementation = _prune_impl,
+              attrs = {
+                  "src": attr.label(allow_single_file = True),
+                  "tool": attr.label(executable = True, cfg = "exec"),
+              },
+          )
+          """
+              .formatted(
+                  OS.getCurrent() == OS.WINDOWS ? "C:/msys64/usr/bin/bash.exe" : "/bin/bash"));
+      write(
+          "a/BUILD",
+          """
+          load(":rules.bzl", "prune", "tool")
+
+          genrule(
+              name = "foo",
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+          genrule(
+              name = "trigger",
+              srcs = [":foo", "trigger.in"],
+              outs = ["trigger.out"],
+              cmd = "cat $(location :foo) $(location trigger.in) > $@",
+          )
+          genrule(
+              name = "data",
+              outs = ["data.out"],
+              cmd = "echo data > $@",
+          )
+          tool(name = "tool", data = ":data")
+          prune(name = "prune", src = ":trigger", tool = ":tool")
+          """);
+      write("a/trigger.in", "before");
+      buildTarget("//a:prune");
+
+      // Rewind :foo before :prune rediscovers its inputs. The previous execution pruned the
+      // runfiles tree, so its metadata is not available while checking :prune's action cache.
+      cacheWorker.evictBlob("foo".getBytes(UTF_8));
+      if (useDiskCache) {
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+      write("a/trigger.in", "after");
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+      setDownloadToplevel();
+      buildTarget("//a:prune");
+
+      assertRewoundActions(rewoundKeys, "//a:foo");
+      assertValidOutputFile("a/prune.out", "fooafter\n");
+    }
+  }
+
+  @Test
   public void actionRewinding_lostInputWithStaleActionCacheEntry_recovers() throws Exception {
     // The unverified worker serves cached action results even if the blobs they reference are
     // missing from the CAS, emulating a remote cache without integrity checks. Rewinding must not
