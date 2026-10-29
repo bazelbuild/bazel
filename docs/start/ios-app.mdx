@@ -61,9 +61,9 @@ editor. Add the following code snippet to the file:
 ```python
 module(name = "rules-apple-example", version = "")
 
-bazel_dep(name = "apple_support", version = "1.22.1")
-bazel_dep(name = "rules_apple", version = "4.0.1")
-bazel_dep(name = "rules_swift", version = "3.0.2")
+bazel_dep(name = "apple_support", version = "2.11.0")
+bazel_dep(name = "rules_apple", version = "5.3.1")
+bazel_dep(name = "rules_swift", version = "4.2.2")
 ```
 
 These three `bazel_dep`s are versions available on the
@@ -212,13 +212,21 @@ cache and other Bazel features within Xcode.
 First, in your `MODULE.bazel` file, add the following code snippet:
 
 ```python
-bazel_dep(name = "rules_xcodeproj", version = "3.0.0")
+bazel_dep(name = "rules_xcodeproj", version = "4.1.0")
 ```
 
 Next, at the top of your `BUILD` file, add the following code snippet:
 
 ```python
 load("@rules_xcodeproj//xcodeproj:defs.bzl", "top_level_target", "xcodeproj")
+```
+
+rules_xcodeproj generates its project from a separate repository, so the
+`iOSApp` target must be visible to it. Add the following code snippet **to your
+`ios_application` target**:
+
+```python
+visibility = ["@rules_xcodeproj//xcodeproj:generated"],
 ```
 
 Finally, at the bottom of the same `BUILD` file, add the following code snippet:
@@ -231,11 +239,15 @@ xcodeproj(
     top_level_targets = [
         top_level_target(
             ":iOSApp",
-            target_environments = ["device", "simulator"],
+            target_environments = ["simulator"],
         ),
     ],
 )
 ```
+
+**Note:** Once you set up a provisioning profile as described in
+[Build and run the app on an iOS device](#build-and-run-the-app-on-an-ios-device),
+you can add `"device"` to `target_environments` to build for devices from Xcode.
 
 To generate the Xcode project, invoke this rule by executing the following
 command:
