@@ -27,6 +27,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.StarlarkType;
 
 /** A provider that gives general information about a target's direct and transitive files. */
 @StarlarkBuiltin(
@@ -111,6 +112,10 @@ public interface DefaultInfoApi extends StructApi {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi, FileT extends FileApi>
       extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(DefaultInfoApiProvider.class, DefaultInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "DefaultInfo",

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -26,6 +25,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.StarlarkType;
 
 /** The provider returned from Materialize Rules to materialize dependencies. */
 @StarlarkBuiltin(
@@ -48,6 +48,11 @@ public interface MaterializedDepsInfoApi extends StructApi {
   /** Provider for {@link MaterializedDepsInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(
+          MaterializedDepsInfoApi.Provider.class, MaterializedDepsInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = NAME,

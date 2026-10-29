@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 
 /** Provider for structs containing actions created during the analysis of a rule. */
 @StarlarkBuiltin(
@@ -25,4 +27,9 @@ import net.starlark.java.annot.StarlarkBuiltin;
     documented = false,
     category = DocCategory.PROVIDER)
 // TODO(cparsons): Deprecate and remove this API.
-public interface ActionsInfoProviderApi extends ProviderApi {}
+// Cannot be invoked from Starlark, and therefore isn't statically typed as a Provider.
+public interface ActionsInfoProviderApi extends ProviderApi {
+  public static StarlarkType getStarlarkType() {
+    return Types.TYPE;
+  }
+}

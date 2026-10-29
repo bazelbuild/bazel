@@ -63,6 +63,16 @@ public interface TypeContext {
   }
 
   /**
+   * Returns the type of the self-call method of the given {@link
+   * net.starlark.java.annot.StarlarkBuiltin} annotated class, or null if the class is not
+   * a @StarlarkBuiltin or has no such method.
+   */
+  @Nullable
+  default StarlarkType getSelfCallMethodType(Class<?> clazz) {
+    return null;
+  }
+
+  /**
    * Returns the supertypes of the auto-generated Starlark type associated with the given {@link
    * net.starlark.java.annot.StarlarkBuiltin} annotated class (or a subclass of one), or null if no
    * such auto-generated type exists.

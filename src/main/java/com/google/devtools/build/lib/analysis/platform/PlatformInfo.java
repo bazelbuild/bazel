@@ -60,7 +60,7 @@ public class PlatformInfo extends NativeInfo
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<PlatformInfo> PROVIDER =
-      new BuiltinProvider<PlatformInfo>(STARLARK_NAME, PlatformInfo.class) {};
+      new BuiltinProvider.NonCallable<>(STARLARK_NAME, PlatformInfo.class) {};
 
   private final Label label;
   private final ConstraintCollection constraints;

@@ -31,7 +31,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.StarlarkType;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
 // TODO(adonovan): rename this to *Info and its constructor to *Provider.
@@ -76,10 +76,13 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
    * A constructor callable from Starlark for OutputGroupInfo: {@code
    * config_common.FeatureFlagInfo(value="...")}
    */
+  // Must be public for reflective access by Starlark type machinery.
   @StarlarkBuiltin(name = "FeatureFlagInfo", documented = false)
   @Immutable
-  private static final class Constructor extends BuiltinProvider<ConfigFeatureFlagProvider>
-      implements StarlarkValue {
+  public static final class Constructor extends BuiltinProvider<ConfigFeatureFlagProvider> {
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(Constructor.class, ConfigFeatureFlagProvider.class);
+    }
 
     Constructor() {
       super(STARLARK_NAME, ConfigFeatureFlagProvider.class);
