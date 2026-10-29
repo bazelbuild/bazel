@@ -948,6 +948,9 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
 )
 
 sh_test(
