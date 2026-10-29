@@ -62,8 +62,9 @@ class BazelLockfileTest(test_base.TestBase):
     os.remove(self.Path('MODULE.bazel.lock'))
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     output_base = pathlib.Path(stdout[0].strip())
+    self.hidden_lockfile = output_base.joinpath('MODULE.bazel.lock')
     try:
-      os.remove(output_base.joinpath('MODULE.bazel.lock'))
+      os.remove(self.hidden_lockfile)
     except FileNotFoundError:
       pass
 
@@ -2471,16 +2472,28 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(lockfile_contents)
       self.assertNotIn('//:extension.bzl%ext', lockfile['moduleExtensions'])
 
-    # Error mode may populate the hidden cache, without changing the workspace
-    # lockfile. The cached result must survive a server restart.
-    _, _, stderr = self.RunBazel(
-        ['build', '@repo//:all', '--lockfile_mode=error']
-    )
+    # Error mode may populate the hidden cache without changing the workspace
+    # lockfile. The cached result must survive a warm build and a server
+    # restart.
+    args = [
+        'build',
+        '@repo//:all',
+        '--lockfile_mode=error',
+        '--experimental_check_output_files=false',
+    ]
+    _, _, stderr = self.RunBazel(args)
     self.assertIn('evaluating reproducible extension', ''.join(stderr))
+
+    # A warm build must read the new cache rather than rewrite the same data.
+    # Set a distinguishable timestamp even on file systems with coarse mtimes.
+    os.utime(self.hidden_lockfile, (100, 200))
+    before = self.hidden_lockfile.stat().st_mtime_ns
+    _, _, stderr = self.RunBazel(args)
+    self.assertNotIn('evaluating reproducible extension', ''.join(stderr))
+    self.assertEqual(self.hidden_lockfile.stat().st_mtime_ns, before)
+
     self.RunBazel(['shutdown'])
-    _, _, stderr = self.RunBazel(
-        ['build', '@repo//:all', '--lockfile_mode=error']
-    )
+    _, _, stderr = self.RunBazel(args)
     self.assertNotIn('evaluating reproducible extension', ''.join(stderr))
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       self.assertEqual(lockfile_contents, f.read())
