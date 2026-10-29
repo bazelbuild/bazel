@@ -239,6 +239,9 @@ public final class DiskCacheGarbageCollector {
     private void visitDirectory(Path path) {
       try {
         for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+          if (path.equals(root) && dirent.getName().equals("CACHEDIR.TAG")) {
+            continue;
+          }
           Path childPath = path.getChild(dirent.getName());
           if (dirent.getType().equals(Dirent.Type.FILE)) {
             // The file may be gone by the time we stat it.

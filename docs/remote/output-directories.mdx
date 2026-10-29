@@ -58,6 +58,13 @@ The solution that's currently implemented:
   default install base and output base directories. For example:
   `bazel --output_user_root=/tmp/bazel build x/y:z`.
 
+Bazel marks the output user root, output base, and local
+[disk cache](/remote/caching#disk-cache) with a standard `CACHEDIR.TAG` file.
+Backup tools that honor this tag may omit everything under these directories,
+including build binaries, logs, and profiles. This also applies to custom and
+preexisting directories, unless the directory is the current workspace or one
+of its ancestors.
+
 The symlinks for "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
 and "bazel-bin" are put in the workspace directory; these symlinks point to some
 directories inside a target-specific directory inside the output directory.
