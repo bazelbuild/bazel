@@ -21,6 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
@@ -41,10 +42,12 @@ import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CheckReturnValue;
+import java.lang.invoke.VarHandle;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * A {@link RewoundActionSynchronizer} implementation for Bazel's remote filesystem, which is backed
@@ -69,23 +72,23 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   private final ConcurrentHashMap<PathFragment, ImmutableList<Cancellable>> outputUploadTasks =
       new ConcurrentHashMap<>();
 
-  // A single coarse lock is used to synchronize rewound actions (writers) and both rewound and
-  // non-rewound actions (readers) as long as no rewound action has attempted to prepare for its
-  // execution.
-  // This ensures high throughput and low memory footprint for the common case of no rewound
-  // actions. In this case, there won't be any writers and the performance characteristics of a
-  // ReentrantReadWriteLock are comparable to that of an atomic counter. A StampedLock would not be
-  // a good fit as its performance regresses with 127 or more concurrent readers.
-  // Note that it wouldn't be correct to only start using this lock once an action is rewound,
-  // because a non-rewound action consuming its non-lost outputs could have already started
-  // executing.
-  @Nullable private volatile ReadWriteLock coarseLock = new ReentrantReadWriteLock();
+  // As long as no rewound action has attempted to prepare for its execution, consumers acquire no
+  // locks and only register themselves here. A rewound action waits for the registered consumers
+  // that read its outputs, while all other consumers keep running.
+  // This keeps the common case of no rewound actions cheap. Registration can't be deferred until an
+  // action is rewound, because a non-rewound action consuming its non-lost outputs could have
+  // already started executing.
+  // The set only holds consumers that are currently executing, discovering inputs or processing
+  // top-level outputs. Its size thus scales with the number of concurrently running actions, which
+  // is capped at BuildRequestOptions.MAX_JOBS (5000), even with async execution. An entry costs
+  // about 100 bytes and only references state that the consumer keeps alive anyway, until a
+  // rewound action caches its lock keys.
+  private final Set<RegisteredConsumer> registeredConsumers = ConcurrentHashMap.newKeySet();
 
-  // A fine-grained lock structure that is switched to when the first rewound action attempts to
-  // prepare for its execution. This structure is used to ensure that rewound actions do not
-  // delete their outputs while they are being read by other actions, while still allowing
-  // rewound actions and non-rewound actions to run concurrently (i.e., not force the equivalent
-  // of --jobs=1 for as long as a rewound action is running, as the coarse lock would).
+  // A fine-grained lock structure that is inflated when the first rewound action attempts to
+  // prepare for its execution and used by all consumers from then on. This structure is used to
+  // ensure that rewound actions do not delete their outputs while they are being read by other
+  // actions, while still allowing rewound actions and non-rewound actions to run concurrently.
   // A rewound action will acquire the write lock on its own key before it prepares for execution,
   // while any action will acquire a read lock on the key of each action generating one of its
   // inputs (see inputKeysFor) before it starts executing.
@@ -107,8 +110,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   /*
   Proof of deadlock freedom:
 
-  As long as the coarse lock is used, there can't be any deadlock because there is only a single
-  read-write lock.
+  A consumer that registered itself before the fine locks were inflated acquires no locks and thus
+  never waits for one. A rewound action only waits for such consumers before it acquires its write
+  lock and thus while it holds no locks (see WR below), so these waits can't be part of a cycle.
 
   For the fine locks, we show that a cycle of lock waits would imply a cycle of dependencies,
   which Skyframe disallows. Throughout, "X depends on Y" means that the Skyframe node executing
@@ -190,32 +194,31 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   private SilentCloseable enterActionPreparationForRewinding(Action action)
       throws InterruptedException {
-    var localCoarseLock = coarseLock;
-    if (localCoarseLock != null) {
-      // This is the first time a rewound action has attempted to prepare for its execution.
-      // Switch to using the fine locks under the protection of the coarse write lock.
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.prepareFirstRewinding")) {
-        localCoarseLock.writeLock().lockInterruptibly();
-      }
-      try {
-        // Check again under the lock to avoid a race between multiple rewound actions attempting
-        // to prepare for execution at the same time.
+    if (fineLocks == null) {
+      synchronized (this) {
         if (fineLocks == null) {
           fineLocks =
               Caffeine.newBuilder()
                   .weakValues()
                   .build((PathFragment _) -> new ReaderPreferringReadWriteLock());
-          // Must be assigned after fineLocks as lockArtifactsForConsumption relies on a null
-          // coarseLock implying a non-null fineLocks.
-          coarseLock = null;
         }
-      } finally {
-        localCoarseLock.writeLock().unlock();
+      }
+    }
+    // Pairs with the fence in lockArtifactsForConsumption so that every consumer that doesn't see
+    // the fine locks is seen here.
+    VarHandle.fullFence();
+    PathFragment key = actionKeyFor(action);
+    try (var _ =
+        Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.awaitRegisteredConsumers")) {
+      for (RegisteredConsumer consumer : registeredConsumers) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+        consumer.awaitIfConsuming(key);
       }
     }
 
-    var writeLock = fineLocks.get(actionKeyFor(action));
+    var writeLock = fineLocks.get(key);
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.awaitRewoundActionConsumers")) {
@@ -278,7 +281,8 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
       throws InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterActionExecution")) {
-      return lockArtifactsForConsumption(action.getInputs().toList(), metadataProvider);
+      NestedSet<Artifact> inputs = action.getInputs();
+      return lockArtifactsForConsumption(inputs::toList, metadataProvider);
     }
   }
 
@@ -289,7 +293,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterInputDiscovery")) {
       return lockArtifactsForConsumption(
-          Iterables.concat(evaluatedInputs.toList(), action.getSchedulingDependencies().toList()),
+          () ->
+              Iterables.concat(
+                  evaluatedInputs.toList(), action.getSchedulingDependencies().toList()),
           metadataProvider);
     }
   }
@@ -304,7 +310,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.enterProcessOutputsAndGetLostArtifacts")) {
-      return lockArtifactsForConsumption(importantOutputs, fullMetadataProvider);
+      return lockArtifactsForConsumption(() -> importantOutputs, fullMetadataProvider);
     }
   }
 
@@ -346,29 +352,31 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   }
 
   private SilentCloseable lockArtifactsForConsumption(
-      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider)
+      Supplier<Iterable<Artifact>> artifacts, InputMetadataProvider metadataProvider)
       throws InterruptedException {
-    var localCoarseLock = coarseLock;
-    if (localCoarseLock != null) {
-      // Common case for builds without any rewound actions: acquire the single lock that is never
-      // acquired by a writer.
-      localCoarseLock.readLock().lockInterruptibly();
+    // Registration never blocks, so check for interruption explicitly.
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
     }
-    // Read the fine locks after acquiring the coarse lock to allow the fine locks to be inflated
-    // lazily.
     var localFineLocks = fineLocks;
     if (localFineLocks == null) {
-      // Continuation of the common case for builds without any rewound actions: the fine locks
-      // have not been inflated.
-      return localCoarseLock.readLock()::unlock;
+      // Until the first rewound action inflates the fine locks, which most builds never do,
+      // consumers register instead of acquiring locks. Their artifacts are then only computed if a
+      // rewound action scans them.
+      var consumer = new RegisteredConsumer(artifacts, metadataProvider);
+      registeredConsumers.add(consumer);
+      // Pairs with the fence in enterActionPreparationForRewinding so that every rewound action
+      // finds this consumer registered if the fine locks are still null below.
+      VarHandle.fullFence();
+      localFineLocks = fineLocks;
+      if (localFineLocks == null) {
+        return consumer::unregister;
+      }
+      consumer.unregister();
     }
 
     // At this point, there has been at least one rewound action that has inflated the fine locks.
-    // We need to switch to them.
-    if (localCoarseLock != null) {
-      localCoarseLock.readLock().unlock();
-    }
-    var locks = localFineLocks.getAll(inputKeysFor(artifacts, metadataProvider)).values();
+    var locks = localFineLocks.getAll(inputKeysFor(artifacts.get(), metadataProvider)).values();
     var locksToUnlockBuilder =
         ImmutableList.<ReaderPreferringReadWriteLock>builderWithExpectedSize(locks.size());
     try {
@@ -384,6 +392,53 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     }
     var locksToUnlock = locksToUnlockBuilder.build();
     return () -> locksToUnlock.forEach(ReaderPreferringReadWriteLock::unlockRead);
+  }
+
+  /** A consumer that started before the fine locks were inflated and thus holds no locks. */
+  private final class RegisteredConsumer {
+    private final Supplier<Iterable<Artifact>> artifacts;
+    private final InputMetadataProvider metadataProvider;
+
+    @GuardedBy("this")
+    private boolean registered = true;
+
+    @GuardedBy("this")
+    @Nullable
+    private ImmutableSet<PathFragment> lockKeys;
+
+    RegisteredConsumer(
+        Supplier<Iterable<Artifact>> artifacts, InputMetadataProvider metadataProvider) {
+      this.artifacts = artifacts;
+      this.metadataProvider = metadataProvider;
+    }
+
+    void unregister() {
+      registeredConsumers.remove(this);
+      // Waits for a rewound action that is computing the lock keys, since the consumer may mutate
+      // its metadata provider once unregistered.
+      synchronized (this) {
+        registered = false;
+        notifyAll();
+      }
+    }
+
+    /** Waits until this consumer is unregistered if it consumes artifacts guarded by the key. */
+    synchronized void awaitIfConsuming(PathFragment key) throws InterruptedException {
+      if (!registered) {
+        return;
+      }
+      if (lockKeys == null) {
+        // Rewound actions tend to arrive in bursts. Building the set costs about as much as a
+        // single scan of the inputs and makes later scans of this consumer nearly free.
+        lockKeys = ImmutableSet.copyOf(inputKeysFor(artifacts.get(), metadataProvider));
+      }
+      if (!lockKeys.contains(key)) {
+        return;
+      }
+      while (registered) {
+        wait();
+      }
+    }
   }
 
   /**
