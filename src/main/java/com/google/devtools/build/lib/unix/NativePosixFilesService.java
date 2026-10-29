@@ -118,15 +118,13 @@ public interface NativePosixFilesService extends BlazeService {
   /**
    * Native wrapper around POSIX utimensat(2) syscall.
    *
-   * <p>Note that, even though utimensat(2) supports up to nanosecond precision, this interface only
-   * allows millisecond precision, which is what Bazel uses internally.
-   *
    * @param path the file whose modification time should be changed.
-   * @param now if true, ignore {@code epochMilli} and use the current time.
-   * @param epochMilli the file modification time in milliseconds since the UNIX epoch.
+   * @param now if true, ignore {@code epochNanos} and use the current time.
+   * @param epochNanos the file modification time in nanoseconds since the UNIX epoch.
    * @throws NativePosixFilesException if the operation failed.
    */
-  void utimensat(String path, boolean now, long epochMilli) throws NativePosixFilesException;
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  void utimensat(String path, boolean now, long epochNanos) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX mkdir(2) syscall.
