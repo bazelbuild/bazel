@@ -26,9 +26,12 @@ import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValu
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,6 +57,25 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
     assertMarkerFileEscaping("a \\\\nb");
     assertMarkerFileEscaping("a \\\nb");
     assertMarkerFileEscaping("a \nb");
+  }
+
+  @Test
+  public void testRecordedInputRoundTrip() throws Exception {
+    for (String name :
+        ImmutableList.of("plain", "with space", "with\\backslash", "with\nnewline")) {
+      var path =
+          new RepoRecordedInput.RepoCacheFriendlyPath(
+              Optional.of(RepositoryName.create("repo")), PathFragment.create(name));
+      for (var input :
+          ImmutableList.of(
+              new RepoRecordedInput.File(path),
+              new RepoRecordedInput.Dirents(path),
+              new RepoRecordedInput.DirTree(path))) {
+        assertThat(RepoRecordedInput.parse(input.toString())).isEqualTo(input);
+        var withValue = new RepoRecordedInput.WithValue(input, "value with\\escapes\n");
+        assertThat(parse(withValue.toString())).hasValue(withValue);
+      }
+    }
   }
 
   @Test
