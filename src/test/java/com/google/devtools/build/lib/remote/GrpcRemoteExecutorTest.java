@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -26,6 +29,10 @@ import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.ReadRequest;
+import com.google.bytestream.ByteStreamProto.ReadResponse;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -38,22 +45,30 @@ import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
 import com.google.longrunning.Operation;
+import com.google.protobuf.ByteString;
 import com.google.rpc.Code;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import io.reactivex.rxjava3.core.Single;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -70,6 +85,7 @@ public class GrpcRemoteExecutorTest {
 
   private RemoteActionExecutionContext context;
   private FakeExecutionService executionService;
+  private final FakeOutputStreamService outputStreamService = new FakeOutputStreamService();
   private RemoteOptions remoteOptions;
   private Server fakeServer;
   private RemoteExecutionClient executor;
@@ -125,6 +141,7 @@ public class GrpcRemoteExecutorTest {
     fakeServer =
         InProcessServerBuilder.forName(fakeServerName)
             .addService(executionService)
+            .addService(outputStreamService)
             .directExecutor()
             .build()
             .start();
@@ -182,8 +199,14 @@ public class GrpcRemoteExecutorTest {
             () -> new ExponentialBackoff(remoteOptions),
             RemoteRetrier.GRPC_RESULT_CLASSIFIER,
             retryService);
+    RemoteRetrier outputStreamRetrier =
+        TestUtils.newRemoteRetrier(
+            () -> new ExponentialBackoff(remoteOptions),
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
+            retryService);
 
-    return new GrpcRemoteExecutor(channel, CallCredentialsProvider.NO_CREDENTIALS, retrier);
+    return new GrpcRemoteExecutor(
+        channel, CallCredentialsProvider.NO_CREDENTIALS, retrier, outputStreamRetrier);
   }
 
   @Test
@@ -584,6 +607,153 @@ public class GrpcRemoteExecutorTest {
       server.shutdownNow();
       server.awaitTermination();
       serverExecutor.shutdownNow();
+    }
+  }
+
+  private static ReadResponse data(String data) {
+    return ReadResponse.newBuilder().setData(ByteString.copyFromUtf8(data)).build();
+  }
+
+  @Test
+  public void readOutputStream_readsUntilStreamEndsResumingAfterTransientError() throws Exception {
+    outputStreamService.whenRead(
+        (request, responseObserver) -> {
+          responseObserver.onNext(data("hello "));
+          responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+        });
+    outputStreamService.whenRead(
+        (request, responseObserver) -> {
+          responseObserver.onNext(data("world"));
+          responseObserver.onCompleted();
+        });
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+    executor
+        .readOutputStream(context, "operation/streams/stdout", out)
+        .get(WAIT_TIMEOUT_SECONDS, SECONDS);
+
+    assertThat(out.toString(UTF_8)).isEqualTo("hello world");
+    assertThat(outputStreamService.requests)
+        .containsExactly(
+            ReadRequest.newBuilder().setResourceName("operation/streams/stdout").build(),
+            ReadRequest.newBuilder()
+                .setResourceName("operation/streams/stdout")
+                .setReadOffset(6)
+                .build())
+        .inOrder();
+  }
+
+  @Test
+  public void readOutputStream_reconnectsAfterTimeoutsWithoutUsingUpRetries() throws Exception {
+    remoteOptions.setRemoteMaxRetryAttempts(1);
+    // Like a quiet test exceeding --remote_timeout or the download idle timeout repeatedly.
+    for (int i = 0; i < 2; i++) {
+      outputStreamService.whenRead(
+          (request, responseObserver) -> {
+            var unused =
+                retryService.schedule(
+                    () -> responseObserver.onError(Status.DEADLINE_EXCEEDED.asRuntimeException()),
+                    1100,
+                    MILLISECONDS);
+          });
+    }
+    outputStreamService.whenRead(
+        (request, responseObserver) -> {
+          responseObserver.onNext(data("finally"));
+          responseObserver.onCompleted();
+        });
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+    executor
+        .readOutputStream(context, "operation/streams/stdout", out)
+        .get(WAIT_TIMEOUT_SECONDS, SECONDS);
+
+    assertThat(out.toString(UTF_8)).isEqualTo("finally");
+    assertThat(outputStreamService.requests).hasSize(3);
+  }
+
+  @Test
+  public void readOutputStream_immediateTimeoutsUseUpRetries() throws Exception {
+    for (int i = 0; i <= MAX_RETRY_ATTEMPTS; i++) {
+      outputStreamService.whenRead(
+          (request, responseObserver) ->
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+    }
+
+    ExecutionException e =
+        assertThrows(
+            ExecutionException.class,
+            () ->
+                executor
+                    .readOutputStream(
+                        context, "operation/streams/stdout", new ByteArrayOutputStream())
+                    .get(WAIT_TIMEOUT_SECONDS, SECONDS));
+
+    assertThat(Status.fromThrowable(e.getCause()).getCode())
+        .isEqualTo(Status.Code.DEADLINE_EXCEEDED);
+    assertThat(outputStreamService.requests).hasSize(MAX_RETRY_ATTEMPTS + 1);
+  }
+
+  @Test
+  public void readOutputStream_failsWithoutRetryOnPermanentError() throws Exception {
+    outputStreamService.whenRead(
+        (request, responseObserver) ->
+            responseObserver.onError(
+                Status.INVALID_ARGUMENT.withDescription("Url path not recognized").asException()));
+
+    ExecutionException e =
+        assertThrows(
+            ExecutionException.class,
+            () ->
+                executor
+                    .readOutputStream(
+                        context, "operation/streams/stdout", new ByteArrayOutputStream())
+                    .get(WAIT_TIMEOUT_SECONDS, SECONDS));
+
+    assertThat(Status.fromThrowable(e.getCause()).getCode())
+        .isEqualTo(Status.Code.INVALID_ARGUMENT);
+    assertThat(outputStreamService.requests).hasSize(1);
+  }
+
+  @Test
+  public void readOutputStream_cancel_cancelsServerCall() throws Exception {
+    CountDownLatch serverCallCancelled = new CountDownLatch(1);
+    outputStreamService.whenRead(
+        (request, responseObserver) -> {
+          ((ServerCallStreamObserver<ReadResponse>) responseObserver)
+              .setOnCancelHandler(serverCallCancelled::countDown);
+          responseObserver.onNext(data("still running"));
+        });
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+    ListenableFuture<Void> read =
+        executor.readOutputStream(context, "operation/streams/stdout", out);
+    read.cancel(true);
+
+    assertThat(serverCallCancelled.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    assertThat(out.toString(UTF_8)).isEqualTo("still running");
+  }
+
+  /** Serves each read of a live output stream with the next behavior queued by the test. */
+  private static final class FakeOutputStreamService extends ByteStreamImplBase {
+    private final Queue<BiConsumer<ReadRequest, StreamObserver<ReadResponse>>> behaviors =
+        new ConcurrentLinkedQueue<>();
+    private final List<ReadRequest> requests = Collections.synchronizedList(new ArrayList<>());
+
+    void whenRead(BiConsumer<ReadRequest, StreamObserver<ReadResponse>> behavior) {
+      behaviors.add(behavior);
+    }
+
+    @Override
+    public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+      requests.add(request);
+      BiConsumer<ReadRequest, StreamObserver<ReadResponse>> behavior = behaviors.poll();
+      if (behavior == null) {
+        responseObserver.onError(
+            Status.FAILED_PRECONDITION.withDescription("unexpected read").asException());
+        return;
+      }
+      behavior.accept(request, responseObserver);
     }
   }
 
