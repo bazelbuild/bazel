@@ -22,6 +22,9 @@ filegroup(
 py_binary(
     name = "sha256",
     srcs = ["sha256.py"],
+    config_settings = {
+        "@rules_python//command_line_option:enable_runfiles": "INHERIT",
+    },
     visibility = ["//visibility:public"],
 )
 
