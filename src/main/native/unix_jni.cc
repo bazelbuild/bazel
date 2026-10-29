@@ -365,17 +365,18 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_lstat(
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_utimensat(
-    JNIEnv* env, jobject instance, jstring path, jboolean now, jlong millis) {
+    JNIEnv* env, jobject instance, jstring path, jboolean now,
+    jlong epoch_nanos) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return;
   }
-  // If `now` is true use the current time, otherwise use `millis`.
+  // If `now` is true use the current time, otherwise use `epoch_nanos`.
   // On Linux, if the current user has write permission but isn't the owner of
   // the file, atime and mtime may be simultaneously set to UTIME_NOW, but any
   // other combination is forbidden. For simplicity, always set both.
-  int64_t sec = millis / 1000;
-  int32_t nsec = (millis % 1000) * 1000000;
+  int64_t sec = epoch_nanos / 1'000'000'000;
+  int32_t nsec = epoch_nanos % 1'000'000'000;
   struct timespec times[2] = {
       {sec, now ? UTIME_NOW : nsec},
       {sec, now ? UTIME_NOW : nsec},
