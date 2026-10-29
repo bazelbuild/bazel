@@ -689,8 +689,9 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *
    * @throws IOException if the operation failed for any reason
    */
-  public long getLastModifiedTime() throws IOException {
-    return fileSystem.getLastModifiedTime(asFragment(), true);
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public final long getLastModifiedTime() throws IOException {
+    return getLastModifiedTimeNanos() / 1_000_000;
   }
 
   /**
@@ -704,8 +705,39 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *     link is dereferenced until a file other than a symbolic link is found
    * @throws IOException if the modification time for the file could not be obtained for any reason
    */
-  public long getLastModifiedTime(Symlinks followSymlinks) throws IOException {
-    return fileSystem.getLastModifiedTime(asFragment(), followSymlinks.toBoolean());
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public final long getLastModifiedTime(Symlinks followSymlinks) throws IOException {
+    return getLastModifiedTimeNanos(followSymlinks) / 1_000_000;
+  }
+
+  /**
+   * Returns the last modification time of the file, in nanoseconds since the UNIX epoch, of the
+   * file denoted by the current path, following symbolic links.
+   *
+   * <p>Caveat: many filesystems store file times in seconds, so do not rely on the nanosecond
+   * precision.
+   *
+   * @throws IOException if the operation failed for any reason
+   */
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public long getLastModifiedTimeNanos() throws IOException {
+    return fileSystem.getLastModifiedTimeNanos(asFragment(), true);
+  }
+
+  /**
+   * Returns the last modification time of the file, in nanoseconds since the UNIX epoch, of the
+   * file denoted by the current path.
+   *
+   * <p>Caveat: many filesystems store file times in seconds, so do not rely on the nanosecond
+   * precision.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a file other than a symbolic link is found
+   * @throws IOException if the modification time for the file could not be obtained for any reason
+   */
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public long getLastModifiedTimeNanos(Symlinks followSymlinks) throws IOException {
+    return fileSystem.getLastModifiedTimeNanos(asFragment(), followSymlinks.toBoolean());
   }
 
   /**
@@ -720,8 +752,27 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *     meaning use the kernel's current time
    * @throws IOException if the modification time for the file could not be set for any reason
    */
-  public void setLastModifiedTime(long newTime) throws IOException {
-    fileSystem.setLastModifiedTime(asFragment(), newTime);
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public final void setLastModifiedTime(long newTime) throws IOException {
+    setLastModifiedTimeNanos(
+        newTime == NOW_SENTINEL_TIME ? NOW_SENTINEL_TIME : newTime * 1_000_000);
+  }
+
+  /**
+   * Sets the modification time of the file denoted by the current path. Follows symbolic links. If
+   * newTime is {@link #NOW_SENTINEL_TIME}, the current time according to the kernel is used; this
+   * may differ from the JVM's clock.
+   *
+   * <p>Caveat: many filesystems store file times in seconds, so do not rely on the nanosecond
+   * precision.
+   *
+   * @param newTime time, in nanoseconds since the UNIX epoch, or {@link #NOW_SENTINEL_TIME},
+   *     meaning use the kernel's current time
+   * @throws IOException if the modification time for the file could not be set for any reason
+   */
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public void setLastModifiedTimeNanos(long newTime) throws IOException {
+    fileSystem.setLastModifiedTimeNanos(asFragment(), newTime);
   }
 
   /**

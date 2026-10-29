@@ -443,20 +443,20 @@ public class RemoteActionFileSystem extends FileSystem {
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
 
     FileNotFoundException remoteException = null;
     try {
       // We can't set mtime for a remote file, set mtime of in-memory file node instead.
-      remoteOutputTree.setLastModifiedTime(path, newTime);
+      remoteOutputTree.setLastModifiedTimeNanos(path, newTime);
     } catch (FileNotFoundException e) {
       remoteException = e;
     }
 
     FileNotFoundException localException = null;
     try {
-      localFs.getPath(path).setLastModifiedTime(newTime);
+      localFs.getPath(path).setLastModifiedTimeNanos(newTime);
     } catch (FileNotFoundException e) {
       localException = e;
     }
@@ -626,9 +626,10 @@ public class RemoteActionFileSystem extends FileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
     FileStatus stat = stat(path, followSymlinks);
-    return stat.getLastModifiedTime();
+    return stat.getLastModifiedTimeNanos();
   }
 
   @Override
