@@ -257,6 +257,67 @@ public final class StarlarkTransitionCompositionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void attributeTransition_starlarkThenExec_customExecScopeReadsResetHostFlag()
+      throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+
+        def _reset_host_flag_impl(settings, attr):
+            return {"//test:host_flag": "host_default"}
+
+        reset_host_flag = transition(
+            implementation = _reset_host_flag_impl,
+            inputs = [],
+            outputs = ["//test:host_flag"],
+        )
+
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {"dep": attr.label(cfg = reset_host_flag.and_then(config.exec()))},
+        )
+
+        simple = rule(implementation = lambda ctx: [])
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule", "simple", "string_flag")
+
+        string_flag(
+            name = "flag",
+            build_setting_default = "flag_default",
+            scope = "exec:--//test:host_flag",
+        )
+
+        string_flag(
+            name = "host_flag",
+            build_setting_default = "host_default",
+            scope = "target",
+        )
+
+        my_rule(name = "test", dep = ":dep")
+
+        simple(name = "dep")
+        """);
+    useConfiguration(
+        "--flag_alias=host_flag=//test:host_flag",
+        "--//test:flag=custom",
+        "--//test:host_flag=custom_host");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    // The exec transition sets the flag to the value of the host flag, which reset_host_flag reset.
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions())
+        .containsEntry(Label.parseCanonicalUnchecked("//test:flag"), "host_default");
+  }
+
+  @Test
   public void attributeTransition_starlarkThenStarlark_readsStarlarkFlagSetViaAlias()
       throws Exception {
     writeRuleWithStarlarkFlagAndAttributeTransition(

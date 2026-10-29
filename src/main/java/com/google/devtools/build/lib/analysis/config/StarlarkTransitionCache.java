@@ -129,7 +129,10 @@ public final class StarlarkTransitionCache {
       }
     }
 
-    return getDefaultStarlarkOptionsForCustomExec(optionsWithDefaults, details, fromOptions);
+    if (transition.getName().equals("exec")) {
+      return getDefaultStarlarkOptionsForCustomExec(optionsWithDefaults, details, fromOptions);
+    }
+    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   public static BuildOptions getDefaultStarlarkOptionsForCustomExec(
