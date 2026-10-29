@@ -169,6 +169,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing",
+        "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
