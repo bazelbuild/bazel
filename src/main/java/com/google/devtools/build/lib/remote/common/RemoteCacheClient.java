@@ -23,7 +23,9 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxFutures;
@@ -162,6 +164,24 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
             digest,
             RxFutures.toCompletable(() -> uploadBlobImpl(context, digest, blob), directExecutor()),
             force));
+  }
+
+  /**
+   * Checks and uploads once per digest; {@code force} rechecks completed entries after eviction.
+   */
+  public final ListenableFuture<Void> uploadBlobIfMissing(
+      RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
+    return dedupUpload(
+        digest,
+        () ->
+            Futures.transformAsync(
+                findMissingDigests(context, ImmutableList.of(digest)),
+                missing ->
+                    missing.isEmpty()
+                        ? Futures.immediateVoidFuture()
+                        : uploadBlobImpl(context, digest, blob),
+                directExecutor()),
+        force);
   }
 
   /**

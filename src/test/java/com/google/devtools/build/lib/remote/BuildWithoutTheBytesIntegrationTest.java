@@ -22,6 +22,8 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -51,6 +54,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -116,6 +120,184 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       diskCacheDir = getWorkspace().getRelative(UUID.randomUUID().toString());
       addOptions("--disk_cache=" + diskCacheDir.getPathString());
     }
+  }
+
+  @Test
+  public void remoteFileWrite_switchToLocalBuild_materializesOutput() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions("--file_write_strategy=remote");
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    addOptions(
+        "--file_write_strategy=local", "--remote_executor=", "--remote_cache=", "--disk_cache=");
+    buildTarget("//:foo");
+    assertOnlyOutputContent("//:foo", "foo", "hello");
+  }
+
+  @Test
+  public void remoteFileWrite_withoutCache_isRejected() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions(
+        "--file_write_strategy=remote", "--remote_executor=", "--remote_cache=", "--disk_cache=");
+
+    var e = assertThrows(AbruptExitException.class, () -> buildTarget("//:foo"));
+
+    assertThat(e).hasMessageThat().contains("FileWriteActionContext");
+    assertThat(e).hasMessageThat().contains("'remote'");
+  }
+
+  @Test
+  public void remoteFileWrite_strategiesAreIndependent(
+      @TestParameter({"expand_template", "write_file"}) String remoteFileWriteRule)
+      throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:expand_template.bzl', 'expand_template')
+        load('//rules:write_file.bzl', 'write_file')
+        expand_template(name = 'expand_template', content = 'hello')
+        write_file(name = 'write_file', content = 'hello')
+        """);
+    setFileWriteStrategy(remoteFileWriteRule, "remote");
+
+    buildTarget("//:expand_template", "//:write_file");
+
+    for (var fileWriteRule : List.of("expand_template", "write_file")) {
+      if (fileWriteRule.equals(remoteFileWriteRule)) {
+        assertOutputsDoNotExist("//:" + fileWriteRule);
+      } else {
+        assertOnlyOutputContent("//:" + fileWriteRule, fileWriteRule, "hello");
+      }
+    }
+  }
+
+  @Test
+  public void remoteFileWrite_readOnlyRemoteCache() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions("--file_write_strategy=remote");
+
+    // Populate the caches with the contents of the file.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // A read-only remote cache that already has the contents doesn't require a local write.
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions(
+        "--file_write_strategy=remote",
+        "--remote_executor=",
+        "--remote_cache=grpc://localhost:" + worker.getPort(),
+        "--noremote_upload_local_results");
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // Without the contents in any cache, they can only be kept off disk if there is a disk cache
+    // to store them in. Otherwise, the file has to be written locally.
+    evictAllBlobs();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions(
+        "--file_write_strategy=remote",
+        "--remote_executor=",
+        "--remote_cache=grpc://localhost:" + worker.getPort(),
+        "--noremote_upload_local_results");
+    buildTarget("//:foo");
+    if (useDiskCache) {
+      assertOutputsDoNotExist("//:foo");
+    } else {
+      assertOnlyOutputContent("//:foo", "foo", "hello");
+    }
+  }
+
+  @Test
+  public void remoteFileWrite_evictedInSameBuild_uploadsAgain() throws Exception {
+    writeFileWriteRules();
+    write(
+        "a/BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        genrule(
+            name = 'bar',
+            srcs = [':foo'],
+            outs = ['bar.out'],
+            cmd = 'cat $(SRCS) > $@',
+        )
+        """);
+    var evicted = new AtomicBoolean();
+    getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              @Subscribe
+              public void onActionExecuted(ActionExecutedEvent event) throws Exception {
+                if (!evicted.get()
+                    && event
+                        .getAction()
+                        .getPrimaryOutput()
+                        .getRootRelativePath()
+                        .getPathString()
+                        .equals("a/foo")) {
+                  evictAllBlobs();
+                  evicted.set(true);
+                }
+              }
+            });
+    addOptions("--file_write_strategy=remote", "--strategy_regexp=.*bar=local");
+    enableActionRewinding();
+
+    buildTarget("//a:bar");
+
+    assertThat(evicted.get()).isTrue();
+    assertValidOutputFile("a/bar.out", "hello");
+  }
+
+  @Test
+  public void remoteFileWrite_diskCacheOnly_keepsOutputOffDisk() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        genrule(
+            name = 'bar',
+            srcs = [':foo'],
+            outs = ['bar.txt'],
+            cmd = 'cat $(location :foo) > $@',
+        )
+        """);
+    addOptions(
+        "--file_write_strategy=remote",
+        "--remote_executor=",
+        "--remote_cache=",
+        "--disk_cache=" + getWorkspace().getRelative(UUID.randomUUID().toString()));
+
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // A local consumer fetches the contents from the disk cache.
+    buildTarget("//:bar");
+    assertOnlyOutputContent("//:bar", "bar.txt", "hello");
   }
 
   @Override
