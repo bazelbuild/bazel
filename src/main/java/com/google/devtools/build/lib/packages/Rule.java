@@ -137,7 +137,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
   /**
    * Implements {@link RuleOrMacroClass#getDeclaringMacro} using {@link Target#getDeclaringMacro}.
    *
-   * <p>This method cannot be called for rules in deserialized packages.
+   * <p>This method cannot be called for rules in deserialized packages, or in packages (or package
+   * pieces) that have not yet finished loading.
    */
   @Override
   @Nullable

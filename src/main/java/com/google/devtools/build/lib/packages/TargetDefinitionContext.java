@@ -627,6 +627,13 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     return recorder.getTarget(name);
   }
 
+  /**
+   * Returns the innermost symbolic macro that declared the given target, or null if the target
+   * wasn't declared in this context or wasn't declared in a symbolic macro.
+   */
+  @Nullable
+  public abstract MacroInstance getTargetDeclaringMacro(String name);
+
   // TODO: #19922 - Refactor finalizer expansion such that TargetDefinitionContext can handle
   // working with finalizer macros. At that point, getRulesSnapshotView() and
   // getNonFinalizerInstantiatedRule() must account for the snapshot view here rather than in the

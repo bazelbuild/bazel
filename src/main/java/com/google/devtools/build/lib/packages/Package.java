@@ -1300,6 +1300,16 @@ public class Package extends Packageoid {
       }
     }
 
+    @Override
+    @Nullable
+    public MacroInstance getTargetDeclaringMacro(String name) {
+      return checkNotNull(
+              recorder.getTargetsToDeclaringMacro(),
+              "getTargetDeclaringMacro() can only be used if trackFullMacroInformation was set to"
+                  + " true in the constructor")
+          .get(name);
+    }
+
     public void addRuleUnchecked(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
       recorder.addRuleUnchecked(rule);
