@@ -15,6 +15,10 @@
 #if defined(__FreeBSD__)
 # define HAVE_EXTATTR
 # define HAVE_SYSCTLBYNAME
+#elif defined(__NetBSD__)
+// NetBSD has both extattr(2), including the _link variants, and
+// sysctlbyname(3); neither is enabled here yet, as the extattr path has
+// not been exercised on NetBSD.
 #elif defined(__OpenBSD__)
 // No sys/extattr.h or sysctlbyname on this platform.
 #else

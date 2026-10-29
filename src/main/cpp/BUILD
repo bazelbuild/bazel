@@ -27,6 +27,10 @@ cc_library(
             "blaze_util_bsd.cc",
             "blaze_util_posix.cc",
         ],
+        "//src/conditions:netbsd": [
+            "blaze_util_bsd.cc",
+            "blaze_util_posix.cc",
+        ],
         "//src/conditions:windows": [
             "blaze_util_windows.cc",
         ],
@@ -66,6 +70,8 @@ cc_library(
             "-lshell32",
             "-luuid",
             "-lws2_32",
+        ],
+        "//src/conditions:netbsd": [
         ],
         "//conditions:default": [
             "-lrt",
@@ -141,6 +147,8 @@ cc_binary(
             "-lm",
         ],
         "//src/conditions:openbsd": [
+        ],
+        "//src/conditions:netbsd": [
         ],
         "//src/conditions:windows": [
         ],

@@ -135,7 +135,10 @@ void LegacyProcessWrapper::WaitForChild() {
     status = WaitChild(child_pid, child_subreaper_enabled);
   }
 
-#if !defined(__APPLE__) && !defined(__OpenBSD__)
+// TerminateAndWaitForAll lives in process-tools-linux.cc; the platforms that
+// take process-tools-darwin.cc instead do not have it, and do not need it
+// because they never enable the child subreaper above.
+#if !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
   if (child_subreaper_enabled) {
     // If we enabled the child subreaper feature (on Linux), now that we have
     // collected the status of the PID we were interested in, terminate the

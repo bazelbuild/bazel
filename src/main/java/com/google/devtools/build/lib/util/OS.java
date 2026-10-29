@@ -20,6 +20,7 @@ public enum OS {
   DARWIN("osx", "Mac OS X", true),
   FREEBSD("freebsd", "FreeBSD", true),
   OPENBSD("openbsd", "OpenBSD", true),
+  NETBSD("netbsd", "NetBSD", true),
   LINUX("linux", "Linux", true),
   WINDOWS("windows", "Windows", false),
   UNKNOWN("unknown", "", false);
