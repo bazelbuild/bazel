@@ -749,15 +749,15 @@ public class Rule extends RuleOrMacroInstance implements Target {
   @Override
   public Set<String> getRuleTags() {
     Set<String> ruleTags = new LinkedHashSet<>();
-    for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
-      if (attribute.isTaggable()) {
-        Type<?> attrType = attribute.getType();
-        String name = attribute.getName();
-        // This enforces the expectation that taggable attributes are non-configurable.
-        Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
-        Set<String> tags = attrType.toTagSet(value, name);
-        ruleTags.addAll(tags);
-      }
+    ImmutableList<Attribute> attributes = ruleClass.getTaggableAttributes();
+    for (int i = 0; i < attributes.size(); i++) {
+      Attribute attribute = attributes.get(i);
+      Type<?> attrType = attribute.getType();
+      String name = attribute.getName();
+      // This enforces the expectation that taggable attributes are non-configurable.
+      Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
+      Set<String> tags = attrType.toTagSet(value, name);
+      ruleTags.addAll(tags);
     }
     return ruleTags;
   }
