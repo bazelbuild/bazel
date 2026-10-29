@@ -125,12 +125,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
       throws InterruptedException {
     ImmutableSet<FileKey> fileValueKeys =
         sortedDirents.stream()
-            .map(
-                dirent ->
-                    FileValue.key(
-                        RootedPath.toRootedPath(
-                            rootedPath.getRoot(),
-                            rootedPath.getRootRelativePath().getRelative(dirent))))
+            .map(dirent -> FileValue.key(rootedPath.getChild(dirent)))
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(fileValueKeys);
     if (env.valuesMissing()) {

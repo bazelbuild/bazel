@@ -250,9 +250,12 @@ public class PackageLookupFunction implements SkyFunction {
       BuildFileName buildFileName)
       throws InterruptedException, PackageLookupFunctionException {
     PathFragment buildFileFragment = buildFileName.getBuildFileFragment(packageIdentifier);
+    RootedPath packageDirectory =
+        RootedPath.toRootedPath(packagePathEntry, buildFileFragment.getParentDirectory());
 
     // Check for the existence of the build file.
-    RootedPath buildFileRootedPath = RootedPath.toRootedPath(packagePathEntry, buildFileFragment);
+    RootedPath buildFileRootedPath =
+        packageDirectory.getChild(buildFileName.getFilenameFragment().getPathString());
     FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
     if (fileValue == null) {
       return null;
@@ -321,10 +324,10 @@ public class PackageLookupFunction implements SkyFunction {
     Root root = ((Success) repositoryValue).root();
 
     // This checks for the build file names in the correct precedence order.
+    RootedPath packageDirectory = RootedPath.toRootedPath(root, id.getPackageFragment());
     for (BuildFileName buildFileName : buildFilesByPriority) {
-      PathFragment buildFileFragment =
-          id.getPackageFragment().getRelative(buildFileName.getFilenameFragment());
-      RootedPath buildFileRootedPath = RootedPath.toRootedPath(root, buildFileFragment);
+      RootedPath buildFileRootedPath =
+          packageDirectory.getChild(buildFileName.getFilenameFragment().getPathString());
       FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
       if (fileValue == null) {
         return null;
