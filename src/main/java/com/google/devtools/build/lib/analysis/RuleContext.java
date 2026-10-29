@@ -1063,29 +1063,39 @@ public class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
+  /**
+   * Returns the name of the automatic exec group of the given toolchain type, or {@code null} if
+   * there is none. The toolchain type can be given as the label it was requested with or as the
+   * label of the actual type.
+   */
   @Nullable
-  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
-    ResolvedToolchainContext toolchainContext =
-        toolchainContexts.getToolchainContext(toolchainType.toString());
-    if (toolchainContext != null && toolchainContext.forToolchainType(toolchainType) != null) {
-      // Return early if name of the Automatic Exec Group (AEG) and toolchain type matches.
-      return toolchainContext;
+  public String getAutomaticExecGroup(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    if (toolchainContexts.hasToolchainContext(toolchainType.toString())) {
+      // Prefer an exact match.
+      return toolchainType.toString();
     }
 
     // Alias can be used for toolchains, in which case name of AEG will not match with the toolchain
     // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
-    String aliasName =
-        toolchainContexts.getExecGroupNames().stream()
-            .filter(DeclaredExecGroup::isAutomatic)
-            .filter(
-                name -> {
-                  ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
-                  return (context != null
-                      && context.requestedToolchainTypeLabels().containsKey(toolchainType));
-                })
-            .findFirst()
-            .orElse(null);
-    return aliasName == null ? null : toolchainContexts.getToolchainContext(aliasName);
+    for (String execGroup : toolchainContexts.getExecGroupNames()) {
+      if (DeclaredExecGroup.isAutomatic(execGroup)
+          && toolchainContexts
+              .getToolchainContext(execGroup)
+              .requestedToolchainTypeLabels()
+              .containsKey(toolchainType)) {
+        return execGroup;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
+    String execGroup = getAutomaticExecGroup(toolchainType);
+    return execGroup == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
   /**
