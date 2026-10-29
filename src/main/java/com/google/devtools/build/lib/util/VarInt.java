@@ -35,19 +35,6 @@ public class VarInt {
 
   private VarInt() { }
 
-  /** Returns the encoding size in bytes of its input value.
-   * @param i the integer to be measured
-   * @return the encoding size in bytes of its input value
-   */
-  public static int varIntSize(int i) {
-    int result = 0;
-    do {
-      result++;
-      i >>>= 7;
-    } while (i != 0);
-    return result;
-  }
-
   /**
    * Reads a varint from the current position of the given ByteBuffer and returns the decoded value
    * as 32 bit integer.
@@ -89,26 +76,6 @@ public class VarInt {
   }
 
   /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, into a destination byte[],
-   * following the protocol buffer convention.
-   *
-   * @param v the int value to write to sink
-   * @param sink the sink buffer to write to
-   * @param offset the offset within sink to begin writing
-   * @return the updated offset after writing the varint
-   */
-  public static int putVarInt(int v, byte[] sink, int offset) {
-    do {
-      // Encode next 7 bits + terminator bit
-      int bits = v & 0x7F;
-      v >>>= 7;
-      byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
-      sink[offset++] = b;
-    } while (v != 0);
-    return offset;
-  }
-
-  /**
    * Encodes an integer in a variable-length encoding, 7 bits per byte, and writes it to the given
    * OutputStream.
    *
@@ -116,24 +83,11 @@ public class VarInt {
    * @param outputStream the OutputStream to write to
    */
   public static void putVarInt(int v, OutputStream outputStream) throws IOException {
-    byte[] bytes = new byte[varIntSize(v)];
-    putVarInt(v, bytes, 0);
-    outputStream.write(bytes);
-  }
-
-  /**
-   * Returns the encoding size in bytes of its input value.
-   *
-   * @param v the long to be measured
-   * @return the encoding size in bytes of a given long value.
-   */
-  public static int varLongSize(long v) {
-    int result = 0;
-    do {
-      result++;
+    while ((v & ~0x7f) != 0) {
+      outputStream.write((v & 0x7f) | 0x80);
       v >>>= 7;
-    } while (v != 0);
-    return result;
+    }
+    outputStream.write(v);
   }
 
   /**
@@ -197,27 +151,17 @@ public class VarInt {
   }
 
   /**
-   * Encodes a long integer in a variable-length encoding, 7 bits per byte, to a
-   * ByteBuffer sink.
+   * Encodes a long integer in a variable-length encoding, 7 bits per byte, and writes it to the
+   * given OutputStream.
+   *
    * @param v the value to encode
-   * @param sink the ByteBuffer to add the encoded value
+   * @param outputStream the OutputStream to write to
    */
-  public static void putVarLong(long v, ByteBuffer sink) {
-    while (true) {
-      int bits = ((int) v) & 0x7f;
-      v >>>= 7;
-      if (v == 0) {
-        sink.put((byte) bits);
-        return;
-      }
-      sink.put((byte) (bits | 0x80));
-    }
-  }
-
   public static void putVarLong(long v, OutputStream outputStream) throws IOException {
-    byte[] bytes = new byte[varLongSize(v)];
-    ByteBuffer sink = ByteBuffer.wrap(bytes);
-    putVarLong(v, sink);
-    outputStream.write(bytes);
+    while ((v & ~0x7fL) != 0) {
+      outputStream.write(((int) v & 0x7f) | 0x80);
+      v >>>= 7;
+    }
+    outputStream.write((int) v);
   }
 }
