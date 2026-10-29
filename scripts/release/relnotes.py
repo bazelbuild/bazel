@@ -208,8 +208,8 @@ if __name__ == "__main__":
   else:
     try:
       current_release = git("describe", "--tags")[0]
-    except Exception:  # pylint: disable=broad-exception-caught
-      print("Error: Not a release branch.")
+    except subprocess.CalledProcessError:
+      print("Error: Not a release branch.", file=sys.stderr)
       sys.exit(1)
 
   is_patch = not current_release.endswith(".0")
