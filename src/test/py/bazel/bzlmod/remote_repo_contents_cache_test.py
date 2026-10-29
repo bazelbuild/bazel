@@ -133,6 +133,81 @@ class RemoteRepoContentsCacheTest(
     link = os.path.join(os.fsencode(self.RepoDir('target')), b'link')
     self.assertEqual(os.readlink(link), b'\xfe')
 
+  def testMaterializationPreservesExecutableBits(self):
+    if self.IsWindows():
+      self.skipTest('POSIX executable permissions')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'source = use_repo_rule("//:repos.bzl", "source")',
+            'source(name = "source")',
+            'copy = use_repo_rule("//:repos.bzl", "copy")',
+            'copy(name = "copy", data = "@source//:plain.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repos.bzl',
+        [
+            'def _source(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                " \"exports_files(['plain.txt'])\\n"
+                "filegroup(name='metadata_only')\")"
+            ),
+            '  rctx.file("plain.txt", "contents", executable=False)',
+            '  rctx.file("run.sh", "contents", executable=True)',
+            '  rctx.file("helper.bzl", "VALUE = 1", executable=False)',
+            '  print("FETCHED SOURCE")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'source = repository_rule(_source)',
+            'def _copy(rctx):',
+            '  directory = rctx.path(rctx.attr.data).dirname',
+            (
+                '  result = rctx.execute(["cp", "-Rp", str(directory) + "/.",'
+                ' "."])'
+            ),
+            '  if result.return_code:',
+            '    fail(result.stderr)',
+            '  return rctx.repo_metadata()',
+            'copy = repository_rule(_copy, attrs={"data": attr.label()})',
+        ],
+    )
+    source_dir = self.RepoDir('source')
+    copy_dir = self.RepoDir('copy')
+
+    def assert_modes():
+      for directory in (source_dir, copy_dir):
+        for name, executable in (
+            ('plain.txt', False),
+            ('run.sh', True),
+            ('helper.bzl', False),
+        ):
+          with self.subTest(directory=directory, name=name):
+            path = os.path.join(directory, name)
+            self.assertEqual(bool(os.stat(path).st_mode & 0o111), executable)
+
+    _, _, stderr = self.RunBazel(['build', '@copy//:metadata_only'])
+    self.assertIn('FETCHED SOURCE', '\n'.join(stderr))
+    assert_modes()
+
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@source//:metadata_only'])
+    self.assertNotIn('FETCHED SOURCE', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(source_dir, 'plain.txt')))
+    self.assertFalse(
+        os.stat(os.path.join(source_dir, 'helper.bzl')).st_mode & 0o111
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@copy//:metadata_only'])
+    self.assertNotIn('FETCHED SOURCE', '\n'.join(stderr))
+    assert_modes()
+
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@copy//:metadata_only'])
+    self.assertNotIn('FETCHED SOURCE', '\n'.join(stderr))
+    assert_modes()
+
   def testLocalRepoContentsCacheInteraction(self):
     self.ScratchFile(
         'MODULE.bazel',
