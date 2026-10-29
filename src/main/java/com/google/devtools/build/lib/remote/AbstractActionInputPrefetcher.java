@@ -726,6 +726,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // Note that this only applies to symlinks created by spawns (or, currently, with the internal
     // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
     // been canonicalized by maybeGetSymlink.
+    final int permissionsMode;
     try {
       if (treeRoot != null) {
         var treeRootRelativePath = path.relativeTo(treeRoot);
@@ -734,6 +735,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       } else {
         path = maybeResolveSymlink(path);
       }
+      permissionsMode =
+          execRoot.getFileSystem() instanceof LazyMaterializer materializer
+              ? materializer.getMaterializationPermissions(
+                  path.asFragment(), outputPermissions.getPermissionsMode())
+              : outputPermissions.getPermissionsMode();
     } catch (IOException e) {
       return Completable.error(e);
     }
@@ -778,7 +784,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     .doOnComplete(
                         () -> {
                           finalizeDownload(
-                              metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
+                              metadata,
+                              tempPath.forHostFileSystem(),
+                              finalPath,
+                              finalTreeRoot,
+                              permissionsMode);
                           alreadyDeleted.set(true);
                         }));
 
@@ -795,12 +805,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private void finalizeDownload(
-      FileArtifactValue metadata, Path tmpPath, Path finalPath, @Nullable Path treeRoot)
+      FileArtifactValue metadata,
+      Path tmpPath,
+      Path finalPath,
+      @Nullable Path treeRoot,
+      int permissionsMode)
       throws IOException {
-    // Set file output permissions, matching SkyframeActionExecutor#checkOutputs for artifacts
-    // produced by local actions. The temporary path is outside the output tree, so this can happen
-    // before entering the tree artifact root's critical section.
-    tmpPath.chmod(outputPermissions.getPermissionsMode());
+    // Repository files preserve their recorded execute bits; action outputs use outputPermissions.
+    // Set the mode before publication and recording the contents proxy, outside the tree lock.
+    tmpPath.chmod(permissionsMode);
 
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
     @Nullable
