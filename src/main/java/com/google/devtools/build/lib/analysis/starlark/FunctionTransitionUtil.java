@@ -275,21 +275,19 @@ public final class FunctionTransitionUtil {
     for (Map.Entry<Label, Object> entry : starlarkOptions.entrySet()) {
       Label actual = aliasToActual.getOrDefault(entry.getKey(), entry.getKey());
       String scopeType = scopeDetails.scopeTypeOf(actual);
+      Object execValue = null;
       if (scopeType.equals(Scope.ScopeType.UNIVERSAL)
           || scopeType.equals(Scope.ScopeType.PROJECT)) {
         // Universal flags always propagate. Project-scoped flags also propagate through exec
         // transitions; their value is maintained across exec boundaries, with project-boundary
         // enforcement applied later at target-configuration time.
-        ans.put(entry);
+        execValue = entry.getValue();
       } else if (scopeType.equals(Scope.ScopeType.TARGET)) {
-        Object onLeaveScopeValue = scopeDetails.buildSettingToOnLeaveScopeValue().get(actual);
-        if (onLeaveScopeValue != null) {
-          // if on_leave_scope is set, propagate to exec config with this value.
-          ans.put(entry.getKey(), onLeaveScopeValue);
-        }
-        // else Don't propagate this flag.
+        // if on_leave_scope is set, propagate to exec config with this value. Otherwise, don't
+        // propagate this flag.
+        execValue = scopeDetails.buildSettingToOnLeaveScopeValue().get(actual);
       } else if (customPropagatingFlags.contains(entry.getKey().getUnambiguousCanonicalForm())) {
-        ans.put(entry);
+        execValue = entry.getValue();
       } else if (customPropagatingFlagPatterns.stream()
           .anyMatch(
               pattern ->
@@ -299,13 +297,18 @@ public final class FunctionTransitionUtil {
                       .startsWith(
                           pattern.substring(
                               0, pattern.lastIndexOf(CustomFlagConverter.SUBPACKAGES_SUFFIX))))) {
-        ans.put(entry);
+        execValue = entry.getValue();
       } else if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
         var customExecScope = scopeDetails.customExecScopeValues().get(actual);
-        ans.put(
-            entry.getKey(),
+        execValue =
             starlarkOptions.getOrDefault(
-                customExecScope.hostFlag(), customExecScope.hostFlagDefault()));
+                customExecScope.hostFlag(), customExecScope.hostFlagDefault());
+      }
+      // Starlark options at their default values aren't set explicitly. Besides the cases above,
+      // the exec transition adds the defaults of flags with custom exec scopes to its input.
+      if (execValue != null
+          && !execValue.equals(scopeDetails.buildSettingToDefault().get(actual))) {
+        ans.put(entry.getKey(), execValue);
       }
     }
 

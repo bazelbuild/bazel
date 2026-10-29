@@ -1660,23 +1660,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                     .analysisData(starlarkExecTransition)
                     .build());
 
-    ImmutableMap<String, Label> flagsAliases =
-        baselineOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
-
-    ImmutableSet.Builder<Label> hostFlags = ImmutableSet.builder();
-    for (Map.Entry<String, Label> alias : flagsAliases.entrySet()) {
-      if (alias.getKey().startsWith("host_")) {
-        hostFlags.add(alias.getValue());
-      }
-    }
-
-    // ImmutableSet.copyOf() is needed here because AutoCodec doesn't have a mapping for
-    // ImmutableMap.KeySet and this could cause a serialization failure even though the
-    // key content remains the same before and after serialization and deserialization.
     StarlarkBuildSettingsDetailsValue.Key starlarkBuildSettingsDetailsKey =
         StarlarkBuildSettingsDetailsValue.Key.create(
-            ImmutableSet.copyOf(baselineOptions.getStarlarkOptions().keySet()),
-            ImmutableSet.copyOf(hostFlags.build()));
+            baselineOptions.getStarlarkOptions().keySet(),
+            baselineOptions.get(CoreOptions.class).getHostFlagAliases());
     EvaluationResult<StarlarkBuildSettingsDetailsValue> result =
         evaluate(
             ImmutableList.of(starlarkBuildSettingsDetailsKey),

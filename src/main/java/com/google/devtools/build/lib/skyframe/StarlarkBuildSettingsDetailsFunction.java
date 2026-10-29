@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDeta
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -103,8 +104,6 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
           return null;
         }
         var attrMap = RawAttributeMapper.of(flagTarget.getAssociatedRule());
-        Object flagDefaultValue =
-            flagTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
         if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
           String scopeType = attrMap.get("scope", Type.STRING);
           if (scopeType.startsWith("exec:--")) {
@@ -123,7 +122,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
                 flagTarget.getLabel(),
                 new CustomExecScopeValue(
                     flagTarget.getLabel(),
-                    flagDefaultValue,
+                    getDefault(flagTarget.getAssociatedRule()),
                     hostFlag,
                     getDefault(starlarkifiedHostFlag.getAssociatedRule())));
           }
@@ -530,7 +529,9 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
       return null;
     }
-    return attrs.get("on_leave_scope", rule.getRuleClassObject().getBuildSetting().getType());
+    BuildSetting buildSetting = rule.getRuleClassObject().getBuildSetting();
+    Object value = attrs.get("on_leave_scope", buildSetting.getType());
+    return buildSetting.allowsMultiple() ? ImmutableList.of(value) : value;
   }
 
   private static final class StarlarkBuildSettingsDetailsException extends SkyFunctionException {

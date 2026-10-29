@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.ArrayList;
@@ -98,6 +99,49 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
         .containsExactly(Label.parseCanonicalUnchecked("//test:flag"), "transitioned");
+  }
+
+  @Test
+  public void customExecScope_doesNotAddDefaultsToExecConfiguration(
+      @TestParameter boolean excludeStarlarkFlagsFromExecConfig,
+      @TestParameter boolean allowsMultiple)
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True, allow_multiple = %s),
+            attrs = {"scope": attr.string()},
+        )
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {"tool": attr.label(cfg = "exec")},
+        )
+        """
+            .formatted(allowsMultiple ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "string_flag")
+        string_flag(
+            name = "flag",
+            build_setting_default = "default",
+            scope = "exec:--//test:host_flag",
+        )
+        string_flag(name = "host_flag", build_setting_default = "default")
+        my_rule(name = "tool")
+        my_rule(name = "test", tool = ":tool")
+        """);
+    useConfiguration(
+        "--flag_alias=host_flag=//test:host_flag",
+        "--incompatible_exclude_starlark_flags_from_exec_config="
+            + excludeStarlarkFlagsFromExecConfig,
+        "--experimental_propagate_custom_flag=//test:flag");
+
+    ConfiguredTarget tool = getDirectPrerequisite(getConfiguredTarget("//test"), "//test:tool");
+
+    assertThat(getConfiguration(tool).getOptions().getStarlarkOptions()).isEmpty();
   }
 
   @Test
