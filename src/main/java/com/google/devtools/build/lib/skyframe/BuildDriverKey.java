@@ -29,6 +29,7 @@ public final class BuildDriverKey implements SkyKey {
   private final boolean explicitlyRequested;
   private final boolean skipIncompatibleExplicitTargets;
   private final boolean isTopLevelAspectDriver;
+  private final boolean analysisOnly;
 
   private final boolean extraActionTopLevelOnly;
 
@@ -42,12 +43,14 @@ public final class BuildDriverKey implements SkyKey {
       boolean skipIncompatibleExplicitTargets,
       boolean extraActionTopLevelOnly,
       boolean keepGoing,
-      boolean isTopLevelAspectDriver) {
+      boolean isTopLevelAspectDriver,
+      boolean analysisOnly) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.explicitlyRequested = explicitlyRequested;
     this.skipIncompatibleExplicitTargets = skipIncompatibleExplicitTargets;
     this.isTopLevelAspectDriver = isTopLevelAspectDriver;
+    this.analysisOnly = analysisOnly;
     this.extraActionTopLevelOnly = extraActionTopLevelOnly;
     this.keepGoing = keepGoing;
   }
@@ -66,7 +69,8 @@ public final class BuildDriverKey implements SkyKey {
         skipIncompatibleExplicitTargets,
         extraActionTopLevelOnly,
         keepGoing,
-        /* isTopLevelAspectDriver= */ true);
+        /* isTopLevelAspectDriver= */ true,
+        /* analysisOnly= */ false);
   }
 
   public static BuildDriverKey ofConfiguredTarget(
@@ -83,7 +87,32 @@ public final class BuildDriverKey implements SkyKey {
         skipIncompatibleExplicitTargets,
         extraActionTopLevelOnly,
         keepGoing,
-        /* isTopLevelAspectDriver= */ false);
+        /* isTopLevelAspectDriver= */ false,
+        /* analysisOnly= */ false);
+  }
+
+  /**
+   * Creates a key for a configured target that is analyzed, but neither built nor reported as a
+   * top-level target (e.g. a {@code test_suite} that was expanded into its constituent tests, whose
+   * {@code tests} attribute must still be visibility-checked).
+   *
+   * <p>Its evaluation concludes as soon as the analysis of the configured target does, and it posts
+   * no {@link TopLevelStatusEvents} other than {@link
+   * TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent}.
+   */
+  public static BuildDriverKey ofAnalysisOnlyConfiguredTarget(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean keepGoing) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        /* explicitlyRequested= */ false,
+        /* skipIncompatibleExplicitTargets= */ false,
+        /* extraActionTopLevelOnly= */ false,
+        keepGoing,
+        /* isTopLevelAspectDriver= */ false,
+        /* analysisOnly= */ true);
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -106,6 +135,10 @@ public final class BuildDriverKey implements SkyKey {
     return isTopLevelAspectDriver;
   }
 
+  public boolean isAnalysisOnly() {
+    return analysisOnly;
+  }
+
   public boolean isExtraActionTopLevelOnly() {
     return extraActionTopLevelOnly;
   }
@@ -124,14 +157,16 @@ public final class BuildDriverKey implements SkyKey {
     if (other instanceof BuildDriverKey otherBuildDriverKey) {
       return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
           && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext)
-          && explicitlyRequested == otherBuildDriverKey.explicitlyRequested;
+          && explicitlyRequested == otherBuildDriverKey.explicitlyRequested
+          && analysisOnly == otherBuildDriverKey.analysisOnly;
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(actionLookupKey, topLevelArtifactContext, explicitlyRequested);
+    return Objects.hash(
+        actionLookupKey, topLevelArtifactContext, explicitlyRequested, analysisOnly);
   }
 
   @Override
