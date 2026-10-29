@@ -87,6 +87,26 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     }
   }
 
+  /**
+   * Applies {@code transition} to {@code options} by applying each transition it composes, or
+   * {@code transition} itself if it isn't composed, with {@code applier}.
+   */
+  public static <E extends Exception> Map<String, BuildOptions> applyComposed(
+      ConfigurationTransition transition, BuildOptions options, Applier<E> applier)
+      throws E, InterruptedException {
+    if (transition instanceof ComposingTransition composingTransition) {
+      return composingTransition.apply(options, applier);
+    }
+    return applier.apply(transition, options);
+  }
+
+  /** Applies a transition that isn't composed, see {@link #applyComposed}. */
+  @FunctionalInterface
+  public interface Applier<E extends Exception> {
+    Map<String, BuildOptions> apply(ConfigurationTransition transition, BuildOptions options)
+        throws E, InterruptedException;
+  }
+
   /** Thrown when two {@link TransitionFactory} instances cannot be composed. */
   public static final class IncompatibleTransitionsException extends Exception {
     IncompatibleTransitionsException(String message) {
@@ -168,14 +188,20 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     @Override
     public ImmutableMap<String, BuildOptions> apply(
         BuildOptionsView buildOptions, EventHandler eventHandler) throws InterruptedException {
+      return apply(
+          buildOptions.underlying(),
+          (transition, options) ->
+              transition.apply(TransitionUtil.restrict(transition, options), eventHandler));
+    }
+
+    private <E extends Exception> ImmutableMap<String, BuildOptions> apply(
+        BuildOptions buildOptions, Applier<E> applier) throws E, InterruptedException {
       ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
       Map<String, BuildOptions> transition1Output =
-          transition1.apply(
-              TransitionUtil.restrict(transition1, buildOptions.underlying()), eventHandler);
+          applyComposed(transition1, buildOptions, applier);
       for (Map.Entry<String, BuildOptions> entry1 : transition1Output.entrySet()) {
         Map<String, BuildOptions> transition2Output =
-            transition2.apply(
-                TransitionUtil.restrict(transition2, entry1.getValue()), eventHandler);
+            applyComposed(transition2, entry1.getValue(), applier);
         for (Map.Entry<String, BuildOptions> entry2 : transition2Output.entrySet()) {
           toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
         }
