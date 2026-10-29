@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -556,6 +557,34 @@ public class InMemoryFileSystem extends FileSystem {
       }
     }
     return result;
+  }
+
+  @Override
+  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
+    if (followSymlinks) {
+      return super.readdir(path, true);
+    }
+    synchronized (this) {
+      InMemoryDirectoryInfo dirInfo = getDirectory(path);
+      if (!dirInfo.isReadable()) {
+        throw Errno.EACCES.exception(path);
+      }
+      // The entries already carry their types; avoid walking from the root for each child.
+      Collection<String> children = dirInfo.getAllChildren();
+      int childCount = children.size() - 2;
+      if (childCount > 0 && !dirInfo.isExecutable()) {
+        // Preserve the error on the first real child that FileSystem.readdir would stat.
+        return super.readdir(path, false);
+      }
+      List<Dirent> result = new ArrayList<>(childCount);
+      for (String child : children) {
+        if (child.equals(".") || child.equals("..")) {
+          continue;
+        }
+        result.add(new Dirent(child, direntFromStat(dirInfo.getChild(child))));
+      }
+      return result;
+    }
   }
 
   @Override
