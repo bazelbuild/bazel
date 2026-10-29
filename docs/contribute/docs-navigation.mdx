@@ -2,39 +2,49 @@
 title: 'Update the docs navigation'
 ---
 
-Add a new page to the Bazel docs sidebar, or
-reorganize existing navigation groups. `bazel-contrib/bazel-docs` controls navigation, which is a separate repo from where doc content lives (`bazelbuild/bazel`).
+Add a new page to the Bazel docs sidebar, or reorganize existing navigation
+groups. Navigation lives in
+[`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs), which
+is a separate repo from where doc content lives
+([`bazelbuild/bazel`](https://github.com/bazelbuild/bazel)).
 
 ## How navigation works {#how-it-works}
 
-`docs.json` in [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs)
-defines the Bazel docs sidebar. Mintlify reads this file to build the
-left-hand navigation tree.
-
-`docs.json` contains a `navigation` array of groups, each with a list of pages:
+Mintlify reads `docs.json`.
+Its `navigation` key is a reference to `navigation.json`, which lists the
+documentation versions, and each version points at a generated navigation file
+under `navigation/`:
 
 ```json
 {
-  "navigation": [
-    {
-      "group": "Contribute",
-      "pages": [
-        "contribute/index",
-        "contribute/docs-contribution-workflow",
-        "contribute/docs-style-guide"
-      ]
-    }
-  ]
+  "navigation": { "$ref": "./navigation.json" }
 }
 ```
 
-Each entry in `pages` is a root-relative path to an `.mdx` file, without the
-`.mdx` extension.
+The sidebar for the current docs comes from `docs-tabs.json`. A script,
+`navigation.update.sh`, regenerates `navigation/HEAD.en.json` from
+`docs-tabs.json` every time the docs sync runs.
+
+| File | What it is | Edit by hand? |
+| ---- | ---------- | ------------- |
+| `docs-tabs.json` | Source of truth for the current sidebar. | Yes. This is the file you normally edit. |
+| `docs.json` | Site settings: navbar, footer, theme, and redirects. Its `navigation` key only references `navigation.json`. | Only for site settings and redirects. |
+| `navigation.json` | Generated index of versions for the version dropdown. | No |
+| `navigation/HEAD.en.json` | Generated from `docs-tabs.json` on every sync. | No. Hand edits are overwritten. |
+| `navigation/X.Y.en.json` | Frozen copy of the sidebar for a released version. | Only to fix that version's navigation. |
+
+### Page paths {#page-paths}
+
+Each entry in a `pages` array is a root-relative path in `bazel-docs`, without
+the `.mdx` extension. Content is synced from `docs/` in `bazelbuild/bazel` to
+the root of `bazel-docs`, so `docs/contribute/docs-navigation.mdx` upstream
+becomes `contribute/docs-navigation` in the navigation.
 
 ## Prerequisites {#prerequisites}
 
 - A fork of [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs)
 - The [Mintlify CLI](https://www.mintlify.com/docs/cli/install) for local validation
+- [`jq`](https://jqlang.org/), if you want to run `./navigation.update.sh` locally
 
 ## Add a page to an existing group {#add-page}
 
@@ -53,57 +63,127 @@ Each entry in `pages` is a root-relative path to an `.mdx` file, without the
    git checkout -b add-my-page-to-nav upstream/main
    ```
 
-3. Open `docs.json` and find the group where your page belongs. Add the
-   path to the `pages` array:
+3. Open `docs-tabs.json` and find the group where your page belongs. Add the
+   path to the `pages` array, in the position where you want it to appear. For
+   example, this is part of the Contributing group in the Community tab, with
+   `contribute/my-page` added to the end:
 
    ```json
    {
-     "group": "Contribute",
+     "group": "Contributing",
      "pages": [
-       "contribute/index",
+       "contribute/docs",
+       "contribute/docs-style-guide",
        "contribute/docs-contribution-workflow",
        "contribute/docs-navigation",
-       "contribute/docs-style-guide"
+       "contribute/my-page"
      ]
    }
    ```
 
-4. Validate that `docs.json` is well-formed:
+4. Optional: regenerate the navigation files to preview the sidebar:
 
    ```bash
-   mint validate
+   ./navigation.update.sh
    ```
 
-   Run this from the `bazel-docs` root (where `docs.json` lives).
+   This rewrites `navigation/HEAD.en.json` and `navigation.json`. You don't have
+   to commit those files; the sync regenerates them.
 
-5. Commit and open a PR against `bazel-contrib/bazel-docs` main:
+5. Check your changes:
 
    ```bash
-   git add docs.json
+   npx mint dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000) and confirm your page is
+   in the sidebar. To check the configuration without starting a server, run
+   `mint validate` from the `bazel-docs` root.
+
+6. Review what you're about to commit, and stage only the intended files:
+
+   ```bash
+   git status
+   git add docs-tabs.json
    git commit -m "docs: Add my-page to navigation"
    git push origin add-my-page-to-nav
    ```
 
-   Open a pull request targeting **`bazel-contrib/bazel-docs` main**.
+   Running `./navigation.update.sh` also touches generated files, and a local
+   docs sync can leave other files modified. Don't commit those unless you mean
+   to.
+
+7. Open a pull request targeting **`bazel-contrib/bazel-docs` main**.
 
 ## Add a new navigation group {#add-group}
 
-If your new page does not fit into any existing group, add a new group object
-to the `navigation` array in `docs.json`:
+If your page doesn't fit an existing group, add a group object to the `groups`
+array of the tab where it belongs. `docs-tabs.json` is a list of tabs, each with
+its own groups:
 
 ```json
-{
-  "group": "My New Section",
-  "pages": [
-    "my-section/index",
-    "my-section/getting-started"
-  ]
-}
+[
+  {
+    "tab": "Community",
+    "groups": [
+      {
+        "group": "My new section",
+        "pages": [
+          "my-section/index",
+          "my-section/getting-started"
+        ]
+      }
+    ]
+  }
+]
 ```
 
-Position it in the array where you want it to appear in the sidebar.
+Position the group in the `groups` array where you want it to appear in the
+sidebar. Existing tabs are About Bazel, Getting started, User guide, Reference,
+Extending, and Community.
 
-## Getting help {#getting-help}
+## Generated files {#generated-files}
+
+Don't hand-edit `navigation/HEAD.en.json` or `navigation.json`.
+`navigation.update.sh` runs on every docs sync and overwrites both, so your
+changes are lost. Edit `docs-tabs.json` instead.
+
+Versioned files, such as `navigation/9.1.en.json`, are different. The script
+creates one when a version is first released, by copying `docs-tabs.json` and
+prefixing every page path with that version's directory. After that, it never
+regenerates the file, so manual fixes are preserved. Edit a versioned file only
+to fix the navigation of that released version. Edits to `docs-tabs.json` don't
+change past versions.
+
+## Gotchas {#gotchas}
+
+- **A page that isn't in `docs-tabs.json` is still published.** It's reachable
+  by URL and by search, but it doesn't appear in the sidebar. Adding the page
+  upstream and adding it to the navigation are two separate changes.
+- **An entry for a page that doesn't exist is dropped silently.** When
+  `navigation.update.sh` generates the navigation files, it leaves out entries
+  whose `.mdx` file isn't there. It doesn't report them, and it doesn't change
+  `docs-tabs.json`, so a mistyped path stays in the file you edited and the
+  sync still succeeds. The only symptom is that the page is missing from the
+  sidebar. If a page you added doesn't show up, check the path first.
+
+## Move or rename a page {#move-page}
+
+Moving or renaming a page takes two changes in `bazel-docs`, on top of moving
+the file in `bazelbuild/bazel`:
+
+1. Update the path in `docs-tabs.json`.
+2. Add a redirect to the `redirects` array in `docs.json`, so existing links
+   keep working:
+
+   ```json
+   {
+     "source": "/contribute/old-page",
+     "destination": "/contribute/new-page"
+   }
+   ```
+
+## Get help {#getting-help}
 
 If you are unsure where a page belongs, ask in the `#documentation` channel on
 the [Bazel community Slack](https://slack.bazel.build) or open an issue in
