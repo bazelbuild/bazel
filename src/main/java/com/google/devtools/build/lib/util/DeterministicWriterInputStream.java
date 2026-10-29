@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.io.CountingOutputStream;
+import java.io.BufferedOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -55,12 +56,14 @@ final class DeterministicWriterInputStream extends FilterInputStream {
     if (writerThread != null) {
       return;
     }
+    // Batch small writes before taking the pipe's shared lock.
+    var out = new BufferedOutputStream(pipedOut, 8192);
     writerThread =
         WRITER_THREAD_FACTORY.newThread(
             () -> {
-              try (pipedOut) {
+              try (out) {
                 try {
-                  writer.writeTo(pipedOut);
+                  writer.writeTo(out);
                 } catch (Throwable t) {
                   failure.set(t);
                 }
