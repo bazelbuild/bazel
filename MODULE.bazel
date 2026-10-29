@@ -102,6 +102,15 @@ single_version_override(
     version = "6.8",
 )
 
+single_version_override(
+    module_name = "rules_python",
+    patch_strip = 1,
+    patches = [
+        "//third_party:rules_python_2.2.0_quoting.patch",
+    ],
+    version = "2.2.0",
+)
+
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
 single_version_override(
     module_name = "rules_graalvm",

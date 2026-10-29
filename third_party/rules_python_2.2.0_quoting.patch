@@ -1,0 +1,76 @@
+diff --git a/python/private/runtime_env_toolchain_interpreter.sh b/python/private/runtime_env_toolchain_interpreter.sh
+--- a/python/private/runtime_env_toolchain_interpreter.sh
++++ b/python/private/runtime_env_toolchain_interpreter.sh
+@@ -77,6 +77,6 @@
+   # Python looks at argv[0] to determine sys.executable, so set that to the venv
+   # binary, not the actual one invoked.
+   # NOTE: exec -a would be simpler, but isn't posix-compatible, and dash shell
+   # (Ubuntu/debian default) doesn't support it; see #3009.
+-  exec sh -c "$PYTHON_BIN \$@" "$venv_bin" "$@"
++  exec sh -c "exec \"$PYTHON_BIN\" \"\$@\"" "$venv_bin" "$@"
+ else
+   exec "$PYTHON_BIN" "$@"
+ fi
+diff --git a/python/private/stage1_bootstrap_template.sh b/python/private/stage1_bootstrap_template.sh
+--- a/python/private/stage1_bootstrap_template.sh
++++ b/python/private/stage1_bootstrap_template.sh
+@@ -121,12 +121,12 @@
+       if [[ ! -L "$stub_filename" ]]; then
+         break
+       fi
+-      stub_filename=$(readlink $stub_filename)
++      stub_filename=$(readlink "$stub_filename")
+     done
+     echo >&2 "Unable to find runfiles directory for $1"
+     exit 1
+   }
+-  RUNFILES_DIR=$(find_runfiles_root $0)
++  RUNFILES_DIR=$(find_runfiles_root "$0")
+ fi
+ 
+ if [[ -n "$RULES_PYTHON_TESTING_TELL_RUNFILES_ROOT" ]]; then
+@@ -148,7 +148,7 @@
+   fi
+ }
+ 
+-python_exe=$(find_python_interpreter $RUNFILES_DIR $PYTHON_BINARY)
++python_exe=$(find_python_interpreter "$RUNFILES_DIR" "$PYTHON_BINARY")
+ 
+ # Zip files have to re-create the venv bin/python3 symlink because they
+ # don't contain it already.
+@@ -156,7 +156,7 @@
+   use_exec=0
+   # It should always be under runfiles, but double check this. We don't
+   # want to accidentally create symlinks elsewhere.
+-  if [[ "$python_exe" != $RUNFILES_DIR/* ]]; then
++  if [[ "$python_exe" != "$RUNFILES_DIR"/* ]]; then
+     echo >&2 "ERROR: Program's venv binary not under runfiles: $python_exe"
+     exit 1
+   fi
+@@ -176,7 +176,7 @@
+     fi
+   fi
+   # The bin/ directory may not exist if it is empty.
+-  mkdir -p "$(dirname $python_exe)"
++  mkdir -p "$(dirname "$python_exe")"
+   _symlink "$symlink_to" "$python_exe"
+ elif [[ "$RECREATE_VENV_AT_RUNTIME" == "1" ]]; then
+   if [[ -n "$RULES_PYTHON_EXTRACT_ROOT" ]]; then
+@@ -253,7 +253,7 @@
+     _symlink "$python_exe_actual" "$python_exe"
+ 
+     if [[ ! -e "$venv_site_packages" ]]; then
+-      mkdir -p $(dirname $venv_site_packages)
++      mkdir -p "$(dirname "$venv_site_packages")"
+       _symlink "$runfiles_venv_site_packages" "$venv_site_packages"
+     fi
+   fi
+@@ -270,7 +270,7 @@
+ if [[ ! -x "$python_exe" ]]; then
+   if [[ ! -e "$python_exe" ]]; then
+     echo >&2 "ERROR: Python interpreter not found: $python_exe"
+-    ls -l $python_exe >&2
++    ls -l "$python_exe" >&2
+     exit 1
+   elif [[ ! -x "$python_exe" ]]; then
+     echo >&2 "ERROR: Python interpreter not executable: $python_exe"
