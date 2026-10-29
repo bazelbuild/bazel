@@ -176,21 +176,23 @@ flavor(
 
 #### Scope
 
-Build settings are by default only applied to the `target` [configuration]
-(/extending/rules#configurations), and won't be applied to the `exec`
-configuration. To have the build setting applied to both the `target` and `exec`
-configurations set the `scope` attribute to `"universal"`.
+Build settings default to `"target"` scope, which resets on exec transitions.
+Use `scope = "universal"` to propagate values to both target and exec
+[configurations](/extending/rules#configurations). Project scope instead retains
+values inside its `PROJECT.scl` boundary, including owned exec tools; see
+[Project boundary reset policy](#project-scope-reset-policy).
 
 ```python
 # example/BUILD
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 bool_flag(
     name = "use_this_for_compiler_and_sources",
+    build_setting_default = False,
     scope = "universal"
 )
 ```
 
-#### Project boundary reset policy
+#### Project boundary reset policy {#project-scope-reset-policy}
 
 A setting with `scope = "project"` keeps its value inside the active directories
 of its nearest `PROJECT.scl`. Outside that boundary, it normally resets to the
@@ -389,6 +391,9 @@ actual target to which the build setting is set. `label_flag` and
 `label_setting` can be read/written by transitions and `label_flag` can be set
 by the user like other `build_setting` rules can. Their only difference is they
 can't customely defined.
+
+Both rules natively support [project scope and its reset policy](#project-scope-reset-policy).
+With `scope_reset = "default"`, an out-of-scope setting selects its declared default target.
 
 Label-typed settings will eventually replace the functionality of late-bound
 defaults. Late-bound default attributes are Label-typed attributes whose
