@@ -1324,18 +1324,6 @@ public final class RemoteModule extends BlazeModule {
     fp.addStringMap(
         remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
 
-    // When switching cache endpoints/instances across invocations, cached remote actions reference
-    // blobs stored in the previous cache instance which cannot be downloaded from the new cache
-    // instance. See https://github.com/bazelbuild/bazel/issues/23780.
-    if (remoteOptions != null) {
-      fp.addNullableString(remoteOptions.getRemoteCache());
-      fp.addNullableString(remoteOptions.getRemoteExecutor());
-      fp.addNullableString(remoteOptions.getRemoteDownloader());
-      fp.addNullableString(remoteOptions.getRemoteInstanceName());
-      fp.addNullableString(remoteOptions.getRemoteBytestreamUriPrefix());
-      fp.addNullableString(remoteOptions.getRemoteProxy());
-    }
-
     return fp.hexDigestAndReset();
   }
 

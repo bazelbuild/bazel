@@ -1568,4 +1568,188 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: the generating action of the symlink's target was rewound
     assertValidOutputFile("a/link", "foo\n");
   }
+
+  @Test
+  public void actionRewinding_changeRemoteExecutor_topLevelOutputsRewoundWithoutInvalidatingCached()
+      throws Exception {
+    assumeFalse(useDiskCache);
+    writeOutputDirRule();
+    write("BUILD");
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        genrule(
+            name = "cached_file",
+            srcs = [],
+            outs = ["cached.out"],
+            cmd = "echo -n cached > $@",
+        )
+
+        output_dir(
+            name = "cached_tree.out",
+            content_map = {"file-inside": "cached-tree"},
+        )
+
+        output_dir(
+            name = "remote_tree.out",
+            content_map = {"file-inside": "remote-tree"},
+        )
+
+        genrule(
+            name = "foo",
+            srcs = [],
+            outs = ["foo.out"],
+            cmd = "echo -n foo > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                ":foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(location :foo.out) $(location bar.in) > $@",
+        )
+        """);
+    write("a/bar.in", "one");
+    addOptions("--remote_instance_name=instance1", "--remote_download_regex=.*cached.*");
+
+    // Build on the initial worker: cached.out and cached_tree.out are downloaded locally, while
+    // foo.out, bar.out, and remote_tree.out remain remote-only.
+    buildTarget("//a:cached_file", "//a:cached_tree.out", "//a:remote_tree.out", "//a:bar");
+
+    // Switch to a fresh remote worker and instance name across invocations. Cached actions whose
+    // outputs are already available locally (//a:cached_file, //a:cached_tree.out) must not be
+    // invalidated, while remote-only outputs needed as top-level outputs in the new build
+    // (//a:remote_tree.out, //a:bar, and its transitive input //a:foo) must be rewound.
+    var secondWorker = IntegrationTestUtils.createWorker();
+    try (var ignored = secondWorker.start()) {
+      // Add the new options before waitDownloads, which internally creates the next command and
+      // parses the options.
+      addOptions(
+          "--remote_executor=grpc://localhost:" + secondWorker.getPort(),
+          "--remote_instance_name=instance2",
+          "--remote_bytestream_uri_prefix=custom-prefix");
+      enableActionRewinding();
+      setDownloadToplevel();
+      waitDownloads();
+      assertValidOutputFile("a/cached.out", "cached");
+      assertValidOutputFile("a/cached_tree.out/file-inside", "cached-tree");
+      assertOutputDoesNotExist("a/remote_tree.out/file-inside");
+      assertOutputDoesNotExist("a/foo.out");
+      assertOutputDoesNotExist("a/bar.out");
+
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+
+      buildTarget("//a:cached_file", "//a:cached_tree.out", "//a:remote_tree.out", "//a:bar");
+      waitDownloads();
+
+      assertRewoundActions(rewoundKeys, "//a:remote_tree.out", "//a:bar", "//a:foo");
+      assertValidOutputFile("a/cached.out", "cached");
+      assertValidOutputFile("a/cached_tree.out/file-inside", "cached-tree");
+      assertValidOutputFile("a/remote_tree.out/file-inside", "remote-tree");
+      assertValidOutputFile("a/bar.out", "fooone\n");
+      assertThat(secondWorker.hasCasBlob("cached".getBytes(UTF_8))).isFalse();
+      assertThat(secondWorker.hasCasBlob("cached-tree".getBytes(UTF_8))).isFalse();
+      assertThat(secondWorker.hasCasBlob("remote-tree".getBytes(UTF_8))).isTrue();
+      assertThat(secondWorker.hasCasBlob("foo".getBytes(UTF_8))).isTrue();
+    }
+  }
+
+  @Test
+  public void actionRewinding_changeRemoteInstance_incrementalBuildRewindsOnlyMissingInputs(
+      @TestParameter boolean localExecution) throws Exception {
+    assumeFalse(useDiskCache);
+    writeOutputDirRule();
+    write("BUILD");
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        genrule(
+            name = "cached_file",
+            srcs = [],
+            outs = ["cached.out"],
+            cmd = "echo -n cached > $@",
+        )
+
+        output_dir(
+            name = "cached_tree.out",
+            content_map = {"file-inside": "cached-tree"},
+        )
+
+        genrule(
+            name = "remote_file",
+            srcs = [],
+            outs = ["remote.out"],
+            cmd = "echo -n remote > $@",
+        )
+
+        output_dir(
+            name = "remote_tree.out",
+            content_map = {"file-inside": "remote-tree"},
+        )
+
+        genrule(
+            name = "consumer",
+            srcs = [
+                ":cached.out",
+                ":cached_tree.out",
+                ":remote.out",
+                ":remote_tree.out",
+                "consumer.in",
+            ],
+            outs = ["consumer.out"],
+            cmd = "cat $(location :cached.out) $(location :cached_tree.out)/file-inside $(location :remote.out) $(location :remote_tree.out)/file-inside $(location consumer.in) > $@",
+        )
+        """);
+    write("a/consumer.in", "one");
+    addOptions("--remote_instance_name=instance1", "--remote_download_regex=.*cached.*");
+
+    // Build //a:consumer on the initial worker so that both cached_tree.out and remote_tree.out are
+    // recorded as uploaded in MerkleTreeComputer's persistent subtree cache.
+    buildTarget("//a:consumer");
+
+    var secondWorker = IntegrationTestUtils.createWorker();
+    try (var ignored = secondWorker.start()) {
+      write("a/consumer.in", "two");
+      if (localExecution) {
+        addOptions(
+            "--remote_executor=",
+            "--remote_cache=grpc://localhost:" + secondWorker.getPort(),
+            "--strategy_regexp=.*=local");
+      } else {
+        addOptions("--remote_executor=grpc://localhost:" + secondWorker.getPort());
+      }
+      addOptions("--remote_instance_name=instance2");
+      enableActionRewinding();
+      setDownloadToplevel();
+      waitDownloads();
+      assertValidOutputFile("a/cached.out", "cached");
+      assertValidOutputFile("a/cached_tree.out/file-inside", "cached-tree");
+      assertOutputDoesNotExist("a/remote.out");
+      assertOutputDoesNotExist("a/remote_tree.out/file-inside");
+
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+
+      buildTarget("//a:consumer");
+      waitDownloads();
+
+      // Locally present inputs (cached.out and cached_tree.out) are reused/reuploaded without
+      // rewinding their generating actions, whereas remote-only inputs missing from the new worker
+      // (remote.out and remote_tree.out) are rewound and regenerated.
+      assertRewoundActions(rewoundKeys, "//a:remote_file", "//a:remote_tree.out");
+      assertValidOutputFile("a/consumer.out", "cachedcached-treeremoteremote-treetwo\n");
+      if (!localExecution) {
+        assertThat(secondWorker.hasCasBlob("cached".getBytes(UTF_8))).isTrue();
+        assertThat(secondWorker.hasCasBlob("cached-tree".getBytes(UTF_8))).isTrue();
+      }
+      assertThat(secondWorker.hasCasBlob("remote".getBytes(UTF_8))).isTrue();
+      assertThat(secondWorker.hasCasBlob("remote-tree".getBytes(UTF_8))).isTrue();
+    }
+  }
 }
