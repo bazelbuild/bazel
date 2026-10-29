@@ -26,6 +26,7 @@ import java.io.OutputStream;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -47,6 +48,15 @@ public final class CpuProfilerTest {
     // because a process (the JVM) can have only one profiler.
     // That's ok; just ignore it.
 
+    // An evaluation may finish after its profiler stops and another session starts.
+    if (!Starlark.startCpuProfile(OutputStream.nullOutputStream(), Duration.ofMillis(10))) {
+      throw new AssertionError("Failed to start cpu profiler");
+    }
+    CpuProfiler previous = CpuProfiler.get();
+    AtomicInteger previousTicks = new AtomicInteger();
+    previous.setCpuTicksForCurrentThread(previousTicks);
+    Starlark.stopCpuProfile();
+
     // Start writing profile to temporary file.
     File profile = java.io.File.createTempFile("pprof", ".gz", null);
     OutputStream prof = new FileOutputStream(profile);
@@ -55,6 +65,15 @@ public final class CpuProfilerTest {
     if (!success) {
       System.err.println("Failed to start cpu profiler");
       System.exit(1);
+    }
+
+    CpuProfiler current = CpuProfiler.get();
+    AtomicInteger currentTicks = new AtomicInteger();
+    if (current.setCpuTicksForCurrentThread(currentTicks) != null) {
+      throw new AssertionError("New profiler inherited the previous session's counter");
+    }
+    if (previous.setCpuTicksForCurrentThread(null) != previousTicks) {
+      throw new AssertionError("Finishing the old evaluation changed another session's counter");
     }
 
     // This program consumes about 5s of CPU.
@@ -81,6 +100,10 @@ public final class CpuProfilerTest {
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+    }
+
+    if (current.setCpuTicksForCurrentThread(null) != currentTicks) {
+      throw new AssertionError("Starlark evaluation did not restore the enclosing counter");
     }
 
     Starlark.stopCpuProfile();
