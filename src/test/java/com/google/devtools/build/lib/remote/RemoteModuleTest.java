@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -875,37 +874,44 @@ public final class RemoteModuleTest {
   }
 
   @Test
-  public void testComputeActionExecutionSalt_changesWhenCacheInstanceChanges() throws Exception {
+  public void computeActionExecutionSalt_remoteEndpointOrInstanceChanges_doesNotChange()
+      throws Exception {
     RemoteOptions baseOptions =
         parseRemoteOptions(
             "--remote_cache=grpc://cache1",
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance1");
     String baseSalt = RemoteModule.computeActionExecutionSalt(baseOptions);
-    assertThat(RemoteModule.computeActionExecutionSalt(null)).isNotNull();
-    assertThat(RemoteModule.computeActionExecutionSalt(baseOptions)).isEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(null)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(parseRemoteOptions()))
+        .isNotEqualTo(baseSalt);
+    assertThat(
+            RemoteModule.computeActionExecutionSalt(
+                parseRemoteOptions(
+                    "--remote_cache=grpc://cache1",
+                    "--remote_default_exec_properties=OSFamily=linux")))
+        .isNotEqualTo(baseSalt);
 
     RemoteOptions changedInstanceName =
         parseRemoteOptions(
             "--remote_cache=grpc://cache1",
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance2");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedInstanceName)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedInstanceName)).isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteCache =
         parseRemoteOptions(
             "--remote_cache=grpc://cache2",
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance1");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteCache)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteCache)).isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteExecutor =
         parseRemoteOptions(
             "--remote_cache=grpc://cache1",
             "--remote_executor=grpc://exec2",
             "--remote_instance_name=instance1");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteExecutor))
-        .isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteExecutor)).isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteDownloader =
         parseRemoteOptions(
@@ -914,7 +920,7 @@ public final class RemoteModuleTest {
             "--remote_instance_name=instance1",
             "--experimental_remote_downloader=grpc://downloader1");
     assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteDownloader))
-        .isNotEqualTo(baseSalt);
+        .isEqualTo(baseSalt);
 
     RemoteOptions changedBytestreamPrefix =
         parseRemoteOptions(
@@ -923,7 +929,7 @@ public final class RemoteModuleTest {
             "--remote_instance_name=instance1",
             "--remote_bytestream_uri_prefix=host/instance2");
     assertThat(RemoteModule.computeActionExecutionSalt(changedBytestreamPrefix))
-        .isNotEqualTo(baseSalt);
+        .isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteProxy =
         parseRemoteOptions(
@@ -931,6 +937,6 @@ public final class RemoteModuleTest {
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance1",
             "--remote_proxy=unix:/socket2");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isEqualTo(baseSalt);
   }
 }
