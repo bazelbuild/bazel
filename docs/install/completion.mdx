@@ -28,18 +28,15 @@ If you installed Bazel:
         `$HOME/.bazel/bin`. If you ran the installer as root, this will be
         `/usr/local/lib/bazel/bin`.
     2.  Do one of the following:
-        *   Either copy this file to your completion directory (if you have
-            one).
+        *   Either copy this file to your system-wide completion directory (if you have
+            one and bazel was installed system-wide).
 
             Example: on Ubuntu this is the `/etc/bash_completion.d` directory.
-        *   Or source the completion file from Bash's RC file.
-
-            Add a line similar to the one below to your `~/.bashrc` (on Ubuntu)
-            or `~/.bash_profile` (on macOS), using the path to your completion
-            file's absolute path:
+        *   Or copy this file to your user completion directory (if bazel was installed with `--user`):
 
             ```
-            source /path/to/bazel-complete.bash
+            mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
+            cp /path/to/bazel-complete.bash "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/bazel-complete.bash"
             ```
 
 *   Via [bootstrapping](/install/compile-source), then:
@@ -49,19 +46,15 @@ If you installed Bazel:
         bazel help completion bash > bazel-complete.bash
         ```
     2.  Do one of the following:
-        *   Copy this file to your completion directory, if you have
-            one.
+        *   Either copy this file to your system-wied completion directory (if you have
+            one and bazel was installed system-wide).
 
             Example: on Ubuntu this is the `/etc/bash_completion.d` directory
-        *   Copy it somewhere on your local disk, such as to `$HOME`, and
-            source the completion file from Bash's RC file.
-
-            Add a line similar to the one below to your `~/.bashrc` (on Ubuntu)
-            or `~/.bash_profile` (on macOS), using the path to your completion
-            file's absolute path:
+        *   Or copy this file to your user completion directory (if bazel was installed for your user only):
 
             ```
-            source /path/to/bazel-complete.bash
+            mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
+            cp bazel-complete.bash "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/bazel-complete.bash"
             ```
 
 ## Zsh {#zsh}
