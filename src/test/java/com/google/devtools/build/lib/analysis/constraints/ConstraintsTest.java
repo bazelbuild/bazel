@@ -1046,6 +1046,109 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertThat(getConfiguredTarget("//buildenv/foo:foo")).isNotNull();
   }
 
+  @Test
+  public void environmentGroupDefaultInfoFilesIsEmpty() throws Exception {
+    scratch.file(
+        "buildenv/foo/defs.bzl",
+        """
+        AspectInfo = provider(fields = ["files"])
+
+        def _probe_aspect_impl(target, ctx):
+            files = ctx.rule.attr.dep[DefaultInfo].files
+            if files.to_list() != []:
+                fail("Expected empty files depset in aspect, got %s" % files)
+            return [AspectInfo(files = files)]
+
+        probe_aspect = aspect(
+            implementation = _probe_aspect_impl,
+            attr_aspects = ["*"],
+        )
+
+        def _probe_impl(ctx):
+            files = ctx.attr.dep[DefaultInfo].files
+            if files.to_list() != []:
+                fail("Expected empty files depset, got %s" % files)
+            return [DefaultInfo(files = files)]
+
+        probe = rule(
+            implementation = _probe_impl,
+            attrs = {"dep": attr.label()},
+        )
+
+        def _aspect_runner_impl(ctx):
+            return [DefaultInfo(files = ctx.attr.target[AspectInfo].files)]
+
+        aspect_runner = rule(
+            implementation = _aspect_runner_impl,
+            attrs = {"target": attr.label(aspects = [probe_aspect])},
+        )
+        """);
+    scratch.file(
+        "buildenv/foo/BUILD",
+        """
+        load(":defs.bzl", "aspect_runner", "probe")
+
+        environment(name = "a")
+
+        environment_group(
+            name = "foo",
+            environments = [":a"],
+            defaults = [":a"],
+        )
+
+        probe(
+            name = "probe_foo",
+            dep = ":foo",
+        )
+
+        aspect_runner(
+            name = "run_aspect",
+            target = ":probe_foo",
+        )
+        """);
+
+    assertThat(getConfiguredTarget("//buildenv/foo:probe_foo")).isNotNull();
+    assertThat(getConfiguredTarget("//buildenv/foo:run_aspect")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void environmentGroupInFileRestrictedAttributeFailsCleanly() throws Exception {
+    scratch.file(
+        "buildenv/foo/defs.bzl",
+        """
+        def _needs_txt_impl(ctx):
+            return []
+
+        needs_txt = rule(
+            implementation = _needs_txt_impl,
+            attrs = {"dep": attr.label(allow_files = [".txt"])},
+        )
+        """);
+    scratch.file(
+        "buildenv/foo/BUILD",
+        """
+        load(":defs.bzl", "needs_txt")
+
+        environment(name = "a")
+
+        environment_group(
+            name = "foo",
+            environments = [":a"],
+            defaults = [":a"],
+        )
+
+        needs_txt(
+            name = "consumer",
+            dep = ":foo",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//buildenv/foo:consumer")).isNull();
+    assertContainsEvent("'//buildenv/foo:foo' does not produce any needs_txt dep files");
+  }
+
   private void writeDepsForSelectTests() throws Exception {
     scratch.file(
         "deps/BUILD",
