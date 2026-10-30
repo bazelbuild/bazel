@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.Futures.getDone;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -95,12 +96,35 @@ public final class SkyValueRetriever {
       lastTransitionTimestampNanos = 0;
     }
 
-    public SerializationState getState() {
+    // Eviction may race with an evaluator that is still creating its next serialization state.
+    private boolean closed;
+
+    public synchronized SerializationState getState() {
       return state;
     }
 
     public void setState(SerializationState newState) {
-      state = newState;
+      boolean cleanup;
+      synchronized (this) {
+        cleanup = closed && state != newState;
+        state = newState;
+      }
+      if (cleanup) {
+        newState.cleanupSerializationState();
+      }
+    }
+
+    private void close() {
+      SerializationState abandoned;
+      synchronized (this) {
+        if (closed) {
+          return;
+        }
+        closed = true;
+        abandoned = state;
+      }
+      // Cleanup can complete futures and run callbacks; do not hold the context lock across it.
+      abandoned.cleanupSerializationState();
     }
 
     public int getRestarts() {
@@ -131,17 +155,24 @@ public final class SkyValueRetriever {
 
     @CanIgnoreReturnValue
     public SerializationState transitionTo(SerializationState nextState) {
-      long now = System.nanoTime();
-      if (lastTransitionTimestampNanos != 0) {
-        RetrievalPhase currentPhase = getPhase(this.state);
-        if (currentPhase != null) {
-          long elapsed = now - lastTransitionTimestampNanos;
-          Long old = phaseDurationNanos.put(currentPhase, elapsed);
-          Preconditions.checkState(old == null);
+      boolean cleanup;
+      synchronized (this) {
+        long now = System.nanoTime();
+        if (lastTransitionTimestampNanos != 0) {
+          RetrievalPhase currentPhase = getPhase(this.state);
+          if (currentPhase != null) {
+            long elapsed = now - lastTransitionTimestampNanos;
+            Long old = phaseDurationNanos.put(currentPhase, elapsed);
+            Preconditions.checkState(old == null);
+          }
         }
+        this.state = nextState;
+        this.lastTransitionTimestampNanos = now;
+        cleanup = closed;
       }
-      this.state = nextState;
-      this.lastTransitionTimestampNanos = now;
+      if (cleanup) {
+        nextState.cleanupSerializationState();
+      }
       return nextState;
     }
 
@@ -201,7 +232,7 @@ public final class SkyValueRetriever {
       extends RetrievalContextProvider, SkyKeyComputeState {
     @Override
     default void close() {
-      getRetrievalContext().getState().cleanupSerializationState();
+      getRetrievalContext().close();
     }
   }
 
@@ -455,7 +486,22 @@ public final class SkyValueRetriever {
   @VisibleForTesting
   record WaitingForFutureLookupContinuation(
       ListenableFuture<SkyframeLookupContinuation> futureContinuation)
-      implements SerializationState {}
+      implements SerializationState {
+    @Override
+    public void cleanupSerializationState() {
+      // Eviction can precede completion of the shared fetches. Their lookups must still be
+      // abandoned once known, or other retrievals sharing those pending values can wait forever.
+      futureContinuation.addListener(
+          () -> {
+            try {
+              getDone(futureContinuation).abandon(new StateEvictedException());
+            } catch (ExecutionException | CancellationException e) {
+              // Failed fetches already abandon their owned lookups in the collector.
+            }
+          },
+          directExecutor());
+    }
+  }
 
   @VisibleForTesting
   record WaitingForLookupContinuation(SkyframeLookupContinuation continuation)
