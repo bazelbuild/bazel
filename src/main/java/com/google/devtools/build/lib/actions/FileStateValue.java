@@ -159,7 +159,7 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       if (digest == null) {
         // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
         if (tsgm != null) {
-          tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
+          tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTimeNanos());
         }
         return new RegularFileStateValueWithContentsProxy(
             stat.getSize(), FileContentsProxy.create(stat));
@@ -526,7 +526,7 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
         throws IOException {
       // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
       if (tsgm != null) {
-        tsgm.notifyDependenceOnFileTime(path, stat.getLastChangeTime());
+        tsgm.notifyDependenceOnFileTime(path, stat.getLastChangeTimeNanos());
       }
       return new SpecialFileStateValue(FileContentsProxy.create(stat));
     }
