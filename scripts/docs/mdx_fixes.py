@@ -70,7 +70,6 @@ _ESCAPED_HEADING_ANCHOR_SUB = (r" {#\1}", re.compile(r" &lcub;#([^&]+)&rcub;"))
 # {: .external}, {:.devsite-disable-click-to-copy}
 _TAG_SUB = ("", re.compile(r"\s*\{:\s?\.\S+\}"))
 _DISABLE_FINDING_SUB = ("", re.compile(r"\{# disableFinding\([^)]+\) #\}"))
-# {:#foo} and {: #foo } -> {#foo}
 _KEYWORDS_SUB = ("", re.compile(r"^keywords: .+$", re.MULTILINE))
 # https://github.com/bazelbuild/bazel/commit/6ec6d867843d274fa4555eb635ebafc60259b88e
 _BAD_TITLE_SUB = (
@@ -87,7 +86,8 @@ _PRE_BLOCK_SUB = (
 # {{ '<var>' }} / {{ "</sub>" }} or any variations thereof
 _DOUBLE_BRACKET_SUB = (r"\1", re.compile(r"\{\{ ['\"](</?\w+>)['\"] \}\}"))
 _HTML_COMMENT_SUB = (r"{/* \1 */}", re.compile(r"<!--(.*?)-->", re.DOTALL))
-_ANCHOR_SUB = (r"{\1}", re.compile(r"\{:\s?(#[\S+]+)\s?\}"))
+# {:#foo} and {: #foo } -> {#foo}
+_ANCHOR_SUB = (r"{\1}", re.compile(r"\{:\s?(#[^\s}]+)\s?\}"))
 _HTML_LINK_SUB = (_fix_link, re.compile(r"\]\(([^)]+)\.html"))
 _ANGLE_BRACKET_LINK_SUB = (r"\1", re.compile(r"<(https?://[^>]+)>"))
 # {# some comment #} -> {/* some comment */}
