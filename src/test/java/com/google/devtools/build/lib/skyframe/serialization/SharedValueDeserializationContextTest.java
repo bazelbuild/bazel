@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.createRandomLeafArray;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -235,9 +234,6 @@ public final class SharedValueDeserializationContextTest {
   }
 
   private static class NotNestedSetContainer {
-    private static final long FIRST_OFFSET;
-    private static final long SECOND_OFFSET;
-
     private NotNestedSet first;
     private NotNestedSet second;
 
@@ -247,20 +243,10 @@ public final class SharedValueDeserializationContextTest {
       this.first = first;
       this.second = second;
     }
-
-    static {
-      try {
-        FIRST_OFFSET = getFieldOffset(NotNestedSetContainer.class, "first");
-        SECOND_OFFSET = getFieldOffset(NotNestedSetContainer.class, "second");
-      } catch (ReflectiveOperationException e) {
-        throw new ExceptionInInitializerError(e);
-      }
-    }
   }
 
   /** Selects the {@link AsyncDeserializationContext#deserialize} overload. */
   private enum DeserializeOverloadSelector {
-    OFFSET,
     SETTER,
     ARRAY_ELEMENT_WITH_DONE_CALLBACK
   }
@@ -305,10 +291,6 @@ public final class SharedValueDeserializationContextTest {
       // callback. This enables verification that the provided values are fully deserialized as soon
       // as they are set, as required by the specification.
       switch (overloadSelector) {
-        case OFFSET:
-          context.deserialize(codedIn, value, NotNestedSetContainer.FIRST_OFFSET);
-          context.deserialize(codedIn, value, NotNestedSetContainer.SECOND_OFFSET);
-          break;
         case SETTER:
           context.deserialize(
               codedIn,
