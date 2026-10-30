@@ -1159,6 +1159,147 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             "//donut:test.bzl%_test_aspect of //donut:test_rule_dep");
   }
 
+  private void writeAspectWithPrivateDep() throws Exception {
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _test_aspect_impl(target, ctx):
+            return []
+
+        _test_aspect = aspect(
+            implementation = _test_aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {
+                "_test_attr": attr.label(default = Label("//donut:test_filegroup")),
+            },
+        )
+
+        def _test_impl(ctx):
+            pass
+
+        test_rule = rule(
+            _test_impl,
+            attrs = {
+                "deps": attr.label_list(
+                    aspects = [_test_aspect],
+                ),
+            },
+        )
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "test_rule")
+
+        filegroup(
+            name = "test_filegroup",
+            srcs = ["test.bzl"],
+        )
+
+        test_rule(
+            name = "test_rule_dep",
+        )
+
+        test_rule(
+            name = "test_rule",
+            deps = [":test_rule_dep"],
+        )
+        """);
+  }
+
+  private ImmutableList<String> evalLabels(String query) throws Exception {
+    return eval(query).stream()
+        .map(cf -> cf.getDescription(LabelPrinter.legacy()))
+        .collect(toImmutableList());
+  }
+
+  @Test
+  public void testImplicitAspectDepsInCqueryRdeps() throws Exception {
+    writeAspectWithPrivateDep();
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    // The aspect's dep is an implicit dep of the target holding the aspect, as in deps().
+    assertThat(evalLabels("rdeps(//donut/..., //donut:test_filegroup)"))
+        .containsExactly("//donut:test_filegroup", "//donut:test_rule");
+    // The aspect attached to //donut:test_rule_dep doesn't make its own deps dependents.
+    assertThat(evalLabels("rdeps(//donut/..., //donut:test_rule_dep)"))
+        .containsExactly("//donut:test_rule_dep", "//donut:test_rule");
+  }
+
+  @Test
+  public void testExcludedAspectDepsNotInCqueryRdeps() throws Exception {
+    writeAspectWithPrivateDep();
+
+    helper.setQuerySettings();
+    // Without aspects, deps() doesn't follow the aspect's dep, so neither does rdeps().
+    assertThat(evalLabels("rdeps(//donut/..., //donut:test_filegroup)"))
+        .containsExactly("//donut:test_filegroup");
+  }
+
+  @Test
+  public void testToolchainResolutionDepsInCqueryRdeps() throws Exception {
+    writeFile(
+        "donut_toolchains/test_toolchain.bzl",
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        test_toolchain = rule(
+            implementation = _impl,
+        )
+        """);
+    writeFile(
+        "donut_toolchains/BUILD",
+        """
+        load("//donut_toolchains:test_toolchain.bzl", "test_toolchain")
+
+        toolchain_type(name = "toolchain_type_1")
+
+        test_toolchain(
+            name = "foo",
+        )
+
+        toolchain(
+            name = "foo_toolchain",
+            toolchain = ":foo",
+            toolchain_type = ":toolchain_type_1",
+        )
+        """);
+    writeFile(
+        "donut/test.bzl",
+        """
+        def _test_impl(ctx):
+            pass
+
+        rule_with_toolchain = rule(
+            _test_impl,
+            toolchains = ["//donut_toolchains:toolchain_type_1"],
+        )
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "rule_with_toolchain")
+
+        rule_with_toolchain(
+            name = "uses_toolchain",
+        )
+        """);
+    ((PostAnalysisQueryHelper<CqueryNode>) helper)
+        .useConfiguration("--extra_toolchains=//donut_toolchains:foo_toolchain");
+
+    // The rule resolving the toolchain type depends on it; the platforms and other inputs of its
+    // toolchain resolution don't.
+    assertThat(
+            evalLabels(
+                "rdeps(//donut/... + //donut_toolchains/...,"
+                    + " //donut_toolchains:toolchain_type_1)"))
+        .containsExactly(
+            "//donut_toolchains:toolchain_type_1",
+            "//donut_toolchains:foo_toolchain",
+            "//donut:uses_toolchain");
+  }
+
   @Test
   public void testAttrRespectsConfiguration() throws Exception {
     MockRule ruleWithList =
