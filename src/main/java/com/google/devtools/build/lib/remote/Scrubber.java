@@ -15,6 +15,10 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.TextFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -71,15 +76,20 @@ public final class Scrubber {
    * Config} protocol buffer in text format.
    */
   public static Scrubber parse(String configPath) throws ConfigParseException {
-    try (BufferedReader reader = Files.newBufferedReader(Paths.get(configPath))) {
+    try (BufferedReader reader =
+        Files.newBufferedReader(Paths.get(internalToPlatform(configPath)))) {
       var builder = Config.newBuilder();
       TextFormat.getParser().merge(reader, builder);
       return new Scrubber(builder.build());
+    } catch (TextFormat.ParseException e) {
+      throw new ConfigParseException(unicodeToInternal(e.getMessage()), e);
+    } catch (FileSystemException e) {
+      throw new ConfigParseException(platformToInternal(e.getMessage()), e);
     } catch (IOException e) {
       throw new ConfigParseException(e.getMessage(), e);
     } catch (PatternSyntaxException e) {
       throw new ConfigParseException(
-          String.format("in regex '%s': %s", e.getPattern(), e.getMessage()), e);
+          unicodeToInternal(String.format("in regex '%s': %s", e.getPattern(), e.getMessage())), e);
     }
   }
 
@@ -157,15 +167,16 @@ public final class Scrubber {
       boolean isForTool = actionOwner.isBuildConfigurationForTool();
 
       return (!isForTool || matchTools)
-          && mnemonicPattern.matcher(mnemonic).matches()
-          && labelPattern.matcher(label).matches()
-          && kindPattern.matcher(kind).matches();
+          && mnemonicPattern.matcher(internalToUnicode(mnemonic)).matches()
+          && labelPattern.matcher(internalToUnicode(label)).matches()
+          && kindPattern.matcher(internalToUnicode(kind)).matches();
     }
 
     /** Whether an input with the given exec-relative path should be omitted from the cache key. */
     public boolean shouldOmitInput(PathFragment execPath) {
+      String path = internalToUnicode(execPath.getPathString());
       for (Pattern pattern : omittedInputPatterns) {
-        if (pattern.matcher(execPath.getPathString()).matches()) {
+        if (pattern.matcher(path).matches()) {
           return true;
         }
       }
@@ -174,16 +185,21 @@ public final class Scrubber {
 
     /** Transforms a command line argument. */
     public String transformArgument(String arg) {
+      String unicodeArg = internalToUnicode(arg);
+      boolean replaced = false;
       for (Map.Entry<Pattern, String> entry : argReplacements.entrySet()) {
         Pattern pattern = entry.getKey();
         String replacement = entry.getValue();
         // Don't use Pattern#replaceFirst because it allows references to capture groups.
-        Matcher m = pattern.matcher(arg);
+        Matcher m = pattern.matcher(unicodeArg);
         if (m.find()) {
-          arg = arg.substring(0, m.start()) + replacement + arg.substring(m.end());
+          unicodeArg =
+              unicodeArg.substring(0, m.start()) + replacement + unicodeArg.substring(m.end());
+          replaced = true;
         }
       }
-      return arg;
+      // Only reencode if necessary to preserve arguments that aren't valid UTF-8.
+      return replaced ? unicodeToInternal(unicodeArg) : arg;
     }
 
     /** Returns the scrubbing salt. */
