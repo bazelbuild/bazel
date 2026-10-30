@@ -73,13 +73,13 @@ public class ChunkedBlobDownloaderTest {
 
   @Before
   public void setUp() throws Exception {
+    when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
     when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(true);
     downloader =
         new ChunkedBlobDownloader(
             grpcCacheClient,
             combinedCache,
             FastCdcChunkingConfig.defaults(),
-            DIGEST_UTIL,
             new ChunkLocationMap());
     tmpDir = TestUtils.createUniqueTmpDir(null);
   }
