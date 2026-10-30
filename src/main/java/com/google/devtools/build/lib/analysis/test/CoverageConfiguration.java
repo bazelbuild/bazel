@@ -84,6 +84,11 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
     this.coverageOptions = buildOptions.get(CoverageOptions.class);
   }
 
+  /** Returns whether code coverage is collected in this configuration. */
+  public boolean isCodeCoverageEnabled() {
+    return coverageOptions != null;
+  }
+
   @Override
   @StarlarkConfigurationField(
       name = "output_generator",
