@@ -742,6 +742,15 @@ public final class SkyframeActionExecutor {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    } catch (InterruptedException e) {
+      // Interrupted actions may still have open output streams. Preserve the interruption if
+      // closing the context also fails.
+      try {
+        actionExecutionContext.close();
+      } catch (IOException closeException) {
+        e.addSuppressed(closeException);
+      }
+      throw e;
     }
 
     // Do not close the context for lost input exceptions. It will be done by prepareForRewinding
@@ -1004,6 +1013,7 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
+      NestedSet<Artifact> evaluatedInputs,
       InputMetadataProvider compositeInputMetadataProvider,
       Environment env,
       @Nullable FileSystem actionFileSystem)
@@ -1046,7 +1056,7 @@ public final class SkyframeActionExecutor {
     try (SilentCloseable lock =
         outputService
             .getRewoundActionSynchronizer()
-            .enterInputDiscovery(action, compositeInputMetadataProvider)) {
+            .enterInputDiscovery(action, evaluatedInputs, compositeInputMetadataProvider)) {
       NestedSet<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
 
       // Input discovery may have been affected by lost inputs. If an action filesystem is used, it

@@ -239,7 +239,9 @@ public final class RemoteRewoundActionSynchronizerTest {
     rewind(newAction());
 
     var headerProducerPreparation = new TestThread(() -> rewind(headerProducer));
-    try (SilentCloseable discovery = synchronizer.enterInputDiscovery(compile, metadataProvider)) {
+    try (SilentCloseable discovery =
+        synchronizer.enterInputDiscovery(
+            compile, NestedSetBuilder.create(Order.STABLE_ORDER, source), metadataProvider)) {
       headerProducerPreparation.start();
       waitUntilBlocked(headerProducerPreparation);
     }

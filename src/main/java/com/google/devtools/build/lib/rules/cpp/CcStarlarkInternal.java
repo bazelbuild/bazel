@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -1089,9 +1090,11 @@ public class CcStarlarkInternal implements StarlarkValue {
             .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
             .addExecutionInfo(executionInfo);
     if (additionalCompilationInputs.size() > 0) {
-      builder.addMandatoryInputs(
+      List<Artifact> inputs =
           Sequence.cast(
-              additionalCompilationInputs, Artifact.class, "additional_compilation_inputs"));
+              additionalCompilationInputs, Artifact.class, "additional_compilation_inputs");
+      builder.addMandatoryInputs(inputs);
+      builder.addAdditionalIncludeScanningRoots(inputs);
     }
     if (additionalIncludeScanningRoots.size() > 0) {
       builder.addAdditionalIncludeScanningRoots(

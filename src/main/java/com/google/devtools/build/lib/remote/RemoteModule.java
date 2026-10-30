@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -348,7 +349,7 @@ public final class RemoteModule extends BlazeModule {
           env.getReporter(),
           buildRequestId,
           invocationId,
-          env.getSkyframeExecutor().getEvaluator(),
+          env.getSkyframeExecutor()::getEvaluator,
           remoteOptions.getRemoteCacheTtl());
     }
   }
@@ -596,7 +597,7 @@ public final class RemoteModule extends BlazeModule {
               CredentialHelperEnvironment.newBuilder()
                   .setEventReporter(env.getReporter())
                   .setWorkspacePath(env.getWorkspace())
-                  .setClientEnvironment(env::getClientEnv)
+                  .setClientEnvironment(Suppliers.ofInstance(env.getClientEnv()))
                   .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                   .build(),
               credentialModule.getCredentialCache(),
@@ -1321,18 +1322,6 @@ public final class RemoteModule extends BlazeModule {
     // shouldn't be too bad, as we don't expect the defaults to change very often.
     fp.addStringMap(
         remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
-
-    // When switching cache endpoints/instances across invocations, cached remote actions reference
-    // blobs stored in the previous cache instance which cannot be downloaded from the new cache
-    // instance. See https://github.com/bazelbuild/bazel/issues/23780.
-    if (remoteOptions != null) {
-      fp.addNullableString(remoteOptions.getRemoteCache());
-      fp.addNullableString(remoteOptions.getRemoteExecutor());
-      fp.addNullableString(remoteOptions.getRemoteDownloader());
-      fp.addNullableString(remoteOptions.getRemoteInstanceName());
-      fp.addNullableString(remoteOptions.getRemoteBytestreamUriPrefix());
-      fp.addNullableString(remoteOptions.getRemoteProxy());
-    }
 
     return fp.hexDigestAndReset();
   }

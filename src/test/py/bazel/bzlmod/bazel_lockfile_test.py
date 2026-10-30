@@ -62,8 +62,9 @@ class BazelLockfileTest(test_base.TestBase):
     os.remove(self.Path('MODULE.bazel.lock'))
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     output_base = pathlib.Path(stdout[0].strip())
+    self.hidden_lockfile = output_base.joinpath('MODULE.bazel.lock')
     try:
-      os.remove(output_base.joinpath('MODULE.bazel.lock'))
+      os.remove(self.hidden_lockfile)
     except FileNotFoundError:
       pass
 
@@ -239,6 +240,297 @@ class BazelLockfileTest(test_base.TestBase):
             'file for sss@1.3'
         ),
         stderr,
+    )
+
+  def testChangeModuleFileInWatchedLocalRegistryIsPickedUpWithoutShutdown(
+      self,
+  ):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.createShModule('lll', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "lll", version = "1.0")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
+    self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
+
+    module_dir = local_registry.root.joinpath('modules', 'lll', '1.0')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', *registry_flags, '//:all'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'error parsing MODULE.bazel file for lll@1.0', '\n'.join(stderr)
+    )
+
+    scratchFile(
+        module_dir.joinpath('MODULE.bazel'),
+        ['module(name = "lll", version = "1.0")'],
+    )
+    self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
+
+  def testChangeSourceJsonInWatchedLocalRegistryIsPickedUpWithoutShutdown(
+      self,
+  ):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.setModuleBasePath('projects')
+    local_registry.createLocalPathModule('mmm', '1.0', 'mmm_v1')
+    scratchFile(
+        local_registry.projects.joinpath('mmm_v1', 'BUILD'),
+        ['filegroup(name = "v1")'],
+    )
+    scratchFile(
+        local_registry.projects.joinpath('mmm_v2', 'MODULE.bazel'),
+        ['module(name = "mmm", version = "1.0")'],
+    )
+    scratchFile(
+        local_registry.projects.joinpath('mmm_v2', 'BUILD'),
+        ['filegroup(name = "v2")'],
+    )
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "mmm", version = "1.0")']
+    )
+    self.ScratchFile('BUILD')
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
+    self.RunBazel(['build', *registry_flags, '@mmm//:v1'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', *registry_flags, '@mmm//:v1'])
+
+    source_json = local_registry.root.joinpath(
+        'modules', 'mmm', '1.0', 'source.json'
+    )
+    with source_json.open('w') as f:
+      json.dump({'type': 'local_path', 'path': 'mmm_v2'}, f)
+
+    self.RunBazel(['build', *registry_flags, '@mmm//:v2'])
+
+  def testYankVersionInWatchedLocalRegistryIsPickedUpWithoutShutdown(self):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.createShModule('ooo', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "ooo", version = "1.0")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
+    self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
+
+    local_registry.addMetadata('ooo', yanked_versions={'1.0': 'dodgy'})
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', *registry_flags, '//:all'], allow_failure=True
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        'Yanked version detected in your resolved dependency graph: ooo@1.0',
+        '\n'.join(stderr),
+    )
+
+  def testChangeModuleBasePathInWatchedLocalRegistryIsPickedUpWithoutShutdown(
+      self,
+  ):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.setModuleBasePath('projects_v1')
+    local_registry.createLocalPathModule('ppp', '1.0', 'ppp')
+    for version in ['v1', 'v2']:
+      project_dir = local_registry.root.joinpath('projects_' + version, 'ppp')
+      scratchFile(
+          project_dir.joinpath('MODULE.bazel'),
+          ['module(name = "ppp", version = "1.0")'],
+      )
+      scratchFile(
+          project_dir.joinpath('BUILD'), ['filegroup(name = "%s")' % version]
+      )
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "ppp", version = "1.0")']
+    )
+    self.ScratchFile('BUILD')
+    registry_url = local_registry.getLocalURL()
+    registry_flags = [
+        '--registry=' + registry_url,
+        '--watch_registry=' + registry_url,
+    ]
+    self.RunBazel(['build', *registry_flags, '@ppp//:v1'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', *registry_flags, '@ppp//:v1'])
+
+    local_registry.setModuleBasePath('projects_v2')
+
+    self.RunBazel(['build', *registry_flags, '@ppp//:v2'])
+
+  def testChangeModuleFileInWatchedWorkspaceRegistryIsPickedUpWithoutShutdown(
+      self,
+  ):
+    local_registry = BazelRegistry(os.path.join(self._test_cwd, 'registry'))
+    local_registry.createShModule('qqq', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "qqq", version = "1.0")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    # On Windows, %workspace% is C:/..., so file:///%workspace% is
+    # file:///C:/...
+    registry_flags = [
+        '--registry=file:///%workspace%/registry',
+        '--watch_registry=file:///%workspace%/registry',
+    ]
+    self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', '--nobuild', *registry_flags, '//:all'])
+
+    module_dir = local_registry.root.joinpath('modules', 'qqq', '1.0')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', *registry_flags, '//:all'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'error parsing MODULE.bazel file for qqq@1.0', '\n'.join(stderr)
+    )
+
+  def testInvalidWatchedRegistryUrlFailsWithoutCrashingServer(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    _, stdout, _ = self.RunBazel(['info', 'server_pid'])
+    server_pid = stdout[0]
+
+    for url in [
+        'file:relative/registry',
+        'file://',
+        'https://bcr.bazel.build',
+    ]:
+      exit_code, _, stderr = self.RunBazel(
+          [
+              'build',
+              '--nobuild',
+              '--registry=' + url,
+              '--watch_registry=' + url,
+              '//:all',
+          ],
+          allow_failure=True,
+      )
+      self.AssertExitCode(exit_code, 2, stderr)
+      self.assertIn('Invalid --watch_registry=' + url, '\n'.join(stderr))
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--registry=https://bcr.bazel.build',
+            '--watch_registry=file:///path/to/registry',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        'Invalid --watch_registry=file:///path/to/registry: it must also be'
+        ' passed with --registry',
+        '\n'.join(stderr),
+    )
+
+    _, stdout, _ = self.RunBazel(['info', 'server_pid'])
+    self.assertEqual(stdout[0], server_pid)
+
+  def testWatchRegistryChecksRegistriesSetByInvocationPolicy(self):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.createShModule('rrr', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rrr", version = "1.0")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    registry_url = local_registry.getLocalURL()
+    policy = (
+        'flag_policies { flag_name: "registry" set_value { %s'
+        ' behavior: FINAL_VALUE_IGNORE_OVERRIDES } }'
+        % ' '.join(
+            'flag_value: "%s"' % url
+            for url in [registry_url, 'https://bcr.bazel.build']
+        )
+    )
+    # The policy replaces the --registry below, so the watched registry is
+    # only known to Bazel through the policy.
+    command = [
+        '--invocation_policy=' + policy,
+        'build',
+        '--nobuild',
+        '--registry=https://bcr.bazel.build',
+        '--watch_registry=' + registry_url,
+        '//:all',
+    ]
+    self.RunBazel(command)
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(command)
+
+    module_dir = local_registry.root.joinpath('modules', 'rrr', '1.0')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    exit_code, _, stderr = self.RunBazel(command, allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'error parsing MODULE.bazel file for rrr@1.0', '\n'.join(stderr)
+    )
+
+  def testChangeModuleFileInUnwatchedLocalRegistryIsIgnoredUntilShutdown(self):
+    local_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'local')
+    )
+    local_registry.createShModule('nnn', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "nnn", version = "1.0")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    registry_flag = '--registry=' + local_registry.getLocalURL()
+    self.RunBazel(['build', '--nobuild', registry_flag, '//:all'])
+    # Run again so that the lockfile is unchanged by the next invocation, which
+    # would otherwise invalidate the registry on its own.
+    self.RunBazel(['build', '--nobuild', registry_flag, '//:all'])
+
+    module_dir = local_registry.root.joinpath('modules', 'nnn', '1.0')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    self.RunBazel(['build', '--nobuild', registry_flag, '//:all'])
+
+    self.RunBazel(['shutdown'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', registry_flag, '//:all'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'error parsing MODULE.bazel file for nnn@1.0', '\n'.join(stderr)
     )
 
   def testChangeModuleInRegistryWithLockfile(self):
@@ -1069,6 +1361,115 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = ''.join(stderr)
     self.assertIn('I am running the extension', stderr)
     self.assertIn('I have changed now!', stderr)
+
+  def testModuleExtensionWithCopiedFile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("I am running the extension")',
+            '    ctx.copy(Label("//:hello.txt"), "copy/hello.txt")',
+            '    print(ctx.read("copy/hello.txt"))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('hello.txt', ['I will not stay the same.'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I will not stay the same.', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension', stderr)
+    self.assertNotIn('I will not stay the same.', stderr)
+
+    # Update file and rerun
+    self.ScratchFile('hello.txt', ['I have changed now!'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I have changed now!', stderr)
+
+  def testModuleExtensionWithCopiedDirectory(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("I am running the extension")',
+            (
+                '    src ='
+                ' ctx.path(Label("//:BUILD.bazel")).dirname.get_child("dir")'
+            ),
+            '    ctx.copy(src, "copy")',
+            '    print(ctx.read("copy/sub/hello.txt"))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('dir/sub/hello.txt', ['I will not stay the same.'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I will not stay the same.', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension', stderr)
+    self.assertNotIn('I will not stay the same.', stderr)
+
+    # Update a file in the directory and rerun
+    self.ScratchFile('dir/sub/hello.txt', ['I have changed now!'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I have changed now!', stderr)
+
+    # Add a file to the directory and rerun after a shutdown
+    self.RunBazel(['shutdown'])
+    self.ScratchFile('dir/sub/new.txt')
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
 
   def testModuleExtensionModifyingWatchedFile(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/29114: an
@@ -2471,16 +2872,28 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(lockfile_contents)
       self.assertNotIn('//:extension.bzl%ext', lockfile['moduleExtensions'])
 
-    # Error mode may populate the hidden cache, without changing the workspace
-    # lockfile. The cached result must survive a server restart.
-    _, _, stderr = self.RunBazel(
-        ['build', '@repo//:all', '--lockfile_mode=error']
-    )
+    # Error mode may populate the hidden cache without changing the workspace
+    # lockfile. The cached result must survive a warm build and a server
+    # restart.
+    args = [
+        'build',
+        '@repo//:all',
+        '--lockfile_mode=error',
+        '--experimental_check_output_files=false',
+    ]
+    _, _, stderr = self.RunBazel(args)
     self.assertIn('evaluating reproducible extension', ''.join(stderr))
+
+    # A warm build must read the new cache rather than rewrite the same data.
+    # Set a distinguishable timestamp even on file systems with coarse mtimes.
+    os.utime(self.hidden_lockfile, (100, 200))
+    before = self.hidden_lockfile.stat().st_mtime_ns
+    _, _, stderr = self.RunBazel(args)
+    self.assertNotIn('evaluating reproducible extension', ''.join(stderr))
+    self.assertEqual(self.hidden_lockfile.stat().st_mtime_ns, before)
+
     self.RunBazel(['shutdown'])
-    _, _, stderr = self.RunBazel(
-        ['build', '@repo//:all', '--lockfile_mode=error']
-    )
+    _, _, stderr = self.RunBazel(args)
     self.assertNotIn('evaluating reproducible extension', ''.join(stderr))
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       self.assertEqual(lockfile_contents, f.read())
