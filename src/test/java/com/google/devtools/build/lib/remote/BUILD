@@ -257,6 +257,7 @@ java_library(
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
         "//third_party/java/mockito",
+        "//third_party/java/netty4:handler",
         "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/protobuf/util:time",
