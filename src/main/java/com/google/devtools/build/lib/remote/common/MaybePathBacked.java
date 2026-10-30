@@ -24,4 +24,16 @@ public interface MaybePathBacked {
   /** If this stream is backed by a Path, returns that Path. Otherwise, returns null. */
   @Nullable
   Path maybeGetPath();
+
+  /**
+   * Returns the path where the content written to this stream is expected to remain after the
+   * enclosing operation completes, or {@code null} if unknown.
+   *
+   * <p>This differs from {@link #maybeGetPath} when the stream writes to a temporary staging
+   * location that is later moved into place, e.g. when downloading an action output.
+   */
+  @Nullable
+  default Path maybeGetFinalPath() {
+    return maybeGetPath();
+  }
 }
