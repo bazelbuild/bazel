@@ -62,6 +62,9 @@ public final class HighWaterMarkLimiter {
 
   @Subscribe
   void handle(MemoryPressureEvent event) {
+    if (event.wasManualGc()) {
+      return;
+    }
     int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
     int threshold = options.getSkyframeHighWaterMarkMemoryThreshold();
     if (actual < threshold) {

@@ -470,6 +470,17 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract boolean getCollectSkyframeCounts();
 
   @Option(
+      name = "experimental_forced_gc_interval",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "How often to force a garbage collection periodically during a command. If zero or"
+              + " negative, no forced garbage collections are run.")
+  public abstract Duration getForcedGcInterval();
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

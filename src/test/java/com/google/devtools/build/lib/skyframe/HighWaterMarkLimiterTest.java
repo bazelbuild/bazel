@@ -156,6 +156,32 @@ public final class HighWaterMarkLimiterTest {
     assertStats(underTest, MemoryPressureStats.newBuilder().setMinorGcDrops(2).setFullGcDrops(1));
   }
 
+  @Test
+  public void testHandle_manualGcIgnored() {
+    HighWaterMarkLimiter underTest =
+        new HighWaterMarkLimiter(
+            skyframeExecutor,
+            syscallCache,
+            createOptions(
+                /* threshold= */ 90,
+                /* minorGcDropLimit= */ Integer.MAX_VALUE,
+                /* fullGcDropLimit= */ Integer.MAX_VALUE));
+
+    MemoryPressureEvent manualGc =
+        MemoryPressureEvent.newBuilder()
+            .setWasManualGc(true)
+            .setWasFullGc(true)
+            .setTenuredSpaceMaxBytes(100L)
+            .setTenuredSpaceUsedBytes(95L)
+            .setDuration(Duration.ofSeconds(42L))
+            .build();
+    underTest.handle(manualGc);
+
+    verify(skyframeExecutor, never()).dropUnnecessaryTemporarySkyframeState();
+    verify(syscallCache, never()).clear();
+    assertStats(underTest, MemoryPressureStats.newBuilder().setMinorGcDrops(0).setFullGcDrops(0));
+  }
+
   private static MemoryPressureOptions createOptions(
       int threshold, int minorGcDropLimit, int fullGcDropLimit) {
     MemoryPressureOptions options = Options.getDefaults(MemoryPressureOptions.class);
