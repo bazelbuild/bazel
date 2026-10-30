@@ -308,27 +308,11 @@ public class CombinedCache extends AbstractReferenceCounted {
       return immediateFuture(ImmutableSet.of());
     }
 
-    ListenableFuture<ImmutableSet<Digest>> diskQuery = immediateFuture(ImmutableSet.of());
-    if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskQuery = diskCacheClient.findMissingDigests(digests);
-    }
-
-    ListenableFuture<ImmutableSet<Digest>> remoteQuery = immediateFuture(ImmutableSet.of());
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteQuery = remoteCacheClient.findMissingDigests(context, digests);
+      return remoteCacheClient.findMissingDigests(context, digests);
     }
 
-    ListenableFuture<ImmutableSet<Digest>> diskQueryFinal = diskQuery;
-    ListenableFuture<ImmutableSet<Digest>> remoteQueryFinal = remoteQuery;
-
-    return Futures.whenAllSucceed(remoteQueryFinal, diskQueryFinal)
-        .call(
-            () ->
-                ImmutableSet.<Digest>builder()
-                    .addAll(remoteQueryFinal.get())
-                    .addAll(diskQueryFinal.get())
-                    .build(),
-            directExecutor());
+    return immediateFuture(ImmutableSet.of());
   }
 
   /** Returns whether the remote action cache supports updating action results. */
@@ -357,6 +341,61 @@ public class CombinedCache extends AbstractReferenceCounted {
         .call(() -> null, directExecutor());
   }
 
+  private ListenableFuture<Void> uploadFileToDisk(Digest digest, Path file) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+    if (diskCacheClient == null) {
+      return Futures.immediateVoidFuture();
+    }
+    return diskCacheClient.uploadFile(digest, file);
+  }
+
+  private ListenableFuture<Void> uploadBlobToDisk(Digest digest, Blob blob) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+    if (diskCacheClient == null) {
+      return Futures.immediateVoidFuture();
+    }
+    return diskCacheClient.uploadBlob(digest, blob);
+  }
+
+  private ListenableFuture<Void> uploadFileToRemote(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+    if (remoteCacheClient == null) {
+      return Futures.immediateVoidFuture();
+    }
+
+    boolean chunkingSupported;
+    try {
+      chunkingSupported = chunking.supported();
+    } catch (IOException e) {
+      return immediateFailedFuture(e);
+    }
+
+    if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+      return remoteCacheClient.dedupUpload(
+          digest, () -> uploadChunked(context, digest, file, force), force);
+    } else {
+      return remoteCacheClient.uploadFile(context, digest, file, force);
+    }
+  }
+
+  private ListenableFuture<Void> uploadBlobToRemote(
+      RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+    if (remoteCacheClient == null) {
+      return Futures.immediateVoidFuture();
+    }
+    return remoteCacheClient.uploadBlob(context, digest, blob, force);
+  }
+
   /** Upload a local file to the remote and/or disk cache. */
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
@@ -364,7 +403,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   /**
-   * Upload a local file to the remote cache.
+   * Upload a local file to the remote and/or disk cache.
    *
    * <p>Trying to upload the same file multiple times concurrently, results in only one upload being
    * performed. An upload to the remote cache is also skipped if this instance has already completed
@@ -385,25 +424,12 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskCacheFuture = diskCacheClient.uploadFile(digest, file);
-    }
-
-    boolean chunkingSupported;
-    try {
-      chunkingSupported = chunking.supported();
-    } catch (IOException e) {
-      return immediateFailedFuture(e);
+      diskCacheFuture = uploadFileToDisk(digest, file);
     }
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
-        remoteCacheFuture =
-            remoteCacheClient.dedupUpload(
-                digest, () -> uploadChunked(context, digest, file, force), force);
-      } else {
-        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file, force);
-      }
+      remoteCacheFuture = uploadFileToRemote(context, digest, file, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
@@ -463,12 +489,12 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskCacheFuture = diskCacheClient.uploadBlob(digest, blob);
+      diskCacheFuture = uploadBlobToDisk(digest, blob);
     }
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, force);
+      remoteCacheFuture = uploadBlobToRemote(context, digest, blob, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
