@@ -1012,7 +1012,8 @@ public final class SkyValueRetrieverTest {
 
   private enum FailureLocation {
     TOP_LEVEL,
-    SHARED_VALUE
+    SHARED_VALUE,
+    SHARED_VALUE_SETTER
   }
 
   @Test
@@ -1034,7 +1035,10 @@ public final class SkyValueRetrieverTest {
             ImmutableList.of(
                 switch (location) {
                   case TOP_LEVEL -> new ThrowingTrivialValueCodec(thrower);
-                  case SHARED_VALUE -> new SharedThrowingTrivialValueCodec(thrower);
+                  case SHARED_VALUE ->
+                      new SharedThrowingTrivialValueCodec(/* throwInSetter= */ false, thrower);
+                  case SHARED_VALUE_SETTER ->
+                      new SharedThrowingTrivialValueCodec(/* throwInSetter= */ true, thrower);
                 }));
 
     var key = new TrivialKey("k");
@@ -1063,6 +1067,12 @@ public final class SkyValueRetrieverTest {
         assertThat(thrown)
             .hasMessageThat()
             .contains("waiting for all owned shared values for " + key);
+        assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(failure);
+      }
+      case SHARED_VALUE_SETTER -> {
+        assertThat(thrown)
+            .hasMessageThat()
+            .contains("waiting for deserialization result for " + key);
         assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(failure);
       }
     }
@@ -1097,7 +1107,10 @@ public final class SkyValueRetrieverTest {
             ImmutableList.of(
                 switch (location) {
                   case TOP_LEVEL -> new ThrowingTrivialValueCodec(thrower);
-                  case SHARED_VALUE -> new SharedThrowingTrivialValueCodec(thrower);
+                  case SHARED_VALUE ->
+                      new SharedThrowingTrivialValueCodec(/* throwInSetter= */ false, thrower);
+                  case SHARED_VALUE_SETTER ->
+                      new SharedThrowingTrivialValueCodec(/* throwInSetter= */ true, thrower);
                 }));
 
     var key = new TrivialKey("k");
@@ -1619,10 +1632,15 @@ public final class SkyValueRetrieverTest {
 
   private static final class SharedThrowingTrivialValueCodec
       extends DeferredObjectCodec<TrivialValue> {
+    private final boolean throwInSetter;
+    private final Runnable thrower;
     private final DeferredObjectCodec<TrivialValue> innerCodec;
 
-    private SharedThrowingTrivialValueCodec(Runnable thrower) {
-      this.innerCodec = new ThrowingTrivialValueCodec(thrower);
+    private SharedThrowingTrivialValueCodec(boolean throwInSetter, Runnable thrower) {
+      this.throwInSetter = throwInSetter;
+      this.thrower = thrower;
+      this.innerCodec =
+          throwInSetter ? TRIVIAL_SKY_VALUE_CODEC : new ThrowingTrivialValueCodec(thrower);
     }
 
     @Override
@@ -1648,7 +1666,16 @@ public final class SkyValueRetrieverTest {
         throws SerializationException, IOException {
       var builder = SimpleDeferredValue.<TrivialValue>create();
       context.getSharedValue(
-          codedIn, /* distinguisher= */ null, innerCodec, builder, SimpleDeferredValue::set);
+          codedIn,
+          /* distinguisher= */ null,
+          innerCodec,
+          builder,
+          (b, v) -> {
+            if (throwInSetter) {
+              thrower.run();
+            }
+            SimpleDeferredValue.set(b, v);
+          });
       return builder;
     }
   }
