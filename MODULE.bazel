@@ -5,7 +5,7 @@
 
 module(
     name = "bazel",
-    version = "9.3.0",
+    version = "9.4.0",
     repo_name = "io_bazel",
 )
 
@@ -85,6 +85,24 @@ single_version_override(
     module_name = "zstd-jni",
     patch_strip = 1,
     patches = ["//third_party:zstd-jni.patch"],
+)
+
+# TODO: Remove once apple_support is updated to 2.8.1 or later.
+single_version_override(
+    module_name = "apple_support",
+    patch_strip = 1,
+    patches = ["//third_party:apple_support-module-map-without-extern-module.patch"],
+    version = "2.5.2",
+)
+
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 1,
+    patches = [
+        # TODO: Remove once grpc is updated to 1.78.0 or later.
+        "//third_party:grpc-cf-event-engine-layering.patch",
+    ],
+    version = "1.76.0.bcr.1",
 )
 
 single_version_override(

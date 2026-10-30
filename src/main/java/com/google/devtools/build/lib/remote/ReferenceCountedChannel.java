@@ -139,6 +139,11 @@ public class ReferenceCountedChannel implements ReferenceCounted {
 
     try {
       return future.get();
+    } catch (InterruptedException e) {
+      // Dispose of the queued subscription, which would otherwise run its callback on the thread
+      // that returns the next permit.
+      future.cancel(/* mayInterruptIfRunning= */ false);
+      throw e;
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       Throwables.throwIfInstanceOf(cause, IOException.class);

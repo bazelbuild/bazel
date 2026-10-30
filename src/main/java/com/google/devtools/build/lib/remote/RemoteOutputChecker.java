@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -41,6 +43,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.common.options.RegexPatternOption;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -62,10 +65,11 @@ public class RemoteOutputChecker implements OutputChecker {
 
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
-  @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
+  @Nullable private RemoteOutputChecker lastRemoteOutputChecker;
 
   @Nullable private Clock clock;
 
+  private final ImmutableList<RegexPatternOption> downloadRegexes;
   private final ImmutableList<Predicate<String>> patternsToDownload;
   private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
   private final Set<PathFragment> pathsToSkip = ConcurrentHashMap.newKeySet();
@@ -73,14 +77,14 @@ public class RemoteOutputChecker implements OutputChecker {
   public RemoteOutputChecker(
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Predicate<String>> patternsToDownload) {
-    this(commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
+      ImmutableList<RegexPatternOption> downloadRegexes) {
+    this(commandName, outputsMode, downloadRegexes, /* lastRemoteOutputChecker= */ null);
   }
 
   public RemoteOutputChecker(
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Predicate<String>> patternsToDownload,
+      ImmutableList<RegexPatternOption> downloadRegexes,
       RemoteOutputChecker lastRemoteOutputChecker) {
     this.commandMode =
         switch (commandName) {
@@ -91,8 +95,21 @@ public class RemoteOutputChecker implements OutputChecker {
           default -> CommandMode.UNKNOWN;
         };
     this.outputsMode = outputsMode;
-    this.patternsToDownload = patternsToDownload;
+    this.downloadRegexes = downloadRegexes;
+    this.patternsToDownload =
+        downloadRegexes.stream().map(RegexPatternOption::matcher).collect(toImmutableList());
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
+  }
+
+  @VisibleForTesting
+  @Nullable
+  RemoteOutputChecker getLastRemoteOutputChecker() {
+    return lastRemoteOutputChecker;
+  }
+
+  void clearPreviousCommand() {
+    // Retain only this command's policy for the next command.
+    lastRemoteOutputChecker = null;
   }
 
   /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */
@@ -385,10 +402,13 @@ public class RemoteOutputChecker implements OutputChecker {
     }
 
     // Run mode is part of TopLevelArtifactContext, and thus of target and aspect completion keys,
-    // so transitions to and from it do not require manual invalidation.
+    // so transitions to and from it do not require manual invalidation. The outputs to download
+    // under the current mode and regexes are determined when a target completes, so a completed
+    // target is invalidated if either changed.
     boolean runTransition =
         lastRemoteOutputChecker.commandMode == CommandMode.RUN || commandMode == CommandMode.RUN;
     if (lastRemoteOutputChecker.outputsMode != outputsMode
+        || !lastRemoteOutputChecker.downloadRegexes.equals(downloadRegexes)
         || (lastRemoteOutputChecker.commandMode != commandMode && !runTransition)) {
       memoizingEvaluator.delete(
           k -> {

@@ -237,7 +237,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         [
             'def _repo_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
-            '  rctx.watch(Label("@//:data.txt"))',
+            '  rctx.watch(Label("@//:data file.txt"))',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
@@ -247,20 +247,20 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     repo_dir = self.RepoDir('my_repo')
 
     # First fetch: not cached
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change recorded inputs: not cached
-    self.ScratchFile('data.txt', ['two'])
+    self.ScratchFile('data file.txt', ['two'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change back to previous recorded inputs: cached (even after expunging)
     self.RunBazel(['clean', '--expunge'])
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
@@ -405,6 +405,44 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
+
+  def testRecordedInputs_missingRepoMapping(self):
+    # Constructing a Label with an apparent repo name that isn't mapped records
+    # the missing mapping, which must validate as missing when the repo is
+    # looked up again.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  unused = Label("@optional_missing//:unused")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "data")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The marker file is still valid after a restart of the server.
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The cache entry is found after expunging.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
@@ -2807,6 +2845,121 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         ' configured).',
         stderr,
     )
+
+  def testRunSourceExecutableWithoutMergedAnalysisAndExecution(self):
+    if self.IsWindows():
+      self.skipTest('requires a shell script')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'tool.sh\'])")',
+            '  rctx.file(',
+            '    "tool.sh",',
+            '    "#!/bin/sh\\necho hello from a source executable\\n",',
+            '    executable = True,',
+            '  )',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    args = [
+        'run',
+        '--noexperimental_merged_skyframe_analysis_execution',
+        '@my_repo//:tool.sh',
+    ]
+
+    _, stdout, stderr = self.RunBazel(args)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source executable', '\n'.join(stdout))
+
+    # After expunging: cached. The executable has to be downloaded to be run.
+    self.RunBazel(['clean', '--expunge'])
+    _, stdout, stderr = self.RunBazel(args)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source executable', '\n'.join(stdout))
+
+  def _setupRepoToVendor(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    return repo_dir[repo_dir.rfind('/') + 1 :]
+
+  def _assertVendored(self, canonical_repo_name):
+    with open(self.Path('vendor/%s/data.txt' % canonical_repo_name)) as f:
+      self.assertEqual(f.read(), 'hello')
+    _, _, stderr = self.RunBazel(
+        ['build', '--vendor_dir=vendor', '@my_repo//:data.txt']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testVendor_fetchedRepo(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+  def testVendor_cachedRepo(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+  def testVendor_cachedRepoInUse(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached, with the contents of data.txt staying remote
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
 
 
 if __name__ == '__main__':

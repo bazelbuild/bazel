@@ -888,26 +888,11 @@ public final class ActionExecutionFunction implements SkyFunction {
             actionForError);
         continue;
       }
-      switch (retrievedMetadata) {
-        case TreeArtifactValue treeValue -> {
-          inputData.putTreeArtifact(input, treeValue);
-          treeValue
-              .getArchivedRepresentation()
-              .ifPresent(
-                  archivedRepresentation ->
-                      inputData.put(
-                          archivedRepresentation.archivedTreeFileArtifact(),
-                          archivedRepresentation.archivedFileValue()));
-        }
-        case ActionExecutionValue actionExecutionValue ->
-            inputData.put(input, actionExecutionValue.getExistingFileArtifactValue(input));
-        case MissingArtifactValue missing ->
-            inputData.put(input, FileArtifactValue.MISSING_FILE_MARKER);
-        case FileArtifactValue fileArtifactValue -> inputData.put(input, fileArtifactValue);
-        default ->
-            throw new IllegalStateException(
-                "unknown metadata for " + input.getExecPathString() + ": " + retrievedMetadata);
+      if (retrievedMetadata instanceof MissingArtifactValue) {
+        retrievedMetadata = FileArtifactValue.MISSING_FILE_MARKER;
       }
+      ActionInputMapHelper.addToMap(
+          inputData, input, retrievedMetadata, MetadataConsumerForMetrics.NO_OP);
     }
   }
 

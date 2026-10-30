@@ -17,10 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.TestUtils.tmpDirFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assume.assumeFalse;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -34,6 +36,8 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -144,6 +148,103 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     assertRecentlyModified(actionDigests, getBlobDigests("foo", "foobar", "out", "err"));
   }
 
+  private static boolean isWindows() {
+    return OS.getCurrent() == OS.WINDOWS;
+  }
+
+  private void setupStdoutOutputWorkspace() throws IOException {
+    // Rules whose only output is the stdout of a tool captured via the `stdout` parameter of
+    // ctx.actions.run.
+    write(
+        "defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run(
+                outputs = [],
+                executable = "%s",
+                arguments = ["%s", ctx.attr.command],
+                stdout = out,
+                mnemonic = "Capture",
+            )
+            return DefaultInfo(files = depset([out]))
+
+        capture = rule(
+            implementation = _impl,
+            attrs = {"command": attr.string(mandatory = True)},
+        )
+        """
+            .formatted(
+                isWindows() ? "C:/Windows/System32/cmd.exe" : "/bin/bash",
+                isWindows() ? "/c" : "-c"));
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "capture")
+
+        capture(
+            name = "capture",
+            command = "%s",
+        )
+
+        capture(
+            name = "capture_empty",
+            command = "%s",
+        )
+        """
+            .formatted(
+                isWindows() ? "echo hello stdout" : "echo -n 'hello stdout'",
+                isWindows() ? "rem" : "true"));
+  }
+
+  private void assertStdoutOutputContents() throws Exception {
+    String expected = isWindows() ? "hello stdout\r\n" : "hello stdout";
+    var out = Iterables.getOnlyElement(getArtifacts("//:capture"));
+    assertThat(FileSystemUtils.readContent(out.getPath(), UTF_8)).isEqualTo(expected);
+    var emptyOut = Iterables.getOnlyElement(getArtifacts("//:capture_empty"));
+    assertThat(FileSystemUtils.readContent(emptyOut.getPath(), UTF_8)).isEmpty();
+  }
+
+  @Test
+  public void stdoutOutput_hitDiskCache() throws Exception {
+    // Arrange: Populate the disk cache from locally executed actions whose stdout is captured
+    // into an output file. The captured stdout is uploaded as the action result's stdout digest
+    // rather than as an output file.
+    setupStdoutOutputWorkspace();
+    buildTarget("//:capture", "//:capture_empty");
+    assertStdoutOutputContents();
+
+    // Act: Do a clean build.
+    cleanAndRestartServer();
+    buildTarget("//:capture", "//:capture_empty");
+
+    // Assert: Should hit the disk cache and reconstruct the stdout outputs from the stdout
+    // digests.
+    events.assertContainsInfo("2 disk cache hit");
+    assertStdoutOutputContents();
+  }
+
+  @Test
+  public void stdoutOutput_hitRemoteCache() throws Exception {
+    // Arrange: Populate the remote cache from locally executed actions whose stdout is captured
+    // into an output file.
+    setupStdoutOutputWorkspace();
+    enableRemoteCache();
+    buildTarget("//:capture", "//:capture_empty");
+    assertStdoutOutputContents();
+
+    // Act: Drop the disk cache so that the clean build can only hit the remote cache.
+    getWorkspace().getFileSystem().getPath(getDiskCacheDir()).deleteTree();
+    cleanAndRestartServer();
+    enableRemoteCache();
+    buildTarget("//:capture", "//:capture_empty");
+
+    // Assert: Should hit the remote cache and reconstruct the stdout outputs from the stdout
+    // digests.
+    events.assertContainsInfo("2 remote cache hit");
+    assertStdoutOutputContents();
+  }
+
   private void doBlobsReferencedInAcAreMissingFromCas(
       boolean rewindLostInputs, String... additionalOptions) throws Exception {
     // Arrange: Prepare the workspace and populate disk cache.
@@ -204,6 +305,94 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     } else {
       events.assertDoesNotContainEvent("disk cache hit");
     }
+  }
+
+  @Test
+  public void bwob_symlinkToOutputWhoseBlobIsMissingFromCas_rewindsProducer(
+      @TestParameter({"--remote_download_toplevel", "--remote_download_regex=.*/link$"})
+          String downloadOption)
+      throws Exception {
+    // Arrange: Populate the disk cache with the output of an action that a symlink points to.
+    write(
+        "defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.symlink(output = out, target_file = ctx.file.target)
+            return DefaultInfo(files = depset([out]))
+
+        symlink = rule(_impl, attrs = {"target": attr.label(allow_single_file = True)})
+        """);
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "symlink")
+
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "echo -n foo > $@",
+        )
+
+        symlink(
+            name = "link",
+            target = ":foo.out",
+        )
+        """);
+    write("foo.in", "foo");
+    addOptions("--remote_download_minimal");
+    buildTarget("//:foo");
+
+    // Act: Delete blobs in CAS from disk cache and do a clean build that downloads the symlink,
+    // which is the first read of the blob referenced by the AC entry.
+    getWorkspace().getFileSystem().getPath(getDiskCacheDir().getRelative("cas")).deleteTree();
+    cleanAndRestartServer();
+    addOptions("--remote_download_minimal", downloadOption);
+    buildTarget("//:link");
+
+    // Assert: The AC entry was accepted and the action that created the lost output was rewound.
+    events.assertContainsInfo("1 disk cache hit");
+    var link = Iterables.getOnlyElement(getArtifacts("//:link"));
+    assertThat(FileSystemUtils.readContent(link.getPath(), UTF_8)).isEqualTo("foo");
+  }
+
+  @Test
+  public void bwob_outputSymlinkToOutputWhoseBlobIsMissingFromCas_reexecutesAction(
+      @TestParameter({"--remote_download_toplevel", "--remote_download_regex=.*/foo-link$"})
+          String downloadOption)
+      throws Exception {
+    // Disable on Windows since ln -s copies the file there.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    // Arrange: Populate the disk cache with the result of an action with an output that is a
+    // symlink to another of its outputs.
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out", "foo-link"],
+            cmd = "echo -n foo > $(location foo.out) && ln -s foo.out $(location foo-link)",
+        )
+        """);
+    write("foo.in", "foo");
+    addOptions("--remote_download_minimal");
+    buildTarget("//:foo");
+
+    // Act: Delete blobs in CAS from disk cache and do a clean build that downloads only the
+    // symlink, which is the first read of the blob of the other output.
+    getWorkspace().getFileSystem().getPath(getDiskCacheDir().getRelative("cas")).deleteTree();
+    cleanAndRestartServer();
+    addOptions("--remote_download_minimal", downloadOption);
+    buildTarget(downloadOption.equals("--remote_download_toplevel") ? "//:foo-link" : "//:foo");
+
+    // Assert: The AC entry was accepted and the action was executed again instead of accepting it
+    // a second time.
+    events.assertContainsInfo("1 disk cache hit");
+    var link = Iterables.getOnlyElement(getArtifacts("//:foo-link"));
+    assertThat(FileSystemUtils.readContent(link.getPath(), UTF_8)).isEqualTo("foo");
   }
 
   private void doRemoteExecWithDiskCache(boolean rewindLostInputs, String... additionalOptions)

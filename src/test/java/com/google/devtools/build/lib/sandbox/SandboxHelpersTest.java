@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -58,13 +60,17 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -593,5 +599,101 @@ public class SandboxHelpersTest {
                 execRoot.getRelative(unmappedOutputPath.getPathString()), UTF_8))
         .containsExactly("hello", "pathmapper")
         .inOrder();
+  }
+
+  @Test
+  public void asynchronousTreeDeleter_shutdown_waitsForPendingDeletions() throws Exception {
+    CountDownLatch deletionStarted = new CountDownLatch(1);
+    CountDownLatch allowDeletionToComplete = new CountDownLatch(1);
+
+    FileSystem customFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public boolean delete(PathFragment path) throws IOException {
+            deletionStarted.countDown();
+            try {
+              allowDeletionToComplete.await();
+            } catch (InterruptedException e) {
+              throw new IOException(e);
+            }
+            return super.delete(path);
+          }
+        };
+
+    Scratch customScratch = new Scratch(customFs);
+    Path trashBase = customScratch.dir("/trash");
+    Path dir = customScratch.dir("/dir");
+    customScratch.file("/dir/file.txt");
+
+    AsynchronousTreeDeleter deleter = new AsynchronousTreeDeleter(trashBase);
+    deleter.deleteTree(dir);
+
+    // Wait until background thread starts deleting
+    deletionStarted.await();
+
+    ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    executorToCleanup = executor;
+    var unused = executor.schedule(allowDeletionToComplete::countDown, 100, TimeUnit.MILLISECONDS);
+
+    deleter.shutdown();
+
+    assertThat(trashBase.getDirectoryEntries()).isEmpty();
+  }
+
+  @Test
+  public void asynchronousTreeDeleter_differentFileSystem_deletesSynchronously() throws Exception {
+    FileSystem fs1 = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    FileSystem fs2 = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path trashBase = fs1.getPath("/trash");
+    Path dir = fs2.getPath("/dir");
+    dir.createDirectoryAndParents();
+    dir.getChild("file.txt").createDirectoryAndParents();
+
+    AsynchronousTreeDeleter deleter = new AsynchronousTreeDeleter(trashBase);
+    deleter.deleteTree(dir);
+    deleter.shutdown();
+
+    assertThat(dir.exists()).isFalse();
+    assertThat(trashBase.exists()).isFalse();
+  }
+
+  @Test
+  public void sandboxStash_prefersStashFromSamePackage() throws Exception {
+    SandboxOptions options =
+        Options.parse(SandboxOptions.class, "--reuse_sandbox_directories").getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_same_package");
+    SandboxOutputs outputs = SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      for (String pkg : ImmutableList.of("a/b/c", "a/b/d", "a/x")) {
+        Path sandbox = scratch.dir("/sandbox_stash_same_package/" + pkg);
+        scratch.file(sandbox.getRelative("execroot/" + pkg + "/marker").getPathString());
+        SandboxStash.stashSandbox(
+            sandbox,
+            "Mnemonic",
+            ImmutableMap.of(),
+            outputs,
+            new SynchronousTreeDeleter(),
+            Label.parseCanonicalUnchecked("//" + pkg + ":target"));
+      }
+
+      Path sandbox = scratch.dir("/sandbox_stash_same_package/new");
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(
+              sandbox,
+              "Mnemonic",
+              ImmutableMap.of(),
+              outputs,
+              Label.parseCanonicalUnchecked("//a/b/c:other"));
+      assertThat(taken).isNotNull();
+      assertThat(sandbox.getRelative("execroot/a/b/c/marker").exists()).isTrue();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
   }
 }

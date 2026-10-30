@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -98,8 +99,11 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   private String getTreeDigest(String path) throws Exception {
-    RootedPath rootedPath =
-        RootedPath.toRootedPath(Root.absoluteRoot(fileSystem), scratch.resolve(path));
+    return getTreeDigest(
+        RootedPath.toRootedPath(Root.absoluteRoot(fileSystem), scratch.resolve(path)));
+  }
+
+  private String getTreeDigest(RootedPath rootedPath) throws Exception {
     SkyKey key = DirectoryTreeDigestValue.key(rootedPath);
     MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     var result = evaluator.evaluate(ImmutableList.of(key), evaluationContext);
@@ -193,6 +197,23 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.resolve("dir/b").createSymbolicLink(scratch.resolve("yetotherdir"));
     scratch.file("yetotherdir/crazy", "stuff");
     assertThat(getTreeDigest("dir")).isNotEqualTo(oldDigest);
+  }
+
+  @Test
+  public void symlinkRetargetedToDirectoryThatIsAlsoAnEntry() throws Exception {
+    scratch.file("dir/a/data", "X");
+    scratch.file("dir/b/data", "Y");
+    scratch.resolve("dir/c").createSymbolicLink(scratch.resolve("dir/a"));
+    // Like a watched tree in the workspace, the directory lies under a package root, so that the
+    // entry a and the symlink c resolve to the same rooted path.
+    RootedPath dir =
+        RootedPath.toRootedPath(Root.fromPath(scratch.resolve("")), PathFragment.create("dir"));
+    String oldDigest = getTreeDigest(dir);
+
+    // The entries resolve to the same set of directories as before, but c now has b's contents.
+    scratch.deleteFile("dir/c");
+    scratch.resolve("dir/c").createSymbolicLink(scratch.resolve("dir/b"));
+    assertThat(getTreeDigest(dir)).isNotEqualTo(oldDigest);
   }
 
   @Test

@@ -132,7 +132,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -558,18 +557,16 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    ImmutableList.Builder<Predicate<String>> patternsToDownloadBuilder = ImmutableList.builder();
-    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
-      for (RegexPatternOption patternOption : remoteOptions.remoteDownloadRegex) {
-        patternsToDownloadBuilder.add(patternOption.matcher());
-      }
-    }
+    ImmutableList<RegexPatternOption> downloadRegexes =
+        remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL
+            ? ImmutableList.copyOf(remoteOptions.remoteDownloadRegex)
+            : ImmutableList.of();
 
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
             remoteOptions.remoteOutputsMode,
-            patternsToDownloadBuilder.build(),
+            downloadRegexes,
             lastRemoteOutputChecker);
     remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
 
@@ -1117,6 +1114,9 @@ public final class RemoteModule extends BlazeModule {
                   rpcLogFileRef));
     }
 
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.clearPreviousCommand();
+    }
     lastRemoteOutputChecker = remoteOutputChecker;
     lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
@@ -1199,9 +1199,9 @@ public final class RemoteModule extends BlazeModule {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
     // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
-    if (env.withMergedAnalysisAndExecutionSourceOfTruth()
-        && actionInputFetcher != null
-        && remoteOutputChecker != null) {
+    // Source files of repos served from the remote repo contents cache have no generating action
+    // that could download them when it is finalized, so this is the only chance for them.
+    if (actionInputFetcher != null && remoteOutputChecker != null) {
       registryBuilder.register(
           ImportantOutputHandler.class,
           new RemoteImportantOutputHandler(
@@ -1328,18 +1328,6 @@ public final class RemoteModule extends BlazeModule {
     fp.addStringMap(
         remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
 
-    // When switching cache endpoints/instances across invocations, cached remote actions reference
-    // blobs stored in the previous cache instance which cannot be downloaded from the new cache
-    // instance. See https://github.com/bazelbuild/bazel/issues/23780.
-    if (remoteOptions != null) {
-      fp.addNullableString(remoteOptions.remoteCache);
-      fp.addNullableString(remoteOptions.remoteExecutor);
-      fp.addNullableString(remoteOptions.remoteDownloader);
-      fp.addNullableString(remoteOptions.remoteInstanceName);
-      fp.addNullableString(remoteOptions.remoteBytestreamUriPrefix);
-      fp.addNullableString(remoteOptions.remoteProxy);
-    }
-
     return fp.hexDigestAndReset();
   }
 
@@ -1444,6 +1432,11 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   RemoteActionContextProvider getActionContextProvider() {
     return actionContextProvider;
+  }
+
+  @VisibleForTesting
+  RemoteOutputChecker getRemoteOutputChecker() {
+    return remoteOutputChecker;
   }
 
   @VisibleForTesting
