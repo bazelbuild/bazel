@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -843,6 +844,40 @@ public class SandboxHelpersTest {
         .doesNotContainKey("modified.txt");
     assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap())
         .doesNotContainKey("unexpected.txt");
+  }
+
+  @Test
+  public void takeContentMapTimestamp_touchesRootAgainAfterReadingItsChangeTime() throws Exception {
+    // On Linux file systems with multigrain timestamps, only a change made after reading the
+    // previous change time gets a fine-grained timestamp.
+    List<String> rootOperations = new ArrayList<>();
+    InMemoryFileSystem trackingFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public synchronized void setLastModifiedTime(PathFragment path, long newTime)
+              throws IOException {
+            if (path.getBaseName().equals("sandbox")) {
+              rootOperations.add("touch");
+            }
+            super.setLastModifiedTime(path, newTime);
+          }
+
+          @Override
+          public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+            if (path.getBaseName().equals("sandbox")) {
+              rootOperations.add("stat");
+            }
+            return super.stat(path, followSymlinks);
+          }
+        };
+    Path root = trackingFs.getPath("/sandbox");
+    root.createDirectoryAndParents();
+    rootOperations.clear();
+
+    long timestamp = SandboxHelpers.takeContentMapTimestamp(root);
+
+    assertThat(rootOperations).containsExactly("touch", "stat", "touch", "stat").inOrder();
+    assertThat(timestamp).isEqualTo(root.stat().getLastChangeTimeNanos());
   }
 
   @Test
