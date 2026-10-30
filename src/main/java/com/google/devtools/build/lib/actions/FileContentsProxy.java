@@ -50,6 +50,43 @@ public final class FileContentsProxy {
         stat.getLastChangeTime(), stat.getLastModifiedTime(), stat.getNodeId());
   }
 
+  /**
+   * Returns a partial {@link FileStatus} view of this proxy for a file of the given size.
+   *
+   * <p>Only the metadata a proxy records is populated, so the type predicates all throw {@link
+   * UnsupportedOperationException}.
+   */
+  public FileStatus toMetadataOnlyFileStatus(long size) {
+    return new MetadataOnlyFileStatus(ctime, mtime, nodeId, size);
+  }
+
+  /**
+   * A {@link FileStatus} populated with the information available in a {@link FileContentsProxy}.
+   */
+  private record MetadataOnlyFileStatus(
+      long getLastChangeTime, long getLastModifiedTime, long getNodeId, long getSize)
+      implements FileStatus {
+    @Override
+    public boolean isFile() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isDirectory() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
   @Override
   public boolean equals(Object other) {
     if (other == this) {
