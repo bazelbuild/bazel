@@ -36,6 +36,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
