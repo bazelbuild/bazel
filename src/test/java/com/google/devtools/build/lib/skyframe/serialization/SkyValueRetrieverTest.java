@@ -1007,6 +1007,117 @@ public final class SkyValueRetrieverTest {
 
     assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
     assertThat(thrown).hasCauseThat().hasMessageThat().contains("error setting value");
+    assertThat(state.getState()).isEqualTo(new NoCachedData(MissReason.MISS_REASON_UNSPECIFIED));
+  }
+
+  private enum FailureLocation {
+    TOP_LEVEL,
+    SHARED_VALUE
+  }
+
+  @Test
+  public void runtimeException_throwsSerializationExceptionAndTransitionsToNoCachedData(
+      @TestParameter FailureLocation location) throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var failure = new IllegalStateException("codec failure");
+    Runnable thrower =
+        () -> {
+          throw failure;
+        };
+    codecs =
+        codecs.withCodecOverridesForTesting(
+            ImmutableList.of(
+                switch (location) {
+                  case TOP_LEVEL -> new ThrowingTrivialValueCodec(thrower);
+                  case SHARED_VALUE -> new SharedThrowingTrivialValueCodec(thrower);
+                }));
+
+    var key = new TrivialKey("k");
+    var value = new TrivialValue("v");
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
+
+    var retriever = createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING);
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                retriever.tryRetrieve(
+                    NO_LOOKUP_ENVIRONMENT,
+                    SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                    analysisCacheClient,
+                    key,
+                    state));
+
+    switch (location) {
+      case TOP_LEVEL -> {
+        assertThat(thrown).hasMessageThat().contains("deserializing value for " + key);
+        assertThat(thrown).hasCauseThat().isSameInstanceAs(failure);
+      }
+      case SHARED_VALUE -> {
+        assertThat(thrown)
+            .hasMessageThat()
+            .contains("waiting for all owned shared values for " + key);
+        assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(failure);
+      }
+    }
+    assertThat(state.getState()).isEqualTo(new NoCachedData(MissReason.MISS_REASON_UNSPECIFIED));
+
+    // A subsequent Skyframe restart during local fallback immediately sees NoCachedData.
+    assertThat(
+            retriever.tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state))
+        .isEqualTo(new NoCachedData(MissReason.MISS_REASON_UNSPECIFIED));
+  }
+
+  @Test
+  public void error_propagatesError(@TestParameter FailureLocation location) throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var error = new AssertionError("codec error");
+    Runnable thrower =
+        () -> {
+          throw error;
+        };
+    codecs =
+        codecs.withCodecOverridesForTesting(
+            ImmutableList.of(
+                switch (location) {
+                  case TOP_LEVEL -> new ThrowingTrivialValueCodec(thrower);
+                  case SHARED_VALUE -> new SharedThrowingTrivialValueCodec(thrower);
+                }));
+
+    var key = new TrivialKey("k");
+    var value = new TrivialValue("v");
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
+
+    var thrown =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        NO_LOOKUP_ENVIRONMENT,
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+
+    assertThat(thrown).isSameInstanceAs(error);
   }
 
   @Test
@@ -1470,6 +1581,74 @@ public final class SkyValueRetrieverTest {
           (b, v) -> {
             throw new SerializationException("error setting value");
           });
+      return builder;
+    }
+  }
+
+  private static final class ThrowingTrivialValueCodec extends DeferredObjectCodec<TrivialValue> {
+    private final Runnable thrower;
+
+    private ThrowingTrivialValueCodec(Runnable thrower) {
+      this.thrower = thrower;
+    }
+
+    @Override
+    public Class<TrivialValue> getEncodedClass() {
+      return TrivialValue.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, TrivialValue obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      TRIVIAL_SKY_VALUE_CODEC.serialize(context, obj, codedOut);
+    }
+
+    @Override
+    public DeferredValue<TrivialValue> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn) {
+      thrower.run();
+      throw new AssertionError("unreachable");
+    }
+  }
+
+  private static final class SharedThrowingTrivialValueCodec
+      extends DeferredObjectCodec<TrivialValue> {
+    private final DeferredObjectCodec<TrivialValue> innerCodec;
+
+    private SharedThrowingTrivialValueCodec(Runnable thrower) {
+      this.innerCodec = new ThrowingTrivialValueCodec(thrower);
+    }
+
+    @Override
+    public Class<TrivialValue> getEncodedClass() {
+      return TrivialValue.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, TrivialValue obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(obj, /* distinguisher= */ null, innerCodec, codedOut);
+    }
+
+    @Override
+    public DeferredValue<TrivialValue> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = SimpleDeferredValue.<TrivialValue>create();
+      context.getSharedValue(
+          codedIn, /* distinguisher= */ null, innerCodec, builder, SimpleDeferredValue::set);
       return builder;
     }
   }
