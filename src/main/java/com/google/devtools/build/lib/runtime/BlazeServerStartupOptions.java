@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -248,6 +249,20 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
               + " supported on local filesystems; network filesystems (such as NFS) are not"
               + " supported.")
   public abstract boolean getDeleteOutputBaseOnShutdown();
+
+  @Option(
+      name = "redact_client_env",
+      allowMultiple = true,
+      defaultValue = "null",
+      valueHelp = "<name>",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Hides the value of the named client environment variable in the server log. The name"
+              + " must match the whole variable name, ignoring case; '*' matches any sequence of"
+              + " characters. May be used multiple times. Applies in addition to Bazel's built-in"
+              + " heuristic, which already hides variables whose names look like credentials.")
+  public abstract List<String> getRedactClientEnv();
 
   @Deprecated
   @Option(
