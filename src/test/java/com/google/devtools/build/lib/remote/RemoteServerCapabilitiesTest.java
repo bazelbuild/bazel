@@ -213,6 +213,64 @@ public class RemoteServerCapabilitiesTest {
   }
 
   @Test
+  public void testCheckClientServerCompatibility_acceptsRemoteApi2_3() throws Exception {
+    ServerCapabilities caps = compatibleCacheCapabilities(3).build();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setRemoteCache("server:port");
+
+    RemoteServerCapabilities.ClientServerCompatibilityStatus status =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
+
+    assertThat(status.isOk()).isTrue();
+    assertThat(status.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testCheckClientServerCompatibility_rejectsRemoteApi2_0() throws Exception {
+    assertRemoteApiBelowMinimumRejected(0);
+  }
+
+  @Test
+  public void testCheckClientServerCompatibility_rejectsRemoteApi2_1() throws Exception {
+    assertRemoteApiBelowMinimumRejected(1);
+  }
+
+  @Test
+  public void testCheckClientServerCompatibility_rejectsRemoteApi2_2() throws Exception {
+    assertRemoteApiBelowMinimumRejected(2);
+  }
+
+  private static ServerCapabilities.Builder compatibleCacheCapabilities(int minor) {
+    return ServerCapabilities.newBuilder()
+        .setLowApiVersion(new ApiVersion(2, minor, 0, "").toSemVer())
+        .setHighApiVersion(new ApiVersion(2, minor, 0, "").toSemVer())
+        .setCacheCapabilities(
+            CacheCapabilities.newBuilder()
+                .addDigestFunctions(DigestFunction.Value.SHA256)
+                .setActionCacheUpdateCapabilities(
+                    ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true)));
+  }
+
+  private static void assertRemoteApiBelowMinimumRejected(int minor) {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setRemoteCache("server:port");
+
+    RemoteServerCapabilities.ClientServerCompatibilityStatus status =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            compatibleCacheCapabilities(minor).build(),
+            remoteOptions,
+            DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.CACHE);
+
+    assertThat(status.isOk()).isFalse();
+    assertThat(status.getWarnings()).isEmpty();
+    assertThat(status.getErrors()).hasSize(1);
+    assertThat(status.getErrors().get(0)).contains("2.3");
+    assertThat(status.getErrors().get(0)).contains("upgrade the remote server");
+  }
+
+  @Test
   public void testCheckClientServerCompatibility_apiVersionDeprecated() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()

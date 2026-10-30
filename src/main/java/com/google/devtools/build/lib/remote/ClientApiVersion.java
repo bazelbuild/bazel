@@ -71,7 +71,7 @@ public class ClientApiVersion {
           State.UNSUPPORTED,
           String.format(
               "The client supported API versions, %s to %s, is not supported by the server, %s to"
-                  + " %s. Please switch to a different server or upgrade Bazel.",
+                  + " %s. Please upgrade the remote server or use a compatible Bazel version.",
               clientLow, clientHigh, serverLow, serverHigh),
           null);
     }
