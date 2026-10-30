@@ -1521,10 +1521,13 @@ TeeImpl::~TeeImpl() {
   // WaitableProcess::WaitFor), so stop reading from it eventually.
   static constexpr DWORD kTimeoutMsec = 5000;
   if (WaitForSingleObject(thread_, kTimeoutMsec) == WAIT_TIMEOUT) {
-    // CancelSynchronousIo has no effect between two I/O calls, so retry.
+    // CancelSynchronousIo has no effect between two I/O calls and not all I/O
+    // can be canceled, so retry for a limited time.
+    ULONGLONG deadline = GetTickCount64() + kTimeoutMsec;
     do {
       CancelSynchronousIo(thread_);
-    } while (WaitForSingleObject(thread_, 10) == WAIT_TIMEOUT);
+    } while (WaitForSingleObject(thread_, 10) == WAIT_TIMEOUT &&
+             GetTickCount64() < deadline);
   }
 }
 

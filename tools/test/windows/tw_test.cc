@@ -504,6 +504,28 @@ TEST_F(TestWrapperWindowsTest, TestTeeStreamsRemainingDataOnDestruction) {
   EXPECT_EQ(std::string(content, read), "hello");
 }
 
+TEST_F(TestWrapperWindowsTest, TestTeeStopsReadingOnDestructionAfterTimeout) {
+  HANDLE read1_h, write1_h;
+  EXPECT_TRUE(CreatePipe(&read1_h, &write1_h, nullptr, 0));
+  bazel::windows::AutoHandle read1(read1_h), write1(write1_h);
+  HANDLE read2_h, write2_h;
+  EXPECT_TRUE(CreatePipe(&read2_h, &write2_h, nullptr, 0));
+  bazel::windows::AutoHandle read2(read2_h), write2(write2_h);
+  HANDLE read3_h, write3_h;
+  EXPECT_TRUE(CreatePipe(&read3_h, &write3_h, nullptr, 0));
+  bazel::windows::AutoHandle read3(read3_h), write3(write3_h);
+
+  std::unique_ptr<bazel::tools::test_wrapper::Tee> tee;
+  EXPECT_TRUE(TestOnly_CreateTee(&read1, &write2, &write3, &tee));
+
+  // write1 stays open, so the Tee thread blocks in ReadFile until canceled.
+  ULONGLONG start = GetTickCount64();
+  tee.reset();
+  ULONGLONG elapsed_msec = GetTickCount64() - start;
+  EXPECT_GE(elapsed_msec, 4500u);
+  EXPECT_LT(elapsed_msec, 8000u);
+}
+
 TEST_F(TestWrapperWindowsTest, TestXmlWriterTestcaseHasClassname) {
   std::wstring tmpdir;
   GET_TEST_TMPDIR(&tmpdir);
