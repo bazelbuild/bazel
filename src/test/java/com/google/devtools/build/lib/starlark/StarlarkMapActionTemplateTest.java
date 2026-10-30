@@ -368,7 +368,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 template_ctx.run(
                     inputs = [f1],
                     outputs = [o1],
-                    executable = tools["cat_tool"],
+                    executable = tools["tool"],
                     arguments = [args],
                 )
         """);
@@ -391,7 +391,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir2": output_dir2,
                 },
                 tools = {
-                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "tool": ctx.attr.tool.files_to_run,
                 },
                 additional_params = {
                     "reverse": %s,
@@ -408,7 +408,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                     "output_dir": output_dir3,
                 },
                 tools = {
-                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "tool": ctx.attr.tool.files_to_run,
                 },
             )
             return [DefaultInfo(files = depset([output_dir3]))]
