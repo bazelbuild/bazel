@@ -86,7 +86,7 @@ public class TestPolicy {
     }
 
     // Overwrite with the environment common to all actions, see --action_env.
-    testAction.getConfiguration().getActionEnvironment().resolve(env, clientEnv);
+    testAction.getEnvironment().resolve(env, clientEnv);
 
     // Overwrite with the environment common to all tests, see --test_env.
     testAction.getConfiguration().getTestActionEnvironment().resolve(env, clientEnv);

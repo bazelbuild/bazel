@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +70,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.annotation.Nullable;
@@ -165,8 +166,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     private final ImmutableMap.Builder<String, Object> starlarkBuiltinsInternals =
         ImmutableMap.builder();
     private final Set<String> reservedActionMnemonics = new TreeSet<>();
-    private Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider =
-        (BuildOptions options) -> ActionEnvironment.EMPTY;
+    private BiFunction<BuildOptions, OS, ActionEnvironment> actionEnvironmentProvider =
+        (BuildOptions options, OS executionOs) -> ActionEnvironment.EMPTY;
     @Nullable private ConstraintSemantics<RuleContext> constraintSemantics;
 
     @Nullable private Label noExplicitMnemonicAllowlist;
@@ -347,7 +348,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
     @CanIgnoreReturnValue
     public Builder setActionEnvironmentProvider(
-        Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider) {
+        BiFunction<BuildOptions, OS, ActionEnvironment> actionEnvironmentProvider) {
       this.actionEnvironmentProvider = actionEnvironmentProvider;
       return this;
     }
@@ -650,7 +651,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
-  private final Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider;
+  private final BiFunction<BuildOptions, OS, ActionEnvironment> actionEnvironmentProvider;
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
@@ -678,7 +679,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, Object> starlarkBuiltinsInternals,
       ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableSet<String> reservedActionMnemonics,
-      Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
+      BiFunction<BuildOptions, OS, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
       @Nullable Label noExplicitMnemonicAllowlist,
       @Nullable String nestedSetCountLimitMessage) {
@@ -870,7 +871,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public ActionEnvironment getActionEnvironment(BuildOptions buildOptions) {
-    return actionEnvironmentProvider.apply(buildOptions);
+  public ActionEnvironment getActionEnvironment(BuildOptions buildOptions, OS executionOs) {
+    return actionEnvironmentProvider.apply(buildOptions, executionOs);
   }
 }

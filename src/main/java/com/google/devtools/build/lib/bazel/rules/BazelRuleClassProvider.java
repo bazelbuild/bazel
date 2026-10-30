@@ -61,7 +61,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
@@ -80,7 +80,10 @@ public class BazelRuleClassProvider {
         help =
             """
             If true, Bazel uses an environment with a static value for PATH and does not
-            inherit `LD_LIBRARY_PATH`. Use `--action_env=ENV_VARIABLE` if you want to
+            inherit `LD_LIBRARY_PATH`. The default PATH depends on the OS of the action's
+            execution platform, falling back to the OS Bazel runs on if the platform has no
+            `@platforms//os` constraint, and to a generic Unix PATH if Bazel doesn't recognize
+            the platform's OS. Use `--action_env=ENV_VARIABLE` if you want to
             inherit specific environment variables from the client, but note that doing so
             can prevent cross-user caching if a shared cache is used.
             """)
@@ -130,24 +133,20 @@ public class BazelRuleClassProvider {
 
   @VisibleForTesting
   static PathFragment getShellExecutableForOs(OS os, ShellConfiguration.Options options) {
-    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
-    // which may be different for remote execution. For now, this can be overridden with
-    // --shell_executable, so at least there's a workaround.
     return getDefaultPathFromOptions(options) != null
         ? getDefaultPathFromOptions(options)
         : SHELL_EXECUTABLES.getOrDefault(os, FALLBACK_SHELL);
   }
 
-  public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
-      (BuildOptions options) -> {
+  public static final BiFunction<BuildOptions, OS, ActionEnvironment> SHELL_ACTION_ENV =
+      (BuildOptions options, OS executionOs) -> {
         if (options.hasNoConfig()) {
           return ActionEnvironment.EMPTY;
         }
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).getUseStrictActionEnv();
-        OS os = OS.getCurrent();
-        // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
-        // which may be different for remote execution. For now, this can be overridden with
-        // --shell_executable, so at least there's a workaround.
+        // Without strict action env, PATH comes from the client or the server, which run on the
+        // host OS.
+        OS os = strictActionEnv ? executionOs : OS.getCurrent();
         PathFragment shellExecutable =
             getShellExecutableForOs(os, options.get(ShellConfiguration.Options.class));
 
@@ -351,10 +350,6 @@ public class BazelRuleClassProvider {
 
   @VisibleForTesting
   public static String pathOrDefault(OS os, @Nullable String path, @Nullable PathFragment sh) {
-    // TODO(ulfjack): The default PATH should be set from the exec platform, which may be different
-    // from the local machine. For now, this can be overridden with --action_env=PATH=<value>, so
-    // at least there's a workaround.
-
     // On the BSDs system package manager binaries, and importantly bash, end
     // up in /usr/local/bin, so we need to include that in the default PATH. On
     // other Unix platforms we want to exclude /usr/local/bin which commonly
