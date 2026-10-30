@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.runtime.commands.info.CommittedHeapSizeInfo
 import com.google.devtools.build.lib.runtime.commands.info.DefaultPackagePathInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.DefaultsPackageInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ExecutionRootInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.ExternalDirectoryInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.GcCountInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.GcTimeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler;
@@ -307,6 +308,7 @@ public class InfoCommand implements BlazeCommand {
             new InstallMd5InfoItem(),
             new OutputBaseInfoItem(productName),
             new ExecutionRootInfoItem(),
+            new ExternalDirectoryInfoItem(),
             new OutputPathInfoItem(),
             new ClientEnv(),
             new BlazeBinInfoItem(productName),

@@ -62,6 +62,8 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1534,6 +1536,182 @@ Strip the given number of leading components from file paths on extraction. Only
     }
   }
 
+  @StarlarkMethod(
+      name = "copy",
+      doc =
+          """
+          Copies the file or directory at <code>src</code> to <code>dst</code>. \
+          <p>A copied file is always writable and its executable bit is determined by \
+          <code>executable</code>, not by the source. If <code>src</code> is a symlink, the file \
+          it points to is copied. Parent directories of <code>dst</code> are created as needed \
+          and an existing file or symlink at <code>dst</code> is replaced, but it is an error if \
+          <code>dst</code> is a directory. \
+          <p>A directory is copied recursively, as if each file in it were copied individually: \
+          symlinks are followed so that the copy doesn't contain any, existing files below \
+          <code>dst</code> are overwritten and all other files below <code>dst</code> are kept. \
+          It is an error if <code>dst</code> or any directory to be created below it already \
+          exists as a file or symlink. <code>src</code> and <code>dst</code> must not overlap. \
+          <p>On file systems that support it, a file is copied as a copy-on-write clone that \
+          doesn't take up additional disk space. \
+          """,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "src",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "The path of the existing file or directory to copy."),
+        @Param(
+            name = "dst",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "The path of the copy to create, relative to the repository directory."),
+        @Param(
+            name = "executable",
+            defaultValue = "True",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to make the copied files executable. To make only some of the files in a \
+                directory executable, copy the directory with <code>executable = False</code> \
+                and then copy the files that should be executable individually.
+                """),
+        @Param(
+            name = "watch_src",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to <a href="#watch">watch</a> the source file or directory. Can be the \
+                string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately \
+                invoking the <a href="#watch"><code>watch()</code></a> method for a file and \
+                the <a href="repository_ctx.html#watch_tree"><code>watch_tree()</code></a> \
+                method for a directory; passing 'no' does not attempt to watch the source; \
+                passing 'auto' will only attempt to watch the source when it is legal to do so \
+                (see <code>watch()</code> docs for more information).
+                """),
+      })
+  public void copy(
+      Object src, Object dst, Boolean executable, String watchSrc, StarlarkThread thread)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    StarlarkPath srcPath = getPath(src);
+    StarlarkPath dstPath = getPath(dst);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newCopyEvent(
+            srcPath.toString(),
+            dstPath.toString(),
+            executable,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+    boolean isDir = srcPath.isDir();
+    if (isDir) {
+      maybeWatchTree(srcPath.getPath(), ShouldWatch.fromString(watchSrc), ImmutableList.of());
+    } else {
+      maybeWatch(srcPath, ShouldWatch.fromString(watchSrc));
+    }
+    try {
+      checkInOutputDirectory("write", dstPath);
+      makeDirectories(dstPath.getPath());
+      if (isDir) {
+        createCopyDirectory(dstPath.getPath());
+        copyTree(
+            srcPath.getPath().resolveSymbolicLinks(),
+            dstPath.getPath(),
+            dstPath.getPath().resolveSymbolicLinks(),
+            executable,
+            new HashSet<>());
+      } else {
+        copyFile(srcPath.getPath(), dstPath.getPath(), executable);
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Could not copy " + srcPath + " to " + dstPath + ": " + e.getMessage(), e),
+          Transience.TRANSIENT);
+    } catch (InvalidPathException | EvalException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not copy %s to %s: %s", srcPath, dstPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+  }
+
+  private static void copyFile(Path src, Path dst, boolean executable)
+      throws IOException, EvalException {
+    if (dst.isDirectory(Symlinks.NOFOLLOW)) {
+      throw Starlark.errorf("%s is a directory", dst);
+    }
+    FileSystemUtils.copyFile(src, dst);
+    // The copy has to remain modifiable by later steps of the repo rule such as patching. Its
+    // permissions don't depend on the source since watching the source only tracks its contents.
+    dst.chmod(executable ? 0755 : 0644);
+  }
+
+  /** Creates {@code dir} unless it already exists as a directory, never following symlinks. */
+  private static void createCopyDirectory(Path dir) throws IOException, EvalException {
+    FileStatus stat = dir.statIfFound(Symlinks.NOFOLLOW);
+    if (stat == null) {
+      dir.createDirectory();
+    } else if (stat.isSymbolicLink()) {
+      throw Starlark.errorf("%s is a symlink", dir);
+    } else if (!stat.isDirectory()) {
+      throw Starlark.errorf("%s is not a directory", dir);
+    }
+  }
+
+  /**
+   * Copies the files in the directory {@code src} to the existing directory {@code dst} in the same
+   * way as {@link #copyFile} would copy each of them individually, following all symlinks.
+   *
+   * <p>We don't use {@link FileSystemUtils#copyTreesBelow} as it would copy symlinks as-is, but
+   * tree watches only take the resolved content into account (which is the only consistent behavior
+   * across Unix and Windows).
+   *
+   * @param src the directory to copy, with all symlinks resolved
+   * @param dstRoot the directory that the top-level source directory is copied to, with all
+   *     symlinks resolved
+   * @param ancestors the directories that are currently being copied, with all symlinks resolved
+   */
+  private static void copyTree(
+      Path src, Path dst, Path dstRoot, boolean executable, Set<Path> ancestors)
+      throws IOException, EvalException {
+    if (src.startsWith(dstRoot) || dstRoot.startsWith(src)) {
+      // Copying would never terminate as it keeps picking up its own output.
+      throw Starlark.errorf("%s and %s overlap", src, dstRoot);
+    }
+    if (!ancestors.add(src)) {
+      throw Starlark.errorf("%s is part of a symlink cycle", src);
+    }
+    for (Dirent dirent : src.readdir(Symlinks.NOFOLLOW)) {
+      Path srcChild = src.getChild(dirent.getName());
+      Path dstChild = dst.getChild(dirent.getName());
+      Dirent.Type type = dirent.getType();
+      if (type == Dirent.Type.SYMLINK) {
+        FileStatus stat = srcChild.statIfFound(Symlinks.FOLLOW);
+        if (stat == null) {
+          throw Starlark.errorf("%s is a dangling symlink", srcChild);
+        }
+        srcChild = srcChild.resolveSymbolicLinks();
+        type = stat.isDirectory() ? Dirent.Type.DIRECTORY : Dirent.Type.FILE;
+      }
+      if (type == Dirent.Type.DIRECTORY) {
+        createCopyDirectory(dstChild);
+        copyTree(srcChild, dstChild, dstRoot, executable, ancestors);
+      } else {
+        copyFile(srcChild, dstChild, executable);
+      }
+    }
+    ancestors.remove(src);
+  }
+
   // Move to a common location like net.starlark.java.eval.Starlark?
   @Nullable
   private static <T> T nullIfNone(Object object, Class<T> type) {
@@ -1757,6 +1935,27 @@ Strip the given number of leading components from file paths on extraction. Only
       // match, the directory entries are never requested.
       getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
       getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  /**
+   * Records a watch on a directory's recursive contents.
+   *
+   * <p>Callers must have checked recently that the given path points to a directory.
+   */
+  protected void maybeWatchTree(Path path, ShouldWatch shouldWatch, ImmutableList<String> excludes)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    RepoCacheFriendlyPath repoCacheFriendlyPath = toRepoCacheFriendlyPath(path, shouldWatch);
+    if (repoCacheFriendlyPath == null) {
+      return;
+    }
+    try {
+      // Requesting a DirTree for a path that is no longer a directory fails the build rather than
+      // invalidating the repo, so the type is recorded first and checked before the DirTree.
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
+      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath, excludes));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
