@@ -93,112 +93,6 @@ using std::set;
 using std::string;
 using std::vector;
 
-// The following is a treatise on how the interaction between the client and the
-// server works.
-//
-// First the client acquires filesystem locks on the install and output bases
-// (using fcntl() on Unix and LockFileEx() on Windows). The install base is
-// locked in shared mode, because two simultaneous commands may run against the
-// same install base. The output base is locked in exclusive mode, because two
-// simultaneous commands may not run against the same output base. The client
-// will busy-wait until both locks are available; however, if --noblock_for_lock
-// is set, it will immediately exit if the output base lock cannot be obtained.
-//
-// Then the client verifies whether it has already extracted itself into the
-// install base and that it hasn't been tampered with. Otherwise, it extracts
-// itself. Since the install base is not locked exclusively, an atomic rename is
-// used to prevent simultaneous extraction attempts from clashing.
-//
-// Then the client tries to connect to the currently executing server and
-// kills it if at least one of the following conditions is true:
-//
-// - The server is of the wrong version (as determined by the
-//   $OUTPUT_BASE/install symlink)
-// - The server has different startup options than the client wants
-// - The client wants to run the command in batch mode
-//
-// Then, if needed, the client adjusts the install link to indicate which
-// version of the server it is running.
-//
-// In batch mode, the client then simply executes the server while taking
-// care that the install and output base locks are held until it finishes.
-//
-// If in server mode, the client starts up a server if needed then sends the
-// command to the client and streams back stdout and stderr. The client-side
-// locks are released after the command has been sent; since the server may
-// outlive the client, it must implement its own locking anyway.
-
-// Synchronization between the client and the server is a little precarious
-// because the client needs to know the PID of the server and it is not
-// available using a Java API and we don't have JNI on Windows at the moment,
-// so the server can't just communicate this over the communication channel.
-// Thus, a PID file is used, but care needs to be taken that the contents of
-// this PID file are right.
-//
-// Upon server startup, the PID file is written before the client spawns the
-// server. Thus, when the client can connect, it can be certain that the PID
-// file is up to date.
-//
-// Upon server shutdown, the PID file is deleted using a server shutdown hook.
-// However, this happens *after* the server stopped listening, so it's possible
-// that a client has already started up a server and written a new PID file.
-// In order to avoid this, when the client starts up a new server, it reads the
-// contents of the PID file and kills the process indicated in it (it could do
-// with a bit more care, since PIDs can be reused, but for now, we just believe
-// the PID file)
-//
-// Some more interesting scenarios:
-//
-// - The server receives a kill signal and it does not have a chance to delete
-//   the PID file: the client cannot connect, reads the PID file, kills the
-//   process indicated in it and starts up a new server.
-//
-// - The server stopped accepting connections but hasn't quit yet and a new
-//   client comes around: the new client will kill the server based on the
-//   PID file before a new server is started up.
-//
-// Alternative implementations:
-//
-// - Don't deal with PIDs at all. This would make it impossible for the client
-//   to deliver a SIGKILL to the server after three SIGINTs. It would only be
-//   possible with gRPC anyway.
-//
-// - Have the server check that the PID file contains the correct things
-//   before deleting them: there is a window of time between checking the file
-//   and deleting it in which a new server can overwrite the PID file. The
-//   output base lock cannot be acquired, either, because when starting up a
-//   new server, the client already holds it.
-//
-// - Delete the PID file before stopping to accept connections: then a client
-//   could come about after deleting the PID file but before stopping accepting
-//   connections. It would also not be resilient against a dead server that
-//   left a PID file around.
-
-// String string representation of RestartReason.
-static const char *ReasonString(RestartReason reason) {
-  switch (reason) {
-    case NO_RESTART:
-      return "no_restart";
-    case NO_DAEMON:
-      return "no_daemon";
-    case NEW_VERSION:
-      return "new_version";
-    case NEW_OPTIONS:
-      return "new_options";
-    case PID_FILE_BUT_NO_SERVER:
-      return "pid_file_but_no_server";
-    case SERVER_VANISHED:
-      return "server_vanished";
-    case SERVER_UNRESPONSIVE:
-      return "server_unresponsive";
-  }
-
-  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "unknown RestartReason (" << reason << ").";
-  // Cannot actually reach this, but it makes the compiler happy.
-  return "unknown";
-}
-
 // Determines the maximum import depth for rc files based on the environment.
 static int SelectMaxImportDepth() {
   return ExistsEnv("BAZEL_UNLIMITED_IMPORT_DEPTH")
@@ -268,104 +162,6 @@ static void ReleaseClientLocks(bool lock_install_base, ClientLocks *locks) {
     locks->install_base_lock = std::nullopt;
   }
 }
-
-class BlazeServer final {
- public:
-  BlazeServer(const StartupOptions &startup_options,
-              CommandExtensionAdder *command_extension_adder,
-              ClientLocks locks);
-
-  // Whether there is an active connection to a server.
-  bool Connected() const { return client_.get(); }
-
-  // Connect to the server. Returns if the connection was successful. Only
-  // call this when this object is in disconnected state. If it returns true,
-  // this object will be in connected state.
-  bool Connect();
-
-  // Send the command line to the server and forward whatever it says to stdout
-  // and stderr. Returns the desired exit code. Only call this when the server
-  // is in connected state.
-  unsigned int Communicate(
-      const std::string &command, const std::vector<std::string> &command_args,
-      const std::string &invocation_policy,
-      const std::vector<RcStartupFlag> &original_startup_options,
-      const LoggingInfo &logging_info, DurationMillis client_startup_duration,
-      std::optional<DurationMillis> extract_data_duration,
-      std::optional<DurationMillis> command_wait_duration);
-
-  // Disconnects and kills an existing server. Only call this when this object
-  // is in connected state.
-  void KillRunningServer();
-
-  // Cancel the currently running command. If there is no command currently
-  // running, the result is unspecified. When called, this object must be in
-  // connected state.
-  void Cancel();
-
-  // Notifies the server that the client terminal size may have changed.
-  void TerminalSizeChanged();
-
-  // Returns information about the actual server process and its configuration.
-  const ServerProcessInfo &ProcessInfo() const { return process_info_; }
-
- private:
-  ClientLocks locks_;
-
-  enum CancelThreadAction {
-    NOTHING,
-    JOIN,
-    CANCEL,
-    COMMAND_ID_RECEIVED,
-    TERMINAL_SIZE_CHANGED
-  };
-
-  std::unique_ptr<CommandServer::Stub> client_;
-  std::string request_cookie_;
-  std::string response_cookie_;
-  std::string command_id_;
-
-  // protects command_id_ . Although we always set it before making the cancel
-  // thread do something with it, the mutex is still useful because it provides
-  // a memory fence.
-  std::mutex cancel_thread_mutex_;
-
-  // Pipe that the main thread sends actions to and the cancel thread receives
-  // actions from.
-  std::unique_ptr<blaze_util::IPipe> pipe_;
-
-  void ReleaseLocks();
-  bool TryConnect(CommandServer::Stub *client);
-  void CancelThread();
-  void SendAction(CancelThreadAction action);
-  void SendCancelMessage();
-  void SendTerminalSizeMessage(int columns);
-
-  ServerProcessInfo process_info_;
-  const int connect_timeout_secs_;
-  const absl::Duration block_for_lock_timeout_;
-  const bool quiet_;
-  const bool preemptible_;
-  const bool lock_install_base_;
-  const blaze_util::Path output_base_;
-  CommandExtensionAdder* command_extension_adder_;
-};
-
-////////////////////////////////////////////////////////////////////////
-// Global Variables
-static BlazeServer *blaze_server;
-
-// TODO(laszlocsomor) 2016-11-24: release the `blaze_server` object. Currently
-// nothing deletes it. Be careful that some functions may call exit(2) or
-// _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
-// objects before those.
-
-void BlazeServer::ReleaseLocks() {
-  ReleaseClientLocks(lock_install_base_, &locks_);
-}
-
-////////////////////////////////////////////////////////////////////////
-// Logic
 
 static map<string, EnvVarValue> PrepareEnvironmentForJvm();
 
@@ -676,39 +472,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   return result;
 }
 
-// Add common command options for logging to the given argument array.
-static void AddLoggingArgs(
-    const LoggingInfo &logging_info,
-    const DurationMillis client_startup_duration,
-    const std::optional<DurationMillis> extract_data_duration,
-    const std::optional<DurationMillis> command_wait_duration,
-    vector<string> *args) {
-  // The time in ms the launcher spends before sending the request to the blaze
-  // server.
-  args->push_back("--startup_time=" +
-                  blaze_util::ToString(client_startup_duration.millis));
-
-  // The time in ms a command had to wait on a busy Blaze server process.
-  // This is part of startup_time.
-  if (command_wait_duration.has_value()) {
-    args->push_back("--command_wait_time=" +
-                    blaze_util::ToString(command_wait_duration->millis));
-  }
-
-  // The time in ms spent on extracting the new blaze version.
-  // This is part of startup_time.
-  if (extract_data_duration.has_value()) {
-    args->push_back("--extract_data_time=" +
-                    blaze_util::ToString(extract_data_duration->millis));
-  }
-
-  if (logging_info.restart_reason != NO_RESTART) {
-    args->push_back(string("--restart_reason=") +
-                    ReasonString(logging_info.restart_reason));
-  }
-  args->push_back(string("--binary_path=") + logging_info.binary_path);
-}
-
 // Join the elements of the specified array with NUL's (\0's), akin to the
 // format of /proc/$PID/cmdline.
 static string GetArgumentString(const vector<string> &argument_array) {
@@ -856,6 +619,243 @@ static void RunServerMode(
                      GetServerJvmArgFilePath(startup_options.output_base),
                      run_in_user_cgroup);
   }
+}
+
+// The following is a treatise on how the interaction between the client and the
+// server works.
+//
+// First the client acquires filesystem locks on the install and output bases
+// (using fcntl() on Unix and LockFileEx() on Windows). The install base is
+// locked in shared mode, because two simultaneous commands may run against the
+// same install base. The output base is locked in exclusive mode, because two
+// simultaneous commands may not run against the same output base. The client
+// will busy-wait until both locks are available; however, if --noblock_for_lock
+// is set, it will immediately exit if the output base lock cannot be obtained.
+//
+// Then the client verifies whether it has already extracted itself into the
+// install base and that it hasn't been tampered with. Otherwise, it extracts
+// itself. Since the install base is not locked exclusively, an atomic rename is
+// used to prevent simultaneous extraction attempts from clashing.
+//
+// Then the client tries to connect to the currently executing server and
+// kills it if at least one of the following conditions is true:
+//
+// - The server is of the wrong version (as determined by the
+//   $OUTPUT_BASE/install symlink)
+// - The server has different startup options than the client wants
+// - The client wants to run the command in batch mode
+//
+// Then, if needed, the client adjusts the install link to indicate which
+// version of the server it is running.
+//
+// In batch mode, the client then simply executes the server while taking
+// care that the install and output base locks are held until it finishes.
+//
+// If in server mode, the client starts up a server if needed then sends the
+// command to the client and streams back stdout and stderr. The client-side
+// locks are released after the command has been sent; since the server may
+// outlive the client, it must implement its own locking anyway.
+
+// Synchronization between the client and the server is a little precarious
+// because the client needs to know the PID of the server and it is not
+// available using a Java API and we don't have JNI on Windows at the moment,
+// so the server can't just communicate this over the communication channel.
+// Thus, a PID file is used, but care needs to be taken that the contents of
+// this PID file are right.
+//
+// Upon server startup, the PID file is written before the client spawns the
+// server. Thus, when the client can connect, it can be certain that the PID
+// file is up to date.
+//
+// Upon server shutdown, the PID file is deleted using a server shutdown hook.
+// However, this happens *after* the server stopped listening, so it's possible
+// that a client has already started up a server and written a new PID file.
+// In order to avoid this, when the client starts up a new server, it reads the
+// contents of the PID file and kills the process indicated in it (it could do
+// with a bit more care, since PIDs can be reused, but for now, we just believe
+// the PID file)
+//
+// Some more interesting scenarios:
+//
+// - The server receives a kill signal and it does not have a chance to delete
+//   the PID file: the client cannot connect, reads the PID file, kills the
+//   process indicated in it and starts up a new server.
+//
+// - The server stopped accepting connections but hasn't quit yet and a new
+//   client comes around: the new client will kill the server based on the
+//   PID file before a new server is started up.
+//
+// Alternative implementations:
+//
+// - Don't deal with PIDs at all. This would make it impossible for the client
+//   to deliver a SIGKILL to the server after three SIGINTs. It would only be
+//   possible with gRPC anyway.
+//
+// - Have the server check that the PID file contains the correct things
+//   before deleting them: there is a window of time between checking the file
+//   and deleting it in which a new server can overwrite the PID file. The
+//   output base lock cannot be acquired, either, because when starting up a
+//   new server, the client already holds it.
+//
+// - Delete the PID file before stopping to accept connections: then a client
+//   could come about after deleting the PID file but before stopping accepting
+//   connections. It would also not be resilient against a dead server that
+//   left a PID file around.
+
+// String string representation of RestartReason.
+static const char *ReasonString(RestartReason reason) {
+  switch (reason) {
+    case NO_RESTART:
+      return "no_restart";
+    case NO_DAEMON:
+      return "no_daemon";
+    case NEW_VERSION:
+      return "new_version";
+    case NEW_OPTIONS:
+      return "new_options";
+    case PID_FILE_BUT_NO_SERVER:
+      return "pid_file_but_no_server";
+    case SERVER_VANISHED:
+      return "server_vanished";
+    case SERVER_UNRESPONSIVE:
+      return "server_unresponsive";
+  }
+
+  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "unknown RestartReason (" << reason << ").";
+  // Cannot actually reach this, but it makes the compiler happy.
+  return "unknown";
+}
+
+class BlazeServer final {
+ public:
+  BlazeServer(const StartupOptions &startup_options,
+              CommandExtensionAdder *command_extension_adder,
+              ClientLocks locks);
+
+  // Whether there is an active connection to a server.
+  bool Connected() const { return client_.get(); }
+
+  // Connect to the server. Returns if the connection was successful. Only
+  // call this when this object is in disconnected state. If it returns true,
+  // this object will be in connected state.
+  bool Connect();
+
+  // Send the command line to the server and forward whatever it says to stdout
+  // and stderr. Returns the desired exit code. Only call this when the server
+  // is in connected state.
+  unsigned int Communicate(
+      const std::string &command, const std::vector<std::string> &command_args,
+      const std::string &invocation_policy,
+      const std::vector<RcStartupFlag> &original_startup_options,
+      const LoggingInfo &logging_info, DurationMillis client_startup_duration,
+      std::optional<DurationMillis> extract_data_duration,
+      std::optional<DurationMillis> command_wait_duration);
+
+  // Disconnects and kills an existing server. Only call this when this object
+  // is in connected state.
+  void KillRunningServer();
+
+  // Cancel the currently running command. If there is no command currently
+  // running, the result is unspecified. When called, this object must be in
+  // connected state.
+  void Cancel();
+
+  // Notifies the server that the client terminal size may have changed.
+  void TerminalSizeChanged();
+
+  // Returns information about the actual server process and its configuration.
+  const ServerProcessInfo &ProcessInfo() const { return process_info_; }
+
+ private:
+  ClientLocks locks_;
+
+  enum CancelThreadAction {
+    NOTHING,
+    JOIN,
+    CANCEL,
+    COMMAND_ID_RECEIVED,
+    TERMINAL_SIZE_CHANGED
+  };
+
+  std::unique_ptr<CommandServer::Stub> client_;
+  std::string request_cookie_;
+  std::string response_cookie_;
+  std::string command_id_;
+
+  // protects command_id_ . Although we always set it before making the cancel
+  // thread do something with it, the mutex is still useful because it provides
+  // a memory fence.
+  std::mutex cancel_thread_mutex_;
+
+  // Pipe that the main thread sends actions to and the cancel thread receives
+  // actions from.
+  std::unique_ptr<blaze_util::IPipe> pipe_;
+
+  void ReleaseLocks();
+  bool TryConnect(CommandServer::Stub *client);
+  void CancelThread();
+  void SendAction(CancelThreadAction action);
+  void SendCancelMessage();
+  void SendTerminalSizeMessage(int columns);
+
+  ServerProcessInfo process_info_;
+  const int connect_timeout_secs_;
+  const absl::Duration block_for_lock_timeout_;
+  const bool quiet_;
+  const bool preemptible_;
+  const bool lock_install_base_;
+  const blaze_util::Path output_base_;
+  CommandExtensionAdder* command_extension_adder_;
+};
+
+////////////////////////////////////////////////////////////////////////
+// Global Variables
+static BlazeServer *blaze_server;
+
+// TODO(laszlocsomor) 2016-11-24: release the `blaze_server` object. Currently
+// nothing deletes it. Be careful that some functions may call exit(2) or
+// _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
+// objects before those.
+
+void BlazeServer::ReleaseLocks() {
+  ReleaseClientLocks(lock_install_base_, &locks_);
+}
+
+////////////////////////////////////////////////////////////////////////
+// Logic
+
+// Add common command options for logging to the given argument array.
+static void AddLoggingArgs(
+    const LoggingInfo &logging_info,
+    const DurationMillis client_startup_duration,
+    const std::optional<DurationMillis> extract_data_duration,
+    const std::optional<DurationMillis> command_wait_duration,
+    vector<string> *args) {
+  // The time in ms the launcher spends before sending the request to the blaze
+  // server.
+  args->push_back("--startup_time=" +
+                  blaze_util::ToString(client_startup_duration.millis));
+
+  // The time in ms a command had to wait on a busy Blaze server process.
+  // This is part of startup_time.
+  if (command_wait_duration.has_value()) {
+    args->push_back("--command_wait_time=" +
+                    blaze_util::ToString(command_wait_duration->millis));
+  }
+
+  // The time in ms spent on extracting the new blaze version.
+  // This is part of startup_time.
+  if (extract_data_duration.has_value()) {
+    args->push_back("--extract_data_time=" +
+                    blaze_util::ToString(extract_data_duration->millis));
+  }
+
+  if (logging_info.restart_reason != NO_RESTART) {
+    args->push_back(string("--restart_reason=") +
+                    ReasonString(logging_info.restart_reason));
+  }
+  args->push_back(string("--binary_path=") + logging_info.binary_path);
 }
 
 // Replace this process with blaze in standalone/batch mode.
