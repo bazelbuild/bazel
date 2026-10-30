@@ -184,6 +184,11 @@ class StartupOptions {
 
   std::string extra_classpath;
 
+  // Client environment variable names whose values the server must redact
+  // from its log, in addition to the built-in heuristic. Whole-name match,
+  // case-insensitive, with '*' matching any sequence of characters.
+  std::vector<std::string> redact_client_env;
+
   bool batch;
 
   // From the man page: "This policy is useful for workloads that are

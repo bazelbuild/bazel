@@ -410,6 +410,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   if (!startup_options.extra_classpath.empty()) {
     result.push_back("--extra_classpath=" + startup_options.extra_classpath);
   }
+  for (const auto &name : startup_options.redact_client_env) {
+    result.push_back("--redact_client_env=" + name);
+  }
 
   // Pass in invocation policy as a startup argument for batch mode only.
   if (startup_options.batch && !startup_options.invocation_policy.empty()) {
