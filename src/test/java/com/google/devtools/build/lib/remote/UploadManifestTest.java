@@ -910,12 +910,12 @@ public class UploadManifestTest {
             .addFiles(
                 FileNode.newBuilder()
                     .setName("\uE000.txt")
-                    .setDigest(digestUtil.compute(bmpFile))
+                    .setDigest(digestUtil.compute(bmpFile, bmpFile.stat()))
                     .setIsExecutable(true))
             .addFiles(
                 FileNode.newBuilder()
                     .setName("\uD800\uDC00.txt")
-                    .setDigest(digestUtil.compute(supplementaryFile))
+                    .setDigest(digestUtil.compute(supplementaryFile, supplementaryFile.stat()))
                     .setIsExecutable(true))
             .addSymlinks(SymlinkNode.newBuilder().setName("\uE000").setTarget("\uE000.txt"))
             .addSymlinks(
