@@ -655,13 +655,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getLastModifiedTime(path, followSymlinks);
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return fsForPath(path).getLastModifiedTimeNanos(path, followSymlinks);
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    fsForPath(path).setLastModifiedTime(path, newTime);
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    fsForPath(path).setLastModifiedTimeNanos(path, newTime);
   }
 
   @Override

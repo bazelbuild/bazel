@@ -57,7 +57,8 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
   private native Stat lstat(String path, char errorHandling) throws NativePosixFilesException;
 
   @Override
-  public native void utimensat(String path, boolean now, long epochMilli)
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public native void utimensat(String path, boolean now, long epochNanos)
       throws NativePosixFilesException;
 
   @Override
