@@ -163,8 +163,6 @@ static void ReleaseClientLocks(bool lock_install_base, ClientLocks *locks) {
   }
 }
 
-static map<string, EnvVarValue> PrepareEnvironmentForJvm();
-
 // Escapes colons by replacing them with '_C' and underscores by replacing
 // them with '_U'. E.g. "name:foo_bar" becomes "name_Cfoo_Ubar"
 static string EscapeForOptionSource(const string &input) {
@@ -566,6 +564,148 @@ static void UpdateInstallationSymlink(const StartupOptions &startup_options) {
         << startup_options.install_base.AsPrintablePath()
         << "': " << GetLastErrorString();
   }
+}
+
+// Parse the options.
+static void ParseOptionsOrDie(const string& cwd, const string& workspace,
+                              OptionProcessor& option_processor, int argc,
+                              const char* const* argv, int max_import_depth) {
+  std::string error;
+  std::vector<std::string> args(argv, argv + argc);
+  const blaze_exit_code::ExitCode parse_exit_code =
+      option_processor.ParseOptions(args, workspace, cwd, &error,
+                                    max_import_depth);
+
+  if (parse_exit_code != blaze_exit_code::SUCCESS) {
+    option_processor.PrintStartupOptionsProvenanceMessage();
+    BAZEL_DIE(parse_exit_code) << error;
+  }
+}
+
+static string GetCanonicalCwd() {
+  string result = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
+  if (result.empty()) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "blaze_util::MakeCanonical('" << blaze_util::GetCwd()
+        << "') failed: " << GetLastErrorString();
+  }
+  return result;
+}
+
+static void PrepareDirectories(StartupOptions *startup_options) {
+  blaze::CreateSecureDirectory(
+      blaze_util::Path(startup_options->output_user_root));
+
+  if (!blaze_util::PathExists(startup_options->output_base)) {
+    if (!blaze_util::MakeDirectories(startup_options->output_base, 0777)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Output base directory '"
+          << startup_options->output_base.AsPrintablePath()
+          << "' could not be created: " << GetLastErrorString();
+    }
+  } else {
+    if (!blaze_util::IsDirectory(startup_options->output_base)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Output base directory '"
+          << startup_options->output_base.AsPrintablePath()
+          << "' could not be created. It exists but is not a directory.";
+    }
+  }
+  if (!blaze_util::CanAccessDirectory(startup_options->output_base)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Output base directory '"
+        << startup_options->output_base.AsPrintablePath()
+        << "' must be readable and writable.";
+  }
+
+  ExcludePathFromBackup(startup_options->output_base);
+
+  startup_options->output_base = startup_options->output_base.Canonicalize();
+  if (startup_options->output_base.IsEmpty()) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Output base directory could not be canonicalized: "
+        << GetLastErrorString();
+  }
+}
+
+// Prepares the environment to be suitable to start a JVM.
+// Changes made to the environment in this function *will not* be part
+// of '--client_env'.
+static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
+  map<string, EnvVarValue> result;
+
+  // Make sure all existing environment variables appear as part of the
+  // resulting map unless they are overridden below by UNSET values.
+  //
+  // Even though the map we return is intended to represent a "delta" of
+  // environment variables to modify the current process, we may actually use
+  // such map to configure a process from scratch (via interfaces like execvpe
+  // or posix_spawn), so we need to inherit any untouched variables.
+  for (const auto& var_value : blaze::GetProcessedEnv()) {
+    std::string::size_type equals = var_value.find('=');
+    if (equals == std::string::npos) {
+      // Ignore possibly-bad environment. We don't control what we see in this
+      // global variable, so it could be invalid.
+      continue;
+    }
+    const std::string var = var_value.substr(0, equals);
+    const std::string value = var_value.substr(equals + 1);
+    result[var] = EnvVarValue(EnvVarAction::SET, value);
+  }
+
+  if (blaze::ExistsEnv("LD_ASSUME_KERNEL")) {
+    // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
+    // specified, the JVM fails to create threads.  See thread_stack_regtest.
+    // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
+    // or anything else that causes the JVM to use LinuxThreads.
+    BAZEL_LOG(WARNING) << "ignoring LD_ASSUME_KERNEL in environment.";
+    result["LD_ASSUME_KERNEL"] = EnvVarValue(EnvVarAction::UNSET, "");
+  }
+
+  if (blaze::ExistsEnv("LD_PRELOAD")) {
+    BAZEL_LOG(WARNING) << "ignoring LD_PRELOAD in environment.";
+    result["LD_PRELOAD"] = EnvVarValue(EnvVarAction::UNSET, "");
+  }
+
+  // These would override --host_jvm_args
+  for (const auto &var :
+       {"_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS"}) {
+    if (blaze::ExistsEnv(var)) {
+      BAZEL_LOG(WARNING) << "ignoring " << var << " in environment.";
+      result[var] = EnvVarValue(EnvVarAction::UNSET, "");
+    }
+  }
+
+  // TODO(bazel-team):  We've also seen a failure during loading (creating
+  // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
+
+  // Ensure that the JVM runs with a locale that supports Unicode characters in
+  // filenames, environment variables, etc. The approach differs by OS:
+  // - On macOS, the JVM always uses UTF-8, so we don't need to do anything.
+  // - On Windows, the JVM uses the system code page to determine the encoding.
+  //   For the embedded JDK, we force this to UTF-8 in minimize_jdk.sh.
+  // - On Linux, the JVM goes through the regular locale mechanism. In
+  //   particular, we can only force UTF-8 if we can find a locale that supports
+  //   it. Furthermore, for backwards compatibility with setups using other
+  //   encodings, we pick a Latin-1 locale if possible to support arbitrary byte
+  //   sequences, not just valid UTF-8.
+#ifdef __linux__
+  const char *want_locale = nullptr;
+  for (auto candidate_locale : {"en_US.ISO-8859-1", "C.UTF-8", "en_US.UTF-8"}) {
+    locale_t locale = newlocale(LC_CTYPE_MASK, candidate_locale, nullptr);
+    if (locale != nullptr) {
+      freelocale(locale);
+      want_locale = candidate_locale;
+      break;
+    }
+  }
+
+  if (want_locale != nullptr) {
+    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
+  }
+#endif
+
+  return result;
 }
 
 // Replace this process with the blaze server. Does not exit.
@@ -1330,148 +1470,6 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
       startup_options.invocation_policy,
       startup_options.original_startup_options_, *logging_info,
       client_startup_duration, extract_data_duration, command_wait_duration));
-}
-
-// Parse the options.
-static void ParseOptionsOrDie(const string& cwd, const string& workspace,
-                              OptionProcessor& option_processor, int argc,
-                              const char* const* argv, int max_import_depth) {
-  std::string error;
-  std::vector<std::string> args(argv, argv + argc);
-  const blaze_exit_code::ExitCode parse_exit_code =
-      option_processor.ParseOptions(args, workspace, cwd, &error,
-                                    max_import_depth);
-
-  if (parse_exit_code != blaze_exit_code::SUCCESS) {
-    option_processor.PrintStartupOptionsProvenanceMessage();
-    BAZEL_DIE(parse_exit_code) << error;
-  }
-}
-
-static string GetCanonicalCwd() {
-  string result = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
-  if (result.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "blaze_util::MakeCanonical('" << blaze_util::GetCwd()
-        << "') failed: " << GetLastErrorString();
-  }
-  return result;
-}
-
-static void PrepareDirectories(StartupOptions *startup_options) {
-  blaze::CreateSecureDirectory(
-      blaze_util::Path(startup_options->output_user_root));
-
-  if (!blaze_util::PathExists(startup_options->output_base)) {
-    if (!blaze_util::MakeDirectories(startup_options->output_base, 0777)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Output base directory '"
-          << startup_options->output_base.AsPrintablePath()
-          << "' could not be created: " << GetLastErrorString();
-    }
-  } else {
-    if (!blaze_util::IsDirectory(startup_options->output_base)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Output base directory '"
-          << startup_options->output_base.AsPrintablePath()
-          << "' could not be created. It exists but is not a directory.";
-    }
-  }
-  if (!blaze_util::CanAccessDirectory(startup_options->output_base)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Output base directory '"
-        << startup_options->output_base.AsPrintablePath()
-        << "' must be readable and writable.";
-  }
-
-  ExcludePathFromBackup(startup_options->output_base);
-
-  startup_options->output_base = startup_options->output_base.Canonicalize();
-  if (startup_options->output_base.IsEmpty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Output base directory could not be canonicalized: "
-        << GetLastErrorString();
-  }
-}
-
-// Prepares the environment to be suitable to start a JVM.
-// Changes made to the environment in this function *will not* be part
-// of '--client_env'.
-static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
-  map<string, EnvVarValue> result;
-
-  // Make sure all existing environment variables appear as part of the
-  // resulting map unless they are overridden below by UNSET values.
-  //
-  // Even though the map we return is intended to represent a "delta" of
-  // environment variables to modify the current process, we may actually use
-  // such map to configure a process from scratch (via interfaces like execvpe
-  // or posix_spawn), so we need to inherit any untouched variables.
-  for (const auto& var_value : blaze::GetProcessedEnv()) {
-    std::string::size_type equals = var_value.find('=');
-    if (equals == std::string::npos) {
-      // Ignore possibly-bad environment. We don't control what we see in this
-      // global variable, so it could be invalid.
-      continue;
-    }
-    const std::string var = var_value.substr(0, equals);
-    const std::string value = var_value.substr(equals + 1);
-    result[var] = EnvVarValue(EnvVarAction::SET, value);
-  }
-
-  if (blaze::ExistsEnv("LD_ASSUME_KERNEL")) {
-    // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
-    // specified, the JVM fails to create threads.  See thread_stack_regtest.
-    // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
-    // or anything else that causes the JVM to use LinuxThreads.
-    BAZEL_LOG(WARNING) << "ignoring LD_ASSUME_KERNEL in environment.";
-    result["LD_ASSUME_KERNEL"] = EnvVarValue(EnvVarAction::UNSET, "");
-  }
-
-  if (blaze::ExistsEnv("LD_PRELOAD")) {
-    BAZEL_LOG(WARNING) << "ignoring LD_PRELOAD in environment.";
-    result["LD_PRELOAD"] = EnvVarValue(EnvVarAction::UNSET, "");
-  }
-
-  // These would override --host_jvm_args
-  for (const auto &var :
-       {"_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS"}) {
-    if (blaze::ExistsEnv(var)) {
-      BAZEL_LOG(WARNING) << "ignoring " << var << " in environment.";
-      result[var] = EnvVarValue(EnvVarAction::UNSET, "");
-    }
-  }
-
-  // TODO(bazel-team):  We've also seen a failure during loading (creating
-  // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
-
-  // Ensure that the JVM runs with a locale that supports Unicode characters in
-  // filenames, environment variables, etc. The approach differs by OS:
-  // - On macOS, the JVM always uses UTF-8, so we don't need to do anything.
-  // - On Windows, the JVM uses the system code page to determine the encoding.
-  //   For the embedded JDK, we force this to UTF-8 in minimize_jdk.sh.
-  // - On Linux, the JVM goes through the regular locale mechanism. In
-  //   particular, we can only force UTF-8 if we can find a locale that supports
-  //   it. Furthermore, for backwards compatibility with setups using other
-  //   encodings, we pick a Latin-1 locale if possible to support arbitrary byte
-  //   sequences, not just valid UTF-8.
-#ifdef __linux__
-  const char *want_locale = nullptr;
-  for (auto candidate_locale : {"en_US.ISO-8859-1", "C.UTF-8", "en_US.UTF-8"}) {
-    locale_t locale = newlocale(LC_CTYPE_MASK, candidate_locale, nullptr);
-    if (locale != nullptr) {
-      freelocale(locale);
-      want_locale = candidate_locale;
-      break;
-    }
-  }
-
-  if (want_locale != nullptr) {
-    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
-  }
-#endif
-
-  return result;
 }
 
 static string CheckAndGetBinaryPath(const string &cwd, const string &argv0) {
