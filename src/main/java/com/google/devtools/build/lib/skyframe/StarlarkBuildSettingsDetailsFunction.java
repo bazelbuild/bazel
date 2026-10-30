@@ -246,19 +246,13 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       SkyFunction.Environment env, ImmutableSet<Label> buildSettings)
       throws InterruptedException, TransitionException {
     HashMap<PackageIdentifier, PackageValue> buildSettingPackages = new HashMap<>();
-    // This happens before cycle detection so keep track of all seen build settings to ensure
-    // we don't get stuck in endless loops (e.g. //alias1->//alias2 && //alias2->alias1)
+    // Keep track of all seen build settings to ensure we don't get stuck in endless loops (e.g.
+    // //alias1->//alias2 && //alias2->alias1). Seeing a build setting again doesn't imply a cycle
+    // since an alias may refer to a requested build setting or share it with another alias.
     Set<Label> allSeenBuildSettings = new HashSet<>();
     ImmutableSet<Label> unverifiedBuildSettings = buildSettings;
     while (!unverifiedBuildSettings.isEmpty()) {
-      for (Label buildSetting : unverifiedBuildSettings) {
-        if (!allSeenBuildSettings.add(buildSetting)) {
-          throw new TransitionException(
-              String.format(
-                  "Dependency cycle involving '%s' detected in aliased build settings",
-                  buildSetting));
-        }
-      }
+      allSeenBuildSettings.addAll(unverifiedBuildSettings);
       ImmutableSet<PackageIdentifier> packageKeys =
           getPackageKeysFromLabels(unverifiedBuildSettings);
       SkyframeLookupResult newlyLoaded = env.getValuesAndExceptions(packageKeys);
@@ -277,9 +271,38 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
         }
       }
       unverifiedBuildSettings =
-          verifyBuildSettingsAndGetAliases(buildSettingPackages, unverifiedBuildSettings);
+          verifyBuildSettingsAndGetAliases(buildSettingPackages, unverifiedBuildSettings).stream()
+              .filter(setting -> !allSeenBuildSettings.contains(setting))
+              .collect(toImmutableSet());
+    }
+    for (Label buildSetting : buildSettings) {
+      checkNoAliasCycle(buildSettingPackages, buildSetting);
     }
     return ImmutableMap.copyOf(buildSettingPackages);
+  }
+
+  private static void checkNoAliasCycle(
+      Map<PackageIdentifier, PackageValue> buildSettingPackages, Label buildSetting)
+      throws TransitionException {
+    Set<Label> aliasChain = new HashSet<>();
+    Label setting = buildSetting;
+    while (setting != null) {
+      if (!aliasChain.add(setting)) {
+        throw new TransitionException(
+            String.format(
+                "Dependency cycle involving '%s' detected in aliased build settings", setting));
+      }
+      Rule rule;
+      try {
+        rule = getTarget(buildSettingPackages, setting).getAssociatedRule();
+      } catch (NoSuchTargetException e) {
+        throw new IllegalStateException(e);
+      }
+      setting =
+          rule.getRuleClass().equals(ALIAS_RULE_NAME)
+              ? (Label) rule.getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME)
+              : null;
+    }
   }
 
   /** Given a set of labels, return a set of their package {@link PackageIdentifier} keys. */

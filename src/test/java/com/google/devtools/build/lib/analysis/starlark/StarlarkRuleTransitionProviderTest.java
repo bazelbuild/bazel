@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.ArrayList;
@@ -1119,7 +1120,139 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
     assertContainsEvent(
-        "Dependency cycle involving '//test:actual' detected in aliased build settings");
+        "transition sets '//test:actual' and '//test:alias', which refer to the same build"
+            + " setting, to different values");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_setAliasAndActualToSameValue(
+      @TestParameter boolean allowsMultiple) throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            value = %s
+            return {
+                "//test:alias": value,
+                "//test:actual": value,
+            }
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = [
+                "//test:alias",
+                "//test:actual",
+            ],
+        )
+        """
+            .formatted(
+                allowsMultiple ? "[\"puffins_mate_for_life\"]" : "\"puffins_mate_for_life\""));
+    writeRulesBuildSettingsAndBUILDforAliasAndActualTests();
+    scratch.overwriteFile(
+        "test/build_settings.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True, allow_multiple = %s),
+        )
+        """
+            .formatted(allowsMultiple ? "True" : "False"));
+
+    // The transition leaves the actual build setting's value unchanged.
+    useConfiguration("--//test:actual=puffins_mate_for_life");
+
+    Object value =
+        getConfiguration(getConfiguredTarget("//test"))
+            .getOptions()
+            .getStarlarkOptions()
+            .get(Label.parseCanonicalUnchecked("//test:actual"));
+    if (allowsMultiple) {
+      assertThat((List<?>) value).containsExactly("puffins_mate_for_life");
+    } else {
+      assertThat(value).isEqualTo("puffins_mate_for_life");
+    }
+  }
+
+  @Test
+  public void testAliasedBuildSetting_readActualSetAlias() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {"//test:alias": settings["//test:actual"] + "_and_puffins_mate_for_life"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:actual"],
+            outputs = ["//test:alias"],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasAndActualTests();
+
+    useConfiguration("--//test:actual=rats_are_ticklish");
+
+    assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:actual"),
+            "rats_are_ticklish_and_puffins_mate_for_life");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_readAliasSetActual() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {"//test:actual": "puffins_mate_for_life"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:alias"],
+            outputs = ["//test:actual"],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasAndActualTests();
+
+    useConfiguration("--//test:actual=rats_are_ticklish");
+
+    assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:actual"), "puffins_mate_for_life");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_readAliasSetAliasOfAlias() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {"//test:alias_of_alias": "puffins_mate_for_life"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:alias"],
+            outputs = ["//test:alias_of_alias"],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasAndActualTests();
+
+    assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:actual"), "puffins_mate_for_life");
+  }
+
+  private void writeRulesBuildSettingsAndBUILDforAliasAndActualTests() throws Exception {
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'alias', actual = ':actual')",
+        "alias(name = 'alias_of_alias', actual = ':alias')",
+        "string_flag(",
+        "  name = 'actual',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
   }
 
   @Test
