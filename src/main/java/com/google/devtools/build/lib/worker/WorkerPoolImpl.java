@@ -97,11 +97,17 @@ public class WorkerPoolImpl implements WorkerPool {
   @Override
   public ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict)
       throws InterruptedException {
+    return evictWorkers(workerIdsToEvict, Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+  }
+
+  @Override
+  public ImmutableSet<Integer> evictWorkers(
+      ImmutableSet<Integer> workerIdsToEvict, Status evictionStatus) throws InterruptedException {
     // TODO: Without having the Worker objects themselves, we can't directly pass the worker to the
     // pool to be evicted.
     ImmutableSet<Integer> evictedWorkerIds =
         pools.values().stream()
-            .flatMap(p -> p.evictWorkers(workerIdsToEvict).stream())
+            .flatMap(p -> p.evictWorkers(workerIdsToEvict, evictionStatus).stream())
             .collect(toImmutableSet());
     return workerIdsToEvict.stream().filter(evictedWorkerIds::contains).collect(toImmutableSet());
   }
@@ -223,12 +229,19 @@ public class WorkerPoolImpl implements WorkerPool {
       this.max = max;
     }
 
-    private synchronized Set<Integer> evictWorkers(Set<Integer> workerIdsToEvict) {
+    private synchronized Set<Integer> evictWorkers(
+        Set<Integer> workerIdsToEvict, Status evictionStatus) {
       Set<Integer> evictedWorkerIds = new HashSet<>();
       for (Worker worker : idleWorkers) {
         if (workerIdsToEvict.contains(worker.getWorkerId())) {
+          if (evictionStatus == Status.PENDING_KILL_DUE_TO_IDLE_TIMEOUT
+              && activeSet.stream().anyMatch(active -> active.getStatus() == worker.getStatus())) {
+            // Multiplex proxies share a process status. Do not mark the process for timeout
+            // eviction if another proxy became active after the lifecycle manager sampled it.
+            continue;
+          }
           evictedWorkerIds.add(worker.getWorkerId());
-          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+          worker.getStatus().maybeUpdateStatus(evictionStatus);
           invalidateWorker(worker, /* shouldShrinkPool= */ true);
           idleWorkers.remove(worker);
           logger.atInfo().log(

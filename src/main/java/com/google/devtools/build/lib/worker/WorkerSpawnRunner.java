@@ -646,6 +646,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                   w.putRequest(cancelRequest);
                 }
                 w.getResponse(request.getRequestId());
+                metricsCollector.onWorkerFinishExecution(w.getProcessId());
               } catch (IOException | InterruptedException e1) {
                 // If this happens, we either can't trust the output of the worker, or we got
                 // interrupted while handling being interrupted. In the latter case, let's stop

@@ -18,12 +18,16 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -31,8 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * This class kills idle persistent workers at intervals, if the total worker resource usage is
- * above a specified limit. Must be used as singleton.
+ * This class kills persistent workers at intervals when they exceed configured resource limits or
+ * have remained idle past a configured timeout. Must be used as singleton.
  */
 final class WorkerLifecycleManager extends Thread {
 
@@ -46,22 +50,35 @@ final class WorkerLifecycleManager extends Thread {
   private final boolean shrinkWorkerPool;
   private final boolean workerVerbose;
   private final Duration workerMetricsPollInterval;
+  private final ImmutableMap<String, Integer> workerIdleTimeoutSecs;
+  private final boolean workerIdleTimeoutEnabled;
+  private final Clock clock;
 
   private final Reporter reporter;
 
   public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions options, Reporter reporter) {
+    this(workerPool, options, reporter, BlazeClock.instance());
+  }
+
+  @VisibleForTesting
+  WorkerLifecycleManager(
+      WorkerPool workerPool, WorkerOptions options, Reporter reporter, Clock clock) {
     this.workerPool = workerPool;
     this.totalWorkerMemoryLimitKb = options.getTotalWorkerMemoryLimitMb() * 1000;
     this.workerMemoryLimitKb = options.getWorkerMemoryLimitMb() * 1000;
     this.shrinkWorkerPool = options.getShrinkWorkerPool();
     this.workerVerbose = options.getWorkerVerbose();
     this.workerMetricsPollInterval = options.getWorkerMetricsPollInterval();
+    this.workerIdleTimeoutSecs = options.getWorkerIdleTimeoutSecsMap();
+    this.workerIdleTimeoutEnabled =
+        workerIdleTimeoutSecs.values().stream().anyMatch(timeout -> timeout > 0);
+    this.clock = clock;
     this.reporter = reporter;
   }
 
   @Override
   public void run() {
-    if (totalWorkerMemoryLimitKb == 0 && workerMemoryLimitKb == 0) {
+    if (totalWorkerMemoryLimitKb == 0 && workerMemoryLimitKb == 0 && !workerIdleTimeoutEnabled) {
       return;
     }
 
@@ -91,6 +108,13 @@ final class WorkerLifecycleManager extends Thread {
       ImmutableList<WorkerProcessMetrics> workerProcessMetrics =
           WorkerProcessMetricsCollector.instance().getLiveWorkerProcessMetrics();
 
+      try {
+        evictIdleWorkers(workerProcessMetrics, clock.now());
+      } catch (InterruptedException e) {
+        logger.atInfo().withCause(e).log("received interrupt in worker life cycle manager");
+        break;
+      }
+
       if (totalWorkerMemoryLimitKb > 0) {
         try {
           evictWorkers(workerProcessMetrics);
@@ -106,6 +130,53 @@ final class WorkerLifecycleManager extends Thread {
     }
 
     isWorking = false;
+  }
+
+  @VisibleForTesting
+  ImmutableSet<Integer> evictIdleWorkers(
+      ImmutableList<WorkerProcessMetrics> workerProcessMetrics, Instant now)
+      throws InterruptedException {
+    if (!workerIdleTimeoutEnabled) {
+      return ImmutableSet.of();
+    }
+
+    ImmutableSet<Integer> idleWorkers = workerPool.getIdleWorkers();
+    ImmutableSet<Integer> workerIdsToEvict =
+        workerProcessMetrics.stream()
+            .filter(metric -> metric.getWorkerIds().stream().allMatch(idleWorkers::contains))
+            .filter(metric -> hasExceededIdleTimeout(metric, now))
+            .flatMap(metric -> metric.getWorkerIds().stream())
+            .collect(toImmutableSet());
+
+    if (workerIdsToEvict.isEmpty()) {
+      return ImmutableSet.of();
+    }
+
+    ImmutableSet<Integer> evictedWorkers =
+        workerPool.evictWorkers(workerIdsToEvict, Status.PENDING_KILL_DUE_TO_IDLE_TIMEOUT);
+    if (!evictedWorkers.isEmpty()) {
+      String msg =
+          String.format(
+              "Evicted %d workers after their idle timeout elapsed. Worker ids: %s",
+              evictedWorkers.size(), evictedWorkers);
+      logger.atInfo().log("%s", msg);
+      if (workerVerbose && reporter != null) {
+        reporter.handle(Event.info(msg));
+      }
+    }
+    return evictedWorkers;
+  }
+
+  private int getWorkerIdleTimeoutSecs(String mnemonic) {
+    return workerIdleTimeoutSecs.getOrDefault(mnemonic, workerIdleTimeoutSecs.getOrDefault("", 0));
+  }
+
+  private boolean hasExceededIdleTimeout(WorkerProcessMetrics metric, Instant now) {
+    int timeoutSecs = getWorkerIdleTimeoutSecs(metric.getMnemonic());
+    Optional<Instant> lastExecutionFinishTime = metric.getLastExecutionFinishTime();
+    return timeoutSecs > 0
+        && lastExecutionFinishTime.isPresent()
+        && !lastExecutionFinishTime.get().plusSeconds(timeoutSecs).isAfter(now);
   }
 
   void stopProcessing() {
