@@ -59,7 +59,8 @@ public final class GenQueryRule implements RuleDefinition {
         The options that are passed to the query engine. These correspond to the command line
         options that can be passed to <code>bazel query</code>. Some query options are not allowed
         here: <code>--keep_going</code>, <code>--query_file</code>, <code>--universe_scope</code>,
-        <code>--order_results</code> and <code>--order_output</code>. Options not specified here
+        <code>--order_results</code>, <code>--order_output</code> and
+        <code>--experimental_generate_hashes</code>. Options not specified here
         will have their default values just like on the command line of <code>bazel query</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("opts", STRING_LIST))
