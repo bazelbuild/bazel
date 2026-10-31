@@ -382,8 +382,6 @@ TEST_F(BazelStartupOptionsTest, RedactClientEnv) {
     error.clear();
     return startup_options_->ProcessArgs(flags, &error);
   };
-  const std::string expected_error =
-      "--redact_client_env requires a non-empty variable name without '='";
 
   EXPECT_EQ(blaze_exit_code::SUCCESS,
             parse_flags({"--redact_client_env=MY_INTERNAL_SIGNER",
@@ -393,11 +391,17 @@ TEST_F(BazelStartupOptionsTest, RedactClientEnv) {
             startup_options_->redact_client_env);
 
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flags({"--redact_client_env="}));
-  EXPECT_EQ(expected_error, error);
+  EXPECT_EQ(
+      "Invalid argument to --redact_client_env: ''. "
+      "Expected a non-empty variable name without '='.",
+      error);
 
   EXPECT_EQ(blaze_exit_code::BAD_ARGV,
             parse_flags({"--redact_client_env=FOO=bar"}));
-  EXPECT_EQ(expected_error, error);
+  EXPECT_EQ(
+      "Invalid argument to --redact_client_env: 'FOO=bar'. "
+      "Expected a non-empty variable name without '='.",
+      error);
 }
 
 TEST_F(BazelStartupOptionsTest, MacosQosClassValues) {
