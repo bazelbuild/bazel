@@ -131,7 +131,7 @@ RcFile::ParseError RcFile::ParseFile(
 
     // This will treat "#" as a comment, and properly
     // quote single and double quotes, and treat '\'
-    // as an escape character.
+    // as an escape character outside single quotes.
     // TODO(bazel-team): This function silently ignores
     // dangling backslash escapes and missing end-quotes.
     blaze_util::Tokenize(line, '#', &words);

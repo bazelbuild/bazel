@@ -188,8 +188,8 @@ static void GetNextToken(const string &str, const char &comment,
   char quote = '\0';
   // While not a delimiter.
   while (last != str.end() && (quote || strchr(kSeparator, *last) == nullptr)) {
-    // Absorb escapes.
-    if (*last == '\\') {
+    // Absorb escapes, except inside single quotes.
+    if (*last == '\\' && quote != '\'') {
       ++last;
       if (last == str.end()) {
         break;
