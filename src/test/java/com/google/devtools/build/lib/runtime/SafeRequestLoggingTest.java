@@ -241,6 +241,21 @@ public class SafeRequestLoggingTest {
   }
 
   @Test
+  public void setRedactedClientEnvNames_leadingStarMatchesSuffix() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("*_SIGNER"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=MY_INTERNAL_SIGNER=notprinted",
+                    "--client_env=_SIGNER=notprinted",
+                    "--client_env=MY_SIGNER_ID=isprinted")))
+        .isEqualTo(
+            "[--client_env=MY_INTERNAL_SIGNER=__private_value_removed__,"
+                + " --client_env=_SIGNER=__private_value_removed__,"
+                + " --client_env=MY_SIGNER_ID=isprinted]");
+  }
+
+  @Test
   public void setRedactedClientEnvNames_bareStarRedactsEveryVariable() {
     SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("*"));
     assertThat(
