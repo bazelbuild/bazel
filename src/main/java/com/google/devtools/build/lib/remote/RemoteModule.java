@@ -1298,6 +1298,13 @@ public final class RemoteModule extends BlazeModule {
           remoteOutputService.setLeaseService(leaseService);
         }
         env.getEventBus().register(outputService);
+      } else if (useRemoteRepoContentsCache
+          && outputService instanceof BazelOutputService bazelOutputService) {
+        var actionFileSystemService =
+            new RemoteOutputService(env.getDirectories(), rewindLostInputs);
+        actionFileSystemService.setActionInputFetcher(
+            actionInputFetcher, env.getSkyframeExecutor().getWalkableGraph());
+        bazelOutputService.setActionFileSystemService(actionFileSystemService);
       }
     }
 

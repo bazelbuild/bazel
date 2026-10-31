@@ -49,12 +49,14 @@ import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.remote.circuitbreaker.FailureCircuitBreaker;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionPolicy;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -74,6 +76,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -692,6 +695,54 @@ public final class RemoteModuleTest {
     } finally {
       outputServiceService.shutdownNow();
       outputServiceService.awaitTermination();
+    }
+  }
+
+  @Test
+  public void bazelOutputService_remoteRepoContentsCache_enablesActionFileSystem()
+      throws Exception {
+    assertBazelOutputServiceActionFileSystem(/* useRemoteRepoContentsCache= */ true);
+  }
+
+  @Test
+  public void bazelOutputService_withoutRemoteRepoContentsCache_disablesActionFileSystem()
+      throws Exception {
+    assertBazelOutputServiceActionFileSystem(/* useRemoteRepoContentsCache= */ false);
+  }
+
+  private void assertBazelOutputServiceActionFileSystem(boolean useRemoteRepoContentsCache)
+      throws Exception {
+    var startupOptions =
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, RemoteStartupOptions.class)
+            .build();
+    startupOptions.parse(
+        "--output_base=/output",
+        "--experimental_remote_repo_contents_cache=" + useRemoteRepoContentsCache);
+    remoteModule.globalInit(startupOptions, ImmutableList.of());
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+    try {
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setRemoteOutputService(OUTPUT_SERVICE_SERVER_NAME);
+      var env = beforeCommand();
+      try {
+        remoteModule.executorInit(env, /* request= */ null, new ExecutorBuilder());
+
+        assertThat(remoteModule.getOutputService()).isInstanceOf(BazelOutputService.class);
+        assertThat(remoteModule.getOutputService().actionFileSystemType())
+            .isEqualTo(
+                useRemoteRepoContentsCache
+                    ? ActionFileSystemType.REMOTE_FILE_SYSTEM
+                    : ActionFileSystemType.DISABLED);
+        assertThat(remoteModule.getOutputService().supportsPathResolverForArtifactValues())
+            .isEqualTo(useRemoteRepoContentsCache);
+      } finally {
+        afterCommand(env);
+      }
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
     }
   }
 
