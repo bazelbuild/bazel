@@ -1603,11 +1603,13 @@ java_library(
     name = "starlark/starlark_transition",
     srcs = ["starlark/StarlarkTransition.java"],
     deps = [
+        ":platform_options",
         ":required_config_fragments_provider",
         ":starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_option_details",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
