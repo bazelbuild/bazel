@@ -180,6 +180,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     this.evaluator = null;
   }
 
+  /** Uses the uploaded digests while retaining the repository's files on disk. */
+  void injectUploadedRepo(RepositoryName repo, Tree contents, String markerFile) throws IOException {
+    evictInMemoryRepo(repo.getName());
+    try {
+      // Match cache-hit metadata so unchanged files can prune invalidation after a fresh fetch.
+      injectRepoContents(repo, contents, unused -> {}, unused -> {});
+      markerFileContents.put(repo.getName(), markerFile);
+    } catch (IOException e) {
+      evictInMemoryRepo(repo.getName());
+      throw e;
+    }
+  }
+
   /** Removes the contents of the given repo from the in-memory overlay file system. */
   private void evictInMemoryRepo(String repoName) {
     try {
@@ -213,22 +226,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     deleteTree(repoDir);
     materializedRepos.remove(repo.getName());
     var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
-    var childMap =
-        remoteContents.getChildrenList().stream()
-            .collect(
-                toImmutableMap(cache.digestUtil()::compute, directory -> directory, (a, b) -> a));
     var filesToPrefetch = new LinkedHashSet<PathFragment>();
     var symlinksToPrefetch = new ArrayList<PathFragment>();
-    externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
-    injectRecursively(
-        externalFs,
-        repoDir,
-        repoDir,
-        remoteContents.getRoot(),
-        childMap,
-        filesToPrefetch::add,
-        symlinksToPrefetch::add,
-        Instant.now().plus(remoteCacheTtl));
+    injectRepoContents(repo, remoteContents, filesToPrefetch::add, symlinksToPrefetch::add);
     addSymlinkTargetsToPrefetch(symlinksToPrefetch, filesToPrefetch);
     try {
       // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
@@ -249,6 +249,29 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // materialized. This doubles as a presence marker for the in-memory repo contents.
     markerFileContents.put(repo.getName(), markerFile);
     return true;
+  }
+
+  private void injectRepoContents(
+      RepositoryName repo,
+      Tree remoteContents,
+      Consumer<PathFragment> filesToPrefetch,
+      Consumer<PathFragment> symlinksToPrefetch)
+      throws IOException {
+    var repoDir = externalDirectory.getChild(repo.getName());
+    var childMap =
+        remoteContents.getChildrenList().stream()
+            .collect(
+                toImmutableMap(cache.digestUtil()::compute, directory -> directory, (a, b) -> a));
+    externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
+    injectRecursively(
+        externalFs,
+        repoDir,
+        repoDir,
+        remoteContents.getRoot(),
+        childMap,
+        filesToPrefetch,
+        symlinksToPrefetch,
+        Instant.now().plus(remoteCacheTtl));
   }
 
   /**
@@ -295,8 +318,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       Consumer<PathFragment> symlinksToPrefetch,
       Instant expirationTime)
       throws IOException {
-    // The parent directory always exists at this point: the repo's parent is created by
-    // injectRemoteRepo and subdirectories are only visited after their parent has been created.
+    // The repo's parent exists before recursion, and children are visited after their parent.
     var unused =
         fs.createDirectory(
             path, dir.getFilesCount() + dir.getSymlinksCount() + dir.getDirectoriesCount());

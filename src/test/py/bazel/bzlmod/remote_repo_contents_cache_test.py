@@ -3119,6 +3119,61 @@ class RemoteRepoContentsCacheTest(
     _, _, stderr = self.RunBazel(['build', '//main:use_data'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testChangePruningAfterFreshFetchAndCachedRestore(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  version = rctx.read(Label("@//:version")).strip()',
+            '  rctx.file("BUILD", "")',
+            '  rctx.file("stable.bzl", "NAME = \'stable\'")',
+            '  rctx.file("changing.bzl", "NAME = " + repr(version))',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    for package in ('stable', 'changing'):
+      self.ScratchFile(
+          f'{package}/BUILD.bazel',
+          [
+              f'load("@my_repo//:{package}.bzl", "NAME")',
+              'filegroup(name = NAME)',
+          ],
+      )
+
+    def build(version):
+      _, _, stderr = self.RunBazel(
+          ['build', '--nobuild', '//stable:stable', f'//changing:{version}']
+      )
+      return '\n'.join(stderr)
+
+    self.ScratchFile('version', ['one'])
+    self.assertIn('JUST FETCHED', build('one'))
+    # Let the MODULE.bazel.lock update settle before measuring package loads.
+    build('one')
+
+    # Only //changing should reload when the repository rule runs again.
+    self.ScratchFile('version', ['two'])
+    stderr = build('two')
+    self.assertIn('JUST FETCHED', stderr)
+    analyzed = 'Analyzed 2 targets (1 packages loaded, 1 target configured).'
+    self.assertIn(analyzed, stderr)
+
+    # Restoring the first version from the cache should also preserve //stable.
+    self.ScratchFile('version', ['one'])
+    stderr = build('one')
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn(analyzed, stderr)
+
   def testMaterializedFileIsNotTreatedAsDirtied(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/31006.
     # Materializing a repo restored from the remote repo contents cache makes

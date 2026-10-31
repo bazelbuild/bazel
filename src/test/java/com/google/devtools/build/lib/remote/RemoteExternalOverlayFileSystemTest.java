@@ -48,6 +48,68 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RemoteExternalOverlayFileSystemTest {
   @Test
+  public void injectUploadedRepo_keepsNativeFilesWhenInstallingMetadata() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var nativeFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getFastDigest(PathFragment path) {
+            return null;
+          }
+        };
+    var externalRoot = PathFragment.create("/output/external");
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
+    var prefetcher = mock(AbstractActionInputPrefetcher.class);
+    when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
+    overlay.beforeCommand(
+        new InMemoryCombinedCache(digestUtil),
+        prefetcher,
+        new Reporter(),
+        "build-request",
+        "command",
+        () -> mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    try {
+      var repo = RepositoryName.create("repo");
+      var repoDir = externalRoot.getChild(repo.getName());
+      nativeFs.getPath(repoDir).createDirectoryAndParents();
+      var digest = digestUtil.compute("contents".getBytes(UTF_8));
+      var root = Directory.newBuilder();
+      for (var name : ImmutableList.of("defs.bzl", "data")) {
+        var file = nativeFs.getPath(repoDir.getChild(name));
+        FileSystemUtils.writeContent(file, UTF_8, "contents");
+        file.setLastModifiedTime(123000L);
+        root.addFiles(FileNode.newBuilder().setName(name).setDigest(digest));
+      }
+      overlay.injectUploadedRepo(repo, Tree.newBuilder().setRoot(root).build(), "marker");
+
+      // The cache is empty: both Starlark and ordinary reads must use the existing local files.
+      for (var name : ImmutableList.of("defs.bzl", "data")) {
+        var path = repoDir.getChild(name);
+        assertThat(overlay.getPath(path).getFastDigest())
+            .isEqualTo(DigestUtil.toBinaryDigest(digest));
+        assertThat(FileSystemUtils.readContent(overlay.getPath(path), UTF_8))
+            .isEqualTo("contents");
+        assertThat(nativeFs.getPath(path).getLastModifiedTime()).isEqualTo(123000L);
+      }
+
+      var invalid =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addFiles(FileNode.newBuilder().setName("data").setDigest(digest))
+                      .addFiles(FileNode.newBuilder().setName("../escape").setDigest(digest)))
+              .build();
+      assertThrows(IOException.class, () -> overlay.injectUploadedRepo(repo, invalid, "marker"));
+      assertThat(overlay.getPath(repoDir.getChild("data")).getFastDigest()).isNull();
+      assertThat(FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("data")), UTF_8))
+          .isEqualTo("contents");
+    } finally {
+      overlay.afterCommand();
+    }
+  }
+
+  @Test
   public void getInputStream_lostFileDownloadedBefore_readFromDisk() throws Exception {
     var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
     var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
