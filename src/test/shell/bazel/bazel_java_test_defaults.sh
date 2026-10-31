@@ -446,12 +446,12 @@ EOF
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
     //pkg:foo &>"$TEST_log" && fail "Build should fail"
   expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
-  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
+  expect_log "^  @@rules_java+//toolchains:runtime_toolchain_type$"
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
   expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
-  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
+  expect_log "^  @@rules_java+//toolchains:runtime_toolchain_type$"
 }
 
 # TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
@@ -481,12 +481,12 @@ EOF
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
     //pkg:foo &>"$TEST_log" && fail "Build should fail"
   expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
-  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
+  expect_log "^  @@rules_java+//toolchains:runtime_toolchain_type$"
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
   expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
-  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
+  expect_log "^  @@rules_java+//toolchains:runtime_toolchain_type$"
 }
 
 run_suite "Java toolchains tests, configured using flags or the default_java_toolchain macro."
