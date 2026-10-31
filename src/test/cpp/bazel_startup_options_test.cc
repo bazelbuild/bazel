@@ -372,25 +372,32 @@ TEST_F(BazelStartupOptionsTest, BlockForLock) {
 }
 
 TEST_F(BazelStartupOptionsTest, RedactClientEnv) {
-  auto parse_flags = [this](const std::vector<std::string>& args) {
+  std::string error;
+  auto parse_flags = [this, &error](const std::vector<std::string>& args) {
     ReinitStartupOptions();
     std::vector<RcStartupFlag> flags;
     for (const auto& arg : args) {
       flags.push_back(RcStartupFlag("somewhere", arg));
     }
-    std::string err;
-    return startup_options_->ProcessArgs(flags, &err);
+    error.clear();
+    return startup_options_->ProcessArgs(flags, &error);
   };
+  const std::string expected_error =
+      "--redact_client_env requires a non-empty variable name without '='";
 
   EXPECT_EQ(blaze_exit_code::SUCCESS,
             parse_flags({"--redact_client_env=MY_INTERNAL_SIGNER",
-                         "--redact_client_env=GLYD_*"}));
+                         "--redact_client_env=GLYD_*"}))
+      << error;
   EXPECT_EQ((std::vector<std::string>{"MY_INTERNAL_SIGNER", "GLYD_*"}),
             startup_options_->redact_client_env);
 
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flags({"--redact_client_env="}));
+  EXPECT_EQ(expected_error, error);
+
   EXPECT_EQ(blaze_exit_code::BAD_ARGV,
             parse_flags({"--redact_client_env=FOO=bar"}));
+  EXPECT_EQ(expected_error, error);
 }
 
 TEST_F(BazelStartupOptionsTest, MacosQosClassValues) {
