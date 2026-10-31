@@ -350,6 +350,10 @@ public class BazelOutputServiceTest {
 
   @Test
   public void actionFileSystem_outputMetadataHandledByDaemon() throws Exception {
+    var overlay =
+        new RemoteExternalOverlayFileSystem(
+            outputBase.getRelative("external").asFragment(), fileSystem);
+    execRoot = overlay.getPath(execRoot.asFragment());
     BazelOutputService service = createService(10000);
     var actionFileSystemService =
         new RemoteOutputService(mock(BlazeDirectories.class), /* rewindLostInputs= */ false);
@@ -358,7 +362,7 @@ public class BazelOutputServiceTest {
     service.setActionFileSystemService(actionFileSystemService);
     var actionFs =
         service.createActionFileSystem(
-            fileSystem,
+            overlay,
             execRoot.asFragment(),
             "outputs",
             ImmutableList.of(),
@@ -374,8 +378,43 @@ public class BazelOutputServiceTest {
     service.stageArtifacts(ImmutableList.of(file));
 
     assertThat(fakeService.getStageRequests().get(0).getArtifacts(0).getPath()).isEqualTo("file");
-    assertThat(service.getXattrProvider(SyscallCache.NO_CACHE).getFastDigest(output))
+    var xattrProvider = service.getXattrProvider(SyscallCache.NO_CACHE);
+    assertThat(xattrProvider.getFastDigest(output)).isEqualTo(DigestUtil.toBinaryDigest(digest));
+    var resolvedOutput = actionFs.getPath("/prefix/suffix/file");
+    assertThat(xattrProvider.getFastDigest(resolvedOutput))
         .isEqualTo(DigestUtil.toBinaryDigest(digest));
+
+    var stats =
+        service
+            .getBatchStatter()
+            .batchStat(
+                ImmutableList.of(
+                    PathFragment.create("outputs/file"),
+                    FileSystemUtils.relativePath(
+                        execRoot.asFragment(), resolvedOutput.asFragment()),
+                    PathFragment.create("source")));
+    assertThat(stats).hasSize(3);
+    assertThat(stats.get(0).getDigest()).isEqualTo(DigestUtil.toBinaryDigest(digest));
+    assertThat(stats.get(1).getDigest()).isEqualTo(DigestUtil.toBinaryDigest(digest));
+    assertThat(stats.get(2)).isNull();
+
+    var artifact = ActionsTestUtil.createArtifact(artifactRoot, "file");
+    var metadata = mock(FileArtifactValue.class);
+    when(metadata.getType()).thenReturn(FileStateType.REGULAR_FILE);
+    when(metadata.getDigest()).thenReturn(DigestUtil.toBinaryDigest(digest));
+    when(metadata.getSize()).thenReturn(digest.getSizeBytes());
+    var outputMetadataStore = mock(OutputMetadataStore.class);
+    when(outputMetadataStore.getOutputMetadata(artifact)).thenReturn(metadata);
+    var action = mock(Action.class);
+    when(action.getOutputs()).thenReturn(ImmutableList.of(artifact));
+
+    service.finalizeAction(action, outputMetadataStore);
+
+    assertThat(fakeService.getFinalizeRequests()).hasSize(1);
+    assertThat(fakeService.getFinalizeRequests().get(0).getArtifacts(0).getPath())
+        .isEqualTo("file");
+    assertThat(fakeService.getFinalizeRequests().get(0).getArtifacts(0).getLocator())
+        .isEqualTo(fakeService.getStageRequests().get(0).getArtifacts(0).getLocator());
   }
 
   @Test

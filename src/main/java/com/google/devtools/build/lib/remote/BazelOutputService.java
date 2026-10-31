@@ -524,8 +524,9 @@ public class BazelOutputService implements OutputService {
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, InterruptedException {
-    var execRoot = execRootSupplier.get();
-    var outputPath = outputPathSupplier.get();
+    // The exec root may use an overlay while the output path is on the host file system.
+    var execRoot = execRootSupplier.get().asFragment();
+    var outputPath = outputPathSupplier.get().asFragment();
 
     // Send a partial lists to avoid too large messages.
     class RequestSizeLimitingActionFinalizer {
@@ -749,7 +750,7 @@ public class BazelOutputService implements OutputService {
   public BatchStat getBatchStatter() {
     return paths -> {
       var outputPath = outputPathSupplier.get().asFragment();
-      var execRoot = execRootSupplier.get();
+      var execRoot = execRootSupplier.get().asFragment();
 
       var request = BatchStatRequest.newBuilder();
       request.setBuildId(checkNotNull(buildId));
@@ -758,7 +759,7 @@ public class BazelOutputService implements OutputService {
       int index = 0;
       for (var execPath : paths) {
         String pathString = null;
-        var path = execRoot.getRelative(execPath).asFragment();
+        var path = execRoot.getRelative(execPath);
         if (path.startsWith(outputPath)) {
           pathString = path.relativeTo(outputPath).toString();
         } else if (path.startsWith(checkNotNull(outputPathTarget))) {
@@ -867,15 +868,16 @@ public class BazelOutputService implements OutputService {
       @Nullable
       @Override
       public byte[] getFastDigest(Path path) throws IOException {
+        var pathFragment = path.asFragment();
         var outputPath = outputPathSupplier.get().asFragment();
         var buildId = checkNotNull(BazelOutputService.this.buildId);
         var outputPathTarget = checkNotNull(BazelOutputService.this.outputPathTarget);
 
         String pathString = null;
-        if (path.startsWith(outputPath)) {
-          pathString = path.asFragment().relativeTo(outputPath).toString();
-        } else if (path.startsWith(outputPathTarget)) {
-          pathString = path.asFragment().relativeTo(outputPathTarget).toString();
+        if (pathFragment.startsWith(outputPath)) {
+          pathString = pathFragment.relativeTo(outputPath).toString();
+        } else if (pathFragment.startsWith(outputPathTarget)) {
+          pathString = pathFragment.relativeTo(outputPathTarget).toString();
         }
         if (pathString == null) {
           return super.getFastDigest(path);
