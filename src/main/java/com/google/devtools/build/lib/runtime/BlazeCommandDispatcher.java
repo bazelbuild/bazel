@@ -29,6 +29,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.io.CountingOutputStream;
 import com.google.common.io.Flushables;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.runtime.BlazeOptionHandler.DetailedParseResults;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -394,6 +396,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
+    // Query can stream machine-readable results. Only replay an attempt while its stdout is empty.
+    var queryOutput =
+        commandName.equals("query") ? new CountingOutputStream(outErr.getOutputStream()) : null;
+    if (queryOutput != null) {
+      outErr = OutErr.create(queryOutput, outErr.getErrorStream());
+    }
+
     Command commandAnnotation = command.getClass().getAnnotation(Command.class);
     BlazeWorkspace workspace = runtime.getWorkspace();
 
@@ -439,7 +448,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     }
 
     if (attemptNumber > 1) {
-      outErr.printErrLn("Found transient remote cache error, retrying the build...");
+      outErr.printErrLn(
+          "Found transient remote cache error, retrying the %s..."
+              .formatted(queryOutput == null ? "build" : "query"));
     }
 
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
@@ -824,7 +835,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       env.getEventBus().post(canonicalCommandLineEvent);
       env.getEventBus().post(commonOptions.getToolCommandLine());
 
-      // Run the command.
+      // Check before opening the destination as well as before retrying. A FIFO reader may
+      // unlink its pipe as soon as it has connected.
+      boolean canRetryQuery =
+          queryOutput != null && attemptedCommandIds.isEmpty() && canReopenQueryOutput(env, options);
       result = command.exec(env, options);
 
       DetailedExitCode moduleExitCode = env.finalizeDetailedExitCode();
@@ -851,12 +865,26 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
       needToCallAfterCommand = false;
       var newResult = runtime.afterCommand(/* forceKeepStateForTesting= */ false, env, result);
-      if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
-        var executionOptions =
-            Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attemptedCommandIds.size() < executionOptions.getRemoteRetryOnTransientCacheError()) {
-          throw new RemoteCacheTransientErrorException(env.getBuildRequestId(), env.getCommandId());
-        }
+      // Query overrides the numeric exit code for full and partial evaluation failures, but
+      // preserves the filesystem failure detail. On retry the overlay refetches the lost repo.
+      boolean retryQuery =
+          canRetryQuery
+              && queryOutput.getCount() == 0
+              && newResult.getFailureDetail() != null
+              && newResult.getFailureDetail().getFilesystem().getCode()
+                  == FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED
+              && canReopenQueryOutput(env, options);
+      var executionOptions = options.getOptions(ExecutionOptions.class);
+      boolean retryBuild =
+          newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)
+              && executionOptions != null
+              && attemptedCommandIds.size() < executionOptions.getRemoteRetryOnTransientCacheError();
+      boolean retryMod =
+          commandName.equals("mod")
+              && attemptedCommandIds.isEmpty()
+              && newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED);
+      if (retryQuery || retryBuild || retryMod) {
+        throw new RemoteCacheTransientErrorException(env.getBuildRequestId(), env.getCommandId());
       }
 
       return newResult;
@@ -1079,6 +1107,20 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   private void setShutdownReason(String shutdownReason) {
     this.shutdownReason.compareAndSet(null, shutdownReason);
+  }
+
+  private static boolean canReopenQueryOutput(CommandEnvironment env, OptionsParsingResult options) {
+    String outputFile = options.getOptions(QueryOptions.class).getOutputFile();
+    if (Strings.isNullOrEmpty(outputFile)) {
+      return true;
+    }
+    try {
+      // Reopening a regular file truncates it. Reopening a FIFO can block or duplicate results.
+      var status = env.getWorkingDirectory().getRelative(outputFile).statIfFound();
+      return status == null || (status.isFile() && !status.isSpecialFile());
+    } catch (IOException e) {
+      return false;
+    }
   }
 
   private static BlazeCommandResult createDetailedCommandResult(
