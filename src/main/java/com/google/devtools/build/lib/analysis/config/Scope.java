@@ -19,11 +19,21 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
- * Scope of a {@link BuildOptions} is defined by the {@link Scope.ScopeType} and {@link
- * Scope.ScopeDefinition}.
+ * Scope of a {@link BuildOptions}, including its boundary and exit policy.
+ *
+ * @param resetToDefault whether leaving project scope removes the override instead of restoring the
+ *     invocation baseline
  */
 @AutoCodec
-public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
+public record Scope(
+    ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition, boolean resetToDefault) {
+  @AutoCodec.Instantiator
+  public Scope {}
+
+  public Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
+    this(scopeType, scopeDefinition, false);
+  }
+
   public static final String CUSTOM_EXEC_SCOPE_PREFIX = "exec:--";
 
   /** Type of supported scopes. */

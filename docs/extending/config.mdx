@@ -176,19 +176,68 @@ flavor(
 
 #### Scope
 
-Build settings are by default only applied to the `target` [configuration]
-(/extending/rules#configurations), and won't be applied to the `exec`
-configuration. To have the build setting applied to both the `target` and `exec`
-configurations set the `scope` attribute to `"universal"`.
+Build settings default to `"target"` scope, which resets on exec transitions.
+Use `scope = "universal"` to propagate values to both target and exec
+[configurations](/extending/rules#configurations). Project scope instead retains
+values inside its `PROJECT.scl` boundary, including owned exec tools; see
+[Project boundary reset policy](#project-scope-reset-policy).
 
 ```python
 # example/BUILD
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 bool_flag(
     name = "use_this_for_compiler_and_sources",
+    build_setting_default = False,
     scope = "universal"
 )
 ```
+
+#### Project boundary reset policy {#project-scope-reset-policy}
+
+A setting with `scope = "project"` keeps its value inside the active directories
+of its nearest `PROJECT.scl`. Outside that boundary, it normally resets to the
+command-line baseline. To reset to its declared `build_setting_default` instead,
+opt into `scope_reset = "default"`:
+
+```python
+version_flag = rule(
+    implementation = lambda ctx: [],
+    build_setting = config.string(flag = True),
+    attrs = {
+        "scope": attr.string(),
+        "scope_reset": attr.string(default = "baseline"),
+    },
+)
+
+# BUILD
+version_flag(
+    name = "python_version",
+    build_setting_default = "neutral",
+    scope = "project",
+    scope_reset = "default",
+)
+```
+
+For example, `flags/PROJECT.scl` can own the flags and bindings while leaving a
+`//native` library outside the boundary:
+
+```python
+project = {"active_directories": {"default": ["//flags", "//bindings"]}}
+```
+
+The rule author declares the string attributes; the setting owner opts in on the
+instance. `label_flag` and `label_setting` provide them natively. Omitting
+`scope_reset`, or setting it to `"baseline"`, preserves existing behavior. The
+policy applies to project scope; it does not change target or universal scope.
+It is independent of `on_leave_scope`, which supplies a typed value when leaving
+target scope on an exec transition.
+
+This lets native dependencies outside the Python project share a configuration
+across command-line Python version selections while bindings and owned exec tools
+keep the selected version. Resetting removes the override, so boolean, list and
+label settings use their own declared defaults without a separate reset value.
+Project ownership is explicit: every consumer that needs the selected value must
+remain inside the declared boundary.
 
 ### Predefined settings {#predefined-settings}
 
@@ -342,6 +391,9 @@ actual target to which the build setting is set. `label_flag` and
 `label_setting` can be read/written by transitions and `label_flag` can be set
 by the user like other `build_setting` rules can. Their only difference is they
 can't customely defined.
+
+Both rules natively support [project scope and its reset policy](#project-scope-reset-policy).
+With `scope_reset = "default"`, an out-of-scope setting selects its declared default target.
 
 Label-typed settings will eventually replace the functionality of late-bound
 defaults. Late-bound default attributes are Label-typed attributes whose

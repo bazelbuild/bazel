@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -29,6 +31,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /** A builder for {@link BaselineOptionsValue} instances. */
@@ -147,10 +150,54 @@ public final class BaselineOptionsFunction implements SkyFunction {
       if (buildConfigurationKeyValue == null) {
         return null;
       }
-      return buildConfigurationKeyValue.buildConfigurationKey().getOptions();
+      return canonicalizeProjectDefaults(
+          env, rawBaselineOptions, buildConfigurationKeyValue.buildConfigurationKey().getOptions());
     } catch (PlatformMappingException | OptionsParsingException | InvalidPlatformException e) {
       throw new BaselineOptionsFunctionException(e);
     }
+  }
+
+  @Nullable
+  private static BuildOptions canonicalizeProjectDefaults(
+      Environment env, BuildOptions rawOptions, BuildOptions mappedOptions)
+      throws InterruptedException {
+    var projectFlags = new ArrayList<Label>();
+    for (Label flag : mappedOptions.getStarlarkOptions().keySet()) {
+      Scope.ScopeType rawScope = rawOptions.getScopeTypeMap().get(flag);
+      Scope.ScopeType mappedScope = mappedOptions.getScopeTypeMap().get(flag);
+      if ((rawScope != null && rawScope.scopeType().equals(Scope.ScopeType.PROJECT))
+          || (mappedScope != null && mappedScope.scopeType().equals(Scope.ScopeType.PROJECT))) {
+        projectFlags.add(flag);
+      }
+    }
+    if (projectFlags.isEmpty()) {
+      return mappedOptions;
+    }
+    // Mapping hides the original scope types to avoid re-entering scope enforcement. Resolve
+    // project metadata directly: this lookup loads packages/project files, not baseline options.
+    BuildOptions.Builder unresolved = mappedOptions.toBuilder();
+    projectFlags.forEach(unresolved::removeScope);
+    BuildOptionsScopeValue scopes =
+        (BuildOptionsScopeValue)
+            env.getValue(BuildOptionsScopeValue.Key.create(unresolved.build(), projectFlags));
+    if (scopes == null) {
+      return null;
+    }
+    if (scopes.getFullyResolvedScopes().values().stream().noneMatch(Scope::resetToDefault)) {
+      return mappedOptions;
+    }
+    BuildOptions.Builder canonical = mappedOptions.toBuilder();
+    scopes
+        .getFullyResolvedScopes()
+        .forEach(
+            (flag, scope) -> {
+              if (scope.resetToDefault()) {
+                // Canonicalize the output-path baseline too, including invocations at the declared
+                // default.
+                canonical.removeStarlarkOption(flag);
+              }
+            });
+    return canonical.build();
   }
 
   private static final class BaselineOptionsFunctionException extends SkyFunctionException {
