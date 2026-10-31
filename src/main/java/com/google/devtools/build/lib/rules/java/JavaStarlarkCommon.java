@@ -97,10 +97,9 @@ public class JavaStarlarkCommon
     }
   }
 
-  private void checkJavaToolchainIsDeclaredOnRule(RuleContext ruleContext)
-      throws EvalException, LabelSyntaxException {
+  private void checkJavaToolchainIsDeclaredOnRule(RuleContext ruleContext) throws EvalException {
     ToolchainInfo toolchainInfo =
-        ruleContext.getToolchainInfo(Label.parseCanonical(javaSemantics.getJavaToolchainType()));
+        ruleContext.getToolchainInfo(javaSemantics.getJavaToolchainType());
     if (toolchainInfo == null) {
       String ruleLocation = ruleContext.getRule().getLocation().toString();
       String ruleClass = ruleContext.getRule().getRuleClassObject().getName();
