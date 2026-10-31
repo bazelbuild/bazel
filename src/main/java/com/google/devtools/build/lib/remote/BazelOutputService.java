@@ -20,11 +20,17 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -52,11 +58,13 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.lib.vfs.XattrProvider.DelegatingXattrProvider;
 import com.google.protobuf.Any;
@@ -93,6 +101,10 @@ public class BazelOutputService implements OutputService {
   @Nullable private String buildId;
   @Nullable private PathFragment outputPathTarget;
 
+  // Cached repository inputs still need an action file system, even though the daemon owns the
+  // output tree. Only delegate action file system operations, never output staging or finalization.
+  @Nullable private RemoteOutputService actionFileSystemService;
+
   public BazelOutputService(
       Path outputBase,
       Supplier<Path> execRootSupplier,
@@ -126,6 +138,88 @@ public class BazelOutputService implements OutputService {
 
   public void shutdown() {
     channel.release();
+  }
+
+  void setActionFileSystemService(RemoteOutputService actionFileSystemService) {
+    this.actionFileSystemService = checkNotNull(actionFileSystemService);
+  }
+
+  @Override
+  public ActionFileSystemType actionFileSystemType() {
+    return actionFileSystemService != null
+        ? actionFileSystemService.actionFileSystemType()
+        : ActionFileSystemType.DISABLED;
+  }
+
+  @Override
+  public FileSystem createActionFileSystem(
+      FileSystem delegateFileSystem,
+      PathFragment execRootFragment,
+      String relativeOutputPath,
+      ImmutableList<Root> sourceRoots,
+      InputMetadataProvider inputArtifactData,
+      Iterable<Artifact> outputArtifacts,
+      boolean rewindingEnabled) {
+    return checkNotNull(actionFileSystemService)
+        .createActionFileSystem(
+            delegateFileSystem,
+            execRootFragment,
+            relativeOutputPath,
+            sourceRoots,
+            inputArtifactData,
+            outputArtifacts,
+            rewindingEnabled);
+  }
+
+  @Override
+  public void updateActionFileSystemContext(
+      ActionExecutionMetadata action,
+      FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore) {
+    checkNotNull(actionFileSystemService)
+        .updateActionFileSystemContext(
+            action, actionFileSystem, inputMetadataProvider, outputMetadataStore);
+  }
+
+  @Override
+  public boolean supportsPathResolverForArtifactValues() {
+    return actionFileSystemService != null
+        && actionFileSystemService.supportsPathResolverForArtifactValues();
+  }
+
+  @Override
+  public ArtifactPathResolver createPathResolverForArtifactValues(
+      PathFragment execRoot,
+      String relativeOutputPath,
+      FileSystem fileSystem,
+      ImmutableList<Root> pathEntries,
+      ActionInputMap actionInputMap) {
+    return checkNotNull(actionFileSystemService)
+        .createPathResolverForArtifactValues(
+            execRoot, relativeOutputPath, fileSystem, pathEntries, actionInputMap);
+  }
+
+  @Override
+  public void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
+      throws LostInputsActionExecutionException {
+    if (actionFileSystemService != null) {
+      actionFileSystemService.checkActionFileSystemForLostInputs(actionFileSystem, action);
+    }
+  }
+
+  @Override
+  public RewoundActionSynchronizer getRewoundActionSynchronizer() {
+    return actionFileSystemService != null
+        ? actionFileSystemService.getRewoundActionSynchronizer()
+        : RewoundActionSynchronizer.NOOP;
+  }
+
+  @Override
+  public void flushOutputTree() throws InterruptedException {
+    if (actionFileSystemService != null) {
+      actionFileSystemService.flushOutputTree();
+    }
   }
 
   @Override
@@ -283,7 +377,8 @@ public class BazelOutputService implements OutputService {
   }
 
   protected void stageArtifacts(List<FileMetadata> files) throws IOException, InterruptedException {
-    var outputPath = outputPathSupplier.get();
+    // Paths supplied by the action file system may belong to a different FileSystem instance.
+    var outputPath = outputPathSupplier.get().asFragment();
     var request = StageArtifactsRequest.newBuilder();
     request.setBuildId(buildId);
     final int initialRequestSize = request.build().getSerializedSize();
@@ -295,7 +390,7 @@ public class BazelOutputService implements OutputService {
       int endIdx;
       for (endIdx = 0; endIdx < files.size(); ++endIdx) {
         var file = files.get(endIdx);
-        var path = file.path().relativeTo(outputPath).toString();
+        var path = file.path().asFragment().relativeTo(outputPath).toString();
         requestSize += stageArtifactsRequestArtifactWithoutPathSize + path.length();
         if (endIdx > 0 && requestSize > maxOutboundMessageSize) {
           break;
@@ -325,7 +420,8 @@ public class BazelOutputService implements OutputService {
           throw new IOException(
               String.format(
                   "Failed to stage %s, code: %s",
-                  filesInRequest.get(i).path().relativeTo(outputPath), fileResponse.getStatus()));
+                  filesInRequest.get(i).path().asFragment().relativeTo(outputPath),
+                  fileResponse.getStatus()));
         }
       }
     }
@@ -428,8 +524,9 @@ public class BazelOutputService implements OutputService {
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, InterruptedException {
-    var execRoot = execRootSupplier.get();
-    var outputPath = outputPathSupplier.get();
+    // The exec root may use an overlay while the output path is on the host file system.
+    var execRoot = execRootSupplier.get().asFragment();
+    var outputPath = outputPathSupplier.get().asFragment();
 
     // Send a partial lists to avoid too large messages.
     class RequestSizeLimitingActionFinalizer {
@@ -653,7 +750,7 @@ public class BazelOutputService implements OutputService {
   public BatchStat getBatchStatter() {
     return paths -> {
       var outputPath = outputPathSupplier.get().asFragment();
-      var execRoot = execRootSupplier.get();
+      var execRoot = execRootSupplier.get().asFragment();
 
       var request = BatchStatRequest.newBuilder();
       request.setBuildId(checkNotNull(buildId));
@@ -662,7 +759,7 @@ public class BazelOutputService implements OutputService {
       int index = 0;
       for (var execPath : paths) {
         String pathString = null;
-        var path = execRoot.getRelative(execPath).asFragment();
+        var path = execRoot.getRelative(execPath);
         if (path.startsWith(outputPath)) {
           pathString = path.relativeTo(outputPath).toString();
         } else if (path.startsWith(checkNotNull(outputPathTarget))) {
@@ -771,15 +868,16 @@ public class BazelOutputService implements OutputService {
       @Nullable
       @Override
       public byte[] getFastDigest(Path path) throws IOException {
-        var outputPath = outputPathSupplier.get();
+        var pathFragment = path.asFragment();
+        var outputPath = outputPathSupplier.get().asFragment();
         var buildId = checkNotNull(BazelOutputService.this.buildId);
         var outputPathTarget = checkNotNull(BazelOutputService.this.outputPathTarget);
 
         String pathString = null;
-        if (path.startsWith(outputPath)) {
-          pathString = path.relativeTo(outputPath).toString();
-        } else if (path.startsWith(outputPathTarget)) {
-          pathString = path.asFragment().relativeTo(outputPathTarget).toString();
+        if (pathFragment.startsWith(outputPath)) {
+          pathString = pathFragment.relativeTo(outputPath).toString();
+        } else if (pathFragment.startsWith(outputPathTarget)) {
+          pathString = pathFragment.relativeTo(outputPathTarget).toString();
         }
         if (pathString == null) {
           return super.getFastDigest(path);

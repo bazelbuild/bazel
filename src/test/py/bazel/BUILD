@@ -429,6 +429,10 @@ py_test(
     name = "remote_repo_contents_cache_test",
     size = "large",
     srcs = ["bzlmod/remote_repo_contents_cache_test.py"],
+    data = [
+        "//src/tools/remote:test_output_service",
+        "//src/tools/remote:test_output_service_deploy.jar",
+    ],
     shard_count = 8,
     tags = ["requires-network"],
     deps = [":remote_repo_contents_cache_test_base"],
