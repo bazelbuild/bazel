@@ -351,8 +351,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
   } else if ((value = GetUnaryOption(arg, next_arg, "--redact_client_env")) !=
              nullptr) {
     if (*value == '\0' || strchr(value, '=') != nullptr) {
-      *error =
-          "--redact_client_env requires a non-empty variable name without '='";
+      blaze_util::StringPrintf(
+          error,
+          "Invalid argument to --redact_client_env: '%s'. "
+          "Expected a non-empty variable name without '='.",
+          value);
       return blaze_exit_code::BAD_ARGV;
     }
     redact_client_env.push_back(value);
