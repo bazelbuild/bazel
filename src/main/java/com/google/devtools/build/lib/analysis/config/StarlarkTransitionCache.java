@@ -19,6 +19,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
@@ -98,7 +99,10 @@ public final class StarlarkTransitionCache {
     return result;
   }
 
-  /** Adds the default values for a transition's input build settings to its input build options. */
+  /**
+   * Adds the default values for a transition's input build settings to its input build options. An
+   * alias gets the value of the setting it refers to instead if that is set.
+   */
   private BuildOptions addDefaultStarlarkOptions(
       BuildOptions fromOptions,
       ImmutableMap<String, Label> flagsAliases,
@@ -118,11 +122,17 @@ public final class StarlarkTransitionCache {
           optionsWithDefaults = fromOptions.toBuilder();
         }
         optionsWithDefaults.addStarlarkOption(
-            maybeAliasSetting, details.buildSettingToDefault().get(setting));
+            maybeAliasSetting,
+            fromOptions
+                .getStarlarkOptions()
+                .getOrDefault(setting, details.buildSettingToDefault().get(setting)));
       }
     }
 
-    return getDefaultStarlarkOptionsForCustomExec(optionsWithDefaults, details, fromOptions);
+    if (transition.getName().equals("exec")) {
+      return getDefaultStarlarkOptionsForCustomExec(optionsWithDefaults, details, fromOptions);
+    }
+    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   public static BuildOptions getDefaultStarlarkOptionsForCustomExec(
@@ -187,10 +197,40 @@ public final class StarlarkTransitionCache {
     // All code below here only executes on a cache miss and thus should rely only on values that
     // are part of the above cache key or constants that exist throughout the lifetime of the
     // Blaze server instance.
+    StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
+    Map<String, BuildOptions> result;
+    try {
+      // Each transition in a composition is applied and validated on its own. This is also
+      // necessary since the exec transition drops the Starlark options it doesn't propagate.
+      result =
+          ComposingTransitionFactory.applyComposed(
+              transition,
+              fromOptions,
+              (composedTransition, options) ->
+                  applyAndValidate(
+                      composedTransition, options, flagsAliases, details, handlerWithErrorStatus));
+    } finally {
+      handlerWithErrorStatus.replayOn(eventHandler);
+    }
+    // If the transition errored (like bad Starlark code), this method already exited with an
+    // exception so the results won't go into the cache. We still want to collect non-error events
+    // like print() output.
+    StoredEventHandler nonErrorEvents =
+        !handlerWithErrorStatus.isEmpty() ? handlerWithErrorStatus : null;
+    cache.put(cacheKey, new Value(result, nonErrorEvents));
+    return result;
+  }
+
+  private Map<String, BuildOptions> applyAndValidate(
+      ConfigurationTransition transition,
+      BuildOptions fromOptions,
+      ImmutableMap<String, Label> flagsAliases,
+      StarlarkBuildSettingsDetailsValue details,
+      StoredEventHandler handlerWithErrorStatus)
+      throws TransitionException, InterruptedException {
     BuildOptions adjustedOptions =
         addDefaultStarlarkOptions(fromOptions, flagsAliases, transition, details);
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
-    StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
         transition.apply(
             TransitionUtil.restrict(transition, adjustedOptions), handlerWithErrorStatus);
@@ -202,18 +242,10 @@ public final class StarlarkTransitionCache {
     // TODO(bazel-team): harden StarlarkTransition.validate so we can eliminate this step.
     // StarlarkRuleTransitionProviderTest#testAliasedBuildSetting_outputReturnMismatch shows the
     // effect.
-    handlerWithErrorStatus.replayOn(eventHandler);
     if (handlerWithErrorStatus.hasErrors()) {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
-    result = StarlarkTransition.validate(transition, details, flagsAliases, result);
-    // If the transition errored (like bad Starlark code), this method already exited with an
-    // exception so the results won't go into the cache. We still want to collect non-error events
-    // like print() output.
-    StoredEventHandler nonErrorEvents =
-        !handlerWithErrorStatus.isEmpty() ? handlerWithErrorStatus : null;
-    cache.put(cacheKey, new Value(result, nonErrorEvents));
-    return result;
+    return StarlarkTransition.validate(transition, details, flagsAliases, result);
   }
 
   public void clear() {

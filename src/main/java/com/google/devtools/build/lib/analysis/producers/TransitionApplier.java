@@ -60,6 +60,7 @@ final class TransitionApplier
   private final StateMachine runAfter;
 
   // -------------------- Internal State --------------------
+  private boolean appliesExecTransition;
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
 
   TransitionApplier(
@@ -88,7 +89,9 @@ final class TransitionApplier
           (StarlarkTransitionVisitor)
               t -> {
                 doesStarlarkTransition.set(true);
-                if (!t.isExecTransition() && (t.readsStampSetting() || t.setsStampSetting())) {
+                if (t.isExecTransition()) {
+                  appliesExecTransition = true;
+                } else if (t.readsStampSetting() || t.setsStampSetting()) {
                   stampDependent.set(true);
                 }
               });
@@ -121,10 +124,11 @@ final class TransitionApplier
             fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
     Set<Label> hostFlags = new HashSet<>();
 
-    // If the transition is the exec transition, we want to look up the host flag declared by
-    // users in the blazerc/MODULE.bazel files with alias pointing to the starlark definition. This
-    // is useful to determine exec propagation for flags with scope that starts with "exec:--".
-    if (transition.getName().equals("exec")) {
+    // If the transition is or composes the exec transition, we want to look up the host flag
+    // declared by users in the blazerc/MODULE.bazel files with alias pointing to the starlark
+    // definition. This is useful to determine exec propagation for flags with scope that starts
+    // with "exec:--".
+    if (appliesExecTransition) {
       for (Map.Entry<String, Label> alias :
           fromConfiguration
               .getOptions()
