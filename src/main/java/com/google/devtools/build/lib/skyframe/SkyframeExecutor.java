@@ -1854,7 +1854,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(
       BuildLanguageOptions buildLanguageOptions) {
-    return buildLanguageOptions.toStarlarkSemantics();
+    return buildLanguageOptions.toStarlarkSemantics().toBuilder()
+        .set(Artifact.MAIN_REPO_RUNFILES_DIRECTORY, ruleClassProvider.getRunfilesPrefix())
+        .build();
   }
 
   private void setPackageLocator(PathPackageLocator pkgLocator) {
