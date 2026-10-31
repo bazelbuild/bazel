@@ -5,7 +5,7 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "native_image_release_archive", "release_archive")
 load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
@@ -595,7 +595,7 @@ release_archive(
     ],
 )
 
-release_archive(
+native_image_release_archive(
     name = "turbine_direct_graal_zip",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal"],
     package_dir = "java_tools",
