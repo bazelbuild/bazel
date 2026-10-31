@@ -87,9 +87,11 @@ public class PlatformRule implements RuleDefinition {
                 .nonconfigurable("Part of the configuration"))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(exec_properties) -->
-        A map of strings that affect the way actions are executed remotely. Bazel makes no attempt
-        to interpret this, it is treated as opaque data that's forwarded via the Platform field of
-        the  <a href="https://github.com/bazelbuild/remote-apis">remote execution protocol</a>.
+        A map of strings that affect the way actions are executed remotely. They are forwarded via
+        the Platform field of the <a href="https://github.com/bazelbuild/remote-apis">remote
+        execution protocol</a>, except for execution requirements that only Bazel itself
+        interprets, namely keys starting with <code>no-</code>, <code>supports-</code> or
+        <code>disable-</code> as well as <code>local</code> and <code>worker-key-mnemonic</code>.
 
         This includes any data from the parent platform's <code>exec_properties</code> attributes.
         If the child and parent platform define the same keys, the child's values are kept. Any
