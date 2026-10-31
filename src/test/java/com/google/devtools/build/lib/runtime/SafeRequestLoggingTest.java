@@ -26,6 +26,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SafeRequestLoggingTest {
 
+  @After
+  public void resetRedactedNames() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of());
+  }
+
   @Test
   public void testGetRequestLogStringPassesThroughNonSensitiveClientEnv() {
     assertThat(
@@ -192,11 +197,6 @@ public class SafeRequestLoggingTest {
         .inOrder();
   }
 
-  @After
-  public void resetRedactedNames() {
-    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of());
-  }
-
   @Test
   public void setRedactedClientEnvNames_exactNameIsRedacted_wholeNameOnly() {
     SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("MY_INTERNAL_SIGNER"));
@@ -238,6 +238,17 @@ public class SafeRequestLoggingTest {
                 + " --client_env=PGP_SIGNING_PWD=__private_value_removed__,"
                 + " --client_env=XGLYD_X=isprinted,"
                 + " --client_env=OTHER=GLYD_X]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_bareStarRedactsEveryVariable() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("*"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of("--client_env=A=notprinted", "--client_env=B=notprinted")))
+        .isEqualTo(
+            "[--client_env=A=__private_value_removed__,"
+                + " --client_env=B=__private_value_removed__]");
   }
 
   @Test
