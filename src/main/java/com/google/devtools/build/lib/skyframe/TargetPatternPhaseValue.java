@@ -124,6 +124,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     }
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
+        && this.nonExpandedLabels.equals(that.nonExpandedLabels)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
   }
@@ -133,6 +134,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return Objects.hash(
         this.targetLabels,
         this.testsToRunLabels,
+        this.nonExpandedLabels,
         this.hasError,
         this.hasPostExpansionError);
   }

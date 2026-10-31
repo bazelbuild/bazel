@@ -272,7 +272,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
     return ImmutableList.of(
         PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableMap.of()),
         PrecomputedValue.injected(RegistryFunction.WATCHED_REGISTRIES, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),

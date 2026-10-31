@@ -388,7 +388,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
             .build();
     PackageFactory pkgFactory =
         ((PackageFactoryBuilderWithSkyframeForTesting)
