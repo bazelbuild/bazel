@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,19 +60,7 @@ public class SafeRequestLogging {
 
   /** Translates a name where only {@code *} is special into a regex bounded to a variable name. */
   private static String globToRegex(String name) {
-    StringBuilder regex = new StringBuilder();
-    int start = 0;
-    for (int star = name.indexOf('*'); star >= 0; star = name.indexOf('*', start)) {
-      if (star > start) {
-        regex.append(Pattern.quote(name.substring(start, star)));
-      }
-      regex.append("[^=]*");
-      start = star + 1;
-    }
-    if (start < name.length()) {
-      regex.append(Pattern.quote(name.substring(start)));
-    }
-    return regex.toString();
+    return Arrays.stream(name.split("\\*", -1)).map(Pattern::quote).collect(joining("[^=]*"));
   }
 
   private static final ImmutableSet<String> CREDENTIAL_OPTION_NAMES =
