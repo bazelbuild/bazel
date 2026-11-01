@@ -118,13 +118,9 @@ public class RemoteOutputChecker implements OutputChecker {
     return lastRemoteOutputChecker;
   }
 
-  void clearPreviousCommand() {
+  void cleanForNextCommand() {
     // Retain only this command's policy for the next command.
     lastRemoteOutputChecker = null;
-  }
-
-  /** Clears the caches, which aren't needed after the command has ended. */
-  void clearCaches() {
     treeMatchesPatternCache.clear();
     treeChildrenMatchingPatternCache.invalidateAll();
   }

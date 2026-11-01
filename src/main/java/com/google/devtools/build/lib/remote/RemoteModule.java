@@ -1112,8 +1112,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     if (remoteOutputChecker != null) {
-      remoteOutputChecker.clearPreviousCommand();
-      remoteOutputChecker.clearCaches();
+      remoteOutputChecker.cleanForNextCommand();
     }
     lastRemoteOutputChecker = remoteOutputChecker;
     lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();

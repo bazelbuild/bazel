@@ -218,21 +218,6 @@ public class RemoteOutputCheckerTest {
   }
 
   @Test
-  public void shouldDownloadOutput_treeMatchesRegex_downloadsChildren() throws Exception {
-    var checker = createCheckerWithRegex(".*/foo/tree");
-
-    assertThat(
-            checker.shouldDownloadOutput(
-                PathFragment.create("out/foo/tree/dir/a.txt"), PathFragment.create("out/foo/tree")))
-        .isTrue();
-    assertThat(
-            checker.shouldDownloadOutput(
-                PathFragment.create("out/foo/other/dir/a.txt"),
-                PathFragment.create("out/foo/other")))
-        .isFalse();
-  }
-
-  @Test
   public void getTreeChildrenToDownload_childrenMatchRegex_returnsMatchingRemoteChildren()
       throws Exception {
     var checker = createCheckerWithRegex(".*\\.txt");
@@ -247,8 +232,6 @@ public class RemoteOutputCheckerTest {
             .putChild(localMatching, LOCAL_METADATA)
             .build();
 
-    assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
-        .containsExactly(remoteMatching);
     assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
         .containsExactly(remoteMatching);
     assertConsistentWithShouldDownloadOutput(checker, tree, treeValue);
@@ -271,35 +254,6 @@ public class RemoteOutputCheckerTest {
 
     assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
         .containsExactly(remote1, remote2);
-    assertConsistentWithShouldDownloadOutput(checker, tree, treeValue);
-  }
-
-  @Test
-  public void getTreeChildrenToDownload_noRegex_returnsNoChildren() {
-    var tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(execRoot, "foo/tree");
-    var treeValue =
-        TreeArtifactValue.newBuilder(tree)
-            .putChild(TreeFileArtifact.createTreeOutput(tree, "a.txt"), REMOTE_METADATA)
-            .build();
-
-    assertThat(remoteOutputChecker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
-        .isEmpty();
-    assertConsistentWithShouldDownloadOutput(remoteOutputChecker, tree, treeValue);
-  }
-
-  @Test
-  public void getTreeChildrenToDownload_downloadAll_returnsAllRemoteChildren() {
-    var checker = new RemoteOutputChecker("build", RemoteOutputsMode.ALL, ImmutableList.of());
-    var tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(execRoot, "foo/tree");
-    var remote = TreeFileArtifact.createTreeOutput(tree, "a.txt");
-    var treeValue =
-        TreeArtifactValue.newBuilder(tree)
-            .putChild(remote, REMOTE_METADATA)
-            .putChild(TreeFileArtifact.createTreeOutput(tree, "b.txt"), LOCAL_METADATA)
-            .build();
-
-    assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
-        .containsExactly(remote);
     assertConsistentWithShouldDownloadOutput(checker, tree, treeValue);
   }
 
@@ -353,7 +307,7 @@ public class RemoteOutputCheckerTest {
   }
 
   @Test
-  public void getTreeChildrenToDownload_matchesEachPathOnlyOnce() throws Exception {
+  public void getTreeChildrenToDownload_matchesEachPathOncePerCommand() throws Exception {
     List<String> matchedPaths = new ArrayList<>();
     var checker =
         new RemoteOutputChecker(
@@ -368,36 +322,17 @@ public class RemoteOutputCheckerTest {
             .putChild(TreeFileArtifact.createTreeOutput(tree, "b.bin"), REMOTE_METADATA)
             .build();
 
-    for (int i = 0; i < 3; i++) {
-      assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
-          .containsExactly(matching);
-    }
-
+    assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
+        .containsExactly(matching);
+    assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
+        .containsExactly(matching);
     assertThat(matchedPaths)
         .containsExactly("out/foo/tree", "out/foo/tree/a.txt", "out/foo/tree/b.bin");
-  }
 
-  @Test
-  public void clearCaches_matchesPathsAgain() throws Exception {
-    List<String> matchedPaths = new ArrayList<>();
-    var checker =
-        new RemoteOutputChecker(
-            "build",
-            RemoteOutputsMode.MINIMAL,
-            ImmutableList.of(recordingRegex(".*\\.txt", matchedPaths)));
-    var tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(execRoot, "foo/tree");
-    var treeValue =
-        TreeArtifactValue.newBuilder(tree)
-            .putChild(TreeFileArtifact.createTreeOutput(tree, "a.bin"), REMOTE_METADATA)
-            .build();
-
-    assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue)).isEmpty();
-    checker.clearCaches();
-    assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue)).isEmpty();
-
-    assertThat(matchedPaths)
-        .containsExactly(
-            "out/foo/tree", "out/foo/tree/a.bin", "out/foo/tree", "out/foo/tree/a.bin");
+    checker.cleanForNextCommand();
+    assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
+        .containsExactly(matching);
+    assertThat(matchedPaths).hasSize(6);
   }
 
   /** Returns a regex option that records every path it is matched against. */

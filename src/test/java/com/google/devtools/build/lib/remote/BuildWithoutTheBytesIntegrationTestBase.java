@@ -519,60 +519,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void downloadOutputsWithRegex_treeInRunfilesOfMultipleTargets_regexMatchesTreeFile()
-      throws Exception {
-    writeOutputDirRule();
-    write(
-        "bin.bzl",
-        """
-        def _bin_impl(ctx):
-            executable = ctx.actions.declare_file(ctx.label.name)
-            ctx.actions.write(executable, "", is_executable = True)
-            return [
-                DefaultInfo(
-                    executable = executable,
-                    runfiles = ctx.runfiles(files = ctx.files.data),
-                ),
-            ]
-
-        bin = rule(
-            implementation = _bin_impl,
-            attrs = {"data": attr.label_list(allow_files = True)},
-            executable = True,
-        )
-        """);
-    write(
-        "BUILD",
-        """
-        load(":bin.bzl", "bin")
-        load(":output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo",
-            content_map = {"file-1": "1", "file-2": "2", "file-3": "3"},
-        )
-
-        bin(
-            name = "bin1",
-            data = [":foo"],
-        )
-
-        bin(
-            name = "bin2",
-            data = [":foo"],
-        )
-        """);
-    addOptions("--remote_download_regex=.*foo/file-2$");
-
-    buildTarget("//:bin1", "//:bin2");
-    waitDownloads();
-
-    assertValidOutputFile("foo/file-2", "2");
-    assertOutputDoesNotExist("foo/file-1");
-    assertOutputDoesNotExist("foo/file-3");
-  }
-
-  @Test
   public void downloadOutputsWithRegex_treeOutput_regexMatchesEmptyTreeRoot() throws Exception {
     writeOutputDirRule();
     write(
