@@ -79,10 +79,8 @@ public class RemoteOutputChecker implements OutputChecker {
   private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
   private final Set<PathFragment> pathsToSkip = ConcurrentHashMap.newKeySet();
 
-  // Matching a path against the download regexes can be expensive and tree artifacts, e.g. those in
-  // the runfiles of many tests, are often checked many times per build. The results of matching
-  // the path of a tree artifact and the paths of its children are thus cached. The latter cache
-  // uses weak keys, which are compared by identity.
+  // Tree artifacts and their children are often checked many times per build, e.g. when they are
+  // in the runfiles of many tests.
   private final Map<PathFragment, Boolean> treeMatchesPatternCache = new ConcurrentHashMap<>();
   private final Cache<TreeArtifactValue, ImmutableSet<TreeFileArtifact>>
       treeChildrenMatchingPatternCache = Caffeine.newBuilder().weakKeys().build();
@@ -125,11 +123,7 @@ public class RemoteOutputChecker implements OutputChecker {
     lastRemoteOutputChecker = null;
   }
 
-  /**
-   * Clears the caches of pattern matching results. Call this when the command ends: afterwards,
-   * this checker is only retained to provide its download policy to the next command, which doesn't
-   * need the caches.
-   */
+  /** Clears the caches, which aren't needed after the command has ended. */
   void clearCaches() {
     treeMatchesPatternCache.clear();
     treeChildrenMatchingPatternCache.invalidateAll();
@@ -398,10 +392,8 @@ public class RemoteOutputChecker implements OutputChecker {
   /**
    * Returns the children of the given tree artifact that should be downloaded.
    *
-   * <p>This is equivalent to calling {@link #shouldDownloadOutput(ActionInput, FileArtifactValue)}
-   * for every child, but the result of matching the children against the download regexes is cached
-   * per {@link TreeArtifactValue}. Use this for tree artifacts that are likely to be checked many
-   * times, such as tree artifacts in the runfiles of many top-level targets.
+   * <p>Equivalent to calling {@link #shouldDownloadOutput(ActionInput, FileArtifactValue)} for
+   * every child, but caches regex matches per {@link TreeArtifactValue}.
    */
   public ImmutableList<TreeFileArtifact> getTreeChildrenToDownload(
       PathFragment treeExecPath, TreeArtifactValue treeValue) {

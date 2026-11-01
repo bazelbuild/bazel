@@ -249,7 +249,6 @@ public class RemoteOutputCheckerTest {
 
     assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
         .containsExactly(remoteMatching);
-    // Served from the cache.
     assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
         .containsExactly(remoteMatching);
     assertConsistentWithShouldDownloadOutput(checker, tree, treeValue);
@@ -319,8 +318,7 @@ public class RemoteOutputCheckerTest {
     assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
         .containsExactly(matching);
 
-    // Only the regex matches are cached, other reasons to download or skip a child must still be
-    // taken into account.
+    // Only regex matches are cached.
     checker.addOutputToDownload(tree);
     assertThat(checker.getTreeChildrenToDownload(tree.getExecPath(), treeValue))
         .containsExactly(matching, notMatching);

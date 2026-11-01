@@ -197,8 +197,6 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
         return;
       }
 
-      // Tree artifacts are often in the runfiles of many top-level targets. Matching their children
-      // against the download regexes is cached across calls.
       var filesToDownload =
           remoteOutputChecker.getTreeChildrenToDownload(artifact.getExecPath(), treeArtifactValue);
       if (!filesToDownload.isEmpty()) {
