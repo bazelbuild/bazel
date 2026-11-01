@@ -210,7 +210,7 @@ static int CreateTarget(const char* path, bool is_directory) {
   return 0;
 }
 
-static void SetupSelfDestruction(int* pipe_to_parent) {
+static void SetupSelfDestruction() {
   // We could also poll() on the pipe fd to find out when the parent goes away,
   // and rely on SIGCHLD interrupting that otherwise. That might require us to
   // install some trivial handler for SIGCHLD. Using O_ASYNC to turn the pipe
@@ -226,17 +226,22 @@ static void SetupSelfDestruction(int* pipe_to_parent) {
   if (setpgid(0, 0) < 0) {
     DIE("setpgid");
   }
-
-  // Verify that the parent still lives.
-  SignalPipe(pipe_to_parent);
 }
 
-static void SetupMountNamespace() {
+static void SetupMountNamespace(int* pipe_to_parent) {
   // Fully isolate our mount namespace private from outside events, so that
   // mounts in the outside environment do not affect our sandbox.
   if (mount(nullptr, "/", nullptr, MS_REC | MS_PRIVATE, nullptr) < 0) {
+    if (errno == EACCES && !opt.hermetic) {
+      close(pipe_to_parent[0]);
+      close(pipe_to_parent[1]);
+      _exit(kAppArmorBwrapFallbackExitCode);
+    }
     DIE("mount");
   }
+
+  // Verify that the parent still lives.
+  SignalPipe(pipe_to_parent);
 }
 
 static void SetupUserNamespace() {
@@ -923,10 +928,10 @@ int Pid1Main(void* args) {
   // Start with default signal handlers and an empty signal mask.
   ClearSignalMask();
 
-  SetupSelfDestruction(pid1Args.pipe_to_parent);
+  SetupSelfDestruction();
 
   // Sandbox ourselves.
-  SetupMountNamespace();
+  SetupMountNamespace(pid1Args.pipe_to_parent);
   SetupUserNamespace();
   if (opt.fake_hostname) {
     SetupUtsNamespace();
@@ -963,5 +968,217 @@ int Pid1Main(void* args) {
   // Note that there's no need to kill any remaining descendant processes; they
   // are in our PID namespace and the kernel will send them SIGKILL
   // automatically once we exit.
+  return WaitForChild();
+}
+
+pid_t SpawnBwrap(int argc, char* argv[]) {
+  for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
+    if (opt.working_dir.find(tmpfs_dir) == 0) {
+      DIE("The sandbox working directory cannot be below a path where we mount "
+          "tmpfs (you requested mounting %s in %s). Is your --output_base= "
+          "below one of your --sandbox_tmpfs_path values?",
+          opt.working_dir.c_str(), tmpfs_dir.c_str());
+    }
+  }
+
+  std::unordered_set<std::string> bind_mount_sources;
+  for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
+    const std::string& source = opt.bind_mount_sources.at(i);
+    bind_mount_sources.insert(source);
+    const std::string& target = opt.bind_mount_targets.at(i);
+    PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
+  }
+  for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
+    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
+  }
+  for (const std::string& writable_file : opt.writable_files) {
+    PRINT_DEBUG("writable: %s", writable_file.c_str());
+  }
+  if (!opt.working_dir.empty()) {
+    PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
+  }
+  if (global_debug != nullptr) {
+    fflush(global_debug);
+  }
+
+  uid_t inner_uid = global_outer_uid;
+  gid_t inner_gid = global_outer_gid;
+  if (opt.fake_root) {
+    inner_uid = 0;
+    inner_gid = 0;
+  } else if (opt.fake_username) {
+    struct passwd pwd;
+    char buf[1024];
+    struct passwd* result = nullptr;
+    if (getpwnam_r("nobody", &pwd, buf, sizeof(buf), &result) != 0 ||
+        result == nullptr) {
+      DIE("getpwnam_r for nobody failed");
+    }
+    inner_uid = pwd.pw_uid;
+    inner_gid = pwd.pw_gid;
+  }
+  if (opt.enable_pty) {
+    struct group grp;
+    char buf[256];
+    struct group* result = nullptr;
+    getgrnam_r("tty", &grp, buf, sizeof(buf), &result);
+    if (result == nullptr) {
+      DIE("getgrnam_r");
+    }
+    inner_gid = grp.gr_gid;
+  }
+
+  char self_exe[4096];
+  ssize_t self_len = readlink("/proc/self/exe", self_exe, sizeof(self_exe) - 1);
+  if (self_len < 0) {
+    DIE("readlink(/proc/self/exe)");
+  }
+  self_exe[self_len] = '\0';
+
+  int pipe_from_child[2], pipe_to_child[2];
+  if (pipe(pipe_from_child) < 0 || pipe(pipe_to_child) < 0) {
+    DIE("pipe");
+  }
+
+  const pid_t child_pid = fork();
+  if (child_pid < 0) {
+    DIE("fork");
+  }
+
+  if (child_pid == 0) {
+    WaitPipe(pipe_to_child);
+    if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
+      DIE("prctl");
+    }
+    if (setpgid(0, 0) < 0) {
+      DIE("setpgid");
+    }
+    SignalPipe(pipe_from_child);
+
+    if (global_debug != nullptr) {
+      fclose(global_debug);
+      global_debug = nullptr;
+    }
+
+    // Ignore SIGTERM in bwrap itself so polite SIGTERM sent to the process
+    // group is caught and forwarded by the inner linux-sandbox process rather
+    // than terminating bwrap prematurely.
+    IgnoreSignal(SIGTERM);
+    if (setenv("BAZEL_LINUX_SANDBOX_BWRAP_PID1", "1", 1) < 0) {
+      DIE("setenv");
+    }
+
+    std::vector<std::string> args_storage;
+    auto add_arg = [&](const std::string& s) { args_storage.push_back(s); };
+    add_arg("/usr/bin/bwrap");
+    add_arg("--die-with-parent");
+    add_arg("--unshare-user");
+    add_arg("--unshare-pid");
+    add_arg("--unshare-ipc");
+    if (opt.create_netns != NO_NETNS) {
+      add_arg("--unshare-net");
+    }
+    if (opt.fake_hostname) {
+      add_arg("--unshare-uts");
+      add_arg("--hostname");
+      add_arg("localhost");
+    }
+    add_arg("--uid");
+    add_arg(std::to_string(inner_uid));
+    add_arg("--gid");
+    add_arg(std::to_string(inner_gid));
+    add_arg("--ro-bind");
+    add_arg("/");
+    add_arg("/");
+
+    const char* devs[] = {"/dev/null",   "/dev/zero",    "/dev/full",
+                          "/dev/random", "/dev/urandom", nullptr};
+    for (int i = 0; devs[i] != nullptr; i++) {
+      add_arg("--dev-bind");
+      add_arg(devs[i]);
+      add_arg(devs[i]);
+    }
+    if (opt.enable_pty) {
+      add_arg("--dev-bind");
+      add_arg("/dev/pts");
+      add_arg("/dev/pts");
+      add_arg("--dev-bind");
+      add_arg("/dev/ptmx");
+      add_arg("/dev/ptmx");
+    }
+    add_arg("--proc");
+    add_arg("/proc");
+
+    for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
+      const std::string& source = opt.bind_mount_sources.at(i);
+      const std::string& target = opt.bind_mount_targets.at(i);
+      bool writable = false;
+      for (const std::string& wf : opt.writable_files) {
+        if (wf == source) {
+          writable = true;
+          break;
+        }
+      }
+      add_arg(writable ? "--bind" : "--ro-bind");
+      add_arg(source);
+      add_arg(target);
+    }
+
+    for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
+      add_arg("--tmpfs");
+      add_arg(tmpfs_dir);
+    }
+
+    for (const std::string& writable_file : opt.writable_files) {
+      if (bind_mount_sources.find(writable_file) != bind_mount_sources.end()) {
+        continue;
+      }
+      add_arg("--bind");
+      add_arg(writable_file);
+      add_arg(writable_file);
+    }
+
+    if (!opt.working_dir.empty()) {
+      add_arg("--bind");
+      add_arg(opt.working_dir);
+      add_arg(opt.working_dir);
+      add_arg("--chdir");
+      add_arg(opt.working_dir);
+    }
+
+    add_arg("--");
+    add_arg(self_exe);
+    for (int i = 1; i < argc; i++) {
+      add_arg(argv[i]);
+    }
+
+    std::vector<char*> bwrap_argv;
+    bwrap_argv.reserve(args_storage.size() + 1);
+    for (std::string& s : args_storage) {
+      bwrap_argv.push_back(s.data());
+    }
+    bwrap_argv.push_back(nullptr);
+
+    execv("/usr/bin/bwrap", bwrap_argv.data());
+    DIE("execv(/usr/bin/bwrap)");
+  }
+
+  SignalPipe(pipe_to_child);
+  WaitPipe(pipe_from_child);
+  return child_pid;
+}
+
+int RunInBwrapPid1() {
+  if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
+    DIE("prctl");
+  }
+  ClearSignalMask();
+  if (!opt.working_dir.empty()) {
+    EnterWorkingDirectory();
+  }
+  IgnoreSignal(SIGTTIN);
+  IgnoreSignal(SIGTTOU);
+  SpawnChild();
+  InstallSignalHandler(SIGTERM, ForwardSignal);
   return WaitForChild();
 }
