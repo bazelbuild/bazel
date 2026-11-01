@@ -15,12 +15,19 @@ bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None)  # version 
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None)  # version bump, fixes errors with older compilers
 bazel_dep(name = "rules_android", version = "0.8.0", repo_name = None)  # version bump, bazel 10+ Android builds need flag_alias()es
 
-
 xcode_configure = use_extension("@apple_support//xcode:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
 
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
-use_repo(java_toolchains, "remote_java_tools")
+use_repo(
+    java_toolchains,
+    "remote_java_tools",
+    "remote_java_tools_darwin_arm64",
+    "remote_java_tools_darwin_x86_64",
+    "remote_java_tools_linux",
+    "remote_java_tools_linux_aarch64",
+    "remote_java_tools_windows",
+)
 
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")

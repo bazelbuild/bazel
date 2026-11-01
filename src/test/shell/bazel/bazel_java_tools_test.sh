@@ -101,6 +101,16 @@ function test_java_tools_has_ijar_binary() {
   expect_path_in_java_tools_prebuilt "java_tools/ijar/ijar"
 }
 
+function test_java_tools_has_zipper_binary() {
+  expect_path_in_java_tools_prebuilt "java_tools/ijar/zipper"
+}
+
+function test_java_tools_prebuilt_zipper_is_exposed() {
+  bazel cquery @local_java_tools_prebuilt//:zipper_prebuilt_binary \
+    --output=files >"$TEST_log" 2>&1 || fail "prebuilt zipper failed to analyze"
+  expect_log 'java_tools/ijar/zipper(\.exe)?$'
+}
+
 function test_java_tools_has_native_windows() {
   expect_path_in_java_tools "java_tools/src/main/native/windows"
 }
