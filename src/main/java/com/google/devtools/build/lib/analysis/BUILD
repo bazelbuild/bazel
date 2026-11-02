@@ -2419,6 +2419,8 @@ java_library(
     srcs = ["configuredtargets/EnvironmentGroupConfiguredTarget.java"],
     deps = [
         ":analysis_core",
+        ":file_provider",
+        ":transitive_info_provider",
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",

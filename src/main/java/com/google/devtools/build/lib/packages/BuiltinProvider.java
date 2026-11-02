@@ -13,12 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * Base class for declared providers {@see Provider} built into Blaze.
@@ -35,18 +41,24 @@ import net.starlark.java.syntax.Location;
  * in the subclass definition to create instances of its corresponding Info object. The method
  * should be annotated with {@link StarlarkMethod} with {@link StarlarkMethod#selfCall} set to true,
  * and with {@link StarlarkConstructor} for the info type it constructs.
+ *
+ * <p>Implementations that are not callable from Starlark typically should subclass {@link
+ * BuiltinProvider.NonCallable}. (The exception is if a non-callable provider needs a custom {@link
+ * StarlarkBuiltin}-annotated interface; see {@link BuiltinProvider.NonCallable} documentation below
+ * for details.)
  */
-// TODO: #27370 - Generate a ProviderType for builtin providers.
 @Immutable
-public abstract class BuiltinProvider<T extends Info> implements Provider {
+public abstract class BuiltinProvider<T extends Info> implements Provider, TypeConstructor {
   private final Key key;
   private final String name;
   private final Class<T> valueClass;
+  private final StarlarkType valueType;
 
   protected BuiltinProvider(String name, Class<T> valueClass) {
     this.key = new Key(name, getClass());
     this.name = name;
     this.valueClass = valueClass;
+    this.valueType = Starlark.getStarlarkTypeFromJavaType(valueClass, /* objectIsAny= */ false);
   }
 
   public Class<T> getValueClass() {
@@ -101,6 +113,40 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   /** Returns the identifier of this provider. */
   public StarlarkProviderIdentifier id() {
     return StarlarkProviderIdentifier.forKey(key);
+  }
+
+  /** Returns the Starlark type of the {@link Info} instances that this provider constructs. */
+  @Override
+  public StarlarkType createStarlarkType(ImmutableList<Term> argsTuple)
+      throws TypeConstructor.Failure {
+    if (!argsTuple.isEmpty()) {
+      throw new TypeConstructor.Failure(
+          String.format("'%s' does not accept arguments", getPrintableName()));
+    }
+    return valueType;
+  }
+
+  /**
+   * Convenience class for subclassing {@link BuiltinProvider}s that cannot be called from Starlark.
+   *
+   * <p>Exception: since {@link BuiltinProvider.NonCallable} is annotated as a {@link
+   * StarlarkBuiltin}, non-callable providers with custom {@link StarlarkBuiltin}-annotated
+   * interfaces should not subclass it. Instead, such providers can subclass {@link BuiltinProvider}
+   * directly. To ensure that such a provider is typed correctly, the {@link StarlarkBuiltin}-
+   * annotated interface needs to extend {@link ProviderApi} and have a static {@code
+   * getStarlarkType()} method that returns the appropriate type ({@link Types#TYPE} or a subtype of
+   * it). Example: {@code AnalysisFailureInfoProvider}.
+   */
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
+  public abstract static class NonCallable<T extends Info> extends BuiltinProvider<T> {
+    protected NonCallable(String name, Class<T> valueClass) {
+      super(name, valueClass);
+    }
+
+    public static StarlarkType getStarlarkType() {
+      // Just a reified type, not a Callable, since it does not act as a constructor.
+      return Types.TYPE;
+    }
   }
 
   /** A serializable reference to a {@link BuiltinProvider}. */

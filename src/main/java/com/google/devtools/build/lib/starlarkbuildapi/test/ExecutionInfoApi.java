@@ -25,6 +25,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.StarlarkType;
 
 /**
  * This provider can be implemented by rules which need special environments to run in (especially
@@ -55,6 +56,10 @@ public interface ExecutionInfoApi extends StructApi {
       // Documented by the outer ExecutionInfoApi class and its constructor doc.
       documented = false)
   interface ExecutionInfoApiProvider extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(ExecutionInfoApiProvider.class, ExecutionInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "ExecutionInfo",

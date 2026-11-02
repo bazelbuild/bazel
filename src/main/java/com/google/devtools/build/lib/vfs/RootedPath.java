@@ -117,6 +117,25 @@ public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
     return createInternal(root, rootRelativeParentDirectory);
   }
 
+  /**
+   * Returns the {@link RootedPath} of the direct child {@code baseName} of this path, under the
+   * same root.
+   *
+   * @throws IllegalArgumentException if {@code baseName} is empty, "." or "..", or contains a
+   *     separator
+   */
+  public RootedPath getChild(String baseName) {
+    return createInternal(root, rootRelativePath.getChild(baseName));
+  }
+
+  /**
+   * Returns the last segment of the root-relative path, or the empty string if this is the root
+   * itself (or, for an absolute root, a mount name such as '/' or 'C:/').
+   */
+  public String getRootRelativeBaseName() {
+    return rootRelativePath.getBaseName();
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {

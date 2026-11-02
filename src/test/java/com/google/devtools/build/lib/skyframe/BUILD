@@ -1155,7 +1155,7 @@ java_test(
 
 java_test(
     name = "BzlCompileFunctionTest",
-    timeout = "short",
+    timeout = "moderate",
     srcs = ["BzlCompileFunctionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",

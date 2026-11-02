@@ -28,4 +28,12 @@ public interface CompressionService extends BlazeService {
 
   /** Returns an {@link OutputStream} that compresses the given {@link OutputStream} using zstd. */
   OutputStream newZstdOutputStream(OutputStream outputStream) throws IOException;
+
+  /**
+   * Compresses {@code input} into a single zstd frame at {@code level}.
+   *
+   * <p>Unlike {@link #newZstdOutputStream}, the input size is known up front, so zstd tunes its
+   * parameters to it. The output is readable by {@link #newZstdInputStream}.
+   */
+  byte[] compressZstd(byte[] input, int level) throws IOException;
 }

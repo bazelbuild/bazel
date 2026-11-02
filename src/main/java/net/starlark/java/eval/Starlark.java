@@ -28,6 +28,8 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.util.List;
@@ -447,6 +449,72 @@ public final class Starlark {
   public static StarlarkType getStarlarkTypePropagatingStackOverflow(
       Object value, StarlarkSemantics semantics) {
     return getStarlarkType(value, semantics, /* checkSelfReferential= */ false);
+  }
+
+  /**
+   * Returns the heuristically "best-fitting" Starlark type for the given Java type. Falls back to
+   * {@code Any} if no specific match is found.
+   *
+   * <p>Prefer to use {@link #getStarlarkType(Object, StarlarkSemantics)} when typing a concrete
+   * value of the type.
+   *
+   * @param objectIsAny if true, Java {@link Object} maps to Starlark {@code Any}; otherwise, it
+   *     maps to Starlark {@code object}. Should be typically be set to true for typing the return
+   *     value of a method, since {@link Object} in a return type frequently means a wildcard.
+   */
+  public static StarlarkType getStarlarkTypeFromJavaType(Type cls, boolean objectIsAny) {
+    if (cls == NoneType.class || cls == void.class) {
+      return Types.NONE;
+    } else if (cls == String.class) {
+      return Types.STR;
+    } else if (cls == Boolean.class || cls == boolean.class) {
+      return Types.BOOL;
+    } else if (cls == int.class
+        || cls == long.class
+        || cls == Integer.class
+        || cls == Long.class
+        || cls == StarlarkInt.class
+        || (cls instanceof Class<?> c && BigInteger.class.isAssignableFrom(c))) {
+      return Types.INT;
+    } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
+      return Types.FLOAT;
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Dict.class) {
+      return Types.dict(
+          getStarlarkTypeFromJavaType(ptype.getActualTypeArguments()[0], objectIsAny),
+          getStarlarkTypeFromJavaType(ptype.getActualTypeArguments()[1], objectIsAny));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
+      return Types.list(
+          getStarlarkTypeFromJavaType(ptype.getActualTypeArguments()[0], objectIsAny));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkSet.class) {
+      return Types.set(getStarlarkTypeFromJavaType(ptype.getActualTypeArguments()[0], objectIsAny));
+    } else if (cls instanceof Class<?> c && Tuple.class.isAssignableFrom(c)) {
+      // TODO: #27370 - Should we ever return a narrower tuple type?
+      return Types.homogeneousTuple(Types.ANY);
+    } else if (cls instanceof ParameterizedType ptype
+        && ptype.getRawType() == StarlarkIterable.class) {
+      return Types.collection(
+          getStarlarkTypeFromJavaType(ptype.getActualTypeArguments()[0], objectIsAny));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
+      return Types.sequence(
+          getStarlarkTypeFromJavaType(ptype.getActualTypeArguments()[0], objectIsAny));
+    } else if (cls == StarlarkCallable.class || cls == StarlarkFunction.class) {
+      return Types.ANY_CALLABLE;
+    } else if (cls == StarlarkValue.class) {
+      return Types.OBJECT;
+    } else if (cls == Object.class) {
+      return objectIsAny ? Types.ANY : Types.OBJECT;
+    } else {
+      if (cls instanceof Class<?> c) {
+        @Nullable StarlarkType classStarlarkType = CallUtils.getStarlarkBuiltinAutoType(c);
+        if (classStarlarkType != null) {
+          return classStarlarkType;
+        }
+        if (Structure.class.isAssignableFrom(c)) {
+          return Types.ANY_STRUCT;
+        }
+      }
+      return Types.ANY;
+    }
   }
 
   /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */

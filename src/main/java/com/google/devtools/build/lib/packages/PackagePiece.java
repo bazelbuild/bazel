@@ -269,6 +269,12 @@ public abstract sealed class PackagePiece extends Packageoid
       }
 
       @Override
+      @Nullable
+      public MacroInstance getTargetDeclaringMacro(String name) {
+        return null;
+      }
+
+      @Override
       @CanIgnoreReturnValue
       public Builder setLoads(Iterable<Module> directLoads) {
         return (Builder) super.setLoads(directLoads);
@@ -479,6 +485,12 @@ public abstract sealed class PackagePiece extends Packageoid
       @Override
       public boolean eagerlyExpandMacros() {
         return false;
+      }
+
+      @Override
+      @Nullable
+      public MacroInstance getTargetDeclaringMacro(String name) {
+        return recorder.getTarget(name) != null ? getPackagePiece().getEvaluatedMacro() : null;
       }
 
       /** Can only be called for a finalizer package piece. */

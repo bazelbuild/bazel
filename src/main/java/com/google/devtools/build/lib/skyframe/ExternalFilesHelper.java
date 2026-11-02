@@ -308,9 +308,12 @@ public class ExternalFilesHelper {
       Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
       if (rootedPath.asPath().startsWith(externalRepoDir)) {
         return FileType.EXTERNAL_REPO;
-      } else {
-        return FileType.OUTPUT;
       }
+      if (rootedPath.asPath().equals(outputBase.getRelative(LabelConstants.MODULE_LOCKFILE_NAME))) {
+        // The hidden lockfile must reflect writes even when output-file checking is disabled.
+        return FileType.EXTERNAL_OTHER;
+      }
+      return FileType.OUTPUT;
     }
     return FileType.EXTERNAL_OTHER;
   }

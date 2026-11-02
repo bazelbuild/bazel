@@ -49,28 +49,6 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void projectFunction_returnsActiveDirectories() throws Exception {
-    scratch.file(
-        "test/PROJECT.scl",
-        """
-        project = {
-          "active_directories": {'default': ['foo'], 'a': ['bar', '-bar/baz']},
-        }
-        """);
-    scratch.file("test/BUILD");
-    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
-
-    EvaluationResult<ProjectValue> result =
-        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
-    assertThat(result.hasError()).isFalse();
-
-    ProjectValue value = result.get(key);
-    assertThat(value.getProjectDirectories().get("default")).containsExactly("foo");
-    assertThat(value.getProjectDirectories().get("a")).containsExactly("bar", "-bar/baz");
-    assertThat(value.getProjectDirectories().get("b")).isNull();
-  }
-
-  @Test
   public void projectFunction_returnsDefaultActiveDirectories() throws Exception {
     scratch.file(
         "test/PROJECT.scl",
@@ -259,8 +237,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(value.getActualProjectFile()).isEqualTo(Label.parseCanonical("//test:PROJECT.scl"));
     assertThat(value.getBuildableUnits().get("default").isDefault()).isTrue();
     assertThat(value.getBuildableUnits().get("non_default").isDefault()).isFalse();
-    assertThat(value.getProjectDirectories()).hasSize(1);
-    assertThat(value.getProjectDirectories().get("default")).containsExactly("//test/...");
+    assertThat(value.getDefaultProjectDirectories()).containsExactly("//test/...");
 
     assertThat(value.getBuildableUnits()).containsKey("default");
     assertThat(value.getBuildableUnits().get("default"))
@@ -344,8 +321,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.get(key).getEnforcementPolicy())
         .isEqualTo(ProjectValue.EnforcementPolicy.WARN);
     assertThat(result.get(key).getAlwaysAllowedConfigs()).isNull();
-    assertThat(result.get(key).getProjectDirectories()).hasSize(1);
-    assertThat(result.get(key).getProjectDirectories().get("default")).isEmpty();
+    assertThat(result.get(key).getDefaultProjectDirectories()).isEmpty();
 
     // Buildable unit defaults:
     assertThat(result.get(key).getBuildableUnits().get("foo").targetPatternMatcher().isEmpty())

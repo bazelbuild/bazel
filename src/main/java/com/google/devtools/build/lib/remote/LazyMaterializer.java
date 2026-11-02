@@ -23,6 +23,9 @@ import java.io.IOException;
  * storage, and that supports materializing them to the local file system on demand.
  */
 public interface LazyMaterializer {
+  /** Returns the recorded file permissions, or the default for a path outside the overlay. */
+  int getMaterializationPermissions(PathFragment path, int defaultPermissions) throws IOException;
+
   /**
    * Materializes the given external repository to the local file system if its contents are
    * currently only available in memory.

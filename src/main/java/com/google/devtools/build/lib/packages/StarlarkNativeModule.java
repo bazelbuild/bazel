@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Comparator.naturalOrder;
 
 import com.google.common.base.Joiner;
@@ -23,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Maps;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -507,12 +509,29 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
   }
 
+  private static boolean getOmitMacroInternals(Object rawOmitMacroInternals, StarlarkThread thread)
+      throws EvalException {
+    return switch (rawOmitMacroInternals) {
+      case Boolean b -> b;
+      case Starlark.UnboundMarker unbound ->
+          thread
+              .getSemantics()
+              .getBool(
+                  BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_DEFAULT_OMIT_MACRO_INTERNALS);
+      default -> {
+        throw Starlark.errorf(
+            "expected bool for omit_macro_internals, got %s", Starlark.type(rawOmitMacroInternals));
+      }
+    };
+  }
+
   /*
     If necessary, we could allow filtering by tag (anytag, alltags), name (regexp?), kind ?
     For now, we ignore this, since users can implement it in Starlark.
   */
   @Override
-  public Object existingRules(StarlarkThread thread) throws EvalException {
+  public Object existingRules(Object rawOmitMacroInternals, StarlarkThread thread)
+      throws EvalException {
     if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
       return Dict.empty();
     }
@@ -524,7 +543,54 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       throw Starlark.errorf(
           "under lazy macro expansion, existing_rules() is supported only in finalizer macros");
     }
-    return new ExistingRulesView(targetDefinitionContext.getRulesSnapshotView());
+    boolean omitMacroInternals = getOmitMacroInternals(rawOmitMacroInternals, thread);
+    Map<String, Rule> rulesSnapshotView = targetDefinitionContext.getRulesSnapshotView();
+    if (omitMacroInternals) {
+      rulesSnapshotView =
+          Maps.filterValues(
+              rulesSnapshotView, rule -> !isMacroInternal(rule, targetDefinitionContext));
+    }
+    return new ExistingRulesView(rulesSnapshotView);
+  }
+
+  private static boolean isDeclaredInSymbolicMacro(
+      Rule rule, TargetDefinitionContext targetDefinitionContext) {
+    if (targetDefinitionContext.getTarget(rule.getName()) != null) {
+      // Rule declared in the package (or package piece) which we're currently evaluating. Note we
+      // cannot call rule.getDeclaringMacro() because the package's targetsToDeclaringMacro map has
+      // not been set yet.
+      return targetDefinitionContext.getTargetDeclaringMacro(rule.getName()) != null;
+    } else {
+      return rule.getDeclaringMacro() != null;
+    }
+  }
+
+  /**
+   * Returns true if {@code rule} was declared in a symbolic macro but is neither
+   * //visibility:public nor explicitly lists the current package in its visibility declaration
+   * (indicating that it's not part of its declaring macro's public API).
+   */
+  private static boolean isMacroInternal(
+      Rule rule, TargetDefinitionContext targetDefinitionContext) {
+    checkArgument(
+        rule.getLabel()
+            .getPackageIdentifier()
+            .equals(targetDefinitionContext.getPackageIdentifier()));
+
+    if (!isDeclaredInSymbolicMacro(rule, targetDefinitionContext)) {
+      return false;
+    }
+    @Nullable RuleVisibility visibility = rule.getRawVisibility();
+    if (visibility == null) {
+      // For a rule declared in a macro, null is private/empty visibility.
+      return true;
+    } else if (visibility.equals(RuleVisibility.PUBLIC)) {
+      return false;
+    } else {
+      Label currentPkg =
+          Label.createUnvalidated(targetDefinitionContext.getPackageIdentifier(), "__pkg__");
+      return !visibility.getDeclaredLabels().contains(currentPkg);
+    }
   }
 
   @Override

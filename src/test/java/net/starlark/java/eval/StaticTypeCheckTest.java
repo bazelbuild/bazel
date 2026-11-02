@@ -207,6 +207,14 @@ public final class StaticTypeCheckTest {
     public static TypeConstructor getAssociatedTypeConstructor() {
       throw new RuntimeException("fail");
     }
+
+    // The existence of this static method prevents CallUtils from trying to invoke
+    // getAssociatedTypeConstructor() to cache the result in starlarkBuiltinAutoTypeCache and
+    // immediately blowing up. (We want to test the path where getAssociatedTypeConstructor() is
+    // invoked when processing a Starlark type expression.)
+    public static StarlarkType getStarlarkType() {
+      return Types.NEVER;
+    }
   }
 
   @StarlarkBuiltin(name = "BadSignatureTypeBuiltin")
@@ -214,6 +222,14 @@ public final class StaticTypeCheckTest {
     @SuppressWarnings("DoNotCallSuggester")
     public TypeConstructor getAssociatedTypeConstructor() { // missing `static`
       throw new RuntimeException("fail");
+    }
+
+    // The existence of this static method prevents CallUtils from trying to invoke
+    // getAssociatedTypeConstructor() to cache the result in starlarkBuiltinAutoTypeCache and
+    // immediately blowing up. (We want to test the path where getAssociatedTypeConstructor() is
+    // invoked when processing a Starlark type expression.)
+    public static StarlarkType getStarlarkType() {
+      return Types.NEVER;
     }
   }
 

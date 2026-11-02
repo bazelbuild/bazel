@@ -54,7 +54,8 @@ public interface Target extends TargetData {
    * outside any symbolic macro (i.e. directly in a BUILD file or only in one or more legacy
    * macros).
    *
-   * <p>For targets in deserialized packages, throws {@link IllegalStateException}.
+   * <p>For targets in deserialized packages, or in packages that have not yet finished loading,
+   * this throws {@link IllegalStateException}.
    */
   // Overlaps RuleorMacroInstance#getDeclaringMacro.
   @Nullable

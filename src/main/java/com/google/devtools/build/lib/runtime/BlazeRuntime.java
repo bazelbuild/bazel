@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -31,6 +32,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -151,7 +153,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -225,6 +229,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final boolean deleteOutputBaseOnShutdown;
   @Nullable private volatile String lastSymlinkPrefix = null;
 
+  private final Runnable forcedGcAction;
+
+  @Nullable private ScheduledExecutorService forcedGcExecutor;
+
   private BlazeRuntime(
       FileSystem fileSystem,
       UUID instanceId,
@@ -251,7 +259,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory,
       InstrumentationOutputFactory instrumentationOutputFactory,
       FileSystemLock installBaseLock,
-      boolean deleteOutputBaseOnShutdown) {
+      boolean deleteOutputBaseOnShutdown,
+      Runnable forcedGcAction) {
     // Server state
     this.fileSystem = fileSystem;
     this.instanceId = instanceId;
@@ -285,6 +294,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.installBaseLock = installBaseLock;
     this.deleteOutputBaseOnShutdown = deleteOutputBaseOnShutdown;
     this.cgroupsInfo = VirtualCgroup.getInstance().cgroupsInfo();
+    this.forcedGcAction = forcedGcAction;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -725,6 +735,42 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               options.getActionCacheGcThreshold() / 100.0f,
               options.getActionCacheGcMaxAge()));
     }
+
+    if (!env.getCommandName().equals("info")) {
+      startForcedGcExecutor(options.getForcedGcInterval());
+    }
+  }
+
+  private void startForcedGcExecutor(Duration interval) {
+    if (interval.isZero() || interval.isNegative()) {
+      return;
+    }
+    if (forcedGcExecutor != null) {
+      return;
+    }
+    forcedGcExecutor =
+        Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder().setNameFormat("forced-gc-thread").setDaemon(true).build());
+    var unused =
+        forcedGcExecutor.scheduleWithFixedDelay(
+            () -> {
+              try (var _ = Profiler.instance().profile(ProfilerTask.MANUAL_GC, "forced GC")) {
+                forcedGcAction.run();
+              }
+            },
+            interval.toMillis(),
+            interval.toMillis(),
+            MILLISECONDS);
+  }
+
+  public void stopForcedGcExecutor() {
+    if (forcedGcExecutor != null) {
+      forcedGcExecutor.shutdownNow();
+      try (var _ = Profiler.instance().profile("Joining forced GC thread")) {
+        Uninterruptibles.awaitTerminationUninterruptibly(forcedGcExecutor);
+      }
+      forcedGcExecutor = null;
+    }
   }
 
   @Override
@@ -805,6 +851,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   @VisibleForTesting
   public BlazeCommandResult afterCommand(
       boolean forceKeepStateForTesting, CommandEnvironment env, BlazeCommandResult commandResult) {
+    stopForcedGcExecutor();
     this.env = null;
 
     // Remove any filters that the command might have added to the reporter.
@@ -1759,6 +1806,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private ActionKeyContext actionKeyContext;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     @Nullable private FileSystemLock installBaseLock;
+    private Runnable forcedGcAction = System::gc;
 
     @VisibleForTesting
     public BlazeRuntime build() throws AbruptExitException {
@@ -1877,7 +1925,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getRepositoryHelpersFactory(),
               serverBuilder.createInstrumentationOutputFactory(),
               installBaseLock,
-              deleteOutputBaseOnShutdown);
+              deleteOutputBaseOnShutdown,
+              forcedGcAction);
       BugReport.setRuntime(runtime);
       return runtime;
     }
@@ -1984,6 +2033,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     @VisibleForTesting
     public Builder setBugReporter(BugReporter bugReporter) {
       this.bugReporter = bugReporter;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @VisibleForTesting
+    public Builder setForcedGcAction(Runnable forcedGcAction) {
+      this.forcedGcAction = Preconditions.checkNotNull(forcedGcAction);
       return this;
     }
 

@@ -522,6 +522,20 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     invalidateRepoDirectories(evaluator, reposToDiscard);
   }
 
+  @Override
+  public int getMaterializationPermissions(PathFragment path, int defaultPermissions)
+      throws IOException {
+    if (path.startsWith(externalDirectory)) {
+      // injectRemoteRepo prefetches before setting markerFileContents, so fsForPath would select
+      // nativeFs. Read externalFs directly so prefetched files preserve the cached executable bit.
+      var stat = externalFs.statIfFound(path, /* followSymlinks= */ true);
+      if (stat != null && stat.isFile()) {
+        return (stat.getPermissions() & 0100) != 0 ? 0555 : 0444;
+      }
+    }
+    return defaultPermissions;
+  }
+
   /**
    * Materializes the subtree rooted at the given path to the native file system if it lies in a
    * repo whose contents are currently only available in memory.
@@ -608,9 +622,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // .bzl files are typically small and the loads between them can form complex DAGs that can only
     // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
     // cache requests.
-    // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
-    // fetched anyway.
-    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+    // The REPO.bazel and .bazelignore files, if present, are dependencies of any package and will
+    // thus have to be fetched anyway. Prefetching them also ensures that their loss from the remote
+    // cache results in a cache miss rather than a build failure.
+    return path.getFileExtension().equals("bzl")
+        || path.getBaseName().equals("REPO.bazel")
+        || path.getBaseName().equals(".bazelignore");
   }
 
   @Override
@@ -715,13 +732,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getLastModifiedTime(path, followSymlinks);
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return fsForPath(path).getLastModifiedTimeNanos(path, followSymlinks);
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    fsForPath(path).setLastModifiedTime(path, newTime);
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    fsForPath(path).setLastModifiedTimeNanos(path, newTime);
   }
 
   @Override

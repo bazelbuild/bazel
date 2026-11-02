@@ -23,7 +23,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,6 +70,15 @@ public final class ChunkedValueSerialization {
     return chunkSize.get();
   }
 
+  /**
+   * Default zstd level for one-shot compression of shared values.
+   *
+   * <p>Shared values such as NestedSet arrays are mostly random fingerprints. With a zstd stream
+   * that doesn't know the input size, their compressed size swings by up to 15% depending on the
+   * fingerprint values. One-shot level 4 is stable and costs no measurable CPU end to end.
+   */
+  public static final int DEFAULT_ZSTD_LEVEL = 4;
+
   /** Result of maybe compressing and chunking a byte payload. */
   @SuppressWarnings("ArrayRecordComponent")
   public record ChunkingResult(byte[] serializedBytes, int bytesToUpload) {
@@ -95,13 +103,9 @@ public final class ChunkedValueSerialization {
         Math.min(SharedValueSerializationContext.COMPRESSION_THRESHOLD_IN_BYTES, currentChunkSize);
 
     if (uncompressedBytes.length > compressionThreshold) {
-      ByteArrayOutputStream compressedOut = new ByteArrayOutputStream();
       byte[] compressed = null;
       try {
-        try (OutputStream zstdOut = compressionService.newZstdOutputStream(compressedOut)) {
-          zstdOut.write(uncompressedBytes);
-        }
-        compressed = compressedOut.toByteArray();
+        compressed = compressionService.compressZstd(uncompressedBytes, DEFAULT_ZSTD_LEVEL);
       } catch (IOException e) {
         BugReporter.defaultInstance().sendBugReport(e);
         // Fall back to uncompressed.

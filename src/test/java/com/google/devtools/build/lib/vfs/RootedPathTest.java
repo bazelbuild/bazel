@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -82,6 +83,47 @@ public class RootedPathTest {
   public void testGetParentDirectoryOfRoot() {
     RootedPath path = createRootedPath("root", "");
     assertThat(path.getParentDirectory()).isNull();
+  }
+
+  @Test
+  public void testGetChild() {
+    RootedPath rootPath = createRootedPath("root", "");
+    RootedPath child = rootPath.getChild("foo");
+    RootedPath grandchild = child.getChild("BUILD");
+
+    assertThat(child).isEqualTo(createRootedPath("root", "foo"));
+    assertThat(grandchild).isEqualTo(createRootedPath("root", "foo/BUILD"));
+    assertThat(grandchild.getRoot()).isEqualTo(rootPath.getRoot());
+    assertThat(grandchild.getParentDirectory()).isEqualTo(child);
+    assertThat(grandchild.asPath().getPathString()).isEqualTo("/root/foo/BUILD");
+  }
+
+  @Test
+  public void testGetChildOfAbsoluteRoot() {
+    RootedPath rootPath = RootedPath.toRootedPath(Root.absoluteRoot(filesystem), root);
+    RootedPath child = rootPath.getChild("foo");
+
+    assertThat(child.getRootRelativePath().getPathString()).isEqualTo("/foo");
+    assertThat(child.asPath()).isEqualTo(root.getChild("foo"));
+    assertThat(child.getParentDirectory()).isEqualTo(rootPath);
+  }
+
+  @Test
+  public void testGetChildRejectsInvalidBaseName() {
+    RootedPath path = createRootedPath("root", "foo");
+    for (String invalid : new String[] {"", ".", "..", "a/b", "/a"}) {
+      assertThrows(IllegalArgumentException.class, () -> path.getChild(invalid));
+    }
+  }
+
+  @Test
+  public void testGetRootRelativeBaseName() {
+    assertThat(createRootedPath("root", "foo/bar").getRootRelativeBaseName()).isEqualTo("bar");
+    assertThat(createRootedPath("root", "foo").getRootRelativeBaseName()).isEqualTo("foo");
+    assertThat(createRootedPath("root", "").getRootRelativeBaseName()).isEmpty();
+    assertThat(
+            RootedPath.toRootedPath(Root.absoluteRoot(filesystem), root).getRootRelativeBaseName())
+        .isEmpty();
   }
 
   private RootedPath createRootedPath(String relativeRootPath, String relativePath) {

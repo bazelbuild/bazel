@@ -189,7 +189,6 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
         load("//tree:rule.bzl", "tree_rule")
         tree_rule(name = "my_tree")
         """);
-    writeProjectSclWithActiveDirs("tree");
 
     assertUploadSuccess("//tree:my_tree");
 
@@ -211,7 +210,6 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
   @Test
   public void constantMetadataCoverage() throws Exception {
     write("bar/BUILD", "genrule(name = 'one', outs = ['one.txt'], cmd = 'touch $@')");
-    writeProjectSclWithActiveDirs("bar");
     var unused = getSkyframeExecutor().getWorkspaceStatusArtifacts(events.reporter());
     assertUploadSuccess("//bar:one");
 
