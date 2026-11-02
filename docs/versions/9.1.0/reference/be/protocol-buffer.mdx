@@ -254,7 +254,7 @@ proto_lang_toolchain(
 | `output_files` | String; default is `"legacy"` Controls how `$(OUT)` in `command_line` is formatted, either by a path to a single file or output directory in case of multiple files. Possible values are: "single", "multiple". |
 | `plugin` | [Label](/versions/9.1.0/concepts/labels); default is `None` If provided, will be made available to the action that calls the proto-compiler, and will be passed to the proto-compiler: `--plugin=protoc-gen-PLUGIN=&lt;executable&gt;.` |
 | `plugin_format_flag` | String; default is `""` If provided, this value will be passed to proto-compiler to use the plugin. The value must contain a single %s which is replaced with plugin executable. `--plugin=protoc-gen-PLUGIN=&lt;executable&gt;.` |
-| `progress_message` | String; default is `"Generating proto_library %&lcub;label&rcub;"` This value will be set as the progress message on protoc action. |
+| `progress_message` | String; default is `"Generating proto_library %{label}"` This value will be set as the progress message on protoc action. |
 | `protoc_minimal_do_not_use` | [Label](/versions/9.1.0/concepts/labels); default is `None` |
 | `runtime` | [Label](/versions/9.1.0/concepts/labels); default is `None` A language-specific library that the generated code is compiled against. The exact behavior is LANG_proto_library-specific. Java, for example, should compile against the runtime. |
 | `toolchain_type` | [Label](/versions/9.1.0/concepts/labels); default is `None` |
@@ -275,5 +275,5 @@ proto_toolchain(name, aspect_hints, command_line, compatible_with, deprecation, 
 | `command_line` | String; default is `"--descriptor_set_out=%s"` |
 | `mnemonic` | String; default is `"GenProtoDescriptorSet"` |
 | `output_files` | String; default is `"single"` |
-| `progress_message` | String; default is `"Generating Descriptor Set proto_library %&lcub;label&rcub;"` |
+| `progress_message` | String; default is `"Generating Descriptor Set proto_library %{label}"` |
 | `proto_compiler` | [Label](/versions/9.1.0/concepts/labels); default is `None` |

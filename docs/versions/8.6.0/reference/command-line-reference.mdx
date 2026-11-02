@@ -181,7 +181,7 @@ Options that appear before the command and are parsed by the client:
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
 
-`--io_nice_level=&lcub;-1,0,1,2,3,4,5,6,7&rcub;` default: "-1"
+`--io_nice_level={-1,0,1,2,3,4,5,6,7}` default: "-1"
 :   Only on Linux; set a level from 0-7 for best-effort IO scheduling using the sys_ioprio_set system call. 0 is highest priority, 7 is lowest. The anticipatory scheduler may only honor up to priority 4. If set to a negative value, then Bazel does not perform a system call.
 
     Tags:

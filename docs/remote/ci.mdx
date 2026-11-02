@@ -97,10 +97,10 @@ To pull the `rbe-ubuntu16-04` container from Container Registry, run the
 following command:
 
 ```posix-terminal
-gcloud docker -- pull gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:<var>sha256-checksum</var>
+gcloud docker -- pull gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:sha256-checksum
 ```
 
-Replace <var>sha256-checksum</var> with the SHA256 checksum value for
+Replace sha256-checksum with the SHA256 checksum value for
 [the latest container](https://console.cloud.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
 
 ### Building the rbe-ubuntu16-04 container from source {#container-source}
@@ -119,7 +119,7 @@ To build the `rbe-ubuntu16-04` container from source, do the following:
 3.  Pull the freshly built container:
 
     ```posix-terminal
-gcloud docker -- pull gcr.io/<var>project-id</var>/<var>custom-container-name</var><var>sha256-checksum</var>
+gcloud docker -- pull gcr.io/project-id/custom-container-namesha256-checksum
     ```
 
 ### Running the custom container {#run-custom-container}
@@ -130,7 +130,7 @@ To run the custom container, do one of the following:
     command:
 
     ```posix-terminal
-    docker run -it gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:<var>sha256-checksum</var>/bin/bash
+    docker run -it gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:sha256-checksum/bin/bash
     ```
 
     Replace `sha256-checksum` with the SHA256 checksum value for the
@@ -139,7 +139,7 @@ To run the custom container, do one of the following:
 *   If you built the container from source, run the following command:
 
     ```posix-terminal
-    docker run -it gcr.io/<var>project-id</var>/<var>custom-container-name</var>@sha256:<var>sha256sum</var> /bin/bash
+    docker run -it gcr.io/project-id/custom-container-name@sha256:sha256sum /bin/bash
     ```
 
 ### Adding resources to the custom container {#add-resources-container}
@@ -152,11 +152,11 @@ If you are new to Docker, read the following:
 *   [Docker for beginners](https://github.com/docker/labs/tree/master/beginner)
 *   [Docker Samples](https://docs.docker.com/samples/)
 
-For example, the following `Dockerfile` snippet installs `<var>my_tool_package</var>`:
+For example, the following `Dockerfile` snippet installs `my_tool_package`:
 
 ```
-FROM gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:<var>sha256-checksum</var>
-RUN apt-get update && yes | apt-get install -y <var>my_tool_package</var>
+FROM gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:sha256-checksum
+RUN apt-get update && yes | apt-get install -y my_tool_package
 ```
 
 ### Pushing the custom container to Container Registry {#push-container-registry}
@@ -167,20 +167,20 @@ Container Registry as follows:
 1. Build the container image:
 
     ```posix-terminal
-    docker build -t <var>custom-container-name</var>.
+    docker build -t custom-container-name.
 
-    docker tag <var>custom-container-name</var> gcr.io/<var>project-id</var>/<var>custom-container-name</var>
+    docker tag custom-container-name gcr.io/project-id/custom-container-name
     ```
 
 2.  Push the container image to Container Registry:
 
     ```posix-terminal
-    gcloud docker -- push gcr.io/<var>project-id</var>/<var>custom-container-name</var>
+    gcloud docker -- push gcr.io/project-id/custom-container-name
     ```
 
 3.  Navigate to the following URL to verify the container has been pushed:
 
-    https://console.cloud.google.com/gcr/images/<var>project-id</var>/GLOBAL/<var>custom-container-name</var>
+    https://console.cloud.google.com/gcr/images/project-id/GLOBAL/custom-container-name
 
 4.  Take note of the SHA256 checksum of your custom container. You will need to
     provide it in your build platform definition later.
