@@ -341,6 +341,25 @@ EOF
     || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
 }
 
+function test_run_downloads_repo_mapping() {
+  add_rules_shell MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(name = "foo", srcs = ["foo.sh"])
+EOF
+  cat > foo.sh <<'EOF'
+#!/bin/sh
+test -s "$0.runfiles/_repo_mapping"
+EOF
+  chmod +x foo.sh
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --file_write_strategy=remote \
+    //:foo >& "$TEST_log" || fail "Repository mapping was not downloaded"
+}
+
 function test_downloads_toplevel_runfiles() {
   # Test that --remote_download_toplevel fetches only the top level binaries
   # and generated runfiles.
