@@ -82,6 +82,8 @@ public class ActionCacheChecker {
 
     abstract boolean storeOutputMetadata();
 
+    abstract boolean checkOutputFiles();
+
     /**
      * Targets for which all actions are unconditionally executed, as requested by {@code
      * --bust_action_caches}.
@@ -90,6 +92,7 @@ public class ActionCacheChecker {
 
     public static Builder builder() {
       return new AutoValue_ActionCacheChecker_CacheConfig.Builder()
+          .setCheckOutputFiles(true)
           .setBustActionCachesTargets(ImmutableSet.of());
     }
 
@@ -99,6 +102,8 @@ public class ActionCacheChecker {
       public abstract Builder setEnabled(boolean value);
 
       public abstract Builder setStoreOutputMetadata(boolean value);
+
+      public abstract Builder setCheckOutputFiles(boolean value);
 
       public abstract Builder setBustActionCachesTargets(ImmutableSet<Label> value);
 
@@ -324,16 +329,19 @@ public class ActionCacheChecker {
    * The currently cached outputs when output metadata is stored (i.e., {@code
    * CacheConfig#shouldStoreOutputMetadata}).
    *
-   * <p>Metadata retrieved from the filesystem overrides the cached metadata. This way, an action
-   * will not be rerun if the cached metadata is still valid, unless the filesystem state needs to
-   * be updated.
+   * <p>When checked, metadata from the filesystem overrides the cached metadata. This way, an
+   * action will not be rerun if the cached metadata is still valid, unless the filesystem state
+   * needs to be updated.
    */
   private record CachedOutputMetadata(
       ImmutableMap<Artifact, FileArtifactValue> fileMetadata,
       ImmutableMap<TreeArtifact, TreeArtifactValue> treeMetadata) {}
 
   private CachedOutputMetadata loadCachedOutputMetadata(
-      Action action, ActionCache.Entry entry, OutputMetadataStore outputMetadataStore)
+      Action action,
+      ActionCache.Entry entry,
+      OutputMetadataStore outputMetadataStore,
+      @Nullable OutputChecker outputChecker)
       throws InterruptedException {
     ImmutableMap.Builder<Artifact, FileArtifactValue> mergedFileMetadata = ImmutableMap.builder();
     ImmutableMap.Builder<TreeArtifact, TreeArtifactValue> mergedTreeMetadata =
@@ -412,6 +420,15 @@ public class ActionCacheChecker {
         }
 
         if (cachedMetadata == null) {
+          continue;
+        }
+
+        // Trusted remote files need no local counterpart when output checks are disabled.
+        if (!cacheConfig.checkOutputFiles()
+            && cachedMetadata.isRemote()
+            && outputChecker != null
+            && outputChecker.shouldTrustCachedMetadata(artifact, cachedMetadata)) {
+          mergedFileMetadata.put(artifact, cachedMetadata);
           continue;
         }
 
@@ -515,7 +532,8 @@ public class ActionCacheChecker {
 
     CachedOutputMetadata cachedOutputMetadata = null;
     if (entry != null && !entry.isCorrupted() && cacheConfig.storeOutputMetadata()) {
-      cachedOutputMetadata = loadCachedOutputMetadata(action, entry, outputMetadataStore);
+      cachedOutputMetadata =
+          loadCachedOutputMetadata(action, entry, outputMetadataStore, outputChecker);
     }
 
     Token token = new Token(action);

@@ -129,6 +129,14 @@ public final class ActionCacheCheckerTest {
 
   private ActionCacheChecker createActionCacheChecker(
       boolean storeOutputMetadata, ImmutableSet<Label> bustActionCachesTargets) {
+    return createActionCacheChecker(
+        storeOutputMetadata, bustActionCachesTargets, /* checkOutputFiles= */ true);
+  }
+
+  private ActionCacheChecker createActionCacheChecker(
+      boolean storeOutputMetadata,
+      ImmutableSet<Label> bustActionCachesTargets,
+      boolean checkOutputFiles) {
     return new ActionCacheChecker(
         cache,
         new FakeArtifactResolverBase(),
@@ -138,6 +146,7 @@ public final class ActionCacheCheckerTest {
         ActionCacheChecker.CacheConfig.builder()
             .setEnabled(true)
             .setStoreOutputMetadata(storeOutputMetadata)
+            .setCheckOutputFiles(checkOutputFiles)
             .setBustActionCachesTargets(bustActionCachesTargets)
             .build());
   }
@@ -745,8 +754,61 @@ public final class ActionCacheCheckerTest {
   }
 
   @Test
-  public void saveOutputMetadata_remoteFileExpired_remoteFileMetadataNotLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+  public void saveOutputMetadata_outputChecksDisabled_skipsLocalMetadata() throws Exception {
+    cacheChecker =
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(),
+            /* checkOutputFiles= */ false);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    FileArtifactValue metadata = createRemoteMetadata("content");
+    Action action = new InjectOutputFileMetadataAction(output, metadata);
+    runAction(action);
+
+    OutputMetadataStore metadataStore = mock(OutputMetadataStore.class);
+    when(metadataStore.getOutputMetadata(output))
+        .thenThrow(new AssertionError("Remote cache hit should not read local output metadata"));
+    runAction(action, new FakeInputMetadataHandler(), metadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    verify(metadataStore)
+        .injectFile(output, cache.get(output.getExecPathString()).getOutputFile(output));
+  }
+
+  @Test
+  public void saveOutputMetadata_outputChecksDisabled_downloadedFileStillReused() throws Exception {
+    cacheChecker =
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(),
+            /* checkOutputFiles= */ false);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata("content"));
+    runAction(action);
+    writeContentAsLatin1(output.getPath(), "content");
+
+    OutputChecker outputChecker = mock(OutputChecker.class);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any()))
+        .thenAnswer(invocation -> !invocation.<FileArtifactValue>getArgument(1).isRemote());
+    FakeInputMetadataHandler metadataStore = new FakeInputMetadataHandler();
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        metadataStore,
+        outputChecker);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(metadataStore.getOutputMetadata(output).isRemote()).isFalse();
+  }
+
+  @Test
+  public void saveOutputMetadata_remoteFileExpired_remoteFileMetadataNotLoaded(
+      @TestParameter boolean checkOutputFiles) throws Exception {
+    cacheChecker =
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true, ImmutableSet.of(), checkOutputFiles);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action =
