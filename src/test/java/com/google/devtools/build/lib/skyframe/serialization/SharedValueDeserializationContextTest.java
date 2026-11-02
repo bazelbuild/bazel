@@ -616,7 +616,8 @@ public final class SharedValueDeserializationContextTest {
     ImmutableList<byte[]> storeValues =
         ImmutableList.copyOf(store.getFingerprintToContents().values());
     assertThat(storeValues).hasSize(1);
-    assertThat(storeValues.get(0)).hasLength(compress ? 24 : 1007);
+    // One-shot zstd frames record the content size, so the compressed value is 25 bytes.
+    assertThat(storeValues.get(0)).hasLength(compress ? 25 : 1007);
 
     store.takeFirstRequest().complete();
     verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());

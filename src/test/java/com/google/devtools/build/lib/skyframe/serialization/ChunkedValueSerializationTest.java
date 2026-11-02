@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.ChunkedValueSerialization.ChunkingResult;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,6 +48,44 @@ public final class ChunkedValueSerializationTest {
   @After
   public void tearDown() {
     ChunkedValueSerialization.resetChunkSizeForTesting();
+  }
+
+  @Test
+  public void maybeCompressAndChunk_oneShotZstd_roundTripsThroughZstdInputStream()
+      throws Exception {
+    byte[] originalData = new byte[4000];
+    Random random = new Random(42);
+    // Mimics a NestedSet leaf array (NestedArrayCodec), where each 20-byte element consists of:
+    //   - 1 byte: isSubarray = false (0)
+    //   - 2 bytes: varint codec tag for the shared element codec (0xa8, 0x01)
+    //   - 16 bytes: random PackedFingerprint of the shared element
+    //   - 1 byte: post-serialization memoization ID tag
+    for (int entryIndex = 0; entryIndex * 20 < originalData.length; entryIndex++) {
+      int offset = entryIndex * 20;
+      originalData[offset] = 0; // isSubarray = false
+      originalData[offset + 1] = (byte) 0xa8; // varint codec tag (low byte)
+      originalData[offset + 2] = 1; // varint codec tag (high byte)
+      byte[] fingerprint = new byte[PackedFingerprint.BYTES];
+      random.nextBytes(fingerprint);
+      System.arraycopy(fingerprint, 0, originalData, offset + 3, PackedFingerprint.BYTES);
+      originalData[offset + 19] = (byte) entryIndex; // memoization ID tag
+    }
+    List<WriteStatus> writeStatuses = new ArrayList<>();
+
+    ChunkingResult result =
+        ChunkedValueSerialization.maybeCompressAndChunk(
+            originalData, compressionService, fingerprintValueService, writeStatuses::add);
+
+    assertThat(result.serializedBytes()[0]).isEqualTo(ChunkedValueSerialization.ZSTD_COMPRESSED);
+    assertThat(result.serializedBytes().length).isLessThan(originalData.length);
+    ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
+    try (InputStream zstdIn =
+        compressionService.newZstdInputStream(
+            new ByteArrayInputStream(
+                result.serializedBytes(), 1, result.serializedBytes().length - 1))) {
+      zstdIn.transferTo(decompressedOut);
+    }
+    assertThat(decompressedOut.toByteArray()).isEqualTo(originalData);
   }
 
   @Test
