@@ -823,6 +823,9 @@ class IncludeParser {
           break;
         } else if (chars[lineEnd] == '\\') {
           lineEnd++;
+          if (lineEnd == end) {
+            break;
+          }
           if (chars[lineEnd] == '\n') {
             lineEnd++;
           }
