@@ -80,7 +80,6 @@ import javax.annotation.Nullable;
 public final class ActionRewindStrategy {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  @VisibleForTesting static final int MAX_REPEATED_LOST_INPUTS = 20;
   @VisibleForTesting static final int MAX_ACTION_REWIND_EVENTS = 5;
   private static final int MAX_LOST_INPUTS_RECORDED = 5;
 
@@ -326,13 +325,13 @@ public final class ActionRewindStrategy {
     for (LostInputRecord lostInputRecord : lostOutputRecords) {
       String digest = lostInputRecord.lostInputDigest();
       int losses = currentBuildLostOutputRecords.add(lostInputRecord, /* occurrences= */ 1) + 1;
-      if (losses > MAX_REPEATED_LOST_INPUTS) {
+      if (losses > skyframeActionExecutor.maxRepeatedLostInputs()) {
         ActionInput output = lostOutputsByDigest.get(digest);
         ActionRewindException e =
             new ActionRewindException(
                 String.format(
                     "Lost output %s (digest %s), and rewinding was ineffective after %d attempts.",
-                    prettyPrint(output), digest, MAX_REPEATED_LOST_INPUTS),
+                    prettyPrint(output), digest, skyframeActionExecutor.maxRepeatedLostInputs()),
                 ActionRewinding.Code.LOST_OUTPUT_TOO_MANY_TIMES);
         bugReporter.sendBugReport(e);
         throw e;
@@ -377,7 +376,7 @@ public final class ActionRewindStrategy {
       // the same input is repeatedly lost.
       String digest = lostInputRecord.lostInputDigest();
       int losses = currentBuildLostInputRecords.add(lostInputRecord, /* occurrences= */ 1) + 1;
-      if (losses > MAX_REPEATED_LOST_INPUTS) {
+      if (losses > skyframeActionExecutor.maxRepeatedLostInputs()) {
         // This ensures coalesced shared actions aren't orphaned.
         skyframeActionExecutor.prepareForRewinding(
             failedKey, failedAction, /* depsToRewind= */ ImmutableList.of());
