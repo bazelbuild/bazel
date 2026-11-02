@@ -1615,8 +1615,7 @@ public final class SkyframeActionExecutor {
   private static void setupActionFsFileOutErr(FileOutErr fileOutErr, Action action)
       throws ActionExecutionException {
     try {
-      fileOutErr.getOutputPath().getParentDirectory().createDirectoryAndParents();
-      fileOutErr.getErrorPath().getParentDirectory().createDirectoryAndParents();
+      fileOutErr.createParentDirectories();
     } catch (IOException e) {
       String message =
           String.format(
