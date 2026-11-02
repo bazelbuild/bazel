@@ -512,7 +512,11 @@ public class BuildTool {
               },
               env.getSkyframeExecutor().getMainRepoMapping(env.getReporter()));
       if (targetPlatformFlags.isPresent()) {
-        return targetPlatformFlags.get().mergeWith(originalOptions).getOptions();
+        try {
+          return targetPlatformFlags.get().mergeWith(originalOptions).getOptions();
+        } catch (OptionsParsingException e) {
+          throw new IllegalStateException("Failed to merge platform flags", e);
+        }
       }
     } catch (NoSuchTargetException e) {
       // Already handled by env.getReporter()).

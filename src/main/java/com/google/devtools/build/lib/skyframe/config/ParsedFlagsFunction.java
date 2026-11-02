@@ -33,8 +33,10 @@ import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -46,6 +48,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Converts a list of command-line flags (like {@code --compilation_mode=dbg} or {@code
@@ -64,6 +67,14 @@ public final class ParsedFlagsFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, SkyFunctionException {
     ParsedFlagsValue.Key key = (ParsedFlagsValue.Key) skyKey.argument();
+
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    ImmutableSet<String> disabledOptions =
+        ImmutableSet.copyOf(
+            starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
 
     ImmutableList.Builder<String> nativeFlags = ImmutableList.builder();
     ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
@@ -161,7 +172,7 @@ public final class ParsedFlagsFunction implements SkyFunction {
     }
 
     try {
-      return ParsedFlagsValue.parseAndCreate(flags.build());
+      return ParsedFlagsValue.parseAndCreate(flags.build(), disabledOptions);
     } catch (OptionsParsingException e) {
       throw new ParsedFlagsFunctionException(e);
     }
