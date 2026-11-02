@@ -6,10 +6,12 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
+load(":windows_llvm_alias.bzl", "windows_llvm_alias")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
@@ -179,7 +181,7 @@ cc_binary(
     srcs = ["read_manifest.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     tags = ["manual"],
@@ -187,17 +189,16 @@ cc_binary(
     visibility = ["//src/java_tools:__subpackages__"],
 )
 
-# Updates the app manifest of a Windows executable.
+# Updates the app manifest of a Windows executable, no-op on other hosts.
 cc_binary(
     name = "write_manifest",
     srcs = ["write_manifest.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     tags = ["manual"],
-    target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
 )
 
@@ -377,6 +378,32 @@ genrule(
     "_notools",
     "_nojdk",
 ]]
+
+# Bazel for Windows, cross-compiled with the hermetic LLVM toolchains. Can be
+# built on any host platform.
+windows_llvm_alias(
+    name = "bazel_windows_llvm",
+    actual = ":bazel.exe",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+# Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
+# Not registered by default; it is only used with the `llvm` config in .bazelrc
+# and by :bazel_windows_llvm.
+windows_resource_compiler_toolchain(
+    name = "llvm_rc",
+    rc_exe = "@llvm//tools:llvm-rc",
+    # Keep wildcard builds from fetching the LLVM toolchains.
+    tags = ["manual"],
+)
+
+toolchain(
+    name = "llvm_rc_toolchain",
+    target_compatible_with = ["@platforms//os:windows"],
+    toolchain = ":llvm_rc",
+    toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
+)
 
 filegroup(
     name = "srcs",
