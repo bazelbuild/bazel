@@ -72,7 +72,7 @@ public abstract class InterimModule extends ModuleBase {
    * NonRegistryOverride}.
    */
   @Nullable
-  public abstract Registry getRegistry();
+  public abstract String getRegistryUrl();
 
   /** Returns a {@link Builder} that starts out with the same fields as this object. */
   abstract Builder toBuilder();
@@ -158,7 +158,7 @@ public abstract class InterimModule extends ModuleBase {
 
     public abstract Builder setNodepDeps(ImmutableList<ModuleKey> value);
 
-    public abstract Builder setRegistry(Registry value);
+    public abstract Builder setRegistryUrl(@Nullable String value);
 
     public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
 
