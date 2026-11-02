@@ -156,7 +156,12 @@ public final class BuildConfigurationKeyProducer<C>
     }
     Optional<ParsedFlagsValue> parsedFlags = targetPlatformValue.parsedFlags();
     if (parsedFlags.isPresent()) {
-      this.postPlatformProcessedOptions = parsedFlags.get().mergeWith(options).getOptions();
+      try {
+        this.postPlatformProcessedOptions = parsedFlags.get().mergeWith(options).getOptions();
+      } catch (OptionsParsingException e) {
+        sink.acceptOptionsParsingError(e);
+        return DONE;
+      }
       return this::findBuildOptionsScopes;
     } else {
       return this::mergeFromPlatformMapping;
@@ -331,7 +336,6 @@ public final class BuildConfigurationKeyProducer<C>
       BuildOptions baselineConfiguration,
       @Nullable Label label) {
     Preconditions.checkNotNull(buildOptionsScopeValue);
-
 
     BuildOptions transitionedOptionsWithScopeType =
         buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
