@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -105,6 +106,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         /* allowIncompatibleAndExperimentalOptions= */ true,
         moduleContext.packageContext());
     Location location = thread.getCallerLocation();
+    // --incompatible_disable_transitions_on does not apply to the exec transition.
     return StarlarkDefinedConfigTransition.newExecTransition(
         implementation,
         inputsList,
@@ -113,7 +115,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         moduleContext.label(),
         location,
         moduleContext.repoMapping(),
-        thread.getSemantics().get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
+        /* disallowedOptions= */ ImmutableList.of());
   }
 
   // TODO(b/237422931): move into testing module
