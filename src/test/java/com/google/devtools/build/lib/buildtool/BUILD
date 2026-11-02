@@ -91,6 +91,35 @@ test_suite(
         ":ExecutionProgressReceiverTest",
         ":JobsConverterTest",
         ":SymlinkForestTest",
+        ":TransitiveTargetCounterTest",
+    ],
+)
+
+java_test(
+    name = "TransitiveTargetCounterTest",
+    srcs = ["TransitiveTargetCounterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/skyframe:version",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 

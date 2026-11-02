@@ -58,13 +58,7 @@ public final class ActionLookupValuesTraversal {
                   value.getClass(), key, value)));
       return;
     }
-    if (isConfiguredTarget
-        && !Objects.equals(
-            key.getConfigurationKey(),
-            ((ConfiguredTargetValue) value).getConfiguredTarget().getConfigurationKey())) {
-      // The configuration of the key doesn't match the configuration of the value. This means that
-      // the ConfiguredTargetValue is delegated from a different key. This ConfiguredTargetValue
-      // will show up again under its own key. Avoids double counting by skipping accumulation.
+    if (isDelegatedConfiguredTargetValue(key, value)) {
       return;
     }
     configuredObjectCount.incrementAndGet();
@@ -99,6 +93,18 @@ public final class ActionLookupValuesTraversal {
           default -> otherConfiguredTargetCount;
         };
     counter.incrementAndGet();
+  }
+
+  /**
+   * Returns true if {@code value} is a {@link ConfiguredTargetValue} whose configuration does not
+   * match {@code key}'s configuration, meaning the value was delegated from a different key (for
+   * example, after a rule transition) and will show up again under its own key.
+   */
+  public static boolean isDelegatedConfiguredTargetValue(ActionLookupKey key, SkyValue value) {
+    return value instanceof ConfiguredTargetValue ctValue
+        && ctValue.getConfiguredTarget() != null
+        && !Objects.equals(
+            key.getConfigurationKey(), ctValue.getConfiguredTarget().getConfigurationKey());
   }
 
   Sharder<ActionLookupValue> getActionLookupValueShards() {

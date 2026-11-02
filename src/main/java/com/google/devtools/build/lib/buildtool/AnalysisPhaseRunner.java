@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
@@ -138,6 +140,7 @@ public final class AnalysisPhaseRunner {
       }
 
       postAbortedEventsForSkippedTargets(env, analysisResult.getTargetsToSkip());
+      countTransitiveTargets(env, analysisResult.getTargetsToBuild());
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
@@ -254,6 +257,24 @@ public final class AnalysisPhaseRunner {
                   AbortReason.SKIPPED,
                   String.format("Target %s build was skipped.", label),
                   label));
+    }
+  }
+
+  private static void countTransitiveTargets(
+      CommandEnvironment env, Collection<ConfiguredTarget> targetsToBuild)
+      throws InterruptedException {
+    AnalysisOptions analysisOptions = env.getOptions().getOptions(AnalysisOptions.class);
+    if (analysisOptions == null || analysisOptions.getMaxTransitiveAnalysisNodes() <= 0) {
+      return;
+    }
+    try (SilentCloseable c = Profiler.instance().profile("countTransitiveTargets")) {
+      ImmutableSet<ConfiguredTargetKey> roots =
+          targetsToBuild.stream()
+              .map(ConfiguredTargetKey::fromConfiguredTarget)
+              .collect(ImmutableSet.toImmutableSet());
+      var unused =
+          TransitiveTargetCounter.count(
+              env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(), roots);
     }
   }
 
