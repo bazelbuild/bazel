@@ -64,6 +64,16 @@ public interface SkyKey extends Serializable {
   }
 
   /**
+   * Returns whether this node may be deleted after its last reverse dependency is removed.
+   *
+   * <p>This is useful for identity-based bookkeeping nodes that are replaced during reanalysis.
+   * Other nodes remain cached for reuse by subsequent evaluations.
+   */
+  default boolean canBeDeletedWhenUnreferenced() {
+    return false;
+  }
+
+  /**
    * Returns {@code true} if previously requested deps values are not eagerly batch prefetched when
    * the {@link SkyFunctionEnvironment} to evaluate this {@link SkyKey} is created.
    *

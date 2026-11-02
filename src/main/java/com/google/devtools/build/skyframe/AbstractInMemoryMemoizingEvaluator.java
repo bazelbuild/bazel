@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStat
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -138,6 +139,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
     valuesToDelete.addAll(progressReceiver.getAndClearUnsuccessfullyRewoundKeys());
     try {
+      collectUnreferencedNodesToDelete();
       // The RecordingDifferencer implementation is not quite working as it should be at this point.
       // It clears the internal data structures after getDiff is called and will not return
       // diffs for historical versions. This makes the following code sensitive to interrupts.
@@ -522,13 +524,40 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     valuesToInject = new HashMap<>();
   }
 
+  private void collectUnreferencedNodesToDelete() {
+    // Evaluation is quiescent here: a node that lost a parent may have acquired another one.
+    var candidates = new ArrayDeque<>(progressReceiver.getAndClearOrphanCandidates());
+    if (!keepEdges) {
+      return;
+    }
+    while (!candidates.isEmpty()) {
+      SkyKey key = candidates.removeFirst();
+      if (valuesToDelete.contains(key)) {
+        continue;
+      }
+      InMemoryNodeEntry entry = getInMemoryGraph().getIfPresent(key);
+      if (entry != null
+          && entry.isDone()
+          && Iterables.all(entry.getReverseDepsForDoneEntry(), valuesToDelete::contains)) {
+        valuesToDelete.add(key);
+        // Collect descendants in the same batch when all their parents will also be deleted.
+        for (SkyKey dep : entry.getDirectDeps()) {
+          if (dep.canBeDeletedWhenUnreferenced()) {
+            candidates.addLast(dep);
+          }
+        }
+      }
+    }
+  }
+
   private void performInvalidation() throws InterruptedException {
-    EagerInvalidator.delete(
-        getInMemoryGraph(), valuesToDelete, progressReceiver, deleterState, keepEdges);
-    // Note that clearing the valuesToDelete would not do an internal resizing. Therefore, if any
-    // build has a large set of dirty values, subsequent operations (even clearing) will be slower.
-    // Instead, just start afresh with a new LinkedHashSet.
-    valuesToDelete = new LinkedHashSet<>();
+    do {
+      EagerInvalidator.delete(
+          getInMemoryGraph(), valuesToDelete, progressReceiver, deleterState, keepEdges);
+      // Replacing the set also releases capacity after large deletions.
+      valuesToDelete = new LinkedHashSet<>();
+      collectUnreferencedNodesToDelete();
+    } while (!valuesToDelete.isEmpty());
 
     EagerInvalidator.invalidate(
         getInMemoryGraph(), valuesToDirty, progressReceiver, invalidatorState);

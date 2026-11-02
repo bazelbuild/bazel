@@ -291,6 +291,7 @@ abstract class AbstractParallelEvaluator {
             for (SkyKey depKey : directDepsToCheck) {
               if (!depKey.equals(keyToCheck)) {
                 entriesToCheck.get(depKey).removeReverseDep(skyKey);
+                evaluatorContext.getProgressReceiver().removedDependency(depKey);
               }
             }
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {

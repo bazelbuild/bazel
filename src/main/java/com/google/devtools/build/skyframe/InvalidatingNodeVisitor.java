@@ -286,11 +286,12 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                   + " deps",
               MIN_TIME_FOR_LOGGING)) {
         state.doneKeysWithRdepsToRemove.forEachEntry(
-            /*parallelismThreshold=*/ 1024,
+            /* parallelismThreshold= */ 1024,
             e -> {
               NodeEntry entry = graph.get(null, Reason.RDEP_REMOVAL, e.getKey());
               if (entry != null) {
                 entry.removeReverseDepsFromDoneEntryDueToDeletion(deletedKeys);
+                progressReceiver.removedDependency(e.getKey());
               }
             });
         state.clear();
