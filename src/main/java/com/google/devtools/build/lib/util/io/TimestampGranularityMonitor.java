@@ -75,13 +75,14 @@ public class TimestampGranularityMonitor {
   /** The time until which to wait at the end of the command and the file that requires it. */
   private record Deadline(long nanos, @Nullable PathFragment path) {}
 
-  private final AtomicReference<Deadline> deadline =
-      new AtomicReference<>(new Deadline(Long.MIN_VALUE, null));
+  private final AtomicReference<Deadline> deadline;
 
   private final Clock clock;
 
   public TimestampGranularityMonitor(Clock clock) {
     this.clock = clock;
+    // Deadlines before the creation of the monitor never require waiting.
+    this.deadline = new AtomicReference<>(new Deadline(currentTimeNanos(), null));
   }
 
   /**
@@ -102,7 +103,11 @@ public class TimestampGranularityMonitor {
     if (deadlineNanos <= deadline.get().nanos()) {
       return;
     }
-    if (ctimeNanos > currentTimeNanos() + SLACK_NANOS) {
+    long nowNanos = currentTimeNanos();
+    if (deadlineNanos <= nowNanos) {
+      return;
+    }
+    if (ctimeNanos > nowNanos + SLACK_NANOS) {
       // The file system's clock is ahead of ours, so waiting on ours wouldn't help.
       return;
     }
