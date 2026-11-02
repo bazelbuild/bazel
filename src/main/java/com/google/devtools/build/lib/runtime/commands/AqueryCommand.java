@@ -86,7 +86,7 @@ public final class AqueryCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     // TODO(twerth): Reduce overlap with CqueryCommand.
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
-    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(env);
+    env.getSkyframeExecutor().resetDeserializedKeysForQuery();
     boolean queryCurrentSkyframeState = aqueryOptions.getQueryCurrentSkyframeState();
 
     TargetPattern.Parser mainRepoTargetParser;
