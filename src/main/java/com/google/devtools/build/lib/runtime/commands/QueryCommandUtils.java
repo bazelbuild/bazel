@@ -14,18 +14,13 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** The utility class for {@link AqueryCommand} and {@link CqueryCommand} */
@@ -66,15 +61,5 @@ public final class QueryCommandUtils {
     }
 
     return topLevelTargets;
-  }
-
-  /**
-   * Delete any keys that have been deserialized by Skycache from the evaluator so that query
-   * commands evaluate them again. We know which keys have been deserialized because they are
-   * instances of DeserializedSkyValue
-   */
-  @VisibleForTesting
-  public static void resetDeserializedKeysFromRemoteAnalysisCache(CommandEnvironment env) {
-    env.getSkyframeExecutor().getEvaluator().delete((k, v) -> v instanceof DeserializedSkyValue);
   }
 }

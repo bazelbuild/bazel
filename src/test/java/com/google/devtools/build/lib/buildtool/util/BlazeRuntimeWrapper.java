@@ -79,7 +79,6 @@ import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
-import com.google.devtools.build.lib.runtime.commands.QueryCommandUtils;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -471,7 +470,7 @@ public class BlazeRuntimeWrapper {
     // Resetting the deserialized keys is necessary to avoid aquery using the pruned graph and
     // missing entries in its output. Since BlazeRuntimeWrapper is written using the method
     // buildTargets from BuildTool directly and skips going through the entry class
-    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+    getCommandEnvironment().getSkyframeExecutor().resetDeserializedKeysForQuery();
 
     AqueryProcessor aqueryProcessor =
         new AqueryProcessor(getQueryExpression(aqueryExpr), TargetPattern.defaultParser());
@@ -493,7 +492,7 @@ public class BlazeRuntimeWrapper {
     // "deps(//foo)" to work in the integration tests. The alternative is a bigger refactoring
     // rewriting BlazeRuntimeWrapper to use the *Command.java classes with the possibility of
     // increasing overall complexity.
-    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+    getCommandEnvironment().getSkyframeExecutor().resetDeserializedKeysForQuery();
 
     TargetPattern.Parser parser =
         new TargetPattern.Parser(

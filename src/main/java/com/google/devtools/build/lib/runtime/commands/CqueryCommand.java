@@ -191,7 +191,7 @@ public final class CqueryCommand implements BlazeCommand {
             .setCheckforActionConflicts(false)
             .setReportIncompatibleTargets(false)
             .build();
-    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(env);
+    env.getSkyframeExecutor().resetDeserializedKeysForQuery();
     DetailedExitCode detailedExitCode =
         new BuildTool(env, new CqueryProcessor(expr, mainRepoTargetParser))
             .processRequest(
