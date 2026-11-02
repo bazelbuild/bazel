@@ -91,11 +91,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -132,6 +134,8 @@ public final class MerkleTreeComputer {
   //   directories. The Merkle trees for such artifacts can be computed and uploaded to the remote
   //   cache independently. Only their root digest has to be kept around for inclusion in other
   //   Merkle trees.
+  // * Aggregate roots are marked with input_set_root=true so RBE servers and workers can
+  //   recognize these same reuse boundaries, including aggregates nested inside runfiles.
   // * FileArtifactValue's fully describe their contents and can thus be used as cache keys for
   //   inter-build caches. By using a weak reference for the key, they can be cleaned up
   //   automatically as soon as their contents change or they are no longer relevant.
@@ -148,6 +152,10 @@ public final class MerkleTreeComputer {
   private static final NodeProperties TOOL_NODE_PROPERTIES =
       NodeProperties.newBuilder()
           .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input"))
+          .build();
+  private static final NodeProperties INPUT_SET_ROOT_PROPERTIES =
+      NodeProperties.newBuilder()
+          .addProperties(NodeProperty.newBuilder().setName("input_set_root").setValue("true"))
           .build();
   private static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
       comparing(ActionInput::getExecPath, HIERARCHICAL_COMPARATOR);
@@ -262,7 +270,8 @@ public final class MerkleTreeComputer {
       Object cacheKey,
       boolean isTool,
       boolean uploadBlobs,
-      @Nullable PathFragment unmappedExecPath) {}
+      @Nullable PathFragment unmappedExecPath,
+      boolean markRunfilesDirectories) {}
 
   /**
    * Describes what an ongoing sub-Merkle tree computation produces, which determines whether other
@@ -398,7 +407,8 @@ public final class MerkleTreeComputer {
               spawnExecutionContext.getInputMetadataProvider(),
               spawnExecutionContext.getPathResolver(),
               remoteActionExecutionContext,
-              blobPolicy));
+              blobPolicy,
+              /* inputSetRoots= */ Set.of()));
     } catch (BulkTransferException e) {
       e.getLostArtifacts(spawnExecutionContext.getInputMetadataProvider()::getInput)
           .throwIfNotEmpty();
@@ -505,7 +515,8 @@ public final class MerkleTreeComputer {
                   StaticInputMetadataProvider.empty(),
                   PATH_ACTION_INPUT_RESOLVER,
                   /* remoteActionExecutionContext= */ null,
-                  BlobPolicy.KEEP_AND_REUPLOAD));
+                  BlobPolicy.KEEP_AND_REUPLOAD,
+                  /* inputSetRoots= */ Set.of()));
     }
   }
 
@@ -518,7 +529,8 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      BlobPolicy blobPolicy)
+      BlobPolicy blobPolicy,
+      Set<PathFragment> inputSetRoots)
       throws IOException {
     var subTreesFuture =
         precomputeSubTrees(
@@ -543,7 +555,8 @@ public final class MerkleTreeComputer {
                 spawnScrubber,
                 metadataProvider,
                 artifactPathResolver,
-                blobPolicy);
+                blobPolicy,
+                inputSetRoots);
           } catch (IOException e) {
             throw new WrappedException(e);
           } catch (InterruptedException e) {
@@ -562,12 +575,18 @@ public final class MerkleTreeComputer {
       @Nullable SpawnScrubber spawnScrubber,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
-      BlobPolicy blobPolicy)
+      BlobPolicy blobPolicy,
+      Set<PathFragment> inputSetRoots)
       throws IOException, InterruptedException {
     if (sortedInputs.isEmpty()) {
       return emptyTree;
     }
 
+    // The empty path selects this tree's root. Cached aggregates always select their own root,
+    // and their input paths are relative to that aggregate, not the exec root. Only outer action
+    // trees discover repository boundaries from artifacts while visiting their effective inputs.
+    boolean aggregateInput = inputSetRoots.contains(PathFragment.EMPTY_FRAGMENT);
+    var directoryRoots = aggregateInput ? inputSetRoots : new HashSet<>(inputSetRoots);
     long inputFiles = 0;
     long inputBytes = 0;
     var blobs =
@@ -608,6 +627,9 @@ public final class MerkleTreeComputer {
         lastSourceDirPath = null;
       }
       ActionInput input = getInput.apply(rawInput);
+      if (!aggregateInput && input instanceof Artifact artifact) {
+        addExternalRepositoryRoot(artifact, path, directoryRoots);
+      }
       if (!isParentDirectory(currentParent, path)) {
         PathFragment newParent = checkNotNull(path.getParentDirectory());
         String currentParentString = currentParent.getPathString();
@@ -627,7 +649,12 @@ public final class MerkleTreeComputer {
         }
         inputBytes +=
             unwindDirectoryStack(
-                directoryStack, currentParentString, commonPrefixLength, blobPolicy, blobs);
+                directoryStack,
+                currentParentString,
+                commonPrefixLength,
+                blobPolicy,
+                blobs,
+                directoryRoots);
         for (int end = newParentString.length();
             end > commonPrefixLength;
             end = max(0, newParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1))) {
@@ -750,9 +777,14 @@ public final class MerkleTreeComputer {
             currentParent.getPathString(),
             /* targetLength= */ 0,
             blobPolicy,
-            blobs);
+            blobs,
+            directoryRoots);
 
-    byte[] rootDirectoryBlob = directoryStack.pop().build().toByteArray();
+    var rootDirectory = directoryStack.pop();
+    if (aggregateInput && !isEmptyDirectory(rootDirectory)) {
+      rootDirectory.setNodeProperties(INPUT_SET_ROOT_PROPERTIES);
+    }
+    byte[] rootDirectoryBlob = rootDirectory.build().toByteArray();
     Digest rootDirectoryBlobDigest = digestUtil.compute(rootDirectoryBlob);
     if (blobPolicy != BlobPolicy.DISCARD && rootDirectoryBlobDigest.getSizeBytes() != 0) {
       blobs.putIfAbsent(rootDirectoryBlobDigest, rootDirectoryBlob);
@@ -770,15 +802,121 @@ public final class MerkleTreeComputer {
     }
   }
 
+  private static boolean isEmptyDirectory(Directory.Builder directory) {
+    return directory.getFilesCount() == 0
+        && directory.getDirectoriesCount() == 0
+        && directory.getSymlinksCount() == 0;
+  }
+
+  /** Selects the aggregate root and a non-overlapping frontier within its runfiles. */
+  private <T> Set<PathFragment> runfilesInputSetRoots(
+      Collection<T> sortedInputs,
+      Function<? super T, PathFragment> getPath,
+      Function<? super T, ? extends ActionInput> getInput,
+      InputMetadataProvider metadataProvider)
+      throws IOException {
+    var candidates = new TreeSet<PathFragment>(HIERARCHICAL_COMPARATOR);
+    for (var rawInput : sortedInputs) {
+      var path = getPath.apply(rawInput);
+      // Runfiles are laid out as <repository>/<path>. Root-level entries such as the repository
+      // mapping file do not identify a repository subtree or a package within one.
+      if (path.segmentCount() < 2) {
+        continue;
+      }
+
+      // External repository roots are already coarse units for runtimes and dependencies (for
+      // example, a Python interpreter or a wheel). Do not infer boundaries inside their contents.
+      if (!path.getSegment(0).equals(workspaceName)) {
+        candidates.add(path.subFragment(0, 1));
+        continue;
+      }
+      // The main repository also contains test-specific files, so it needs a finer package cut.
+      // Null mappings stand for generated empty runfiles, which must not create boundaries.
+      var input = getInput.apply(rawInput);
+      if (input == null) {
+        continue;
+      }
+
+      // Nested aggregates are opaque, independently cached inputs. Their contents need not be
+      // inspected here, and their own root markers survive even below a selected package boundary.
+      if (input instanceof Artifact.SpecialArtifact artifact
+          && (artifact.isTreeArtifact() || artifact.isRunfilesTree())) {
+        candidates.add(path);
+        continue;
+      }
+      var metadata =
+          checkNotNull(metadataProvider.getInputMetadata(input), "missing metadata: %s", input);
+      // Source directories are opaque aggregate inputs too. For ordinary files and symlinks,
+      // nominate their containing directory instead of individual leaves. Ignore workspace-root
+      // files (usually the test itself) and zero-byte files such as generated Python initializers,
+      // so those adjuncts do not hide reusable libraries under a shared wrapper.
+      if (metadata.getType() == FileStateType.DIRECTORY) {
+        candidates.add(path);
+      } else if (path.segmentCount() > 2
+          && (metadata.getType() == FileStateType.SYMLINK || metadata.getSize() != 0)) {
+        candidates.add(checkNotNull(path.getParentDirectory()));
+      }
+    }
+    // Hierarchical ordering puts each candidate before its descendants. Keep the first boundary
+    // on each branch and discard descendant candidates, making the selected package contents
+    // opaque.
+    var roots = new TreeSet<PathFragment>(HIERARCHICAL_COMPARATOR);
+    PathFragment previousRoot = null;
+    for (var candidate : candidates) {
+      if (previousRoot == null || !candidate.startsWith(previousRoot)) {
+        roots.add(candidate);
+        previousRoot = candidate;
+      }
+    }
+    // The runfiles tree is itself an aggregate. Add its root after pruning, since the empty path
+    // would otherwise subsume every internal candidate. This also keeps aggregate/root selection
+    // in the same set passed to the Merkle builder.
+    roots.add(PathFragment.EMPTY_FRAGMENT);
+    return roots;
+  }
+
+  /** Adds an external repository boundary at its actual mapped location, without reading files. */
+  private static void addExternalRepositoryRoot(
+      Artifact artifact, PathFragment mappedPath, Set<PathFragment> roots) {
+    // Source artifacts from external repositories have an explicit external-root classification.
+    // For generated artifacts, removing the repository-relative suffix removes both the output
+    // root and external/<repo>. Main-repository artifacts remove only the output-root prefix.
+    // Comparing segment counts avoids constructing the generated root-relative path a second time.
+    var repositoryRelativePath = artifact.getRepositoryRelativePath();
+    if (!artifact.getRoot().isExternal()
+        && artifact.getExecPath().segmentCount() - repositoryRelativePath.segmentCount()
+            == artifact.getRoot().getExecPath().segmentCount()) {
+      return;
+    }
+    // Use the mapped path, not the artifact's original exec path: output configurations may have
+    // been replaced by a shared prefix. For example, mapped bazel-out/cfg/bin/external/sdk/bin/tool
+    // with repository-relative bin/tool selects bazel-out/cfg/bin/external/sdk. Source inputs
+    // similarly select external/sdk. These remain separate directories in the action input tree.
+    // Only infer a boundary if the complete repository-relative suffix survives mapping; arbitrary
+    // renaming can make it impossible to locate that repository safely. A positive prefix length
+    // also prevents selecting the action root. The set deduplicates roots shared by many inputs.
+    int rootSegments = mappedPath.segmentCount() - repositoryRelativePath.segmentCount();
+    if (rootSegments > 0 && mappedPath.endsWith(repositoryRelativePath)) {
+      roots.add(mappedPath.subFragment(0, rootSegments));
+    }
+  }
+
   private long unwindDirectoryStack(
       Deque<Directory.Builder> directoryStack,
       String currentParentString,
       int targetLength,
       BlobPolicy blobPolicy,
-      @Nullable Map<Object, Object> blobs) {
+      @Nullable Map<Object, Object> blobs,
+      Set<PathFragment> inputSetRoots) {
     long addedBytes = 0;
     for (int end = currentParentString.length(); end > targetLength; ) {
-      byte[] directoryBlob = directoryStack.pop().build().toByteArray();
+      var directory = directoryStack.pop();
+      if (!inputSetRoots.isEmpty()
+          && !isEmptyDirectory(directory)
+          && inputSetRoots.contains(PathFragment.create(currentParentString.substring(0, end)))) {
+        directory.setNodeProperties(INPUT_SET_ROOT_PROPERTIES);
+      }
+      byte[] directoryBlob = directory.build().toByteArray();
       Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
       if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
         blobs.putIfAbsent(directoryBlobDigest, directoryBlob);
@@ -889,7 +1027,8 @@ public final class MerkleTreeComputer {
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
-            blobPolicy);
+            blobPolicy,
+            /* markRunfilesDirectories= */ false);
       }
       case null, default -> null;
     };
@@ -939,7 +1078,8 @@ public final class MerkleTreeComputer {
         metadataProvider,
         artifactPathResolver,
         remoteActionExecutionContext,
-        blobPolicy);
+        blobPolicy,
+        /* markRunfilesDirectories= */ true);
   }
 
   private ListenableFuture<MerkleTree.RootOnly> computeForTreeArtifactIfAbsent(
@@ -975,7 +1115,8 @@ public final class MerkleTreeComputer {
         metadataProvider,
         artifactPathResolver,
         remoteActionExecutionContext,
-        blobPolicy);
+        blobPolicy,
+        /* markRunfilesDirectories= */ false);
   }
 
   private interface SortedInputsSupplier<T> {
@@ -1004,7 +1145,8 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      BlobPolicy blobPolicy) {
+      BlobPolicy blobPolicy,
+      boolean markRunfilesDirectories) {
     var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
       persistentCache.invalidate(cacheKey);
@@ -1028,7 +1170,12 @@ public final class MerkleTreeComputer {
     // BulkTransferException.getLostArtifacts has been considered, but is far more complex and only
     // relevant for the uncommon no-DISCARD case.
     var key =
-        new InFlightCacheKey(cacheKey, isTool, uploadBlobs, uploadBlobs ? unmappedExecPath : null);
+        new InFlightCacheKey(
+            cacheKey,
+            isTool,
+            uploadBlobs,
+            uploadBlobs ? unmappedExecPath : null,
+            markRunfilesDirectories);
     AsyncCallable<MerkleTree.RootOnly> buildMerkleTreeTask =
         () -> {
           // A concurrent computation may have completed and populated the persistent cache after
@@ -1043,9 +1190,14 @@ public final class MerkleTreeComputer {
           try {
             // Subtrees either consist entirely of tool inputs or don't contain any. The same
             // applies to scrubbed inputs.
+            var sortedInputs = sortedInputsSupplier.compute();
+            var roots =
+                markRunfilesDirectories
+                    ? runfilesInputSetRoots(sortedInputs, getPath, getInput, metadataProvider)
+                    : Set.of(PathFragment.EMPTY_FRAGMENT);
             merkleTreeFuture =
                 build(
-                    sortedInputsSupplier.compute(),
+                    sortedInputs,
                     getPath,
                     getInput,
                     isTool ? alwaysTrue() : alwaysFalse(),
@@ -1053,7 +1205,8 @@ public final class MerkleTreeComputer {
                     metadataProvider,
                     artifactPathResolver,
                     remoteActionExecutionContext,
-                    blobPolicy);
+                    blobPolicy,
+                    roots);
           } catch (IOException e) {
             throw new WrappedException(e);
           } catch (InterruptedException e) {
