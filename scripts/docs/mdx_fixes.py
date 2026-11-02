@@ -84,8 +84,11 @@ _PRE_BLOCK_SUB = (
         re.DOTALL | re.MULTILINE,
     ),
 )
-# {{ '<var>' }} / {{ "</sub>" }} or any variations thereof
-_DOUBLE_BRACKET_SUB = (r"\1", re.compile(r"\{\{ ['\"](</?\w+>)['\"] \}\}"))
+# {{ '<var>' }} / {{ "</sub>" }} or any variations thereof, as well as <var> tags
+_DOUBLE_BRACKET_SUB = (
+    "",
+    re.compile(r"\{\{\s*['\"]</?\w+>\s*['\"]\s*\}\}|</?var>"),
+)
 _HTML_COMMENT_SUB = (r"{/* \1 */}", re.compile(r"<!--(.*?)-->", re.DOTALL))
 _ANCHOR_SUB = (r"{\1}", re.compile(r"\{:\s?(#[\S+]+)\s?\}"))
 _HTML_LINK_SUB = (_fix_link, re.compile(r"\]\(([^)]+)\.html"))
@@ -116,7 +119,10 @@ _BAD_LINEBREAK_P_SUB = (
 )
 _ESCAPED_TD_BACKSLASH_SUB = (r"\\\\</td>", re.compile(r"(?<!\\)\\</td>"))
 _UNESCAPED_INC_TAG_SUB = (r"&lt;inc\1&gt;", re.compile(r"<inc(\d+)>"))
-_MISMATCHED_BACKTICK_QUOTE_SUB = (r"`\1`", re.compile(r"`(<[^>]+>)'"))
+_MISMATCHED_BACKTICK_QUOTE_SUB = (
+    r"`\1`",
+    re.compile(r"(?<!\w)`(<[^>]+>|\w+)'"),
+)
 _UNESCAPED_DICT_BRACES_SUB = (
     r"&lcub;\1&rcub;",
     re.compile(r"\{(`[^`]+`:`[^`]+`)\}"),

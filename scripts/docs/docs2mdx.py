@@ -89,6 +89,7 @@ _CONFIGURATION_HTML_BAD_LINE = re.compile(
     r" target.+$",
     re.MULTILINE,
 )
+_INLINE_CODE_RE = re.compile(r"(`[^`]+`)")
 
 
 def _escape_chars(text, replacements):
@@ -218,13 +219,17 @@ class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
     """Custom escape handling."""
     if not text:
       return text
-    escaped = super().escape(text, parent_tags)
-    # Unescape underscores that are in the middle of words.
-    escaped = re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
     # Fenced and inline code blocks are already safe from MDX parsing.
     if "pre" in parent_tags or "code" in parent_tags:
-      return escaped
-    return _escape_chars(escaped, _REPLACED_CODE_CHARACTERS)
+      escaped = super().escape(text, parent_tags)
+      return re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
+    parts = _INLINE_CODE_RE.split(text)
+    for i in range(0, len(parts), 2):
+      escaped = super().escape(parts[i], parent_tags)
+      # Unescape underscores that are in the middle of words.
+      escaped = re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
+      parts[i] = _escape_chars(escaped, _REPLACED_CODE_CHARACTERS)
+    return "".join(parts)
 
 
 def _convert_directory(root_dir, mdx_dir):
