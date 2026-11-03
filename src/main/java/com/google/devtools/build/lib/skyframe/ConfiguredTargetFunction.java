@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptio
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
@@ -192,8 +191,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
   }
 
-  private static class State
-      implements SerializableSkyKeyComputeState, TargetAndConfigurationProducer.ResultSink {
+  private static class State extends SerializableSkyKeyComputeState
+      implements TargetAndConfigurationProducer.ResultSink {
     /**
      * Drives a {@link TargetAndConfigurationProducer} that sets the {@link
      * #targetAndConfigurationResult} when complete.
@@ -216,9 +215,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     final DependencyResolver.State computeDependenciesState;
 
-    @Nullable // Initialized lazily
-    private RetrievalContext retrievalContext = null;
-
     State(boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
           new DependencyResolver.State(storeTransitivePackages, prerequisitePackages);
@@ -239,15 +235,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     @Override
     public void acceptTargetAndConfigurationError(TargetAndConfigurationError error) {
       this.targetAndConfigurationResult = error;
-    }
-
-    @Override
-    public RetrievalContext getRetrievalContext() {
-      if (retrievalContext == null) {
-        retrievalContext = new RetrievalContext();
-      }
-
-      return retrievalContext;
     }
   }
 

@@ -238,11 +238,32 @@ public final class SkyValueRetriever {
   }
 
   /** A {@link RetrievalContextProvider} implemented as a {@link SkyKeyComputeState}. */
-  public interface SerializableSkyKeyComputeState
-      extends RetrievalContextProvider, SkyKeyComputeState {
+  public static class SerializableSkyKeyComputeState
+      implements RetrievalContextProvider, SkyKeyComputeState {
+    @GuardedBy("this")
+    @Nullable
+    private RetrievalContext retrievalContext;
+
+    @GuardedBy("this")
+    private boolean closed;
+
     @Override
-    default void close() {
-      getRetrievalContext().cleanupSerializationState();
+    public final synchronized RetrievalContext getRetrievalContext() {
+      if (retrievalContext == null) {
+        retrievalContext = new RetrievalContext();
+        if (closed) {
+          retrievalContext.cleanupSerializationState();
+        }
+      }
+      return retrievalContext;
+    }
+
+    @Override
+    public final synchronized void close() {
+      closed = true;
+      if (retrievalContext != null) {
+        retrievalContext.cleanupSerializationState();
+      }
     }
   }
 
