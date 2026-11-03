@@ -335,7 +335,12 @@ def parse_netrc(contents, filename = "a .netrc file"):
     # the end of a `macdef` command.
     netrc = {}
     currentmachinename = None
-    currentmachine = {}
+    # A machine with no credentials contributes an empty entry to netrc.
+    # Its keys and values are still strings, including after a parser reset.
+    # TODO(https://github.com/bazelbuild/bazel/issues/32022): Use a native
+    # annotation when Bazel narrows cmd and macdef to strings in their guards.
+    # An annotation here enables static checking of the entire function.
+    currentmachine = {}  # type: dict[str, str]
     macdef = None
     currentmacro = ""
     cmd = None
@@ -520,7 +525,9 @@ def get_auth(ctx, urls):
         netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
     else:
         netrc = read_user_netrc(ctx)
-    auth_patterns = {}
+    # A rule may omit auth_patterns. use_netrc still expects a map from
+    # hostname to authorization pattern on that path.
+    auth_patterns: dict[str, str] = {}
     if hasattr(ctx.attr, "auth_patterns") and ctx.attr.auth_patterns:
         auth_patterns = ctx.attr.auth_patterns
     return use_netrc(netrc, urls, auth_patterns)
