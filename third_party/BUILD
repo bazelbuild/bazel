@@ -74,8 +74,6 @@ filegroup(
         "//third_party/java/zstd_jni:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/py/abseil:srcs",
-        "//third_party/py/frozendict:srcs",
     ],
 )
 
