@@ -204,7 +204,7 @@ public final class OptionsUtils {
   }
 
   private static PathFragment convertOptionsPathFragment(String path) {
-    if (!path.isEmpty() && path.startsWith("~/")) {
+    if (path.startsWith("~/") || (OS.getCurrent() == OS.WINDOWS && path.startsWith("~\\"))) {
       path =
           StringEncoding.platformToInternal(StandardSystemProperty.USER_HOME.value())
               + path.substring(1);
