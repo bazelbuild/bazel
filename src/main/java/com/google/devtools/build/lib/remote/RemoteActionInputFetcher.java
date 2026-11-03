@@ -142,17 +142,21 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
                 input.getExecPathString(),
                 digest.getSizeBytes())),
         IOException.class,
-        e ->
-            immediateFailedFuture(
-                switch (e) {
-                  case CacheNotFoundException cacheNotFoundException -> cacheNotFoundException;
-                  default -> {
-                    var cacheNotFoundException =
-                        new CacheNotFoundException(digest, input.getExecPath());
-                    cacheNotFoundException.addSuppressed(e);
-                    yield cacheNotFoundException;
-                  }
-                }),
+        e -> {
+          if (action != null
+              && execRoot.getFileSystem() instanceof LazyMaterializer materializer) {
+            var repoError = materializer.getRepoInputError(finalPath.asFragment(), e);
+            if (repoError != null) {
+              return immediateFailedFuture(repoError);
+            }
+          }
+          if (e instanceof CacheNotFoundException) {
+            return immediateFailedFuture(e);
+          }
+          var cacheNotFoundException = new CacheNotFoundException(digest, input.getExecPath());
+          cacheNotFoundException.addSuppressed(e);
+          return immediateFailedFuture(cacheNotFoundException);
+        },
         directExecutor());
   }
 }

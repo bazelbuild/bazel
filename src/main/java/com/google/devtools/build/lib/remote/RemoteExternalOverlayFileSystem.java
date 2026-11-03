@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -492,6 +493,29 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     FileSystemUtils.writeContentAsLatin1(
         markerFileSibling, markerFileContents.remove(repo.getName()));
     markerFileSibling.renameTo(markerFile);
+  }
+
+  @Override
+  @Nullable
+  public IOException getRepoInputError(PathFragment path, IOException cause) {
+    if (fsForPath(path) != externalFs) {
+      return null;
+    }
+    // Only the repository rule can recreate these bytes. Never hand them to action rewinding.
+    return cause instanceof CacheNotFoundException missing
+        ? lostRemoteFile(path.relativeTo(externalDirectory), missing.getMissingDigest(), missing)
+        : cause;
+  }
+
+  private DetailedIOException lostRemoteFile(
+      PathFragment relativePath, Digest digest, IOException cause) {
+    reposWithLostFiles.add(relativePath.getSegment(0));
+    return new DetailedIOException(
+        "%s/%s with digest %s is no longer available in the remote cache"
+            .formatted(externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest)),
+        cause,
+        FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
+        SkyFunctionException.Transience.TRANSIENT);
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
@@ -998,14 +1022,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
         throw new InterruptedIOException("interrupted while waiting for remote file transfer");
       } catch (BulkTransferException e) {
         if (e.allCausedByCacheNotFoundException()) {
-          reposWithLostFiles.add(relativePath.getSegment(0));
-          throw new DetailedIOException(
-              "%s/%s with digest %s is no longer available in the remote cache"
-                  .formatted(
-                      externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest)),
-              e,
-              FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
-              SkyFunctionException.Transience.TRANSIENT);
+          throw lostRemoteFile(relativePath, digest, e);
         }
         throw e;
       } catch (ExecutionException e) {

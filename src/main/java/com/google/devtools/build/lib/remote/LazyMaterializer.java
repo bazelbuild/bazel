@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * A file system that may keep the contents of certain directory trees in memory, backed by remote
@@ -34,6 +35,10 @@ public interface LazyMaterializer {
    */
   void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException;
+
+  /** Returns the download error for an input backed by the overlay, or null for other inputs. */
+  @Nullable
+  IOException getRepoInputError(PathFragment path, IOException cause);
 
   /**
    * Materializes the subtree rooted at the given path to the local file system if its contents are
