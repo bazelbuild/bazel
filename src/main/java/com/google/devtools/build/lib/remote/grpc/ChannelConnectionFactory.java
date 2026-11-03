@@ -46,16 +46,21 @@ public interface ChannelConnectionFactory extends ConnectionFactory {
 
     @Override
     public void close() throws IOException {
-      // Clear interrupted status to prevent failure to await, indicated with #13512
+      // Finish closing before restoring cancellation, including interrupts received while waiting.
       boolean wasInterrupted = Thread.interrupted();
       // There is a bug (b/183340374) in gRPC that client doesn't try to close connections with
       // shutdown() if the channel received GO_AWAY frames. Using shutdownNow() here as a
       // workaround.
       try {
         channel.shutdownNow();
-        channel.awaitTermination(Integer.MAX_VALUE, SECONDS);
-      } catch (InterruptedException e) {
-        throw new IOException(e.getMessage(), e);
+        while (true) {
+          try {
+            channel.awaitTermination(Integer.MAX_VALUE, SECONDS);
+            break;
+          } catch (InterruptedException e) {
+            wasInterrupted = true;
+          }
+        }
       } finally {
         if (wasInterrupted) {
           Thread.currentThread().interrupt();
