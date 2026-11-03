@@ -761,6 +761,68 @@ static void RunServerMode(
   }
 }
 
+static StartupOptions* SetupAndParseOptions(int argc, const char* const* argv,
+                                            const string& cwd,
+                                            const string& workspace,
+                                            WorkspaceLayout* workspace_layout,
+                                            OptionProcessor* option_processor) {
+  // Best-effort operation to raise the resource limits from soft to hard.  We
+  // do this early during the main program instead of just before execing the
+  // Blaze server binary, because it's easier (for testing purposes) and because
+  // the Blaze client also benefits from this (e.g. during installation).
+  UnlimitResources();
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+  // Must be done before command line parsing.
+  // ParseOptionsOrDie already populate --client_env, so detect bash before it
+  // happens.
+  (void)DetectBashAndExportBazelSh();
+#endif  // if defined(_WIN32) || defined(__CYGWIN__)
+
+  if (blaze::IsRunningWithinTest()) {
+    BAZEL_LOG(USER) << "$TEST_TMPDIR defined, some defaults will be overridden";
+  }
+  int max_import_depth = blaze::SelectMaxImportDepth();
+  ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv,
+                    max_import_depth);
+  StartupOptions* startup_options = option_processor->GetParsedStartupOptions();
+  startup_options->MaybeLogStartupOptionWarnings();
+
+  if (startup_options->client_debug) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_DEBUG);
+  } else if (startup_options->quiet) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_QUIET);
+  } else {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_USER);
+  }
+
+  // If client_debug was false, this is ignored, so it's accurate.
+  BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
+                     "statements to stderr";
+
+  BAZEL_LOG(INFO) << "Running (pid=" << GetProcessIdAsString() << ")";
+
+  if (startup_options->unlimit_coredumps) {
+    UnlimitCoredumps();
+  }
+
+  if (!workspace_layout->InWorkspace(workspace)) {
+    const string command = option_processor->GetCommand();
+    if (!CanRunOutsideWorkspace(command)) {
+      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+          << startup_options->product_name
+          << (command.empty() ? "" : " '" + command + "'")
+          << " must be invoked from within a workspace (below a"
+          << " directory having a MODULE.bazel file).\n"
+          << "See documentation at"
+          << " https://bazel.build/concepts/build-ref#workspace";
+    }
+    startup_options->batch = true;
+  }
+
+  return startup_options;
+}
+
 // The following is a treatise on how the interaction between the client and the
 // server works.
 //
@@ -1704,60 +1766,9 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     return blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR;
   }
 
-  // Best-effort operation to raise the resource limits from soft to hard.  We
-  // do this early during the main program instead of just before execing the
-  // Blaze server binary, because it's easier (for testing purposes) and because
-  // the Blaze client also benefits from this (e.g. during installation).
-  UnlimitResources();
-
-#if defined(_WIN32) || defined(__CYGWIN__)
-  // Must be done before command line parsing.
-  // ParseOptionsOrDie already populate --client_env, so detect bash before it
-  // happens.
-  (void)DetectBashAndExportBazelSh();
-#endif  // if defined(_WIN32) || defined(__CYGWIN__)
-
-  if (blaze::IsRunningWithinTest()) {
-    BAZEL_LOG(USER) << "$TEST_TMPDIR defined, some defaults will be overridden";
-  }
-  int max_import_depth = blaze::SelectMaxImportDepth();
   const string workspace = workspace_layout->GetWorkspace(cwd);
-  ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv,
-                    max_import_depth);
-  StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
-  startup_options->MaybeLogStartupOptionWarnings();
-
-  if (startup_options->client_debug) {
-    SetDebugLog(blaze_util::LOGGINGDETAIL_DEBUG);
-  } else if (startup_options->quiet) {
-    SetDebugLog(blaze_util::LOGGINGDETAIL_QUIET);
-  } else {
-    SetDebugLog(blaze_util::LOGGINGDETAIL_USER);
-  }
-
-  // If client_debug was false, this is ignored, so it's accurate.
-  BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
-                     "statements to stderr";
-
-  BAZEL_LOG(INFO) << "Running (pid=" << GetProcessIdAsString() << ")";
-
-  if (startup_options->unlimit_coredumps) {
-    UnlimitCoredumps();
-  }
-
-  if (!workspace_layout->InWorkspace(workspace)) {
-    const string command = option_processor->GetCommand();
-    if (!CanRunOutsideWorkspace(command)) {
-      BAZEL_LOG(ERROR) << startup_options->product_name
-                       << (command.empty() ? "" : " '" + command + "'")
-                       << " must be invoked from within a workspace (below a"
-                       << " directory having a MODULE.bazel file).\n"
-                       << "See documentation at"
-                       << " https://bazel.build/concepts/build-ref#workspace";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    startup_options->batch = true;
-  }
+  StartupOptions* startup_options = SetupAndParseOptions(
+      argc, argv, cwd, workspace, workspace_layout, option_processor);
 
   vector<string> archive_contents;
   string install_md5;
