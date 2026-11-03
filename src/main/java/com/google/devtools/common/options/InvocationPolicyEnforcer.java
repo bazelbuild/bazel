@@ -51,9 +51,6 @@ import javax.annotation.Nullable;
 public final class InvocationPolicyEnforcer {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  // LINT.IfChange
-  private static final String INVOCATION_POLICY_SOURCE = "Invocation policy";
-  // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java, //src/main/java/com/google/devtools/common/options/GlobalRcUtils.java.oss)
   private final InvocationPolicy invocationPolicy;
   private final Level loglevel;
   @Nullable private final Object conversionContext;
@@ -268,8 +265,9 @@ public final class InvocationPolicyEnforcer {
       if (policy.getFlagName().equals("config")) {
         throw new OptionsParsingException(
             "Invocation policy is applied after --config expansion, changing config values now "
-                + "would have no effect and is disallowed to prevent confusion. Please remove the "
-                + "following policy : "
+                + "would have no effect and is disallowed to prevent confusion. To add a --config "
+                + "to the command line, use config_policies instead. Please remove the following "
+                + "policy : "
                 +
             policy
             );
@@ -279,7 +277,8 @@ public final class InvocationPolicyEnforcer {
       // expansions of any other flag, other than in an obtuse sense from --invocation_policy.
       OptionPriority currentPriority = nextPriority;
       OptionInstanceOrigin origin =
-          new OptionInstanceOrigin(currentPriority, INVOCATION_POLICY_SOURCE, null, null);
+          new OptionInstanceOrigin(
+              currentPriority, GlobalRcUtils.INVOCATION_POLICY_SOURCE, null, null);
       nextPriority = OptionPriority.nextOptionPriority(currentPriority);
       if (!policyApplies(policy, commandAndParentCommands)) {
         // Only keep and expand policies that are applicable to the current command.

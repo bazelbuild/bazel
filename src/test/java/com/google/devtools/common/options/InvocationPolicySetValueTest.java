@@ -584,14 +584,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(expected)
         .hasMessageThat()
         .startsWith(
-            "Invocation policy is applied after --config expansion, changing config values now "
-                + "would have no effect and is disallowed to prevent confusion. Please remove "
-                + "the following policy : flag_name: \"config\"\n"
-                + "set_value {\n"
-                + "  flag_value: \"foo\"\n"
-                + "  behavior: "
-                + behavior
-                + "\n");
+            """
+            Invocation policy is applied after --config expansion, changing config values now \
+            would have no effect and is disallowed to prevent confusion. To add a --config to the \
+            command line, use config_policies instead. Please remove the following policy : \
+            flag_name: "config"
+            set_value {
+              flag_value: "foo"
+              behavior: %s
+            """
+                .formatted(behavior));
   }
 
   @Test

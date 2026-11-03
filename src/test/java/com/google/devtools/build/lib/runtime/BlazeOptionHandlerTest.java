@@ -25,9 +25,11 @@ import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.ConfigPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ParsedOptionDescription;
@@ -55,15 +57,18 @@ public class BlazeOptionHandlerTest {
 
   @Before
   public void setUp() throws Exception {
-    ImmutableList<Class<? extends OptionsBase>> optionsClasses =
-        ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
+    setUpWithInvocationPolicy(InvocationPolicy.getDefaultInstance());
+  }
 
+  /** (Re-)creates the option handler under test with the given invocation policy. */
+  private void setUpWithInvocationPolicy(InvocationPolicy invocationPolicy) throws Exception {
     BlazeOptionHandlerTestHelper helper =
         new BlazeOptionHandlerTestHelper(
-            optionsClasses,
+            ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class),
             /* allowResidue= */ true,
             /* aliasFlag= */ null,
-            /* skipStarlarkPrefixes= */ true);
+            /* skipStarlarkPrefixes= */ true,
+            invocationPolicy);
     eventHandler = helper.getEventHandler();
     parser = helper.getOptionsParser();
     optionHandler = helper.getOptionHandler();
@@ -745,6 +750,281 @@ public class BlazeOptionHandlerTest {
     assertThat(options.getTestMultipleString())
         .containsExactly("config", "rc", "explicit")
         .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_prepend() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("conf").setOrder(ConfigPolicy.Order.PREPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:conf=--test_multiple_string=config",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            """
+            Reading rc options for 'build' from /somewhere/.blazerc:
+              'build' options: --test_multiple_string=rc\
+            """,
+            "Invocation policy prepended options: --config=conf",
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
+                + "--test_multiple_string=config")
+        .inOrder();
+
+    // Equivalent to "build --config=conf --test_multiple_string=explicit": the config expansion
+    // comes after rc options but before the explicit command line options.
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.getTestMultipleString())
+        .containsExactly("rc", "config", "explicit")
+        .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_append() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("conf").setOrder(ConfigPolicy.Order.APPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:conf=--test_multiple_string=config",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            """
+            Reading rc options for 'build' from /somewhere/.blazerc:
+              'build' options: --test_multiple_string=rc\
+            """,
+            "Invocation policy appended options: --config=conf",
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
+                + "--test_multiple_string=config")
+        .inOrder();
+
+    // Equivalent to "build --test_multiple_string=explicit --config=conf": the config expansion
+    // comes after the explicit command line options.
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.getTestMultipleString())
+        .containsExactly("rc", "explicit", "config")
+        .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_prependOverriddenByExplicitOption() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("conf").setOrder(ConfigPolicy.Order.PREPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:conf=--test_string=fromConf",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getOptions(TestOptions.class).getTestString()).isEqualTo("explicit");
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_appendOverridesExplicitOption() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("conf").setOrder(ConfigPolicy.Order.APPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:conf=--test_string=fromConf",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+    // Same warning as when the user passes a trailing --config that overrides an earlier option.
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "option '--config=conf' (source Invocation policy) was expanded and now overrides"
+                    + " the explicit option --test_string=explicit with --test_string=fromConf"));
+    assertThat(parser.getOptions(TestOptions.class).getTestString()).isEqualTo("fromConf");
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_multiplePoliciesInOrder() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("pre1").setOrder(ConfigPolicy.Order.PREPEND))
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("post1").setOrder(ConfigPolicy.Order.APPEND))
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("pre2").setOrder(ConfigPolicy.Order.PREPEND))
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("post2").setOrder(ConfigPolicy.Order.APPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:pre1=--test_multiple_string=pre1",
+                "--default_override=0:build:pre2=--test_multiple_string=pre2",
+                "--default_override=0:build:post1=--test_multiple_string=post1",
+                "--default_override=0:build:post2=--test_multiple_string=post2",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsAtLeast(
+            "Invocation policy prepended options: --config=pre1 --config=pre2",
+            "Invocation policy appended options: --config=post1 --config=post2");
+    assertThat(parser.getOptions(TestOptions.class).getTestMultipleString())
+        .containsExactly("pre1", "pre2", "explicit", "post1", "post2")
+        .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_recursiveConfig() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("conf").setOrder(ConfigPolicy.Order.PREPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:conf=--test_multiple_string=config",
+                "--default_override=0:build:conf=--config=other",
+                "--default_override=0:build:other=--test_multiple_string=other",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getOptions(TestOptions.class).getTestMultipleString())
+        .containsExactly("config", "other", "explicit")
+        .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_reportedAsExplicitCommandLineOption() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("conf").setOrder(ConfigPolicy.Order.PREPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:conf=--test_multiple_string=config",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+
+    // The --config added by policy is reported like an explicit command line option (and so shows
+    // up in the "original" command line published to BEP), attributed to invocation policy.
+    ImmutableList<ParsedOptionDescription> commandLineOptions =
+        parser.asListOfExplicitOptions().stream()
+            .filter(o -> o.getPriority().getPriorityCategory() == PriorityCategory.COMMAND_LINE)
+            // Ignore the options the client uses to pass rc contents to the server.
+            .filter(
+                o ->
+                    !ImmutableSet.of("default_override", "rc_source")
+                        .contains(o.getOptionDefinition().getOptionName()))
+            .collect(toImmutableList());
+    assertThat(commandLineOptions.stream().map(ParsedOptionDescription::getCanonicalForm))
+        .containsExactly("--config=conf", "--test_multiple_string=explicit")
+        .inOrder();
+    assertThat(commandLineOptions.get(0).getSource()).isEqualTo("Invocation policy");
+    assertThat(commandLineOptions.get(1).getSource()).isEqualTo("command line options");
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_undefinedConfigIsAnError() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("invalid").setOrder(ConfigPolicy.Order.PREPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of("build", "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isFalse();
+    assertThat(exitCode.getFailureDetail().getMessage())
+        .contains("Config value 'invalid' is not defined in any .rc file");
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_missingNameIsAnError() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(ConfigPolicy.newBuilder().setOrder(ConfigPolicy.Order.PREPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of("build"), eventHandler, ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isFalse();
+    assertThat(exitCode.getFailureDetail().getMessage())
+        .contains("Invocation policy config_policies entry is missing a name");
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_undefinedOrderIsAnError() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(ConfigPolicy.newBuilder().setName("conf"))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:conf=--test_multiple_string=config",
+                "--rc_source=/somewhere/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isFalse();
+    assertThat(exitCode.getFailureDetail().getMessage())
+        .contains(
+            "Invocation policy config_policies entry for config 'conf' has an undefined order");
   }
 
   @Test
@@ -1449,7 +1729,8 @@ public class BlazeOptionHandlerTest {
                 BuildRequestOptions.class),
             /* allowResidue= */ true,
             /* aliasFlag= */ null,
-            /* skipStarlarkPrefixes= */ true);
+            /* skipStarlarkPrefixes= */ true,
+            InvocationPolicy.getDefaultInstance());
     DetailedExitCode noEqualsExit =
         optionHandler.parseOptions(
             ImmutableList.of("build", "--host_jvm_args", "-Xmx1g"),

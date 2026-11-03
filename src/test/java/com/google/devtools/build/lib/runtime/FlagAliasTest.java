@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -49,7 +50,8 @@ public final class FlagAliasTest {
             optionsClasses,
             /* allowResidue= */ true,
             /* aliasFlag= */ CoreOptionConverters.BLAZE_ALIASING_FLAG,
-            /* skipStarlarkPrefixes= */ true);
+            /* skipStarlarkPrefixes= */ true,
+            InvocationPolicy.getDefaultInstance());
     eventHandler = helper.getEventHandler();
     parser = helper.getOptionsParser();
     optionHandler = helper.getOptionHandler();
