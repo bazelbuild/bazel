@@ -186,12 +186,12 @@ public final class RemoteExternalOverlayFileSystemTest {
               unused -> {
                 // Finish another caller after the presence check but before task submission.
                 if (calls.incrementAndGet() == 2) {
-                  overlay.ensureMaterialized(repo, reporter);
+                  overlay.ensureMaterialized(repo, /* location= */ null, reporter);
                 }
                 return repo.getName();
               });
 
-      overlay.ensureMaterialized(delayedRepo, reporter);
+      overlay.ensureMaterialized(delayedRepo, /* location= */ null, reporter);
 
       assertThat(
               FileSystemUtils.readContent(
@@ -253,7 +253,8 @@ public final class RemoteExternalOverlayFileSystemTest {
       assertThat(overlay.injectRemoteRepo(unrelatedCachedRepo, tree, "unrelated_marker")).isTrue();
 
       // Non-existent repo directory is ignored.
-      overlay.ensureMaterialized(RepositoryName.create("nonexistent_repo"), reporter);
+      overlay.ensureMaterialized(
+          RepositoryName.create("nonexistent_repo"), /* location= */ null, reporter);
 
       var nativeRepo = RepositoryName.create("native_repo");
       var nativeRepoDir = externalRoot.getChild(nativeRepo.getName());
@@ -279,7 +280,7 @@ public final class RemoteExternalOverlayFileSystemTest {
           .getPath(nativeRepoDir.getChild("python"))
           .createSymbolicLink(nativeRepoDir.getRelative("sub/python_target"));
 
-      overlay.ensureMaterialized(nativeRepo, reporter);
+      overlay.ensureMaterialized(nativeRepo, /* location= */ null, reporter);
 
       assertThat(
               FileSystemUtils.readContent(
@@ -299,7 +300,7 @@ public final class RemoteExternalOverlayFileSystemTest {
       nativeFs
           .getPath(externalRoot.getChild(cachedRepo.getName()).getChild("extra_link"))
           .createSymbolicLink(PathFragment.create("../unrelated_cached_repo/bin/python3"));
-      overlay.ensureMaterialized(cachedRepo, reporter);
+      overlay.ensureMaterialized(cachedRepo, /* location= */ null, reporter);
       assertThat(
               nativeFs
                   .getPath(externalRoot.getChild(unrelatedCachedRepo.getMarkerFileName()))
@@ -317,13 +318,13 @@ public final class RemoteExternalOverlayFileSystemTest {
       nativeFs
           .getPath(nativeRepo2Dir.getChild("z_link"))
           .createSymbolicLink(PathFragment.create("../unrelated_cached_repo/bin/python3"));
-      overlay.ensureMaterialized(nativeRepo2, reporter);
+      overlay.ensureMaterialized(nativeRepo2, /* location= */ null, reporter);
       assertThat(
               FileSystemUtils.readContent(
                   nativeFs.getPath(externalRoot.getChild(unrelatedCachedRepo.getMarkerFileName())),
                   UTF_8))
           .isEqualTo("unrelated_marker");
-      overlay.ensureMaterialized(nativeRepo2, reporter);
+      overlay.ensureMaterialized(nativeRepo2, /* location= */ null, reporter);
     } finally {
       overlay.afterCommand();
     }
