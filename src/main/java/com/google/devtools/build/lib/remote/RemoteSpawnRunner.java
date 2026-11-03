@@ -35,6 +35,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -293,6 +294,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 // only be regenerated reliably by action rewinding or an invocation retry. Unwrap
                 // the LostInputsExecException, which is not classified as retryable.
                 e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
+                // Lost repository files need an invocation retry; they cannot be rewound as
+                // generated action inputs. Preserve permanent errors when uploads fail for mixed
+                // reasons.
+                var eviction = e.getLostRepoFile();
+                if (eviction != null) {
+                  throw new EnvironmentalExecException(
+                      e, eviction.getDetailedExitCode().getFailureDetail());
+                }
                 throw e;
               }
 
