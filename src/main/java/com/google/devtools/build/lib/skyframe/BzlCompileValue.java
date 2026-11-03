@@ -25,9 +25,12 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Program;
 
 /**
@@ -35,20 +38,10 @@ import net.starlark.java.syntax.Program;
  * Success}, for when the file is compiled successfully, and {@code Failure}, for when the file does
  * not exist, or had parser/resolver errors.
  */
-// In practice, almost any change to a .bzl causes the BzlCompileValue to be recomputed.
-// We could do better with a finer-grained notion of equality than "the source
-// files differ". In particular, a trivial change such as fixing a typo in a comment should not
-// cause invalidation. (Changes that are only slightly more substantial may be semantically
-// significant. For example, inserting a blank line affects subsequent line numbers, which appear
-// in error messages and query output.)
-//
-// Comparing syntax trees for equality is complex and expensive, so the most practical
-// implementation of this optimization will have to wait until Starlark files are compiled,
-// at which point byte-equality of the compiled representation (which is simple to compute)
-// will serve.
-//
 // TODO(adonovan): actually compile the code. The name is a step ahead of the implementation.
-public abstract class BzlCompileValue implements NotComparableSkyValue {
+public abstract class BzlCompileValue implements SkyValue {
+
+  record PruningInputs(Key key, StarlarkSemantics semantics) {}
 
   public abstract boolean lookupSuccessful();
 
@@ -66,11 +59,31 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     private final Program prog;
     private final byte[] digest;
     private final TypeOptions typeOptions;
+    @Nullable private final PruningInputs pruningInputs;
 
-    private Success(Program prog, byte[] digest, TypeOptions typeOptions) {
+    private Success(
+        Program prog, byte[] digest, TypeOptions typeOptions, @Nullable PruningInputs pruningInputs) {
       this.prog = Preconditions.checkNotNull(prog);
       this.digest = Preconditions.checkNotNull(digest);
       this.typeOptions = typeOptions;
+      this.pruningInputs = pruningInputs;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return this == obj
+          || (pruningInputs != null
+              && obj instanceof Success other
+              && pruningInputs.equals(other.pruningInputs)
+              && typeOptions.equals(other.typeOptions)
+              && Arrays.equals(digest, other.digest));
+    }
+
+    @Override
+    public int hashCode() {
+      return pruningInputs == null
+          ? System.identityHashCode(this)
+          : Objects.hash(pruningInputs, typeOptions, Arrays.hashCode(digest));
     }
 
     @Override
@@ -102,7 +115,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
   /** If the file isn't found or has errors, this class encapsulates a message with the reason. */
   @VisibleForSerialization
-  public static class Failure extends BzlCompileValue {
+  public static class Failure extends BzlCompileValue implements NotComparableSkyValue {
     private final String errorMsg;
 
     private Failure(String errorMsg) {
@@ -143,8 +156,9 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a value from a compiled .bzl program. */
-  public static BzlCompileValue withProgram(Program prog, byte[] digest, TypeOptions typeOptions) {
-    return new Success(prog, digest, typeOptions);
+  static BzlCompileValue withProgram(
+      Program prog, byte[] digest, TypeOptions typeOptions, @Nullable PruningInputs pruningInputs) {
+    return new Success(prog, digest, typeOptions, pruningInputs);
   }
 
   /** Types of bzl files we may encounter. */

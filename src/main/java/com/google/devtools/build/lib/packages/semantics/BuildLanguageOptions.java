@@ -139,6 +139,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getExperimentalBzlVisibility();
 
   @Option(
+      name = "experimental_prune_unchanged_external_bzl",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Retain compiled programs for external .bzl files so byte-identical rewrites do not"
+              + " invalidate their consumers. May increase retained memory.")
+  public abstract boolean getExperimentalPruneUnchangedExternalBzl();
+
+  @Option(
       name = "experimental_single_package_toolchain_binding",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -936,6 +947,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE,
                 getExperimentalBuiltinsInjectionOverride())
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, getExperimentalBzlVisibility())
+            .setBool(
+                EXPERIMENTAL_PRUNE_UNCHANGED_EXTERNAL_BZL, getExperimentalPruneUnchangedExternalBzl())
             .setBool(ALLOW_EXPERIMENTAL_LOADS, getAllowExperimentalLoads())
             .setBool(CHECK_BZL_VISIBILITY, getCheckBzlVisibility())
             .setBool(
@@ -1140,6 +1153,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "+incompatible_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
   public static final String EXPERIMENTAL_BZL_VISIBILITY = "+experimental_bzl_visibility";
+  public static final String EXPERIMENTAL_PRUNE_UNCHANGED_EXTERNAL_BZL =
+      "-experimental_prune_unchanged_external_bzl";
   public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";

@@ -148,21 +148,16 @@ public class BzlLoadFunction implements SkyFunction {
     return new BzlLoadFunction(
         ruleClassProvider,
         directories,
-        // When we are not inlining BzlLoadValue nodes, there is no need to have separate
-        // BzlCompileValue nodes for bzl files. Instead we inline BzlCompileFunction for a
-        // strict memory win, at a small code complexity cost.
+        // When we are not inlining BzlLoadValue nodes, we normally inline BzlCompileFunction
+        // to save memory. computeInternal selects an explicit compile node when change pruning
+        // is enabled for the file.
         //
         // Detailed explanation:
         // (1) The BzlCompileValue node for a bzl file is used only for the computation of
         // that file's BzlLoadValue node. So there's no concern about duplicate work that would
         // otherwise get deduped by Skyframe.
-        // (2) BzlCompileValue doesn't have an interesting equality relation, so we have no
-        // hope of getting any interesting change-pruning of BzlCompileValue nodes. If we
-        // had an interesting equality relation that was e.g. able to ignore benign
-        // whitespace, then there would be a hypothetical benefit to having separate
-        // BzlCompileValue nodes (e.g. on incremental builds we'd be able to not re-execute
-        // top-level code in bzl files if the file were reparsed to an equivalent tree).
-        // TODO(adonovan): this will change once it truly compiles the code (soon).
+        // (2) Without change pruning, there is no benefit to evaluating a BzlCompileValue
+        // independently of its consumer.
         // (3) A BzlCompileValue node lets us avoid redoing work on a BzlLoadFunction Skyframe
         // restart, but we can also achieve that result ourselves with a cache that persists between
         // Skyframe restarts.
@@ -570,9 +565,13 @@ public class BzlLoadFunction implements SkyFunction {
     if (compileKey == null) {
       return null;
     }
+    ValueGetter compileGetter =
+        BzlCompileFunction.useExternalBzlPruning(compileKey, builtins.starlarkSemantics)
+            ? RegularSkyframeGetter.INSTANCE
+            : getter;
     BzlCompileValue compileValue;
     try {
-      compileValue = getter.getBzlCompileValue(compileKey, env);
+      compileValue = compileGetter.getBzlCompileValue(compileKey, env);
     } catch (BzlCompileFunction.FailedIOException e) {
       throw errorReadingBzl(filePath, e);
     }
@@ -589,7 +588,7 @@ public class BzlLoadFunction implements SkyFunction {
       completed = result != null;
     } finally {
       if (completed) { // only false on unexceptional null result
-        getter.doneWithBzlCompileValue(compileKey);
+        compileGetter.doneWithBzlCompileValue(compileKey);
       }
     }
     return result;

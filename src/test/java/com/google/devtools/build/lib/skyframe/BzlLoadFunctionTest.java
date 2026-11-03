@@ -143,6 +143,39 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void externalBzlPruning_preservesLoadAcrossIdenticalSymlinkRetarget() throws Exception {
+    setBuildLanguageOptions("--experimental_prune_unchanged_external_bzl");
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'a_remote_repo')",
+        "local_path_override(module_name = 'a_remote_repo', path = '/a_remote_repo')");
+    scratch.file("/a_remote_repo/MODULE.bazel", "module(name = 'a_remote_repo')");
+    scratch.file("/a_remote_repo/remote_pkg/BUILD");
+    String source = "load(':dep.bzl', 'x')\ny = x";
+    scratch.file("/a_remote_repo/remote_pkg/first.bzl", source);
+    scratch.file("/a_remote_repo/remote_pkg/second.bzl", source);
+    scratch.file("/a_remote_repo/remote_pkg/dep.bzl", "x = 1");
+    Path link = scratch.dir("/a_remote_repo/remote_pkg").getChild("entry.bzl");
+    link.createSymbolicLink(PathFragment.create("first.bzl"));
+    SkyKey key = key("@@a_remote_repo+//remote_pkg:entry.bzl");
+    BzlLoadValue original = get(key).get(key);
+    assertThat(original.getModule().getGlobals()).containsEntry("y", StarlarkInt.of(1));
+
+    link.delete();
+    link.createSymbolicLink(PathFragment.create("second.bzl"));
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, root);
+    assertThat(get(key).get(key)).isSameInstanceAs(original);
+
+    scratch.overwriteFile("/a_remote_repo/remote_pkg/dep.bzl", "x = 2");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, root);
+    assertThat(get(key).get(key).getModule().getGlobals()).containsEntry("y", StarlarkInt.of(2));
+  }
+
+  @Test
   public void testLoadRelativeLabel() throws Exception {
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext1.bzl", "a = 1");

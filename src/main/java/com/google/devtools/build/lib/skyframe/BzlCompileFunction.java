@@ -89,6 +89,13 @@ public class BzlCompileFunction implements SkyFunction {
     this.packageLoadingListener = packageLoadingListener;
   }
 
+  static boolean useExternalBzlPruning(BzlCompileValue.Key key, StarlarkSemantics semantics) {
+    return semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_PRUNE_UNCHANGED_EXTERNAL_BZL)
+        && key.kind == BzlCompileValue.Kind.NORMAL
+        && !key.label.getRepository().isMain()
+        && key.label.getName().endsWith(".bzl");
+  }
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
@@ -116,6 +123,7 @@ public class BzlCompileFunction implements SkyFunction {
     byte[] digest;
     String inputName;
     RootedPath rootedPath = null;
+    BzlCompileValue.PruningInputs pruningInputs = null;
 
     StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (semantics == null) {
@@ -187,6 +195,9 @@ public class BzlCompileFunction implements SkyFunction {
           }
         }
 
+        if (!fileValue.isSpecialFile() && useExternalBzlPruning(key, semantics)) {
+          pruningInputs = new BzlCompileValue.PruningInputs(key, semantics);
+        }
         digest = fileValue.getDigest(); // may be null
         inputName = path.toString();
       } else {
@@ -298,7 +309,7 @@ public class BzlCompileFunction implements SkyFunction {
       if (key.kind == BzlCompileValue.Kind.NORMAL) {
         packageLoadingListener.onBzlCompileCompleteAndSuccessful(rootedPath, bytes.length);
       }
-      return BzlCompileValue.withProgram(prog, digest, typeOptions);
+      return BzlCompileValue.withProgram(prog, digest, typeOptions, pruningInputs);
     } catch (SyntaxError.Exception ex) {
       addSyntaxErrorsToListener(env.getListener(), ex.errors(), key);
       return BzlCompileValue.noFile(
