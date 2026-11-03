@@ -64,15 +64,14 @@ public record RepositoryMappingValue(
   public static final RepositoryMappingValue NOT_FOUND_VALUE =
       RepositoryMappingValue.createSpecial(null);
 
+  private static final RepositoryMapping.Explicit DEFAULT_MAPPING_FOR_BUILTINS_REPO =
+      RepositoryMapping.create(
+          ImmutableMap.of(
+              RepositoryName.BUILTINS.getName(), RepositoryName.BUILTINS, "", RepositoryName.MAIN),
+          RepositoryName.BUILTINS);
+
   public static final RepositoryMappingValue DEFAULT_VALUE_FOR_BUILTINS_REPO =
-      RepositoryMappingValue.createSpecial(
-          RepositoryMapping.create(
-              ImmutableMap.of(
-                  RepositoryName.BUILTINS.getName(),
-                  RepositoryName.BUILTINS,
-                  "",
-                  RepositoryName.MAIN),
-              RepositoryName.BUILTINS));
+      RepositoryMappingValue.createSpecial(DEFAULT_MAPPING_FOR_BUILTINS_REPO);
 
   public static RepositoryMappingValue create(
       RepositoryMapping repositoryMapping,
@@ -95,27 +94,13 @@ public record RepositoryMappingValue(
   }
 
   /**
-   * Replaces the inner {@link #repositoryMapping() repository mapping} with one returned by calling
-   * its {@link RepositoryMapping#withAdditionalMappings} method.
+   * Returns the value for the {@code @_builtins} repo, which can additionally see all repos visible
+   * from the tools repo with the given mapping.
    */
-  public RepositoryMappingValue withAdditionalMappings(RepositoryMapping repoMapping) {
-    return new RepositoryMappingValue(
-        repositoryMapping.withAdditionalMappings(repoMapping),
-        associatedModuleName,
-        associatedModuleVersion,
-        moduleRepoName);
-  }
-
-  /**
-   * Replaces the inner {@link #repositoryMapping() repository mapping} with one returned by calling
-   * its {@link RepositoryMapping#withCachedInverseMap} method.
-   */
-  public RepositoryMappingValue withCachedInverseMap() {
-    return new RepositoryMappingValue(
-        repositoryMapping().withCachedInverseMap(),
-        associatedModuleName(),
-        associatedModuleVersion(),
-        moduleRepoName());
+  public static RepositoryMappingValue forBuiltinsRepo(
+      @Nullable RepositoryMapping.Explicit toolsRepoMapping) {
+    return createSpecial(
+        DEFAULT_MAPPING_FOR_BUILTINS_REPO.withAdditionalMappings(toolsRepoMapping));
   }
 
   /** Returns the {@link Key} for {@link RepositoryMappingValue}s. */

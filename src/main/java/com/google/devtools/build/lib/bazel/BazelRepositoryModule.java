@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -261,10 +260,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.YANKED_VERSIONS, yankedVersionsFunction)
         .addSkyFunction(
             SkyFunctions.VENDOR_FILE,
-            new VendorFileFunction(runtime.getRuleClassProvider().getBazelStarlarkEnvironment()))
-        .addSkyFunction(
-            SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
-            new ModuleExtensionRepoMappingEntriesFunction());
+            new VendorFileFunction(runtime.getRuleClassProvider().getBazelStarlarkEnvironment()));
     filesystem = runtime.getFileSystem();
 
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
