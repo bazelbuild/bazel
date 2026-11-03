@@ -92,7 +92,10 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
                 : null;
         if (uri != null) {
           toolLogs.addLog(
-              BuildEventStreamProtos.File.newBuilder().setName(name).setUri(uri).build());
+              BuildEventStreamProtos.File.newBuilder()
+                  .setName(name)
+                  .setUri(StringEncoding.internalToUnicode(uri))
+                  .build());
         } else {
           logger.atInfo().log("Dropped unfinished upload: %s (%s)", name, directFuture);
         }
