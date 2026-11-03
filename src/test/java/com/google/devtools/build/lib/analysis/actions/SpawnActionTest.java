@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 
@@ -421,6 +422,15 @@ public final class SpawnActionTest extends BuildViewTestCase {
     assertThrows(IllegalArgumentException.class, () -> builder.setMnemonic("contains space"));
     assertThrows(IllegalArgumentException.class, () -> builder.setMnemonic("contains\nnewline"));
     assertThrows(IllegalArgumentException.class, () -> builder.setMnemonic("contains/slash"));
+  }
+
+  @Test
+  public void testMnemonicMayContainUnicodeLetters() {
+    SpawnAction.Builder builder = builder();
+    builder.setMnemonic(unicodeToInternal("Ärger"));
+    // The UTF-8 bytes of this non-letter are Latin-1 letters.
+    assertThrows(
+        IllegalArgumentException.class, () -> builder.setMnemonic(unicodeToInternal("\u0375")));
   }
 
   @Test
