@@ -48,6 +48,24 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RemoteExternalOverlayFileSystemTest {
   @Test
+  public void hasExactSymlinkTarget_danglingNativeSymlink() throws Exception {
+    var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var overlay =
+        new RemoteExternalOverlayFileSystem(PathFragment.create("/output/external"), nativeFs);
+    var link = overlay.getPath("/output/link");
+    var target = PathFragment.create("/output/missing");
+    link.getParentDirectory().createDirectoryAndParents();
+    link.createSymbolicLink(target);
+
+    assertThat(link.exists()).isFalse();
+    assertThat(overlay.hasExactSymlinkTarget(link.asFragment(), target)).isTrue();
+
+    link.delete();
+    link.createSymbolicLink(PathFragment.create("/output/elsewhere"));
+    assertThat(overlay.hasExactSymlinkTarget(link.asFragment(), target)).isFalse();
+  }
+
+  @Test
   public void getInputStream_lostFileDownloadedBefore_readFromDisk() throws Exception {
     var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
     var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
