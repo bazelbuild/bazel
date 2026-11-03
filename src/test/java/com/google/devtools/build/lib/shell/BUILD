@@ -96,6 +96,23 @@ java_test(
 )
 
 java_test(
+    name = "SubprocessBuilderTest",
+    srcs = ["SubprocessBuilderTest.java"],
+    tags = [
+        "shell",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ShellUtilsWithBashTest",
     srcs = ["ShellUtilsWithBashTest.java"],
     tags = [
