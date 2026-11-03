@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
 import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
@@ -96,6 +97,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -2090,7 +2092,13 @@ public final class SkyframeActionExecutor {
         findSpawnResultsInActionResultAndException(actionResult, exception);
     Instant firstStartTime = Instant.MAX;
     Instant lastEndTime = Instant.MIN;
+    ImmutableList.Builder<SpawnExec> strategyDetails = ImmutableList.builder();
     for (SpawnResult spawnResult : spawnResults) {
+      strategyDetails.add(
+          SpawnExec.newBuilder()
+              .setRunner(nullToEmpty(spawnResult.getRunnerName()))
+              .setCacheHit(spawnResult.isCacheHit())
+              .build());
       // Not all SpawnResults have a start time, and some use Instant.MIN/MAX instead of null.
       @Nullable Instant startTime = spawnResult.getStartTime();
       if (startTime != null && !startTime.equals(Instant.MIN) && !startTime.equals(Instant.MAX)) {
@@ -2111,7 +2119,8 @@ public final class SkyframeActionExecutor {
             stderr,
             errorTiming,
             firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
-            lastEndTime.equals(Instant.MIN) ? null : lastEndTime));
+            lastEndTime.equals(Instant.MIN) ? null : lastEndTime,
+            strategyDetails.build()));
   }
 
   /**
