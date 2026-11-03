@@ -537,6 +537,12 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
+  public boolean hasExactSymlinkTarget(PathFragment path, PathFragment target) throws IOException {
+    // Link contents are stored as PathFragments, so no raw path components have been discarded.
+    return readSymbolicLink(path).equals(target);
+  }
+
+  @Override
   public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getSize();
   }

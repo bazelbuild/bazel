@@ -125,6 +125,14 @@ public class RepositoryUtils {
       }
       for (Path symlink : symlinks) {
         PathFragment target = symlink.readSymbolicLink();
+        if (OS.getCurrent() != OS.WINDOWS
+            && !symlink.getFileSystem().hasExactSymlinkTarget(symlink.asFragment(), target)) {
+          // PathFragment removes components such as "alias/..". On POSIX, following alias
+          // first can lead to a different directory, so neither rewrite nor cache this link.
+          portableSymlinksOnly = false;
+          symlinksResolveWithinRepo = false;
+          continue;
+        }
         PathFragment originalTarget = target;
         if (target.startsWith(workspace.asFragment())) {
           symlinksResolveWithinRepo = false;
