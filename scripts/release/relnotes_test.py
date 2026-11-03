@@ -14,9 +14,11 @@
 
 """Unit tests for relnotes.py."""
 
+import io
 import os
 import sys
 import unittest
+from unittest import mock
 
 # Ensure the scripts/release directory is in sys.path when executed directly.
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +26,7 @@ if _SCRIPT_DIR not in sys.path:
   sys.path.insert(0, _SCRIPT_DIR)
 
 import relnotes  # pylint: disable=g-import-not-at-top
+import requests  # pylint: disable=g-import-not-at-top
 
 
 class RelnotesTest(unittest.TestCase):
@@ -102,6 +105,135 @@ class RelnotesTest(unittest.TestCase):
         "RELNOTES: None.",
     ]
     self.assertIsNone(relnotes.extract_relnotes(commit_lines))
+
+  def test_is_rolling_release(self):
+    self.assertTrue(relnotes.is_rolling_release("11.0.0-pre.20261022.3"))
+    self.assertTrue(relnotes.is_rolling_release("11.0.0-pre.20261022.3.1"))
+    self.assertTrue(relnotes.is_rolling_release("11.0.0-pre.20261022.3rc1"))
+    self.assertFalse(relnotes.is_rolling_release("11.0.0"))
+    self.assertFalse(relnotes.is_rolling_release("11.0.0rc1"))
+    self.assertFalse(relnotes.is_rolling_release("9.3.1"))
+    self.assertFalse(relnotes.is_rolling_release(""))
+
+  @mock.patch.object(requests, "get", autospec=True)
+  def test_get_label_returns_team_label_on_success(self, mock_get):
+    mock_response = mock.Mock()
+    mock_response.ok = True
+    mock_response.status_code = 200
+    mock_response.json.return_value = [
+        {"name": "P2"},
+        {"name": "team-Rules-Java "},
+    ]
+    mock_get.return_value = mock_response
+
+    label = relnotes.get_label("12345", auth="fake-token")
+
+    self.assertEqual(label, "team-Rules-Java")
+    mock_get.assert_called_once_with(
+        "https://api.github.com/repos/bazelbuild/bazel/issues/12345/labels",
+        headers={
+            "Authorization": "Bearer fake-token",
+            "Accept": "application/vnd.github+json",
+        },
+        timeout=30,
+    )
+
+  @mock.patch.object(requests, "get", autospec=True)
+  def test_get_label_returns_none_on_http_error_dict(self, mock_get):
+    # Regression test: when GitHub returns an HTTP 422/404 JSON error object
+    # (dict) instead of a list of label dicts, get_label must return None
+    # rather than iterating over string keys and raising AttributeError.
+    mock_response = mock.Mock()
+    mock_response.ok = False
+    mock_response.status_code = 422
+    mock_response.json.return_value = {
+        "message": "Validation Failed",
+        "errors": [{"code": "unprocessable"}],
+        "status": "422",
+    }
+    mock_get.return_value = mock_response
+
+    stderr = io.StringIO()
+    with mock.patch.object(sys, "stderr", stderr):
+      label = relnotes.get_label("31056", auth="fake-token")
+
+    self.assertIsNone(label)
+    self.assertIn("HTTP 422", stderr.getvalue())
+    self.assertIn("#31056", stderr.getvalue())
+
+  @mock.patch.object(requests, "get", autospec=True)
+  def test_get_label_returns_none_on_request_exception(self, mock_get):
+    mock_get.side_effect = requests.RequestException("connection reset")
+
+    stderr = io.StringIO()
+    with mock.patch.object(sys, "stderr", stderr):
+      label = relnotes.get_label("12345", auth="fake-token")
+
+    self.assertIsNone(label)
+    self.assertIn("Failed to fetch labels for #12345", stderr.getvalue())
+
+  @mock.patch.object(requests, "get", autospec=True)
+  def test_get_label_returns_none_on_invalid_json(self, mock_get):
+    mock_response = mock.Mock()
+    mock_response.ok = True
+    mock_response.status_code = 200
+    mock_response.json.side_effect = ValueError("No JSON object")
+    mock_get.return_value = mock_response
+
+    stderr = io.StringIO()
+    with mock.patch.object(sys, "stderr", stderr):
+      label = relnotes.get_label("12345", auth="fake-token")
+
+    self.assertIsNone(label)
+    self.assertIn("Invalid JSON", stderr.getvalue())
+
+  @mock.patch.object(relnotes, "get_label", autospec=True)
+  @mock.patch.object(relnotes, "get_github_token", autospec=True)
+  def test_get_categorized_relnotes_fetches_token_once_and_falls_back(
+      self, mock_get_token, mock_get_label
+  ):
+    mock_get_token.return_value = "secret-token"
+    mock_get_label.side_effect = ["team-Core", None]
+    notes = [
+        "Fix bazel query (#101)",
+        "Fix deleted author PR (#31056)",
+        "Manual note without PR",
+        "   ",
+    ]
+
+    categorized = relnotes.get_categorized_relnotes(notes)
+
+    mock_get_token.assert_called_once_with()
+    self.assertEqual(
+        mock_get_label.call_args_list,
+        [
+            mock.call("101", auth="secret-token"),
+            mock.call("31056", auth="secret-token"),
+        ],
+    )
+    self.assertEqual(
+        categorized,
+        {
+            "Core": ["Fix bazel query (#101)"],
+            "General": [
+                "Fix deleted author PR (#31056)",
+                "Manual note without PR",
+            ],
+        },
+    )
+
+  @mock.patch.object(relnotes, "get_github_token", autospec=True)
+  def test_get_categorized_relnotes_skips_token_when_no_issues(
+      self, mock_get_token
+  ):
+    categorized = relnotes.get_categorized_relnotes(
+        ["Note without issue reference"]
+    )
+
+    mock_get_token.assert_not_called()
+    self.assertEqual(
+        categorized, {"General": ["Note without issue reference"]}
+    )
 
 
 if __name__ == "__main__":
