@@ -14,11 +14,14 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.getDone;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
@@ -466,7 +469,32 @@ public final class SkyValueRetriever {
   @VisibleForTesting
   record WaitingForFutureLookupContinuation(
       ListenableFuture<SkyframeLookupContinuation> futureContinuation)
-      implements SerializationState {}
+      implements SerializationState {
+    @Override
+    public void cleanupSerializationState() {
+      // futureContinuation only waits for owned shared-value fetches and their deserialization
+      // tasks on fingerprintValueService's executor to finish collecting SkyKey lookups (see
+      // SkyframeLookupCollector); it does not wait on Skyframe lookups or shared-value futures
+      // owned by other Skyframe threads (which are awaited in WaitingForFutureResult). Because
+      // those tasks complete independently of Skyframe evaluation, this callback is guaranteed to
+      // run.
+      addCallback(
+          futureContinuation,
+          new FutureCallback<SkyframeLookupContinuation>() {
+            @Override
+            public void onSuccess(SkyframeLookupContinuation continuation) {
+              continuation.abandon(new StateEvictedException());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              // If futureContinuation fails, SkyframeLookupCollector.notifyFetchException has
+              // already abandoned any registered lookups.
+            }
+          },
+          directExecutor());
+    }
+  }
 
   @VisibleForTesting
   record WaitingForLookupContinuation(SkyframeLookupContinuation continuation)

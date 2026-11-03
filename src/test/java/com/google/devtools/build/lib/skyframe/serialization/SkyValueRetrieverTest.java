@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForCacheServiceResponse;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureLookupContinuation;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
@@ -75,6 +77,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -915,6 +918,119 @@ public final class SkyValueRetrieverTest {
                         state));
     assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
     assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
+  }
+
+  @Test
+  public void
+      cleanupSerializationState_inWaitingForFutureLookupContinuation_abandonsLookupsAndSharedValue()
+          throws Exception {
+    var heldGet = SettableFuture.<byte[]>create();
+    var heldBytes = new AtomicReference<byte[]>();
+    var getCount = new AtomicInteger();
+    var store =
+        new InMemoryFingerprintValueStore(/* useNullForMissingValues= */ true) {
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+            ListenableFuture<byte[]> inner = super.get(fingerprint);
+            if (getCount.incrementAndGet() == 2) {
+              try {
+                heldBytes.set(getDone(inner));
+              } catch (ExecutionException e) {
+                throw new AssertionError(e);
+              }
+              return heldGet;
+            }
+            return inner;
+          }
+        };
+    var fingerprintValueService = FingerprintValueService.createForTesting(store);
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var key1 = new TrivialKey("a");
+    var key2 = new TrivialKey("b");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var sharedExample0 = new ExampleValue(lookupKey0, 3);
+    var multiLookupValue1 = new MultiLookupValue(sharedExample0, new ExampleValue(lookupKey1, 5));
+    var multiLookupValue2 = new MultiLookupValue(sharedExample0, sharedExample0);
+    uploadKeyValuePair(
+        key1,
+        multiLookupValue1,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+    uploadKeyValuePair(
+        key2,
+        multiLookupValue2,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+
+    var state1 = new RetrievalContext();
+    RetrievalResult result1 =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key1,
+                state1);
+    assertThat(result1).isEqualTo(RESTART);
+    assertThat(state1.getState()).isInstanceOf(WaitingForFutureLookupContinuation.class);
+
+    // A second key sharing sharedExample0 hits FingerprintValueCache and waits in
+    // WaitingForFutureResult for key1's lookup of lookupKey0 to complete.
+    var state2 = new RetrievalContext();
+    RetrievalResult result2 =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key2,
+                state2);
+    assertThat(result2).isEqualTo(RESTART);
+    assertThat(state2.getState()).isInstanceOf(WaitingForFutureResult.class);
+
+    // Evicts state1 while it is still in WaitingForFutureLookupContinuation, before the second
+    // shared value's bytes arrive.
+    state1.getState().cleanupSerializationState();
+    heldGet.set(heldBytes.get());
+    var unused =
+        alwaysDoneDependOnFuture(((WaitingForFutureResult) state2.getState()).futureResult());
+
+    // Both state2 (waiting on the shared value in FingerprintValueCache) and state1 must fail with
+    // StateEvictedException rather than hanging forever.
+    var thrown2 =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        NO_LOOKUP_ENVIRONMENT,
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key2,
+                        state2));
+    assertThat(thrown2).hasMessageThat().contains("waiting for deserialization result for " + key2);
+    assertThat(thrown2).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
+
+    var thrown1 =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(k -> sharedExample0),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key1,
+                        state1));
+    assertThat(thrown1).hasMessageThat().contains("waiting for deserialization result for " + key1);
+    assertThat(thrown1).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
   }
 
   @Test
