@@ -48,6 +48,8 @@ public class PrintingEventHandler extends AbstractEventHandler
   public static final PrintingEventHandler ERRORS_TO_STDERR =
       new PrintingEventHandler(EventKind.ERRORS_AND_OUTPUT);
 
+  private static final byte[] NEWLINE = {'\n'};
+
   private OutErr outErr;
 
   /**
@@ -108,7 +110,7 @@ public class PrintingEventHandler extends AbstractEventHandler
                   Bytes.concat(
                       StringUnsafe.getInternalStringBytesOrUtf8(builder.toString()),
                       event.getMessageBytes(),
-                      new byte[] {'\n'}));
+                      NEWLINE));
           outErr.getErrorStream().flush();
         }
       }
