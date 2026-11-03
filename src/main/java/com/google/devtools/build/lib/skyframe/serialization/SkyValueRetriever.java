@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import java.util.EnumMap;
@@ -83,7 +84,12 @@ public final class SkyValueRetriever {
   }
 
   public static final class RetrievalContext {
+    @GuardedBy("this")
     private SerializationState state;
+
+    @GuardedBy("this")
+    private boolean stateEvicted;
+
     private int restarts;
     @Nullable private ByteString invalidationFingerprint;
     private long startTimestampNanos;
@@ -98,8 +104,20 @@ public final class SkyValueRetriever {
       lastTransitionTimestampNanos = 0;
     }
 
-    public SerializationState getState() {
+    public synchronized SerializationState getState() {
       return state;
+    }
+
+    private void cleanupSerializationState() {
+      SerializationState stateToCleanUp;
+      synchronized (this) {
+        if (stateEvicted) {
+          return;
+        }
+        stateEvicted = true;
+        stateToCleanUp = this.state;
+      }
+      stateToCleanUp.cleanupSerializationState();
     }
 
     public int getRestarts() {
@@ -120,7 +138,7 @@ public final class SkyValueRetriever {
     }
 
     public boolean isInitialQuery() {
-      return state == InitialQuery.INITIAL_QUERY;
+      return getState() == InitialQuery.INITIAL_QUERY;
     }
 
     public void setStartTimestampNanos(long startTimestampNanos) {
@@ -130,16 +148,27 @@ public final class SkyValueRetriever {
 
     private void transitionTo(SerializationState nextState) {
       long now = System.nanoTime();
+      SerializationState previousState;
+      boolean evicted;
+      synchronized (this) {
+        previousState = this.state;
+        this.state = nextState;
+        evicted = stateEvicted;
+      }
       if (lastTransitionTimestampNanos != 0) {
-        RetrievalPhase currentPhase = getPhase(this.state);
+        RetrievalPhase currentPhase = getPhase(previousState);
         if (currentPhase != null) {
           long elapsed = now - lastTransitionTimestampNanos;
           Long old = phaseDurationNanos.put(currentPhase, elapsed);
           Preconditions.checkState(old == null);
         }
       }
-      this.state = nextState;
       this.lastTransitionTimestampNanos = now;
+      if (evicted) {
+        // Compute state was evicted asynchronously while an evaluator thread was concurrently
+        // executing tryRetrieve before transitioning to nextState.
+        nextState.cleanupSerializationState();
+      }
     }
 
     private static RetrievalPhase getPhase(SerializationState state) {
@@ -213,7 +242,7 @@ public final class SkyValueRetriever {
       extends RetrievalContextProvider, SkyKeyComputeState {
     @Override
     default void close() {
-      getRetrievalContext().getState().cleanupSerializationState();
+      getRetrievalContext().cleanupSerializationState();
     }
   }
 

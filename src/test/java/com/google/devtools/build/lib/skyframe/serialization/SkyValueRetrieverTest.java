@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.No
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForCacheServiceResponse;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureResult;
@@ -1031,6 +1032,67 @@ public final class SkyValueRetrieverTest {
                         state1));
     assertThat(thrown1).hasMessageThat().contains("waiting for deserialization result for " + key1);
     assertThat(thrown1).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
+  }
+
+  @Test
+  public void
+      cleanupSerializationState_inWaitingForCacheServiceResponse_evictsSubsequentContinuation()
+          throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var captured = new ArrayList<SettableFuture<LookupResult>>();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createCapturingAnalysisCacheClient(captured::add);
+
+    var key = new TrivialKey("a");
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    PackedFingerprint cacheKey =
+        uploadKeyValuePair(
+            key,
+            multiLookupValue,
+            COMPRESSION_SERVICE,
+            fingerprintValueService,
+            analysisCacheServiceData);
+
+    var state = new RetrievalContext();
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForCacheServiceResponse.class);
+
+    // Simulates concurrent compute state eviction before the transition to
+    // WaitingForFutureLookupContinuation / WaitingForLookupContinuation.
+    SerializableSkyKeyComputeState computeState = () -> state;
+    computeState.close();
+    captured
+        .get(0)
+        .set(
+            new LookupResultImpl(
+                analysisCacheServiceData.get(ByteString.copyFrom(cacheKey.toBytes())).toByteArray(),
+                MissReason.MISS_REASON_UNSPECIFIED.getNumber()));
+
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        NO_LOOKUP_ENVIRONMENT,
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+    assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
   }
 
   @Test
