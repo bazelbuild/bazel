@@ -141,7 +141,12 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
         eventHandler.post(
             new SkycacheMetadataQueryResultEvent(matchStatus, result.statusMessage()));
       } catch (ExecutionException | TimeoutException e) {
-        eventHandler.handle(Event.warn("Skycache: Error with metadata store: " + e.getMessage()));
+        bailedOut = true;
+        eventHandler.handle(
+            Event.warn(
+                "Skycache: Error with metadata store: "
+                    + e.getMessage()
+                    + ". Bailing out to local evaluation."));
       }
     }
   }
