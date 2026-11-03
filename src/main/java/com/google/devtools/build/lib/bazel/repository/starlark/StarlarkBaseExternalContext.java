@@ -832,7 +832,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
       checksumValidation = e;
     }
 
-    StarlarkPath outputPath = getPath(output);
+    StarlarkPath outputPath = getPath(output, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadEvent(
             urls,
@@ -1116,7 +1116,7 @@ Strip the given number of leading components from file paths on extraction. Only
             identifyingStringForLogging,
             thread.getCallerLocation());
 
-    StarlarkPath outputPath = getPath(output);
+    StarlarkPath outputPath = getPath(output, thread);
     checkInOutputDirectory("write", outputPath);
     createDirectory(outputPath.getPath());
 
@@ -1364,7 +1364,7 @@ Strip the given number of leading components from file paths on extraction. Only
     stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
     int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
     validateStripping("extract", stripPrefix, stripComponents);
-    StarlarkPath archivePath = getPath(archive);
+    StarlarkPath archivePath = getPath(archive, thread);
 
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
@@ -1375,7 +1375,7 @@ Strip the given number of leading components from file paths on extraction. Only
     }
     maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
 
-    StarlarkPath outputPath = getPath(output);
+    StarlarkPath outputPath = getPath(output, thread);
     checkInOutputDirectory("write", outputPath);
 
     Map<String, String> renameFilesMap =
@@ -1510,7 +1510,7 @@ Strip the given number of leading components from file paths on extraction. Only
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p = getPath(path, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newFileEvent(
             p.toString(),
@@ -1603,8 +1603,8 @@ Strip the given number of leading components from file paths on extraction. Only
   public void copy(
       Object src, Object dst, Boolean executable, String watchSrc, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath srcPath = getPath(src);
-    StarlarkPath dstPath = getPath(dst);
+    StarlarkPath srcPath = getPath(src, thread);
+    StarlarkPath dstPath = getPath(dst, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newCopyEvent(
             srcPath.toString(),
@@ -1776,11 +1776,13 @@ Strip the given number of leading components from file paths on extraction. Only
             doc =
                 "<code>string</code>, <code>Label</code> or <code>path</code> from which to create"
                     + " a path from.")
-      })
-  public StarlarkPath getPath(Object path) throws EvalException, InterruptedException {
+      },
+      useStarlarkThread = true)
+  public StarlarkPath getPath(Object path, StarlarkThread thread)
+      throws EvalException, InterruptedException {
     return switch (path) {
       case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
-      case Label label -> getPathFromLabel(label);
+      case Label label -> getPathFromLabel(label, /* materialize= */ true, thread);
       case StarlarkPath starlarkPath -> starlarkPath;
       // This can never happen because we check it in the Starlark interpreter.
       default -> throw new IllegalArgumentException("expected string or label for path");
@@ -1817,7 +1819,11 @@ Strip the given number of leading components from file paths on extraction. Only
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p =
+        path instanceof Label label
+            // Only the file itself is read, which doesn't require the rest of its repo.
+            ? getPathFromLabel(label, /* materialize= */ false, thread)
+            : getPath(path, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -1988,10 +1994,11 @@ Strip the given number of leading components from file paths on extraction. Only
               @ParamType(type = StarlarkPath.class)
             },
             doc = "Path of the file to watch."),
-      })
-  public void watchForStarlark(Object path)
+      },
+      useStarlarkThread = true)
+  public void watchForStarlark(Object path, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    maybeWatch(getPath(path), ShouldWatch.YES);
+    maybeWatch(getPath(path, thread), ShouldWatch.YES);
   }
 
   // Create parent directories for the given path
@@ -2075,9 +2082,9 @@ Strip the given number of leading components from file paths on extraction. Only
 
   protected abstract ImmutableMap<String, String> getRemoteExecProperties() throws EvalException;
 
-  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label)
+  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Path localPath = getPathFromLabel(label).getPath();
+    Path localPath = getPathFromLabel(label, /* materialize= */ true, thread).getPath();
     PathFragment remotePath =
         label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
     return Maps.immutableEntry(remotePath, localPath);
@@ -2088,7 +2095,8 @@ Strip the given number of leading components from file paths on extraction. Only
       int timeout,
       Map<String, String> environment,
       boolean quiet,
-      String workingDirectory)
+      String workingDirectory,
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     checkState(canExecuteRemote());
 
@@ -2097,7 +2105,7 @@ Strip the given number of leading components from file paths on extraction. Only
     ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
     for (Object argumentUnchecked : argumentsUnchecked) {
       if (argumentUnchecked instanceof Label label) {
-        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label);
+        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label, thread);
         argumentsBuilder.add(remotePath.getKey().toString());
         inputsBuilder.put(remotePath);
       } else {
@@ -2255,7 +2263,7 @@ Strip the given number of leading components from file paths on extraction. Only
       // Remote execution only sees the explicitly set environment variables, so removing env vars
       // isn't necessary.
       return executeRemote(
-          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory);
+          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory, thread);
     }
 
     // Execute on the local/host machine
@@ -2263,7 +2271,7 @@ Strip the given number of leading components from file paths on extraction. Only
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
       if (arg instanceof Label label) {
-        args.add(getPathFromLabel(label).toString());
+        args.add(getPathFromLabel(label, /* materialize= */ true, thread).toString());
       } else {
         // String or StarlarkPath expected
         args.add(arg.toString());
@@ -2294,7 +2302,7 @@ Strip the given number of leading components from file paths on extraction. Only
 
     Path workingDirectoryPath;
     if (overrideWorkingDirectory != null && !overrideWorkingDirectory.isEmpty()) {
-      workingDirectoryPath = getPath(overrideWorkingDirectory).getPath();
+      workingDirectoryPath = getPath(overrideWorkingDirectory, thread).getPath();
     } else {
       workingDirectoryPath = workingDirectory;
     }
@@ -2385,7 +2393,7 @@ Strip the given number of leading components from file paths on extraction. Only
   public StarlarkWasmModule loadWasm(
       Object path, boolean compile, String allocateFn, String watch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p = getPath(path, thread);
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newLoadWasmEvent(
@@ -2506,7 +2514,7 @@ func(
         wasmModule = m;
         path = m.getPath();
       }
-      default -> path = getPath(pathOrModule);
+      default -> path = getPath(pathOrModule, thread);
     }
     ;
 
@@ -2605,17 +2613,25 @@ func(
     return null;
   }
 
-  // Resolve the label given by value into a file path.
-  protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+  /**
+   * Resolves the label into a file path.
+   *
+   * @param materialize whether the repo containing the file has to be available on the native file
+   *     system
+   */
+  protected StarlarkPath getPathFromLabel(Label label, boolean materialize, StarlarkThread thread)
+      throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
-    if (!label.getRepository().isMain()
+    if (materialize
+        && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
       try {
-        lazyMaterializer.ensureMaterialized(label.getRepository(), env.getListener());
+        lazyMaterializer.ensureMaterialized(
+            label.getRepository(), thread.getCallerLocation(), env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
