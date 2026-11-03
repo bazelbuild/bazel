@@ -213,6 +213,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
+import com.google.devtools.build.lib.skyframe.config.ConfigurationMnemonicLookup;
 import com.google.devtools.build.lib.skyframe.config.FlagSetFunction;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
@@ -3071,6 +3072,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public MemoizingEvaluator getEvaluator() {
     return memoizingEvaluator;
+  }
+
+  /** Returns the output directory mnemonics of the configurations in the graph. */
+  public ConfigurationMnemonicLookup getConfigurationMnemonicLookup() {
+    return new ConfigurationMnemonicLookup(this::getDoneValue);
+  }
+
+  /** Returns the value of the node for {@code key} if it is done, otherwise {@code null}. */
+  @Nullable
+  private SkyValue getDoneValue(SkyKey key) {
+    InMemoryNodeEntry entry = memoizingEvaluator.getInMemoryGraph().getIfPresent(key);
+    return entry != null && entry.isDone() ? entry.toValue() : null;
   }
 
   /**
