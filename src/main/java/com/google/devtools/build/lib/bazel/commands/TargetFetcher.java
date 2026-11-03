@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -55,9 +57,7 @@ public class TargetFetcher {
 
     BuildResult result = new BuildTool(env).processRequest(request, null, options);
     if (!result.getSuccess()) {
-      throw new TargetFetcherException(
-          "Fetching some target dependencies failed with errors: "
-              + result.getDetailedExitCode().getFailureDetail().getMessage());
+      throw new TargetFetcherException(result.getDetailedExitCode());
     }
     return result;
   }
@@ -73,9 +73,19 @@ public class TargetFetcher {
     }
   }
 
-  static class TargetFetcherException extends Exception {
-    public TargetFetcherException(String message) {
-      super(message);
+  static class TargetFetcherException extends Exception implements DetailedException {
+    private final DetailedExitCode detailedExitCode;
+
+    TargetFetcherException(DetailedExitCode detailedExitCode) {
+      super(
+          "Fetching some target dependencies failed with errors: "
+              + detailedExitCode.getFailureDetail().getMessage());
+      this.detailedExitCode = detailedExitCode;
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 }
