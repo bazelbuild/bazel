@@ -272,7 +272,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         assertThat(metadata.getContentsProxy())
             .isEqualTo(FileContentsProxy.create(localPath.stat()));
       }
-      overlayFs.ensureMaterialized(repo, reporter);
+      overlayFs.ensureMaterialized(repo, /* location= */ null, reporter);
       assertThat(overlayFs.getPath(externalDir.getRelative("repo/plain.txt")).isExecutable())
           .isFalse();
       assertThat(overlayFs.getPath(externalDir.getRelative("repo/run.sh")).isExecutable()).isTrue();
