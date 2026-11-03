@@ -1,7 +1,7 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
-BUILD_SCM_REV_CMD = "\"$$(grep BUILD_SCM_REVISION bazel-out/volatile-status.txt | sed 's/^BUILD_SCM_REVISION //')\""
+BUILD_SCM_REV_CMD = "\"$$(sed -n 's/^BUILD_SCM_REVISION //p' bazel-out/volatile-status.txt 2>/dev/null | grep . || echo UNSET)\""
 
 # Requires --config=docs
 # TODO: Rename to gen_release_docs once the docs migration is done.
