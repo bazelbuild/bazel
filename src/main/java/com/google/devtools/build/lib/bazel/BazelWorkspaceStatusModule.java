@@ -285,7 +285,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       return new BazelWorkspaceStatusAction(
           stableArtifact,
           volatileArtifact,
-          platformToInternal(USER_NAME.value()),
+          USER_NAME.value() != null ? platformToInternal(USER_NAME.value()) : null,
           NetUtil.getCachedShortHostName());
     }
   }
