@@ -555,13 +555,16 @@ public final class RemoteModule extends BlazeModule {
             ? ImmutableList.copyOf(remoteOptions.getRemoteDownloadRegex())
             : ImmutableList.of();
 
+    boolean executes = env.getCommand().buildPhase().executes();
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
             remoteOptions.getRemoteOutputsMode(),
             downloadRegexes,
-            lastRemoteOutputChecker);
-    remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+            executes ? lastRemoteOutputChecker : null);
+    if (executes) {
+      remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+    }
 
     env.getEventBus().register(this);
     String invocationId = env.getCommandId().toString();
@@ -1115,8 +1118,10 @@ public final class RemoteModule extends BlazeModule {
     if (remoteOutputChecker != null) {
       remoteOutputChecker.clearPreviousCommand();
     }
-    lastRemoteOutputChecker = remoteOutputChecker;
-    lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
+    if (Preconditions.checkNotNull(env).getCommand().buildPhase().executes()) {
+      lastRemoteOutputChecker = remoteOutputChecker;
+    }
+    lastBuildId = env.getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteHelpersFactoryDelegate.reset();
