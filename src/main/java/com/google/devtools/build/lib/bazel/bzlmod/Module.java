@@ -46,7 +46,7 @@ public abstract class Module extends ModuleBase {
    * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
    * extensions. For the full mapping, see {@link BazelDepGraphValue#getFullRepoMapping}.
    */
-  public final RepositoryMapping getRepoMappingWithBazelDepsOnly(
+  public final RepositoryMapping.Explicit getRepoMappingWithBazelDepsOnly(
       ImmutableMap<ModuleKey, RepositoryName> moduleKeyToRepositoryNames) {
     ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.

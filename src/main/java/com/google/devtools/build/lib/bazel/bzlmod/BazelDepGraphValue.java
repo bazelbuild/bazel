@@ -117,7 +117,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
    * Returns the full {@link RepositoryMapping} for the given module, including repos from Bazel
    * module deps and module extensions.
    */
-  public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
+  public final RepositoryMapping.Explicit getFullRepoMapping(ModuleKey key) {
     return getRepositoryMapping(
         key,
         getDepGraph(),
@@ -127,7 +127,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
         getRepoOverrides());
   }
 
-  static RepositoryMapping getRepositoryMapping(
+  static RepositoryMapping.Explicit getRepositoryMapping(
       ModuleKey key,
       ImmutableMap<ModuleKey, Module> depGraph,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,

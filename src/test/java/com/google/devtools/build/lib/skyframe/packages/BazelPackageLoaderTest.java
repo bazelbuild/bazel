@@ -160,7 +160,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass()).isEqualTo("filegroup");
-    assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
+    assertThat(repoMapping.get("r")).isEqualTo(rRepoName);
     assertNoEvents(handler.getEvents());
   }
 
