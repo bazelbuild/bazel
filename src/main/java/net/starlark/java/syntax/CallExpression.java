@@ -33,7 +33,7 @@ public final class CallExpression extends Expression {
       Location lparenLocation,
       ImmutableList<Argument> arguments,
       int rparenOffset) {
-    super(locs, Kind.CALL);
+    super(locs);
     this.function = Preconditions.checkNotNull(function);
     this.lparenLocation = lparenLocation;
     this.arguments = arguments;

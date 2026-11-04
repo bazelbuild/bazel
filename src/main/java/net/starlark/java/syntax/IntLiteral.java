@@ -32,7 +32,7 @@ public final class IntLiteral extends Expression {
    * of exactly representing the number must be used.
    */
   IntLiteral(FileLocations locs, int tokenOffset, int endOffset, Number value) {
-    super(locs, Kind.INT_LITERAL);
+    super(locs);
     this.tokenOffset = tokenOffset;
     this.endOffset = endOffset;
     this.value = value;

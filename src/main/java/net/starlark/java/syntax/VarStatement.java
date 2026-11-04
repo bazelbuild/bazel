@@ -37,7 +37,7 @@ public final class VarStatement extends Statement {
       Identifier identifier,
       Expression type,
       @Nullable DocComments docComments) {
-    super(locs, Kind.VAR);
+    super(locs);
     this.identifier = identifier;
     this.type = type;
     this.docComments = docComments;
