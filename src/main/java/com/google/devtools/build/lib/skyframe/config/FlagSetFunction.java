@@ -658,7 +658,8 @@ public final class FlagSetFunction implements SkyFunction {
    * selected config in a bazelrc or on the command line.
    *
    * <p>COMPATIBLE - fail if the user set any options that are present in the selected config to a
-   * different value than the one in the config. Also warn for other output-affecting options
+   * different value than the one in the config. Also warn for other output-affecting options. See
+   * {@link #conflictKey} for what counts as the same option.
    *
    * <p>STRICT - fail if the user set any output-affecting options that are not present in the
    * selected config.
@@ -696,11 +697,7 @@ public final class FlagSetFunction implements SkyFunction {
             // ... or globally
             .filter(
                 option -> !GlobalRcUtils.ALLOWED_GLOBAL_CONFIGS.contains(userOptions.get(option)))
-            .map(
-                option ->
-                    userOptions.get(option).isEmpty()
-                        ? "'" + option + "'"
-                        : "'" + userOptions.get(option) + "'")
+            .map(option -> userOptions.get(option).isEmpty() ? option : userOptions.get(option))
             .collect(toImmutableSet());
     if (overlap.isEmpty()) {
       return;
@@ -708,26 +705,31 @@ public final class FlagSetFunction implements SkyFunction {
     switch (enforcementPolicy) {
       case WARN -> {}
       case COMPATIBLE -> {
-        ImmutableSet<String> optionNamesFromSelectedConfig =
+        ImmutableSet<String> conflictKeysFromSelectedConfig =
             flagsFromSelectedConfig.stream()
-                .map(flag -> Iterables.get(Splitter.on("=").split(flag), 0).replace("'", ""))
+                .map(FlagSetFunction::conflictKey)
                 .collect(toImmutableSet());
         ImmutableSet<String> conflictingOptions =
             overlap.stream()
-                .filter(
-                    option ->
-                        optionNamesFromSelectedConfig.contains(
-                            Iterables.get(Splitter.on("=").split(option), 0).replace("'", "")))
+                .filter(option -> conflictKeysFromSelectedConfig.contains(conflictKey(option)))
                 .collect(toImmutableSet());
         if (!conflictingOptions.isEmpty()) {
+          ImmutableSet<String> conflictingKeys =
+              conflictingOptions.stream()
+                  .map(FlagSetFunction::conflictKey)
+                  .collect(toImmutableSet());
+          ImmutableSet<String> conflictingProjectFlags =
+              flagsFromSelectedConfig.stream()
+                  .filter(flag -> conflictingKeys.contains(conflictKey(flag)))
+                  .collect(toImmutableSet());
           throw new FlagSetFunctionException(
               new UnsupportedConfigException(
                   String.format(
                       "This build uses a project file (%s) that does not allow conflicting flags"
-                          + " in the command line or user bazelrc. Found %s. Please remove these"
-                          + " flags or disable project file resolution via"
-                          + " --noenforce_project_configs.",
-                      projectFile, conflictingOptions)),
+                          + " in the command line or user bazelrc. Found %s, which conflicts with"
+                          + " %s in the project file. Please remove these flags or disable"
+                          + " project file resolution via --noenforce_project_configs.",
+                      projectFile, quoted(conflictingOptions), quoted(conflictingProjectFlags))),
               Transience.PERSISTENT);
         }
       }
@@ -739,7 +741,7 @@ public final class FlagSetFunction implements SkyFunction {
                           + " flags in the command line or user bazelrc. Found %s. Please remove"
                           + " these flags or disable project file resolution via"
                           + " --noenforce_project_configs.",
-                      projectFile, overlap)),
+                      projectFile, quoted(overlap))),
               Transience.PERSISTENT);
     }
     // This appears in the WARN case, or for a COMPATIBLE project file that doesn't have
@@ -750,7 +752,32 @@ public final class FlagSetFunction implements SkyFunction {
                 "This build uses a project file (%s), but also sets output-affecting"
                     + " flags in the command line or user bazelrc: %s. Please consider"
                     + " removing these flags.",
-                projectFile, overlap)));
+                projectFile, quoted(overlap))));
+  }
+
+  /** Wraps each option in single quotes for display in user-facing messages. */
+  private static ImmutableSet<String> quoted(Collection<String> options) {
+    return options.stream().map(option -> "'" + option + "'").collect(toImmutableSet());
+  }
+
+  /**
+   * Returns a key used to decide whether a user-set option conflicts with a project-set option
+   * under the COMPATIBLE policy. Two options are considered to conflict if they yield the same key.
+   *
+   * <p>For most options this is just the option name, e.g. for {@code --compilation_mode=opt} it is
+   * {@code "--compilation_mode"}. But for {@code --define}, which is multivalued and keyed, it
+   * includes the key: for {@code --define=foo=bar} it is {@code "--define=foo"}. This permits
+   * multiple define keys while prohibiting setting the same key to different values.
+   *
+   * @param option an option setting string in {@code --name=value} form
+   */
+  private static String conflictKey(String option) {
+    List<String> parts = Splitter.on("=").splitToList(option);
+    String optionName = parts.get(0);
+    if (optionName.equals("--define") && parts.size() > 1) {
+      return optionName + "=" + parts.get(1);
+    }
+    return optionName;
   }
 
   /** Returns a user-friendly description of project-supported configurations. */
