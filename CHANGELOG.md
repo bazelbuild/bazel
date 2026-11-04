@@ -439,7 +439,7 @@ Incompatible changes:
   - Bind mounts specified via `--sandbox_add_mount_pair` (or
     `-M`/`-m` flags in `linux-sandbox`) are now correctly remounted
     read-only when using the hermetic sandbox (with
-    `--experimental_sandbox_hermetic`). Build actions that write to
+    `--experimental_use_hermetic_linux_sandbox`). Build actions that write to
     these paths will now fail with a read-only filesystem error.
   - `--use_target_platform_for_tests` is now a no-op. By default,
     tests are executed on an execution platform that has all
