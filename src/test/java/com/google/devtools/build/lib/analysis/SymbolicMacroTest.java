@@ -792,8 +792,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   // take arbitrary parameter types from their caller. These untested symbols include:
   //
   //  - For BUILD threads: licenses(), environment_group()
-  //  - For WORKSPACE threads: workspace(), register_toolchains(), register_execution_platforms(),
-  //    bind(), and repository rules.
+  //  - For Bzlmod threads: register_toolchains(), register_execution_platforms(),
+  //    and repository rules.
   //
   // Starlark-defined repository rules might technically be callable but we skip over that edge
   // case here.

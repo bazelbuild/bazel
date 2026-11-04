@@ -162,7 +162,7 @@ public final class AliasProvider implements TransitiveInfoProvider {
    * analyzed.
    *
    * <p>This method returns {@code true} for the {@code alias} rule as well as some other alias-like
-   * rules such as {@code bind}.
+   * rules such as {@code label_setting}.
    *
    * <p>Note that due to the presence of late-bound aliases, this may return {@code true} even if
    * {@link #isAlias} on the configured target returns {@code false}.

@@ -549,7 +549,7 @@ http_archive = repository_rule(
     environ = [DEFAULT_CANONICAL_ID_ENV],
     doc =
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
-and makes its targets available for binding.
+and makes its targets available to the build.
 
 It supports the following file extensions: """ + READABLE_ARCHIVE_FORMATS + """.
 

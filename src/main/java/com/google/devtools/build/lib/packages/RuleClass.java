@@ -1229,7 +1229,7 @@ public class RuleClass implements RuleClassData {
 
     /**
      * Set if the rule can have any provider. This is called for the {@code alias} rule and other
-     * alias-like rules such as {@code bind}.
+     * alias-like rules such as {@code label_setting}.
      */
     @CanIgnoreReturnValue
     public Builder canHaveAnyProvider() {

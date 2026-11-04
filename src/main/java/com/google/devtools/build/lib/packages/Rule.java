@@ -711,9 +711,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
    */
   @Override
   public RuleVisibility getDefaultVisibility() {
-    if (ruleClass.getName().equals("bind")) {
-      return RuleVisibility.PUBLIC; // bind rules are always public.
-    }
     // Temporary logic to relax config_setting's visibility enforcement while depot migrations set
     // visibility settings properly (legacy code may have visibility settings that would break if
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire

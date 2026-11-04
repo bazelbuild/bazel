@@ -254,7 +254,7 @@
   "moduleExtensions": {
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "NQFIdq+YnfvjDoMTtaioZwbozGcB7rrpgG8sO/Zz30k=",
+        "bzlTransitiveDigest": "6ME6/jGDagS39Ejq+9RGIUiKVWKi5JsB5f/WuN2b4gU=",
         "usagesDigest": "ZQiGVXrj8yl+WvAOGWZCipKxak7/2zZWT+1/qI4Ac4U=",
         "recordedInputs": [
           "REPO_MAPPING:rules_kotlin+,bazel_tools bazel_tools"

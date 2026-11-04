@@ -316,12 +316,6 @@ function get_java_version() {
   fi
 }
 
-# Return the target that a bind point to, using Bazel query.
-function get_bind_target() {
-  $BAZEL --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} \
-    query "deps($1, 1) - $1"
-}
-
 # Create a link for a directory on the filesystem
 function link_dir() {
   local source=$1
