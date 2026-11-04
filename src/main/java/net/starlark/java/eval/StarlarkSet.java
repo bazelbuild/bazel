@@ -17,7 +17,6 @@ package net.starlark.java.eval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -831,11 +830,22 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
     if (isEmpty()) {
       return mutability().isFrozen() ? Types.set(Types.NEVER) : Types.set(Types.ANY);
     }
-    return Types.set(
-        Types.union(
-            stream()
-                .map(e -> Starlark.getStarlarkTypePropagatingStackOverflow(e, semantics))
-                .collect(toImmutableSet())));
+    // Minimize temp allocations, since this method is called frequently.
+    StarlarkType firstType = null;
+    ImmutableSet.Builder<StarlarkType> elemTypes = null;
+    for (E elem : contents) {
+      StarlarkType t = Starlark.getStarlarkTypePropagatingStackOverflow(elem, semantics);
+      if (elemTypes != null) {
+        elemTypes.add(t);
+      } else if (firstType == null) {
+        firstType = t;
+      } else if (!t.equals(firstType)) {
+        elemTypes = ImmutableSet.builder();
+        elemTypes.add(firstType);
+        elemTypes.add(t);
+      }
+    }
+    return Types.set(elemTypes == null ? firstType : Types.union(elemTypes.build()));
   }
 
   /**

@@ -14,9 +14,8 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.io.Serializable;
 import java.util.AbstractCollection;
@@ -108,11 +107,22 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     if (isEmpty()) {
       return mutability().isFrozen() ? Types.list(Types.NEVER) : Types.list(Types.ANY);
     }
-    return Types.list(
-        Types.union(
-            stream()
-                .map(e -> Starlark.getStarlarkTypePropagatingStackOverflow(e, semantics))
-                .collect(toImmutableSet())));
+    // Minimize temp allocations, since this method is called frequently.
+    int size = size();
+    Object[] elems = elems();
+    StarlarkType firstType = Starlark.getStarlarkTypePropagatingStackOverflow(elems[0], semantics);
+    ImmutableSet.Builder<StarlarkType> elemTypes = null;
+    for (int i = 1; i < size; i++) {
+      StarlarkType t = Starlark.getStarlarkTypePropagatingStackOverflow(elems[i], semantics);
+      if (elemTypes != null) {
+        elemTypes.add(t);
+      } else if (!t.equals(firstType)) {
+        elemTypes = ImmutableSet.builder();
+        elemTypes.add(firstType);
+        elemTypes.add(t);
+      }
+    }
+    return Types.list(elemTypes == null ? firstType : Types.union(elemTypes.build()));
   }
 
   /**
