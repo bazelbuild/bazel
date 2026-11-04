@@ -29,7 +29,7 @@ public final class TypeApplication extends Expression {
       Identifier constructor,
       ImmutableList<Expression> arguments,
       int rbracketOffset) {
-    super(locs, Kind.TYPE_APPLICATION);
+    super(locs);
     this.constructor = Preconditions.checkNotNull(constructor);
     this.arguments = arguments;
     this.rbracketOffset = rbracketOffset;

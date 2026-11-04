@@ -1633,7 +1633,7 @@ public final class ParserTest {
 
     // Annotations shouldn't consume adjacent params.
     Statement stmt = parseStatement("def f(p1 : x, p2): pass");
-    assertThat(stmt.kind()).isEqualTo(Statement.Kind.DEF);
+    assertThat(stmt).isInstanceOf(DefStatement.class);
     assertThat(((DefStatement) stmt).getParameters().stream().map(p -> p.getName()))
         .containsExactly("p1", "p2")
         .inOrder();

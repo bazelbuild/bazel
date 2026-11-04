@@ -31,7 +31,7 @@ public final class IndexExpression extends Expression {
       int lbracketOffset,
       Expression key,
       int rbracketOffset) {
-    super(locs, Kind.INDEX);
+    super(locs);
     this.object = object;
     this.lbracketOffset = lbracketOffset;
     this.key = key;
