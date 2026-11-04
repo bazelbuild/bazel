@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -99,7 +100,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "error: unable to open: " << jar << std::endl;
       return 1;
     }
-    const one_version::Label jar_label(label, jar, /*allowlisted=*/false);
+    const uint32_t label_index = one_version.AddLabel(
+        one_version::Label(label, jar, /*allowlisted=*/false));
     // Use the file name from the central directory rather than the local
     // header (as singlejar does), and don't ask NextEntry for the local header
     // at all, to avoid touching the pages of every entry in the jar. The two
@@ -107,7 +109,7 @@ int main(int argc, char *argv[]) {
     while (const CDH* dir_entry = input_jar.NextEntry()) {
       absl::string_view file_name(dir_entry->file_name(),
                                   dir_entry->file_name_length());
-      one_version.Add(file_name, dir_entry, jar_label);
+      one_version.Add(file_name, dir_entry, label_index);
     }
     input_jar.Close();
   }

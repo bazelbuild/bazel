@@ -85,8 +85,11 @@ class DuplicateClassCollector {
  public:
   explicit DuplicateClassCollector(size_t file_count_to_reserve_in_maps = 0);
 
-  // Records the class name, crc, and label of a classpath entry.
-  void Add(absl::string_view class_name, uint32_t crc32, const Label& label);
+  // Records the label of a classpath jar and returns its index for Add.
+  uint32_t AddLabel(Label label);
+
+  // Records the class name, crc, and label index of a classpath entry.
+  void Add(absl::string_view class_name, uint32_t crc32, uint32_t label_index);
 
   // Returns the collection of one version violations.
   std::vector<Violation> Violations();
@@ -108,12 +111,6 @@ class DuplicateClassCollector {
   // allocation per class. Classes that appear in several jars spill to the
   // heap, which is rare.
   using Entries = absl::InlinedVector<Entry, 1>;
-
-  // Returns the index of label in labels_, adding it if necessary. Callers
-  // typically add all entries of a jar consecutively, so only the most
-  // recently added label is checked. If a caller interleaves labels, a label
-  // may be stored more than once, which is harmless.
-  uint32_t InternLabel(const Label& label);
 
   // Returns a copy of s that lives as long as this collector. Class names are
   // stored in large blocks to avoid a heap allocation (and a deallocation at

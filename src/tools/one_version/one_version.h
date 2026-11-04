@@ -16,6 +16,7 @@
 #define THIRD_PARTY_BAZEL_SRC_TOOLS_ONE_VERSION_ONE_VERSION_H_
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -37,9 +38,14 @@ class OneVersion {
       : whitelist_file_(std::move(whitelist)),
         duplicate_class_collector_(file_count_to_reserve_in_maps) {}
 
+  // Records the label of a jar and returns its index for Add.
+  uint32_t AddLabel(Label label) {
+    return duplicate_class_collector_.AddLabel(std::move(label));
+  }
+
   // Record the jar entry (if it's a class file).
   void Add(absl::string_view file_name_of_entry, const CDH* jar_entry,
-           const Label& label);
+           uint32_t label_index);
   std::vector<one_version::Violation> Report();
 
  private:

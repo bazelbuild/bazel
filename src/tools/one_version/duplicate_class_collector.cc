@@ -32,12 +32,8 @@ DuplicateClassCollector::DuplicateClassCollector(
   classes_.reserve(file_count_to_reserve_in_maps);
 }
 
-uint32_t DuplicateClassCollector::InternLabel(const Label& label) {
-  if (labels_.empty() || labels_.back().name() != label.name() ||
-      labels_.back().jar() != label.jar() ||
-      labels_.back().allowlisted() != label.allowlisted()) {
-    labels_.push_back(label);
-  }
+uint32_t DuplicateClassCollector::AddLabel(Label label) {
+  labels_.push_back(std::move(label));
   return static_cast<uint32_t>(labels_.size() - 1);
 }
 
@@ -68,8 +64,7 @@ absl::string_view DuplicateClassCollector::CopyToArena(absl::string_view s) {
 }
 
 void DuplicateClassCollector::Add(absl::string_view class_name, uint32_t crc32,
-                                  const Label& label) {
-  uint32_t label_index = InternLabel(label);
+                                  uint32_t label_index) {
   // lazy_emplace only copies the name into the arena when the class is new,
   // and needs a single hash lookup for both the find and the insert.
   auto it = classes_.lazy_emplace(class_name, [&](const auto& ctor) {
