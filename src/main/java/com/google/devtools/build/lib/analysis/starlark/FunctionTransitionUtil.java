@@ -703,6 +703,7 @@ public final class FunctionTransitionUtil {
         }
         try {
           OptionDefinition def = optionInfo.getDefinition();
+          Object defaultValue = def.getDefaultValue(null);
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
           if (def.getType() == List.class && optionValue instanceof List<?> optionValueAsList) {
@@ -750,6 +751,8 @@ public final class FunctionTransitionUtil {
                 "'None' value not allowed for List-type option '%s'. Please use '[]' instead if"
                     + " trying to set option to empty value.",
                 optionName);
+          } else if (optionValue == null && defaultValue != null) {
+            convertedValue = defaultValue;
           } else if (optionValue == null || def.getType().isInstance(optionValue)) {
             convertedValue = optionValue;
           } else if (def.getType().equals(int.class) && optionValue instanceof Integer) {

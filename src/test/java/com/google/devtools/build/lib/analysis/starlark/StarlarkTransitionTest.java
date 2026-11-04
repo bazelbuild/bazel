@@ -1185,7 +1185,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitionWithValueNone() throws Exception {
+  public void testTransitionWithValueNoneSetDefaultValue() throws Exception {
     writeAllowlistFile(scratch);
     scratch.file(
         "test/defs.bzl",
@@ -1194,6 +1194,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             return {
                 "//command_line_option:existing_flag": None,
                 "//command_line_option:null_flag": None,
+                "//command_line_option:disallowed_option": "irrelevant",
             }
 
         my_transition = transition(
@@ -1202,6 +1203,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             outputs = [
                 "//command_line_option:existing_flag",
                 "//command_line_option:null_flag",
+                "//command_line_option:disallowed_option",
             ],
         )
 
@@ -1239,12 +1241,14 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             .get(DummyTestOptions.class);
     assertThat(simpleOptions.getNullFlag()).isEqualTo("not_null");
     assertThat(simpleOptions.getExistingFlag()).isEqualTo("not_the_default_value");
+    assertThat(simpleOptions.getDisallowedOption()).isEqualTo("default");
 
     DummyTestOptions transitionedOptions =
         getConfiguration(getConfiguredTarget("//test:with_transition"))
             .getOptions()
             .get(DummyTestOptions.class);
     assertThat(transitionedOptions.getNullFlag()).isNull();
-    assertThat(transitionedOptions.getExistingFlag()).isNull();
+    assertThat(transitionedOptions.getExistingFlag()).isEqualTo("native_default_value");
+    assertThat(transitionedOptions.getDisallowedOption()).isEqualTo("irrelevant");
   }
 }
