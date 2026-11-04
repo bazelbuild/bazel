@@ -346,7 +346,8 @@ public abstract class SandboxOptions extends OptionsBase {
               + "sandbox_add_mount_pair. Input files will be hardlinked to the sandbox instead of "
               + "symlinked to from the sandbox. "
               + "If action input files are located on a filesystem different from the sandbox, "
-              + "then the input files will be copied instead.")
+              + "then the input files will be copied instead. "
+              + "On Linux, the build fails if linux-sandbox is not supported on the machine.")
   public abstract boolean getUseHermetic();
 
   @Option(

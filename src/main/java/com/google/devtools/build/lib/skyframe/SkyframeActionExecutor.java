@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
 import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
@@ -59,7 +60,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
@@ -96,6 +97,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -153,7 +155,7 @@ public final class SkyframeActionExecutor {
         }
 
         @Override
-        public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) {
+        public TreeArtifactValue getTreeArtifactValue(TreeArtifact treeArtifact) {
           throw new IllegalStateException();
         }
 
@@ -179,7 +181,7 @@ public final class SkyframeActionExecutor {
         }
 
         @Override
-        public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
+        public void injectTree(TreeArtifact output, TreeArtifactValue tree) {
           // ActionFS injects only metadata for files.
           throw new UnsupportedOperationException(
               String.format(
@@ -758,6 +760,15 @@ public final class SkyframeActionExecutor {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    } catch (InterruptedException e) {
+      // Interrupted actions may still have open output streams. Preserve the interruption if
+      // closing the context also fails.
+      try {
+        actionExecutionContext.close();
+      } catch (IOException closeException) {
+        e.addSuppressed(closeException);
+      }
+      throw e;
     }
 
     // Do not close the context for lost input exceptions. It will be done by prepareForRewinding
@@ -1020,6 +1031,7 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
+      NestedSet<Artifact> evaluatedInputs,
       InputMetadataProvider compositeInputMetadataProvider,
       Environment env,
       @Nullable FileSystem actionFileSystem)
@@ -1061,7 +1073,7 @@ public final class SkyframeActionExecutor {
     try (SilentCloseable lock =
         outputService
             .getRewoundActionSynchronizer()
-            .enterInputDiscovery(action, compositeInputMetadataProvider)) {
+            .enterInputDiscovery(action, evaluatedInputs, compositeInputMetadataProvider)) {
       NestedSet<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
 
       // Input discovery may have been affected by lost inputs. If an action filesystem is used, it
@@ -1620,8 +1632,7 @@ public final class SkyframeActionExecutor {
   private static void setupActionFsFileOutErr(FileOutErr fileOutErr, Action action)
       throws ActionExecutionException {
     try {
-      fileOutErr.getOutputPath().getParentDirectory().createDirectoryAndParents();
-      fileOutErr.getErrorPath().getParentDirectory().createDirectoryAndParents();
+      fileOutErr.createParentDirectories();
     } catch (IOException e) {
       String message =
           String.format(
@@ -1777,8 +1788,8 @@ public final class SkyframeActionExecutor {
                       output,
                       previousOutputs,
                       metadata,
-                      output.isTreeArtifact()
-                          ? outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output)
+                      output instanceof TreeArtifact treeArtifact
+                          ? outputMetadataStore.getTreeArtifactValue(treeArtifact)
                           : null);
               if (changed != null) {
                 reportChangedRewoundOutput(action, changed, fileOutErr);
@@ -1847,7 +1858,7 @@ public final class SkyframeActionExecutor {
     }
     if (output.isFileset() && filesetOutput != null) {
       outputArtifactsSeen.accumulate(filesetOutput);
-    } else if (!output.isTreeArtifact()) {
+    } else if (!(output instanceof TreeArtifact treeOutput)) {
       outputArtifactsSeen.accumulate(metadata);
       if (isActionCacheHit) {
         outputArtifactsFromActionCache.accumulate(metadata);
@@ -1855,7 +1866,7 @@ public final class SkyframeActionExecutor {
     } else {
       TreeArtifactValue treeArtifactValue;
       try {
-        treeArtifactValue = outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output);
+        treeArtifactValue = outputMetadataStore.getTreeArtifactValue(treeOutput);
       } catch (IOException e) {
         BugReport.sendBugReport(
             new IllegalStateException(
@@ -2095,7 +2106,13 @@ public final class SkyframeActionExecutor {
         findSpawnResultsInActionResultAndException(actionResult, exception);
     Instant firstStartTime = Instant.MAX;
     Instant lastEndTime = Instant.MIN;
+    ImmutableList.Builder<SpawnExec> strategyDetails = ImmutableList.builder();
     for (SpawnResult spawnResult : spawnResults) {
+      strategyDetails.add(
+          SpawnExec.newBuilder()
+              .setRunner(nullToEmpty(spawnResult.getRunnerName()))
+              .setCacheHit(spawnResult.isCacheHit())
+              .build());
       // Not all SpawnResults have a start time, and some use Instant.MIN/MAX instead of null.
       @Nullable Instant startTime = spawnResult.getStartTime();
       if (startTime != null && !startTime.equals(Instant.MIN) && !startTime.equals(Instant.MAX)) {
@@ -2116,7 +2133,8 @@ public final class SkyframeActionExecutor {
             stderr,
             errorTiming,
             firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
-            lastEndTime.equals(Instant.MIN) ? null : lastEndTime));
+            lastEndTime.equals(Instant.MIN) ? null : lastEndTime,
+            strategyDetails.build()));
   }
 
   /**

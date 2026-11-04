@@ -75,7 +75,7 @@ public final class MockToolsConfig {
     if (!path.exists()) {
       FileSystemUtils.writeIsoLatin1(path, lines);
     } else if (lines.length > 0) {
-      String existingContent = new String(FileSystemUtils.readContentAsLatin1(path));
+      String existingContent = FileSystemUtils.readContentAsLatin1(path);
 
       StringBuilder newContent = new StringBuilder();
       for (String line : lines) {

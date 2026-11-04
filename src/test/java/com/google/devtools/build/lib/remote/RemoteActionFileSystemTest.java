@@ -41,8 +41,9 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -224,8 +225,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void statAndExists_fromInputArtifactData_treeSubDir() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
-    SpecialArtifact tree =
-        createLocalTreeArtifact("tree", ImmutableMap.of("subdir/file", ""), inputs);
+    TreeArtifact tree = createLocalTreeArtifact("tree", ImmutableMap.of("subdir/file", ""), inputs);
     PathFragment path = tree.getPath().getChild("subdir").asFragment();
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
@@ -857,7 +857,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void readSymbolicLink_fromInputArtifactData_treeSubDir() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
-    SpecialArtifact tree =
+    TreeArtifact tree =
         createRemoteTreeArtifact("tree", ImmutableMap.of("subdir/file", ""), inputs);
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
@@ -949,7 +949,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     ImmutableMap<String, String> contentMap =
         ImmutableMap.of("foo", "foo contents", "bar", "bar contents");
     Artifact localArtifact = createLocalTreeArtifact("remote-dir", contentMap, inputs);
-    SpecialArtifact outputArtifact =
+    TreeArtifact outputArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "out");
     FileSystem actionFs = createActionFileSystem(inputs);
 
@@ -975,7 +975,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     ImmutableMap<String, String> contentMap =
         ImmutableMap.of("foo", "foo contents", "bar", "bar contents");
     Artifact remoteArtifact = createRemoteTreeArtifact("remote-dir", contentMap, inputs);
-    SpecialArtifact outputArtifact =
+    TreeArtifact outputArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "out");
     FileSystem actionFs = createActionFileSystem(inputs);
 
@@ -998,7 +998,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   public void createSymbolicLink_unresolvedSymlink() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
-    SpecialArtifact outputArtifact =
+    UnresolvedSymlinkArtifact outputArtifact =
         ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "out");
     FileSystem actionFs = createActionFileSystem(inputs);
     PathFragment targetPath = PathFragment.create("some/path");
@@ -1222,16 +1222,16 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   /** Returns a remote tree artifact and puts its metadata into the action input map. */
-  private SpecialArtifact createRemoteTreeArtifact(
+  private TreeArtifact createRemoteTreeArtifact(
       String pathFragment, Map<String, String> contentMap, ActionInputMap inputs) {
-    SpecialArtifact a =
+    TreeArtifact a =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, pathFragment);
     inputs.putTreeArtifact(a, createRemoteTreeArtifactValue(a, contentMap));
     return a;
   }
 
   private TreeArtifactValue createRemoteTreeArtifactValue(
-      SpecialArtifact a, Map<String, String> contentMap) {
+      TreeArtifact a, Map<String, String> contentMap) {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(a);
     for (Map.Entry<String, String> entry : contentMap.entrySet()) {
       TreeFileArtifact child = TreeFileArtifact.createTreeOutput(a, entry.getKey());
@@ -1266,7 +1266,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
   /** Returns a local tree artifact and puts its metadata into the action input map. */
   @CanIgnoreReturnValue
-  private SpecialArtifact createLocalTreeArtifact(
+  private TreeArtifact createLocalTreeArtifact(
       String pathFragment, Map<String, String> contentMap, ActionInputMap inputs)
       throws IOException {
     Path dir = outputRoot.getRoot().asPath().getRelative(pathFragment);
@@ -1276,14 +1276,14 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       child.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.writeContent(child, entry.getValue().getBytes(UTF_8));
     }
-    SpecialArtifact a =
+    TreeArtifact a =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, pathFragment);
     inputs.putTreeArtifact(a, createLocalTreeArtifactValue(a, contentMap));
     return a;
   }
 
   private static TreeArtifactValue createLocalTreeArtifactValue(
-      SpecialArtifact a, Map<String, String> contentMap) throws IOException {
+      TreeArtifact a, Map<String, String> contentMap) throws IOException {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(a);
     for (String name : contentMap.keySet()) {
       Path path = a.getPath().getRelative(name);

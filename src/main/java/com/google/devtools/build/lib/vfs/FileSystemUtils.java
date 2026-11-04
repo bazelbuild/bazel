@@ -25,6 +25,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.FileNotFoundException;
@@ -695,17 +696,6 @@ public class FileSystemUtils {
   }
 
   /**
-   * Decodes the given byte array assumed to be encoded with ISO-8859-1 encoding (isolatin1).
-   */
-  public static char[] convertFromLatin1(byte[] content) {
-    char[] latin1 = new char[content.length];
-    for (int i = 0; i < latin1.length; i++) { // yeah, latin1 is this easy! :-)
-      latin1[i] = (char) (0xff & content[i]);
-    }
-    return latin1;
-  }
-
-  /**
    * Writes lines to file using ISO-8859-1 encoding (isolatin1).
    */
   @ThreadSafe // but not atomic
@@ -804,23 +794,23 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns the entirety of the specified input stream and returns it as a char
-   * array, decoding characters using ISO-8859-1 (Latin1).
+   * Returns the entirety of the specified input stream as a String, decoding characters using
+   * ISO-8859-1 (Latin1).
    *
    * @throws IOException if there was an error
    */
-  public static char[] readContentAsLatin1(InputStream in) throws IOException {
-    return convertFromLatin1(ByteStreams.toByteArray(in));
+  public static String readContentAsLatin1(InputStream in) throws IOException {
+    return StringUnsafe.newInstance(ByteStreams.toByteArray(in), StringUnsafe.LATIN1);
   }
 
   /**
-   * Returns the entirety of the specified file and returns it as a char array,
-   * decoding characters using ISO-8859-1 (Latin1).
+   * Returns the entirety of the specified file as a String, decoding characters using ISO-8859-1
+   * (Latin1).
    *
    * @throws IOException if there was an error
    */
-  public static char[] readContentAsLatin1(Path inputFile) throws IOException {
-    return convertFromLatin1(readContent(inputFile));
+  public static String readContentAsLatin1(Path inputFile) throws IOException {
+    return StringUnsafe.newInstance(readContent(inputFile), StringUnsafe.LATIN1);
   }
 
   /**

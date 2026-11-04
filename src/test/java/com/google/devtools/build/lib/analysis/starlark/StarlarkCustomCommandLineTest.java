@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -568,7 +568,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArg_treeArtifactMissingExpansion_fails() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
@@ -583,7 +583,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgAddToFingerprint_expandFileset_includesInDigest() throws Exception {
-    SpecialArtifact fileset = createFileset("fileset");
+    FilesetArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
@@ -606,7 +606,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgAddToFingerprint_expandTreeArtifact_includesInDigest() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
     // The files won't be read so MISSING_FILE_MARKER will do
     TreeArtifactValue treeArtifactValue =
@@ -631,7 +631,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArg_expandFilesetMissingExpansion_fails() {
-    SpecialArtifact fileset = createFileset("fileset");
+    FilesetArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
@@ -648,7 +648,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_expandsTreeArtifact() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     // The files won't be read so MISSING_FILE_MARKER will do
@@ -671,7 +671,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_expandsTreeArtifact_uniquify() throws Exception {
-    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeArtifact tree1 = createTreeArtifact("tree1");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree1, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree1, "child2");
     TreeArtifactValue treeArtifactValue1 =
@@ -680,7 +680,7 @@ public final class StarlarkCustomCommandLineTest {
             .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
             .build();
 
-    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeArtifact tree2 = createTreeArtifact("tree2");
     TreeFileArtifact child3 = TreeFileArtifact.createTreeOutput(tree2, "child3");
     TreeArtifactValue treeArtifactValue2 =
         TreeArtifactValue.newBuilder(tree2)
@@ -721,8 +721,8 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_expandsSubTreeArtifact_uniquify() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    SpecialArtifact subtree = createSubTreeArtifact(tree, "subdir");
+    TreeArtifact tree = createTreeArtifact("tree");
+    TreeArtifact subtree = createSubTreeArtifact(tree, "subdir");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(subtree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(subtree, "child2");
     TreeArtifactValue treeArtifactValue =
@@ -771,7 +771,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_expandsTreeArtifactAndChild_uniquify() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     TreeArtifactValue treeArtifactValue =
@@ -804,7 +804,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_expandsTreeArtifactAndFileset_uniquify() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     TreeArtifactValue treeArtifactValue =
@@ -813,7 +813,7 @@ public final class StarlarkCustomCommandLineTest {
             .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
             .build();
 
-    SpecialArtifact fileset = createFileset("fileset");
+    FilesetArtifact fileset = createFileset("fileset");
     FilesetOutputSymlink symlinkFromTree = createFilesetSymlink("symlink_child1", child1);
     FilesetOutputSymlink symlinkOther = createFilesetSymlink("other");
 
@@ -846,7 +846,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_expandsFileset() throws Exception {
-    SpecialArtifact fileset = createFileset("fileset");
+    FilesetArtifact fileset = createFileset("fileset");
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
 
@@ -867,7 +867,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_treeArtifactMissingExpansion_fails() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
@@ -881,7 +881,7 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgArguments_manuallyExpandedTreeArtifactMissingExpansion_fails()
       throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
             .add(
@@ -907,7 +907,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void vectorArgArguments_filesetMissingExpansion_fails() {
-    SpecialArtifact fileset = createFileset("fileset");
+    FilesetArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
@@ -921,7 +921,7 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgArguments_expandDirectoriesDisabled_manualExpansionReflectedInActionKey()
       throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     // The files won't be read so MISSING_FILE_MARKER will do
@@ -980,7 +980,7 @@ public final class StarlarkCustomCommandLineTest {
   public void
       vectorArgArguments_expandDirectoriesDisabled_noMapEach_expansionDoesNotAffectActionKey()
           throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     // The files won't be read so MISSING_FILE_MARKER will do
@@ -1028,7 +1028,7 @@ public final class StarlarkCustomCommandLineTest {
   public void
       vectorArgArguments_expandDirectoriesDisabled_noManualExpansion_expansionDoesNotAffectActionKey()
           throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     // The files won't be read so MISSING_FILE_MARKER will do
@@ -1131,8 +1131,11 @@ public final class StarlarkCustomCommandLineTest {
         expected);
   }
 
-  private SpecialArtifact createFileset(String relativePath) {
-    return createSpecialArtifact(relativePath, SpecialArtifactType.FILESET);
+  private FilesetArtifact createFileset(String relativePath) {
+    return FilesetArtifact.create(
+        derivedRoot,
+        derivedRoot.getExecPath().getRelative(relativePath),
+        ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
   private FilesetOutputSymlink createFilesetSymlink(String relativePath) {
@@ -1149,26 +1152,22 @@ public final class StarlarkCustomCommandLineTest {
         FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
   }
 
-  private SpecialArtifact createSubTreeArtifact(SpecialArtifact parent, String parentRelativePath) {
-    SpecialArtifact subtree =
-        SpecialArtifact.createSubTreeArtifact(
+  private TreeArtifact createSubTreeArtifact(TreeArtifact parent, String parentRelativePath) {
+    TreeArtifact subtree =
+        TreeArtifact.createSubTreeArtifact(
             parent, PathFragment.create(parentRelativePath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
     subtree.setGeneratingActionKey(ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0));
     return subtree;
   }
 
-  private SpecialArtifact createTreeArtifact(String relativePath) {
-    SpecialArtifact tree = createSpecialArtifact(relativePath, SpecialArtifactType.TREE);
+  private TreeArtifact createTreeArtifact(String relativePath) {
+    TreeArtifact tree =
+        TreeArtifact.create(
+            derivedRoot,
+            derivedRoot.getExecPath().getRelative(relativePath),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     tree.setGeneratingActionKey(ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0));
     return tree;
-  }
-
-  private SpecialArtifact createSpecialArtifact(String relativePath, SpecialArtifactType type) {
-    return SpecialArtifact.create(
-        derivedRoot,
-        derivedRoot.getExecPath().getRelative(relativePath),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        type);
   }
 
   @Test
@@ -1303,7 +1302,7 @@ public final class StarlarkCustomCommandLineTest {
   public void
       vectorArgArguments_expandDirectoriesTrue_treeArtifactWithMapEach_withoutMetadataProvider_bypassesMapEach()
           throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     StarlarkFunction mapEach =
         (StarlarkFunction)
             execStarlark(
@@ -1337,7 +1336,7 @@ public final class StarlarkCustomCommandLineTest {
   public void
       vectorArgArguments_expandDirectoriesTrue_filesetWithMapEach_withoutMetadataProvider_bypassesMapEach()
           throws Exception {
-    SpecialArtifact fileset = createFileset("fileset");
+    FilesetArtifact fileset = createFileset("fileset");
     StarlarkFunction mapEach =
         (StarlarkFunction)
             execStarlark(
@@ -1369,7 +1368,7 @@ public final class StarlarkCustomCommandLineTest {
   public void
       vectorArgArguments_expandDirectoriesFalse_treeArtifactWithMapEach_callsMapEachOnDirectory()
           throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     StarlarkFunction mapEach =
         (StarlarkFunction)
             execStarlark(
@@ -1392,7 +1391,7 @@ public final class StarlarkCustomCommandLineTest {
   public void
       vectorArgArguments_expandDirectoriesTrue_treeArtifactWithMapEach_withMetadataProvider_callsMapEachOnChildren()
           throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     TreeArtifactValue treeArtifactValue =
@@ -1448,7 +1447,7 @@ public final class StarlarkCustomCommandLineTest {
   public void
       vectorArgArguments_expandDirectoriesTrue_mixedFilesAndTreeArtifact_bypassesMapEachOnlyOnDirectory()
           throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     StarlarkFunction mapEach =
         (StarlarkFunction)
             execStarlark(

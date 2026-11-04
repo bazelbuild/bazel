@@ -1127,13 +1127,13 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected void assertContents(String expectedContents, Path path) throws Exception {
-    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    String actualContents = FileSystemUtils.readContentAsLatin1(path);
     // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
     assertThat(actualContents.indent(0).trim()).isEqualTo(expectedContents);
   }
 
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
-    return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
+    return FileSystemUtils.readContentAsLatin1(artifact.getPath());
   }
 
   protected ByteString readContentAsByteArray(Artifact artifact) throws IOException {
@@ -1143,7 +1143,7 @@ public abstract class BuildIntegrationTestCase {
   protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
     FileArtifactValue metadata = getOutputMetadata(output);
     assertThat(metadata.isInline()).isTrue();
-    return new String(FileSystemUtils.readContentAsLatin1(metadata.getInputStream()));
+    return FileSystemUtils.readContentAsLatin1(metadata.getInputStream());
   }
 
   protected FileArtifactValue getOutputMetadata(Artifact output) throws InterruptedException {

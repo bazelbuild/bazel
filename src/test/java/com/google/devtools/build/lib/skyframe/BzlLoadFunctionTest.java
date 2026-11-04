@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -311,6 +312,17 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//pkg:ext2.scl", "compilation of module 'pkg/ext2.scl' failed");
     assertContainsEvent("string literal contains non-ASCII character");
+  }
+
+  @Test
+  public void topLevelDepset_isOwnedByTheFilesKey() throws Exception {
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext.bzl", "d = depset(['a'])");
+
+    SkyKey skyKey = key("//pkg:ext.bzl");
+    Depset depset = (Depset) get(skyKey).get(skyKey).getModule().getGlobals().get("d");
+
+    assertThat(depset.getSet().getOwner()).isEqualTo(skyKey);
   }
 
   private EvaluationResult<BzlLoadValue> get(SkyKey skyKey) throws Exception {
@@ -1146,12 +1158,39 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTypeTagger_notRunByDefault() throws Exception {
-    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+  public void testTypeTagger_detectsErrors_byDefault() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
-
     SkyKey key = key("//a:foo.bzl");
+    reporter.removeHandler(failFastHandler);
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("name 'NoSuchType' is not defined");
+  }
+
+  @Test
+  public void testTypeTagger_detectsErrors_ifDynamicTypeCheckingEnabled() throws Exception {
+    setBuildLanguageOptions(
+        "--noexperimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
+    SkyKey key = key("//a:foo.bzl");
+    reporter.removeHandler(failFastHandler);
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("name 'NoSuchType' is not defined");
+  }
+
+  @Test
+  public void testTypeTagger_notRun_ifTypeCheckingDisabled() throws Exception {
+    setBuildLanguageOptions("--noexperimental_starlark_static_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
+    SkyKey key = key("//a:foo.bzl");
+
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
@@ -1159,37 +1198,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTypeTagger_detectsErrors_ifDynamicTypeCheckingEnabled() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
-    scratch.file("a/BUILD");
-    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
-    SkyKey key = key("//a:foo.bzl");
-    reporter.removeHandler(failFastHandler);
-
-    SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
-    assertContainsEvent("name 'NoSuchType' is not defined");
-  }
-
-  @Test
-  public void testTypeTagger_detectsErrors_ifStaticTypeCheckingEnabled() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
-    scratch.file("a/BUILD");
-    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
-    SkyKey key = key("//a:foo.bzl");
-    reporter.removeHandler(failFastHandler);
-
-    SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
-    assertContainsEvent("name 'NoSuchType' is not defined");
-  }
-
-  @Test
   public void testStaticTypeChecker_basicUsage() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int]|list[str] = [1, 2, 3]");
     SkyKey key = key("//a:foo.bzl");
@@ -1204,8 +1213,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticTypeChecker_transitiveDeps() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int] | list[str] = [1, 2, 3]");
     scratch.file(
@@ -1223,9 +1230,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStaticTypeChecker_notRunByDefault() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+  public void testStaticTypeChecker_notRun_ifDisabledByFlag() throws Exception {
+    setBuildLanguageOptions("--noexperimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int] = ['a', 'b', 'c']");
 
@@ -1238,8 +1244,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticTypeChecker_detectsErrors() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int] = ['a', 'b', 'c']");
     reporter.removeHandler(failFastHandler);
@@ -1253,7 +1257,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   @Test
   public void testDynamicTypeChecker_detectsErrors() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+        "--noexperimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking");
     scratch.file("a/BUILD");
     scratch.file(
         "a/foo.bzl",

@@ -790,10 +790,12 @@ else
     function timestamp() {
       # macOS and BSDs do not have %N, so Python is the best we can do.
       # LC_ALL=C works around python 3.8 and 3.9 crash on macOS when the
-      # filesystem encoding is unspecified (e.g. when LANG=en_US).
+      # filesystem encoding is unspecified (e.g. when LANG=en_US). It is set via
+      # env since restoring its own locale after a temporary assignment can
+      # crash bash builds that use libintl, such as Homebrew's, in subshells.
       local PYTHON=python
       command -v python3 &> /dev/null && PYTHON=python3
-      LC_ALL=C "${PYTHON}" -c 'import time; print(int(round(time.time() * 1000)))'
+      env LC_ALL=C "${PYTHON}" -c 'import time; print(int(round(time.time() * 1000)))'
     }
 fi
 

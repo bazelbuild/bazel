@@ -23,6 +23,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.StarlarkType;
 
 /** Interface for an info object that indicates what output groups a rule has. */
 @StarlarkBuiltin(
@@ -37,6 +38,10 @@ public interface OutputGroupInfoApi extends StructApi {
   /** Provider for {@link OutputGroupInfoApi}. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface OutputGroupInfoApiProvider extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(OutputGroupInfoApiProvider.class, OutputGroupInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "OutputGroupInfo",

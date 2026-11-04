@@ -31,6 +31,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import org.junit.Test;
@@ -106,7 +107,7 @@ public final class ParsedFlagsValueTest {
   }
 
   private static final ImmutableSet<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
-      ImmutableSet.of(DummyTestOptions.class);
+      ImmutableSet.of(DummyTestOptions.class, CoreOptions.class);
 
   @Test
   public void parse() throws Exception {
@@ -444,5 +445,41 @@ public final class ParsedFlagsValueTest {
     // Existing flag and its scope should be unaffected.
     assertThat(modified.getStarlarkOptions()).containsEntry(existingFlag, "val");
     assertThat(modified.getScopeTypeMap()).containsEntry(existingFlag, existingScope);
+  }
+
+  @Test
+  public void mergeWith_blocksFlagsInDisableTransitionsOn() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder().build();
+
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .optionsClasses(BUILD_CONFIG_OPTIONS)
+            .nativeFlags(ImmutableList.of("--str_option=bar"))
+            .build();
+    ParsedFlagsValue parsedFlags =
+        ParsedFlagsValue.parseAndCreate(flags, ImmutableSet.of("str_option"));
+
+    OptionsParsingException expected =
+        assertThrows(OptionsParsingException.class, () -> parsedFlags.mergeWith(original));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Cannot set --str_option in a platform or platform mapping.");
+  }
+
+  @Test
+  public void mergeWith_allowsFlagAliasOfDisabledFlag() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder().build();
+
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .optionsClasses(BUILD_CONFIG_OPTIONS)
+            // Just alias the disabled flag, but do not set it. This should be allowed.
+            .nativeFlags(ImmutableList.of("--flag_alias=my_alias=//custom:flag"))
+            .build();
+    ParsedFlagsValue parsedFlags =
+        ParsedFlagsValue.parseAndCreate(flags, ImmutableSet.of("//custom:flag"));
+
+    // Should not throw
+    var unused = parsedFlags.mergeWith(original);
   }
 }

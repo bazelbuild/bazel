@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 
-/**
- * Dynamic provider interface to resolve platform-specific configuration baselines and mnemonics.
- */
+/** Dynamic provider interface to resolve platform-specific configuration baselines. */
 public interface PlatformConfigurationProvider {
 
   /** Returns the top-level platform label. */
@@ -47,7 +45,4 @@ public interface PlatformConfigurationProvider {
    */
   BuildOptions getActualBaseOptionsForPlatform(
       Label platformLabel, boolean isExec, boolean trimTestOptions) throws SerializationException;
-
-  /** Resolves the output directory mnemonic for the given configuration options. */
-  String resolveMnemonic(BuildOptions targetOptions);
 }

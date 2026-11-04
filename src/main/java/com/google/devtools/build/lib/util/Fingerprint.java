@@ -83,6 +83,11 @@ public final class Fingerprint implements BytesSink {
     this(DigestHashFunction.SHA256);
   }
 
+  /** Returns the length in bytes of the digests produced by this instance. */
+  public int getDigestLength() {
+    return messageDigest.getDigestLength();
+  }
+
   /**
    * Completes the hash computation by doing final operations and resets the underlying state,
    * allowing this instance to be used again.

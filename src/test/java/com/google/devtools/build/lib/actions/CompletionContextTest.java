@@ -19,8 +19,8 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
@@ -61,7 +61,7 @@ public final class CompletionContextTest {
 
   @Test
   public void treeArtifact_present() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile1 = TreeFileArtifact.createTreeOutput(tree, "file1");
     TreeFileArtifact treeFile2 = TreeFileArtifact.createTreeOutput(tree, "file2");
     TreeArtifactValue treeValue =
@@ -77,7 +77,7 @@ public final class CompletionContextTest {
 
   @Test
   public void fileset() {
-    SpecialArtifact fileset = createFileset("fs");
+    FilesetArtifact fileset = createFileset("fs");
     Artifact b1 = ActionsTestUtil.createArtifact(outputRoot, "b1");
     Artifact b2 = ActionsTestUtil.createArtifact(outputRoot, "b2");
     ImmutableList<FilesetOutputSymlink> links =
@@ -117,17 +117,16 @@ public final class CompletionContextTest {
     return visited;
   }
 
-  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
+  private TreeArtifact createTreeArtifact(String rootRelativePath) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         outputRoot, outputRoot.getExecPath().getRelative(rootRelativePath));
   }
 
-  private SpecialArtifact createFileset(String rootRelativePath) {
-    return SpecialArtifact.create(
+  private FilesetArtifact createFileset(String rootRelativePath) {
+    return FilesetArtifact.create(
         outputRoot,
         outputRoot.getExecPath().getRelative(rootRelativePath),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        SpecialArtifactType.FILESET);
+        ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
   private static FilesetOutputSymlink filesetLink(String from, Artifact target) {

@@ -47,6 +47,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -130,6 +131,8 @@ java_library(
     ),
     add_opens = [
         "java.base/java.lang.invoke",
+        # For VarHandle access to private fields of ArrayList and EnumMap.
+        "java.base/java.util",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__subpackages__",

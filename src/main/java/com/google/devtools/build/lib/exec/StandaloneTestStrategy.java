@@ -28,7 +28,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -778,8 +778,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
             actionExecutionContext
                 .getOutputMetadataStore()
-                .getTreeArtifactValue(
-                    (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
+                .getTreeArtifactValue((TreeArtifact) testAction.getCoverageDirectoryTreeArtifact())
                 .getChildren();
         ImmutableSet<Artifact> coverageSpawnMetadata =
             ImmutableSet.<Artifact>builder()

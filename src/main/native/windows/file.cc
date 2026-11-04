@@ -125,11 +125,11 @@ int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
   }
 }
 
-static int64_t WindowsFileTimeToUnixMillis(LARGE_INTEGER filetime) {
+static int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime) {
   // Convert from Windows file time (100ns units since January 1, 1601) to
-  // Unix millis (1ms units since January 1, 1970). For the magic constant, see:
+  // Unix nanos (1ns units since January 1, 1970). For the magic constant, see:
   // https://learn.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time
-  return (filetime.QuadPart - 116444736000000000LL) / 10000LL;
+  return (filetime.QuadPart - 116444736000000000LL) * 100LL;
 }
 
 int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
@@ -176,7 +176,7 @@ int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
     return GetChangeTimeResult::kError;
   }
 
-  *result = WindowsFileTimeToUnixMillis(info.ChangeTime);
+  *result = WindowsFileTimeToUnixNanos(info.ChangeTime);
   return GetChangeTimeResult::kSuccess;
 }
 

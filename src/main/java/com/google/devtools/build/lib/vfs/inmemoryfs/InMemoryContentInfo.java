@@ -36,18 +36,18 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
   protected final Clock clock;
 
   /**
-   * Stores the time when the file was last modified. This is atomically updated whenever the file
-   * changes, so all accesses must be synchronized.
+   * Stores the time when the file was last modified, in nanoseconds since the Unix epoch. This is
+   * atomically updated whenever the file changes, so all accesses must be synchronized.
    */
   @GuardedBy("this")
-  private long lastModifiedTime;
+  private long lastModifiedTimeNanos;
 
   /**
-   * Stores the time when the file information was changed. This is atomically updated whenever the
-   * file changes, so all accesses must be synchronized.
+   * Stores the time when the file information was changed, in nanoseconds since the Unix epoch.
+   * This is atomically updated whenever the file changes, so all accesses must be synchronized.
    */
   @GuardedBy("this")
-  private long lastChangeTime;
+  private long lastChangeTimeNanos;
 
   /** Stores the file's permission bits. */
   @GuardedBy("this")
@@ -97,7 +97,16 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
    */
   @Override
   public synchronized long getLastModifiedTime() {
-    return lastModifiedTime;
+    return lastModifiedTimeNanos / 1_000_000;
+  }
+
+  /**
+   * Returns the time when the entity denoted by the current object was last modified, in
+   * nanoseconds since the Unix epoch.
+   */
+  @Override
+  public synchronized long getLastModifiedTimeNanos() {
+    return lastModifiedTimeNanos;
   }
 
   /**
@@ -106,7 +115,16 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
    */
   @Override
   public synchronized long getLastChangeTime() {
-    return lastChangeTime;
+    return lastChangeTimeNanos / 1_000_000;
+  }
+
+  /**
+   * Returns the time when the entity denoted by the current object was last changed, in nanoseconds
+   * since the Unix epoch.
+   */
+  @Override
+  public synchronized long getLastChangeTimeNanos() {
+    return lastChangeTimeNanos;
   }
 
   /**
@@ -129,23 +147,24 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
   }
 
   /**
-   * Sets the time that denotes when the entity denoted by this object was last
-   * modified.
+   * Sets the time, in nanoseconds since the Unix epoch, that denotes when the entity denoted by
+   * this object was last modified.
    */
-  synchronized void setLastModifiedTime(long newTime) {
-    lastModifiedTime = newTime;
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  synchronized void setLastModifiedTimeNanos(long newTime) {
+    lastModifiedTimeNanos = newTime;
     markChangeTime();
   }
 
   /** Sets the last modification and change times to the current time. */
   synchronized void markModificationTime() {
-    lastModifiedTime = clock.currentTimeMillis();
-    lastChangeTime = lastModifiedTime;
+    lastModifiedTimeNanos = clock.currentTimeMillis() * 1_000_000;
+    lastChangeTimeNanos = lastModifiedTimeNanos;
   }
 
   /** Sets the last change time to the current time. */
   private synchronized void markChangeTime() {
-    lastChangeTime = clock.currentTimeMillis();
+    lastChangeTimeNanos = clock.currentTimeMillis() * 1_000_000;
   }
 
   /** Returns whether the current file is readable. */

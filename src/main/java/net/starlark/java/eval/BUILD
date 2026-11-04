@@ -69,6 +69,9 @@ java_library(
         "TypeConstructorValue.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
+    exports = [
+        ":print_handler",
+    ],
     deps = [
         # Do not add Bazel or Google dependencies here!
         "//src/main/java/net/starlark/java/annot",
@@ -80,6 +83,17 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         ":cpu_profiler_native_support",
+        ":print_handler",
+    ],
+)
+
+java_library(
+    name = "print_handler",
+    srcs = ["PrintHandler.java"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+    # Do not add Bazel or Google dependencies here!
+    deps = [
+        "//src/main/java/net/starlark/java/syntax:location",
     ],
 )
 

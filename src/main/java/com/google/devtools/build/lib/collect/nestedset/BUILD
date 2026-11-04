@@ -23,6 +23,7 @@ java_library(
         "NestedSetBuilder.java",
         "NestedSetCodecWithStore.java",
         "NestedSetInterner.java",
+        "NestedSetOwnerScope.java",
         "NestedSetSerializationCache.java",
         "NestedSetStore.java",
         "NestedSetVisitor.java",

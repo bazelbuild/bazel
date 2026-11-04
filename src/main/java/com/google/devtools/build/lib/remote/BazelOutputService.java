@@ -22,7 +22,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
@@ -476,10 +476,9 @@ public class BazelOutputService implements OutputService {
       if (outputMetadataStore.artifactOmitted(output)) {
         continue;
       }
-      if (output.isTreeArtifact()) {
+      if (output instanceof TreeArtifact treeArtifact) {
         // TODO(chiwang): Use TreeArtifactLocator
-        var children =
-            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
+        var children = outputMetadataStore.getTreeArtifactValue(treeArtifact).getChildren();
         for (var child : children) {
           request.addArtifact(child);
         }

@@ -17,19 +17,28 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * A file system that may keep the contents of certain directory trees in memory, backed by remote
  * storage, and that supports materializing them to the local file system on demand.
  */
 public interface LazyMaterializer {
+  /** Returns the recorded file permissions, or the default for a path outside the overlay. */
+  int getMaterializationPermissions(PathFragment path, int defaultPermissions) throws IOException;
+
   /**
    * Materializes the given external repository to the local file system if its contents are
    * currently only available in memory.
    *
    * <p>Does nothing if the repository is already backed by the local file system.
+   *
+   * @param location the location of the Starlark call that requires the repository, which is
+   *     reported along with the materialization
    */
-  void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  void ensureMaterialized(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException;
 
   /**

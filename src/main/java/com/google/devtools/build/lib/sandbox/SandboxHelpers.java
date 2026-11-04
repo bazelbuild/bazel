@@ -838,8 +838,20 @@ public final class SandboxHelpers {
   }
 
   /**
+   * Returns a timestamp for {@link #updateContentMap}. Every modification below {@code root} after
+   * this call results in a change time at or after the timestamp.
+   */
+  public static long takeContentMapTimestamp(Path root) throws IOException {
+    // The file system may stamp files from a clock that is coarser than or lags behind the system
+    // clock, so the timestamp is read back from the file system itself.
+    root.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    return root.stat().getLastChangeTimeNanos();
+  }
+
+  /**
    * Updates a {@link SandboxContents} previously created by {@link #createContentMap} to reflect
-   * any filesystem modifications that occurred after the given timestamp.
+   * any filesystem modifications that occurred after the given timestamp, which must have been
+   * returned by {@link #takeContentMapTimestamp}.
    *
    * <p>This is necessary because an action may delete some of its inputs or create additional
    * declared outputs. We assume that a ctime check on directories is sufficient to detect such
@@ -847,7 +859,7 @@ public final class SandboxHelpers {
    */
   public static void updateContentMap(Path root, long timestamp, SandboxContents stashContents)
       throws IOException, InterruptedException {
-    if (root.stat().getLastChangeTime() > timestamp) {
+    if (root.stat().getLastChangeTimeNanos() >= timestamp) {
       Set<String> dirsToKeep = new HashSet<>();
       Set<String> filesAndSymlinksToKeep = new HashSet<>();
       for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
@@ -872,7 +884,7 @@ public final class SandboxHelpers {
         } else if (dirent.getType().equals(FILE)) {
           if (stashContents.fileMap().containsKey(dirent.getName())
               && stashContents.fileMap().get(dirent.getName()) == null
-              && absPath.stat().getLastChangeTime() <= timestamp) {
+              && absPath.stat().getLastChangeTimeNanos() < timestamp) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
             absPath.delete();

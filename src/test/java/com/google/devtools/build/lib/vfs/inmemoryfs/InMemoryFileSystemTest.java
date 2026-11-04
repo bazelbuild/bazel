@@ -407,6 +407,18 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   @Test
+  public void testSymlinkBelowDeepPath() throws Exception {
+    // Only symlinks count toward the limit, not the components of the path leading to them.
+    Path deep = testFS.getPath("/" + "d/".repeat(300) + "dir");
+    deep.createDirectoryAndParents();
+    deep.getChild("target").createDirectory();
+    FileSystemUtils.createEmptyFile(deep.getChild("target").getChild("file"));
+    deep.getChild("link").createSymbolicLink(PathFragment.create("target"));
+
+    assertThat(deep.getChild("link").getChild("file").stat().isFile()).isTrue();
+  }
+
+  @Test
   public void testEloopSelf() throws Exception {
     // The test assumes that aName is not a prefix of the workingDir.
     String aName = "/" + UUID.randomUUID();

@@ -25,7 +25,12 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -241,14 +246,13 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
    * running with --experimental_extended_sanity_checks.
    */
   @SuppressWarnings("unchecked") // Cast of artifacts map's value to Pair.
-  private Artifact.DerivedArtifact dedupAndTrackArtifactAndOrigin(
-      Artifact.DerivedArtifact a, @Nullable Throwable e) {
+  private <T extends DerivedArtifact> T dedupAndTrackArtifactAndOrigin(T a, @Nullable Throwable e) {
     if (artifacts.containsKey(a)) {
       Object value = artifacts.get(a);
       if (e == null) {
-        return (Artifact.DerivedArtifact) value;
+        return (T) value;
       } else {
-        return ((Pair<Artifact.DerivedArtifact, String>) value).first;
+        return ((Pair<T, String>) value).first;
       }
     }
     if ((e != null)) {
@@ -262,8 +266,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact.DerivedArtifact getDerivedArtifact(
-      PathFragment rootRelativePath, ArtifactRoot root) {
+  public DerivedArtifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return dedupAndTrackArtifactAndOrigin(
         artifactFactory.getDerivedArtifact(rootRelativePath, root, owner),
@@ -271,35 +274,32 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+  public RunfilesArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
-    return (SpecialArtifact)
-        dedupAndTrackArtifactAndOrigin(
-            artifactFactory.getRunfilesArtifact(rootRelativePath, root, owner),
-            extendedSanityChecks ? new Throwable() : null);
+    return dedupAndTrackArtifactAndOrigin(
+        artifactFactory.getRunfilesArtifact(rootRelativePath, root, owner),
+        extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override
-  public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+  public TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
-    return (SpecialArtifact)
-        dedupAndTrackArtifactAndOrigin(
-            artifactFactory.getTreeArtifact(rootRelativePath, root, owner),
-            extendedSanityChecks ? new Throwable() : null);
+    return dedupAndTrackArtifactAndOrigin(
+        artifactFactory.getTreeArtifact(rootRelativePath, root, owner),
+        extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override
-  public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-    Preconditions.checkState(enabled);
-    return (SpecialArtifact)
-        dedupAndTrackArtifactAndOrigin(
-            artifactFactory.getSymlinkArtifact(rootRelativePath, root, owner),
-            extendedSanityChecks ? new Throwable() : null);
-  }
-
-  @Override
-  public Artifact.DerivedArtifact getFilesetArtifact(
+  public UnresolvedSymlinkArtifact getSymlinkArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
+    Preconditions.checkState(enabled);
+    return dedupAndTrackArtifactAndOrigin(
+        artifactFactory.getSymlinkArtifact(rootRelativePath, root, owner),
+        extendedSanityChecks ? new Throwable() : null);
+  }
+
+  @Override
+  public FilesetArtifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return dedupAndTrackArtifactAndOrigin(
         artifactFactory.getFilesetArtifact(rootRelativePath, root, owner),
@@ -307,7 +307,8 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+  public ConstantMetadataArtifact getConstantMetadataArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root) {
     return artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, owner);
   }
 

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.collect.SimpleTargetPatternMatcher;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -64,7 +63,7 @@ public final class ProjectValue implements SkyValue {
   }
 
   private final EnforcementPolicy enforcementPolicy;
-  private final ImmutableMap<String, Collection<String>> projectDirectories;
+  private final ImmutableSet<String> defaultProjectDirectories;
   @Nullable private final ImmutableMap<String, BuildableUnit> buildableUnits;
   @Nullable private final ImmutableList<String> alwaysAllowedConfigs;
   @Nullable private final Label actualProjectFile;
@@ -113,30 +112,22 @@ public final class ProjectValue implements SkyValue {
 
   public ProjectValue(
       EnforcementPolicy enforcementPolicy,
-      ImmutableMap<String, Collection<String>> projectDirectories,
+      ImmutableSet<String> defaultProjectDirectories,
       @Nullable ImmutableMap<String, BuildableUnit> buildableUnits,
       @Nullable ImmutableList<String> alwaysAllowedConfigs,
       @Nullable Label actualProjectFile) {
     this.enforcementPolicy = enforcementPolicy;
-    this.projectDirectories = projectDirectories;
+    this.defaultProjectDirectories = defaultProjectDirectories;
     this.buildableUnits = buildableUnits;
     this.alwaysAllowedConfigs = alwaysAllowedConfigs;
     this.actualProjectFile = actualProjectFile;
   }
 
   /**
-   * Return the "default" {@code project_directories} map entry. If there are zero entries, returns
-   * an empty set.
+   * Returns the default project directories for the project, or an empty set if none are defined.
    */
   public ImmutableSet<String> getDefaultProjectDirectories() {
-    if (projectDirectories.isEmpty()) {
-      return ImmutableSet.of();
-    }
-    // TODO: b/409377907 - Make sure this check still makes sense with the new format.
-    Preconditions.checkArgument(
-        projectDirectories.containsKey("default"),
-        "project_directories must contain the 'default' key");
-    return ImmutableSet.copyOf(projectDirectories.get("default"));
+    return defaultProjectDirectories;
   }
 
   /**
@@ -177,14 +168,6 @@ public final class ProjectValue implements SkyValue {
   @Nullable
   public ImmutableList<String> getAlwaysAllowedConfigs() {
     return alwaysAllowedConfigs;
-  }
-
-  /**
-   * Returns the map of named {@code project_directories} in the project. If the map is not defined
-   * in the file, returns an empty map.
-   */
-  public ImmutableMap<String, Collection<String>> getProjectDirectories() {
-    return projectDirectories;
   }
 
   /** The SkyKey. Uses the label of the project file as the input. */

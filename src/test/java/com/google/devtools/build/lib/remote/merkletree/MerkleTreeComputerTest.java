@@ -575,6 +575,17 @@ public class MerkleTreeComputerTest {
                   .build());
       assertThat(dir.getFilesCount()).isEqualTo(firstDirectory.equals(secondDirectory) ? 2 : 1);
     }
+
+    assertThat(
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.DISCARD)
+                .digest())
+        .isEqualTo(merkleTree.digest());
   }
 
   @Test
@@ -650,6 +661,19 @@ public class MerkleTreeComputerTest {
     assertThat(merkleTree.inputFiles()).isEqualTo(0);
     assertThat(merkleTree.inputBytes()).isEqualTo(0);
     assertThat(merkleTree.blobs()).isEmpty();
+
+    var discarded =
+        createMerkleTreeComputer(/* uploader= */ null)
+            .buildForSpawn(
+                spawn,
+                ImmutableSet.of(),
+                scrubber,
+                createSpawnExecutionContext(spawn, fakeFileCache),
+                MerkleTreeComputer.BlobPolicy.DISCARD);
+    assertThat(discarded).isInstanceOf(MerkleTree.RootOnly.BlobsDiscarded.class);
+    assertThat(discarded.digest()).isEqualTo(merkleTree.digest());
+    assertThat(discarded.inputFiles()).isEqualTo(0);
+    assertThat(discarded.inputBytes()).isEqualTo(0);
   }
 
   private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)

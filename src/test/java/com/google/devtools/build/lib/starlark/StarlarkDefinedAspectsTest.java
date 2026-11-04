@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -1388,6 +1387,49 @@ my_rule = rule(
         OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
     assertThat(getOutputGroupContents(outputGroupInfo, "a1_group"))
         .containsExactly("test/base_a1.txt");
+  }
+
+  @Test
+  public void mergedAspectFiles_areOwnedByTheMergedAspects() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return [DefaultInfo(files = depset([f]))]
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+            f = ctx.actions.declare_file(ctx.label.name + '.txt')
+            ctx.actions.write(f, 'f')
+            return [DefaultInfo(files = depset([f]))]
+          return [OutputGroupInfo(merged = ctx.attr.dep.files)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule1')
+        my_rule1(name = 'base')
+        my_rule1(name = 'top', dep = ':base')
+        """);
+
+    AnalysisResult analysisResult = update("//test:top");
+    NestedSet<Artifact> merged =
+        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()))
+            .getOutputGroup("merged");
+
+    assertThat(ActionsTestUtil.baseArtifactNames(merged))
+        .containsExactly("base.txt", "base_a1.txt");
+    // Merging happens outside the analysis of any target. The merged set is owned by the keys of
+    // the merged aspects, so that copies of it compare equal.
+    assertThat(merged.getOwner()).isInstanceOf(ImmutableList.class);
+    AspectKey aspectKey =
+        (AspectKey) Iterables.getOnlyElement((ImmutableList<?>) merged.getOwner());
+    assertThat(aspectKey.getLabel()).isEqualTo(Label.parseCanonical("//test:base"));
+    assertThat(aspectKey.getAspectClass().getName()).isEqualTo("//test:aspect.bzl%a1");
   }
 
   @Test
@@ -3395,7 +3437,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     assertThat(
             result.stream()
                 .map(a -> ((Action) a).getPrimaryOutput().getExecPath().getBaseName())
-                .collect(toList()))
+                .collect(toImmutableList()))
         .containsExactly("r0", "a1");
   }
 
@@ -4289,7 +4331,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     // aspect_a should run on main_target and dep_target_a and can retrieve aspect_c provider value
     // on both of them
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
@@ -4443,7 +4485,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     // aspect_a runs on main_target, dep_target_with_prov_a and dep_target_with_prov_c and it can
     // only retrieve aspect_c provider value on dep_target_with_prov_c
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
@@ -4655,7 +4697,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     // aspect_a runs on main_target, dep_1 and dep_2 but it can only see the required native aspect
     // run on dep_2 because its rule satisfies its required provider.
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
@@ -5507,7 +5549,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
             "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
     assertThat(a3).isNotNull();
     StarlarkProvider.Key a3Result =
@@ -5700,7 +5742,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a1", "test/defs.bzl%a2"),
             "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -5772,7 +5814,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -5847,7 +5889,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -5928,7 +5970,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -6027,7 +6069,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -6124,7 +6166,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
             "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
     StarlarkProvider.Key a2Result =
@@ -6259,7 +6301,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2", "test/defs.bzl%a3"),
             "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
     assertThat(a3).isNotNull();
     StarlarkProvider.Key a3Result =
@@ -6414,7 +6456,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
 
     AnalysisResult analysisResult = update(ImmutableList.of("test/defs.bzl%a1"), "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -6484,7 +6526,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:t2", "//test:t1");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1Ont1 = getConfiguredAspect(configuredAspects, "a1", "t1");
     assertThat(a1Ont1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -6574,7 +6616,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
             "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -6672,7 +6714,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
             "//test:main");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
@@ -6776,7 +6818,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     assertThat(configuredAspects).hasSize(3);
     assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
     assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
@@ -6804,7 +6846,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     assertThat(configuredAspects).hasSize(3);
     assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
     assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
@@ -6831,7 +6873,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     assertThat(configuredAspects).hasSize(4);
     assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
     assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
@@ -6859,7 +6901,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%aspect_b", "test/defs.bzl%aspect_a"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     assertThat(configuredAspects).hasSize(2);
     assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
     assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
@@ -6964,7 +7006,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
 
     // required_aspect can only run on main_target when propagated alone since its attr_aspects is
     // empty.
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect requiredAspect = getConfiguredAspect(configuredAspects, "required_aspect");
     assertThat(requiredAspect).isNotNull();
     StarlarkProvider.Key requiredAspectProv =
@@ -7078,7 +7120,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // base_aspect should propagate only along its attr_aspects: 'base_dep'
     // first_required_aspect should propagate along 'base_dep' and 'first_dep'
     // second_required_aspect should propagate along 'base_dep', 'first_dep' and 'second_dep'
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
@@ -7211,7 +7253,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // aspect_b can reach target_with_prov_b because it inherits the required_providers of aspect_a
     // aspect_c can reach target_with_prov_c because it inherits the required_providers of aspect_a
     // and aspect_b
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key collectorProv =
@@ -7275,7 +7317,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
@@ -7329,7 +7371,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
@@ -7424,7 +7466,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
                 "test/defs.bzl%aspect_with_prov_b", "test/defs.bzl%aspect_a"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     String aspectAResult =
@@ -7508,7 +7550,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableList.of("test/defs.bzl%aspect_with_prov_a", "test/defs.bzl%aspect_a"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     String aspectAResult =
@@ -7648,7 +7690,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableMap.of("p1", "p1_v1", "a_p", "a_p_v1", "b_p", "b_p_v1"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkList<?> aspectAResult =
@@ -7801,7 +7843,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             ImmutableMap.of("p1", "p1_v2"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkList<?> aspectAResult =
@@ -10384,6 +10426,63 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     var deserialized =
         RoundTripping.roundTripWithSkyframe(COMPRESSION_SERVICE, this::getDoneValue, myAspect);
     assertThat(myAspect).isSameInstanceAs(deserialized);
+  }
+
+  @Test
+  public void aspectTransitiveTargetsDepsetDeduplicatesMergedConfiguredTargets() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        TransitiveDepsInfo = provider(fields = ["deps"])
+
+        def _aspect_impl(target, ctx):
+            direct = getattr(ctx.rule.attr, "deps", [])
+            transitive = [dep[TransitiveDepsInfo].deps for dep in direct]
+            return [TransitiveDepsInfo(deps = depset(direct = direct, transitive = transitive))]
+
+        collect_deps_aspect = aspect(
+            implementation = _aspect_impl,
+            attr_aspects = ["deps"],
+        )
+
+        ResultInfo = provider(fields = ["labels"])
+
+        def _rule_impl(ctx):
+            all_deps = depset(
+                direct = ctx.attr.deps,
+                transitive = [dep[TransitiveDepsInfo].deps for dep in ctx.attr.deps],
+            )
+            return [ResultInfo(labels = [str(d.label) for d in all_deps.to_list()])]
+
+        my_lib = rule(
+            implementation = lambda ctx: [],
+            attrs = {"deps": attr.label_list()},
+        )
+
+        collector = rule(
+            implementation = _rule_impl,
+            attrs = {"deps": attr.label_list(aspects = [collect_deps_aspect])},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":aspect.bzl", "collector", "my_lib")
+
+        my_lib(name = "shared")
+        my_lib(name = "branch1", deps = [":shared"])
+        my_lib(name = "branch2", deps = [":shared"])
+        collector(name = "root", deps = [":branch1", ":branch2"])
+        """);
+
+    update("//test:root");
+    ConfiguredTarget root = getConfiguredTarget("//test:root");
+    StarlarkProvider.Key resultKey =
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "ResultInfo");
+    StarlarkInfo resultInfo = (StarlarkInfo) root.get(resultKey);
+    Sequence<String> labels = Sequence.cast(resultInfo.getValue("labels"), String.class, "labels");
+    assertThat(labels).containsExactly("@@//test:shared", "@@//test:branch1", "@@//test:branch2");
   }
 
   private SkyValue getDoneValue(SkyKey key) {

@@ -39,6 +39,7 @@ public class DynamicTypeCheckTest {
     ev = new EvaluationTestCase();
     ev.setSemantics(
         StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, false)
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
             .build());
   }
@@ -47,6 +48,7 @@ public class DynamicTypeCheckTest {
   public void typechecking_disabledByFlag() throws Exception {
     ev.setSemantics(
         StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, false)
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, false)
             .build());
 

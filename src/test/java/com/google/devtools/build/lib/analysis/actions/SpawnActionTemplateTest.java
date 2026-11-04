@@ -20,8 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -67,8 +66,8 @@ public class SpawnActionTemplateTest {
 
   @Test
   public void testCommonToolsAndInputs() {
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     Artifact commonInput = createDerivedArtifact("common/input");
     Artifact commonTool = createDerivedArtifact("common/tool");
     Artifact executable = createDerivedArtifact("bin/cp");
@@ -92,8 +91,8 @@ public class SpawnActionTemplateTest {
 
   @Test
   public void testBuilder_outputPathMapperRequired() {
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     SpawnActionTemplate.Builder builder = builder(inputTreeArtifact, outputTreeArtifact)
         .setExecutionInfo(ImmutableMap.<String, String>of("local", ""))
         .setExecutable(PathFragment.create("/bin/cp"))
@@ -107,8 +106,8 @@ public class SpawnActionTemplateTest {
 
   @Test
   public void testBuilder_executableRequired() {
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     SpawnActionTemplate.Builder builder = builder(inputTreeArtifact, outputTreeArtifact)
         .setExecutionInfo(ImmutableMap.<String, String>of("local", ""))
         .setOutputPathMapper(IDENTITY_MAPPER)
@@ -122,8 +121,8 @@ public class SpawnActionTemplateTest {
 
   @Test
   public void testBuilder_commandlineTemplateRequired() {
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     SpawnActionTemplate.Builder builder = builder(inputTreeArtifact, outputTreeArtifact)
         .setExecutionInfo(ImmutableMap.<String, String>of("local", ""))
         .setOutputPathMapper(IDENTITY_MAPPER)
@@ -137,8 +136,8 @@ public class SpawnActionTemplateTest {
   @Test
   public void getKey_same() throws Exception {
     ActionKeyContext keyContext = new ActionKeyContext();
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     Artifact executable = createDerivedArtifact("bin/cp");
 
     // Use two different builders because the same builder would share the underlying
@@ -166,8 +165,8 @@ public class SpawnActionTemplateTest {
   @Test
   public void getKey_differs() throws Exception {
     ActionKeyContext keyContext = new ActionKeyContext();
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     Artifact executable = createDerivedArtifact("bin/cp");
 
     // Use two different builders because the same builder would share the underlying
@@ -195,8 +194,8 @@ public class SpawnActionTemplateTest {
   @Test
   public void testExpandedAction_inputAndOutputTreeFileArtifacts() {
     SpawnActionTemplate actionTemplate = createSimpleSpawnActionTemplate();
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
 
     ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
@@ -225,8 +224,8 @@ public class SpawnActionTemplateTest {
 
   @Test
   public void testExpandedAction_commonToolsAndInputs() {
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     Artifact commonInput = createDerivedArtifact("common/input");
     Artifact commonTool = createDerivedArtifact("common/tool");
     Artifact executable = createDerivedArtifact("bin/cp");
@@ -262,8 +261,8 @@ public class SpawnActionTemplateTest {
   @Test
   public void testExpandedAction_arguments() throws Exception {
     SpawnActionTemplate actionTemplate = createSimpleSpawnActionTemplate();
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
 
     ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
@@ -290,7 +289,7 @@ public class SpawnActionTemplateTest {
   @Test
   public void testExpandedAction_executionInfoAndEnvironment() {
     SpawnActionTemplate actionTemplate = createSimpleSpawnActionTemplate();
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
     ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
@@ -311,8 +310,8 @@ public class SpawnActionTemplateTest {
 
   @Test
   public void testExpandedAction_illegalOutputPath() throws Exception {
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
     ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
@@ -361,13 +360,13 @@ public class SpawnActionTemplateTest {
   }
 
   private SpawnActionTemplate.Builder builder(
-      SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
+      TreeArtifact inputTreeArtifact, TreeArtifact outputTreeArtifact) {
     return new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact);
   }
 
   private SpawnActionTemplate createSimpleSpawnActionTemplate() {
-    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
+    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
 
     return builder(inputTreeArtifact, outputTreeArtifact)
         .setExecutionInfo(ImmutableMap.of("local", ""))
@@ -380,22 +379,19 @@ public class SpawnActionTemplateTest {
         .build(ActionsTestUtil.NULL_ACTION_OWNER);
   }
 
-  private SpecialArtifact createInputTreeArtifact() {
+  private TreeArtifact createInputTreeArtifact() {
     return createTreeArtifact("my/inputTree");
   }
 
-  private SpecialArtifact createOutputTreeArtifact() {
+  private TreeArtifact createOutputTreeArtifact() {
     return createTreeArtifact("my/outputTree");
   }
 
-  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
+  private TreeArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
-    SpecialArtifact result =
-        SpecialArtifact.create(
-            root,
-            root.getExecPath().getRelative(relpath),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.TREE);
+    TreeArtifact result =
+        TreeArtifact.create(
+            root, root.getExecPath().getRelative(relpath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
     result.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     return result;
   }
@@ -413,7 +409,7 @@ public class SpawnActionTemplateTest {
   }
 
   private static ImmutableList<TreeFileArtifact> createInputTreeFileArtifacts(
-      SpecialArtifact inputTreeArtifact) {
+      TreeArtifact inputTreeArtifact) {
     return ImmutableList.of(
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child0"),
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child1"),

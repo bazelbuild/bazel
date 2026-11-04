@@ -205,7 +205,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
               + " function.")
   public abstract boolean getExperimentalIsolatedExtensionUsages();
 
-
   @Option(
       name = "incompatible_stop_exporting_build_file_path",
       defaultValue = "false",
@@ -594,7 +593,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
       help =
-          "A comma-separated list of flags that cannot be used in transitions inputs or outputs.")
+          "A comma-separated list of flags that cannot be used in transitions inputs or outputs, "
+              + "PROJECT.scl files, platform definitions, or platform mappings.")
   public abstract ImmutableList<String> getIncompatibleDisableTransitionsOn();
 
   @Option(
@@ -687,7 +687,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_static_type_checking",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -698,7 +698,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_dynamic_type_checking",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -827,6 +827,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
           "Internal use only. Forces the Starlark implementation to operate on strings as raw"
               + " UTF-8 byte arrays, matching Bazel's internal string encoding.")
   public abstract boolean getInternalStarlarkUtf8ByteStrings();
+
+  @Option(
+      name = "incompatible_existing_rules_default_omit_macro_internals",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, the omit_macro_internals parameter of native.existing_rules() will default to"
+              + " True.")
+  public abstract boolean getIncompatibleExistingRulesDefaultOmitMacroInternals();
 
   /** An enum for specifying different modes for UTF-8 checking of Starlark files. */
   public enum Utf8EnforcementMode {
@@ -1037,7 +1048,10 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, getRepositoryCtxExecuteWasm())
             .setBool(
                 EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION, getRepositoryCtxWasmCompilation())
-            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, getForceStarlarkStackTrace());
+            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, getForceStarlarkStackTrace())
+            .setBool(
+                INCOMPATIBLE_EXISTING_RULES_DEFAULT_OMIT_MACRO_INTERNALS,
+                getIncompatibleExistingRulesDefaultOmitMacroInternals());
   }
 
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
@@ -1211,6 +1225,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-incompatible_resolve_select_keys_eagerly";
   public static final String INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS =
       "-incompatible_symbolic_macro_strict_attrs";
+  public static final String INCOMPATIBLE_EXISTING_RULES_DEFAULT_OMIT_MACRO_INTERNALS =
+      "-incompatible_existing_rules_default_omit_macro_internals";
 
   // non-booleans
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =

@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -729,7 +730,7 @@ public class RuleContext extends TargetContext
   }
 
   @Override
-  public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+  public TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(
         rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
@@ -743,11 +744,11 @@ public class RuleContext extends TargetContext
    * Creates a tree artifact in a directory that is unique to the package that contains the rule,
    * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
-  public Artifact getPackageRelativeTreeArtifact(PathFragment relative, ArtifactRoot root) {
+  public TreeArtifact getPackageRelativeTreeArtifact(PathFragment relative, ArtifactRoot root) {
     return getTreeArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
-  public Artifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
+  public TreeArtifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
     return getPackageRelativeTreeArtifact(PathFragment.create(relative), root);
   }
 
@@ -1315,7 +1316,7 @@ public class RuleContext extends TargetContext
   public boolean verifyNestedSetCountLimit() {
     StarlarkSemantics semantics = getAnalysisEnvironment().getStarlarkSemantics();
     int limit = semantics.get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT);
-    int count = NestedSet.getCurrentTargetNestedSetCount();
+    int count = NestedSetOwnerScope.getCurrentNestedSetCount();
     if (limit <= 0 || count <= limit) {
       return true;
     }

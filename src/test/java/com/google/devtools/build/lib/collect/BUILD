@@ -77,17 +77,6 @@ java_test(
 )
 
 java_test(
-    name = "PathFragmentPrefixTrieTest",
-    srcs = ["PathFragmentPrefixTrieTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect:path_fragment_prefix_trie",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
     name = "SimpleTargetPatternMatcherTest",
     srcs = ["SimpleTargetPatternMatcherTest.java"],
     deps = [

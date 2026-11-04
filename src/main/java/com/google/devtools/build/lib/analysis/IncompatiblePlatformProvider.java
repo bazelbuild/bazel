@@ -73,8 +73,7 @@ public record IncompatiblePlatformProvider(
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<IncompatiblePlatformProvider> PROVIDER =
-      new BuiltinProvider<IncompatiblePlatformProvider>(
-          STARLARK_NAME, IncompatiblePlatformProvider.class) {};
+      new BuiltinProvider.NonCallable<>(STARLARK_NAME, IncompatiblePlatformProvider.class) {};
 
   @Override
   public BuiltinProvider<IncompatiblePlatformProvider> getProvider() {

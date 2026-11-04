@@ -381,9 +381,9 @@ public class SandboxHelpersTest {
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
         SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
-    long timestamp = clock.currentTimeMillis();
-
     clock.advanceMillis(1);
+    long timestamp = SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
+
     Path unexpectedFile = scratch.file("/execroot/api/unexpected", "unexpected");
     SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
 
@@ -409,9 +409,9 @@ public class SandboxHelpersTest {
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
         SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
-    long timestamp = clock.currentTimeMillis();
-
     clock.advanceMillis(1);
+    long timestamp = SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
+
     Path unexpectedSymlink = workDir.getRelative("pkg/unexpected");
     unexpectedSymlink.createSymbolicLink(sourceFile.asFragment());
     FileSystemUtils.appendIsoLatin1(sourceFile, "_modified");
@@ -826,9 +826,9 @@ public class SandboxHelpersTest {
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
         SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
-    long timestamp = clock.currentTimeMillis();
-
     clock.advanceMillis(1);
+    long timestamp = SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
+
     Path unexpectedFile = scratch.file("/execroot/api/unexpected.txt", "unexpected");
     FileSystemUtils.appendIsoLatin1(modifiedFile, "modified");
 
@@ -879,7 +879,7 @@ public class SandboxHelpersTest {
       SandboxContents contents = new SandboxContents();
       contents.fileMap().put("file.txt", null);
       SandboxStash.setPathContents(sandbox1, contents);
-      SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTime());
+      SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTimeNanos() + 1);
 
       SandboxStash.stashSandbox(
           sandbox1,
@@ -945,7 +945,7 @@ public class SandboxHelpersTest {
       SandboxContents contents = new SandboxContents();
       contents.fileMap().put("file.txt", null);
       SandboxStash.setPathContents(sandbox1, contents);
-      SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTime());
+      SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTimeNanos() + 1);
 
       SandboxStash.stashSandbox(
           sandbox1,
@@ -1010,7 +1010,7 @@ public class SandboxHelpersTest {
         SandboxContents contents = new SandboxContents();
         contents.fileMap().put("file_" + i + ".txt", null);
         SandboxStash.setPathContents(sandbox, contents);
-        SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTime());
+        SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTimeNanos() + 1);
 
         SandboxStash.stashSandbox(
             sandbox,
@@ -1281,7 +1281,7 @@ public class SandboxHelpersTest {
       SandboxContents contents = new SandboxContents();
       contents.fileMap().put("file.txt", null);
       SandboxStash.setPathContents(sandbox, contents);
-      SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTime());
+      SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTimeNanos() + 1);
 
       SandboxStash.stashSandbox(
           sandbox,
@@ -1350,7 +1350,7 @@ public class SandboxHelpersTest {
                     SandboxContents contents = new SandboxContents();
                     contents.fileMap().put("file.txt", null);
                     SandboxStash.setPathContents(sandbox, contents);
-                    SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTime());
+                    SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTimeNanos() + 1);
 
                     SandboxStash.stashSandbox(
                         sandbox,

@@ -80,6 +80,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * A file system that overlays the native file system with a {@link RemoteExternalFileSystem} for
@@ -180,6 +181,20 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     this.evaluator = null;
   }
 
+  /** Uses the uploaded digests while retaining the repository's files on disk. */
+  void injectUploadedRepo(RepositoryName repo, Tree contents, String markerFile)
+      throws IOException {
+    evictInMemoryRepo(repo.getName());
+    try {
+      // Match cache-hit metadata so unchanged files can prune invalidation after a fresh fetch.
+      injectRepoContents(repo, contents, unused -> {}, unused -> {});
+      markerFileContents.put(repo.getName(), markerFile);
+    } catch (IOException e) {
+      evictInMemoryRepo(repo.getName());
+      throw e;
+    }
+  }
+
   /** Removes the contents of the given repo from the in-memory overlay file system. */
   private void evictInMemoryRepo(String repoName) {
     try {
@@ -213,22 +228,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     deleteTree(repoDir);
     materializedRepos.remove(repo.getName());
     var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
-    var childMap =
-        remoteContents.getChildrenList().stream()
-            .collect(
-                toImmutableMap(cache.digestUtil()::compute, directory -> directory, (a, b) -> a));
     var filesToPrefetch = new LinkedHashSet<PathFragment>();
     var symlinksToPrefetch = new ArrayList<PathFragment>();
-    externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
-    injectRecursively(
-        externalFs,
-        repoDir,
-        repoDir,
-        remoteContents.getRoot(),
-        childMap,
-        filesToPrefetch::add,
-        symlinksToPrefetch::add,
-        Instant.now().plus(remoteCacheTtl));
+    injectRepoContents(repo, remoteContents, filesToPrefetch::add, symlinksToPrefetch::add);
     addSymlinkTargetsToPrefetch(symlinksToPrefetch, filesToPrefetch);
     try {
       // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
@@ -249,6 +251,29 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // materialized. This doubles as a presence marker for the in-memory repo contents.
     markerFileContents.put(repo.getName(), markerFile);
     return true;
+  }
+
+  private void injectRepoContents(
+      RepositoryName repo,
+      Tree remoteContents,
+      Consumer<PathFragment> filesToPrefetch,
+      Consumer<PathFragment> symlinksToPrefetch)
+      throws IOException {
+    var repoDir = externalDirectory.getChild(repo.getName());
+    var childMap =
+        remoteContents.getChildrenList().stream()
+            .collect(
+                toImmutableMap(cache.digestUtil()::compute, directory -> directory, (a, b) -> a));
+    externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
+    injectRecursively(
+        externalFs,
+        repoDir,
+        repoDir,
+        remoteContents.getRoot(),
+        childMap,
+        filesToPrefetch,
+        symlinksToPrefetch,
+        Instant.now().plus(remoteCacheTtl));
   }
 
   /**
@@ -295,8 +320,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       Consumer<PathFragment> symlinksToPrefetch,
       Instant expirationTime)
       throws IOException {
-    // The parent directory always exists at this point: the repo's parent is created by
-    // injectRemoteRepo and subdirectories are only visited after their parent has been created.
+    // The repo's parent exists before recursion, and children are visited after their parent.
     var unused =
         fs.createDirectory(
             path, dir.getFilesCount() + dir.getSymlinksCount() + dir.getDirectoriesCount());
@@ -393,7 +417,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * AbstractActionInputPrefetcher}.
    */
   @Override
-  public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  public void ensureMaterialized(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
       // The repo has not been injected into the in-memory file system, or has already been
@@ -403,7 +428,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       String repoName = repo.getName();
       if (!materializedRepos.contains(repoName)) {
         materializeSymlinkTargetReposBelow(
-            nativeFs.getPath(externalDirectory.getChild(repoName)), reporter);
+            nativeFs.getPath(externalDirectory.getChild(repoName)), location, reporter);
       }
       return;
     }
@@ -420,7 +445,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                   }
                   return materializationExecutor.submit(
                       () -> {
-                        doMaterialize(repo, reporter);
+                        doMaterialize(repo, location, reporter);
                         return null;
                       });
                 }));
@@ -430,7 +455,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * Materializes the repos served from memory that symlinks below the given native directory point
    * to, following chains of native symlinks on the way.
    */
-  private void materializeSymlinkTargetReposBelow(Path nativeDir, ExtendedEventHandler reporter)
+  private void materializeSymlinkTargetReposBelow(
+      Path nativeDir, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (markerFileContents.isEmpty() || !nativeDir.isDirectory(Symlinks.NOFOLLOW)) {
       return;
@@ -441,12 +467,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       }
       Path child = nativeDir.getChild(dirent.getName());
       switch (dirent.getType()) {
-        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, reporter);
+        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, location, reporter);
         case SYMLINK -> {
           PathFragment target = resolveNativeSymlinkIntoMemory(child);
           if (target != null) {
             ensureMaterialized(
                 RepositoryName.createUnvalidated(target.getSegment(externalDirectorySegmentCount)),
+                location,
                 reporter);
           }
         }
@@ -478,9 +505,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     return null;
   }
 
-  private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
+  private void doMaterialize(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
+    reporter.handle(Event.debug(location, "Materializing remote repo %s".formatted(repo)));
     materializeSubtree(externalDirectory.getChild(repo.getName()));
     materializedRepos.add(repo.getName());
 
@@ -520,6 +548,20 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     var reposToDiscard = ImmutableSet.copyOf(markerFileContents.keySet());
     reposToDiscard.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposToDiscard);
+  }
+
+  @Override
+  public int getMaterializationPermissions(PathFragment path, int defaultPermissions)
+      throws IOException {
+    if (path.startsWith(externalDirectory)) {
+      // injectRemoteRepo prefetches before setting markerFileContents, so fsForPath would select
+      // nativeFs. Read externalFs directly so prefetched files preserve the cached executable bit.
+      var stat = externalFs.statIfFound(path, /* followSymlinks= */ true);
+      if (stat != null && stat.isFile()) {
+        return (stat.getPermissions() & 0100) != 0 ? 0555 : 0444;
+      }
+    }
+    return defaultPermissions;
   }
 
   /**
@@ -608,9 +650,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // .bzl files are typically small and the loads between them can form complex DAGs that can only
     // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
     // cache requests.
-    // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
-    // fetched anyway.
-    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+    // The REPO.bazel and .bazelignore files, if present, are dependencies of any package and will
+    // thus have to be fetched anyway. Prefetching them also ensures that their loss from the remote
+    // cache results in a cache miss rather than a build failure.
+    return path.getFileExtension().equals("bzl")
+        || path.getBaseName().equals("REPO.bazel")
+        || path.getBaseName().equals(".bazelignore");
   }
 
   @Override
@@ -715,13 +760,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getLastModifiedTime(path, followSymlinks);
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return fsForPath(path).getLastModifiedTimeNanos(path, followSymlinks);
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    fsForPath(path).setLastModifiedTime(path, newTime);
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    fsForPath(path).setLastModifiedTimeNanos(path, newTime);
   }
 
   @Override

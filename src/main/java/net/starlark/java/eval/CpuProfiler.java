@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -120,18 +121,33 @@ public final class CpuProfiler {
   private static final ThreadLocal<Integer> threadId =
       ThreadLocal.withInitial(() -> nativeSupport.getThreadId());
 
-  // Maps OS thread ID to its CPU tick counter. Keeping only the counter avoids retaining
-  // the StarlarkThread and its evaluation context when an association outlives the evaluation.
-  private static final Map<Integer, AtomicInteger> cpuTicksByThread = new ConcurrentHashMap<>();
+  // Reuse each OS thread's slot for this profiling session instead of allocating a map entry
+  // for every top-level call. Slots hold only counters, not Starlark evaluation contexts.
+  private final Map<Integer, AtomicReference<AtomicInteger>> cpuTicksByThread =
+      new ConcurrentHashMap<>();
 
   /** Associates a counter with the current OS thread and returns its previous counter, if any. */
   @Nullable
-  static AtomicInteger setCpuTicksForCurrentThread(@Nullable AtomicInteger cpuTicks) {
-    if (cpuTicks == null) {
-      return cpuTicksByThread.remove(threadId.get());
-    } else {
-      return cpuTicksByThread.put(threadId.get(), cpuTicks);
+  AtomicInteger setCpuTicksForCurrentThread(@Nullable AtomicInteger cpuTicks) {
+    Integer tid = threadId.get();
+    // computeIfAbsent can lock on hash collisions even when the slot already exists.
+    AtomicReference<AtomicInteger> slot = cpuTicksByThread.get(tid);
+    if (slot == null) {
+      slot = cpuTicksByThread.computeIfAbsent(tid, unused -> new AtomicReference<>());
     }
+    return slot.getAndSet(cpuTicks);
+  }
+
+  // Keep the profiler reference out of the router frame, which can remain blocked in pipe.read
+  // after profiling stops.
+  @Nullable
+  private static AtomicInteger getCpuTicksForThread(int tid) {
+    CpuProfiler profiler = instance;
+    if (profiler == null) {
+      return null;
+    }
+    AtomicReference<AtomicInteger> slot = profiler.cpuTicksByThread.get(tid);
+    return slot == null ? null : slot.get();
   }
 
   /** Start the profiler. */
@@ -226,7 +242,7 @@ public final class CpuProfiler {
       // may be changing it, so we increment the thread's counter.
       // When the thread later observes the counter is non-zero,
       // it gives us the stack by calling addEvent.
-      AtomicInteger cpuTicks = cpuTicksByThread.get(tid);
+      AtomicInteger cpuTicks = getCpuTicksForThread(tid);
       if (cpuTicks != null) {
         cpuTicks.getAndIncrement();
       }

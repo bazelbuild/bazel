@@ -52,6 +52,7 @@ java_test(
     srcs =
         [
             "AbstractContainerizingSandboxedSpawnTest.java",
+            "AsynchronousTreeDeleterTest.java",
             "SandboxHelpersTest.java",
             "SandboxModuleTest.java",
             "SandboxOptionsTest.java",

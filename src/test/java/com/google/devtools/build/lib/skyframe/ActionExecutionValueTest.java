@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -65,7 +64,7 @@ public final class ActionExecutionValueTest {
 
   @Test
   public void equality() {
-    SpecialArtifact tree1 = tree("tree1");
+    TreeArtifact tree1 = tree("tree1");
     TreeArtifactValue tree1Value1 =
         TreeArtifactValue.newBuilder(tree1)
             .putChild(TreeFileArtifact.createTreeOutput(tree1, "file1"), VALUE_1_REMOTE)
@@ -300,13 +299,10 @@ public final class ActionExecutionValueTest {
     return result;
   }
 
-  private static SpecialArtifact tree(String rootRelativePath) {
-    SpecialArtifact result =
-        SpecialArtifact.create(
-            OUTPUT_ROOT,
-            OUTPUT_ROOT.getExecPath().getRelative(rootRelativePath),
-            KEY,
-            SpecialArtifactType.TREE);
+  private static TreeArtifact tree(String rootRelativePath) {
+    TreeArtifact result =
+        TreeArtifact.create(
+            OUTPUT_ROOT, OUTPUT_ROOT.getExecPath().getRelative(rootRelativePath), KEY);
     result.setGeneratingActionKey(ACTION_LOOKUP_DATA_1);
     return result;
   }

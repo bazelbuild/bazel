@@ -201,7 +201,8 @@ public class FilesystemValueChecker {
     /**
      * Called on every modified artifact detected by {@link #getDirtyActionValues}.
      *
-     * @param maybeModifiedTime Best effort modified time, -1 when not available/missing.
+     * @param maybeModifiedTime Best effort modified time in nanoseconds since the UNIX epoch, or -1
+     *     when not available/missing.
      * @param artifact Modified output artifact.
      */
     void reportModifiedOutputFile(long maybeModifiedTime, Artifact artifact);
@@ -401,7 +402,7 @@ public class FilesystemValueChecker {
             long maybeModifiedTime = -1;
             if (stat != null) {
               try {
-                maybeModifiedTime = stat.getLastChangeTime();
+                maybeModifiedTime = stat.getLastChangeTimeNanos();
               } catch (UnsupportedOperationException ignored) {
                 // Not all filesystems support change time; falling back to -1.
               }
@@ -554,7 +555,7 @@ public class FilesystemValueChecker {
         }
         modifiedOutputsReceiver.reportModifiedOutputFile(
             fileMetadata.getType() != FileStateType.NONEXISTENT
-                ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW)
+                ? file.getPath().getLastModifiedTimeNanos(Symlinks.FOLLOW)
                 : -1,
             file);
         return true;
@@ -623,7 +624,7 @@ public class FilesystemValueChecker {
   private static long getBestEffortModifiedTime(Path path) {
     try {
       FileStatus stat = path.statIfFound();
-      return stat != null ? stat.getLastModifiedTime() : -1;
+      return stat != null ? stat.getLastModifiedTimeNanos() : -1;
     } catch (IOException e) {
       logger.atWarning().atMostEvery(1, MINUTES).withCause(e).log(
           "Failed to get modified time for output at: %s", path);

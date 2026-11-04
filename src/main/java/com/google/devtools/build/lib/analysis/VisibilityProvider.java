@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * Provider class for configured targets that have a visibility.
@@ -35,10 +36,13 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
  */
 public interface VisibilityProvider extends TransitiveInfoProvider {
 
+  // Created without an owner: the class may be initialized during the analysis of any target.
+  // Serialized by reference, so that deserialized values share this instance.
+  @SerializationConstant
   NestedSet<PackageGroupContents> PUBLIC_VISIBILITY =
-      NestedSetBuilder.create(
-          Order.STABLE_ORDER,
-          PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())));
+      NestedSetBuilder.<PackageGroupContents>stableOrder()
+          .add(PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
+          .buildUnowned();
 
   NestedSet<PackageGroupContents> PRIVATE_VISIBILITY =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);

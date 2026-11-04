@@ -21,9 +21,12 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -52,10 +55,7 @@ import java.util.TreeSet;
  */
 public abstract class ActionEnvironment {
 
-  public static final ActionEnvironment EMPTY = new EmptyActionEnvironment();
-
-  private static final Interner<ActionEnvironment> actionEnvironmentInterner =
-      BlazeInterners.newWeakInterner();
+  @SerializationConstant public static final ActionEnvironment EMPTY = new EmptyActionEnvironment();
 
   /** Convenience method for creating an {@link ActionEnvironment} with no inherited variables. */
   public static ActionEnvironment create(ImmutableMap<String, String> fixedEnv) {
@@ -93,8 +93,7 @@ public abstract class ActionEnvironment {
     if (fixedEnv.isEmpty() && inheritedEnv.isEmpty() && unsetEnv.isEmpty()) {
       return EMPTY;
     }
-    return actionEnvironmentInterner.intern(
-        new SimpleActionEnvironment(fixedEnv, inheritedEnv, ImmutableSortedSet.copyOf(unsetEnv)));
+    return SimpleActionEnvironment.of(fixedEnv, inheritedEnv, unsetEnv);
   }
 
   /**
@@ -197,12 +196,9 @@ public abstract class ActionEnvironment {
       return this;
     }
     if (this == EMPTY) {
-      return actionEnvironmentInterner.intern(
-          new SimpleActionEnvironment(
-              ImmutableMap.copyOf(fixedVars), ImmutableSet.of(), ImmutableSet.of()));
+      return create(ImmutableMap.copyOf(fixedVars), ImmutableSet.of(), ImmutableSet.of());
     }
-    return actionEnvironmentInterner.intern(
-        new CompoundActionEnvironment(this, ImmutableMap.copyOf(fixedVars)));
+    return CompoundActionEnvironment.of(this, ImmutableMap.copyOf(fixedVars));
   }
 
   private static final class EmptyActionEnvironment extends ActionEnvironment {
@@ -228,18 +224,32 @@ public abstract class ActionEnvironment {
     }
   }
 
-  private static final class SimpleActionEnvironment extends ActionEnvironment {
+  @AutoCodec
+  @VisibleForSerialization
+  static final class SimpleActionEnvironment extends ActionEnvironment {
+    private static final Interner<SimpleActionEnvironment> interner =
+        BlazeInterners.newWeakInterner();
+
     private final ImmutableMap<String, String> fixedEnv;
     private final ImmutableSet<String> inheritedEnv;
     private final ImmutableSet<String> unsetEnv;
 
-    SimpleActionEnvironment(
+    private SimpleActionEnvironment(
         ImmutableMap<String, String> fixedEnv,
         ImmutableSet<String> inheritedEnv,
         ImmutableSet<String> unsetEnv) {
       this.fixedEnv = fixedEnv;
       this.inheritedEnv = inheritedEnv;
       this.unsetEnv = unsetEnv;
+    }
+
+    @AutoCodec.Instantiator
+    static SimpleActionEnvironment of(
+        ImmutableMap<String, String> fixedEnv,
+        ImmutableSet<String> inheritedEnv,
+        ImmutableSet<String> unsetEnv) {
+      return interner.intern(
+          new SimpleActionEnvironment(fixedEnv, inheritedEnv, ImmutableSortedSet.copyOf(unsetEnv)));
     }
 
     @Override
@@ -277,11 +287,16 @@ public abstract class ActionEnvironment {
 
     @Override
     public int hashCode() {
-      return Objects.hash(fixedEnv, inheritedEnv, unsetEnv);
+      return HashCodes.hashObjects(fixedEnv, inheritedEnv, unsetEnv);
     }
   }
 
-  private static final class CompoundActionEnvironment extends ActionEnvironment {
+  @AutoCodec
+  @VisibleForSerialization
+  static final class CompoundActionEnvironment extends ActionEnvironment {
+    private static final Interner<CompoundActionEnvironment> interner =
+        BlazeInterners.newWeakInterner();
+
     private final ActionEnvironment base;
     private final ImmutableMap<String, String> fixedVars;
 
@@ -289,6 +304,12 @@ public abstract class ActionEnvironment {
         ActionEnvironment base, ImmutableMap<String, String> fixedVars) {
       this.base = base;
       this.fixedVars = fixedVars;
+    }
+
+    @AutoCodec.Instantiator
+    static CompoundActionEnvironment of(
+        ActionEnvironment base, ImmutableMap<String, String> fixedVars) {
+      return interner.intern(new CompoundActionEnvironment(base, fixedVars));
     }
 
     @Override
@@ -332,7 +353,7 @@ public abstract class ActionEnvironment {
 
     @Override
     public int hashCode() {
-      return Objects.hash(base, fixedVars);
+      return HashCodes.hashObjects(base, fixedVars);
     }
   }
 }

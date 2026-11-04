@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -369,7 +369,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
         .inOrder();
   }
 
-  private SpecialArtifact createTreeArtifact(String name) {
+  private TreeArtifact createTreeArtifact(String name) {
     FileSystem fs = scratch.getFileSystem();
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
@@ -387,7 +387,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testTreeArtifactLink() throws Exception {
-    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
+    TreeArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
     TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");

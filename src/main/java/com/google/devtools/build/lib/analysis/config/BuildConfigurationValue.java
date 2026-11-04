@@ -233,7 +233,7 @@ public class BuildConfigurationValue
         getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
 
     OutputPathMnemonicComputer.Result mnemonic =
-        OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions, fragments);
+        OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions);
 
     return new BuildConfigurationValue(
         buildOptions,
@@ -362,12 +362,13 @@ public class BuildConfigurationValue
     // Only considering arguments that are non-dependent and non-server-global.
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
-        && this.mnemonic.equals(otherVal.mnemonic);
+        && this.mnemonic.equals(otherVal.mnemonic)
+        && Objects.equals(this.platformCpu, otherVal.platformCpu);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, workspaceName, mnemonic);
+    return Objects.hash(buildOptions, workspaceName, mnemonic, platformCpu);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -723,6 +724,11 @@ public class BuildConfigurationValue
   @Override
   public CommandLineLimits getCommandLineLimits() {
     return commandLineLimits;
+  }
+
+  @Override
+  public CoreOptions.OutputPathsMode getOutputPathsMode() {
+    return options.getOutputPathsMode();
   }
 
   @Override

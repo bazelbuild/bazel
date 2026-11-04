@@ -42,18 +42,17 @@ string ErrorMessage(int error_number) {
   return string(buf);
 }
 
-uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
-                               StatTimes t) {
+int64_t StatEpochNanoseconds(const portable_stat_struct& statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atimespec.tv_sec * 1000L +
-             statbuf.st_atimespec.tv_nsec / 1000000;
+      return statbuf.st_atimespec.tv_sec * 1000000000L +
+             statbuf.st_atimespec.tv_nsec;
     case STAT_CTIME:
-      return statbuf.st_ctimespec.tv_sec * 1000L +
-             statbuf.st_ctimespec.tv_nsec / 1000000;
+      return statbuf.st_ctimespec.tv_sec * 1000000000L +
+             statbuf.st_ctimespec.tv_nsec;
     case STAT_MTIME:
-      return statbuf.st_mtimespec.tv_sec * 1000L +
-             statbuf.st_mtimespec.tv_nsec / 1000000;
+      return statbuf.st_mtimespec.tv_sec * 1000000000L +
+             statbuf.st_mtimespec.tv_nsec;
   }
 }
 

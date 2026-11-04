@@ -181,7 +181,7 @@ public abstract class BazelIntegrationTestCase {
 
   /** Reads the contents of {@code artifact} as a Latin-1 string. */
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
-    return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
+    return FileSystemUtils.readContentAsLatin1(artifact.getPath());
   }
 
   /** Returns the {@link ActionGraph} from the current {@link SkyframeExecutor}. */

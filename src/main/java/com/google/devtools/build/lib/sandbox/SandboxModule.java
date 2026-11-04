@@ -55,6 +55,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -258,7 +259,21 @@ public final class SandboxModule extends BlazeModule {
             .getLocalSigkillGraceSecondsDuration();
 
     boolean processWrapperSupported = ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv);
-    boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
+    Optional<String> linuxSandboxUnsupportedReason =
+        LinuxSandboxedSpawnRunner.getUnsupportedReason(cmdEnv);
+    boolean linuxSandboxSupported = linuxSandboxUnsupportedReason.isEmpty();
+    // Without linux-sandbox, the "sandboxed" strategy falls back to processwrapper-sandbox, which
+    // exposes the whole host filesystem, so fail rather than silently dropping hermeticity.
+    if (OS.getCurrent() == OS.LINUX
+        && options.getUseHermetic()
+        && linuxSandboxUnsupportedReason.isPresent()) {
+      throw new IOException(
+          "--experimental_use_hermetic_linux_sandbox requires linux-sandbox, which is not"
+              + " supported on this machine ("
+              + linuxSandboxUnsupportedReason.get()
+              + "). Enable user and mount namespaces or pass"
+              + " --noexperimental_use_hermetic_linux_sandbox.");
+    }
     boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
 
     ExecutionOptions executionOptions =

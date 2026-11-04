@@ -63,6 +63,7 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.MetadataUtils;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
@@ -83,6 +84,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -245,6 +248,101 @@ public class ByteStreamUploaderTest {
     uploadBlob(uploader, context, digest, chunker);
 
     // This test should not have triggered any retries.
+    Mockito.verifyNoInteractions(mockBackoff);
+  }
+
+  @Test
+  public void highlyCompressibleUploadCanCompleteEarlyWithoutReadingWholeSource() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, e -> Result.PERMANENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            retrier,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+
+    long size = 64L * 1024 * 1024;
+    long readLimit = 2L * 1024 * 1024;
+    AtomicLong consumed = new AtomicLong();
+    AtomicReference<WriteRequest> firstRequest = new AtomicReference<>();
+    var source =
+        new InputStream() {
+          boolean closed;
+
+          @Override
+          public int read() throws IOException {
+            byte[] b = new byte[1];
+            return read(b, 0, 1) == -1 ? -1 : 0;
+          }
+
+          @Override
+          public int read(byte[] b, int off, int len) throws IOException {
+            if (consumed.get() == size) {
+              return -1;
+            }
+            int n = (int) Math.min(len, size - consumed.get());
+            if (firstRequest.get() == null && consumed.get() + n > readLimit) {
+              throw new IOException("Too much source work before the first upload request");
+            }
+            Arrays.fill(b, off, off + n, (byte) 0);
+            consumed.addAndGet(n);
+            return n;
+          }
+
+          @Override
+          public void close() {
+            closed = true;
+          }
+        };
+    Digest digest =
+        DIGEST_UTIL.compute(
+            out -> {
+              byte[] zeros = new byte[16 * 1024];
+              for (long written = 0; written < size; written += zeros.length) {
+                out.write(zeros);
+              }
+            });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
+            // Permit one request only, exercising the uploader's readiness boundary.
+            ServerCallStreamObserver<WriteResponse> serverResponse =
+                (ServerCallStreamObserver<WriteResponse>) response;
+            serverResponse.disableAutoRequest();
+            serverResponse.request(1);
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {
+                firstRequest.set(request);
+                response.onNext(WriteResponse.newBuilder().setCommittedSize(-1).build());
+                response.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                // The client cancels its request stream after an early successful response.
+              }
+
+              @Override
+              public void onCompleted() {}
+            };
+          }
+        });
+
+    try (Chunker chunker =
+        Chunker.builder().setInput(size, () -> source).setCompressed(true).build()) {
+      uploadBlob(uploader, context, digest, chunker);
+      assertThat(firstRequest.get()).isNotNull();
+      assertThat(firstRequest.get().getResourceName()).isNotEmpty();
+      assertThat(firstRequest.get().getData().size()).isGreaterThan(0);
+      assertThat(firstRequest.get().getFinishWrite()).isFalse();
+      assertThat(consumed.get()).isAtMost(readLimit);
+      assertThat(consumed.get()).isLessThan(size);
+    }
+    assertThat(source.closed).isTrue();
     Mockito.verifyNoInteractions(mockBackoff);
   }
 

@@ -65,8 +65,10 @@ public class TestExecutorBuilder {
   public TestExecutorBuilder(FileSystem fileSystem, Path execRoot) {
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
-    addContext(FileWriteActionContext.class, new FileWriteStrategy());
-    addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
+    var fileWriteStrategy = new FileWriteStrategy();
+    addContext(FileWriteActionContext.class, fileWriteStrategy);
+    addContext(
+        TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(fileWriteStrategy));
     addContext(
         SymlinkTreeActionContext.class,
         new SymlinkTreeStrategy(null, TestConstants.WORKSPACE_NAME));

@@ -1,4 +1,3 @@
-load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
@@ -35,8 +34,8 @@ py_library(
         "//third_party/def_parser:__pkg__",
     ],
     deps = [
-        "//third_party/py/abseil",
-        requirement("bazel-runfiles"),
+        "@bazel_pip_dev_deps//absl_py",
+        "@bazel_pip_dev_deps//bazel_runfiles",
     ],
 )
 
@@ -109,7 +108,7 @@ py_test(
     shard_count = 3,
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": ["//third_party/py/abseil"],
+        "//conditions:default": ["@bazel_pip_dev_deps//absl_py"],
     }),
 )
 
@@ -126,7 +125,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": ["//third_party/py/abseil"],
+        "//conditions:default": ["@bazel_pip_dev_deps//absl_py"],
     }),
 )
 
@@ -145,7 +144,7 @@ py_test(
     tags = ["manual"],
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": ["//third_party/py/abseil"],
+        "//conditions:default": ["@bazel_pip_dev_deps//absl_py"],
     }),
 )
 
@@ -195,7 +194,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": ["//third_party/py/abseil"],
+        "//conditions:default": ["@bazel_pip_dev_deps//absl_py"],
     }),
 )
 
@@ -228,7 +227,7 @@ py_test(
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//conditions:default": ["//third_party/py/abseil"],
+        "//conditions:default": ["@bazel_pip_dev_deps//absl_py"],
     }),
 )
 
@@ -429,7 +428,7 @@ py_test(
     name = "remote_repo_contents_cache_test",
     size = "large",
     srcs = ["bzlmod/remote_repo_contents_cache_test.py"],
-    shard_count = 2,
+    shard_count = 8,
     tags = ["requires-network"],
     deps = [":remote_repo_contents_cache_test_base"],
 )
@@ -468,6 +467,6 @@ py_test(
     deps = [
         ":bzlmod_test_utils",
         ":test_base",
-        requirement("bazel-runfiles"),
+        "@bazel_pip_dev_deps//bazel_runfiles",
     ],
 )

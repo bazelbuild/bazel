@@ -20,8 +20,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -47,7 +46,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   private final ActionLookupKey artifactOwner;
   private final SpawnAction.Builder spawnActionBuilder;
   private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
-  private final ImmutableSet<SpecialArtifact> outputDirectories;
+  private final ImmutableSet<TreeArtifact> outputDirectories;
   private final ImmutableMap<String, String> executionInfo;
   private final boolean isSubdirectoryAllowed;
   private ImmutableList.Builder<AbstractAction> actions = ImmutableList.builder();
@@ -58,7 +57,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       ActionLookupKey artifactOwner,
       SpawnAction.Builder spawnActionBuilder,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier,
-      ImmutableSet<SpecialArtifact> outputDirectories,
+      ImmutableSet<TreeArtifact> outputDirectories,
       ImmutableMap<String, String> executionInfo,
       boolean isSubdirectoryAllowed) {
     this.semantics = semantics;
@@ -167,9 +166,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     }
 
     return TreeFileArtifact.createTemplateExpansionOutput(
-        SpecialArtifact.cast(directory, SpecialArtifactType.TREE, "directory"),
-        PathFragment.create(filename),
-        artifactOwner);
+        (TreeArtifact) directory, PathFragment.create(filename), artifactOwner);
   }
 
   @Override
@@ -180,7 +177,10 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
               + " //tools/allowlists/subdirectory_allowlist",
           actionOwner.getLabel() != null ? actionOwner.getLabel() : actionOwner);
     }
-    SpecialArtifact parent = SpecialArtifact.cast(directory, SpecialArtifactType.TREE, "directory");
+    if (!(directory instanceof TreeArtifact parent)) {
+      throw Starlark.errorf(
+          "Expected directory artifact for directory, but got a %s", Starlark.type(directory));
+    }
     // We do not support nesting subtrees in subtrees.
     if (parent.isSubTreeArtifact()) {
       throw Starlark.errorf(
@@ -190,7 +190,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       throw Starlark.errorf(
           "Cannot declare subdirectory `%s` in non-output directory %s", subdirectory, directory);
     }
-    return SpecialArtifact.createSubTreeArtifact(
+    return TreeArtifact.createSubTreeArtifact(
         parent, PathFragment.create(subdirectory), artifactOwner);
   }
 

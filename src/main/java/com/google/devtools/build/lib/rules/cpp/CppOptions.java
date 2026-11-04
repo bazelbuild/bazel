@@ -980,4 +980,13 @@ public abstract class CppOptions extends FragmentOptions {
           "If enabled, will estimate precise resource usage for local execution of"
               + " CppCompileAction.")
   public abstract boolean getExperimentalCppCompileResourcesEstimation();
+
+  @Override
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
+    if (!getOutputDirectoryTag().isEmpty()) {
+      ctx.addToMnemonic(getOutputDirectoryTag());
+    }
+  }
 }

@@ -310,8 +310,8 @@ static jobject NewStat(JNIEnv* env, const portable_stat_struct& stat_ref) {
       getConstructorID(env, stat_class, "(IJJJJ)V");
   return env->NewObject(
       stat_class, file_status_class_ctor, static_cast<jint>(stat_ref.st_mode),
-      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
-      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
+      static_cast<jlong>(StatEpochNanoseconds(stat_ref, STAT_MTIME)),
+      static_cast<jlong>(StatEpochNanoseconds(stat_ref, STAT_CTIME)),
       static_cast<jlong>(stat_ref.st_size),
       static_cast<jlong>(stat_ref.st_ino));
 }
@@ -365,17 +365,18 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_lstat(
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_utimensat(
-    JNIEnv* env, jobject instance, jstring path, jboolean now, jlong millis) {
+    JNIEnv* env, jobject instance, jstring path, jboolean now,
+    jlong epoch_nanos) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return;
   }
-  // If `now` is true use the current time, otherwise use `millis`.
+  // If `now` is true use the current time, otherwise use `epoch_nanos`.
   // On Linux, if the current user has write permission but isn't the owner of
   // the file, atime and mtime may be simultaneously set to UTIME_NOW, but any
   // other combination is forbidden. For simplicity, always set both.
-  int64_t sec = millis / 1000;
-  int32_t nsec = (millis % 1000) * 1000000;
+  int64_t sec = epoch_nanos / 1'000'000'000;
+  int32_t nsec = epoch_nanos % 1'000'000'000;
   struct timespec times[2] = {
       {sec, now ? UTIME_NOW : nsec},
       {sec, now ? UTIME_NOW : nsec},

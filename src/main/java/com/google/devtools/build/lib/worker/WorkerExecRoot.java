@@ -100,7 +100,8 @@ final class WorkerExecRoot {
     // Track the sandbox contents in memory. This makes the cleanup faster in subsequent runs.
     if (useInMemoryTracking) {
       sandboxContents = SandboxHelpers.createContentMap(workDir, inputs, outputs);
-      sandboxContentsTimestamp = System.currentTimeMillis();
+      sandboxContentsTimestamp =
+          SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
     }
   }
 

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.protobuf.CodedInputStream;
@@ -47,6 +46,7 @@ public class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSor
     }
   }
 
+  @SuppressWarnings("unchecked") // the comparator was serialized from an ImmutableSortedSet<E>
   @Override
   public DeferredValue<ImmutableSortedSet<E>> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
@@ -54,20 +54,10 @@ public class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSor
     int size = codedIn.readInt32();
     SortedSetShimForEfficientDeserialization<E> sortedSetShim =
         new SortedSetShimForEfficientDeserialization<>(size);
-    context.deserialize(codedIn, sortedSetShim, COMPARATOR_OFFSET);
+    context.deserialize(
+        codedIn, sortedSetShim, (shim, comparator) -> shim.comparator = (Comparator<E>) comparator);
     deserializeObjectArray(context, codedIn, sortedSetShim.sortedElementsArray, size);
     return sortedSetShim;
-  }
-
-  private static final long COMPARATOR_OFFSET;
-
-  static {
-    try {
-      COMPARATOR_OFFSET =
-          getFieldOffset(SortedSetShimForEfficientDeserialization.class, "comparator");
-    } catch (NoSuchFieldException e) {
-      throw new ExceptionInInitializerError(e);
-    }
   }
 
   /**

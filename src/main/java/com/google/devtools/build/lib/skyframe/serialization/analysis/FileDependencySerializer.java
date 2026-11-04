@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -583,18 +583,26 @@ final class FileDependencySerializer {
       throw new IllegalStateException(
           String.format("Absolute symlink not permitted: %s contained %s", linkPath, link));
     }
-    Symlink.Builder symlinkData = uploader.addSymlinksBuilder().setContents(link.getPathString());
+    // The root-relative directory containing the symlink, e.g. `a/b` for the symlink `a/b/link`.
     PathFragment linkParent = parentRootedPath.getRootRelativePath();
+    // The root-relative, normalized target of the symlink. `PathFragment` normalization collapses
+    // `x/..` pairs, so any remaining `..` segments can only appear as a prefix, and only when the
+    // target climbs above the root.
     PathFragment unresolvedTarget = linkParent.getRelative(link);
-
-    // Assumes that there are no external symlinks, e.g. ones that go above root.
-    checkArgument(
-        !unresolvedTarget.containsUplevelReferences(),
-        "symlink link above root for %s : %s = (%s) + (%s)",
-        parentRootedPath,
-        unresolvedTarget,
-        linkParent,
-        link);
+    if (unresolvedTarget.containsUplevelReferences()) {
+      // Assumes that there are no external symlinks. The only tolerated target above the root is
+      // one that immediately re-enters it, which is rewritten to stay within the root.
+      PathFragment rewrittenLink = tryRewriteLinkWithinRoot(parentRootedPath, unresolvedTarget);
+      if (rewrittenLink == null) {
+        throw new IllegalArgumentException(
+            String.format(
+                "symlink link above root for %s : %s = (%s) + (%s)",
+                parentRootedPath, unresolvedTarget, linkParent, link));
+      }
+      link = rewrittenLink;
+      unresolvedTarget = linkParent.getRelative(link); // Now within the root.
+    }
+    Symlink.Builder symlinkData = uploader.addSymlinksBuilder().setContents(link.getPathString());
 
     try {
       // Includes the version of the link itself in the MTSV.
@@ -618,7 +626,9 @@ final class FileDependencySerializer {
           toRootedPath(parentRootedPath.getRoot(), unresolvedTarget), uploader);
     }
 
-    var parentProcessor = new SymlinkParentProcessor(parentRootedPath, link, uploader, symlinkData);
+    var parentProcessor =
+        new SymlinkParentProcessor(
+            parentRootedPath, unresolvedTarget.getBaseName(), uploader, symlinkData);
 
     // The parent path was changed by the link so it needs to be newly resolved.
     return switch (checkNotNull(
@@ -629,6 +639,71 @@ final class FileDependencySerializer {
       case FutureFileDataInfo future ->
           Futures.transformAsync(future, parentProcessor, directExecutor());
     };
+  }
+
+  /**
+   * Tries to rewrite a symlink whose target climbs above the root so that it stays within the root.
+   *
+   * <p>Only targets that climb a single level above the workspace root and immediately re-enter it
+   * (e.g. {@code ../ROOT_BASE/...}) can be rewritten. The result is the equivalent in-root path,
+   * relative to the symlink's parent directory, so that wire invalidation data remains
+   * root-relative. It resolves to the same file as the original link, but no longer passes through
+   * the root's parent directory or depends on the root's basename.
+   *
+   * <p>Other targets above the root can't be rewritten. Climbing two or more levels above the root
+   * depends on host-specific ancestor directory names, and targets that leave the root without
+   * re-entering it are external.
+   *
+   * <p>Examples, assuming the workspace root is {@code /ws/ROOT_BASE}:
+   *
+   * <pre>
+   *   symlink   link contents                unresolvedTarget       result
+   *   --------  ---------------------------  ---------------------  --------------
+   *   a/b/link  ../../../ROOT_BASE/c/target  ../ROOT_BASE/c/target  ../../c/target
+   *   link      ../ROOT_BASE/c/target        ../ROOT_BASE/c/target  c/target
+   *   foo/bar   ../../ROOT_BASE              ../ROOT_BASE           ..
+   *   a/link    ../../other/target           ../other/target        null
+   *   a/link    ../../../x/ROOT_BASE/t       ../../x/ROOT_BASE/t    null
+   * </pre>
+   *
+   * @param parentRootedPath the real parent of the symlink
+   * @param unresolvedTarget the symlink contents, syntactically resolved against {@code
+   *     parentRootedPath}. Must be root-relative, normalized and contain uplevel references.
+   * @return the rewritten symlink contents, relative to the symlink's parent directory, or null if
+   *     the target can't be rewritten to stay within the root
+   */
+  @Nullable
+  private static PathFragment tryRewriteLinkWithinRoot(
+      RootedPath parentRootedPath, PathFragment unresolvedTarget) {
+    // `asPath()` is non-null here: an absolute root yields absolute root-relative paths, which
+    // never contain uplevel references.
+    String rootBaseName = parentRootedPath.getRoot().asPath().getBaseName();
+    // Assumes the root is never the filesystem root, `/`, which has an empty basename. Otherwise,
+    // `uplevelRoot` below would be just `..`, and targets that remain above the root would be
+    // silently accepted.
+    checkState(
+        !rootBaseName.isEmpty(), "unexpected filesystem root as root for %s", parentRootedPath);
+    // The path prefix that leaves the root and immediately re-enters it, e.g. `../ROOT_BASE`.
+    PathFragment uplevelRoot = PathFragment.create("../" + rootBaseName);
+    if (!unresolvedTarget.startsWith(uplevelRoot)) {
+      return null;
+    }
+    // Strips the `../ROOT_BASE` detour, leaving the target relative to the root itself, e.g.
+    // `../ROOT_BASE/c/target` becomes `c/target`. Since `unresolvedTarget` is normalized, the
+    // remainder cannot start with `..` (`ROOT_BASE/..` would already have been collapsed), so it is
+    // guaranteed to be within the root.
+    PathFragment rootRelativeTarget = unresolvedTarget.relativeTo(uplevelRoot);
+    // Re-expresses the target relative to the symlink's parent directory, which is the form symlink
+    // contents must take. Climbing from `linkParent` up to the root takes one `..` per segment of
+    // `linkParent`, after which `rootRelativeTarget` is appended. For example:
+    //
+    //   linkParent  upToRoot  rootRelativeTarget  result
+    //   `a/b`       `../..`   `c/target`          `../../c/target`
+    //   `foo`       `..`      ``                  `..`
+    //   ``          ``        `c/target`          `c/target`
+    PathFragment linkParent = parentRootedPath.getRootRelativePath();
+    PathFragment upToRoot = PathFragment.create("../".repeat(linkParent.segmentCount()));
+    return upToRoot.getRelative(rootRelativeTarget);
   }
 
   private ListenableFuture<Void> processSymlinkTarget(
@@ -660,17 +735,17 @@ final class FileDependencySerializer {
    */
   private final class SymlinkParentProcessor implements AsyncFunction<FileDataInfo, Void> {
     private final RootedPath parentPath;
-    private final PathFragment link;
+    private final String targetBaseName;
     private final FileInvalidationDataUploader uploader;
     private final Symlink.Builder symlinkData;
 
     private SymlinkParentProcessor(
         RootedPath parentPath,
-        PathFragment link,
+        String targetBaseName,
         FileInvalidationDataUploader uploader,
         Symlink.Builder symlinkData) {
       this.parentPath = parentPath;
-      this.link = link;
+      this.targetBaseName = targetBaseName;
       this.uploader = uploader;
       this.symlinkData = symlinkData;
     }
@@ -698,7 +773,7 @@ final class FileDependencySerializer {
       return processSymlinkTarget(
           toRootedPath(
               resolvedParentRootedPath.getRoot(),
-              resolvedParentRootedPath.getRootRelativePath().getRelative(link.getBaseName())),
+              resolvedParentRootedPath.getRootRelativePath().getRelative(targetBaseName)),
           uploader);
     }
   }

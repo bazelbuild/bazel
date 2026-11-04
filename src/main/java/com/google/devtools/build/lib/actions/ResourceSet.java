@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerKey;
@@ -37,7 +38,7 @@ import javax.annotation.Nullable;
  * @param localTestCount The number of local tests.
  * @param workerKey The workerKey of used worker. Null if no worker is used.
  */
-@AutoCodec
+@AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
 @Immutable
 public record ResourceSet(
     ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey)

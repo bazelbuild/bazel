@@ -622,11 +622,11 @@ public sealed class StarlarkFunction implements StarlarkCallable {
 
       // Argument value dynamic type check, if enabled.
       if (functionType != null) {
-        for (int i = 0; i < functionType.getParameterTypes().size(); i++) {
+        for (int i = 0; i < functionType.getNumNonResidualParameters(); i++) {
           if (locals[i] == null) {
             continue; // the default value is already type checked
           }
-          StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+          StarlarkType parameterType = functionType.getParameterType(i);
           if (!TypeChecker.isValueSubtypeOf(
               locals[i], parameterType, thread.getSemantics(), thread.getTypeContext())) {
             throw Starlark.errorf(

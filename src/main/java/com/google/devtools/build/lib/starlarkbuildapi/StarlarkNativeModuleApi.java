@@ -153,8 +153,37 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " of rule finalizer symbolic macros</a>. Use of this function in other contexts is"
               + " not recommened, and will be disabled in a future Bazel release; it makes"
               + " <code>BUILD</code> files brittle and order-dependent.",
+      parameters = {
+        @Param(
+            name = "omit_macro_internals",
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            named = true,
+            positional = false,
+            doc =
+                "If <code>True</code>, or if unset and the flag"
+                    + " <code>--incompatible_existing_rules_default_omit_macro_internals</code> is"
+                    + " enabled, the function will omit symbolic macro-defined rules unless they"
+                    + " either have <code>//visibility:public</code> or have the current package"
+                    + " (in \"//foo/bar:__pkg__\" format) in their <a"
+                    + " href=\"https://bazel.build/concepts/visibility\"><code>visibility</code></a>"
+                    + " (indicating that the rule was \"exported\" by the symbolic macro to the"
+                    + " <code>BUILD</code> file and is part of the macro's public API)." //
+                    + "<p>Note that the <code>omit_macro_internals</code> check is an"
+                    + " <em>underapproximation</em> of the normal visibility checking mechanism:"
+                    + " any rule that's allowed by <code>omit_macro_internals</code> is certain to"
+                    + " be visible, but there may well exist additional macro-defined rules that"
+                    + " are also visible in the current evaluation context. This is because the"
+                    + " <code>omit_macro_internals</code> check:" //
+                    + "<ul><li>doesn't expand <code>package_group</code>s or"
+                    + " <code>__subpackages__</code>;</li>" //
+                    + "<li>doesn't consider <a"
+                    + " href=\"https://bazel.build/concepts/visibility#delegating-privileges-to-a-submacro\">delegation</a>;</li>" //
+                    + "<li>doesn't check for visibility granted to the current finalizer's package"
+                    + " (the case when the macro is \"friends\" with the finalizer).</li></ul>")
+      },
       useStarlarkThread = true)
-  Object existingRules(StarlarkThread thread) throws EvalException;
+  Object existingRules(Object rawOmitMacroInternals, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "package_group",

@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -140,9 +141,9 @@ public final class AnalysisCacheInvalidator {
     int numInvalidatedKeys = 0;
     InvalidationLookupMetrics.Status status = null;
     ImmutableSet<SkyKey> keysToInvalidate;
+    List<ListenableFuture<Optional<SkyKey>>> futures = null;
     try {
-      List<ListenableFuture<Optional<SkyKey>>> futures =
-          submitInvalidationLookupsBatched(keysToLookup);
+      futures = submitInvalidationLookupsBatched(keysToLookup);
       if (futures == null) {
         numInvalidatedKeys = keysToLookup.size();
         status = InvalidationLookupMetrics.Status.TIMED_OUT;
@@ -175,6 +176,9 @@ public final class AnalysisCacheInvalidator {
         }
       }
     } finally {
+      if (futures != null && status != InvalidationLookupMetrics.Status.OK) {
+        cancelFutures(futures);
+      }
       stopwatch.stop();
       if (status != null) {
         eventListener.setInvalidationLookupMetrics(
@@ -253,6 +257,7 @@ public final class AnalysisCacheInvalidator {
       }
       int batches = IntMath.divide(totalKeys, batchSize, RoundingMode.CEILING);
       var allSet = new CountDownLatch(batches);
+      var submissionAborted = new AtomicBoolean(false);
       for (int start = 0; start < totalKeys; start += batchSize) {
         final int begin = start;
         final int limit = min(start + batchSize, totalKeys);
@@ -263,7 +268,16 @@ public final class AnalysisCacheInvalidator {
               public void run() {
                 try {
                   for (int i = begin; i < limit; i++) {
-                    futures.set(i, submitInvalidationLookup(keysToLookupList.get(i)));
+                    if (submissionAborted.get()) {
+                      break;
+                    }
+                    ListenableFuture<Optional<SkyKey>> lookupFuture =
+                        submitInvalidationLookup(keysToLookupList.get(i));
+                    futures.set(i, lookupFuture);
+                    if (submissionAborted.get()) {
+                      lookupFuture.cancel(/* mayInterruptIfRunning= */ false);
+                      break;
+                    }
                   }
                 } finally {
                   allSet.countDown();
@@ -276,7 +290,16 @@ public final class AnalysisCacheInvalidator {
               }
             });
       }
-      if (!allSet.await(INVALIDATION_TIMEOUT_SECONDS, SECONDS)) {
+      boolean allSubmitted = false;
+      try {
+        allSubmitted = allSet.await(INVALIDATION_TIMEOUT_SECONDS, SECONDS);
+      } finally {
+        if (!allSubmitted) {
+          submissionAborted.set(true);
+          cancelFutures(futures);
+        }
+      }
+      if (!allSubmitted) {
         logger.atWarning().log(
             "Skycache: Timeout waiting to submit (%d) analysis cache invalidation requests."
                 + " Invalidating everything.",
@@ -284,6 +307,14 @@ public final class AnalysisCacheInvalidator {
         return null;
       }
       return futures;
+    }
+  }
+
+  private static void cancelFutures(List<ListenableFuture<Optional<SkyKey>>> futures) {
+    for (ListenableFuture<Optional<SkyKey>> future : futures) {
+      if (future != null) {
+        future.cancel(/* mayInterruptIfRunning= */ false);
+      }
     }
   }
 }

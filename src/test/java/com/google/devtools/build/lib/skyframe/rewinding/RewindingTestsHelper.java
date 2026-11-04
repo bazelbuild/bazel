@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -309,9 +309,8 @@ public class RewindingTestsHelper {
 
   static void assertTreeArtifactRewound(List<SkyKey> rewoundKeys, String lostTree) {
     assertThat(rewoundKeys).hasSize(2);
-    assertThat(rewoundKeys.get(1)).isInstanceOf(SpecialArtifact.class);
-    SpecialArtifact treeArtifact = (SpecialArtifact) rewoundKeys.get(1);
-    assertThat(treeArtifact.isTreeArtifact()).isTrue();
+    assertThat(rewoundKeys.get(1)).isInstanceOf(TreeArtifact.class);
+    TreeArtifact treeArtifact = (TreeArtifact) rewoundKeys.get(1);
     assertThat(treeArtifact.getRootRelativePathString()).isEqualTo(lostTree);
     assertThat(rewoundKeys.get(0)).isEqualTo(treeArtifact.getGeneratingActionKey());
   }
@@ -325,7 +324,7 @@ public class RewindingTestsHelper {
         input.getExecPathString().endsWith(".inlined"),
         "Only inputs ending in .inlined are guaranteed readable. Tried to read: %s",
         input);
-    return new String(readContentAsLatin1(context.getInputPath(input)));
+    return readContentAsLatin1(context.getInputPath(input));
   }
 
   /**
@@ -2178,7 +2177,7 @@ public class RewindingTestsHelper {
     addSpawnShim(
         "Consuming //foo:losing_consumer",
         (spawn, context) -> {
-          SpecialArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
+          TreeArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
           return createLostInputsExecException(
               context, SpawnInputUtils.getExpandedToArtifact("f1.out", mappedTree, spawn, context));
         });
@@ -2260,7 +2259,7 @@ public class RewindingTestsHelper {
     addSpawnShim(
         "Executing genrule //foo:consumer",
         (spawn, context) -> {
-          SpecialArtifact outTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "out_tree");
+          TreeArtifact outTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "out_tree");
           Artifact lost =
               SpawnInputUtils.getExpandedToArtifact("a_subdir/file", outTree, spawn, context);
           assertThat(lost.getParent().isSubTreeArtifact()).isTrue();
@@ -2339,7 +2338,7 @@ public class RewindingTestsHelper {
     addSpawnShim(
         "Executing genrule //foo:consumer",
         (spawn, context) -> {
-          SpecialArtifact linkTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "link_tree");
+          TreeArtifact linkTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "link_tree");
           Artifact lost = SpawnInputUtils.getExpandedToArtifact("a", linkTree, spawn, context);
           return createLostInputsExecException(context, lost);
         });
@@ -2560,7 +2559,7 @@ public class RewindingTestsHelper {
     addSpawnShim(
         "Executing genrule //foo:losing_consumer",
         (spawn, context) -> {
-          SpecialArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
+          TreeArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
           return createLostInputsExecException(
               context,
               children.stream()

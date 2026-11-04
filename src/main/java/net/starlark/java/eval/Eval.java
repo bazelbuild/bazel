@@ -255,7 +255,7 @@ final class Eval {
 
       if (dynamicTypeCheckingEnabled && functionType != null) {
         // Typecheck the default value
-        StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+        StarlarkType parameterType = functionType.getParameterType(i);
         if (!TypeChecker.isValueSubtypeOf(
             defaultValue, parameterType, fr.thread.getSemantics(), fr.thread.getTypeContext())) {
           throw Starlark.errorf(

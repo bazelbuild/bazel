@@ -18,8 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,6 +40,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 
 /** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
 @AutoCodec
@@ -131,14 +134,21 @@ public class ParsedFlagsValue implements SkyValue {
 
   static ParsedFlagsValue parseAndCreate(NativeAndStarlarkFlags flags)
       throws OptionsParsingException {
-    return new ParsedFlagsValue(flags, flags.parse());
+    return parseAndCreate(flags, ImmutableSet.of());
+  }
+
+  static ParsedFlagsValue parseAndCreate(
+      NativeAndStarlarkFlags flags, ImmutableSet<String> disabledOptions)
+      throws OptionsParsingException {
+    return new ParsedFlagsValue(flags, flags.parse(), disabledOptions);
   }
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  static ParsedFlagsValue createForDeserialization(NativeAndStarlarkFlags flags) {
+  static ParsedFlagsValue createForDeserialization(
+      NativeAndStarlarkFlags flags, ImmutableSet<String> disabledOptions) {
     try {
-      return parseAndCreate(flags);
+      return parseAndCreate(flags, disabledOptions);
     } catch (OptionsParsingException e) {
       // Should be impossible since it parsed successfully before it was serialized.
       throw new IllegalStateException(e);
@@ -150,9 +160,15 @@ public class ParsedFlagsValue implements SkyValue {
   private final LoadingCache<BuildOptions, BuildConfigurationKey> mergeCache =
       Caffeine.newBuilder().weakKeys().build(this::mergeWithImpl);
 
-  private ParsedFlagsValue(NativeAndStarlarkFlags flags, OptionsParsingResult parsingResult) {
+  private final ImmutableSet<String> disabledOptions;
+
+  private ParsedFlagsValue(
+      NativeAndStarlarkFlags flags,
+      OptionsParsingResult parsingResult,
+      ImmutableSet<String> disabledOptions) {
     this.parsingResult = checkNotNull(parsingResult);
     this.flags = checkNotNull(flags);
+    this.disabledOptions = checkNotNull(disabledOptions);
   }
 
   public OptionsParsingResult parsingResult() {
@@ -189,16 +205,32 @@ public class ParsedFlagsValue implements SkyValue {
    * @return a {@link BuildConfigurationKey} to request the new configuration after applying this
    *     parsed flags value to the original options
    */
-  public BuildConfigurationKey mergeWith(BuildOptions source) {
-    return mergeCache.get(source);
+  public BuildConfigurationKey mergeWith(BuildOptions source) throws OptionsParsingException {
+    try {
+      return mergeCache.get(source);
+    } catch (CompletionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), OptionsParsingException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw e;
+    }
   }
 
-  private BuildConfigurationKey mergeWithImpl(BuildOptions source) {
+  private BuildConfigurationKey mergeWithImpl(BuildOptions source) throws OptionsParsingException {
     BuildOptions.Builder builder = source.toBuilder();
 
     // Handle native options.
     for (OptionValueDescription optionValue : parsingResult.allOptionValues()) {
       OptionDefinition optionDefinition = optionValue.getOptionDefinition();
+
+      String flagName = optionDefinition.getOptionName();
+      if (disabledOptions.contains(flagName)) {
+        throw new OptionsParsingException(
+            String.format(
+                "Cannot set --%s in a platform or platform mapping. It is disabled by"
+                    + " --incompatible_disable_transitions_on.",
+                flagName));
+      }
+
       // All options obtained from an options parser are guaranteed to have been defined in an
       // FragmentOptions class.
       Class<? extends FragmentOptions> fragmentOptionClass =
@@ -220,6 +252,14 @@ public class ParsedFlagsValue implements SkyValue {
         BuildOptions.convertScopesAttributes(
             parsingResult.getScopesAttributes(), parsingResult.getStarlarkOptions()));
     for (Map.Entry<String, Object> starlarkOption : parsingResult.getStarlarkOptions().entrySet()) {
+      String flagName = starlarkOption.getKey();
+      if (disabledOptions.contains(flagName)) {
+        throw new OptionsParsingException(
+            String.format(
+                "Cannot set %s in a platform or platform mapping. It is disabled by"
+                    + " --incompatible_disable_transitions_on.",
+                flagName));
+      }
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
@@ -280,12 +320,12 @@ public class ParsedFlagsValue implements SkyValue {
     if (!(obj instanceof ParsedFlagsValue that)) {
       return false;
     }
-    return flags.equals(that.flags);
+    return flags.equals(that.flags) && disabledOptions.equals(that.disabledOptions);
   }
 
   @Override
   public int hashCode() {
-    return flags.hashCode();
+    return java.util.Objects.hash(flags, disabledOptions);
   }
 
   @Override

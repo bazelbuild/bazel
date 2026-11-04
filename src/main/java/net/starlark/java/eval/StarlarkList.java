@@ -110,7 +110,9 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     }
     return Types.list(
         Types.union(
-            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
+            stream()
+                .map(e -> Starlark.getStarlarkTypePropagatingStackOverflow(e, semantics))
+                .collect(toImmutableSet())));
   }
 
   /**

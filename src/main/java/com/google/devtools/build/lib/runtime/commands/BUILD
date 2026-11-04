@@ -19,14 +19,24 @@ java_library(
     name = "commands",
     srcs = glob(
         ["*.java"],
-        exclude = ["PathToReplaceUtils.java"],
+        exclude = [
+            "NoTestsFound.java",
+            "PathToReplaceUtils.java",
+            "RunCommandLine.java",
+        ],
     ),
     resources = glob(["*.txt"]) + [
         "//scripts:completion_scripts",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/license",
     ],
+    exports = [
+        ":no_tests_found",
+        ":run_command_line",
+    ],
     deps = [
+        ":no_tests_found",
         ":paths_to_replace_utils",
+        ":run_command_line",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -189,5 +199,32 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "no_tests_found",
+    srcs = ["NoTestsFound.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "run_command_line",
+    srcs = ["RunCommandLine.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

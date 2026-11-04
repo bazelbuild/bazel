@@ -37,7 +37,7 @@ public class PackageSpecificationProvider extends NativeInfo
   private static final String STARLARK_NAME = "PackageSpecificationInfo";
 
   public static final BuiltinProvider<PackageSpecificationProvider> PROVIDER =
-      new BuiltinProvider<>(STARLARK_NAME, PackageSpecificationProvider.class) {};
+      new BuiltinProvider.NonCallable<>(STARLARK_NAME, PackageSpecificationProvider.class) {};
 
   public static final PackageSpecificationProvider EMPTY =
       new PackageSpecificationProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER));

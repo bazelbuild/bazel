@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.core;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkTypeValue;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
@@ -52,9 +56,9 @@ public interface ProviderApi extends StarlarkTypeValue {
   }
 
   /**
-   * The {@link StarlarkType} of a {@link ProviderApi} value. (In other words, the type of a
-   * provider symbol; as contrasted with the type of Info objects which that provider symbol
-   * constructs.)
+   * The {@link StarlarkType} of a Starlark-callable {@link ProviderApi} value. (In other words, the
+   * type of a provider symbol; as contrasted with the type of Info objects which that provider
+   * symbol constructs.)
    */
   public abstract static class ProviderType extends StarlarkType {
     /** The callable supertype of the provider symbol. */
@@ -119,6 +123,74 @@ public interface ProviderApi extends StarlarkTypeValue {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof AnyProviderType;
+    }
+  }
+
+  /**
+   * The type of a builtin provider symbol (as contrasted with the type of the Info values that the
+   * provider symbol constructs).
+   *
+   * <p>An instance of this class should correspond to a subclass of {@code
+   * com.google.devtools.build.lib.packages.BuiltinProvider}.
+   *
+   * <p>Note that some subclasses of {@code BuiltinProvider} shouldn't be typed as {@link
+   * BuiltinProviderType}. Some implementations, such as {@link
+   * com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo.AnalysisFailureInfoProvider},
+   * aren't callable from Starlark; therefore, they should instead be typed as {@link Types.TYPE}
+   * (or a custom subtype of it, if they have Starlark-accessible methods).
+   */
+  public static final class BuiltinProviderType extends ProviderType {
+    private final Class<?> providerClass;
+    // The type of the values (usually Infos) that the provider symbol constructs.
+    private final StarlarkType valueType;
+
+    public BuiltinProviderType(Class<?> providerClass, Class<?> valueClass) {
+      this.providerClass = providerClass;
+      this.valueType = Starlark.getStarlarkTypeFromJavaType(valueClass, /* objectIsAny= */ false);
+    }
+
+    @Override
+    public String typeRepr() {
+      // This representation is not unique for the few providers that use an unmarked struct as
+      // their value type, but that's unlikely to matter in practice because the user cares about
+      // the value type, not the provider symbol's type.
+      return String.format("<Provider[%s]>", valueType.typeRepr());
+    }
+
+    @Override
+    public Types.CallableType asCallableType(TypeContext context) {
+      StarlarkType selfCallMethodType =
+          checkNotNull(
+              context.getSelfCallMethodType(providerClass),
+              "Builtin provider class %s is expected to have a self-call method",
+              providerClass.getName());
+      return checkNotNull(
+          Types.toCallableType(selfCallMethodType, context),
+          "Could not convert builtin provider class %s self-call method type %s to CallableType",
+          providerClass,
+          selfCallMethodType);
+    }
+
+    @Override
+    public StarlarkType getInfoType(TypeContext context) {
+      return valueType;
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getField(String name, TypeContext context) {
+      return context.getStarlarkBuiltinFieldType(providerClass, name);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof BuiltinProviderType builtinProviderType
+          && providerClass.equals(builtinProviderType.providerClass);
+    }
+
+    @Override
+    public int hashCode() {
+      return providerClass.hashCode();
     }
   }
 }

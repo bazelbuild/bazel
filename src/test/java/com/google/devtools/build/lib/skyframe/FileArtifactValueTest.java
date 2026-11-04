@@ -184,7 +184,7 @@ public final class FileArtifactValueTest {
     Path path = scratchDir("/dir", /* mtime= */ 1L);
     FileArtifactValue value = createForTesting(path);
     assertThat(value.getDigest()).isNull();
-    assertThat(value.getModifiedTime()).isEqualTo(1L);
+    assertThat(value.getModifiedTime()).isEqualTo(1_000_000L);
   }
 
   @Test

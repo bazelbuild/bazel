@@ -53,6 +53,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -82,6 +85,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -124,7 +128,7 @@ public final class MerkleTreeComputer {
   // * Incremental builds typically have a large number of cache hits and the only information about
   //   a Merkle tree needed to check for a cache hit is the root digest. We can thus avoid
   //   materializing the full tree unless the cache check fails.
-  // * Certain special artifacts are known to form self-contained Merkle trees that never intersect
+  // * Certain artifacts are known to form self-contained Merkle trees that never intersect
   //   with any other Merkle tree. This includes tree artifacts, runfiles directories and source
   //   directories. The Merkle trees for such artifacts can be computed and uploaded to the remote
   //   cache independently. Only their root digest has to be kept around for inclusion in other
@@ -574,6 +578,7 @@ public final class MerkleTreeComputer {
                 /* Digest | FileArtifactValue */ Object,
                 /* byte[] | ActionInput | DeterministicWriter */ Object>(
                 MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
+    byte[][] discardScratch = blobPolicy == BlobPolicy.DISCARD ? new byte[1][] : null;
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -624,7 +629,7 @@ public final class MerkleTreeComputer {
         }
         inputBytes +=
             unwindDirectoryStack(
-                directoryStack, currentParentString, commonPrefixLength, blobPolicy, blobs);
+                directoryStack, currentParentString, commonPrefixLength, discardScratch, blobs);
         for (int end = newParentString.length();
             end > commonPrefixLength;
             end = max(0, newParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1))) {
@@ -638,8 +643,7 @@ public final class MerkleTreeComputer {
       var nodeProperties = isToolInput.test(path) ? TOOL_NODE_PROPERTIES : null;
 
       switch (input) {
-        case Artifact.SpecialArtifact specialArtifact
-            when specialArtifact.isTreeArtifact() || specialArtifact.isRunfilesTree() -> {
+        case TreeArtifact _, RunfilesArtifact _ -> {
           var subTreeRoot =
               Preconditions.checkNotNull(
                   subTreeRoots.get(rawInput), "missing subtree for %s", input);
@@ -648,7 +652,7 @@ public final class MerkleTreeComputer {
           inputFiles += subTreeRoot.inputFiles();
           inputBytes += subTreeRoot.inputBytes();
         }
-        case Artifact.SpecialArtifact symlink when symlink.isSymlink() -> {
+        case UnresolvedSymlinkArtifact symlink -> {
           var metadata =
               checkNotNull(
                   metadataProvider.getInputMetadata(symlink), "missing metadata: %s", symlink);
@@ -747,14 +751,11 @@ public final class MerkleTreeComputer {
             directoryStack,
             currentParent.getPathString(),
             /* targetLength= */ 0,
-            blobPolicy,
+            discardScratch,
             blobs);
 
-    byte[] rootDirectoryBlob = directoryStack.pop().build().toByteArray();
-    Digest rootDirectoryBlobDigest = digestUtil.compute(rootDirectoryBlob);
-    if (blobPolicy != BlobPolicy.DISCARD && rootDirectoryBlobDigest.getSizeBytes() != 0) {
-      blobs.putIfAbsent(rootDirectoryBlobDigest, rootDirectoryBlob);
-    }
+    Digest rootDirectoryBlobDigest =
+        computeDirectoryDigest(directoryStack.pop().build(), discardScratch, blobs);
     inputBytes += rootDirectoryBlobDigest.getSizeBytes();
     if (blobPolicy == BlobPolicy.DISCARD) {
       // Make sure that we didn't unnecessarily retain any blobs.
@@ -772,15 +773,12 @@ public final class MerkleTreeComputer {
       Deque<Directory.Builder> directoryStack,
       String currentParentString,
       int targetLength,
-      BlobPolicy blobPolicy,
+      @Nullable byte[][] discardScratch,
       @Nullable Map<Object, Object> blobs) {
     long addedBytes = 0;
     for (int end = currentParentString.length(); end > targetLength; ) {
-      byte[] directoryBlob = directoryStack.pop().build().toByteArray();
-      Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
-      if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
-        blobs.putIfAbsent(directoryBlobDigest, directoryBlob);
-      }
+      Digest directoryBlobDigest =
+          computeDirectoryDigest(directoryStack.pop().build(), discardScratch, blobs);
       addedBytes += directoryBlobDigest.getSizeBytes();
       int start = currentParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1) + 1;
       checkNotNull(directoryStack.peek())
@@ -792,6 +790,36 @@ public final class MerkleTreeComputer {
       end = max(0, start - 1);
     }
     return addedBytes;
+  }
+
+  private Digest computeDirectoryDigest(
+      Directory directory, @Nullable byte[][] discardScratch, @Nullable Map<Object, Object> blobs) {
+    if (discardScratch == null) {
+      byte[] directoryBlob = directory.toByteArray();
+      Digest digest = digestUtil.compute(directoryBlob);
+      if (digest.getSizeBytes() != 0) {
+        blobs.putIfAbsent(digest, directoryBlob);
+      }
+      return digest;
+    }
+    int size = directory.getSerializedSize();
+    if (size == 0) {
+      return emptyDigest;
+    }
+    if (discardScratch[0] == null || discardScratch[0].length < size) {
+      discardScratch[0] = new byte[size];
+    }
+    byte[] buf = discardScratch[0];
+    // Bound the stream to size so that checkNoSpaceLeft ignores spare capacity in buf.
+    CodedOutputStream out = CodedOutputStream.newInstance(buf, 0, size);
+    try {
+      directory.writeTo(out);
+    } catch (IOException e) {
+      // writeTo throws only when the declared size does not match the bytes written.
+      throw new IllegalStateException(e);
+    }
+    out.checkNoSpaceLeft();
+    return digestUtil.compute(buf, 0, size);
   }
 
   private <T> ListenableFuture<ImmutableMap<T, MerkleTree.RootOnly>> precomputeSubTrees(

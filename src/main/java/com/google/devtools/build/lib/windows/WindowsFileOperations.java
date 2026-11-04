@@ -124,8 +124,11 @@ public class WindowsFileOperations {
     throw new IOException(String.format("Cannot tell if '%s' is link: %s", path, error[0]));
   }
 
-  /** Returns the time at which the file was last changed, including metadata changes. */
-  public static long getLastChangeTime(String path, boolean followReparsePoints)
+  /**
+   * Returns the time at which the file was last changed, including metadata changes, in nanoseconds
+   * since the Unix epoch.
+   */
+  public static long getLastChangeTimeNanos(String path, boolean followReparsePoints)
       throws IOException {
     long[] result = new long[] {0};
     String[] error = new String[] {null};

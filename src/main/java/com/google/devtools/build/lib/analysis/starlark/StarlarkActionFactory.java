@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -1220,8 +1220,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .setMnemonic(mnemonic)
             .setResources(resourceSet)
             .setActionEnvironment(actionEnv)
-            .setExecutionInfo(executionInfo)
-            .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
+            .setExecutionInfo(executionInfo);
 
     // Verify whether declare_subdirectory is available for this target. The allowlist may match
     // either the target's package or the .bzl file defining the rule class.
@@ -1238,7 +1237,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             Dict.cast(
                 inputDirectories,
                 String.class,
-                SpecialArtifact.class,
+                TreeArtifact.class,
                 StarlarkMapActionTemplate.INPUT_DIRECTORIES_KEY),
             Dict.cast(
                 additionalInputs,
@@ -1248,7 +1247,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             Dict.cast(
                 outputDirectories,
                 String.class,
-                SpecialArtifact.class,
+                TreeArtifact.class,
                 StarlarkMapActionTemplate.OUTPUT_DIRECTORIES_KEY),
             Dict.cast(tools, String.class, Object.class, StarlarkMapActionTemplate.TOOLS_KEY),
             Dict.cast(

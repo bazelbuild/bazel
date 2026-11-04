@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -84,8 +83,7 @@ public final class ExtraAction extends SpawnAction {
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        mnemonic,
-        OutputPathsMode.OFF);
+        mnemonic);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
 
@@ -105,10 +103,8 @@ public final class ExtraAction extends SpawnAction {
       Action shadowedAction,
       boolean createDummyOutput,
       CommandLines commandLines,
-      ActionEnvironment environment,
-      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
-      String mnemonic) {
+      SpawnAttributes attributes) {
     super(
         owner,
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -117,13 +113,9 @@ public final class ExtraAction extends SpawnAction {
             /* inputFilesForExtraAction= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             extraActionInputs),
         rawOutputs,
-        AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
-        environment,
-        sortedExecutionInfo,
         progressMessage,
-        mnemonic,
-        OutputPathsMode.OFF);
+        attributes);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
     this.extraActionInputs = extraActionInputs;
@@ -132,6 +124,11 @@ public final class ExtraAction extends SpawnAction {
   @Override
   protected CommandLineLimits getCommandLineLimits() {
     return CommandLineLimits.UNLIMITED;
+  }
+
+  @Override
+  protected OutputPathsMode getOutputPathsMode() {
+    return OutputPathsMode.OFF;
   }
 
   @Override

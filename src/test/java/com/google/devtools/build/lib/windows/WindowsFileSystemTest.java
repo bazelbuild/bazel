@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.Normalizer;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
@@ -569,5 +571,63 @@ public class WindowsFileSystemTest {
         () -> fs.renameTo(scratchRoot.getRelative("src").asFragment(), nested.asFragment()));
     assertThrows(IOException.class, () -> nested.createReadWriteByteChannel());
     assertThrows(IOException.class, () -> fs.createReadWriteByteChannel(nested.asFragment()));
+  }
+
+  @Test
+  public void testSetLastModifiedTime() throws Exception {
+    Path file = scratchRoot.getRelative("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    file.setLastModifiedTime(1L << 34);
+    assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
+    assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
+    FileStatus stat = file.stat();
+    assertThat(stat.getLastModifiedTime()).isEqualTo(1L << 34);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
+  }
+
+  @Test
+  public void testSetLastModifiedTimeNanos() throws Exception {
+    Path file = scratchRoot.getRelative("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    // Windows FILETIME has 100ns resolution.
+    file.setLastModifiedTimeNanos((1L << 34) * 1_000_000 + 123_456);
+    assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
+    assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_400);
+    FileStatus stat = file.stat();
+    assertThat(stat.getLastModifiedTime()).isEqualTo(1L << 34);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_400);
+  }
+
+  @Test
+  public void testSetLastModifiedTimeWithSentinel() throws Exception {
+    Path file = scratchRoot.getRelative("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    // To avoid sleeping, first set the modification time to the past.
+    long pastTime = Instant.now().minusSeconds(1).toEpochMilli();
+    file.setLastModifiedTime(pastTime);
+
+    // Even if we get the system time before the setLastModifiedTime call, getLastModifiedTime may
+    // return a time which is slightly behind. Simply check that it's greater than the past time.
+    file.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    assertThat(file.getLastModifiedTime()).isGreaterThan(pastTime);
+  }
+
+  @Test
+  public void testSetLastModifiedTimeNanosWithSentinel() throws Exception {
+    Path file = scratchRoot.getRelative("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    // To avoid sleeping, first set the modification time to the past.
+    long pastTime = Instant.now().minusSeconds(1).toEpochMilli() * 1_000_000;
+    file.setLastModifiedTimeNanos(pastTime);
+
+    // Even if we get the system time before the setLastModifiedTimeNanos call,
+    // getLastModifiedTimeNanos may return a time which is slightly behind. Simply check that it's
+    // greater than the past time.
+    file.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
+    assertThat(file.getLastModifiedTimeNanos()).isGreaterThan(pastTime);
   }
 }

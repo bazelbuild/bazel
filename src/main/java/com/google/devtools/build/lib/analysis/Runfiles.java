@@ -162,8 +162,11 @@ public final class Runfiles implements RunfilesApi {
   /**
    * A nested set of all artifacts that this Runfiles entry contains symlinks to, including those at
    * their non-canonical locations which are in {@code symlinks} and {@code rootSymlinks}.
+   *
+   * <p>Computed on first access, possibly during the analysis of another target, so it is created
+   * without an owner and is not serialized (see {@link NestedSetBuilder#buildUnowned}).
    */
-  private NestedSet<Artifact> allArtifacts;
+  private transient NestedSet<Artifact> allArtifacts;
 
   /**
    * Interface used for adding empty files to the runfiles at the last minute. Mainly to support
@@ -268,6 +271,7 @@ public final class Runfiles implements RunfilesApi {
     Map<PathFragment, Artifact> newManifest =
         Maps.newHashMapWithExpectedSize(workingManifest.size());
     Set<PathFragment> noFurtherObstructions = new HashSet<>();
+    ArrayList<PathFragment> parents = new ArrayList<>();
 
     outer:
     for (Map.Entry<PathFragment, Artifact> entry : workingManifest.entrySet()) {
@@ -275,7 +279,7 @@ public final class Runfiles implements RunfilesApi {
       Artifact symlink = entry.getValue();
       // drop nested entries; warn if this changes anything
       int n = source.segmentCount();
-      ArrayList<PathFragment> parents = new ArrayList<>(n);
+      parents.clear();
       for (int j = 1; j < n; ++j) {
         PathFragment prefix = source.subFragment(0, n - j);
         if (noFurtherObstructions.contains(prefix)) {
@@ -305,7 +309,10 @@ public final class Runfiles implements RunfilesApi {
           continue outer;
         }
       }
-      noFurtherObstructions.addAll(parents);
+      // Indexed loop avoids allocating an Iterator instance for each entry.
+      for (int i = 0; i < parents.size(); i++) {
+        noFurtherObstructions.add(parents.get(i));
+      }
       newManifest.put(entry.getKey(), entry.getValue());
     }
     return newManifest;
@@ -448,12 +455,12 @@ public final class Runfiles implements RunfilesApi {
     }
 
     if (allArtifacts == null) {
-      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-      builder
-          .addTransitive(artifacts)
-          .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
-          .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact));
-      allArtifacts = builder.build();
+      allArtifacts =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(artifacts)
+              .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
+              .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact))
+              .buildUnowned();
     }
 
     return allArtifacts;

@@ -870,6 +870,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       result = BlazeCommandResult.createShutdown(crash);
       return result;
     } finally {
+      runtime.stopForcedGcExecutor();
       if (starlarkCpuProfileStarted) {
         try {
           Starlark.stopCpuProfile();

@@ -32,8 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -173,9 +171,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     return repoDefinition;
   }
 
-  private StarlarkPath externalPath(String method, Object pathObject)
+  private StarlarkPath externalPath(String method, Object pathObject, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    StarlarkPath starlarkPath = getPath(pathObject);
+    StarlarkPath starlarkPath = getPath(pathObject, thread);
     Path path = starlarkPath.getPath();
     if (packageLocator.getPathEntries().stream().noneMatch(root -> path.startsWith(root.asPath()))
         || path.startsWith(workingDirectory)) {
@@ -193,11 +191,19 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   // This method must not be moved to ModuleExtensionContext as the FS-specific watch in its
-  // implementation would cause lock files to differ across platforms. If this is ever needed, add
-  // a `copy` method instead.
+  // implementation would cause lock files to differ across platforms. Module extensions can use
+  // `copy` instead.
   @StarlarkMethod(
       name = "symlink",
-      doc = "Creates a symlink on the filesystem.",
+      doc =
+          """
+          Creates a symlink on the filesystem. \
+          <p>Prefer <a href="#copy"><code>copy()</code></a> for files and directories: symlinks \
+          may make a repository ineligible for repo contents caches and will have different \
+          behavior if the host doesn't support creating symlinks. Only use <code>symlink()</code> \
+          if changes to the target have to be visible in the repository without refetching it or \
+          if a directory is too large to copy.
+          """,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -219,8 +225,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void symlink(Object target, Object linkName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath targetPath = getPath(target);
-    StarlarkPath linkPath = getPath(linkName);
+    StarlarkPath targetPath = getPath(target, thread);
+    StarlarkPath linkPath = getPath(linkName, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newSymlinkEvent(
             targetPath.toString(),
@@ -318,8 +324,12 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       String watchTemplate,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
-    StarlarkPath t = getPath(template);
+    StarlarkPath p = getPath(path, thread);
+    StarlarkPath t =
+        template instanceof Label label
+            // Only the template itself is read, which doesn't require the rest of its repo.
+            ? getPathFromLabel(label, /* materialize= */ false, thread)
+            : getPath(template, thread);
     Map<String, String> substitutionMap =
         Dict.cast(substitutions, String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
@@ -392,7 +402,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public boolean delete(Object pathObject, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
-    StarlarkPath starlarkPath = externalPath("delete()", pathObject);
+    StarlarkPath starlarkPath = externalPath("delete()", pathObject, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDeleteEvent(
             starlarkPath.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -443,8 +453,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void rename(Object srcName, Object dstName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath srcPath = getPath(srcName);
-    StarlarkPath dstPath = getPath(dstName);
+    StarlarkPath srcPath = getPath(srcName, thread);
+    StarlarkPath dstPath = getPath(dstName, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newRenameEvent(
             srcPath.toString(),
@@ -543,8 +553,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     int strip = Starlark.toInt(stripI, "strip");
-    StarlarkPath starlarkPath = getPath(patchFile);
-    StarlarkPath directoryPath = getPath(directory);
+    StarlarkPath starlarkPath = getPath(patchFile, thread);
+    StarlarkPath directoryPath = getPath(directory, thread);
     checkInOutputDirectory("write", directoryPath);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newPatchEvent(
@@ -602,29 +612,17 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 pattern that would be excluded would be: <code>/example/path/.ignore/**</code> and \
                 <code>/example/patch/scratchFile</code>.
                 """),
-      })
-  public void watchTree(Object path, Sequence<?> exclude)
+      },
+      useStarlarkThread = true)
+  public void watchTree(Object path, Sequence<?> exclude, StarlarkThread thread)
       throws EvalException, InterruptedException, RepositoryFunctionException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p = getPath(path, thread);
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
     ImmutableList<String> excludes =
         Sequence.cast(exclude, String.class, "excludes").getImmutableList();
-    RepoCacheFriendlyPath repoCacheFriendlyPath =
-        toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
-    if (repoCacheFriendlyPath == null) {
-      return;
-    }
-    try {
-      // DirTree can only be recorded for directories, so we have to additionally track the type of
-      // the file. When checking for invalidation, the type is verified first and if it doesn't
-      // match, the directory entries are never requested.
-      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
-      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath, excludes));
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
+    maybeWatchTree(p.getPath(), ShouldWatch.YES, excludes);
   }
 
   @StarlarkMethod(

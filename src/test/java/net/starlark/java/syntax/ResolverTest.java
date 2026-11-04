@@ -634,6 +634,25 @@ public class ResolverTest {
   }
 
   @Test
+  public void testBindingScopeAndIndex_typeAlias_selfReferential() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
+    // Self-referential type aliases resolve, although (for now) they will fail in type tagging.
+    checkBindings("type Tᴳ₀ = preᴾ₀ | preᴾ₀[Tᴳ₀]");
+    checkBindings("type Tᴳ₀[Uᴸ₀] = preᴾ₀ | preᴾ₀[Tᴳ₀[Uᴸ₀]]");
+
+    // The following are dumb and need to stay illegal, but they also resolve.
+    checkBindings("type Tᴳ₀ = Tᴳ₀");
+    checkBindings(
+        """
+        type Tᴳ₀ = Uᴳ₁
+        type Uᴳ₁ = Tᴳ₀
+        """);
+    checkBindings("type Tᴳ₀ = preᴾ₀[Tᴳ₀]");
+  }
+
+  @Test
   public void testBindingScopeAndIndex_cast() throws Exception {
     options.allowTypeSyntax(true);
     options.resolveTypeSyntax(true);

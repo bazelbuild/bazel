@@ -29,11 +29,12 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -101,7 +102,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
       ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
-      for (SpecialArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
+      for (TreeArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
         TreeArtifactValue treeArtifactValue =
             (TreeArtifactValue)
                 result.getOrThrow(inputTreeArtifact, ActionExecutionException.class);
@@ -115,9 +116,11 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
-      actions =
-          generateAndValidateActionsFromTemplate(
-              actionTemplate, inputTreeFileArtifacts.build(), key, env.getListener());
+      try (var _ = NestedSetOwnerScope.enter(key)) {
+        actions =
+            generateAndValidateActionsFromTemplate(
+                actionTemplate, inputTreeFileArtifacts.build(), key, env.getListener());
+      }
     } catch (ActionExecutionException e) {
       env.getListener()
           .handle(

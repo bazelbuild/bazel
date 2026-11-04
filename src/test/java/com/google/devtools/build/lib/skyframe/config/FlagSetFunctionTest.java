@@ -305,6 +305,48 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void directlySet_optionInDisableTransitionsOn_fails() throws Exception {
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=compilation_mode");
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--compilation_mode=opt"],
+                  is_default = True,
+                  description = "user-friendly config description",
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("compilation_mode"),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            "project flags can't set option listed in --incompatible_disable_transitions_on:"
+                + " --compilation_mode");
+  }
+
+  @Test
   public void enforceCanonicalConfigsValidConfig() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
@@ -1237,6 +1279,8 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   public void enforceCanonicalConfigsNoSclConfigFlagValidDefaultConfig() throws Exception {
+    // Note: it is not possible to directly set options listed in
+    // --incompatible_disable_transitions_on via PROJECT.scl.
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",

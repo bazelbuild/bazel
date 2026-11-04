@@ -61,6 +61,9 @@ function encode_stream {
   # 4. Replace the string ']]>' with ']]>]]<![CDATA[>' to prevent escaping the
   #    surrounding CDATA block.
   #
+  # Lines containing only allowed ASCII characters skip steps 1-3 and jump
+  # directly to :cdata for step 4.
+  #
   # Sed supports the necessary operations as of version 4.4, but not in all
   # earlier versions. Specifically, we have found that sed 4.1.5 is not 8-bit
   # safe even when set to an 8-bit locale.
@@ -71,7 +74,12 @@ function encode_stream {
   # Perl - We originally used Perl, but wanted to avoid the dependency.
   #        Recent versions of Perl now error on invalid utf-8 characters.
   # tr   - tr only replaces single-byte sequences, so cannot handle utf-8.
-  LC_ALL=C sed -E \
+  #
+  # LC_ALL is set via env since restoring its own locale after a temporary
+  # assignment can crash bash builds that use libintl, such as Homebrew's, in
+  # subshells.
+  env LC_ALL=C sed -E \
+      -e "/^$(echo -e '[\x9\x20-\x7f]')*$/b cdata" \
       -e 's/.*/& /g' \
       -e 's/(('\
 "$(echo -e '[\x9\x20-\x7f]')|"\
@@ -82,6 +90,7 @@ function encode_stream {
 "$(echo -e '[\xf0][\x80-\x8f][\x80-\xbf][\x80-\xbf]')"\
 ')*)./\1?/g' \
       -e 's/(.*)\?/\1/g' \
+      -e ':cdata' \
       -e 's|]]>|]]>]]<![CDATA[>|g'
 }
 
@@ -114,17 +123,31 @@ if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
 fi
 
 FAILED=0
-ENCODED_LOG="$(encode_as_xml "${TEST_LOG}")" || FAILED=$?
-cat >"${XML_OUTPUT_FILE}" <<EOF
+{
+  cat <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="${test_name}" tests="1" failures="0" errors="${errors}">
     <testcase name="${test_name}" classname="" status="run" duration="${DURATION_IN_SECONDS}" time="${DURATION_IN_SECONDS}">${error_msg}</testcase>
       <system-out>
 Generated test.log (if the file is not UTF-8, then this may be unreadable):
-<![CDATA[${ENCODED_LOG}]]>
+EOF
+  printf '<![CDATA['
+  # Match command substitution's trailing-newline trimming without buffering the log.
+  encode_as_xml "${TEST_LOG}" | LC_ALL=C awk '
+    length($0) {
+      for (; newlines > 0; newlines--) printf "\n"
+      printf "%s", $0
+      newlines = 1
+      next
+    }
+    { newlines++ }
+  ' || FAILED=$?
+  cat <<EOF
+]]>
       </system-out>
     </testsuite>
 </testsuites>
 EOF
+} >"${XML_OUTPUT_FILE}"
 exit "$FAILED"

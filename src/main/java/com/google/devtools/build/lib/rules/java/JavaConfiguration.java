@@ -231,6 +231,12 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return fixDepsTool;
   }
 
+  @Override
+  public String getFixDepsToolStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return fixDepsTool;
+  }
+
   /** Returns proper label only if --java_launcher= is specified, otherwise null. */
   @StarlarkConfigurationField(
       name = "launcher",
@@ -314,6 +320,12 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return runLocalJavaOptimizations;
   }
 
+  @Override
+  public boolean runLocalJavaOptimizationsStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return runLocalJavaOptimizations;
+  }
+
   @StarlarkConfigurationField(
       name = "java_toolchain_bytecode_optimizer",
       documented = false,
@@ -392,7 +404,20 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return experimentalTurbineAnnotationProcessing;
   }
 
+  @Override
+  public boolean experimentalTurbineAnnotationProcessingStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return experimentalTurbineAnnotationProcessing;
+  }
+
   public int experimentalTurbineCpuReservation() {
+    return experimentalTurbineCpuReservation;
+  }
+
+  @Override
+  public int experimentalTurbineCpuReservationStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
     return experimentalTurbineCpuReservation;
   }
 
@@ -400,7 +425,20 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return experimentalTurbineOutputRootRelativePath;
   }
 
+  @Override
+  public boolean experimentalTurbineOutputRootRelativePathStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return experimentalTurbineOutputRootRelativePath;
+  }
+
   public boolean experimentalEnableJspecify() {
+    return experimentalEnableJspecify;
+  }
+
+  @Override
+  public boolean experimentalEnableJspecifyStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
     return experimentalEnableJspecify;
   }
 

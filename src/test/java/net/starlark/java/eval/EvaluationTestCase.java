@@ -284,6 +284,13 @@ class EvaluationTestCase {
       return this;
     }
 
+    /** Looks up the value of the specified variable and checks that it is of the expected class. */
+    @CanIgnoreReturnValue
+    Scenario testIsInstanceOf(String name, Class<?> expectedClass) throws Exception {
+      runTest(createIsInstanceOfTestable(name, expectedClass));
+      return this;
+    }
+
     /**
      * Creates a Testable that checks whether the evaluation of the given expression fails with the
      * expected error.
@@ -368,8 +375,6 @@ class EvaluationTestCase {
      * Creates a Testable that looks up the given variable and compares its value to the expected
      * value
      *
-     * @param name
-     * @param expected
      * @return An instance of Testable that does both lookup and comparison
      */
     private Testable createLookUpTestable(final String name, final Object expected) {
@@ -377,6 +382,21 @@ class EvaluationTestCase {
         @Override
         public void run() throws Exception {
           assertThat(lookup(name)).isEqualTo(expected);
+        }
+      };
+    }
+
+    /**
+     * Creates a Testable that looks up the given variable and checks whether it is of the expected
+     * class.
+     *
+     * @return An instance of Testable that does both lookup and comparison
+     */
+    private Testable createIsInstanceOfTestable(final String name, final Class<?> expectedClass) {
+      return new Testable() {
+        @Override
+        public void run() throws Exception {
+          assertThat(lookup(name)).isInstanceOf(expectedClass);
         }
       };
     }

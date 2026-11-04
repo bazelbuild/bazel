@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -197,6 +198,25 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract List<String> getOutputGroups();
 
   @Option(
+      name = "extra_default_output_groups",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      defaultValue = "null",
+      help =
+          """
+          A list of comma-separated output group names to treat as part of the default set of
+          output groups. Unlike `--output_groups=+foo`, which is always built, an extra default
+          output group is only built when the default set is: it is omitted if `--output_groups`
+          contains an unprefixed group, and can be removed with `--output_groups=-foo`. Intended
+          for wrappers and rc files that want to augment the default outputs without overriding
+          an explicit `--output_groups` selection. Artifacts in these output groups are hidden
+          from results as if listed in `--hide_output_group_results`.
+          """)
+  public abstract List<String> getExtraDefaultOutputGroups();
+
+  @Option(
       name = "incompatible_fail_on_unknown_output_groups",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -264,6 +284,8 @@ public abstract class BuildRequestOptions extends OptionsBase {
           """)
   public abstract List<String> getHideAspectResults();
 
+  // TODO(b/577126732): Remove in favor of --extra_default_output_groups once blazercs no longer
+  // set this flag.
   @Option(
       name = "hide_output_group_results",
       converter = Converters.CommaSeparatedOptionListConverter.class,
@@ -281,6 +303,18 @@ public abstract class BuildRequestOptions extends OptionsBase {
           `--incompatible_fail_on_unknown_output_groups`).
           """)
   public abstract List<String> getHideOutputGroupResults();
+
+  /**
+   * Returns the output groups whose artifacts are not displayed in results: those listed in {@code
+   * --hide_output_group_results} plus those in {@code --extra_default_output_groups}, which are
+   * added by wrappers rather than requested by the user and so are implicitly hidden.
+   */
+  public ImmutableSet<String> getAllHiddenOutputGroupResults() {
+    return ImmutableSet.<String>builder()
+        .addAll(getHideOutputGroupResults())
+        .addAll(getExtraDefaultOutputGroups())
+        .build();
+  }
 
   @Option(
       name = "symlink_prefix",
