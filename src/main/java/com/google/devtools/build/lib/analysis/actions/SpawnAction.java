@@ -116,6 +116,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * <p>Across a build, millions of actions share a relatively small number of unique combinations
    * of these fields. Grouping and interning them saves memory compared to storing them as
    * individual fields.
+   *
+   * <p>Because instances are interned and serialized, every component must have value-based {@code
+   * equals}/{@code hashCode} and must either be interned on deserialization or use {@code
+   * MemoizationEquality.BY_VALUE}. In particular, {@code resourceSetOrBuilder} must not be a lambda
+   * or a class with identity equality.
    */
   @AutoCodec
   @VisibleForSerialization
