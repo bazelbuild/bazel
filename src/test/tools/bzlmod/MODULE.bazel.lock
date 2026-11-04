@@ -138,7 +138,7 @@
   "moduleExtensions": {
     "@@pybind11_bazel+//:python_configure.bzl%extension": {
       "general": {
-        "bzlTransitiveDigest": "VhEtmxw1yzb9rBZVsKTdti7p+nDM/Fv1p9TmKdO45+Q=",
+        "bzlTransitiveDigest": "/8wOe5PovHiZgFXzYPoZTjhhiNxx+HkH8XdrWmZpDEw=",
         "usagesDigest": "fycyB39YnXIJkfWCIXLUKJMZzANcuLy9ZE73hRucjFk=",
         "recordedInputs": [
           "REPO_MAPPING:pybind11_bazel+,bazel_tools bazel_tools",
@@ -164,7 +164,7 @@
     },
     "@@rules_fuzzing+//fuzzing/private:extensions.bzl%non_module_dependencies": {
       "general": {
-        "bzlTransitiveDigest": "CYUiFDCnL2VGx3uotIu/VuGabgObnZra2zzRUJCX0sU=",
+        "bzlTransitiveDigest": "HA+MCMex17wl8IQ4o1Tnfyh+Sl9qs52fmX3LZRamhOI=",
         "usagesDigest": "wy6ISK6UOcBEjj/mvJ/S3WeXoO67X+1llb9yPyFtPgc=",
         "recordedInputs": [
           "REPO_MAPPING:rules_fuzzing+,bazel_tools bazel_tools"
@@ -240,7 +240,7 @@
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "03Qju4tW0vE+0RBuZGuV2A4Hx6AiSkdNahYvworx2aM=",
+        "bzlTransitiveDigest": "FeODwUnlfjn69LO/TpJF/JGWlMOzmWFh+g8ZGgzJJFU=",
         "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
         "recordedInputs": [
           "REPO_MAPPING:rules_kotlin+,bazel_tools bazel_tools"
@@ -297,7 +297,7 @@
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "lFXtGLhTWi+586Hk5wxd2is/yHXqyHDL7B2EAPLG4qA=",
+        "bzlTransitiveDigest": "mHteNXh5KTPhf/XBICvkUqNMFjmZNPZbMHaNVZG0LW0=",
         "usagesDigest": "OLoIStnzNObNalKEMRq99FqenhPGLFZ5utVLV4sz7OI=",
         "recordedInputs": [
           "REPO_MAPPING:bazel_features+,bazel_features_globals bazel_features++version_extension+bazel_features_globals",

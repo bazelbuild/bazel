@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMap
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -35,6 +36,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -128,12 +131,18 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         handleVisibilityConflict(context, prerequisite, rule.getLabel());
       }
     } else {
-      // Determine the label of the .bzl where the rule or (main) aspect was exported.
+      // Determine the label of the .bzl where the subrule, rule, or (main) aspect was exported.
       Label implicitDefinition;
       if (mainAspect != null) {
-        StarlarkAspectClass aspectClass = (StarlarkAspectClass) mainAspect.getAspectClass();
-        // Never null since we already checked that the aspect is Starlark-defined.
-        implicitDefinition = checkNotNull(aspectClass.getExtensionLabel());
+        StarlarkSubrule owningSubrule =
+            maybeGetOwningSubrule(attrName, mainAspect.getDefinition().getSubrules());
+        if (owningSubrule != null) {
+          implicitDefinition = checkNotNull(owningSubrule.getExtensionLabel());
+        } else {
+          StarlarkAspectClass aspectClass = (StarlarkAspectClass) mainAspect.getAspectClass();
+          // Never null since we already checked that the aspect is Starlark-defined.
+          implicitDefinition = checkNotNull(aspectClass.getExtensionLabel());
+        }
       } else {
         var owningRule = rule.getRuleClassObject();
         com.google.devtools.build.lib.packages.RuleClass parent;
@@ -141,7 +150,12 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
             && parent.getAttributeByNameMaybe(attrName) != null) {
           owningRule = parent;
         }
-        implicitDefinition = checkNotNull(owningRule.getRuleDefinitionEnvironmentLabel());
+        StarlarkSubrule owningSubrule = maybeGetOwningSubrule(attrName, owningRule.getSubrules());
+        if (owningSubrule != null) {
+          implicitDefinition = checkNotNull(owningSubrule.getExtensionLabel());
+        } else {
+          implicitDefinition = checkNotNull(owningRule.getRuleDefinitionEnvironmentLabel());
+        }
       }
       // Validate with respect to the defining .bzl.
       if (!isVisibleToLocation(prerequisite, implicitDefinition.getPackageIdentifier())) {
@@ -154,6 +168,17 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         }
       }
     }
+  }
+
+  @Nullable
+  private StarlarkSubrule maybeGetOwningSubrule(
+      String attrName, Collection<? extends StarlarkSubruleApi> subrules) {
+    for (StarlarkSubrule subrule : StarlarkSubrule.getTransitiveSubrules(subrules)) {
+      if (subrule.hasAttr(attrName)) {
+        return subrule;
+      }
+    }
+    return null;
   }
 
   /**

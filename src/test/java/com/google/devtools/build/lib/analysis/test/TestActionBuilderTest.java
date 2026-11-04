@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -51,10 +53,9 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** {@link com.google.devtools.build.lib.analysis.test.TestActionBuilder} tests. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class TestActionBuilderTest extends BuildViewTestCase {
 
   @Before
@@ -752,6 +753,38 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "--coverage_report_generator does not refer to an executable target",
         "filegroup(name = 'bad_cov_gen')",
         "cc_test(name = 'some_test')");
+  }
+
+  @Test
+  public void testCollectCoverageScriptOnlyDependedOnWithCoverage(
+      @TestParameter boolean collectCodeCoverage) throws Exception {
+    if (collectCodeCoverage) {
+      useConfiguration("--collect_code_coverage");
+    }
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [DefaultInfo(executable = script)]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
+    scratch.file("BUILD", "load(':some_test.bzl', 'some_test')", "some_test(name = 'some_test')");
+
+    ConfiguredTarget collectCoverageScript =
+        getDirectPrerequisite(
+            getConfiguredTarget("//:some_test"),
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm() + "//tools/test:collect_coverage");
+    if (collectCodeCoverage) {
+      assertThat(collectCoverageScript).isNotNull();
+    } else {
+      assertThat(collectCoverageScript).isNull();
+    }
   }
 
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(String label)

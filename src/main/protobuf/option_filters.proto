@@ -58,4 +58,5 @@ enum OptionMetadataTag {
   reserved "EXPLICIT_IN_OUTPUT_PATH";
   reserved 6;
   IMMUTABLE = 7;
+  FULLY_REDACTED_IN_LOGS = 9;
 }
