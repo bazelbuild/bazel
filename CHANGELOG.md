@@ -1,3 +1,44 @@
+## Release 9.3.2 (2026-11-04)
+
+```
+
+Release Notes:
+
+General:
++ Release 9.3.1 (2026-10-20)
+
+OSS:
++ Update MODULE.bazel and .bazelversion for release-9.3.2 (#32228)
++ Fix linux-sandbox actions being killed prematurely when using virtual… (#32342)
+
+Remote-Exec:
++ Remove remote endpoint and instance flags from action execution salt. (#32254)
+
+Rules-Java:
++ Restore server JAR recompression in `PackageZipper` (#31299) (#32199)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as James Judd, Xùdōng Yáng.
+```
+
+## Release 7.7.2 (2026-10-23)
+
+```
+
+Release Notes:
+
+```
+
+## Release 7.7.2 (2026-10-22)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 9.3.1 (2026-10-20)
 
 ```
