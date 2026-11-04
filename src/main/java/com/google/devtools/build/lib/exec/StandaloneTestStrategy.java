@@ -154,6 +154,11 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new StandaloneTestRunnerSpawn(action, actionExecutionContext, spawn, tmpDir, execRoot);
   }
 
+  @Override
+  public boolean forceExclusiveIfLocalTestsInParallel() {
+    return true;
+  }
+
   private static ImmutableMultimap<String, Path> renameOutputs(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
