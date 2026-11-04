@@ -79,7 +79,7 @@ Label("@repo//foo/bar:baz").relative("//visibility:public") == Label("//visibili
 Label("@repo//foo/bar:baz").relative("@other//wiz:quux") == Label("@other//wiz:quux")
 ```
 
-If the repository mapping passed in is `&lcub;'@other' : '@remapped'&rcub;`, then the following remapping will take place:
+If the repository mapping passed in is `{'@other' : '@remapped'}`, then the following remapping will take place:
 
 ```
 Label("@repo//foo/bar:baz").relative("@other//wiz:quux") == Label("@remapped//wiz:quux")

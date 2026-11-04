@@ -134,7 +134,7 @@ filenames contain spaces, `'`, or other special characters (or your
 genrule is part of a Starlark macro which downstream users may invoke on such
 files), then `$(SRCS)` and `$(OUTS)` are not suitable
 for interpolation into a command line, as they do not have the semantics that
-`"$&lcub;@&rcub;"` would in Bash.
+`"${@}"` would in Bash.
 
 One workaround is to convert to a Bash array, with
 
@@ -145,7 +145,7 @@ genrule_srcs_expansion
 )
 ```
 
-and then use `"$$\&lcub;SRCS[@]&rcub;"` in subsequent command lines in place
+and then use `"$$\{SRCS[@]}"` in subsequent command lines in place
 of `$(SRCS)`. A more robust option is to write a Starlark rule
 instead.
 
