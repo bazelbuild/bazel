@@ -59,7 +59,7 @@ public class MethodOptionDefinitionTest {
 
     fooDefinition.setValue(options, 456);
     assertThat(options.getFoo()).isEqualTo(456);
-    assertThat(fooDefinition.getRawValue(options)).isEqualTo(456);
+    assertThat(fooDefinition.getValue(options)).isEqualTo(456);
   }
 
   @Test

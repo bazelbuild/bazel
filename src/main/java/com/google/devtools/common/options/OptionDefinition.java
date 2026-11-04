@@ -99,20 +99,8 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   /** Returns the declaring {@link OptionsBase} class that owns this option. */
   public abstract <C extends OptionsBase> Class<? extends C> getDeclaringClass(Class<C> baseClass);
 
-  /**
-   * Returns the raw value of the option. Use {@link #getValue} if possible to correctly handle
-   * default values.
-   */
-  public abstract Object getRawValue(OptionsBase optionsBase);
-
-  /** Returns the value of this option, taking default values into account. */
-  public Object getValue(OptionsBase optionsBase) {
-    Object value = getRawValue(optionsBase);
-    if (value == null && !isSpecialNullDefault()) {
-      value = getUnparsedDefaultValue();
-    }
-    return value;
-  }
+  /** Returns the value of this option. */
+  public abstract Object getValue(OptionsBase optionsBase);
 
   /**
    * Returns the value of this option as a boolean. If the option is not boolean-typed, throws an

@@ -82,6 +82,13 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "native_default_value")
     public abstract String getExistingFlag();
+
+    @Option(
+        name = "null_flag",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getNullFlag();
   }
 
   /** Test fragment. */
@@ -1175,5 +1182,69 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     assertThat(expected)
         .hasMessageThat()
         .contains("Cannot set --disallowed_option in a platform or platform mapping");
+  }
+
+  @Test
+  public void testTransitionWithValueNone() throws Exception {
+    writeAllowlistFile(scratch);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _my_transition_impl(settings, attr):
+            return {
+                "//command_line_option:existing_flag": None,
+                "//command_line_option:null_flag": None,
+            }
+
+        my_transition = transition(
+            implementation = _my_transition_impl,
+            inputs = [],
+            outputs = [
+                "//command_line_option:existing_flag",
+                "//command_line_option:null_flag",
+            ],
+        )
+
+        def _rule_impl(ctx):
+            return []
+
+        simple_rule = rule(
+            implementation = _rule_impl,
+        )
+
+        transition_rule = rule(
+            implementation = _rule_impl,
+            cfg = my_transition,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "simple_rule", "transition_rule")
+
+        simple_rule(
+            name = "simple",
+        )
+
+        transition_rule(
+            name = "with_transition",
+        )
+        """);
+
+    useConfiguration("--existing_flag=not_the_default_value", "--null_flag=not_null");
+
+    DummyTestOptions simpleOptions =
+        getConfiguration(getConfiguredTarget("//test:simple"))
+            .getOptions()
+            .get(DummyTestOptions.class);
+    assertThat(simpleOptions.getNullFlag()).isEqualTo("not_null");
+    assertThat(simpleOptions.getExistingFlag()).isEqualTo("not_the_default_value");
+
+    DummyTestOptions transitionedOptions =
+        getConfiguration(getConfiguredTarget("//test:with_transition"))
+            .getOptions()
+            .get(DummyTestOptions.class);
+    assertThat(transitionedOptions.getNullFlag()).isNull();
+    assertThat(transitionedOptions.getExistingFlag()).isNull();
   }
 }

@@ -585,8 +585,7 @@ public final class FunctionTransitionUtil {
     }
     OptionInfo optionInfo = optionInfoMap.get(optionName);
     FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-    // Get the raw value to avoid the default handling for null values.
-    Object optionValue = optionInfo.getDefinition().getRawValue(options);
+    Object optionValue = optionInfo.getDefinition().getValue(options);
     // convert nulls here b/c ImmutableMap bans null values
     return Optional.of(optionValue == null ? Starlark.NONE : optionValue);
   }
@@ -765,7 +764,7 @@ public final class FunctionTransitionUtil {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
-          Object oldValue = def.getRawValue(fromOptions.get(optionInfo.getOptionClass()));
+          Object oldValue = def.getValue(fromOptions.get(optionInfo.getOptionClass()));
           if (!Objects.equals(oldValue, convertedValue)) {
             if (toOptions == null) {
               toOptions = fromOptions.clone();
