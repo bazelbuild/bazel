@@ -228,15 +228,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     return wrap(null, Arrays.copyOf(elems, elems.length, Object[].class));
   }
 
-  /**
-   * Returns the underlying array of elements.
-   *
-   * <p>Callers must not modify the returned array, and only indices {@code 0} through {@code size()
-   * - 1} are valid.
-   */
-  // The backing array is returned directly to avoid copying overhead.
-  @SuppressWarnings("AvoidObjectArrays")
-  public abstract Object[] elems();
+  abstract Object[] elems();
 
   /**
    * Returns a new {@code StarlarkList} that is the concatenation of two {@code StarlarkList}s. The

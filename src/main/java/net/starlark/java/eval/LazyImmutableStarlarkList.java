@@ -31,7 +31,6 @@ public final class LazyImmutableStarlarkList<E> extends ImmutableStarlarkList<E>
     return elems().length;
   }
 
-  // The supplier only provides values of type E.
   @Override
   @SuppressWarnings("unchecked")
   public E get(int i) {
@@ -41,7 +40,7 @@ public final class LazyImmutableStarlarkList<E> extends ImmutableStarlarkList<E>
   }
 
   @Override
-  public Object[] elems() {
+  Object[] elems() {
     if (elems == null) {
       synchronized (this) {
         if (elems == null) {

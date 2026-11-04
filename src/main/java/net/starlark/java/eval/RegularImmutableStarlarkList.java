@@ -17,7 +17,7 @@ package net.starlark.java.eval;
 import com.google.common.base.Preconditions;
 
 /** An immutable implementation of a {@code StarlarkList}. */
-public final class RegularImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
+final class RegularImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
 
   /**
    * A shared instance for the empty list with immutable mutability.
@@ -30,15 +30,13 @@ public final class RegularImmutableStarlarkList<E> extends ImmutableStarlarkList
 
   private final Object[] elems;
 
-  // An Object[] is accepted (and retained without copying) to avoid allocation overhead.
-  @SuppressWarnings("AvoidObjectArrays")
-  public RegularImmutableStarlarkList(Object[] elems) {
+  RegularImmutableStarlarkList(Object[] elems) {
     Preconditions.checkArgument(elems.getClass() == Object[].class);
     this.elems = elems;
   }
 
   @Override
-  public Object[] elems() {
+  Object[] elems() {
     return elems;
   }
 }
