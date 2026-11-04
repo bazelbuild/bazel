@@ -18,6 +18,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.annotations.VisibleForTesting;
@@ -227,18 +228,22 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    * Registers a blob as the concatenation of the given chunks via SpliceBlob RPC.
    *
    * <p>This is used for CDC (Content-Defined Chunking) uploads. After uploading all chunks,
-   * SpliceBlob is called to register the blob with the given digest as the concatenation of
-   * the chunks.
+   * SpliceBlob is called to register the blob with the given digest as the concatenation of the
+   * chunks.
    *
    * @param context the context for the action.
    * @param blobDigest The digest of the complete blob.
    * @param chunkDigests The digests of the chunks that make up the blob, in order.
-   * @return A future representing pending completion of the splice operation, or null if
-   *     SpliceBlob is not supported by this cache client.
+   * @param chunkingFunction The chunking function that was used to produce the chunks.
+   * @return A future representing pending completion of the splice operation, or null if SpliceBlob
+   *     is not supported by this cache client.
    */
   @Nullable
   public ListenableFuture<Void> spliceBlob(
-      RemoteActionExecutionContext context, Digest blobDigest, List<Digest> chunkDigests) {
+      RemoteActionExecutionContext context,
+      Digest blobDigest,
+      List<Digest> chunkDigests,
+      ChunkingFunction.Value chunkingFunction) {
     return null;
   }
 

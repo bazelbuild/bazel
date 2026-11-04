@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -49,24 +50,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/** Integration tests for chunked remote cache using SplitBlob/SpliceBlob APIs. */
-@RunWith(JUnit4.class)
-public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
+/** Base class for integration tests for chunked remote cache using SplitBlob/SpliceBlob APIs. */
+public abstract class ChunkedCacheIntegrationTestBase extends BuildIntegrationTestCase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+
+  protected abstract String getChunkingFunction();
 
   @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
     addOptions(
         "--remote_cache=grpc://localhost:" + worker.getPort(),
-        "--experimental_remote_cache_chunking");
+        "--experimental_remote_cache_chunking",
+        "--experimental_remote_cache_chunking_function=%s".formatted(getChunkingFunction()));
   }
 
   @Override
@@ -98,6 +100,7 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
   private void cleanAndRestartServer() throws Exception {
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     createRuntimeWrapper();
+    addOptions("--experimental_remote_require_cached");
   }
 
   private byte[] readFileBytes(Path path) throws IOException {
@@ -156,6 +159,9 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
           casStub.splitBlob(SplitBlobRequest.newBuilder().setBlobDigest(blobDigest).build());
       List<Digest> chunkDigests = splitResponse.getChunkDigestsList();
 
+      assertThat(splitResponse.getChunkingFunction())
+          .isEqualTo(
+              ChunkingFunction.Value.valueOf(getChunkingFunction().toUpperCase(Locale.ROOT)));
       assertThat(chunkDigests.size()).isGreaterThan(1);
       long totalChunkSize = chunkDigests.stream().mapToLong(Digest::getSizeBytes).sum();
       assertThat(totalChunkSize).isEqualTo(originalContent.length);
