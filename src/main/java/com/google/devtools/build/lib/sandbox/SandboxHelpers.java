@@ -59,6 +59,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -277,9 +278,15 @@ public final class SandboxHelpers {
         dirsToCreate,
         workDir,
         treeDeleter,
+        /* execRoot= */ null,
         /* sandboxContents= */ null);
   }
 
+  /**
+   * Like {@link #cleanExisting(Path, SandboxInputs, Set, Set, Path, TreeDeleter)}, but uses {@code
+   * sandboxContents} instead of reading the sandbox if it is non-null. It must have been created by
+   * {@link #createContentMap} for {@code execRoot}.
+   */
   public static void cleanExisting(
       Path root,
       SandboxInputs inputs,
@@ -287,6 +294,7 @@ public final class SandboxHelpers {
       Set<PathFragment> dirsToCreate,
       Path workDir,
       TreeDeleter treeDeleter,
+      @Nullable Path execRoot,
       @Nullable SandboxContents sandboxContents)
       throws IOException, InterruptedException {
     Path inaccessibleHelperDir = workDir.getRelative(INACCESSIBLE_HELPER_DIR);
@@ -322,6 +330,7 @@ public final class SandboxHelpers {
           inputsToCreate,
           dirsToCreate,
           workDir,
+          checkNotNull(execRoot),
           prefixDirs,
           treeDeleter,
           sandboxContents);
@@ -338,6 +347,7 @@ public final class SandboxHelpers {
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
       Path workDir,
+      Path execRoot,
       Set<PathFragment> prefixDirs,
       TreeDeleter treeDeleter,
       SandboxContents stashContents)
@@ -353,14 +363,32 @@ public final class SandboxHelpers {
         continue;
       }
       PathFragment pathRelativeToWorkDir = absPath.relativeTo(workDir);
-      Optional<PathFragment> targetPath =
-          getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
+      Path expectedTarget = inputs.getFiles().get(pathRelativeToWorkDir);
+      PathFragment stashedTarget = dirent.getValue();
       boolean shouldKeep =
-          dirent.getValue() == null
-              ? inputs.getFiles().containsKey(pathRelativeToWorkDir)
-                  && inputs.getFiles().get(pathRelativeToWorkDir) == null
-              : targetPath.isPresent() && dirent.getValue().equals(targetPath.get());
+          stashedTarget == null
+              ? expectedTarget == null && inputs.getFiles().containsKey(pathRelativeToWorkDir)
+              : expectedTarget != null
+                  && (stashedTarget.isAbsolute()
+                      ? stashedTarget.equals(expectedTarget.asFragment())
+                      : isRelativeTo(expectedTarget, execRoot, stashedTarget));
       if (shouldKeep) {
+        Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
+      } else {
+        absPath.delete();
+      }
+    }
+    for (var dirent : stashContents.symlinkMap().entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path absPath = root.getChild(dirent.getKey());
+      if (!absPath.startsWith(workDir)) {
+        // Nothing outside of workDir can be an input, so leave it alone.
+        continue;
+      }
+      PathFragment pathRelativeToWorkDir = absPath.relativeTo(workDir);
+      if (dirent.getValue().equals(inputs.getSymlinks().get(pathRelativeToWorkDir))) {
         Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
       } else {
         absPath.delete();
@@ -384,6 +412,7 @@ public final class SandboxHelpers {
             inputsToCreate,
             dirsToCreate,
             workDir,
+            execRoot,
             prefixDirs,
             treeDeleter,
             dirent.getValue());
@@ -392,6 +421,16 @@ public final class SandboxHelpers {
         treeDeleter.deleteTree(absPath);
       }
     }
+  }
+
+  /** Returns whether {@code path} is {@code root.getRelative(relativePath)}. */
+  private static boolean isRelativeTo(Path path, Path root, PathFragment relativePath) {
+    // This runs for every input, so it avoids allocating the joined path.
+    String pathString = path.getPathString();
+    return pathString.length()
+            == root.getPathString().length() + 1 + relativePath.getPathString().length()
+        && path.startsWith(root)
+        && path.asFragment().endsWith(relativePath);
   }
 
   /**
@@ -780,36 +819,59 @@ public final class SandboxHelpers {
    * <p>Used to minimize the amount of I/O required to prepare a sandbox for reuse.
    *
    * <p>The map keys are individual path segments.
-   *
-   * @param fileMap maps names of known symlinks to their target paths and empty files to null
-   * @param dirMap maps names of known subdirectories to their contents
    */
-  public record SandboxContents(
-      Map<String, PathFragment> fileMap, Map<String, SandboxContents> dirMap) {
-    public SandboxContents() {
-      this(CompactHashMap.create(), CompactHashMap.create());
+  public static final class SandboxContents {
+    private final Map<String, PathFragment> fileMap = CompactHashMap.create();
+    // Created on first use since most directories don't contain input symlinks.
+    @Nullable private Map<String, PathFragment> symlinkMap;
+    private final Map<String, SandboxContents> dirMap = CompactHashMap.create();
+
+    /**
+     * Maps names of known symlinks to input files to their target paths, relative to the exec root
+     * if they are below it, and names of empty files to null.
+     */
+    public Map<String, PathFragment> fileMap() {
+      return fileMap;
+    }
+
+    /** Maps names of known input symlinks to their target paths. */
+    public Map<String, PathFragment> symlinkMap() {
+      return symlinkMap != null ? symlinkMap : Collections.emptyMap();
+    }
+
+    /** Maps names of known subdirectories to their contents. */
+    public Map<String, SandboxContents> dirMap() {
+      return dirMap;
     }
   }
 
   /**
    * Computes a {@link SandboxContents} for the filesystem hierarchy rooted at {@code workDir}'s
-   * parent directory, reflecting the expected inputs and outputs for a spawn.
+   * parent directory, reflecting the expected inputs and outputs for a spawn whose inputs are below
+   * {@code execRoot}.
    *
    * <p>This may be used in conjunction with {@link #updateContentMap} to speed up the sandbox setup
    * for a subsequent execution.
    */
   public static SandboxContents createContentMap(
-      Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
+      Path workDir, Path execRoot, SandboxInputs inputs, SandboxOutputs outputs) {
     Map<PathFragment, SandboxContents> contentsMap = CompactHashMap.create();
     for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
-      contentsMap
-          .get(parent)
-          .fileMap()
-          .put(
-              entry.getKey().getBaseName(),
-              entry.getValue() == null ? null : entry.getValue().asFragment());
+      Path target = entry.getValue();
+      PathFragment stashedTarget;
+      if (target == null) {
+        stashedTarget = null;
+      } else if (isRelativeTo(target, execRoot, entry.getKey())) {
+        // The input's path is usually its exec path, which its artifact retains anyway.
+        stashedTarget = entry.getKey();
+      } else if (target.startsWith(execRoot)) {
+        stashedTarget = target.relativeTo(execRoot);
+      } else {
+        stashedTarget = target.asFragment();
+      }
+      contentsMap.get(parent).fileMap().put(entry.getKey().getBaseName(), stashedTarget);
       addAllParents(contentsMap, parentWasPresent, parent);
     }
     for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
@@ -818,7 +880,11 @@ public final class SandboxHelpers {
       }
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
-      contentsMap.get(parent).fileMap().put(entry.getKey().getBaseName(), entry.getValue());
+      SandboxContents parentContents = contentsMap.get(parent);
+      if (parentContents.symlinkMap == null) {
+        parentContents.symlinkMap = CompactHashMap.create();
+      }
+      parentContents.symlinkMap.put(entry.getKey().getBaseName(), entry.getValue());
       addAllParents(contentsMap, parentWasPresent, parent);
     }
 
@@ -868,7 +934,8 @@ public final class SandboxHelpers {
         }
         Path absPath = root.getChild(dirent.getName());
         if (dirent.getType().equals(SYMLINK)) {
-          if (stashContents.fileMap().get(dirent.getName()) != null) {
+          if (stashContents.fileMap().get(dirent.getName()) != null
+              || stashContents.symlinkMap().containsKey(dirent.getName())) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
             absPath.delete();
@@ -895,6 +962,7 @@ public final class SandboxHelpers {
       }
       stashContents.dirMap().keySet().retainAll(dirsToKeep);
       stashContents.fileMap().keySet().retainAll(filesAndSymlinksToKeep);
+      stashContents.symlinkMap().keySet().retainAll(filesAndSymlinksToKeep);
     } else {
       for (var entry : stashContents.dirMap().entrySet()) {
         Path absPath = root.getChild(entry.getKey());

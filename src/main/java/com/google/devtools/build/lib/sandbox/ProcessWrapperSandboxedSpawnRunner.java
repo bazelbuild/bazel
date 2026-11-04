@@ -94,6 +94,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     return new SymlinkedSandboxedSpawn(
         sandboxPath,
         sandboxExecRoot,
+        execRoot,
         commandLineBuilder.build(),
         environment,
         inputs,
