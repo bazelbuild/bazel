@@ -1974,12 +1974,23 @@ public final class Types {
 
   private static ImmutableMap<String, StarlarkType> sortFieldsByName(
       Map<String, StarlarkType> fields) {
-    if (fields.size() <= 1) {
+    if (fields.size() <= 1 || isSortedByKey(fields)) {
       return ImmutableMap.copyOf(fields);
     }
     ArrayList<Map.Entry<String, StarlarkType>> entries = new ArrayList<>(fields.entrySet());
     entries.sort(Map.Entry.comparingByKey());
     return ImmutableMap.copyOf(entries);
+  }
+
+  private static boolean isSortedByKey(Map<String, StarlarkType> fields) {
+    String prev = null;
+    for (String key : fields.keySet()) {
+      if (prev != null && prev.compareTo(key) > 0) {
+        return false;
+      }
+      prev = key;
+    }
+    return true;
   }
 
   /** Immutable partial struct type */
