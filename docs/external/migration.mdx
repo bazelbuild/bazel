@@ -553,9 +553,9 @@ directory in your workspace as external repository.
 
 ### Bind targets {#bind-targets}
 
-The [`bind`](/reference/be/workspace#bind) rule in WORKSPACE is deprecated and
-not supported in Bzlmod. It was introduced to give a target an alias in the
-special `//external` package. All users depending on this should migrate away.
+The `bind` rule in WORKSPACE was removed and is not supported in Bzlmod. It was
+introduced to give a target an alias in the special `//external` package. All
+users depending on this should migrate away.
 
 For example, if you have
 
