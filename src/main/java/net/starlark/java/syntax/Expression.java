@@ -50,12 +50,42 @@ public abstract class Expression extends Node {
     TYPE_APPLICATION,
   }
 
-  // Materialize kind as a field so its accessor can be non-virtual.
-  private final Kind kind;
+  // The ordinals of the kinds as constants, so that the interpreter can switch on kindOrdinal()
+  // without loading the Kind.
+  public static final int BINARY_OPERATOR = 0;
+  public static final int CALL = 1;
+  public static final int CAST = 2;
+  public static final int COMPREHENSION = 3;
+  public static final int CONDITIONAL = 4;
+  public static final int DICT_EXPR = 5;
+  public static final int DOT = 6;
+  public static final int ELLIPSIS = 7;
+  public static final int FLOAT_LITERAL = 8;
+  public static final int IDENTIFIER = 9;
+  public static final int INDEX = 10;
+  public static final int INT_LITERAL = 11;
+  public static final int ISINSTANCE = 12;
+  public static final int LAMBDA = 13;
+  public static final int LIST_EXPR = 14;
+  public static final int SLICE = 15;
+  public static final int STRING_LITERAL = 16;
+  public static final int UNARY_OPERATOR = 17;
+  public static final int TYPE_APPLICATION = 18;
+
+  private static final Kind[] KINDS = Kind.values();
+
+  // The kind and an optional offset, packed by packKindAndOffset.
+  private final int kindAndOffset;
 
   Expression(FileLocations locs, Kind kind) {
     super(locs);
-    this.kind = kind;
+    this.kindAndOffset = kind.ordinal();
+  }
+
+  /** Also stores an offset that subclasses can retrieve with {@link #packedOffset}. */
+  Expression(FileLocations locs, Kind kind, int offset) {
+    super(locs);
+    this.kindAndOffset = packKindAndOffset(kind, offset);
   }
 
   /**
@@ -64,7 +94,17 @@ public abstract class Expression extends Node {
    */
   // Final to avoid cost of virtual call (see #12967).
   public final Kind kind() {
-    return kind;
+    return KINDS[kindOrdinal()];
+  }
+
+  /** Returns the ordinal of {@link #kind}, which equals the int constant of the same name. */
+  public final int kindOrdinal() {
+    return kindAndOffset & ((1 << KIND_BITS) - 1);
+  }
+
+  /** Returns the offset passed to the constructor. */
+  final int packedOffset() {
+    return kindAndOffset >>> KIND_BITS;
   }
 
   /** Parses an expression. */

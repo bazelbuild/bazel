@@ -374,32 +374,32 @@ final class Eval {
       throw new EvalException("Starlark computation cancelled: too many steps");
     }
 
-    switch (st.kind()) {
-      case ASSIGNMENT:
+    switch (st.kindOrdinal()) {
+      case Statement.ASSIGNMENT:
         execAssignment(fr, (AssignmentStatement) st);
         return TokenKind.PASS;
-      case EXPRESSION:
+      case Statement.EXPRESSION:
         eval(fr, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;
-      case FLOW:
+      case Statement.FLOW:
         return ((FlowStatement) st).getFlowKind();
-      case FOR:
+      case Statement.FOR:
         return execFor(fr, (ForStatement) st);
-      case DEF:
+      case Statement.DEF:
         DefStatement def = (DefStatement) st;
         StarlarkFunction fn = newFunction(fr, def.getResolvedFunction());
         assignIdentifier(fr, def.getIdentifier(), fn);
         return TokenKind.PASS;
-      case IF:
+      case Statement.IF:
         return execIf(fr, (IfStatement) st);
-      case LOAD:
+      case Statement.LOAD:
         execLoad(fr, (LoadStatement) st);
         return TokenKind.PASS;
-      case RETURN:
+      case Statement.RETURN:
         return execReturn(fr, (ReturnStatement) st);
-      case TYPE_ALIAS:
+      case Statement.TYPE_ALIAS:
         return execTypeAlias(fr, (TypeAliasStatement) st);
-      case VAR:
+      case Statement.VAR:
         return TokenKind.PASS;
     }
     throw new IllegalArgumentException("unexpected statement: " + st.kind());
@@ -624,29 +624,29 @@ final class Eval {
     // to reduce the stack usage during recursion, which is
     // especially important in practice for deeply nested a+...+z
     // expressions; see b/153764542.
-    switch (expr.kind()) {
-      case BINARY_OPERATOR:
+    switch (expr.kindOrdinal()) {
+      case Expression.BINARY_OPERATOR:
         return evalBinaryOperator(fr, (BinaryOperatorExpression) expr);
-      case COMPREHENSION:
+      case Expression.COMPREHENSION:
         return evalComprehension(fr, (Comprehension) expr);
-      case CONDITIONAL:
+      case Expression.CONDITIONAL:
         return evalConditional(fr, (ConditionalExpression) expr);
-      case DICT_EXPR:
+      case Expression.DICT_EXPR:
         return evalDict(fr, (DictExpression) expr);
-      case DOT:
+      case Expression.DOT:
         return evalDot(fr, (DotExpression) expr);
-      case CALL:
+      case Expression.CALL:
         return evalCall(fr, (CallExpression) expr);
-      case CAST:
+      case Expression.CAST:
         return eval(fr, ((CastExpression) expr).getValue());
-      case ISINSTANCE:
+      case Expression.ISINSTANCE:
         fr.setErrorLocation(expr.getStartLocation());
         throw new EvalException("isinstance() is not yet supported");
-      case IDENTIFIER:
+      case Expression.IDENTIFIER:
         return evalIdentifier(fr, (Identifier) expr);
-      case INDEX:
+      case Expression.INDEX:
         return evalIndex(fr, (IndexExpression) expr);
-      case INT_LITERAL:
+      case Expression.INT_LITERAL:
         // TODO(adonovan): opt: avoid allocation by saving
         // the StarlarkInt in the IntLiteral (a temporary hack
         // until we use a compiled representation).
@@ -658,20 +658,20 @@ final class Eval {
         } else {
           return StarlarkInt.of((BigInteger) n);
         }
-      case FLOAT_LITERAL:
+      case Expression.FLOAT_LITERAL:
         return StarlarkFloat.of(((FloatLiteral) expr).getValue());
-      case LAMBDA:
+      case Expression.LAMBDA:
         return newFunction(fr, ((LambdaExpression) expr).getResolvedFunction());
-      case LIST_EXPR:
+      case Expression.LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
-      case SLICE:
+      case Expression.SLICE:
         return evalSlice(fr, (SliceExpression) expr);
-      case STRING_LITERAL:
+      case Expression.STRING_LITERAL:
         return ((StringLiteral) expr).getValue();
-      case UNARY_OPERATOR:
+      case Expression.UNARY_OPERATOR:
         return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
-      case ELLIPSIS:
-      case TYPE_APPLICATION:
+      case Expression.ELLIPSIS:
+      case Expression.TYPE_APPLICATION:
         // fall through, these only appear in type expressions and should be unreachable from
         // evaluated code.
     }

@@ -21,7 +21,6 @@ import javax.annotation.Nullable;
 public final class IfStatement extends Statement {
 
   private final TokenKind token; // IF or ELIF
-  private final int ifOffset;
   private final Expression condition;
   // These blocks may be non-null but empty after a misparse:
   private final ImmutableList<Statement> thenBlock; // non-empty
@@ -33,9 +32,8 @@ public final class IfStatement extends Statement {
       int ifOffset,
       Expression condition,
       List<Statement> thenBlock) {
-    super(locs, Kind.IF);
+    super(locs, Kind.IF, ifOffset);
     this.token = token;
-    this.ifOffset = ifOffset;
     this.condition = condition;
     this.thenBlock = ImmutableList.copyOf(thenBlock);
   }
@@ -69,7 +67,7 @@ public final class IfStatement extends Statement {
 
   @Override
   public int getStartOffset() {
-    return ifOffset;
+    return packedOffset();
   }
 
   @Override

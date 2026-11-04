@@ -21,7 +21,6 @@ import javax.annotation.Nullable;
  * a unary minus operation applied on a positive int literal into a negative int literal.
  */
 public final class IntLiteral extends Expression {
-  private final int tokenOffset;
   private final int endOffset;
   private final Number value; // = Integer | Long | BigInteger
 
@@ -32,8 +31,7 @@ public final class IntLiteral extends Expression {
    * of exactly representing the number must be used.
    */
   IntLiteral(FileLocations locs, int tokenOffset, int endOffset, Number value) {
-    super(locs, Kind.INT_LITERAL);
-    this.tokenOffset = tokenOffset;
+    super(locs, Kind.INT_LITERAL, tokenOffset);
     this.endOffset = endOffset;
     this.value = value;
   }
@@ -57,7 +55,7 @@ public final class IntLiteral extends Expression {
 
   @Override
   public int getStartOffset() {
-    return tokenOffset;
+    return packedOffset();
   }
 
   @Override

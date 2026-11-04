@@ -94,9 +94,18 @@ final class Lexer {
   // Errors are appended to errors.
   Lexer(ParserInput input, List<SyntaxError> errors, FileOptions options) {
     this.locs = FileLocations.create(input.getContent(), input.getFile());
-    this.buffer = input.getContent();
-    this.pos = 0;
     this.errors = errors;
+    if (input.getContent().length > Node.MAX_INPUT_LENGTH) {
+      error(
+          String.format(
+              "input of %d characters exceeds the maximum length of %d characters",
+              input.getContent().length, Node.MAX_INPUT_LENGTH),
+          0);
+      this.buffer = new char[0];
+    } else {
+      this.buffer = input.getContent();
+    }
+    this.pos = 0;
     this.options = options;
     this.checkIndentation = true;
     this.dents = 0;

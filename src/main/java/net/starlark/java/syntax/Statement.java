@@ -33,12 +33,33 @@ public abstract class Statement extends Node {
     VAR,
   }
 
-  // Materialize kind as a field so its accessor can be non-virtual.
-  private final Kind kind;
+  // The ordinals of the kinds as constants, so that the interpreter can switch on kindOrdinal()
+  // without loading the Kind.
+  public static final int ASSIGNMENT = 0;
+  public static final int EXPRESSION = 1;
+  public static final int FLOW = 2;
+  public static final int FOR = 3;
+  public static final int DEF = 4;
+  public static final int IF = 5;
+  public static final int LOAD = 6;
+  public static final int RETURN = 7;
+  public static final int TYPE_ALIAS = 8;
+  public static final int VAR = 9;
+
+  private static final Kind[] KINDS = Kind.values();
+
+  // The kind and an optional offset, packed by packKindAndOffset.
+  private final int kindAndOffset;
 
   Statement(FileLocations locs, Kind kind) {
     super(locs);
-    this.kind = kind;
+    this.kindAndOffset = kind.ordinal();
+  }
+
+  /** Also stores an offset that subclasses can retrieve with {@link #packedOffset}. */
+  Statement(FileLocations locs, Kind kind, int offset) {
+    super(locs);
+    this.kindAndOffset = packKindAndOffset(kind, offset);
   }
 
   /**
@@ -47,6 +68,16 @@ public abstract class Statement extends Node {
    */
   // Final to avoid cost of virtual call (see #12967).
   public final Kind kind() {
-    return kind;
+    return KINDS[kindOrdinal()];
+  }
+
+  /** Returns the ordinal of {@link #kind}, which equals the int constant of the same name. */
+  public final int kindOrdinal() {
+    return kindAndOffset & ((1 << KIND_BITS) - 1);
+  }
+
+  /** Returns the offset passed to the constructor. */
+  final int packedOffset() {
+    return kindAndOffset >>> KIND_BITS;
   }
 }

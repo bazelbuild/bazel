@@ -22,25 +22,23 @@ import javax.annotation.Nullable;
 public final class Identifier extends Expression {
 
   private final String name;
-  private final int nameOffset;
 
   // Set by Resolver if applicable.
   @Nullable private Resolver.Binding binding;
 
   Identifier(FileLocations locs, String name, int nameOffset) {
-    super(locs, Kind.IDENTIFIER);
+    super(locs, Kind.IDENTIFIER, nameOffset);
     this.name = name;
-    this.nameOffset = nameOffset;
   }
 
   @Override
   public int getStartOffset() {
-    return nameOffset;
+    return packedOffset();
   }
 
   @Override
   public int getEndOffset() {
-    return nameOffset + name.length();
+    return packedOffset() + name.length();
   }
 
   /**

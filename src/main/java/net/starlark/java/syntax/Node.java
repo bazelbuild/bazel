@@ -66,6 +66,17 @@ public abstract class Node {
   // It is shared by all nodes from the same file.
   final FileLocations locs;
 
+  // Expressions and statements store the ordinal of their kind in the low KIND_BITS bits of an int
+  // and an offset into the input in the remaining bits, which limits the length of the input.
+  static final int KIND_BITS = 5;
+  static final int MAX_INPUT_LENGTH = (1 << (Integer.SIZE - KIND_BITS)) - 1;
+
+  static int packKindAndOffset(Enum<?> kind, int offset) {
+    Preconditions.checkArgument(
+        offset >= 0 && offset <= MAX_INPUT_LENGTH, "offset out of range: %s", offset);
+    return offset << KIND_BITS | kind.ordinal();
+  }
+
   Node(FileLocations locs) {
     this.locs = Preconditions.checkNotNull(locs);
   }

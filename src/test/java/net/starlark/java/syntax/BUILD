@@ -31,6 +31,7 @@ java_library(
         "LValueBoundNamesTest.java",
         "LexerTest.java",
         "LocationTest.java",
+        "NodeKindTest.java",
         "NodePrinterTest.java",
         "NodeVisitorTest.java",
         "ParserInputTest.java",

@@ -20,13 +20,11 @@ public final class StringLiteral extends Expression {
 
   // See skyframe.serialization.StringLiteralCodec for custom serialization logic.
 
-  private final int startOffset;
   private final String value;
   private final int endOffset;
 
   StringLiteral(FileLocations locs, int startOffset, String value, int endOffset) {
-    super(locs, Kind.STRING_LITERAL);
-    this.startOffset = startOffset;
+    super(locs, Kind.STRING_LITERAL, startOffset);
     this.value = value;
     this.endOffset = endOffset;
   }
@@ -37,12 +35,12 @@ public final class StringLiteral extends Expression {
   }
 
   public Location getLocation() {
-    return locs.getLocation(startOffset);
+    return locs.getLocation(packedOffset());
   }
 
   @Override
   public int getStartOffset() {
-    return startOffset;
+    return packedOffset();
   }
 
   @Override
@@ -50,7 +48,7 @@ public final class StringLiteral extends Expression {
     // TODO(adonovan): when we switch to compilation,
     // making syntax trees ephemeral, we can afford to
     // record the raw literal. This becomes:
-    //   return startOffset + raw.length().
+    //   return getStartOffset() + raw.length().
     return endOffset;
   }
 

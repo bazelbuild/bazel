@@ -23,7 +23,6 @@ public final class CallExpression extends Expression {
   private final Expression function;
   private final Location lparenLocation;
   private final ImmutableList<Argument> arguments;
-  private final int rparenOffset;
 
   private final int numPositionalArgs;
 
@@ -33,11 +32,10 @@ public final class CallExpression extends Expression {
       Location lparenLocation,
       ImmutableList<Argument> arguments,
       int rparenOffset) {
-    super(locs, Kind.CALL);
+    super(locs, Kind.CALL, rparenOffset);
     this.function = Preconditions.checkNotNull(function);
     this.lparenLocation = lparenLocation;
     this.arguments = arguments;
-    this.rparenOffset = rparenOffset;
 
     int n = 0;
     for (Argument arg : arguments) {
@@ -81,7 +79,7 @@ public final class CallExpression extends Expression {
 
   @Override
   public int getEndOffset() {
-    return rparenOffset + 1;
+    return packedOffset() + 1;
   }
 
   public Location getLparenLocation() {

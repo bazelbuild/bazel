@@ -23,6 +23,7 @@ import org.junit.runners.Suite;
   LexerTest.class,
   LocationTest.class,
   LValueBoundNamesTest.class,
+  NodeKindTest.class,
   NodePrinterTest.class,
   NodeVisitorTest.class,
   ParserInputTest.class,
