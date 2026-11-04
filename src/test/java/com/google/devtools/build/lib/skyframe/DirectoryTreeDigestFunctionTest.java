@@ -79,7 +79,9 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
 
     skyFunctions =
         ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-            .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
+            .put(
+                SkyFunctions.FILE,
+                new FileFunction(packageLocator, directories, externalFilesHelper))
             .put(
                 FileStateKey.FILE_STATE,
                 new FileStateFunction(
