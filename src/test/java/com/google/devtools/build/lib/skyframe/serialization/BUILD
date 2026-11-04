@@ -301,11 +301,17 @@ java_test(
     name = "DictCodecTest",
     size = "small",
     srcs = ["DictCodecTest.java"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:starlark_collection_codecs",
+    ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
     ],
 )

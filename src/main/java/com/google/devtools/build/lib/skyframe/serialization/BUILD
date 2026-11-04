@@ -124,6 +124,7 @@ java_library(
             "SerializationModule.java",
             "SkycacheMetadataParams.java",
             "SkyValueRetriever.java",
+            "DictCodec.java",
             "StarlarkListCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
@@ -252,11 +253,15 @@ java_library(
 # serialization library does not depend on the Starlark interpreter.
 java_library(
     name = "starlark_collection_codecs",
-    srcs = ["StarlarkListCodec.java"],
+    srcs = [
+        "DictCodec.java",
+        "StarlarkListCodec.java",
+    ],
     deps = [
         ":serialization",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )

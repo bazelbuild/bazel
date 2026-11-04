@@ -56,8 +56,11 @@ import java.util.function.BiConsumer;
  * the {@link Map#equals} contract to safely handle comparisons with arbitrary or type-restricted
  * maps where our keys might be incompatible.
  */
-abstract sealed class CompactImmutableDict<K, V> extends Dict<K, V> {
+public abstract sealed class CompactImmutableDict<K, V> extends Dict<K, V> {
 
+  public static final int MAX_LINEAR_SIZE = 8;
+
+  // The empty dict contains no keys or values, so it is safe to view it with any type parameters.
   @SuppressWarnings("unchecked")
   public static <K, V> CompactImmutableDict<K, V> empty() {
     return (CompactImmutableDict<K, V>) EmptyImmutableDict.INSTANCE;
@@ -97,7 +100,9 @@ abstract sealed class CompactImmutableDict<K, V> extends Dict<K, V> {
           vs[i] = e.getValue();
           i++;
         }
-        yield size <= 8 ? new LinearImmutableDict<>(ks, vs) : new HashImmutableDict<>(ks, vs);
+        yield size <= MAX_LINEAR_SIZE
+            ? new LinearImmutableDict<>(ks, vs)
+            : new HashImmutableDict<>(ks, vs);
       }
     };
   }
@@ -629,8 +634,16 @@ abstract sealed class CompactImmutableDict<K, V> extends Dict<K, V> {
     private final int[] table;
 
     HashImmutableDict(K[] ks, V[] vs) {
-      super(ks, vs);
+      this(ks, vs, createTable(ks));
+    }
 
+    // Also invoked reflectively by DictCodec with a null table before ks is populated.
+    private HashImmutableDict(K[] ks, V[] vs, int[] table) {
+      super(ks, vs);
+      this.table = table;
+    }
+
+    private static int[] createTable(Object[] ks) {
       int n = ks.length;
       int tableSize = n * 2; // 0.5 load factor.
       int[] table = new int[tableSize];
@@ -645,7 +658,7 @@ abstract sealed class CompactImmutableDict<K, V> extends Dict<K, V> {
         }
         table[idx] = i;
       }
-      this.table = table;
+      return table;
     }
 
     private static int getTableIndex(Object k, int tableSize) {
