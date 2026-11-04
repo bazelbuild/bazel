@@ -139,10 +139,9 @@ public final class StarlarkRuleContext
 
   private final boolean isForAspect;
 
-  private final StarlarkActionFactory actionFactory;
-
   // The fields below are intended to be final except that they can be cleared by calling
   // `close()` when the object becomes featureless (analogous to freezing).
+  private StarlarkActionFactory actionFactory;
   private RuleContext ruleContext;
   private FragmentCollection fragments;
   @Nullable private AspectDescriptor aspectDescriptor;
@@ -485,6 +484,7 @@ public final class StarlarkRuleContext
       ruleContext.ruleError("'super' was not called.");
     }
 
+    actionFactory = null;
     ruleContext = null;
     fragments = null;
     aspectDescriptor = null;
@@ -626,7 +626,7 @@ public final class StarlarkRuleContext
     if (ruleContext != null && ruleContext.getRule().getRuleClassObject().isMaterializerRule()) {
       throw Starlark.errorf("ctx.actions is not available in materializer rules");
     }
-    return actionFactory;
+    return actionFactory != null ? actionFactory : new StarlarkActionFactory(this);
   }
 
   @Override
