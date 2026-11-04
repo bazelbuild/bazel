@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -82,6 +83,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * com.google.devtools.build.lib.actions.Artifact}. This way, we can use an {@link ActionInput} to
    * search {@link #childData}.
    */
+  // TODO(b/576581171): Investigate replacing ImmutableSortedMap with a sorted ImmutableMap to avoid
+  // comparators inconsistent with equals.
   @SerializationConstant @VisibleForSerialization
   static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
       Comparator.comparing(ActionInput::getExecPath);
@@ -405,8 +408,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return false;
     }
 
+    // childData compares its keys by exec path only, but the children of a tree artifact produced
+    // by an action template can change their generating actions without changing their paths.
     return Arrays.equals(digest, that.digest)
-        && childData.equals(that.childData)
+        && Iterables.elementsEqual(childData.entrySet(), that.childData.entrySet())
         && Objects.equals(archivedRepresentation, that.archivedRepresentation)
         && Objects.equals(resolvedPath, that.resolvedPath);
   }
