@@ -25,6 +25,7 @@ java_library(
     srcs = ["SerializationRegistrySetupHelpers.java"],
     runtime_deps = [
         ":builtin_manager_codec",
+        ":starlark_collection_codecs",
     ],
     deps = [
         ":module_codec",
@@ -124,6 +125,7 @@ java_library(
             "SkycacheMetadataParams.java",
             "SkyValueRetriever.java",
             "DictCodec.java",
+            "StarlarkListCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
@@ -253,6 +255,7 @@ java_library(
     name = "starlark_collection_codecs",
     srcs = [
         "DictCodec.java",
+        "StarlarkListCodec.java",
     ],
     deps = [
         ":serialization",
