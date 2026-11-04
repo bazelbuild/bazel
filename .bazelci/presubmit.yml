@@ -199,7 +199,7 @@ tasks:
       - build
       - test
   windows:
-    shards: 10
+    shards: 12
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
