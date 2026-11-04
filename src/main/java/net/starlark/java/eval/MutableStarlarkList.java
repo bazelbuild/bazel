@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import java.lang.invoke.VarHandle;
 import java.util.Arrays;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -82,6 +83,7 @@ final class MutableStarlarkList<E> extends StarlarkList<E> implements Compactabl
     return ImmutableList.copyOf(this);
   }
 
+  // Elements are only ever added from values of type E.
   @Override
   @SuppressWarnings("unchecked")
   public E get(int i) {
@@ -198,6 +200,9 @@ final class MutableStarlarkList<E> extends StarlarkList<E> implements Compactabl
     return Arrays.copyOf(elems, size, Object[].class);
   }
 
+  // Generic arrays cannot be created without unchecked casts. Per the Collection#toArray(T[])
+  // contract, the caller guarantees that T is a supertype of the elements' runtime types; stores
+  // into `a` are additionally checked by the JVM at runtime.
   @SuppressWarnings("unchecked")
   @Override
   public <T> T[] toArray(T[] a) {
@@ -211,7 +216,7 @@ final class MutableStarlarkList<E> extends StarlarkList<E> implements Compactabl
   }
 
   @Override
-  Object[] elems() {
+  public Object[] elems() {
     return elems;
   }
 
@@ -220,7 +225,12 @@ final class MutableStarlarkList<E> extends StarlarkList<E> implements Compactabl
     Preconditions.checkState(mutability.isFrozen());
     if (elems.length > size) {
       // shrink the Object array
-      elems = Arrays.copyOf(elems, size);
+      Object[] shrunk = Arrays.copyOf(elems, size);
+      // This frozen list may be read concurrently (e.g. by asynchronous serialization) without
+      // synchronization. This fence ensures that racing readers observing the new array also
+      // observe its copied contents.
+      VarHandle.storeStoreFence();
+      elems = shrunk;
     }
     // Give the caller an immutable specialization of StarlarkList.
     return wrap(Mutability.IMMUTABLE, elems);

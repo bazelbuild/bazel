@@ -413,6 +413,23 @@ java_test(
     ],
 )
 
+java_test(
+    name = "StarlarkListCodecTest",
+    size = "small",
+    srcs = ["StarlarkListCodecTest.java"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:starlark_collection_codecs",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
+    ],
+)
+
 java_library(
     name = "serialization-tests",
     testonly = 1,
@@ -424,6 +441,7 @@ java_library(
             "PackageLookupValueCodecTest.java",
             "MutableListCodecTest.java",
             "SingletonCodecTest.java",
+            "StarlarkListCodecTest.java",
             "TupleCodecTest.java",
             "TransitiveTraversalValueCodecTest.java",
             "WorkspaceNameValueCodecTest.java",

@@ -25,6 +25,7 @@ java_library(
     srcs = ["SerializationRegistrySetupHelpers.java"],
     runtime_deps = [
         ":builtin_manager_codec",
+        ":starlark_collection_codecs",
     ],
     deps = [
         ":module_codec",
@@ -123,6 +124,7 @@ java_library(
             "SerializationModule.java",
             "SkycacheMetadataParams.java",
             "SkyValueRetriever.java",
+            "StarlarkListCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
@@ -242,6 +244,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+# Codecs for Starlark collections. These are kept out of :serialization so that the core
+# serialization library does not depend on the Starlark interpreter.
+java_library(
+    name = "starlark_collection_codecs",
+    srcs = ["StarlarkListCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )
