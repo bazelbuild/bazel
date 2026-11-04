@@ -132,7 +132,20 @@ function rlocation() {
     echo "$TEST_SRCDIR/$1"
   elif [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
     # If a runfiles manifest file exists then use it.
-    echo "$(grep "^$1 " "$RUNFILES_MANIFEST_FILE" | sed 's/[^ ]* //')"
+    if [[ "$1" == *" "* || "$1" == *$'\n'* || "$1" == *\\* ]]; then
+      # Such a path is escaped in the manifest, on a line that starts with a
+      # space. Same scheme as rules_shell's runfiles.bash.
+      local key="${1//\\/\\b}"
+      key="${key// /\\s}"
+      key="${key//$'\n'/\\n}"
+      key="$(echo -n "$key" | sed 's/[.[\*^$]/\\&/g')"
+      local target
+      target="$(grep -m1 "^ $key " "$RUNFILES_MANIFEST_FILE" | cut -d' ' -f3-)"
+      target="${target//\\n/$'\n'}"
+      echo "${target//\\b/\\}"
+    else
+      echo "$(grep "^$1 " "$RUNFILES_MANIFEST_FILE" | sed 's/[^ ]* //')"
+    fi
   fi
 }
 
@@ -176,7 +189,7 @@ fi
 if is_absolute "$EXE"; then
   TEST_PATH="$EXE"
 else
-  TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
+  TEST_PATH="$(rlocation "$TEST_WORKSPACE/$EXE")"
 fi
 
 # Redefine rlocation to notify users of its removal - it used to be exported.

@@ -1306,6 +1306,31 @@ EOF
   bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "should have succeeded"
 }
 
+function test_test_in_package_with_space() {
+  mkdir -p "dir with space"
+  add_rules_shell "MODULE.bazel"
+
+  cat <<'EOF' > "dir with space/test.sh"
+#!/bin/sh
+echo "test ran"
+EOF
+  chmod u+x "dir with space/test.sh"
+  cat <<'EOF' > "dir with space/BUILD"
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = 'test',
+    srcs = ['test.sh'],
+)
+EOF
+  bazel test --test_output=all "//dir with space:test" >& $TEST_log \
+    || fail "should have succeeded"
+  expect_log "test ran"
+  # Without a runfiles tree the test is found through the escaped manifest entry.
+  bazel test --noenable_runfiles --nocache_test_results --test_output=all \
+    "//dir with space:test" >& $TEST_log || fail "should have succeeded"
+  expect_log "test ran"
+}
+
 function test_test_with_reserved_env_variable() {
   mkdir -p dir
   add_rules_shell "MODULE.bazel"
