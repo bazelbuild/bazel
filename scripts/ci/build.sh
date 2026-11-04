@@ -485,6 +485,22 @@ function release_to_apt() {
   fi
 }
 
+# Package the Rust Bazel implementation (bazel-rs) into Bazelisk-compatible
+# release artifacts (<artifact_dir>/bazel-<version>-<os>-<arch>[.exe]) when
+# BAZEL_RS_RELEASE=1 or when Cargo is available for the host platform.
+function package_bazel_rs_release() {
+  local artifact_dir="$1"
+  local release_label="$2"
+  local repo_root
+  repo_root="$(cd "${BUILD_SCRIPT_DIR}/../.." && pwd)"
+  if [[ -x "${repo_root}/scripts/packages/package_bazel_rs.sh" ]] && command -v cargo &>/dev/null; then
+    echo "+++ Packaging bazel-rs release artifacts for ${release_label}"
+    "${repo_root}/scripts/packages/package_bazel_rs.sh" \
+      --version "${release_label}" \
+      --output-dir "${artifact_dir}"
+  fi
+}
+
 # A wrapper around the release deployment methods.
 function deploy_release() {
   local release_label="$(get_full_release_name)"
@@ -499,6 +515,10 @@ function deploy_release() {
   if [[ -z $release_name ]]; then
     echo "Could not get the release name - are you in a release branch directory?"
     exit 1
+  fi
+
+  if [[ "${BAZEL_RS_RELEASE:-0}" == "1" ]]; then
+    package_bazel_rs_release "${artifact_dir}" "${release_label}"
   fi
 
   ensure_gpg_secret_key_imported

@@ -33,6 +33,7 @@ bazel_dep(name = "rules_jvm_external")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "2.2.0")
+bazel_dep(name = "rules_rs", version = "0.1.3")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
@@ -49,6 +50,31 @@ bazel_dep(name = "rules_cc", version = "0.2.25")
 # platforms from any host. They are not registered by default; see the `llvm`
 # config in .bazelrc.
 bazel_dep(name = "llvm", version = "0.8.21")
+
+# Rust toolchains and Cargo.lock integration via rules_rs.
+rust_toolchains = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+rust_toolchains.toolchain(
+    edition = "2021",
+    version = "1.85.0",
+)
+use_repo(rust_toolchains, "default_rust_toolchains")
+register_toolchains("@default_rust_toolchains//:all")
+
+crate = use_extension("@rules_rs//rs:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "crates",
+    cargo_lockfile = "//:Cargo.lock",
+    cargo_toml = "//:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-pc-windows-msvc",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+    ],
+)
+use_repo(crate, "crates")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy

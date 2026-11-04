@@ -1,0 +1,12 @@
+[package]
+name = "bazel-query"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bazel-cmdline = { workspace = true }
+bazel-packages = { workspace = true }
+bazel-util = { workspace = true }
+bazel-vfs = { workspace = true }
+

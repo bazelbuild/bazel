@@ -1,0 +1,9 @@
+[package]
+name = "bazel-vfs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bazel-util = { workspace = true }
+

@@ -1,0 +1,15 @@
+[package]
+name = "bazel-exec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bazel-analysis = { workspace = true }
+bazel-cmdline = { workspace = true }
+bazel-events = { workspace = true }
+bazel-remote = { workspace = true }
+bazel-sandbox = { workspace = true }
+bazel-util = { workspace = true }
+bazel-vfs = { workspace = true }
+

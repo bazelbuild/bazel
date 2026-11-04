@@ -1,0 +1,15 @@
+[package]
+name = "bazel-jni-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+bazel-cmdline = { workspace = true }
+bazel-skyframe = { workspace = true }
+bazel-util = { workspace = true }
+bazel-vfs = { workspace = true }
+

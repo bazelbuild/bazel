@@ -360,6 +360,42 @@ genrule(
     ("_nojdk", "_nojdk"),
 ]]
 
+alias(
+    name = "bazel-rs",
+    actual = "//src/main/rust:bazel-rs",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "bazel-rs-dev",
+    actual = "//src/main/rust:bazel-rs",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "bazel_rs_nojdk",
+    actual = "//src/main/rust:bazel-rs",
+    visibility = ["//visibility:public"],
+)
+
+copy_file(
+    name = "bazel-rs-bin.exe",
+    src = "//src/main/rust:bazel-rs",
+    out = "bazel-rs.exe",
+    allow_symlink = True,
+    is_executable = True,
+    visibility = ["//visibility:public"],
+)
+
+copy_file(
+    name = "bazel_rs_nojdk-bin.exe",
+    src = "//src/main/rust:bazel-rs",
+    out = "bazel_rs_nojdk.exe",
+    allow_symlink = True,
+    is_executable = True,
+    visibility = ["//visibility:public"],
+)
+
 # Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.
 [copy_file(
@@ -426,6 +462,7 @@ filegroup(
         "//src/main/java/net/starlark/java:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
+        "//src/main/rust:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",

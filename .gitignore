@@ -37,3 +37,5 @@ eclipse-*bin/
 user.bazelrc
 # Generated directories from 3p deps that may be triggered by IDEs.
 /third_party/java/proguard/**/build
+# Cargo build output directory
+/target/

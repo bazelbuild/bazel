@@ -37,6 +37,29 @@ source scripts/bootstrap/buildenv.sh
 
 mkdir -p output
 : ${BAZEL:=}
+: ${USE_BAZEL_RS:=0}
+
+#
+# Support building the native Rust Bazel binary (bazel-rs) directly when
+# USE_BAZEL_RS=1 is specified, or packaging it alongside output/bazel.
+#
+if [ "${USE_BAZEL_RS}" = "1" ]; then
+  if [ "${EMBED_LABEL-x}" = "x" ]; then
+    git_sha1=$(git_sha1)
+    EMBED_LABEL="$(get_last_version)"
+  fi
+  new_step 'Building Bazel (Rust / bazel-rs)'
+  display "."
+  BAZEL_EMBED_LABEL="${EMBED_LABEL}" cargo build --release --bin bazel-rs \
+    || fail "Could not build bazel-rs with Cargo"
+  cp -f "target/release/bazel-rs${EXE_EXT}" "output/bazel-rs${EXE_EXT}"
+  cp -f "target/release/bazel-rs${EXE_EXT}" "output/bazel${EXE_EXT}"
+  chmod 0755 "output/bazel-rs${EXE_EXT}" "output/bazel${EXE_EXT}"
+  BAZEL="$(pwd)/output/bazel${EXE_EXT}"
+  clear_log
+  display "Build successful! Rust Bazel binary is here: ${BAZEL}"
+  exit 0
+fi
 
 #
 # Create an initial binary so we can host ourself

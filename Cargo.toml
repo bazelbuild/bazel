@@ -1,0 +1,50 @@
+[workspace]
+resolver = "2"
+members = [
+    "src/main/rust/bazel-proto",
+    "src/main/rust/bazel-util",
+    "src/main/rust/bazel-vfs",
+    "src/main/rust/bazel-events",
+    "src/main/rust/bazel-cmdline",
+    "src/main/rust/bazel-options",
+    "src/main/rust/bazel-starlark",
+    "src/main/rust/bazel-packages",
+    "src/main/rust/bazel-bzlmod",
+    "src/main/rust/bazel-query",
+    "src/main/rust/bazel-analysis",
+    "src/main/rust/bazel-rules",
+    "src/main/rust/bazel-sandbox",
+    "src/main/rust/bazel-remote",
+    "src/main/rust/bazel-exec",
+    "src/main/rust/bazel-skyframe",
+    "src/main/rust/bazel-server",
+    "src/main/rust/bazel-client",
+    "src/main/rust/bazel-jni-bridge",
+]
+
+[workspace.package]
+version = "10.0.0-prerelease"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/bazelbuild/bazel"
+
+[workspace.dependencies]
+bazel-proto = { path = "src/main/rust/bazel-proto" }
+bazel-util = { path = "src/main/rust/bazel-util" }
+bazel-vfs = { path = "src/main/rust/bazel-vfs" }
+bazel-events = { path = "src/main/rust/bazel-events" }
+bazel-cmdline = { path = "src/main/rust/bazel-cmdline" }
+bazel-options = { path = "src/main/rust/bazel-options" }
+bazel-starlark = { path = "src/main/rust/bazel-starlark" }
+bazel-packages = { path = "src/main/rust/bazel-packages" }
+bazel-bzlmod = { path = "src/main/rust/bazel-bzlmod" }
+bazel-query = { path = "src/main/rust/bazel-query" }
+bazel-analysis = { path = "src/main/rust/bazel-analysis" }
+bazel-rules = { path = "src/main/rust/bazel-rules" }
+bazel-sandbox = { path = "src/main/rust/bazel-sandbox" }
+bazel-remote = { path = "src/main/rust/bazel-remote" }
+bazel-exec = { path = "src/main/rust/bazel-exec" }
+bazel-skyframe = { path = "src/main/rust/bazel-skyframe" }
+bazel-server = { path = "src/main/rust/bazel-server" }
+bazel-client = { path = "src/main/rust/bazel-client" }
+bazel-jni-bridge = { path = "src/main/rust/bazel-jni-bridge" }

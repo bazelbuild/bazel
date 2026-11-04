@@ -1,0 +1,9 @@
+[package]
+name = "bazel-util"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bazel-proto = { workspace = true }
+

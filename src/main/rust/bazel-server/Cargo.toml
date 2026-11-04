@@ -1,0 +1,28 @@
+[package]
+name = "bazel-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "bazel-server"
+path = "src/main.rs"
+
+[dependencies]
+bazel-analysis = { workspace = true }
+bazel-bzlmod = { workspace = true }
+bazel-cmdline = { workspace = true }
+bazel-events = { workspace = true }
+bazel-exec = { workspace = true }
+bazel-options = { workspace = true }
+bazel-packages = { workspace = true }
+bazel-proto = { workspace = true }
+bazel-query = { workspace = true }
+bazel-remote = { workspace = true }
+bazel-rules = { workspace = true }
+bazel-sandbox = { workspace = true }
+bazel-skyframe = { workspace = true }
+bazel-starlark = { workspace = true }
+bazel-util = { workspace = true }
+bazel-vfs = { workspace = true }
+

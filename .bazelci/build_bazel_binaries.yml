@@ -4,6 +4,8 @@ platforms:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
+      - "//src:bazel-rs"
+      - "//src:bazel_rs_nojdk"
     build_flags:
       - "-c"
       - "opt"
@@ -11,6 +13,8 @@ platforms:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
+      - "//src:bazel-rs"
+      - "//src:bazel_rs_nojdk"
     build_flags:
       - "-c"
       - "opt"
@@ -18,6 +22,8 @@ platforms:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
+      - "//src:bazel-rs"
+      - "//src:bazel_rs_nojdk"
     build_flags:
       - "-c"
       - "opt"
@@ -25,6 +31,8 @@ platforms:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
+      - "//src:bazel-rs"
+      - "//src:bazel_rs_nojdk"
     build_flags:
       - "-c"
       - "opt"
@@ -35,6 +43,8 @@ platforms:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
+      - "//src:bazel-rs"
+      - "//src:bazel_rs_nojdk"
     build_flags:
       - "-c"
       - "opt"
@@ -42,6 +52,8 @@ platforms:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
+      - "//src:bazel-rs"
+      - "//src:bazel_rs_nojdk"
     build_flags:
       - "-c"
       - "opt"
@@ -54,6 +66,8 @@ platforms:
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"
+      - "//src:bazel-rs.exe"
+      - "//src:bazel_rs_nojdk.exe"
   windows_arm64:
     build_flags:
       - "--copt=-w"
@@ -64,3 +78,5 @@ platforms:
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"
+      - "//src:bazel-rs.exe"
+      - "//src:bazel_rs_nojdk.exe"

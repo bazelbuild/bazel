@@ -1,0 +1,18 @@
+[package]
+name = "bazel-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "bazel-rs"
+path = "src/main.rs"
+
+[dependencies]
+bazel-cmdline = { workspace = true }
+bazel-options = { workspace = true }
+bazel-proto = { workspace = true }
+bazel-server = { workspace = true }
+bazel-util = { workspace = true }
+bazel-vfs = { workspace = true }
+
