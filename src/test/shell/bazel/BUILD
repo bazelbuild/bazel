@@ -1021,23 +1021,6 @@ sh_test(
     tags = ["no_windows"],
 )
 
-# To run this test, ensure that maven_dependency_plugin() and
-# android_repositories() in WORKSPACE are uncommented.
-sh_test(
-    name = "maven_starlark_test",
-    size = "medium",
-    srcs = ["maven_starlark_test.sh"],
-    data = [
-        ":test-deps",
-        "//external:android_sdk_for_testing",
-        "@m2//:files",
-    ],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-)
-
 sh_test(
     name = "python_version_test",
     size = "medium",
