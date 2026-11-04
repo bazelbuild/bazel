@@ -102,54 +102,22 @@ amount of time to run to completion. The time limit for a test is based on its
 [`timeout`](/reference/be/common-definitions#test.timeout) attribute according
 to the following table:
 
-<table>
-  <tr>
-    <th>timeout</th>
-    <th>Time Limit (sec.)</th>
-  </tr>
-  <tr>
-    <td>short</td>
-    <td>60</td>
-  </tr>
-  <tr>
-    <td>moderate</td>
-    <td>300</td>
-  </tr>
-  <tr>
-    <td>long</td>
-    <td>900</td>
-  </tr>
-  <tr>
-    <td>eternal</td>
-    <td>3600</td>
-  </tr>
-</table>
+| timeout  | Time Limit (sec.) |
+| -------- | ----------------- |
+| short    | 60                |
+| moderate | 300               |
+| long     | 900               |
+| eternal  | 3600              |
 
 Tests which do not explicitly specify a timeout have one implied based on the
 test's [`size`](/reference/be/common-definitions#test.size) as follows:
 
-<table>
-  <tr>
-    <th>size</th>
-    <th>Implied timeout label</th>
-  </tr>
-  <tr>
-    <td>small</td>
-    <td>short</td>
-  </tr>
-  <tr>
-    <td>medium</td>
-    <td>moderate</td>
-  </tr>
-  <tr>
-    <td>large</td>
-    <td>long</td>
-  </tr>
-  <tr>
-    <td>enormous</td>
-    <td>eternal</td>
-  </tr>
-</table>
+| size     | Implied timeout label |
+| -------- | --------------------- |
+| small    | short                 |
+| medium   | moderate              |
+| large    | long                  |
+| enormous | eternal               |
 
 A "large" test with no explicit timeout setting will be allotted 900
 seconds to run. A "medium" test with a timeout of "short" will be allotted 60
@@ -174,28 +142,12 @@ sets the test timeout to two minutes.
 
 There is also a recommended lower bound for test timeouts as follows:
 
-<table>
-  <tr>
-    <th>timeout</th>
-    <th>Time minimum (sec.)</th>
-  </tr>
-  <tr>
-    <td>short</td>
-    <td>0</td>
-  </tr>
-  <tr>
-    <td>moderate</td>
-    <td>30</td>
-  </tr>
-  <tr>
-    <td>long</td>
-    <td>300</td>
-  </tr>
-  <tr>
-    <td>eternal</td>
-    <td>900</td>
-  </tr>
-</table>
+| timeout  | Time minimum (sec.) |
+| -------- | ------------------- |
+| short    | 0                   |
+| moderate | 30                  |
+| long     | 300                 |
+| eternal  | 900                 |
 
 For example, if a "moderate" test completes in 5.5s, consider setting `timeout =
 "short"` or `size = "small"`. Using the bazel `--test_verbose_timeout_warnings`
@@ -237,233 +189,46 @@ other arguments to a test unless the user explicitly requests it.
 
 The initial environment block shall be composed as follows:
 
-<table>
-  <tr>
-    <th>Variable</th>
-    <th>Value</th>
-    <th>Status</th>
-  </tr>
-  <tr>
-    <td><code>HOME</code></td>
-    <td>value of <code>$TEST_TMPDIR</code>; can be overridden via <code>--test_env=HOME=...</code> or unset via <code>--test_env==HOME</code></td>
-    <td>recommended</td>
-  </tr>
-  <tr>
-    <td><code>LANG</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LANGUAGE</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LC_ALL</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LC_COLLATE</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LC_CTYPE</code></td>
-    <td><em>unset</em> or <code>C.UTF-8</code></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LC_MESSAGES</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LC_MONETARY</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LC_NUMERIC</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LC_TIME</code></td>
-    <td><em>unset</em></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>LD_LIBRARY_PATH</code></td>
-    <td>colon-separated list of directories containing shared libraries</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>JAVA_RUNFILES</code></td>
-    <td>value of <code>$TEST_SRCDIR</code></td>
-    <td>deprecated</td>
-  </tr>
-  <tr>
-    <td><code>LOGNAME</code></td>
-    <td>value of <code>$USER</code></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>PATH</code></td>
-    <td><code>/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.</code></td>
-    <td>recommended</td>
-  </tr>
-  <tr>
-    <td><code>PWD</code></td>
-    <td><code>$TEST_SRCDIR/<var>workspace-name</var></code></td>
-    <td>recommended</td>
-  </tr>
-  <tr>
-    <td><code>SHLVL</code></td>
-    <td><code>2</code></td>
-    <td>recommended</td>
-  </tr>
-  <tr>
-    <td><code>TEST_INFRASTRUCTURE_FAILURE_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (This file
-      should only be used to report failures originating from the testing
-      infrastructure, not as a general mechanism for reporting flaky failures
-      of tests. In this context, testing infrastructure is defined as systems
-      or libraries that are not test-specific, but can cause test failures by
-      malfunctioning. The first line is the name of the testing infrastructure
-      component that caused the failure, the second one a human-readable
-      description of the failure. Additional lines are ignored.)</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_LOGSPLITTER_OUTPUT_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (used to write
-      Logsplitter protobuffer log)</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_PREMATURE_EXIT_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (used for
-      catching calls to <code>exit()</code>)</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_RANDOM_SEED</code></td>
-    <td>If the <code>--runs_per_test</code> option is used,
-      <code>TEST_RANDOM_SEED</code> is set to the <var>run number</var>
-      (starting with 1) for each individual test run.</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_RUN_NUMBER</code></td>
-    <td>If the <code>--runs_per_test</code> option is used,
-      <code>TEST_RUN_NUMBER</code> is set to the <var>run number</var>
-      (starting with 1) for each individual test run.</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_TARGET</code></td>
-    <td>The name of the target being tested</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_SIZE</code></td>
-    <td>The test <a href="#size"><code>size</code></a></td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_TIMEOUT</code></td>
-    <td>The test <a href="#timeout"><code>timeout</code></a> in seconds</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_SHARD_INDEX</code></td>
-    <td>shard index, if <a href="#test-sharding"><code>sharding</code></a> is used</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_SHARD_STATUS_FILE</code></td>
-    <td>path to file to touch to indicate support for <a href="#test-sharding"><code>sharding</code></a></td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_SRCDIR</code></td>
-    <td>absolute path to the base of the runfiles tree</td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>TEST_TOTAL_SHARDS</code></td>
-    <td>total
-      <a href="/reference/be/common-definitions#test.shard_count"><code>shard count</code></a>,
-      if <a href="#test-sharding"><code>sharding</code></a> is used</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_TMPDIR</code></td>
-    <td>absolute path to a private writable directory</td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>TEST_WORKSPACE</code></td>
-    <td>the local repository's workspace name</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td>
-    <td>absolute path to a private writable directory (used to write undeclared
-      test outputs). Any files written to the
-      <code>TEST_UNDECLARED_OUTPUTS_DIR</code> directory will be zipped up and
-      added to an <code>outputs.zip</code> file under
-      <code>bazel-testlogs</code>.</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td>
-    <td>absolute path to a private writable directory (used to write undeclared
-      test output annotation <code>.part</code> and <code>.pb</code> files).</td>
-    <td>optional</td>
-  </tr>
-
-  <tr>
-    <td><code>TEST_WARNINGS_OUTPUT_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (used to write
-      test target warnings)</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TESTBRIDGE_TEST_ONLY</code></td>
-    <td>value of
-      <a href="/docs/user-manual#flag--test_filter"><code>--test_filter</code></a>,
-      if specified</td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>TZ</code></td>
-    <td><code>UTC</code></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>USER</code></td>
-    <td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td>
-    <td>required</td>
-  </tr>
-  <tr>
-    <td><code>XML_OUTPUT_FILE</code></td>
-    <td>
-      Location to which test actions should write a test result XML output file.
-      Otherwise, Bazel generates a default XML output file wrapping the test log
-      as part of the test action. The XML schema is based on the
-      <a href="https://github.com/windyroad/JUnit-Schema/blob/1.0.0/JUnit.xsd"
-        class="external">JUnit test result schema</a>.
-    </td>
-    <td>optional</td>
-  </tr>
-  <tr>
-    <td><code>BAZEL_TEST</code></td>
-    <td>Signifies test executable is being driven by <code>bazel test</code></td>
-    <td>required</td>
-  </tr>
-</table>
+| Variable | Value | Status |
+| -------- | ----- | ------ |
+| `HOME` | value of `$TEST_TMPDIR`; can be overridden via `--test_env=HOME=...` or unset via `--test_env==HOME` | recommended |
+| `LANG` | *unset* | required |
+| `LANGUAGE` | *unset* | required |
+| `LC_ALL` | *unset* | required |
+| `LC_COLLATE` | *unset* | required |
+| `LC_CTYPE` | *unset* or `C.UTF-8` | required |
+| `LC_MESSAGES` | *unset* | required |
+| `LC_MONETARY` | *unset* | required |
+| `LC_NUMERIC` | *unset* | required |
+| `LC_TIME` | *unset* | required |
+| `LD_LIBRARY_PATH` | colon-separated list of directories containing shared libraries | optional |
+| `JAVA_RUNFILES` | value of `$TEST_SRCDIR` | deprecated |
+| `LOGNAME` | value of `$USER` | required |
+| `PATH` | `/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.` | recommended |
+| `PWD` | `$TEST_SRCDIR/`*workspace-name* | recommended |
+| `SHLVL` | `2` | recommended |
+| `TEST_INFRASTRUCTURE_FAILURE_FILE` | absolute path to a private file in a writable directory (This file should only be used to report failures originating from the testing infrastructure, not as a general mechanism for reporting flaky failures of tests. In this context, testing infrastructure is defined as systems or libraries that are not test-specific, but can cause test failures by malfunctioning. The first line is the name of the testing infrastructure component that caused the failure, the second one a human-readable description of the failure. Additional lines are ignored.) | optional |
+| `TEST_LOGSPLITTER_OUTPUT_FILE` | absolute path to a private file in a writable directory (used to write Logsplitter protobuffer log) | optional |
+| `TEST_PREMATURE_EXIT_FILE` | absolute path to a private file in a writable directory (used for catching calls to `exit()`) | optional |
+| `TEST_RANDOM_SEED` | If the `--runs_per_test` option is used, `TEST_RANDOM_SEED` is set to the *run number* (starting with 1) for each individual test run. | optional |
+| `TEST_RUN_NUMBER` | If the `--runs_per_test` option is used, `TEST_RUN_NUMBER` is set to the *run number* (starting with 1) for each individual test run. | optional |
+| `TEST_TARGET` | The name of the target being tested | optional |
+| `TEST_SIZE` | The test [`size`](#size) | optional |
+| `TEST_TIMEOUT` | The test [`timeout`](#timeout) in seconds | optional |
+| `TEST_SHARD_INDEX` | shard index, if [`sharding`](#test-sharding) is used | optional |
+| `TEST_SHARD_STATUS_FILE` | path to file to touch to indicate support for [`sharding`](#test-sharding) | optional |
+| `TEST_SRCDIR` | absolute path to the base of the runfiles tree | required |
+| `TEST_TOTAL_SHARDS` | total [`shard count`](/reference/be/common-definitions#test.shard_count), if [`sharding`](#test-sharding) is used | optional |
+| `TEST_TMPDIR` | absolute path to a private writable directory | required |
+| `TEST_WORKSPACE` | the local repository's workspace name | optional |
+| `TEST_UNDECLARED_OUTPUTS_DIR` | absolute path to a private writable directory (used to write undeclared test outputs). Any files written to the `TEST_UNDECLARED_OUTPUTS_DIR` directory will be zipped up and added to an `outputs.zip` file under `bazel-testlogs`. | optional |
+| `TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR` | absolute path to a private writable directory (used to write undeclared test output annotation `.part` and `.pb` files). | optional |
+| `TEST_WARNINGS_OUTPUT_FILE` | absolute path to a private file in a writable directory (used to write test target warnings) | optional |
+| `TESTBRIDGE_TEST_ONLY` | value of [`--test_filter`](/docs/user-manual#flag--test_filter), if specified | optional |
+| `TZ` | `UTC` | required |
+| `USER` | value of `getpwuid(getuid())->pw_name` | required |
+| `XML_OUTPUT_FILE` | Location to which test actions should write a test result XML output file. Otherwise, Bazel generates a default XML output file wrapping the test log as part of the test action. The XML schema is based on the [JUnit test result schema](https://github.com/windyroad/JUnit-Schema/blob/1.0.0/JUnit.xsd). | optional |
+| `BAZEL_TEST` | Signifies test executable is being driven by `bazel test` | required |
 
 The environment may contain additional entries. Tests should not depend on the
 presence, absence, or value of any environment variable not listed above.
@@ -493,72 +258,23 @@ their default action.
 
 The initial resource limits, both soft and hard, should be set as follows:
 
-<table>
-  <tr>
-    <th>Resource</th>
-    <th>Limit</th>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_AS</code></td>
-    <td>unlimited</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_CORE</code></td>
-    <td>unspecified</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_CPU</code></td>
-    <td>unlimited</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_DATA</code></td>
-    <td>unlimited</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_FSIZE</code></td>
-    <td>unlimited</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_LOCKS</code></td>
-    <td>unlimited</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_MEMLOCK</code></td>
-    <td>unlimited</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_MSGQUEUE</code></td>
-    <td>unspecified</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_NICE</code></td>
-    <td>unspecified</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_NOFILE</code></td>
-    <td>at least 1024</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_NPROC</code></td>
-    <td>unspecified</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_RSS</code></td>
-    <td>unlimited</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_RTPRIO</code></td>
-    <td>unspecified</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_SIGPENDING</code></td>
-    <td>unspecified</td>
-  </tr>
-  <tr>
-    <td><code>RLIMIT_STACK</code></td>
-    <td>unlimited, or 2044KB &lt;= rlim &lt;= 8192KB</td>
-  </tr>
-</table>
+| Resource | Limit |
+| -------- | ----- |
+| `RLIMIT_AS` | unlimited |
+| `RLIMIT_CORE` | unspecified |
+| `RLIMIT_CPU` | unlimited |
+| `RLIMIT_DATA` | unlimited |
+| `RLIMIT_FSIZE` | unlimited |
+| `RLIMIT_LOCKS` | unlimited |
+| `RLIMIT_MEMLOCK` | unlimited |
+| `RLIMIT_MSGQUEUE` | unspecified |
+| `RLIMIT_NICE` | unspecified |
+| `RLIMIT_NOFILE` | at least 1024 |
+| `RLIMIT_NPROC` | unspecified |
+| `RLIMIT_RSS` | unlimited |
+| `RLIMIT_RTPRIO` | unspecified |
+| `RLIMIT_SIGPENDING` | unspecified |
+| `RLIMIT_STACK` | unlimited, or 2044KB &lt;= rlim &lt;= 8192KB |
 
 The initial process times (as returned by `times()`) and resource utilization
 (as returned by `getrusage()`) are unspecified.
@@ -745,42 +461,15 @@ Some tags in the test rules have a special meaning.
 See also the
 [Bazel Build Encyclopedia on the `tags` attribute](/reference/be/common-definitions#common.tags).
 
-<table>
-  <tr>
-    <th>Tag</th>
-    <th>Meaning</th>
-  </tr>
-  <tr>
-    <th><code>exclusive</code></th>
-      <td>run no other test at the same time</td>
-    </tr>
-    <tr>
-      <td><code>external</code></td>
-      <td>test has an external dependency; disable test caching</td>
-    </tr>
-    <tr>
-      <td><code>large</code></td>
-      <td><code>test_suite</code> convention; suite of large tests</td>
-    </tr>
-    <tr>
-      <td><code>manual \*</code></td>
-      <td>don't include test target in wildcard target patterns like
-        <code>:...</code>, <code>:*</code>, or <code>:all</code></td>
-    </tr>
-    <tr>
-      <td><code>medium</code></td>
-      <td><code>test_suite</code> convention; suite of medium tests</td>
-    </tr>
-    <tr>
-      <td><code>small</code></td>
-      <td><code>test_suite</code> convention; suite of small tests</td>
-    </tr>
-    <tr>
-      <td><code>smoke</code></td>
-      <td><code>test_suite</code> convention; means it should be run before
-        committing code changes into the version control system</td>
-    </tr>
-</table>
+| Tag | Meaning |
+| --- | ------- |
+| `exclusive` | run no other test at the same time |
+| `external` | test has an external dependency; disable test caching |
+| `large` | `test_suite` convention; suite of large tests |
+| `manual *` | don't include test target in wildcard target patterns like `:...`, `:*`, or `:all` |
+| `medium` | `test_suite` convention; suite of medium tests |
+| `small` | `test_suite` convention; suite of small tests |
+| `smoke` | `test_suite` convention; means it should be run before committing code changes into the version control system |
 
 Note: bazel `query` does not respect the manual tag.
 
