@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -83,7 +84,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
@@ -370,7 +370,8 @@ final class AspectFunction implements SkyFunction {
 
       List<ConfiguredAspect> directlyRequiredAspects =
           Lists.transform(key.getBaseKeys(), k -> ((AspectValue) aspectValues.get(k)));
-      try {
+      // The merged sets are owned by the merged aspects, whose keys determine the merge's result.
+      try (var _ = NestedSetOwnerScope.enter(key.getBaseKeys())) {
         associatedTarget = MergedConfiguredTarget.of(associatedTarget, directlyRequiredAspects);
       } catch (MergingException e) {
         env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
@@ -928,7 +929,7 @@ final class AspectFunction implements SkyFunction {
                 .add(originalTarget.getPackageMetadata())
                 .addTransitive(transitiveState.transitivePackages())
                 .addTransitive(real.getTransitivePackages())
-                .build()
+                .buildUnowned()
             : null;
 
     analysisProgressReceiver.doneConfigureAspect();
@@ -984,20 +985,18 @@ final class AspectFunction implements SkyFunction {
         view.createAnalysisEnvironment(key, events, env, configuration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
+    NestedSet<Package.Metadata> transitivePackages;
     if (aspect.getDefinition().applyToGeneratingRules()
         && associatedTarget instanceof OutputFile outputFile) {
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitiveState);
     } else {
-      try {
+      transitivePackages = transitiveState.transitivePackages();
+      // Nested sets created while analyzing the aspect, including building its RuleContext, are
+      // owned by the aspect.
+      try (var _ = NestedSetOwnerScope.enter(key)) {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
-        if (analysisEnvironment
-                .getStarlarkSemantics()
-                .get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT)
-            > 0) {
-          NestedSet.beginTargetNestedSetCount();
-        }
         configuredAspect =
             view.getConfiguredTargetFactory()
                 .createAspect(
@@ -1013,7 +1012,7 @@ final class AspectFunction implements SkyFunction {
                     baseTargetToolchainContexts,
                     execGroupCollectionBuilder,
                     configuration,
-                    transitiveState.transitivePackages(),
+                    transitivePackages,
                     key,
                     starlarkExecTransition);
       } catch (IOException e) {
@@ -1028,7 +1027,6 @@ final class AspectFunction implements SkyFunction {
       } catch (InvalidExecGroupException e) {
         throw new AspectFunctionException(e);
       } finally {
-        NestedSet.endTargetNestedSetCount();
         CurrentRuleTracker.endConfiguredAspect();
       }
     }
@@ -1057,7 +1055,7 @@ final class AspectFunction implements SkyFunction {
     if (configuredAspect != NonApplicableAspect.INSTANCE) {
       analysisProgressReceiver.doneConfigureAspect();
     }
-    return AspectValue.create(key, aspect, configuredAspect, transitiveState.transitivePackages());
+    return AspectValue.create(key, aspect, configuredAspect, transitivePackages);
   }
 
   private static boolean targetSatisfiesAspect(Target target, Aspect aspect) {

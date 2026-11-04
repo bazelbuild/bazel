@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -311,6 +312,17 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//pkg:ext2.scl", "compilation of module 'pkg/ext2.scl' failed");
     assertContainsEvent("string literal contains non-ASCII character");
+  }
+
+  @Test
+  public void topLevelDepset_isOwnedByTheFilesKey() throws Exception {
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext.bzl", "d = depset(['a'])");
+
+    SkyKey skyKey = key("//pkg:ext.bzl");
+    Depset depset = (Depset) get(skyKey).get(skyKey).getModule().getGlobals().get("d");
+
+    assertThat(depset.getSet().getOwner()).isEqualTo(skyKey);
   }
 
   private EvaluationResult<BzlLoadValue> get(SkyKey skyKey) throws Exception {

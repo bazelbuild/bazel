@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -1090,5 +1091,213 @@ public final class NestedSetTest {
 
     assertThat(leaves).containsExactly(a);
     assertThat(nonLeaves).containsExactly(ArtifactNestedSetKey.create(childSet));
+  }
+
+  @Test
+  public void equals_comparesOwnerIndexAndOrder_orIdentityWithoutOwner() {
+    NestedSet<String> first;
+    NestedSet<String> second;
+    try (var _ = NestedSetOwnerScope.enter("//pkg:t")) {
+      first = NestedSetBuilder.<String>stableOrder().add("x").build();
+      second = NestedSetBuilder.<String>stableOrder().add("y").build();
+    }
+    NestedSet<String> firstAgain;
+    try (var _ = NestedSetOwnerScope.enter("//pkg:t")) {
+      firstAgain = NestedSetBuilder.<String>stableOrder().add("x").build();
+    }
+    NestedSet<String> firstDifferentDepth =
+        NestedSet.forDeserialization(Order.STABLE_ORDER, 5, "x", "//pkg:t", 0);
+    NestedSet<String> firstDifferentOrder =
+        NestedSet.forDeserialization(Order.COMPILE_ORDER, 1, "x", "//pkg:t", 0);
+    NestedSet<String> differentOwner;
+    try (var _ = NestedSetOwnerScope.enter("//pkg:other")) {
+      differentOwner = NestedSetBuilder.<String>stableOrder().add("x").build();
+    }
+    NestedSet<String> unowned = NestedSetBuilder.<String>stableOrder().add("x").build();
+    NestedSet<String> unownedAgain = NestedSetBuilder.<String>stableOrder().add("x").build();
+
+    assertThat(unowned.getOwner()).isNull();
+    new EqualsTester()
+        .addEqualityGroup(first, firstAgain, firstDifferentDepth)
+        .addEqualityGroup(second)
+        .addEqualityGroup(firstDifferentOrder)
+        .addEqualityGroup(differentOwner)
+        .addEqualityGroup(unowned)
+        .addEqualityGroup(unownedAgain)
+        .testEquals();
+  }
+
+  @Test
+  public void nestedSetOwnerScope_cannotNest() {
+    try (var scope = NestedSetOwnerScope.enter("outer")) {
+      IllegalStateException e =
+          assertThrows(IllegalStateException.class, () -> NestedSetOwnerScope.enter("inner"));
+      assertThat(e).hasMessageThat().contains("NestedSetOwnerScope{owner=outer, nextIndex=0}");
+      assertThat(NestedSetBuilder.<String>stableOrder().add("a").build().getOwner())
+          .isEqualTo("outer");
+      assertThat(scope.toString()).isEqualTo("NestedSetOwnerScope{owner=outer, nextIndex=1}");
+    }
+    assertThat(NestedSetOwnerScope.current()).isNull();
+  }
+
+  @Test
+  public void buildUnowned_createsUnownedSetAndDoesNotConsumeScopeIndex() {
+    try (var _ = NestedSetOwnerScope.enter("//pkg:t")) {
+      NestedSet<String> before = NestedSetBuilder.<String>stableOrder().add("a").build();
+      NestedSet<String> unowned =
+          NestedSetBuilder.<String>stableOrder().addTransitive(before).add("b").buildUnowned();
+      NestedSet<String> after = NestedSetBuilder.<String>stableOrder().add("c").build();
+
+      assertThat(before.getOwner()).isEqualTo("//pkg:t");
+      assertThat(before.getIndex()).isEqualTo(0);
+      assertThat(unowned.getOwner()).isNull();
+      assertThat(unowned.toList()).containsExactly("a", "b").inOrder();
+      assertThat(after.getOwner()).isEqualTo("//pkg:t");
+      assertThat(after.getIndex()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void owned_givesUnownedSetAnOwnerAndPreservesOwnedSet() {
+    NestedSet<String> unowned = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    assertThat(unowned.getOwner()).isNull();
+    assertThrows(IllegalStateException.class, () -> NestedSetBuilder.owned(unowned));
+
+    try (var _ = NestedSetOwnerScope.enter("//pkg:t")) {
+      NestedSet<String> empty =
+          NestedSetBuilder.owned(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+      NestedSet<String> nowOwned = NestedSetBuilder.owned(unowned);
+      NestedSet<String> alreadyOwned = NestedSetBuilder.owned(nowOwned);
+
+      assertThat(empty.isEmpty()).isTrue();
+      assertThat(nowOwned.getOwner()).isEqualTo("//pkg:t");
+      assertThat(nowOwned.getIndex()).isEqualTo(0);
+      assertThat(nowOwned.toList()).containsExactly("a", "b").inOrder();
+      assertThat(alreadyOwned).isSameInstanceAs(nowOwned);
+      assertThat(nextIndex()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void nestedSetOwnerScope_onlyNewNonEmptySetsTakeAnIndex() {
+    ImmutableList<String> cachedList = ImmutableList.of("w1", "w2");
+    NestedSet<String> cachedOutsideScope = NestedSetBuilder.wrap(Order.STABLE_ORDER, cachedList);
+
+    try (var _ = NestedSetOwnerScope.enter("//pkg:t")) {
+      NestedSet<String> empty = NestedSetBuilder.<String>stableOrder().build();
+      NestedSet<String> leaf = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+      NestedSet<String> alias = NestedSetBuilder.<String>stableOrder().addTransitive(leaf).build();
+      NestedSet<String> union =
+          NestedSetBuilder.<String>stableOrder()
+              .addTransitive(leaf)
+              .addTransitive(NestedSetBuilder.<String>stableOrder().add("c").add("d").build())
+              .add("e")
+              .build();
+      NestedSet<String> nonLeaf = union.getNonLeaves().get(0);
+      NestedSet<String> split = union.splitIfExceedsMaximumSize(2);
+      NestedSet<String> deserialized =
+          NestedSet.forDeserialization(
+              Order.STABLE_ORDER, 2, new Object[] {"x", "y"}, "//pkg:other", 7);
+      NestedSet<String> wrappedInScope = NestedSetBuilder.wrap(Order.STABLE_ORDER, cachedList);
+
+      assertThat(empty.getOwner()).isNull();
+      assertThat(leaf.getIndex()).isEqualTo(0);
+      assertThat(alias).isSameInstanceAs(leaf);
+      assertThat(union.getIndex()).isEqualTo(2);
+      assertThat(nonLeaf.getOwner()).isNull();
+      assertThat(split.getOwner()).isNull();
+      assertThat(deserialized.getIndex()).isEqualTo(7);
+      assertThat(wrappedInScope).isNotSameInstanceAs(cachedOutsideScope);
+      assertThat(wrappedInScope.getOwner()).isEqualTo("//pkg:t");
+      assertThat(wrappedInScope.getIndex()).isEqualTo(3);
+      assertThat(nextIndex()).isEqualTo(4);
+    }
+  }
+
+  /** Returns the index that the next new set takes in the active scope, and takes it. */
+  private static int nextIndex() {
+    return NestedSetBuilder.stableOrder().add(new Object()).build().getIndex();
+  }
+
+  /**
+   * On a Skycache reader, a set can arrive as two objects (e.g. a deserialized and a locally
+   * analyzed copy) where the writer had one. The builder must build an equal set and take the same
+   * number of indices either way, whether or not the set has an owner.
+   */
+  @Test
+  public void builder_setAsTwoObjects_takesSameIndicesAsOneObject() {
+    for (Object owner : Arrays.asList("//pkg:dep", null)) {
+      for (Order order : Order.values()) {
+        // Enough other sets to reach both the linear scan and the hash set in the builder.
+        for (int others : new int[] {0, 1, 20}) {
+          NestedSet<String> set =
+              NestedSet.forDeserialization(order, 2, new Object[] {"a", "b"}, owner, 0);
+          NestedSet<String> copy =
+              NestedSet.forDeserialization(order, 2, new Object[] {"a", "b"}, owner, 0);
+          List<NestedSet<String>> extra = new ArrayList<>();
+          for (int i = 0; i < others; i++) {
+            extra.add(
+                NestedSet.forDeserialization(
+                    order, 2, new Object[] {"x" + i, "y" + i}, "//pkg:other", i));
+          }
+
+          ImmutableList<Object> oneObject = buildInScope(order, extra, set, set);
+          ImmutableList<Object> twoObjects = buildInScope(order, extra, set, copy);
+
+          assertWithMessage("owner=%s, order=%s, others=%s", owner, order, others)
+              .that(twoObjects)
+              .isEqualTo(oneObject);
+        }
+      }
+    }
+  }
+
+  /**
+   * Builds a set from the given transitive sets in a fresh scope. Returns the built set and the
+   * number of indices it took.
+   */
+  private static ImmutableList<Object> buildInScope(
+      Order order,
+      List<NestedSet<String>> others,
+      NestedSet<String> first,
+      NestedSet<String> second) {
+    try (var _ = NestedSetOwnerScope.enter("//pkg:consumer")) {
+      NestedSetBuilder<String> builder = NestedSet.builder(order);
+      others.forEach(builder::addTransitive);
+      NestedSet<String> built = builder.addTransitive(first).addTransitive(second).build();
+      return ImmutableList.of(built, nextIndex());
+    }
+  }
+
+  /**
+   * Whether a singleton set is reused for an equal direct element must not depend on whether the
+   * element arrived as the same object (writer) or as a deserialized copy (reader).
+   */
+  @Test
+  public void builder_singletonAndDirectElement_takesSameIndicesForCopyOfElement() {
+    Object element = new Object();
+    Object copy = new Object(); // Like a deserialized copy of an element with identity equality.
+    NestedSet<Object> singleton =
+        NestedSet.forDeserialization(Order.STABLE_ORDER, 1, element, "//pkg:dep", 0);
+
+    assertThat(indicesUsed(copy, singleton)).isEqualTo(indicesUsed(element, singleton));
+  }
+
+  private static int indicesUsed(Object direct, NestedSet<Object> transitive) {
+    try (var _ = NestedSetOwnerScope.enter("//pkg:consumer")) {
+      var _ = NestedSetBuilder.stableOrder().add(direct).addTransitive(transitive).build();
+      return nextIndex();
+    }
+  }
+
+  @Test
+  public void builder_outsideScope_stillDeduplicatesSameSetWithoutOwner() {
+    NestedSet<String> set =
+        NestedSet.forDeserialization(Order.STABLE_ORDER, 2, new Object[] {"a", "b"}, null, 0);
+
+    NestedSet<String> result =
+        NestedSetBuilder.<String>stableOrder().addTransitive(set).addTransitive(set).build();
+
+    assertThat(result).isSameInstanceAs(set);
   }
 }

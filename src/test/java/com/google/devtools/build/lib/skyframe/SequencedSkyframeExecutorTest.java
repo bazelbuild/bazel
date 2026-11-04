@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -931,14 +932,20 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Artifact output1 =
         DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc1);
-    Action action1 = new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, input), output1);
-    ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
+    ActionLookupValue ctValue1;
+    try (var _ = NestedSetOwnerScope.enter(lc1)) {
+      Action action1 = new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, input), output1);
+      ctValue1 = createActionLookupValue(action1, lc1);
+    }
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc2);
-    Action action2 = new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, input), output2);
-    ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
+    ActionLookupValue ctValue2;
+    try (var _ = NestedSetOwnerScope.enter(lc2)) {
+      Action action2 = new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, input), output2);
+      ctValue2 = createActionLookupValue(action2, lc2);
+    }
 
     // Stall both actions during the "checking inputs" phase so that neither will enter
     // SkyframeActionExecutor before both have asked SkyframeActionExecutor if another shared action
@@ -1607,12 +1614,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("cycleOutput"),
             lc1);
-    Action action1 = new DummyAction(cycleArtifact, output);
-    SkyValue ctValue1 =
-        ValueWithMetadata.normal(
-            createActionLookupValue(action1, lc1),
-            null,
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    SkyValue ctValue1;
+    try (var _ = NestedSetOwnerScope.enter(lc1)) {
+      Action action1 = new DummyAction(cycleArtifact, output);
+      ctValue1 =
+          ValueWithMetadata.normal(
+              createActionLookupValue(action1, lc1),
+              null,
+              NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    }
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
@@ -1753,23 +1763,29 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             execPath.getRelative("foo"),
             lc1);
     Action action1 = new WarningAction(ImmutableList.of(), output, "action 1");
-    SkyValue ctValue1 =
-        ValueWithMetadata.normal(
-            createActionLookupValue(action1, lc1),
-            null,
-            NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 1")));
+    SkyValue ctValue1;
+    try (var _ = NestedSetOwnerScope.enter(lc1)) {
+      ctValue1 =
+          ValueWithMetadata.normal(
+              createActionLookupValue(action1, lc1),
+              null,
+              NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 1")));
+    }
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("bar"),
             lc2);
-    Action action2 = new WarningAction(ImmutableList.of(output), output2, "action 2");
-    SkyValue ctValue2 =
-        ValueWithMetadata.normal(
-            createActionLookupValue(action2, lc2),
-            null,
-            NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
+    SkyValue ctValue2;
+    try (var _ = NestedSetOwnerScope.enter(lc2)) {
+      Action action2 = new WarningAction(ImmutableList.of(output), output2, "action 2");
+      ctValue2 =
+          ValueWithMetadata.normal(
+              createActionLookupValue(action2, lc2),
+              null,
+              NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
+    }
     configureActionExecutor();
     skyframeExecutor
         .getDifferencerForTesting()
@@ -2073,11 +2089,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("top"),
             topCTK);
-    Action topAction =
-        new DummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, failureArtifact, catastropheArtifact),
-            topArtifact);
-    ActionLookupValue topALV = createActionLookupValue(topAction, topCTK);
+    ActionLookupValue topAlv;
+    try (var _ = NestedSetOwnerScope.enter(topCTK)) {
+      Action topAction =
+          new DummyAction(
+              NestedSetBuilder.create(Order.STABLE_ORDER, failureArtifact, catastropheArtifact),
+              topArtifact);
+      topAlv = createActionLookupValue(topAction, topCTK);
+    }
     // Perform testing-related setup.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -2085,7 +2104,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ImmutableMap.of(
                 catastropheCTK, Delta.justNew(catastropheALV),
                 failureCTK, Delta.justNew(failureALV),
-                topCTK, Delta.justNew(topALV)));
+                topCTK, Delta.justNew(topAlv)));
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -2704,12 +2723,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("top"),
             topConfiguredTargetKey);
-    Action topAction =
-        new DummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, failureArtifact, infrastructureArtifact),
-            topArtifact);
-    ActionLookupValue topActionLookupValue =
-        createActionLookupValue(topAction, topConfiguredTargetKey);
+    ActionLookupValue topActionLookupValue;
+    try (var _ = NestedSetOwnerScope.enter(topConfiguredTargetKey)) {
+      Action topAction =
+          new DummyAction(
+              NestedSetBuilder.create(Order.STABLE_ORDER, failureArtifact, infrastructureArtifact),
+              topArtifact);
+      topActionLookupValue = createActionLookupValue(topAction, topConfiguredTargetKey);
+    }
     // Perform testing-related setup.
     skyframeExecutor
         .getDifferencerForTesting()
