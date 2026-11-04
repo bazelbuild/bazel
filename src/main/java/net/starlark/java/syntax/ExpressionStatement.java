@@ -20,7 +20,7 @@ public final class ExpressionStatement extends Statement {
   private final Expression expression;
 
   ExpressionStatement(FileLocations locs, Expression expression) {
-    super(locs, Kind.EXPRESSION);
+    super(locs);
     this.expression = expression;
   }
 

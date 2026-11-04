@@ -33,7 +33,7 @@ public final class IfStatement extends Statement {
       int ifOffset,
       Expression condition,
       List<Statement> thenBlock) {
-    super(locs, Kind.IF);
+    super(locs);
     this.token = token;
     this.ifOffset = ifOffset;
     this.condition = condition;

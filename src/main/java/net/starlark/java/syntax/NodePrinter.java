@@ -13,6 +13,7 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /** A pretty-printer for Starlark syntax trees. */
@@ -35,37 +36,39 @@ final class NodePrinter {
   // Main entry point for an arbitrary node.
   // Called by Node.prettyPrint.
   void printNode(Node n) {
-    if (n instanceof Expression) {
-      printExpr((Expression) n);
-
-    } else if (n instanceof Statement) {
-      printStmt((Statement) n);
-
-    } else if (n instanceof StarlarkFile file) {
-      // Only statements are printed, not comments.
-      for (Statement stmt : file.getStatements()) {
+    switch (n) {
+      case Expression expr -> {
+        printExpr(expr);
+      }
+      case Statement stmt -> {
         printStmt(stmt);
       }
-
-    } else if (n instanceof Comment comment) {
-      // We can't really print comments in the right place anyway,
-      // due to how their relative order is lost in the representation
-      // of StarlarkFile. So don't bother word-wrapping and just print
-      // it on a single line.
-      printIndent();
-      buf.append(comment.getText());
-
-    } else if (n instanceof Argument) {
-      printArgument((Argument) n);
-
-    } else if (n instanceof Parameter) {
-      printParameter((Parameter) n);
-
-    } else if (n instanceof DictExpression.Entry) {
-      printDictEntry((DictExpression.Entry) n);
-
-    } else {
-      throw new IllegalArgumentException("unexpected: " + n.getClass());
+      case StarlarkFile file -> {
+        // Only statements are printed, not comments.
+        for (Statement stmt : file.getStatements()) {
+          printStmt(stmt);
+        }
+      }
+      case Comment comment -> {
+        // We can't really print comments in the right place anyway,
+        // due to how their relative order is lost in the representation
+        // of StarlarkFile. So don't bother word-wrapping and just print
+        // it on a single line.
+        printIndent();
+        buf.append(comment.getText());
+      }
+      case Argument arg -> {
+        printArgument(arg);
+      }
+      case Parameter param -> {
+        printParameter(param);
+      }
+      case DictExpression.Entry dictEntry -> {
+        printDictEntry(dictEntry);
+      }
+      default -> {
+        throw new IllegalArgumentException("unexpected: " + n.getClass());
+      }
     }
   }
 
@@ -159,150 +162,109 @@ final class NodePrinter {
   private void printStmt(Statement s) {
     printIndent();
 
-    switch (s.kind()) {
-      case ASSIGNMENT:
-        {
-          AssignmentStatement stmt = (AssignmentStatement) s;
-          printExpr(stmt.getLHS());
-          Expression type = stmt.getType();
-          if (type != null) {
-            buf.append(" : ");
-            printExpr(type);
-          }
-          buf.append(' ');
-          if (stmt.isAugmented()) {
-            buf.append(stmt.getOperator());
-          }
-          buf.append("= ");
-          printExpr(stmt.getRHS());
-          buf.append('\n');
-          break;
-        }
-
-      case EXPRESSION:
-        {
-          ExpressionStatement stmt = (ExpressionStatement) s;
-          printExpr(stmt.getExpression());
-          buf.append('\n');
-          break;
-        }
-
-      case FLOW:
-        {
-          FlowStatement stmt = (FlowStatement) s;
-          buf.append(stmt.getFlowKind()).append('\n');
-          break;
-        }
-
-      case FOR:
-        {
-          ForStatement stmt = (ForStatement) s;
-          buf.append("for ");
-          printExpr(stmt.getVars());
-          buf.append(" in ");
-          printExpr(stmt.getCollection());
-          buf.append(":\n");
-          printSuite(stmt.getBody());
-          break;
-        }
-
-      case DEF:
-        {
-          DefStatement stmt = (DefStatement) s;
-          printDefSignature(stmt);
-          buf.append('\n');
-          printSuite(stmt.getBody());
-          break;
-        }
-
-      case IF:
-        {
-          IfStatement stmt = (IfStatement) s;
-          buf.append(stmt.isElif() ? "elif " : "if ");
-          printExpr(stmt.getCondition());
-          buf.append(":\n");
-          printSuite(stmt.getThenBlock());
-          List<Statement> elseBlock = stmt.getElseBlock();
-          if (elseBlock != null) {
-            if (elseBlock.size() == 1
-                && elseBlock.get(0) instanceof IfStatement
-                && ((IfStatement) elseBlock.get(0)).isElif()) {
-              printStmt(elseBlock.get(0));
-            } else {
-              printIndent();
-              buf.append("else:\n");
-              printSuite(elseBlock);
-            }
-          }
-          break;
-        }
-
-      case LOAD:
-        {
-          LoadStatement stmt = (LoadStatement) s;
-          buf.append("load(");
-          printExpr(stmt.getImport());
-          for (LoadStatement.Binding binding : stmt.getBindings()) {
-            buf.append(", ");
-            Identifier local = binding.getLocalName();
-            String origName = binding.getOriginalName().getName();
-            if (origName.equals(local.getName())) {
-              buf.append('"');
-              printExpr(local);
-              buf.append('"');
-            } else {
-              printExpr(local);
-              buf.append("=\"");
-              buf.append(origName);
-              buf.append('"');
-            }
-          }
-          buf.append(")\n");
-          break;
-        }
-
-      case RETURN:
-        {
-          ReturnStatement stmt = (ReturnStatement) s;
-          buf.append("return");
-          if (stmt.getResult() != null) {
-            buf.append(' ');
-            printExpr(stmt.getResult());
-          }
-          buf.append('\n');
-          break;
-        }
-
-      case TYPE_ALIAS:
-        {
-          TypeAliasStatement stmt = (TypeAliasStatement) s;
-          buf.append("type ");
-          printExpr(stmt.getIdentifier());
-          if (!stmt.getParameters().isEmpty()) {
-            buf.append('[');
-            String sep = "";
-            for (Identifier param : stmt.getParameters()) {
-              buf.append(sep);
-              printExpr(param);
-              sep = ", ";
-            }
-            buf.append(']');
-          }
-          buf.append(" = ");
-          printExpr(stmt.getDefinition(), /* canSkipParenthesis= */ true);
-          buf.append('\n');
-          break;
-        }
-
-      case VAR:
-        {
-          VarStatement stmt = (VarStatement) s;
-          printExpr(stmt.getIdentifier());
+    switch (s) {
+      case AssignmentStatement stmt -> {
+        printExpr(stmt.getLHS());
+        Expression type = stmt.getType();
+        if (type != null) {
           buf.append(" : ");
-          printExpr(stmt.getType());
-          buf.append('\n');
-          break;
+          printExpr(type);
         }
+        buf.append(' ');
+        if (stmt.isAugmented()) {
+          buf.append(stmt.getOperator());
+        }
+        buf.append("= ");
+        printExpr(stmt.getRHS());
+        buf.append('\n');
+      }
+      case ExpressionStatement stmt -> {
+        printExpr(stmt.getExpression());
+        buf.append('\n');
+      }
+      case FlowStatement stmt -> buf.append(stmt.getFlowKind()).append('\n');
+      case ForStatement stmt -> {
+        buf.append("for ");
+        printExpr(stmt.getVars());
+        buf.append(" in ");
+        printExpr(stmt.getCollection());
+        buf.append(":\n");
+        printSuite(stmt.getBody());
+      }
+      case DefStatement stmt -> {
+        printDefSignature(stmt);
+        buf.append('\n');
+        printSuite(stmt.getBody());
+      }
+      case IfStatement stmt -> {
+        buf.append(stmt.isElif() ? "elif " : "if ");
+        printExpr(stmt.getCondition());
+        buf.append(":\n");
+        printSuite(stmt.getThenBlock());
+        ImmutableList<Statement> elseBlock = stmt.getElseBlock();
+        if (elseBlock != null) {
+          if (elseBlock.size() == 1
+              && elseBlock.get(0) instanceof IfStatement elifStmt
+              && elifStmt.isElif()) {
+            printStmt(elifStmt);
+          } else {
+            printIndent();
+            buf.append("else:\n");
+            printSuite(elseBlock);
+          }
+        }
+      }
+      case LoadStatement stmt -> {
+        buf.append("load(");
+        printExpr(stmt.getImport());
+        for (LoadStatement.Binding binding : stmt.getBindings()) {
+          buf.append(", ");
+          Identifier local = binding.getLocalName();
+          String origName = binding.getOriginalName().getName();
+          if (origName.equals(local.getName())) {
+            buf.append('"');
+            printExpr(local);
+            buf.append('"');
+          } else {
+            printExpr(local);
+            buf.append("=\"");
+            buf.append(origName);
+            buf.append('"');
+          }
+        }
+        buf.append(")\n");
+      }
+      case ReturnStatement stmt -> {
+        buf.append("return");
+        if (stmt.getResult() != null) {
+          buf.append(' ');
+          printExpr(stmt.getResult());
+        }
+        buf.append('\n');
+      }
+      case TypeAliasStatement stmt -> {
+        buf.append("type ");
+        printExpr(stmt.getIdentifier());
+        if (!stmt.getParameters().isEmpty()) {
+          buf.append('[');
+          String sep = "";
+          for (Identifier param : stmt.getParameters()) {
+            buf.append(sep);
+            printExpr(param);
+            sep = ", ";
+          }
+          buf.append(']');
+        }
+        buf.append(" = ");
+        printExpr(stmt.getDefinition(), /* canSkipParenthesis= */ true);
+        buf.append('\n');
+      }
+      case VarStatement stmt -> {
+        printExpr(stmt.getIdentifier());
+        buf.append(" : ");
+        printExpr(stmt.getType());
+        buf.append('\n');
+      }
     }
   }
 
@@ -311,241 +273,161 @@ final class NodePrinter {
   }
 
   private void printExpr(Expression expr, boolean canSkipParenthesis) {
-    switch (expr.kind()) {
-      case BINARY_OPERATOR:
-        {
-          BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
-          // TODO(bazel-team): print minimal number of parentheses
-          if (!canSkipParenthesis) {
-            buf.append('(');
-          }
-          printExpr(binop.getX());
-          buf.append(' ');
-          buf.append(binop.getOperator());
-          buf.append(' ');
-          printExpr(binop.getY());
-          if (!canSkipParenthesis) {
-            buf.append(')');
-          }
-          break;
-        }
-
-      case COMPREHENSION:
-        {
-          Comprehension comp = (Comprehension) expr;
-          buf.append(comp.isDict() ? '{' : '[');
-          printNode(comp.getBody()); // Expression or DictExpression.Entry
-          for (Comprehension.Clause clause : comp.getClauses()) {
-            buf.append(' ');
-            if (clause instanceof Comprehension.For forClause) {
-              buf.append("for ");
-              printExpr(forClause.getVars());
-              buf.append(" in ");
-              printExpr(forClause.getIterable());
-            } else {
-              Comprehension.If ifClause = (Comprehension.If) clause;
-              buf.append("if ");
-              printExpr(ifClause.getCondition());
-            }
-          }
-          buf.append(comp.isDict() ? '}' : ']');
-          break;
-        }
-
-      case CONDITIONAL:
-        {
-          ConditionalExpression cond = (ConditionalExpression) expr;
-          printExpr(cond.getThenCase());
-          buf.append(" if ");
-          printExpr(cond.getCondition());
-          buf.append(" else ");
-          printExpr(cond.getElseCase());
-          break;
-        }
-
-      case DICT_EXPR:
-        {
-          DictExpression dictexpr = (DictExpression) expr;
-          buf.append("{");
-          String sep = "";
-          for (DictExpression.Entry entry : dictexpr.getEntries()) {
-            buf.append(sep);
-            printDictEntry(entry);
-            sep = ", ";
-          }
-          buf.append("}");
-          break;
-        }
-
-      case DOT:
-        {
-          DotExpression dot = (DotExpression) expr;
-          printExpr(dot.getObject());
-          buf.append('.');
-          printExpr(dot.getField());
-          break;
-        }
-
-      case CALL:
-        {
-          CallExpression call = (CallExpression) expr;
-          printExpr(call.getFunction());
+    switch (expr) {
+      case BinaryOperatorExpression binop -> {
+        // TODO(bazel-team): print minimal number of parentheses
+        if (!canSkipParenthesis) {
           buf.append('(');
-          String sep = "";
-          for (Argument arg : call.getArguments()) {
-            buf.append(sep);
-            printArgument(arg);
-            sep = ", ";
-          }
+        }
+        printExpr(binop.getX());
+        buf.append(' ');
+        buf.append(binop.getOperator());
+        buf.append(' ');
+        printExpr(binop.getY());
+        if (!canSkipParenthesis) {
           buf.append(')');
-          break;
         }
-
-      case CAST:
-        {
-          CastExpression cast = (CastExpression) expr;
-          buf.append("cast(");
-          printExpr(cast.getType(), /* canSkipParenthesis= */ true);
-          buf.append(", ");
-          printExpr(cast.getValue(), /* canSkipParenthesis= */ true);
-          buf.append(')');
-          break;
-        }
-
-      case ELLIPSIS:
-        {
-          buf.append("...");
-          break;
-        }
-
-      case IDENTIFIER:
-        buf.append(((Identifier) expr).getName());
-        break;
-
-      case INDEX:
-        {
-          IndexExpression index = (IndexExpression) expr;
-          printExpr(index.getObject());
-          buf.append('[');
-          printExpr(index.getKey());
-          buf.append(']');
-          break;
-        }
-
-      case INT_LITERAL:
-        {
-          buf.append(((IntLiteral) expr).getValue());
-          break;
-        }
-
-      case ISINSTANCE:
-        {
-          IsInstanceExpression isinstance = (IsInstanceExpression) expr;
-          buf.append("isinstance(");
-          printExpr(isinstance.getValue(), /* canSkipParenthesis= */ true);
-          buf.append(", ");
-          printExpr(isinstance.getType(), /* canSkipParenthesis= */ true);
-          buf.append(')');
-          break;
-        }
-
-      case FLOAT_LITERAL:
-        {
-          buf.append(((FloatLiteral) expr).getValue());
-          break;
-        }
-
-      case LAMBDA:
-        {
-          LambdaExpression lambda = (LambdaExpression) expr;
-          buf.append("lambda");
-          String sep = " ";
-          for (Parameter param : lambda.getParameters()) {
-            buf.append(sep);
-            sep = ", ";
-            printParameter(param);
+      }
+      case Comprehension comp -> {
+        buf.append(comp.isDict() ? '{' : '[');
+        printNode(comp.getBody()); // Expression or DictExpression.Entry
+        for (Comprehension.Clause clause : comp.getClauses()) {
+          buf.append(' ');
+          if (clause instanceof Comprehension.For forClause) {
+            buf.append("for ");
+            printExpr(forClause.getVars());
+            buf.append(" in ");
+            printExpr(forClause.getIterable());
+          } else {
+            Comprehension.If ifClause = (Comprehension.If) clause;
+            buf.append("if ");
+            printExpr(ifClause.getCondition());
           }
-          buf.append(": ");
-          printExpr(lambda.getBody());
-          break;
         }
-
-      case LIST_EXPR:
-        {
-          ListExpression list = (ListExpression) expr;
-          buf.append(list.isTuple() ? '(' : '[');
-          String sep = "";
-          for (Expression e : list.getElements()) {
-            buf.append(sep);
-            printExpr(e, true);
-            sep = ", ";
-          }
-          if (list.isTuple() && list.getElements().size() == 1) {
-            buf.append(',');
-          }
-          buf.append(list.isTuple() ? ')' : ']');
-          break;
+        buf.append(comp.isDict() ? '}' : ']');
+      }
+      case ConditionalExpression cond -> {
+        printExpr(cond.getThenCase());
+        buf.append(" if ");
+        printExpr(cond.getCondition());
+        buf.append(" else ");
+        printExpr(cond.getElseCase());
+      }
+      case DictExpression dictexpr -> {
+        buf.append("{");
+        String sep = "";
+        for (DictExpression.Entry entry : dictexpr.getEntries()) {
+          buf.append(sep);
+          printDictEntry(entry);
+          sep = ", ";
         }
-
-      case SLICE:
-        {
-          SliceExpression slice = (SliceExpression) expr;
-          printExpr(slice.getObject());
-          buf.append('[');
-          // The first separator colon is unconditional.
-          // The second separator appears only if step is printed.
-          if (slice.getStart() != null) {
-            printExpr(slice.getStart());
-          }
+        buf.append("}");
+      }
+      case DotExpression dot -> {
+        printExpr(dot.getObject());
+        buf.append('.');
+        printExpr(dot.getField());
+      }
+      case CallExpression call -> {
+        printExpr(call.getFunction());
+        buf.append('(');
+        String sep = "";
+        for (Argument arg : call.getArguments()) {
+          buf.append(sep);
+          printArgument(arg);
+          sep = ", ";
+        }
+        buf.append(')');
+      }
+      case CastExpression cast -> {
+        buf.append("cast(");
+        printExpr(cast.getType(), /* canSkipParenthesis= */ true);
+        buf.append(", ");
+        printExpr(cast.getValue(), /* canSkipParenthesis= */ true);
+        buf.append(')');
+      }
+      case Ellipsis _ -> buf.append("...");
+      case Identifier id -> buf.append(id.getName());
+      case IndexExpression index -> {
+        printExpr(index.getObject());
+        buf.append('[');
+        printExpr(index.getKey());
+        buf.append(']');
+      }
+      case IntLiteral intLit -> buf.append(intLit.getValue());
+      case IsInstanceExpression isinstance -> {
+        buf.append("isinstance(");
+        printExpr(isinstance.getValue(), /* canSkipParenthesis= */ true);
+        buf.append(", ");
+        printExpr(isinstance.getType(), /* canSkipParenthesis= */ true);
+        buf.append(')');
+      }
+      case FloatLiteral floatLit -> buf.append(floatLit.getValue());
+      case LambdaExpression lambda -> {
+        buf.append("lambda");
+        String sep = " ";
+        for (Parameter param : lambda.getParameters()) {
+          buf.append(sep);
+          sep = ", ";
+          printParameter(param);
+        }
+        buf.append(": ");
+        printExpr(lambda.getBody());
+      }
+      case ListExpression list -> {
+        buf.append(list.isTuple() ? '(' : '[');
+        String sep = "";
+        for (Expression e : list.getElements()) {
+          buf.append(sep);
+          printExpr(e, true);
+          sep = ", ";
+        }
+        if (list.isTuple() && list.getElements().size() == 1) {
+          buf.append(',');
+        }
+        buf.append(list.isTuple() ? ')' : ']');
+      }
+      case SliceExpression slice -> {
+        printExpr(slice.getObject());
+        buf.append('[');
+        // The first separator colon is unconditional.
+        // The second separator appears only if step is printed.
+        if (slice.getStart() != null) {
+          printExpr(slice.getStart());
+        }
+        buf.append(':');
+        if (slice.getStop() != null) {
+          printExpr(slice.getStop());
+        }
+        if (slice.getStep() != null) {
           buf.append(':');
-          if (slice.getStop() != null) {
-            printExpr(slice.getStop());
-          }
-          if (slice.getStep() != null) {
-            buf.append(':');
-            printExpr(slice.getStep());
-          }
-          buf.append(']');
-          break;
+          printExpr(slice.getStep());
         }
-
-      case STRING_LITERAL:
-        {
-          StringLiteral literal = (StringLiteral) expr;
-          String value = literal.getValue();
-          printStringLiteral(buf, value);
-          break;
+        buf.append(']');
+      }
+      case StringLiteral literal -> printStringLiteral(buf, literal.getValue());
+      case UnaryOperatorExpression unop -> {
+        // TODO(bazel-team): print minimal number of parentheses
+        buf.append(unop.getOperator() == TokenKind.NOT ? "not " : unop.getOperator().toString());
+        if (!canSkipParenthesis) {
+          buf.append('(');
         }
-
-      case UNARY_OPERATOR:
-        {
-          UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
-          // TODO(bazel-team): print minimal number of parentheses
-          buf.append(unop.getOperator() == TokenKind.NOT ? "not " : unop.getOperator().toString());
-          if (!canSkipParenthesis) {
-            buf.append('(');
-          }
-          printExpr(unop.getX());
-          if (!canSkipParenthesis) {
-            buf.append(')');
-          }
-          break;
+        printExpr(unop.getX());
+        if (!canSkipParenthesis) {
+          buf.append(')');
         }
-
-      case TYPE_APPLICATION:
-        {
-          TypeApplication typeApplication = (TypeApplication) expr;
-          printExpr(typeApplication.getConstructor());
-          buf.append('[');
-          String sep = "";
-          for (Expression arg : typeApplication.getArguments()) {
-            buf.append(sep);
-            printExpr(arg, true);
-            sep = ", ";
-          }
-          buf.append(']');
-          break;
+      }
+      case TypeApplication typeApplication -> {
+        printExpr(typeApplication.getConstructor());
+        buf.append('[');
+        String sep = "";
+        for (Expression arg : typeApplication.getArguments()) {
+          buf.append(sep);
+          printExpr(arg, true);
+          sep = ", ";
         }
+        buf.append(']');
+      }
     }
   }
 

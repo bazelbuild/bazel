@@ -195,10 +195,9 @@ public final class TypeTagger extends NodeVisitor {
 
   private TypeConstructor.Term extractTerm(
       Expression expr, ImmutableMap<Resolver.Binding, Integer> typeParams) {
-    switch (expr.kind()) {
-      case BINARY_OPERATOR -> {
+    switch (expr) {
+      case BinaryOperatorExpression binop -> {
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
-        BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
         if (binop.getOperator() == TokenKind.PIPE) {
           TypeConstructor.Term x = extractTypeOrTermEvaluatingToType(binop.getX(), typeParams);
           TypeConstructor.Term y = extractTypeOrTermEvaluatingToType(binop.getY(), typeParams);
@@ -211,9 +210,7 @@ public final class TypeTagger extends NodeVisitor {
         errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
         return Types.ANY;
       }
-      case TYPE_APPLICATION -> {
-        TypeApplication app = (TypeApplication) expr;
-
+      case TypeApplication app -> {
         TypeConstructor constructor = resolveTypeConstructor(app.getConstructor());
         if (constructor == null) {
           return Types.ANY;
@@ -233,8 +230,7 @@ public final class TypeTagger extends NodeVisitor {
           return Types.ANY;
         }
       }
-      case IDENTIFIER -> {
-        Identifier id = (Identifier) expr;
+      case Identifier id -> {
         Resolver.Binding binding = id.getBinding();
         if (typeParams.containsKey(binding)) {
           return new TypeConstructor.Term.TypeVariable(id, typeParams.get(binding));
@@ -250,11 +246,10 @@ public final class TypeTagger extends NodeVisitor {
           return Types.ANY;
         }
       }
-      case ELLIPSIS -> {
+      case Ellipsis _ -> {
         return TypeConstructor.Term.ELLIPSIS;
       }
-      case LIST_EXPR -> {
-        ListExpression listExpr = (ListExpression) expr;
+      case ListExpression listExpr -> {
         if (listExpr.isTuple()) {
           if (listExpr.getElements().isEmpty()) {
             return TypeConstructor.Term.EMPTY_TUPLE;
@@ -266,8 +261,7 @@ public final class TypeTagger extends NodeVisitor {
                   .collect(toImmutableList()));
         }
       }
-      case DICT_EXPR -> {
-        DictExpression dictExpr = (DictExpression) expr;
+      case DictExpression dictExpr -> {
         LinkedHashMap<String, TypeConstructor.Term> map = new LinkedHashMap<>();
         for (DictExpression.Entry entry : dictExpr.getEntries()) {
           if (entry.getKey() instanceof StringLiteral str) {

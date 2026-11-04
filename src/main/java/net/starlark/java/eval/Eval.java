@@ -36,6 +36,7 @@ import net.starlark.java.syntax.ConditionalExpression;
 import net.starlark.java.syntax.DefStatement;
 import net.starlark.java.syntax.DictExpression;
 import net.starlark.java.syntax.DotExpression;
+import net.starlark.java.syntax.Ellipsis;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.FloatLiteral;
@@ -45,6 +46,7 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IndexExpression;
 import net.starlark.java.syntax.IntLiteral;
+import net.starlark.java.syntax.IsInstanceExpression;
 import net.starlark.java.syntax.LambdaExpression;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.LoadStatement;
@@ -57,10 +59,12 @@ import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.TokenKind;
 import net.starlark.java.syntax.TypeAliasStatement;
+import net.starlark.java.syntax.TypeApplication;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.TypeTable;
 import net.starlark.java.syntax.Types.CallableType;
 import net.starlark.java.syntax.UnaryOperatorExpression;
+import net.starlark.java.syntax.VarStatement;
 
 final class Eval {
 
@@ -374,35 +378,31 @@ final class Eval {
       throw new EvalException("Starlark computation cancelled: too many steps");
     }
 
-    switch (st.kind()) {
-      case ASSIGNMENT:
-        execAssignment(fr, (AssignmentStatement) st);
-        return TokenKind.PASS;
-      case EXPRESSION:
-        eval(fr, ((ExpressionStatement) st).getExpression());
-        return TokenKind.PASS;
-      case FLOW:
-        return ((FlowStatement) st).getFlowKind();
-      case FOR:
-        return execFor(fr, (ForStatement) st);
-      case DEF:
-        DefStatement def = (DefStatement) st;
+    return switch (st) {
+      case AssignmentStatement assignStmt -> {
+        execAssignment(fr, assignStmt);
+        yield TokenKind.PASS;
+      }
+      case ExpressionStatement exprStmt -> {
+        eval(fr, exprStmt.getExpression());
+        yield TokenKind.PASS;
+      }
+      case FlowStatement flowStmt -> flowStmt.getFlowKind();
+      case ForStatement forStmt -> execFor(fr, forStmt);
+      case DefStatement def -> {
         StarlarkFunction fn = newFunction(fr, def.getResolvedFunction());
         assignIdentifier(fr, def.getIdentifier(), fn);
-        return TokenKind.PASS;
-      case IF:
-        return execIf(fr, (IfStatement) st);
-      case LOAD:
-        execLoad(fr, (LoadStatement) st);
-        return TokenKind.PASS;
-      case RETURN:
-        return execReturn(fr, (ReturnStatement) st);
-      case TYPE_ALIAS:
-        return execTypeAlias(fr, (TypeAliasStatement) st);
-      case VAR:
-        return TokenKind.PASS;
-    }
-    throw new IllegalArgumentException("unexpected statement: " + st.kind());
+        yield TokenKind.PASS;
+      }
+      case IfStatement ifStmt -> execIf(fr, ifStmt);
+      case LoadStatement loadStmt -> {
+        execLoad(fr, loadStmt);
+        yield TokenKind.PASS;
+      }
+      case ReturnStatement returnStmt -> execReturn(fr, returnStmt);
+      case TypeAliasStatement typeAliasStmt -> execTypeAlias(fr, typeAliasStmt);
+      case VarStatement _ -> TokenKind.PASS;
+    };
   }
 
   /**
@@ -411,33 +411,36 @@ final class Eval {
    */
   private static void assign(StarlarkThread.Frame fr, Expression lhs, Object value)
       throws EvalException, InterruptedException {
-    if (lhs instanceof Identifier ident) {
-      // x = ...
-      assignIdentifier(fr, ident, value);
-
-    } else if (lhs instanceof IndexExpression index) {
-      // x[i] = ...
-      Object object = eval(fr, index.getObject());
-      Object key = eval(fr, index.getKey());
-      EvalUtils.setIndex(object, key, value);
-
-    } else if (lhs instanceof ListExpression list) {
-      // a, b, c = ...
-      assignSequence(fr, list.getElements(), value);
-
-    } else if (lhs instanceof DotExpression dot) {
-      // x.f = ...
-      Object object = eval(fr, dot.getObject());
-      String field = dot.getField().getName();
-      try {
-        EvalUtils.setField(object, field, value);
-      } catch (EvalException ex) {
-        fr.setErrorLocation(dot.getDotLocation());
-        throw ex;
+    switch (lhs) {
+      case Identifier ident -> {
+        // x = ...
+        assignIdentifier(fr, ident, value);
       }
-    } else {
-      // Not possible for resolved ASTs.
-      throw Starlark.errorf("cannot assign to '%s'", lhs);
+      case IndexExpression index -> {
+        // x[i] = ...
+        Object object = eval(fr, index.getObject());
+        Object key = eval(fr, index.getKey());
+        EvalUtils.setIndex(object, key, value);
+      }
+      case ListExpression list -> {
+        // a, b, c = ...
+        assignSequence(fr, list.getElements(), value);
+      }
+      case DotExpression dot -> {
+        // x.f = ...
+        Object object = eval(fr, dot.getObject());
+        String field = dot.getField().getName();
+        try {
+          EvalUtils.setField(object, field, value);
+        } catch (EvalException ex) {
+          fr.setErrorLocation(dot.getDotLocation());
+          throw ex;
+        }
+      }
+      default -> {
+        // Not possible for resolved ASTs.
+        throw Starlark.errorf("cannot assign to '%s'", lhs);
+      }
     }
   }
 
@@ -624,58 +627,45 @@ final class Eval {
     // to reduce the stack usage during recursion, which is
     // especially important in practice for deeply nested a+...+z
     // expressions; see b/153764542.
-    switch (expr.kind()) {
-      case BINARY_OPERATOR:
-        return evalBinaryOperator(fr, (BinaryOperatorExpression) expr);
-      case COMPREHENSION:
-        return evalComprehension(fr, (Comprehension) expr);
-      case CONDITIONAL:
-        return evalConditional(fr, (ConditionalExpression) expr);
-      case DICT_EXPR:
-        return evalDict(fr, (DictExpression) expr);
-      case DOT:
-        return evalDot(fr, (DotExpression) expr);
-      case CALL:
-        return evalCall(fr, (CallExpression) expr);
-      case CAST:
-        return eval(fr, ((CastExpression) expr).getValue());
-      case ISINSTANCE:
+    return switch (expr) {
+      case BinaryOperatorExpression binop -> evalBinaryOperator(fr, binop);
+      case Comprehension comp -> evalComprehension(fr, comp);
+      case ConditionalExpression cond -> evalConditional(fr, cond);
+      case DictExpression dict -> evalDict(fr, dict);
+      case DotExpression dot -> evalDot(fr, dot);
+      case CallExpression call -> evalCall(fr, call);
+      case CastExpression cast -> eval(fr, cast.getValue());
+      case IsInstanceExpression _ -> {
         fr.setErrorLocation(expr.getStartLocation());
         throw new EvalException("isinstance() is not yet supported");
-      case IDENTIFIER:
-        return evalIdentifier(fr, (Identifier) expr);
-      case INDEX:
-        return evalIndex(fr, (IndexExpression) expr);
-      case INT_LITERAL:
+      }
+      case Identifier id -> evalIdentifier(fr, id);
+      case IndexExpression index -> evalIndex(fr, index);
+      case IntLiteral intLit -> {
         // TODO(adonovan): opt: avoid allocation by saving
         // the StarlarkInt in the IntLiteral (a temporary hack
         // until we use a compiled representation).
-        Number n = ((IntLiteral) expr).getValue();
+        Number n = intLit.getValue();
         if (n instanceof Integer nInt) {
-          return StarlarkInt.of(nInt);
+          yield StarlarkInt.of(nInt);
         } else if (n instanceof Long nLong) {
-          return StarlarkInt.of(nLong);
+          yield StarlarkInt.of(nLong);
         } else {
-          return StarlarkInt.of((BigInteger) n);
+          yield StarlarkInt.of((BigInteger) n);
         }
-      case FLOAT_LITERAL:
-        return StarlarkFloat.of(((FloatLiteral) expr).getValue());
-      case LAMBDA:
-        return newFunction(fr, ((LambdaExpression) expr).getResolvedFunction());
-      case LIST_EXPR:
-        return evalList(fr, (ListExpression) expr);
-      case SLICE:
-        return evalSlice(fr, (SliceExpression) expr);
-      case STRING_LITERAL:
-        return ((StringLiteral) expr).getValue();
-      case UNARY_OPERATOR:
-        return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
-      case ELLIPSIS:
-      case TYPE_APPLICATION:
-        // fall through, these only appear in type expressions and should be unreachable from
-        // evaluated code.
-    }
-    throw new IllegalArgumentException("unexpected expression: " + expr.kind());
+      }
+      case FloatLiteral floatLit -> StarlarkFloat.of(floatLit.getValue());
+      case LambdaExpression lambda -> newFunction(fr, lambda.getResolvedFunction());
+      case ListExpression list -> evalList(fr, list);
+      case SliceExpression slice -> evalSlice(fr, slice);
+      case StringLiteral str -> str.getValue();
+      case UnaryOperatorExpression unop -> evalUnaryOperator(fr, unop);
+      // Ellipsis and TypeApplication only appear in type expressions and should be unreachable from
+      // evaluated code.
+      case Ellipsis _, TypeApplication _ ->
+          throw new IllegalArgumentException(
+              "unexpected expression: " + expr.getClass().getSimpleName());
+    };
   }
 
   private static Object evalBinaryOperator(StarlarkThread.Frame fr, BinaryOperatorExpression binop)
