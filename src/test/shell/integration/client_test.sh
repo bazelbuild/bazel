@@ -762,7 +762,7 @@ function test_max_idle_secs() {
   # TODO(https://github.com/bazelbuild/bazel/issues/6773): Remove when fixed.
   bazel shutdown
 
-  local options=( --max_idle_secs=1 )
+  local options=( --max_idle_secs=3 )
 
   local output_base
   output_base="$(bazel "${options[@]}" info output_base 2>"$TEST_log")" \
@@ -781,7 +781,7 @@ function test_max_idle_secs() {
   # Ensure the restart was not triggered by different startup options.
   expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 
-  # Shut down the server started with --max_idle_secs=1 so that subsequent tests
+  # Shut down the server started with --max_idle_secs=3 so that subsequent tests
   # do not reuse it (--max_idle_secs is a volatile startup option that does not
   # trigger a server restart) and experience an idle shutdown right as they
   # connect.
@@ -1013,19 +1013,20 @@ function scrape_client_pid() {
 
 function assert_output_base_deleted() {
   local prefix="$1"
-  for i in $(seq 1 60); do
-    local found
+  local found=""
+  for i in $(seq 1 150); do
     found=$(ls -d "${prefix}"* 2>/dev/null || true)
     if [[ -z "${found}" ]]; then
-      break
+      # Confirm it remains deleted (not transiently empty during rename to temp dir).
+      sleep 0.5
+      found=$(ls -d "${prefix}"* 2>/dev/null || true)
+      if [[ -z "${found}" ]]; then
+        return 0
+      fi
     fi
     sleep 0.2
   done
-  local found
-  found=$(ls -d "${prefix}"* 2>/dev/null || true)
-  if [[ -n "${found}" ]]; then
-    fail "Output base (or temp shutdown dir) was not deleted: ${found}"
-  fi
+  fail "Output base (or temp shutdown dir) was not deleted: ${found}"
 }
 
 function test_delete_output_base_on_shutdown() {
@@ -1130,7 +1131,7 @@ function test_delete_output_base_on_shutdown_directory_with_quotes() {
 
 function test_delete_output_base_on_shutdown_idle_timeout() {
   local my_output_base="${TEST_TMPDIR}/my_ob_idle"
-  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown --max_idle_secs=1 info >& "$TEST_log" || fail "Expected success"
+  bazel --output_base="${my_output_base}" --delete_output_base_on_shutdown --max_idle_secs=3 info >& "$TEST_log" || fail "Expected success"
   if [[ ! -d "${my_output_base}" ]]; then
     fail "Output base should exist while server is running"
   fi
