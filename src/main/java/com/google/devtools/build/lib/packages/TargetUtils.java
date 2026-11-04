@@ -128,6 +128,24 @@ public final class TargetUtils {
   public static boolean isExclusiveIfLocalTestRule(Rule rule) {
     return hasConstraint(rule, "exclusive-if-local");
   }
+
+  /**
+   * Returns true if the test is pinned to local execution by its tags, i.e. it can never run
+   * remotely.
+   *
+   * <p>This mirrors the {@code no-remote} / {@code no-remote-exec} portion of {@link
+   * com.google.devtools.build.lib.actions.Spawns#mayBeExecutedRemotely}. It is used to keep an
+   * "exclusive-if-local" test serialized even when remote execution is configured, because such a
+   * test will still run locally. The {@code local} tag is handled separately by {@link
+   * #isLocalTestRule}.
+   *
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
+   */
+  public static boolean isNoRemoteExecTestRule(Rule rule) {
+    return hasConstraint(rule, "no-remote-exec") || hasConstraint(rule, "no-remote");
+  }
+
   /**
    * Returns true if test marked as "local" by the appropriate keyword
    * in the tags attribute.
