@@ -199,12 +199,17 @@ public class UploadManifest {
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
-    if (outErr.getErrorPath().exists()) {
-      stderrDigest = digestUtil.compute(outErr.getErrorPath());
+    // These are per-action temporary files, so caching their digests would only evict entries
+    // that can still be reused.
+    var errorStat = outErr.getErrorPath().statIfFound();
+    if (errorStat != null) {
+      stderrDigest = DigestUtil.buildDigest(outErr.getErrorPath().getDigest(), errorStat.getSize());
       digestToFile.put(stderrDigest, outErr.getErrorPath());
     }
-    if (outErr.getOutputPath().exists()) {
-      stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+    var outputStat = outErr.getOutputPath().statIfFound();
+    if (outputStat != null) {
+      stdoutDigest =
+          DigestUtil.buildDigest(outErr.getOutputPath().getDigest(), outputStat.getSize());
       digestToFile.put(stdoutDigest, outErr.getOutputPath());
     }
   }
