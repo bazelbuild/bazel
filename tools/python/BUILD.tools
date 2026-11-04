@@ -80,7 +80,10 @@ config_setting(
 
 # The toolchain type for Python rules. Provides a Python 2 and/or Python 3
 # runtime.
-toolchain_type(name = "toolchain_type")
+alias(
+    name = "toolchain_type",
+    actual = "@rules_python//python:toolchain_type",
+)
 
 # A constraint_setting to use for constraints related to the location of the
 # system Python 2 interpreter on a platform.
