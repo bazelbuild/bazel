@@ -1486,6 +1486,7 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
     ],
 )

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -79,30 +79,31 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
-    ImmutableList.Builder<SkyKey> inputKeys =
-        ImmutableList.<SkyKey>builder().addAll(actionTemplate.getInputTreeArtifacts());
+    ImmutableList<TreeArtifact> inputTreeArtifacts = actionTemplate.getInputTreeArtifacts();
 
+    // The values of inputs to the expanded actions are not used by this function. They are
+    // requested so that they are built in parallel with the input tree artifacts instead of only
+    // after the template has been expanded.
+    ImmutableList.Builder<SkyKey> otherInputKeysBuilder = ImmutableList.builder();
     // Following b/143205147, we unwrap the top layer of the NestedSet and evaluate the first layer
     // of the NestedSet as direct Artifact(s) and transitive NestedSet(s).
-    if (!actionTemplate.getInputs().isEmpty()) {
-      for (Artifact leaf : actionTemplate.getInputs().getLeaves()) {
-        inputKeys.add(Artifact.key(leaf));
-      }
-      for (NestedSet<Artifact> nonLeaf : actionTemplate.getInputs().getNonLeaves()) {
-        inputKeys.add(ArtifactNestedSetKey.create(nonLeaf));
-      }
-    }
+    ArtifactNestedSetKey.visitDirectDeps(
+        actionTemplate.getInputs(),
+        leaf -> otherInputKeysBuilder.add(Artifact.key(leaf)),
+        otherInputKeysBuilder::add);
+    ImmutableList<SkyKey> otherInputKeys = otherInputKeysBuilder.build();
 
-    SkyframeLookupResult result = env.getValuesAndExceptions(inputKeys.build());
+    SkyframeLookupResult result =
+        env.getValuesAndExceptions(Iterables.concat(inputTreeArtifacts, otherInputKeys));
 
-    // Input TreeArtifact is not ready yet.
     if (env.valuesMissing()) {
       return null;
     }
+    
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
       ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
-      for (TreeArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
+      for (TreeArtifact inputTreeArtifact : inputTreeArtifacts) {
         TreeArtifactValue treeArtifactValue =
             (TreeArtifactValue)
                 result.getOrThrow(inputTreeArtifact, ActionExecutionException.class);
@@ -112,6 +113,12 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           return null;
         }
         inputTreeFileArtifacts.addAll(treeArtifactValue.getChildren());
+      }
+      // Check other inputs for errors to avoid propagating both a value and an error (b/580921749).
+      for (SkyKey depKey : otherInputKeys) {
+        if (result.get(depKey) == null) {
+          return null;
+        }
       }
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
