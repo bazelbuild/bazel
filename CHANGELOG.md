@@ -1,3 +1,28 @@
+## Release 9.3.2 (2026-11-04)
+
+```
+
+Release Notes:
+
+General:
++ Release 9.3.1 (2026-10-20)
+
+OSS:
++ Update MODULE.bazel and .bazelversion for release-9.3.2 (#32228)
++ Fix linux-sandbox actions being killed prematurely when using virtual… (#32342)
+
+Remote-Exec:
++ Remove remote endpoint and instance flags from action execution salt. (#32254)
+
+Rules-Java:
++ Restore server JAR recompression in `PackageZipper` (#31299) (#32199)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as James Judd, Xùdōng Yáng.
+```
+
 ## Release 7.7.2 (2026-10-23)
 
 ```
@@ -439,7 +464,7 @@ Incompatible changes:
   - Bind mounts specified via `--sandbox_add_mount_pair` (or
     `-M`/`-m` flags in `linux-sandbox`) are now correctly remounted
     read-only when using the hermetic sandbox (with
-    `--experimental_use_hermetic_linux_sandbox`). Build actions that write to
+    `--experimental_sandbox_hermetic`). Build actions that write to
     these paths will now fail with a read-only filesystem error.
   - `--use_target_platform_for_tests` is now a no-op. By default,
     tests are executed on an execution platform that has all
