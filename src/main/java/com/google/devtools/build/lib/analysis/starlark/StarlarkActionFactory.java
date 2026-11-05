@@ -1191,17 +1191,18 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .put(ExecutionRequirements.MAP_DIRECTORY_ACTION, "")
             .buildKeepingLast();
 
+    validateIsTopLevelStarlarkFunction(implementation);
+
+    String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
+
     ActionEnvironment actionEnv =
         SpawnAction.createActionEnvironment(
             ruleContext.getConfiguration(),
+            ruleContext.getExecutionPlatform(execGroup),
             useDefaultShellEnv,
             envUnchecked == Starlark.NONE
                 ? ImmutableMap.of()
                 : ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));
-
-    validateIsTopLevelStarlarkFunction(implementation);
-
-    String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
 
     ResourceSetOrBuilder resourceSet = DEFAULT_RESOURCE_SET;
     if (resourceSetUnchecked != Starlark.NONE) {
