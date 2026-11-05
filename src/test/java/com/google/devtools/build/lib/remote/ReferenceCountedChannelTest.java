@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +33,35 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ReferenceCountedChannel}. */
 @RunWith(JUnit4.class)
 public class ReferenceCountedChannelTest {
+
+  @Test
+  public void release_interruptedDuringTermination_finishesClosingAndRestoresInterrupt()
+      throws Exception {
+    ChannelConnectionWithServerCapabilitiesFactory factory =
+        mock(ChannelConnectionWithServerCapabilitiesFactory.class);
+    when(factory.maxConcurrency()).thenReturn(1);
+    ManagedChannel channel = mock(ManagedChannel.class);
+    when(channel.awaitTermination(Integer.MAX_VALUE, SECONDS))
+        .thenThrow(new InterruptedException())
+        .thenReturn(true);
+    var connection =
+        new ChannelConnectionWithServerCapabilities(
+            channel, Single.just(ServerCapabilities.getDefaultInstance()));
+    when(factory.create()).thenAnswer(unused -> Single.just(connection));
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(factory);
+    var _ = refCntChannel.withChannelBlocking(unused -> true);
+
+    try {
+      refCntChannel.release();
+
+      assertThat(refCntChannel.isShutdown()).isTrue();
+      verify(channel).shutdownNow();
+      verify(channel, times(2)).awaitTermination(Integer.MAX_VALUE, SECONDS);
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+  }
 
   @Test
   public void getServerCapabilities_memoizesCapabilitiesAcrossCalls() throws Exception {
