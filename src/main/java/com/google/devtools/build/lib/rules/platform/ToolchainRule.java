@@ -51,6 +51,10 @@ public class ToolchainRule implements RuleDefinition {
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
         .removeAttribute(":action_listener")
+        // A toolchain declaration doesn't read these attributes and is only ever consumed by
+        // toolchain resolution, not by aspects, so they have no effect.
+        .removeAttribute("features")
+        .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
         .exemptFromConstraintChecking("this rule *defines* a constraint")
         .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
 
