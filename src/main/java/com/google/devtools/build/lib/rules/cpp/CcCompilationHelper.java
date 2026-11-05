@@ -1226,11 +1226,6 @@ public final class CcCompilationHelper {
           outputFiles, ltoIndexTreeArtifact, getCopts(sourceArtifact, sourceLabel));
     }
 
-    ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext ruleContext
-        && ruleContext.useAutoExecGroups()) {
-      actionOwner = actionConstructionContext.getActionOwner(semantics.getCppToolchainType());
-    }
     try {
       CppCompileActionTemplate actionTemplate =
           new CppCompileActionTemplate(
@@ -1242,7 +1237,8 @@ public final class CcCompilationHelper {
               builder,
               ccToolchain,
               outputCategories,
-              actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
+              CppCompileActionBuilder.getActionOwner(
+                  actionConstructionContext, semantics.getCppToolchainType()));
       actionConstructionContext.registerAction(actionTemplate);
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
