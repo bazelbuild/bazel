@@ -102,7 +102,7 @@ public final class LabelVisitationUtils {
     }
   }
 
-  private static void visitRuleToolchains(
+  static void visitRuleToolchains(
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
     RuleClass ruleClass = rule.getRuleClassObject();
     if (edgeFilter.test(rule, TOOLCHAIN_TYPE_ATTR_FOR_FILTERING)) {

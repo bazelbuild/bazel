@@ -233,6 +233,34 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void protoRuleInputsIncludeDeclaredToolchainType(
+      @TestParameter({"--implicit_deps", "--noimplicit_deps", "--notool_deps"}) String filter)
+      throws Exception {
+    write(
+        "tools/defs.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        reader = rule(implementation = _impl, toolchains = ["//tools:type_alias"])
+        """);
+    write(
+        "tools/BUILD",
+        """
+        load(":defs.bzl", "reader")
+        toolchain_type(name = "type")
+        alias(name = "type_alias", actual = ":type")
+        reader(name = "reader")
+        """);
+
+    ProtoQueryOutput result = getProtoQueryResult("deps(//tools:reader, 1)", filter);
+    List<String> inputs = getProtoTarget(result, "//tools:reader").getRule().getRuleInputList();
+    assertThat(inputs.contains("//tools:type_alias"))
+        .isEqualTo(!filter.equals("--noimplicit_deps"));
+    assertThat(inputs).doesNotContain("//tools:type");
+  }
+
+  @Test
   public void testProtoUnorderedAndOrdered() throws Exception {
     List<String> expected = new ArrayList<>(NUM_DEPS + 1);
     for (int i = 0; i < NUM_DEPS; i++) {
