@@ -30,11 +30,14 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -138,5 +141,61 @@ public final class SymlinkTreeHelperTest {
     assertThat(treeSymlink.isSymbolicLink()).isTrue();
     assertThat(treeSymlink.readSymbolicLink()).isEqualTo(PathFragment.create("/path/to/target"));
     assertThat(treeMissing.exists()).isFalse();
+  }
+
+  /** An in-memory file system that records symlink creations and may claim not to support them. */
+  private static final class SymlinkCountingFileSystem extends InMemoryFileSystem {
+    private final boolean supportsSymlinks;
+    private final AtomicInteger symlinksCreated = new AtomicInteger();
+
+    SymlinkCountingFileSystem(boolean supportsSymlinks) {
+      super(DigestHashFunction.SHA256);
+      this.supportsSymlinks = supportsSymlinks;
+    }
+
+    @Override
+    public boolean supportsSymbolicLinksNatively(PathFragment path) {
+      return supportsSymlinks;
+    }
+
+    @Override
+    public void createSymbolicLink(
+        PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
+        throws IOException {
+      symlinksCreated.incrementAndGet();
+      super.createSymbolicLink(linkPath, targetFragment, type);
+    }
+  }
+
+  @Test
+  public void createSymlinks_existingFileSymlink(@TestParameter boolean supportsSymlinks)
+      throws Exception {
+    SymlinkCountingFileSystem fs = new SymlinkCountingFileSystem(supportsSymlinks);
+    Path execRoot = fs.getPath("/execroot");
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
+    outputRoot.getRoot().asPath().createDirectoryAndParents();
+    Path treeRoot = execRoot.getRelative("foo.runfiles");
+    Path inputManifestPath = execRoot.getRelative("foo.runfiles_manifest");
+    Path outputManifestPath = execRoot.getRelative("foo.runfiles/MANIFEST");
+    SymlinkTreeHelper helper =
+        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot, WORKSPACE_NAME);
+    assertThat(helper.requiresExistingFileTargets()).isEqualTo(!supportsSymlinks);
+
+    Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
+    FileSystemUtils.writeContent(file.getPath(), UTF_8, "content");
+    Path treeFile = treeRoot.getRelative(WORKSPACE_NAME + "/file");
+    // Simulate a link that was created by a previous build (e.g. a junction to the file created
+    // while it didn't exist yet).
+    FileSystemUtils.ensureSymbolicLink(treeFile, file.getPath().asFragment());
+    fs.symlinksCreated.set(0);
+
+    HashMap<PathFragment, Artifact> symlinkMap = new HashMap<>();
+    symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file);
+    helper.createRunfilesSymlinks(symlinkMap);
+
+    assertThat(treeFile.readSymbolicLink()).isEqualTo(file.getPath().asFragment());
+    // With native symlink support, the existing link is kept as-is. Without it, it must be
+    // recreated so that the file system can replace it with a copy of the now existing file.
+    assertThat(fs.symlinksCreated.get()).isEqualTo(supportsSymlinks ? 0 : 1);
   }
 }
