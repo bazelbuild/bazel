@@ -110,7 +110,6 @@ java_library(
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
             "BuiltinManagerCodec.java",
-            "CacheMissReason.java",
             "CodecScanningConstants.java",
             "DependOnFutureShim.java",
             "DeserializedSkyValue.java",
