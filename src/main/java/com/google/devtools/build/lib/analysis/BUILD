@@ -133,7 +133,6 @@ java_library(
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/composed_transition_materializer",
-        ":starlark/starlark_api_provider",
         ":starlark/starlark_attribute_transition_provider",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
@@ -1469,15 +1468,6 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "starlark/starlark_api_provider",
-    srcs = ["starlark/StarlarkApiProvider.java"],
-    deps = [
-        ":provider_collection",
-        "//third_party/java/guava:base",
     ],
 )
 
