@@ -55,6 +55,8 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   private Artifact buildFile;
   private Artifact relativeSymlink;
   private Artifact absoluteSymlink;
+  private Artifact symlink;
+  private Artifact rootSymlink;
   private Artifact manifestOutputFile;
 
   @Before
@@ -93,6 +95,20 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
         UnresolvedSymlinkArtifact.create(
             outputDir,
             outputDir.getExecPath().getChild("absolute_symlink"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    Path symlinkPath = outputDir.getRoot().asPath().getChild("symlink");
+    symlinkPath.createSymbolicLink(PathFragment.create("/symlink/path"));
+    symlink =
+        UnresolvedSymlinkArtifact.create(
+            outputDir,
+            outputDir.getExecPath().getChild("symlink"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    Path rootSymlinkPath = outputDir.getRoot().asPath().getChild("root_symlink");
+    rootSymlinkPath.createSymbolicLink(PathFragment.create("/root/path"));
+    rootSymlink =
+        UnresolvedSymlinkArtifact.create(
+            outputDir,
+            outputDir.getExecPath().getChild("root_symlink"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -367,10 +383,13 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
                 .addArtifact(absoluteSymlink)
                 .addArtifact(buildFile)
                 .addArtifact(relativeSymlink)
+                .addSymlink(PathFragment.create("custom_symlink"), symlink)
+                .addRootSymlink(PathFragment.create("custom_root_symlink"), rootSymlink)
                 .build());
 
     NestedSet<Artifact> inputs = action.getInputs();
-    assertThat(inputs.toList()).containsExactly(absoluteSymlink, relativeSymlink);
+    assertThat(inputs.toList())
+        .containsExactly(absoluteSymlink, relativeSymlink, symlink, rootSymlink);
 
     // Verify that the return value of getInputs is cached.
     assertThat(inputs).isEqualTo(action.getInputs());
@@ -381,7 +400,9 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             """
             TESTING/BUILD /workspace/trivial/BUILD
             TESTING/absolute_symlink /absolute/path
+            TESTING/custom_symlink /symlink/path
             TESTING/relative_symlink ../some/relative/path
+            custom_root_symlink /root/path
             """);
   }
 

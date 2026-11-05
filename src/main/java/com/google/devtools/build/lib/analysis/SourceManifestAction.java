@@ -214,7 +214,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   public synchronized NestedSet<Artifact> getInputs() {
     if (symlinkArtifacts == null) {
       ImmutableList<Artifact> symlinks =
-          runfiles.getArtifacts().toList().stream()
+          runfiles.getAllArtifacts().toList().stream()
               .filter(Artifact::isSymlink)
               .collect(toImmutableList());
       symlinkArtifacts = NestedSetBuilder.wrap(Order.STABLE_ORDER, symlinks);
