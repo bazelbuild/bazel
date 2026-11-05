@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoBuilder;
@@ -44,6 +45,10 @@ public record DeclaredExecGroup(
   public DeclaredExecGroup {
     requireNonNull(toolchainTypesMap, "toolchainTypesMap");
     requireNonNull(execCompatibleWith, "execCompatibleWith");
+    // Ensures that an exec group's resolved toolchain context lists all of its toolchain types.
+    checkArgument(
+        toolchainTypesMap.values().stream().noneMatch(ToolchainTypeRequirement::ignoreIfInvalid),
+        "Only the default exec group can have toolchain types that are ignored if invalid");
   }
 
   // This is intentionally a string that would fail {@code Identifier.isValid} so that
