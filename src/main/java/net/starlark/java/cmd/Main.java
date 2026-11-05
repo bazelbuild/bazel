@@ -30,7 +30,10 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.DefStatement;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ForStatement;
+import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
@@ -100,13 +103,13 @@ class Main {
           List<Statement> stmts = file.getStatements();
           if (!stmts.isEmpty()) {
             Statement last = stmts.get(stmts.size() - 1);
-            switch (last.kind()) {
-              case IF:
-              case DEF:
-              case FOR:
-                break; // keep going until blank line
-              default:
+            switch (last) {
+              case IfStatement _, DefStatement _, ForStatement _ -> {
+                // keep going until blank line
+              }
+              default -> {
                 break loop;
+              }
             }
           }
         }

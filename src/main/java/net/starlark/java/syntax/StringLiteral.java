@@ -25,7 +25,7 @@ public final class StringLiteral extends Expression {
   private final int endOffset;
 
   StringLiteral(FileLocations locs, int startOffset, String value, int endOffset) {
-    super(locs, Kind.STRING_LITERAL);
+    super(locs);
     this.startOffset = startOffset;
     this.value = value;
     this.endOffset = endOffset;

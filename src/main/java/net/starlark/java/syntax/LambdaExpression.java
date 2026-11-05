@@ -29,7 +29,7 @@ public final class LambdaExpression extends Expression {
 
   LambdaExpression(
       FileLocations locs, int lambdaOffset, ImmutableList<Parameter> parameters, Expression body) {
-    super(locs, Kind.LAMBDA);
+    super(locs);
     this.lambdaOffset = lambdaOffset;
     this.parameters = Preconditions.checkNotNull(parameters);
     this.body = Preconditions.checkNotNull(body);
