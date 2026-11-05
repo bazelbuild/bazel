@@ -369,6 +369,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                   }
                   try {
                     dep.removeReverseDep(key);
+                    progressReceiver.removedDependency(depKey);
                   } catch (InterruptedException e) {
                     throw new IllegalStateException(
                         "Deletion cannot happen on a graph that may have blocking operations: "

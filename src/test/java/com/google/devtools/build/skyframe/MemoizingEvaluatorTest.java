@@ -500,6 +500,56 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void removedDependency_collectsDirtyOptInNode() throws Exception {
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey inner = new CollectibleKey("inner");
+    SkyKey shared = new CollectibleKey("shared");
+    SkyKey root = nonHermeticKey("root");
+    SkyKey other = nonHermeticKey("other");
+    tester.set(leaf, new StringValue("one"));
+    tester.getOrCreate(inner).addDependency(leaf).setComputedValue(COPY);
+    tester.getOrCreate(shared).addDependency(inner).setComputedValue(COPY);
+    tester.getOrCreate(root).addDependency(shared).setComputedValue(COPY);
+    tester.getOrCreate(other).addDependency(shared).setComputedValue(COPY);
+    tester.eval(/* keepGoing= */ true, root, other);
+    var sharedEntry = tester.evaluator.getInMemoryGraph().getIfPresent(shared);
+
+    tester.set(leaf, new StringValue("two"));
+    tester
+        .getOrCreate(root, /* markAsModified= */ true)
+        .removeDependency(shared)
+        .addDependency(leaf);
+    tester.invalidate();
+    assertThat(tester.eval(/* keepGoing= */ true, root).get(root))
+        .isEqualTo(new StringValue("two"));
+    assertThat(sharedEntry.isDirty()).isTrue();
+    tester.eval(/* keepGoing= */ true, root);
+    assertThat(tester.evaluator.getInMemoryGraph().getIfPresent(shared))
+        .isSameInstanceAs(sharedEntry);
+
+    assertThat(tester.eval(/* keepGoing= */ true, other).get(other))
+        .isEqualTo(new StringValue("two"));
+    tester.set(leaf, new StringValue("three"));
+    tester
+        .getOrCreate(other, /* markAsModified= */ true)
+        .removeDependency(shared)
+        .addDependency(leaf);
+    tester.invalidate();
+    tester.eval(/* keepGoing= */ true, other);
+    tester.eval(/* keepGoing= */ true, root, other);
+    assertThat(tester.evaluator.getInMemoryGraph().getIfPresent(shared)).isNull();
+    assertThat(tester.evaluator.getInMemoryGraph().getIfPresent(inner)).isNull();
+
+    tester
+        .getOrCreate(root, /* markAsModified= */ true)
+        .removeDependency(leaf)
+        .addDependency(shared);
+    tester.invalidate();
+    assertThat(tester.eval(/* keepGoing= */ true, root).get(root))
+        .isEqualTo(new StringValue("three"));
+  }
+
+  @Test
   public void deletion_collectsUnreferencedOptInDescendants() throws Exception {
     SkyKey leaf = skyKey("leaf");
     SkyKey inner = new CollectibleKey("inner");

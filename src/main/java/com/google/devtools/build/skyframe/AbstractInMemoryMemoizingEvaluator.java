@@ -536,9 +536,18 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
         continue;
       }
       InMemoryNodeEntry entry = getInMemoryGraph().getIfPresent(key);
-      if (entry != null
-          && entry.isDone()
-          && Iterables.all(entry.getReverseDepsForDoneEntry(), valuesToDelete::contains)) {
+      if (entry == null) {
+        continue;
+      }
+      if (!entry.isDone()) {
+        if (entry instanceof IncrementalInMemoryNodeEntry incrementalEntry
+            && incrementalEntry.isUnreferencedWhileDirty(valuesToDelete)) {
+          valuesToDelete.add(key);
+        }
+        // The invalidator visits a deleted dirty entry's saved dependencies.
+        continue;
+      }
+      if (Iterables.all(entry.getReverseDepsForDoneEntry(), valuesToDelete::contains)) {
         valuesToDelete.add(key);
         // Collect descendants in the same batch when all their parents will also be deleted.
         for (SkyKey dep : entry.getDirectDeps()) {
