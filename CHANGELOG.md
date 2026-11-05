@@ -1,3 +1,165 @@
+## Release 11.0.0-pre.20261022.3 (2026-11-05)
+
+```
+Baseline: 93e7f0afc8155d826cec60a9a76b0e070316bf84
+
+Cherry picks:
+
+   + 874721ad3517ca30c62bf9e2428dbdb29ef71082:
+     Automated rollback of commit
+     a2cbc1f4b4303e4e7df927650b46225fdedc7ff2.
+   + 4ddad2e338326232bc57ed789b6e39eb7df2a74c:
+     Handle GitHub API errors and skip rolling releases in
+     relnotes.py.
+```
+
+Incompatible changes:
+
+  - `template_ctx.run` now rejects a template's own output
+    directories passed through `tools`, as it already did for
+    `inputs`. Pass individual files produced by sibling actions
+    instead.
+  - `bazel mod tidy` now evaluates all module extensions in the
+    dependency graph to update the lockfile, including extensions
+    used only by dependencies. It can thus be used as a full
+    replacement for `bazel mod deps` when the goal is to ensure that
+    the lockfile is up-to-date. When using `bazel vendor`, this may
+    require vendoring additional dependencies.
+  - Bazel no longer trims the lines of the `unused_inputs_list` file
+    before matching them against the action's inputs as file names
+    may begin or end with whitespace.
+  - `bazel_dep()` no longer accepts dependencies on the current
+    module, which serve no purpose and were never intended to be
+    allowed. Remove self-dependencies and use the module's own
+    repository name for self-references.
+  - The root module can no longer use `use_repo()` to import an
+    extension repository that it overrides with the root module
+    itself (using `override_repo()` or `inject_repo()`). Remove the
+    self-import and use the root module's existing repository name.
+    Other modules can still import the overridden repository.
+  - The deprecated `@bazel_tools//tools/java:java_stub_template.txt`
+    alias has been removed. Rulesets should maintain their own copy
+    of the template that matches their template expansion code.
+  - `bazel run` of a test now fails with the same error as `bazel
+    test` if no test toolchain matches the test's target platform.
+  - Removed unused or broken `@bazel_tools` content:
+    `tools/build_defs/pkg` (use rules_pkg),
+    `tools/build_defs/cc:cc_import.bzl`, `tools/cpp:toolchain`,
+    `:disable_static_cc_toolchains`, `:current_libc_top`,
+    `:lib_cc_configure` and the `cc_configure` macro, the `tools/jdk`
+    targets `genclass`, `GenClass_deploy.jar`, `turbine_direct`,
+    `turbine_direct_binary_deploy.jar`, `javabuilder`,
+    `JavaBuilder_deploy.jar`, `vanillajavabuilder`, `proguard`,
+    `jre`, `jdk` and `java_runtime_alias`,
+    `tools/jdk:remote_java_repository.bzl`, the
+    `local_java_repository` macro, `android_sdk_proxy_extensions` and
+    `tools/allowlists/skip_validations_allowlist`.
+
+New features:
+
+  - Add `--target_query` / `--target_query_file` flags for
+    building the result of a bazel query in a single command
+  - Added Label.repo_root as a replacement for the deprecated
+    Label.workspace_root.
+  - `ctx.actions.run` now supports redirecting stdout to a file via
+    the new `stdout` parameter.
+  - `bazel query --output=streamed_proto` can opt into parallel
+    serialization with
+    `--experimental_parallel_streamed_proto_output`.
+  - `bazel vendor --lockfile_deps` additionally vendors the
+    repositories required to update the lockfile, e.g. with `bazel
+    mod tidy`, while fetching is disabled, which can be combined with
+    target patterns. The
+    `@bazel_tools//tools:tools_for_bazel_subcommands` filegroup is
+    deprecated.
+  - `bazel dump --skyframe=changed` lists the Skyframe values that
+    the last command created or changed, together with the changed
+    dependencies that caused each change.
+
+Important changes:
+
+  - The `--disk_cache_gc_idle_delay`, `--disk_cache_gc_max_size` and
+    `--disk_cache_gc_max_age` flags are no longer experimental.
+  - The `--install_base_gc_max_age` flag is no longer experimental.
+  - Fixed excessive native thread accumulation when running commands
+    with remote caching or execution enabled in rapid succession.
+  - Ensure test processes receive the full
+    `--local_termination_grace_seconds` period to handle `SIGTERM`
+    and perform cleanup on timeout.
+  - Windows parameter files now preserve empty arguments and
+    correctly escape backslashes before quotes and at the end of
+    quoted arguments.
+  - The self-extracting installer now correctly creates installation
+    directories when custom paths contain spaces.
+  - Add proper error ordering for bazel mobile-install command
+  - Allows Batchfiles ran by CreateProcessW in tw.exe to work under
+    longpathAware.
+  - Fix an O(N^2 log N) analysis phase performance regression when
+    parsing large numbers of Starlark flags.
+  - The `--action_cache_gc_idle_delay`, `--action_cache_gc_threshold`
+    and `--action_cache_gc_max_age` flags are no longer experimental.
+  - `read_user_netrc` in
+    `@bazel_tools//tools/build_defs/repo:utils.bzl` now honors the
+    `NETRC` environment variable, as the `http_*` repository rules
+    already do.
+  - `bazel mod show_repo` now prints the path of each repo's
+    directory as a `# Located at:` comment in text output and as the
+    new `repo_root` field in proto and JSON output.
+  - Sandboxed actions no longer fail with "File exists" when an input
+    is nested under a source directory input.
+  - Fix `bazel run --run_under=... --script_path=...` on Windows to
+    correctly escape batch script invocations and forward arguments.
+  - Bazel on Windows no longer fails with "Command line too long"
+    when running in batch mode with a large environment.
+  - Fixed a Bazel server keeping its command lock after its client
+    was killed, which stalled later invocations.
+  - Add implicit (MODULE.tools) dep on rules_android v0.8.0.
+  - The embedded JDK has been updated to JDK 27.
+  - Platforms whose names contain `/` no longer fail analysis when
+    used in output directory names.
+  - Redact options with FULLY_REDACTED_IN_LOGS in server logs.
+  - --experimental_enable_skyfocus has been fully deprecated and
+    removed.
+  - Fixed a crash with `--keep_going` when the scope of a `genquery`
+    depends on a failing module extension.
+  - Added `bazel info external_directory`, which prints the directory
+    under which external repositories are fetched.
+  - Fixed a server memory leak where a `cli-update-thread` outlived
+    its command after a repository fetch did not report completion.
+  - Removed distrusted eMudhra and Sectigo AAA root CA certificates
+    from the bundled JDK, to address the private key leakage (see
+    https://emudhra.we-have-a-problem.com/).
+  - Clarify error message when a startup option is passed after the
+    command.
+  - Crash logs now redact sensitive command arguments using the same
+    filtering as command logs.
+  - Added `--watch_registry` for local registries. If set, bazel
+    watches these registries for changes, and invalidates the bzlmod
+    local cache.
+  - Allow `label_flag` and `label_setting` dependencies to refine
+    rule environments like `select()` dependencies.
+  - Allow Label.relative() in non-.bzl contexts (for example, in a
+    cquery Starlark callback) as long as the argument doesn't have a
+    repository name component.
+
+This release contains contributions from many people at Google, as well as Albert Lloveras, Andrew Hewitson, Ankit Agarwal, armandomontanez, Benjamin Peterson, Brad Smith, Brandon Lico, Chi Wang, Christian Svensson, colbs255, Daniel Pfeifer, David Jyo, David Zbarsky, dependabot[bot], Dmitry Spikhalsky, Fabian Meumertzheim, Fabian Meumertzheim, George Gensure, gztong666, Henner Zeller, iMostfa, Jasmine Tang, Jordan, Justin, Kapunahele Wong, Kaylie, Keith Smiley, lg-stripe, Manoj Mahapatra, rdark, Régis Desgroppes, Salma Samy, Showta Ishizaki, Son Luong Ngoc, Tamir Duberstein, Ted, Ulrik Falklof, willxiao-amzn.
+
+## Release 7.7.2 (2026-10-23)
+
+```
+
+Release Notes:
+
+```
+
+## Release 7.7.2 (2026-10-22)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 9.3.1 (2026-10-20)
 
 ```
