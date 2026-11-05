@@ -111,7 +111,8 @@ public class TopLevelConstraintSemantics {
       ExtendedEventHandler eventHandler,
       boolean eagerlyThrowError,
       boolean explicitlyRequested,
-      boolean skipIncompatibleExplicitTargets)
+      boolean skipIncompatibleExplicitTargets,
+      boolean skipIncompatibleWildcardTargets)
       throws TargetCompatibilityCheckException {
 
     RuleContextConstraintSemantics.IncompatibleCheckResult incompatibleCheckResult =
@@ -123,28 +124,37 @@ public class TopLevelConstraintSemantics {
     // We need the label in unambiguous form here. I.e. with the "@" prefix for targets in the
     // main repository. explicitTargetPatterns is also already in the unambiguous form to make
     // comparison succeed regardless of the provided form.
-    if (!skipIncompatibleExplicitTargets && explicitlyRequested) {
+    //
+    // --skip_incompatible_explicit_targets governs explicitly listed targets, and
+    // --skip_incompatible_wildcard_targets governs the rest: targets matched by a wildcard pattern
+    // or expanded from a test_suite.
+    boolean isError =
+        explicitlyRequested ? !skipIncompatibleExplicitTargets : !skipIncompatibleWildcardTargets;
+    if (isError) {
       if (eagerlyThrowError) {
         // Use the slightly simpler form for printing error messages. I.e. no "@" prefix for
         // targets in the main repository.
-        throw getExceptionForExplicitlyRequestedIncompatibleTarget(
-            configuredTarget, incompatibleCheckResult.underlyingTarget());
+        throw getExceptionForRequestedIncompatibleTarget(
+            configuredTarget, incompatibleCheckResult.underlyingTarget(), explicitlyRequested);
       }
       eventHandler.handle(
           Event.warn(
               getIncompatibleMessage(
-                  configuredTarget, incompatibleCheckResult.underlyingTarget())));
+                  configuredTarget,
+                  incompatibleCheckResult.underlyingTarget(),
+                  explicitlyRequested)));
       return PlatformCompatibility.INCOMPATIBLE_EXPLICIT;
     }
-    // We can safely skip this target if it wasn't explicitly requested or we've been instructed
-    // to skip explicitly requested targets.
+    // We've been instructed to skip this kind of target.
     return PlatformCompatibility.INCOMPATIBLE_IMPLICIT;
   }
 
-  private static TargetCompatibilityCheckException
-      getExceptionForExplicitlyRequestedIncompatibleTarget(
-          ConfiguredTarget configuredTarget, ConfiguredTarget underlyingTarget) {
-    String targetIncompatibleMessage = getIncompatibleMessage(configuredTarget, underlyingTarget);
+  private static TargetCompatibilityCheckException getExceptionForRequestedIncompatibleTarget(
+      ConfiguredTarget configuredTarget,
+      ConfiguredTarget underlyingTarget,
+      boolean explicitlyRequested) {
+    String targetIncompatibleMessage =
+        getIncompatibleMessage(configuredTarget, underlyingTarget, explicitlyRequested);
     return new TargetCompatibilityCheckException(
         targetIncompatibleMessage,
         FailureDetail.newBuilder()
@@ -154,10 +164,16 @@ public class TopLevelConstraintSemantics {
   }
 
   private static String getIncompatibleMessage(
-      ConfiguredTarget configuredTarget, ConfiguredTarget underlyingTarget) {
+      ConfiguredTarget configuredTarget,
+      ConfiguredTarget underlyingTarget,
+      boolean explicitlyRequested) {
     return String.format(
-        "Target %s is incompatible and cannot be built, but was explicitly requested.%s",
+        "Target %s is incompatible and cannot be built, but %s.%s",
         configuredTarget.getOriginalLabel(),
+        explicitlyRequested
+            ? "was explicitly requested"
+            : "was matched by a wildcard or test_suite and"
+                + " --noskip_incompatible_wildcard_targets is set",
         // We need access to the provider so we pass in the underlying target here that is
         // responsible for the incompatibility.
         reportOnIncompatibility(underlyingTarget));
@@ -228,19 +244,24 @@ public class TopLevelConstraintSemantics {
    * command line are errored unless --skip_incompatible_explicit_targets is enabled. Having one or
    * more errored targets will cause the entire build to fail with an error message.
    *
+   * <p>Incompatible targets that were not explicitly requested, such as targets matched by a
+   * wildcard or expanded from a test_suite, are errored if
+   * --noskip_incompatible_wildcard_targets is set.
+   *
    * @param topLevelTargets the build's top-level targets
    * @param explicitTargetPatterns the set of explicit target patterns specified by the user on the
    *     command line. Every target must be in the unambiguous canonical form (i.e., with the "@"
    *     prefix for all targets including in the main repository).
    * @return the set of to-be-skipped and errored top-level targets.
-   * @throws ViewCreationFailedException if any top-level target was explicitly requested on the
-   *     command line.
+   * @throws ViewCreationFailedException if any incompatible top-level target is errored and
+   *     --keep_going is not set.
    */
   public PlatformRestrictionsResult checkPlatformRestrictions(
       ImmutableSet<ConfiguredTarget> topLevelTargets,
       ImmutableSet<Label> explicitTargetPatterns,
       boolean keepGoing,
-      boolean skipIncompatibleExplicitTargets)
+      boolean skipIncompatibleExplicitTargets,
+      boolean skipIncompatibleWildcardTargets)
       throws ViewCreationFailedException {
     ImmutableSet.Builder<ConfiguredTarget> incompatibleTargets = ImmutableSet.builder();
     ImmutableSet.Builder<ConfiguredTarget> incompatibleButRequestedTargets = ImmutableSet.builder();
@@ -253,7 +274,8 @@ public class TopLevelConstraintSemantics {
                 eventHandler,
                 /* eagerlyThrowError= */ !keepGoing,
                 explicitTargetPatterns.contains(target.getOriginalLabel()),
-                skipIncompatibleExplicitTargets);
+                skipIncompatibleExplicitTargets,
+                skipIncompatibleWildcardTargets);
         if (PlatformCompatibility.INCOMPATIBLE_EXPLICIT.equals(platformCompatibility)) {
           incompatibleButRequestedTargets.add(target);
         } else if (PlatformCompatibility.INCOMPATIBLE_IMPLICIT.equals(platformCompatibility)) {
@@ -591,7 +613,11 @@ public class TopLevelConstraintSemantics {
     }
   }
 
-  /** Tells the compatibility of a ConfiguredTarget with the platform. */
+  /**
+   * Tells the compatibility of a ConfiguredTarget with the platform. {@code INCOMPATIBLE_IMPLICIT}
+   * targets are skipped; {@code INCOMPATIBLE_EXPLICIT} targets are errors (explicitly requested, or
+   * matched by a wildcard under --noskip_incompatible_wildcard_targets).
+   */
   public enum PlatformCompatibility {
     COMPATIBLE,
     INCOMPATIBLE_IMPLICIT,

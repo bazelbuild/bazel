@@ -28,6 +28,7 @@ public final class BuildDriverKey implements SkyKey {
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final boolean explicitlyRequested;
   private final boolean skipIncompatibleExplicitTargets;
+  private final boolean skipIncompatibleWildcardTargets;
   private final boolean isTopLevelAspectDriver;
 
   private final boolean extraActionTopLevelOnly;
@@ -40,6 +41,7 @@ public final class BuildDriverKey implements SkyKey {
       TopLevelArtifactContext topLevelArtifactContext,
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
+      boolean skipIncompatibleWildcardTargets,
       boolean extraActionTopLevelOnly,
       boolean keepGoing,
       boolean isTopLevelAspectDriver) {
@@ -47,6 +49,7 @@ public final class BuildDriverKey implements SkyKey {
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.explicitlyRequested = explicitlyRequested;
     this.skipIncompatibleExplicitTargets = skipIncompatibleExplicitTargets;
+    this.skipIncompatibleWildcardTargets = skipIncompatibleWildcardTargets;
     this.isTopLevelAspectDriver = isTopLevelAspectDriver;
     this.extraActionTopLevelOnly = extraActionTopLevelOnly;
     this.keepGoing = keepGoing;
@@ -57,6 +60,7 @@ public final class BuildDriverKey implements SkyKey {
       TopLevelArtifactContext topLevelArtifactContext,
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
+      boolean skipIncompatibleWildcardTargets,
       boolean extraActionTopLevelOnly,
       boolean keepGoing) {
     return new BuildDriverKey(
@@ -64,6 +68,7 @@ public final class BuildDriverKey implements SkyKey {
         topLevelArtifactContext,
         explicitlyRequested,
         skipIncompatibleExplicitTargets,
+        skipIncompatibleWildcardTargets,
         extraActionTopLevelOnly,
         keepGoing,
         /* isTopLevelAspectDriver= */ true);
@@ -74,6 +79,7 @@ public final class BuildDriverKey implements SkyKey {
       TopLevelArtifactContext topLevelArtifactContext,
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
+      boolean skipIncompatibleWildcardTargets,
       boolean extraActionTopLevelOnly,
       boolean keepGoing) {
     return new BuildDriverKey(
@@ -81,6 +87,7 @@ public final class BuildDriverKey implements SkyKey {
         topLevelArtifactContext,
         explicitlyRequested,
         skipIncompatibleExplicitTargets,
+        skipIncompatibleWildcardTargets,
         extraActionTopLevelOnly,
         keepGoing,
         /* isTopLevelAspectDriver= */ false);
@@ -100,6 +107,10 @@ public final class BuildDriverKey implements SkyKey {
 
   public boolean shouldSkipIncompatibleExplicitTargets() {
     return skipIncompatibleExplicitTargets;
+  }
+
+  public boolean shouldSkipIncompatibleWildcardTargets() {
+    return skipIncompatibleWildcardTargets;
   }
 
   public boolean isTopLevelAspectDriver() {
