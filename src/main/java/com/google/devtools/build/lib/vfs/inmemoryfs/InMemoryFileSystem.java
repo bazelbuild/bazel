@@ -87,7 +87,6 @@ public class InMemoryFileSystem extends FileSystem {
 
   private static InMemoryDirectoryInfo newRootInode(Clock clock) {
     InMemoryDirectoryInfo rootInode = new InMemoryDirectoryInfo(clock);
-    rootInode.addChild(".", rootInode);
     rootInode.addChild("..", rootInode);
     return rootInode;
   }
@@ -495,7 +494,6 @@ public class InMemoryFileSystem extends FileSystem {
   @Nullable
   private static Errno insertChildDirectory(
       InMemoryDirectoryInfo parent, InMemoryDirectoryInfo newDir, String name) {
-    newDir.addChild(".", newDir);
     newDir.addChild("..", parent);
     return insert(parent, name, newDir);
   }
@@ -551,7 +549,7 @@ public class InMemoryFileSystem extends FileSystem {
     Collection<String> allChildren = dirInfo.getAllChildren();
     List<String> result = new ArrayList<>(allChildren.size());
     for (String child : allChildren) {
-      if (!child.equals(".") && !child.equals("..")) {
+      if (!child.equals("..")) {
         result.add(child);
       }
     }
@@ -571,7 +569,7 @@ public class InMemoryFileSystem extends FileSystem {
           if (child == null) {
             return false;
           }
-          if (child.isDirectory() && child.getSize() > 2) {
+          if (child.isDirectory() && child.getSize() > 1) {
             throw Errno.ENOTEMPTY.exception(path);
           }
           unlink(parent, baseNameOrWindowsDrive(path), path);
@@ -703,7 +701,7 @@ public class InMemoryFileSystem extends FileSystem {
             if (!sourceInode.isDirectory()) {
               throw new IOException(sourcePath + " -> " + targetPath + " (" + Errno.EISDIR + ")");
             }
-            if (targetInode.getSize() > 2) {
+            if (targetInode.getSize() > 1) {
               throw Errno.ENOTEMPTY.exception(targetPath);
             }
           } else if (sourceInode.isDirectory()) {
