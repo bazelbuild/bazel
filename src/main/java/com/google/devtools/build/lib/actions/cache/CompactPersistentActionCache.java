@@ -42,13 +42,14 @@ import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
+import com.google.devtools.build.lib.util.io.UnsynchronizedByteArrayOutputStream;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -792,8 +793,7 @@ public class CompactPersistentActionCache implements ActionCache {
     return actionMap.size();
   }
 
-  private void encodeRemoteMetadata(FileArtifactValue value, ByteArrayOutputStream sink)
-      throws IOException {
+  private void encodeRemoteMetadata(FileArtifactValue value, OutputStream sink) throws IOException {
     checkArgument(value.isRemote(), "metadata is not remote: %s", value);
 
     MetadataDigestUtils.write(value.getDigest(), sink);
@@ -918,7 +918,8 @@ public class CompactPersistentActionCache implements ActionCache {
         (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
             + maxDiscoveredInputsSize
             + estimatedOutputMetadataSize;
-    ByteArrayOutputStream sink = new ByteArrayOutputStream(estimatedSize);
+    UnsynchronizedByteArrayOutputStream sink =
+        new UnsynchronizedByteArrayOutputStream(estimatedSize);
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
 
