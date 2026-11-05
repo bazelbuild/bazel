@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -1316,7 +1315,7 @@ public class RuleContext extends TargetContext
   public boolean verifyNestedSetCountLimit() {
     StarlarkSemantics semantics = getAnalysisEnvironment().getStarlarkSemantics();
     int limit = semantics.get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT);
-    int count = NestedSetOwnerScope.getCurrentNestedSetCount();
+    int count = NestedSet.getCurrentTargetNestedSetCount();
     if (limit <= 0 || count <= limit) {
       return true;
     }

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -1420,12 +1419,7 @@ public class BzlLoadFunction implements SkyFunction {
       thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
       context.storeInThread(thread);
 
-      // Depsets created at the top level of the file (e.g. assigned to globals) may end up in the
-      // providers of many targets, so they get a deterministic identity owned by the file's key.
-      // The key, unlike the module, is cheap to serialize and doesn't keep the module alive.
-      try (var _ = NestedSetOwnerScope.enter(key)) {
-        execAndExport(prog, label, starlarkEventHandler, module, thread);
-      }
+      execAndExport(prog, label, starlarkEventHandler, module, thread);
       if (sawStarlarkError.get()) {
         throw executionFailed(label);
       }

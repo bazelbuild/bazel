@@ -127,11 +127,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   private final boolean remotableSourceManifestActions;
   private final boolean preferTargetConfigurationRunfiles;
 
-  /**
-   * Computed on first access, possibly during the analysis of another target, so it is created
-   * without an owner and is not serialized (see {@link NestedSetBuilder#buildUnowned}).
-   */
-  @Nullable private transient NestedSet<Artifact> symlinkArtifacts = null;
+  private NestedSet<Artifact> symlinkArtifacts = null;
 
   /**
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
@@ -221,7 +217,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           runfiles.getArtifacts().toList().stream()
               .filter(Artifact::isSymlink)
               .collect(toImmutableList());
-      symlinkArtifacts = NestedSetBuilder.<Artifact>stableOrder().addAll(symlinks).buildUnowned();
+      symlinkArtifacts = NestedSetBuilder.wrap(Order.STABLE_ORDER, symlinks);
     }
     return symlinkArtifacts;
   }

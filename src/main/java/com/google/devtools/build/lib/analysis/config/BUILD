@@ -318,8 +318,6 @@ java_library(
         ":fragment",
         ":fragment_options",
         ":invalid_configuration_exception",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party/java/caffeine",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

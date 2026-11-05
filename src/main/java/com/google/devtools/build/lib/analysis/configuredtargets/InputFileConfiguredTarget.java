@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveVisibilityProvider;
@@ -52,7 +51,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
         targetContext.getAnalysisEnvironment().getOwner(),
         targetContext.getVisibility(),
         targetContext.getTransitiveVisibilityImposedByThisPackage(),
-        singleFile(artifact),
+        artifact,
         targetContext.getTarget().isCreatedInSymbolicMacro());
     checkArgument(targetContext.getTarget() instanceof InputFile, targetContext.getTarget());
     checkArgument(getConfigurationKey() == null, getLabel());
@@ -64,10 +63,9 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
       ActionLookupKey lookupKey,
       NestedSet<PackageGroupContents> visibility,
       @Nullable TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage,
-      NestedSet<Artifact> singleFile,
+      SourceArtifact artifact,
       boolean isCreatedInSymbolicMacro) {
-    super(lookupKey, visibility, singleFile);
-    checkArgument(singleFile.getSingleton() instanceof SourceArtifact, singleFile);
+    super(lookupKey, visibility, artifact);
     this.isCreatedInSymbolicMacro = isCreatedInSymbolicMacro;
     this.transitiveVisibilityImposedByThisPackage = transitiveVisibilityImposedByThisPackage;
   }
