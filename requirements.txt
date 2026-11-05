@@ -3,7 +3,7 @@ bazel-runfiles==0.24.0
 frozendict==2.4.7
 # The following deps are only here because we need markdownify for the docs pipeline.
 beautifulsoup4==4.14.3
-certifi==2026.1.4
+certifi==2026.10.19
 charset-normalizer==3.4.4
 idna==3.15
 markdownify==1.2.2
