@@ -134,8 +134,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       }
 
       if (!showCachedTests
-          && summary.getStatus() == BlazeTestStatus.PASSED
-          && !summary.actionRan()) {
+          && ((summary.getStatus() == BlazeTestStatus.PASSED && !summary.actionRan())
+              || summary.isSkipped())) {
         continue;
       }
 

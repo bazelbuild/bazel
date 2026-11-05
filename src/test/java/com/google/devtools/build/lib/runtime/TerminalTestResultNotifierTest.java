@@ -483,6 +483,24 @@ public final class TerminalTestResultNotifierTest {
   }
 
   @Test
+  public void shortOption_skippedTestPrinted() throws Exception {
+    printSkippedTestSummary(ExecutionOptions.TestSummaryFormat.SHORT);
+
+    ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+    verify(ansiTerminalPrinter, atLeastOnce()).print(messageCaptor.capture());
+    assertThat(String.join("", messageCaptor.getAllValues())).contains("SKIPPED");
+  }
+
+  @Test
+  public void shortUncachedOption_skippedTestNotPrinted() throws Exception {
+    printSkippedTestSummary(ExecutionOptions.TestSummaryFormat.SHORT_UNCACHED);
+
+    ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+    verify(ansiTerminalPrinter, atLeastOnce()).print(messageCaptor.capture());
+    assertThat(String.join("", messageCaptor.getAllValues())).doesNotContain("SKIPPED");
+  }
+
+  @Test
   public void terseOption_noSummaryPrinted() throws Exception {
     printTestCaseSummary(
         TestSummarySpec.builder()
@@ -612,6 +630,31 @@ public final class TerminalTestResultNotifierTest {
             optionsParsingResult,
             RepositoryMapping.EMPTY);
     terminalTestResultNotifier.notify(builder.build(), 0);
+  }
+
+  private void printSkippedTestSummary(TestSummaryFormat testSummaryFormat)
+      throws LabelSyntaxException {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.setTestSummary(testSummaryFormat);
+    when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
+
+    TestSummary testSummary = mock(TestSummary.class);
+    when(testSummary.getStatus()).thenReturn(BlazeTestStatus.NO_STATUS);
+    when(testSummary.isSkipped()).thenReturn(true);
+    when(testSummary.actionRan()).thenReturn(false);
+    when(testSummary.getFailedTestCases()).thenReturn(ImmutableList.of());
+    when(testSummary.getSkippedTestCases()).thenReturn(ImmutableList.of());
+    when(testSummary.getLabel()).thenReturn(Label.parseCanonical("//foo:skipped_test"));
+
+    TerminalTestResultNotifier terminalTestResultNotifier =
+        new TerminalTestResultNotifier(
+            ansiTerminalPrinter,
+            Path::getPathString,
+            optionsParsingResult,
+            RepositoryMapping.EMPTY);
+    terminalTestResultNotifier.notify(ImmutableSet.of(testSummary), 0);
   }
 
   private void printTestCaseSummary(
