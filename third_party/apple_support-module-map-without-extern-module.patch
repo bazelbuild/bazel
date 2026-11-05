@@ -1,0 +1,16 @@
+Enables the `module_map_without_extern_module` feature so that module maps
+don't reference the module maps of their dependencies via `extern module`.
+Clang resolves these declarations without collapsing `..`, which can produce
+paths longer than PATH_MAX and spurious layering_check failures. Backport of
+https://github.com/bazelbuild/apple_support/pull/632, released in 2.8.1.
+
+--- a/crosstool/cc_toolchain_config.bzl
++++ b/crosstool/cc_toolchain_config.bzl
+@@ -2270,6 +2270,7 @@
+         feature(name = "exclude_private_headers_in_module_maps"),
+         feature(name = "fastbuild"),
+         feature(name = "module_maps", enabled = True),
++        feature(name = "module_map_without_extern_module", enabled = True),
+         feature(name = "no_legacy_features"),
+         feature(name = "only_doth_headers_in_module_maps"),
+         feature(name = "opt"),

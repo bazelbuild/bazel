@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -87,26 +91,32 @@ public class BuildResultListener {
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTargets() {
-    return ImmutableSet.copyOf(analyzedTargets);
+    return sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTargets);
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTests() {
-    return ImmutableSet.copyOf(analyzedTests);
+    return sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTests);
   }
 
   public ImmutableMap<AspectKey, ConfiguredAspect> getAnalyzedAspects() {
-    return ImmutableMap.copyOf(analyzedAspects);
+    return analyzedAspects.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey(AspectKey.ORDERING))
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   public ImmutableSet<ConfiguredTarget> getSkippedTargets() {
-    return ImmutableSet.copyOf(skippedTargets);
+    return sortedCopyOf(ConfiguredTarget.ORDERING, skippedTargets);
   }
 
   public ImmutableSet<ConfiguredTargetKey> getBuiltTargets() {
-    return ImmutableSet.copyOf(builtTargets);
+    return sortedCopyOf(ConfiguredTargetKey.ORDERING, builtTargets);
   }
 
   public ImmutableSet<AspectKey> getBuiltAspects() {
-    return ImmutableSet.copyOf(builtAspects);
+    return sortedCopyOf(AspectKey.ORDERING, builtAspects);
+  }
+
+  private static <T> ImmutableSet<T> sortedCopyOf(Comparator<T> comparator, Set<T> set) {
+    return ImmutableSet.copyOf(ImmutableList.sortedCopyOf(comparator, set));
   }
 }
