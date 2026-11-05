@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -27,6 +28,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * The result of running Bazel module resolution, containing the Bazel module dependency graph
@@ -35,6 +38,10 @@ import java.util.Map;
 @AutoValue
 public abstract class BazelDepGraphValue implements SkyValue {
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_DEP_GRAPH;
+
+  // Share normalized host mappings across each extension's repos for this module graph's lifetime.
+  private final ConcurrentMap<ModuleExtensionId, RepositoryMapping.Explicit> extensionHostMappings =
+      new ConcurrentHashMap<>();
 
   public static BazelDepGraphValue create(
       ImmutableMap<ModuleKey, Module> depGraph,
@@ -125,6 +132,44 @@ public abstract class BazelDepGraphValue implements SkyValue {
         getExtensionUniqueNames(),
         getCanonicalRepoNameLookup(),
         getRepoOverrides());
+  }
+
+  /**
+   * Omits imports already resolved by the extension's prefix, so adding an unrenamed {@code use_repo}
+   * import doesn't change the mappings of its generated repos.
+   */
+  public final RepositoryMapping.Explicit getExtensionHostMapping(
+      ModuleExtensionId extensionId, RepositoryMapping.Explicit hostMapping) {
+    return extensionHostMappings.computeIfAbsent(
+        extensionId,
+        id -> {
+          var hostKey = getCanonicalRepoNameLookup().get(id.bzlFileLabel().getRepository());
+          var usage = getExtensionUsagesTable().get(id, hostKey);
+          if (usage == null) {
+            return hostMapping;
+          }
+          String prefix = getExtensionUniqueNames().get(id) + "+";
+          var redundantImports = ImmutableSet.<String>builder();
+          for (var proxy : usage.getProxies()) {
+            for (var entry : proxy.getImports().entrySet()) {
+              if (entry.getKey().equals(entry.getValue())
+                  && hostMapping.get(entry.getKey()).getName().equals(prefix + entry.getKey())) {
+                redundantImports.add(entry.getKey());
+              }
+            }
+          }
+          var omitted = redundantImports.build();
+          if (omitted.isEmpty()) {
+            return hostMapping;
+          }
+          var mapping =
+              RepositoryMapping.create(
+                  hostMapping.entries().entrySet().stream()
+                      .filter(entry -> !omitted.contains(entry.getKey()))
+                      .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
+                  hostMapping.contextRepo());
+          return hostMapping.contextRepo().isMain() ? mapping.withCachedInverseMap() : mapping;
+        });
   }
 
   static RepositoryMapping.Explicit getRepositoryMapping(

@@ -172,7 +172,7 @@ public class RepositoryMappingFunction implements SkyFunction {
         ExtensionRepositoryMapping.create(
             repositoryName,
             bazelDepGraphValue.getExtensionUniqueNames().get(extensionId) + "+",
-            hostMapping,
+            bazelDepGraphValue.getExtensionHostMapping(extensionId, hostMapping),
             bazelDepGraphValue.getRepoOverrides().row(extensionId),
             // The extension's internal names are only used to find the (rare) internal names that
             // shadow repos visible from the host, which results in a mapping that is independent

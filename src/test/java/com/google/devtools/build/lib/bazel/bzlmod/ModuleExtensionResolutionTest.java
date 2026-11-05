@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CyclesReporter;
@@ -1202,6 +1203,18 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     evaluateOrThrow(
         PackageIdentifier.create(
             RepositoryName.createUnvalidated("+ext+baz"), PathFragment.EMPTY_FRAGMENT));
+  }
+
+  @Test
+  public void generatedRepoMappingIsReusedAfterIdentityImport() throws Exception {
+    setUpExtensionWithReferencingRepos("foo", "bar", "bar", "foo", "baz", "foo");
+    SkyKey mappingKey = RepositoryMappingValue.key(RepositoryName.createUnvalidated("+ext+foo"));
+    RepositoryMappingValue mapping = evaluateOrThrow(mappingKey);
+
+    scratch.appendFile("MODULE.bazel", "use_repo(ext, 'baz')");
+    invalidatePackages(false);
+
+    assertThat((RepositoryMappingValue) evaluateOrThrow(mappingKey)).isSameInstanceAs(mapping);
   }
 
   private <T extends SkyValue> T evaluateOrThrow(SkyKey key) throws Exception {
