@@ -55,14 +55,14 @@ public final class FileArtifactValueTest {
     Path path = fileSystem.getPath(name);
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, content);
-    path.setLastModifiedTime(mtime);
+    path.setLastModifiedTimeNanos(mtime);
     return path;
   }
 
   private Path scratchDir(String name, long mtime) throws IOException {
     Path path = fs.getPath(name);
     path.createDirectoryAndParents();
-    path.setLastModifiedTime(mtime);
+    path.setLastModifiedTimeNanos(mtime);
     return path;
   }
 
@@ -184,7 +184,7 @@ public final class FileArtifactValueTest {
     Path path = scratchDir("/dir", /* mtime= */ 1L);
     FileArtifactValue value = createForTesting(path);
     assertThat(value.getDigest()).isNull();
-    assertThat(value.getModifiedTime()).isEqualTo(1_000_000L);
+    assertThat(value.getModifiedTime()).isEqualTo(1L);
   }
 
   @Test
@@ -226,7 +226,7 @@ public final class FileArtifactValueTest {
   @Test
   public void testEmptyFile() throws Exception {
     Path path = scratchFile("/root/empty", 1L, "");
-    path.setLastModifiedTime(1L);
+    path.setLastModifiedTimeNanos(1L);
     FileArtifactValue value = createForTesting(path);
     assertThat(value.getDigest()).isEqualTo(path.getDigest());
     assertThat(value.getSize()).isEqualTo(0L);
@@ -268,7 +268,7 @@ public final class FileArtifactValueTest {
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
-    path.setLastModifiedTime(123);
+    path.setLastModifiedTimeNanos(123);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -299,7 +299,7 @@ public final class FileArtifactValueTest {
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -315,7 +315,7 @@ public final class FileArtifactValueTest {
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "cOntent");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -348,7 +348,7 @@ public final class FileArtifactValueTest {
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
     FileSystemUtils.writeContentAsLatin1(path, "content");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     // This is not necessarily the intended behavior, but a consequence of the need to avoid
     // false positives due to hard link creation/deletion. "Breaking" this test in the future while
     // preserving the behavior on other test cases would thus be a welcome change.

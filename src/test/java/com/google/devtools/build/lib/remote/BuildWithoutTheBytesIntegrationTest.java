@@ -646,7 +646,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             () -> {
               while (!Thread.currentThread().isInterrupted()) {
                 try {
-                  mtimes.add(blobPath.getLastModifiedTime());
+                  mtimes.add(blobPath.getLastModifiedTimeNanos());
                 } catch (IOException ignored) {
                   // Intentionally ignored
                 }

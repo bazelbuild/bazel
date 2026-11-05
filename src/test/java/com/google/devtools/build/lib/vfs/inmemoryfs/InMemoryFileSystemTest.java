@@ -116,9 +116,9 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             subdir2.setExecutable(true);
             file.setExecutable(false);
 
-            subdir1.setLastModifiedTime(100);
-            subdir2.setLastModifiedTime(200);
-            file.setLastModifiedTime(300);
+            subdir1.setLastModifiedTimeNanos(100);
+            subdir2.setLastModifiedTimeNanos(200);
+            file.setLastModifiedTimeNanos(300);
 
             Path symlink = base.getRelative("symlink" + i);
             symlink.createSymbolicLink(file);
@@ -151,7 +151,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(subdir1.isReadable()).isTrue();
             assertThat(subdir1.isWritable()).isFalse();
             assertThat(subdir1.isExecutable()).isFalse();
-            assertThat(subdir1.getLastModifiedTime()).isEqualTo(100);
+            assertThat(subdir1.getLastModifiedTimeNanos()).isEqualTo(100);
 
             Path subdir2 = base.getRelative("subdir2_" + i);
             assertThat(subdir2.exists()).isTrue();
@@ -159,7 +159,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(subdir2.isReadable()).isFalse();
             assertThat(subdir2.isWritable()).isTrue();
             assertThat(subdir2.isExecutable()).isTrue();
-            assertThat(subdir2.getLastModifiedTime()).isEqualTo(200);
+            assertThat(subdir2.getLastModifiedTimeNanos()).isEqualTo(200);
 
             Path file = base.getRelative("somefile" + i);
             assertThat(file.exists()).isTrue();
@@ -167,7 +167,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(file.isReadable()).isTrue();
             assertThat(file.isWritable()).isFalse();
             assertThat(file.isExecutable()).isFalse();
-            assertThat(file.getLastModifiedTime()).isEqualTo(300);
+            assertThat(file.getLastModifiedTimeNanos()).isEqualTo(300);
             try (BufferedReader reader =
                 new BufferedReader(
                     new InputStreamReader(file.getInputStream(), Charset.defaultCharset()))) {
@@ -216,7 +216,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             file.setReadable(i % 2 == 0);
             file.setWritable(i % 3 == 0);
             file.setExecutable(i % 4 == 0);
-            file.setLastModifiedTime(i);
+            file.setLastModifiedTimeNanos(i);
             Path symlink = base.getRelative("symlink_" + threadId + "_" + i);
             symlink.createSymbolicLink(file);
           }
@@ -248,7 +248,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(file.isReadable()).isEqualTo(i % 2 == 0);
             assertThat(file.isWritable()).isEqualTo(i % 3 == 0);
             assertThat(file.isExecutable()).isEqualTo(i % 4 == 0);
-            assertThat(file.getLastModifiedTime()).isEqualTo(i);
+            assertThat(file.getLastModifiedTimeNanos()).isEqualTo(i);
             if (file.isReadable()) {
               try (BufferedReader reader =
                   new BufferedReader(

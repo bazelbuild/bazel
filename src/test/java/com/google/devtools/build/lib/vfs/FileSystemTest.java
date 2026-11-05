@@ -1174,19 +1174,19 @@ public abstract class FileSystemTest {
 
   @Test
   public void testCreateFileChangesTimeOfDirectory() throws Exception {
-    storeReferenceTime(workingDir.getLastModifiedTime());
+    storeReferenceTime(workingDir.getLastModifiedTimeNanos());
     Path newPath = absolutize("new-file");
     FileSystemUtils.createEmptyFile(newPath);
-    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
   public void testRemoveFileChangesTimeOfDirectory() throws Exception {
     Path newPath = absolutize("new-file");
     FileSystemUtils.createEmptyFile(newPath);
-    storeReferenceTime(workingDir.getLastModifiedTime());
+    storeReferenceTime(workingDir.getLastModifiedTimeNanos());
     newPath.delete();
-    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTimeNanos())).isTrue();
   }
 
   // This test is a little bit strange, as we cannot test the progression
@@ -1199,9 +1199,9 @@ public abstract class FileSystemTest {
     FileSystemUtils.createEmptyFile(syncFile);
 
     Path newFile = absolutize("new-file");
-    storeReferenceTime(syncFile.getLastModifiedTime());
+    storeReferenceTime(syncFile.getLastModifiedTimeNanos());
     FileSystemUtils.createEmptyFile(newFile);
-    assertThat(isLaterThanreferenceTime(newFile.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(newFile.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
@@ -1210,23 +1210,23 @@ public abstract class FileSystemTest {
     FileSystemUtils.createEmptyFile(syncFile);
 
     Path newPath = absolutize("new-dir");
-    storeReferenceTime(syncFile.getLastModifiedTime());
+    storeReferenceTime(syncFile.getLastModifiedTimeNanos());
     assertThat(newPath.createDirectory()).isTrue();
-    assertThat(isLaterThanreferenceTime(newPath.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(newPath.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
   public void testWriteChangesModifiedTime() throws Exception {
-    storeReferenceTime(xFile.getLastModifiedTime());
+    storeReferenceTime(xFile.getLastModifiedTimeNanos());
     FileSystemUtils.writeContentAsLatin1(xFile, "abc19");
-    assertThat(isLaterThanreferenceTime(xFile.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(xFile.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
   public void testGetLastModifiedTimeThrowsExceptionForNonexistingPath() throws Exception {
     Path newPath = testFS.getPath("/non-existing-dir");
     FileNotFoundException x =
-        assertThrows(FileNotFoundException.class, () -> newPath.getLastModifiedTime());
+        assertThrows(FileNotFoundException.class, newPath::getLastModifiedTimeNanos);
     assertThat(x).hasMessageThat().endsWith(newPath + " (No such file or directory)");
   }
 

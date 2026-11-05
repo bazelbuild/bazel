@@ -162,7 +162,7 @@ public class DiskCacheClientTest {
     var unused = getFromFuture(client.uploadFile(digest, file));
 
     assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("existing contents");
-    assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(path.getLastModifiedTimeNanos()).isNotEqualTo(0);
   }
 
   @Test
@@ -173,14 +173,14 @@ public class DiskCacheClientTest {
     // property may leak into the cache entry: the mtime records when the entry was last stored or
     // retrieved, and the entry must remain readable by every user of a shared cache.
     file.chmod(0555);
-    file.setLastModifiedTime(1000);
+    file.setLastModifiedTimeNanos(1000);
     Digest digest = getDigest("contents");
 
     var unused = getFromFuture(client.uploadFile(digest, file));
 
     Path path = getCasPath(digest);
     assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("contents");
-    assertThat(path.getLastModifiedTime()).isNotEqualTo(1000);
+    assertThat(path.getLastModifiedTimeNanos()).isNotEqualTo(1000);
     assertThat(path.isReadable()).isTrue();
     assertThat(path.isWritable()).isTrue();
   }
@@ -226,7 +226,7 @@ public class DiskCacheClientTest {
     var unused = getFromFuture(client.uploadBlob(digest, blob));
 
     assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("existing contents");
-    assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(path.getLastModifiedTimeNanos()).isNotEqualTo(0);
   }
 
   @Test
@@ -251,7 +251,7 @@ public class DiskCacheClientTest {
     var unused = getFromFuture(client.uploadActionResult(actionKey, actionResult2));
 
     assertThat(FileSystemUtils.readContent(path)).isEqualTo(actionResult2.toByteArray());
-    assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(path.getLastModifiedTimeNanos()).isNotEqualTo(0);
   }
 
   @Test
@@ -336,7 +336,7 @@ public class DiskCacheClientTest {
     var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isEqualTo(actionResult);
-    assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(path.getLastModifiedTimeNanos()).isNotEqualTo(0);
   }
 
   @Test
@@ -403,12 +403,12 @@ public class DiskCacheClientTest {
     var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isEqualTo(actionResult);
-    assertThat(acPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(stdoutCasPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(stderrCasPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(fileCasPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(treeCasPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(treeFileCasPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(acPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(stdoutCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(stderrCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(fileCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(treeCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(treeFileCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
   }
 
   @Test
@@ -497,11 +497,11 @@ public class DiskCacheClientTest {
     assertThat(getCasPath(missingFileDigest).exists()).isFalse();
     // The blobs that do exist are marked as recently used, including the ones that follow the
     // missing blob.
-    assertThat(acPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(stdoutCasPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(stderrCasPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(treeCasPath.getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(treeFileCasPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(acPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(stdoutCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(stderrCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(treeCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
+    assertThat(treeFileCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
   }
 
   @Test
@@ -525,7 +525,7 @@ public class DiskCacheClientTest {
     var result = getFromFuture(clientWithoutIntegrityCheck.downloadActionResult(actionKey));
 
     assertThat(result).isEqualTo(actionResult);
-    assertThat(stdoutCasPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(stdoutCasPath.getLastModifiedTimeNanos()).isNotEqualTo(0);
   }
 
   @Test
@@ -651,7 +651,7 @@ public class DiskCacheClientTest {
     Path path = client.toPath(digest, Store.CAS);
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContent(path, contents);
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     return path;
   }
 
@@ -670,7 +670,7 @@ public class DiskCacheClientTest {
     Path path = client.toPath(actionKey.digest(), Store.AC);
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContent(path, actionResult.toByteArray());
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     return path;
   }
 
