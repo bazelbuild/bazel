@@ -90,6 +90,12 @@ public class FileOutErr extends OutErr {
     super(stream, stream);
   }
 
+  /** Creates the log directories without invalidating the cached output sizes. */
+  public void createParentDirectories() throws IOException {
+    getFileOutputStream().getFileUnsafe().getParentDirectory().createDirectoryAndParents();
+    getFileErrorStream().getFileUnsafe().getParentDirectory().createDirectoryAndParents();
+  }
+
   /**
    * Returns true if any output was recorded.
    */
