@@ -270,12 +270,6 @@ public class CommandEnvironment {
     this.configFlagDefinitions = configFlagDefinitions;
     this.resourceManager = resourceManager;
 
-    // Record the command's starting time again, for use by
-    // TimestampGranularityMonitor.waitForTimestampGranularity().
-    // This should be done as close as possible to the start of
-    // the command's execution.
-    timestampGranularityMonitor.setCommandStartTime();
-
     CommonCommandOptions commandOptions =
         checkNotNull(
             options.getOptions(CommonCommandOptions.class),

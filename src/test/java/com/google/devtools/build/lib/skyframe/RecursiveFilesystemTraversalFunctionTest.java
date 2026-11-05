@@ -583,7 +583,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     // Add a new file to the directory and see that the value is rebuilt.
     TimestampGranularityUtils.waitForTimestampGranularity(
-        directoryArtifact.getPath().stat().getLastChangeTime(), OutErr.SYSTEM_OUT_ERR);
+        directoryArtifact.getPath().stat().getLastChangeTimeNanos(), OutErr.SYSTEM_OUT_ERR);
     RootedPath file3 = createFile(childOf(directoryArtifact, "foo.txt"));
     if (directoryArtifact instanceof TreeArtifact treeArtifact) {
       addNewTreeFileArtifact(treeArtifact, "foo.txt");
@@ -883,7 +883,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     // Change the mtime of the file but not the digest. See that the value is *not* rebuilt.
     TimestampGranularityUtils.waitForTimestampGranularity(
-        path.asPath().stat().getLastChangeTime(), OutErr.SYSTEM_OUT_ERR);
+        path.asPath().stat().getLastChangeTimeNanos(), OutErr.SYSTEM_OUT_ERR);
     path.asPath().setLastModifiedTime(System.currentTimeMillis());
     RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(params, expected);
     assertThat(v2).isEqualTo(v1);

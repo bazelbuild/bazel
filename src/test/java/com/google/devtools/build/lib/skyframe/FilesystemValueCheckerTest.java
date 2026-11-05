@@ -656,7 +656,7 @@ public final class FilesystemValueCheckerTest {
     // Wait for the timestamp granularity to elapse, so updating the files will observably advance
     // their ctime.
     TimestampGranularityUtils.waitForTimestampGranularity(
-        System.currentTimeMillis(), OutErr.SYSTEM_OUT_ERR);
+        System.currentTimeMillis() * 1_000_000, OutErr.SYSTEM_OUT_ERR);
     // Update path1's contents. This will update the file's ctime with current time indicated by the
     // clock.
     fs.advanceClockMillis(1);
@@ -763,7 +763,6 @@ public final class FilesystemValueCheckerTest {
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
 
-    tsgm.setCommandStartTime();
     differencer.inject(
         ImmutableMap.of(
             actionKey1,
