@@ -2637,6 +2637,179 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void customRule_toolchainParameterIsActualTypeOfAlias(String action) throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type_2",
+            actual = "//rule:toolchain_type_2",
+        )
+        """);
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_2',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//test/alias:alias_toolchain_type_2']",
+        /* execGroups= */ "",
+        /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action ruleAction = (Action) ((RuleConfiguredTarget) target).getActions().get(0);
+
+    assertThat(ruleAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void customRule_execGroupWithAlias_toolchainParameterIsActualType(String action)
+      throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type_2",
+            actual = "//rule:toolchain_type_2",
+        )
+        """);
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "exec_group = 'custom_exec_group',"
+            + " toolchain = '//rule:toolchain_type_2',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1']",
+        /* execGroups= */ """
+        'custom_exec_group': exec_group(
+            toolchains = ['//test/alias:alias_toolchain_type_2'],
+        ),
+        """,
+        /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action ruleAction = (Action) ((RuleConfiguredTarget) target).getActions().get(0);
+
+    assertThat(ruleAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  public void ccCommonCompile_cppToolchainTypeAlias_cppCompileActionExecutesOnSecondPlatform()
+      throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "_CPP_TOOLCHAIN_TYPE = '//bazel_internal/test_rules/cc:cpp_toolchain_type'",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.toolchains[_CPP_TOOLCHAIN_TYPE].cc",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "  },",
+        "  toolchains = [config_common.toolchain_type(_CPP_TOOLCHAIN_TYPE, mandatory = False)],",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        """
+        load("//bazel_internal/test_rules/cc:defs.bzl", "custom_rule")
+
+        alias(
+            name = "cpp_toolchain_type",
+            actual = "%s",
+        )
+
+        custom_rule(
+            name = "custom_rule_name",
+            srcs = ["custom.cc"],
+            exec_group_compatible_with = {
+                "//bazel_internal/test_rules/cc:cpp_toolchain_type": ["//platforms:constraint_2"],
+            },
+        )
+        """
+            .formatted(TestConstants.CPP_TOOLCHAIN_TYPE));
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ImmutableList<Action> cppCompileActions =
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+
+    assertThat(cppCompileActions).hasSize(1);
+    assertThat(cppCompileActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  public void javaCommonCompile_javaToolchainTypeAlias_javacActionExecutesOnSecondPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['//test:java_toolchain_type'].java,",
+        "  )",
+        "  return [DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//test:java_toolchain_type'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        alias(
+            name = "java_toolchain_type",
+            actual = "%s",
+        )
+
+        custom_rule(
+            name = "custom_rule_name",
+            exec_group_compatible_with = {
+                "//test:java_toolchain_type": ["//platforms:constraint_2"],
+            },
+        )
+        """
+            .formatted(TestConstants.JAVA_TOOLCHAIN_TYPE));
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action action = getGeneratingAction(target, "test/lib_custom_rule_name.jar");
+
+    assertThat(action.getMnemonic()).isEqualTo("Javac");
+    assertThat(action.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
   public void testHeaderCompilationAction_automaticExecGroupsEnabled() throws Exception {
     scratch.file(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/turbine_canary_deploy.jar");
     scratch.file(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/tzdata.jar");
