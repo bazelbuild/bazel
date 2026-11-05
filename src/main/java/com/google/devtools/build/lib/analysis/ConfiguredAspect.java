@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -77,6 +79,22 @@ public interface ConfiguredAspect extends ProviderCollection {
       return get(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey());
     }
     return getProviders().get(legacyKey);
+  }
+
+  /**
+   * Returns a {@link Dict} of provider names to their values for this aspect. This is only intended
+   * to be called from the query dialects of Starlark.
+   *
+   * <p>Providers whose values are not valid Starlark values are left out.
+   */
+  default Dict<String, Object> getProvidersDictForQuery() {
+    TransitiveInfoProviderMap providers = getProviders();
+    Dict.Builder<String, Object> dict = Dict.builder();
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      AbstractConfiguredTarget.tryAddProviderForQuery(
+          dict, providers.getProviderKeyAt(i), providers.getProviderInstanceAt(i));
+    }
+    return dict.buildImmutable();
   }
 
   static ConfiguredAspect forAlias(ConfiguredAspect real) {

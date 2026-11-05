@@ -302,9 +302,10 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * given key. Takes no action if the provider instance is not a valid Starlark value or if the key
    * is of an unknown type.
    *
-   * <p>Intended to be called from {@link #getProvidersDictForQuery}.
+   * <p>Intended to be called from {@link #getProvidersDictForQuery} and {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredAspect#getProvidersDictForQuery}.
    */
-  static void tryAddProviderForQuery(
+  public static void tryAddProviderForQuery(
       Dict.Builder<String, Object> dict, Object key, Object providerInstance) {
     // The key may be of many types, but we need a string for the intended use.
     String keyAsString;

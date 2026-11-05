@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 
 import com.google.common.base.Preconditions;
@@ -67,7 +68,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
   private final SkyFunction.LookupEnvironment lookupEnvironment;
-  private final Supplier<ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect>>
+  private final Supplier<
+          ImmutableListMultimap<
+              ConfiguredTargetKey, Map.Entry<AspectKeyCreator.AspectKey, ConfiguredAspect>>>
       topLevelAspectsByTarget;
 
   public ConfiguredTargetAccessor(
@@ -98,7 +101,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
                         .collect(
                             toImmutableListMultimap(
                                 entry -> entry.getKey().getBaseConfiguredTargetKey(),
-                                Map.Entry::getValue)))
+                                entry -> entry)))
             : Suppliers.ofInstance(ImmutableListMultimap.of());
   }
 
@@ -292,6 +295,17 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
 
   /** Returns the top-level aspects applied to the given {@link CqueryNode}. */
   ImmutableList<ConfiguredAspect> getTopLevelAspects(CqueryNode cn) {
+    return getTopLevelAspectsWithKeys(cn).stream()
+        .map(Map.Entry::getValue)
+        .collect(toImmutableList());
+  }
+
+  /**
+   * Returns the top-level aspects applied to the given {@link CqueryNode}, together with the keys
+   * that identify them.
+   */
+  ImmutableList<Map.Entry<AspectKeyCreator.AspectKey, ConfiguredAspect>>
+      getTopLevelAspectsWithKeys(CqueryNode cn) {
     if (!(cn.getLookupKey() instanceof ConfiguredTargetKey key)) {
       return ImmutableList.of();
     }

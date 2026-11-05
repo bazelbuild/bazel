@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.query2.cquery;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -24,16 +26,21 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.common.options.OptionDefinition;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
@@ -43,6 +50,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Expression;
@@ -119,6 +127,37 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
         return Starlark.NONE;
       }
       return ret;
+    }
+
+    @StarlarkMethod(
+        name = "aspects",
+        documented = false,
+        parameters = {
+          @Param(name = "target"),
+        })
+    public Dict<String, Object> aspects(CqueryNode target) {
+      // Keyed by aspect name (e.g. "//foo:defs.bzl%my_aspect"). Each value lists the applications
+      // of that aspect to the target, since the same aspect can be applied on top of different
+      // base aspects.
+      Map<String, List<Object>> applicationsByName = new TreeMap<>();
+      for (Map.Entry<AspectKey, ConfiguredAspect> entry :
+          accessor.getTopLevelAspectsWithKeys(target)) {
+        AspectKey key = entry.getKey();
+        applicationsByName
+            .computeIfAbsent(key.getAspectName(), name -> new ArrayList<>())
+            .add(
+                StructProvider.STRUCT.create(
+                    ImmutableMap.of(
+                        "base_aspects",
+                        StarlarkList.immutableCopyOf(
+                            Lists.transform(key.getBaseKeys(), AspectKey::getAspectName)),
+                        "providers",
+                        entry.getValue().getProvidersDictForQuery()),
+                    "'%s' is not a field of an aspects() entry"));
+      }
+      Dict.Builder<String, Object> ret = Dict.builder();
+      applicationsByName.forEach((name, list) -> ret.put(name, StarlarkList.immutableCopyOf(list)));
+      return ret.buildImmutable();
     }
   }
 
