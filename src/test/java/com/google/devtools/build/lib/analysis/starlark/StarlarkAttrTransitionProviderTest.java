@@ -27,14 +27,19 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
+import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.OutputPathMnemonicComputer;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
@@ -47,12 +52,18 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.EnvVar;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -86,6 +97,360 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         new StarlarkProvider.Key(
             keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
+  }
+
+  private void writeTransitionCacheFixture() throws Exception {
+    scratch.file(
+        "transition_cache/rules.bzl",
+        """
+        def _transition(settings, attr):
+            return {"//command_line_option:foo":
+                getattr(attr, "value", "empty") + ":" + settings["//command_line_option:foo"]}
+
+        def _other_transition(settings, attr):
+            return {"//command_line_option:foo": "other:" + attr.value}
+
+        first = transition(implementation = _transition,
+            inputs = ["//command_line_option:foo"], outputs = ["//command_line_option:foo"])
+        second = transition(implementation = _other_transition,
+            inputs = [], outputs = ["//command_line_option:foo"])
+
+        def _impl(ctx):
+            return []
+
+        empty_rule = rule(implementation = _impl)
+        cache_rule = rule(implementation = _impl, attrs = {
+            "dep": attr.label(cfg = first),
+            "other_dep": attr.label(cfg = second),
+            "value": attr.string(),
+            "many": attr.string_list(),
+            "mapping": attr.string_dict(),
+        })
+        """);
+    scratch.file(
+        "transition_cache/BUILD",
+        """
+        load(":rules.bzl", "cache_rule", "empty_rule")
+        config_setting(name = "special", define_values = {"flavor": "special"})
+        empty_rule(name = "dep")
+        cache_rule(name = "test", dep = ":dep", other_dep = ":dep",
+            value = select({":special": "special", "//conditions:default": "ordinary"}),
+            many = ["item_%d" % i for i in range(256)], mapping = {"key": "value"})
+        """);
+  }
+
+  private static StarlarkAttributeTransitionProvider transitionProvider(
+      ConfiguredAttributeMapper mapper, String attribute) {
+    return (StarlarkAttributeTransitionProvider)
+        mapper.getAttributeDefinition(attribute).getTransitionFactory();
+  }
+
+  private static ConfigurationTransition createTransition(
+      StarlarkAttributeTransitionProvider provider, ConfiguredAttributeMapper mapper) {
+    return provider.create(AttributeTransitionData.builder().attributes(mapper).build());
+  }
+
+  private String transitionedFoo(ConfigurationTransition transition, BuildOptions options)
+      throws Exception {
+    return Iterables.getOnlyElement(
+            transition.apply(TransitionUtil.restrict(transition, options), reporter).values())
+        .get(DummyTestOptions.class)
+        .getFoo();
+  }
+
+  @Test
+  public void transitionInstances_sameMapperReusesInstance() throws Exception {
+    writeTransitionCacheFixture();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper mapper = target.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider provider = transitionProvider(mapper, "dep");
+    ConfigurationTransition first = createTransition(provider, mapper);
+    assertThat(createTransition(provider, mapper)).isSameInstanceAs(first);
+  }
+
+  @Test
+  public void transitionInstances_equalMappersKeepTheirOwnInstances() throws Exception {
+    writeTransitionCacheFixture();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper first = target.getAttributeMapperForTesting();
+    ConfiguredAttributeMapper second = target.getAttributeMapperForTesting();
+    assertThat(first).isNotSameInstanceAs(second);
+    StarlarkAttributeTransitionProvider provider = transitionProvider(first, "dep");
+    ConfigurationTransition firstTransition = createTransition(provider, first);
+    ConfigurationTransition secondTransition = createTransition(provider, second);
+    assertThat(secondTransition).isNotSameInstanceAs(firstTransition);
+    assertThat(secondTransition).isEqualTo(firstTransition);
+    assertThat(createTransition(provider, second)).isSameInstanceAs(secondTransition);
+  }
+
+  @Test
+  public void transitionInstances_changedSelectPreservesBehavior() throws Exception {
+    writeTransitionCacheFixture();
+    useConfiguration("--foo=input");
+    ConfiguredTargetAndData ordinary = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper ordinaryMapper = ordinary.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider provider = transitionProvider(ordinaryMapper, "dep");
+    ConfigurationTransition ordinaryTransition = createTransition(provider, ordinaryMapper);
+
+    useConfiguration("--foo=input", "--define=flavor=special");
+    ConfiguredTargetAndData special = getConfiguredTargetAndData("//transition_cache:test");
+    ConfigurationTransition specialTransition =
+        createTransition(provider, special.getAttributeMapperForTesting());
+
+    assertThat(specialTransition).isNotEqualTo(ordinaryTransition);
+    assertThat(transitionedFoo(ordinaryTransition, ordinary.getConfiguration().getOptions()))
+        .isEqualTo("ordinary:input");
+    assertThat(transitionedFoo(specialTransition, special.getConfiguration().getOptions()))
+        .isEqualTo("special:input");
+  }
+
+  @Test
+  public void transitionInstances_equalInstancesStillKeyCacheByInputOptions() throws Exception {
+    writeTransitionCacheFixture();
+    useConfiguration("--foo=one");
+    ConfiguredTargetAndData firstTarget = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper firstMapper = firstTarget.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider provider = transitionProvider(firstMapper, "dep");
+    ConfigurationTransition first = createTransition(provider, firstMapper);
+    useConfiguration("--foo=two");
+    ConfiguredTargetAndData secondTarget = getConfiguredTargetAndData("//transition_cache:test");
+    ConfigurationTransition second =
+        createTransition(provider, secondTarget.getAttributeMapperForTesting());
+    assertThat(second).isNotSameInstanceAs(first);
+    assertThat(second).isEqualTo(first);
+
+    StarlarkTransitionCache cache = new StarlarkTransitionCache();
+    for (ConfiguredTargetAndData target : ImmutableList.of(firstTarget, secondTarget)) {
+      BuildOptions options = target.getConfiguration().getOptions();
+      BuildOptions result =
+          Iterables.getOnlyElement(
+              cache
+                  .computeIfAbsent(
+                      options, first, StarlarkBuildSettingsDetailsValue.EMPTY, reporter)
+                  .values());
+      assertThat(result.get(DummyTestOptions.class).getFoo())
+          .isEqualTo("ordinary:" + options.get(DummyTestOptions.class).getFoo());
+    }
+  }
+
+  @Test
+  public void transitionInstances_differentFunctionsStaySeparate() throws Exception {
+    writeTransitionCacheFixture();
+    useConfiguration("--foo=input");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper mapper = target.getAttributeMapperForTesting();
+    ConfigurationTransition first = createTransition(transitionProvider(mapper, "dep"), mapper);
+    ConfigurationTransition second =
+        createTransition(transitionProvider(mapper, "other_dep"), mapper);
+    assertThat(second).isNotEqualTo(first);
+    assertThat(transitionedFoo(first, target.getConfiguration().getOptions()))
+        .isEqualTo("ordinary:input");
+    assertThat(transitionedFoo(second, target.getConfiguration().getOptions()))
+        .isEqualTo("other:ordinary");
+  }
+
+  @Test
+  public void transitionInstances_nullMapperUsesEmptyAttributes() throws Exception {
+    writeTransitionCacheFixture();
+    useConfiguration("--foo=input");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    StarlarkAttributeTransitionProvider provider =
+        transitionProvider(target.getAttributeMapperForTesting(), "dep");
+    ConfigurationTransition first = provider.create(AttributeTransitionData.builder().build());
+    assertThat(provider.create(AttributeTransitionData.builder().build())).isEqualTo(first);
+    assertThat(transitionedFoo(first, target.getConfiguration().getOptions()))
+        .isEqualTo("empty:input");
+  }
+
+  @Test
+  public void transitionInstances_distinctProvidersKeepExecutionPolicy() throws Exception {
+    writeTransitionCacheFixture();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper mapper = target.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider normal = transitionProvider(mapper, "dep");
+    StarlarkAttributeTransitionProvider exec =
+        new StarlarkAttributeTransitionProvider(
+            normal.getStarlarkDefinedConfigTransitionForTesting()) {
+          @Override
+          public boolean allowImmutableFlagChanges() {
+            return true;
+          }
+
+          @Override
+          public boolean isExecTransitionProvider() {
+            return true;
+          }
+        };
+    StarlarkTransition first = (StarlarkTransition) createTransition(normal, mapper);
+    StarlarkTransition second = (StarlarkTransition) createTransition(exec, mapper);
+    assertThat(second).isNotSameInstanceAs(first);
+    assertThat(first.isExecTransition()).isFalse();
+    assertThat(second.isExecTransition()).isTrue();
+    assertThat(createTransition(exec, mapper)).isSameInstanceAs(second);
+  }
+
+  @Test
+  public void transitionInstances_concurrentMapperCreationAndEquality() throws Exception {
+    writeTransitionCacheFixture();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    StarlarkAttributeTransitionProvider provider =
+        transitionProvider(target.getAttributeMapperForTesting(), "dep");
+    ConfiguredAttributeMapper mapper = target.getAttributeMapperForTesting();
+    ConfigurationTransition equalPeer =
+        createTransition(provider, target.getAttributeMapperForTesting());
+    List<Callable<ConfigurationTransition>> tasks = new ArrayList<>();
+    for (int i = 0; i < 16; ++i) {
+      tasks.add(
+          () -> {
+            ConfigurationTransition transition = createTransition(provider, mapper);
+            assertThat(transition).isEqualTo(equalPeer);
+            assertThat(equalPeer).isEqualTo(transition);
+            return transition;
+          });
+    }
+    var executor = Executors.newFixedThreadPool(4);
+    try {
+      var results = executor.invokeAll(tasks);
+      ConfigurationTransition first = results.get(0).get();
+      for (var result : results) {
+        assertThat(result.get()).isSameInstanceAs(first);
+      }
+    } finally {
+      executor.shutdownNow();
+    }
+  }
+
+  @Test
+  public void transitionInstances_cachedTransitionDoesNotRetainMapper() throws Exception {
+    writeTransitionCacheFixture();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper mapper = target.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider provider = transitionProvider(mapper, "dep");
+    ConfigurationTransition transition = createTransition(provider, mapper);
+    WeakReference<ConfiguredAttributeMapper> mapperReference = new WeakReference<>(mapper);
+    mapper = null;
+    GcFinalization.awaitClear(mapperReference);
+    assertThat(createTransition(provider, target.getAttributeMapperForTesting()))
+        .isEqualTo(transition);
+    Reference.reachabilityFence(transition);
+  }
+
+  @Test
+  public void transitionInstances_deserializedProviderReinitializesMemoization() throws Exception {
+    writeTransitionCacheFixture();
+    useConfiguration("--foo=input");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper mapper = target.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider provider = transitionProvider(mapper, "dep");
+    ConfigurationTransition originalTransition = createTransition(provider, mapper);
+    StarlarkDefinedConfigTransition definition =
+        provider.getStarlarkDefinedConfigTransitionForTesting();
+    new SerializationTester(provider)
+        .addDependency(StarlarkDefinedConfigTransition.class, definition)
+        .makeMemoizing()
+        .setVerificationFunction(
+            (StarlarkAttributeTransitionProvider original,
+                StarlarkAttributeTransitionProvider restored) -> {
+              assertThat(restored).isNotSameInstanceAs(original);
+              assertThat(restored.getStarlarkDefinedConfigTransitionForTesting())
+                  .isSameInstanceAs(definition);
+              ConfigurationTransition transition = createTransition(restored, mapper);
+              assertThat(transition).isEqualTo(originalTransition);
+              assertThat(createTransition(restored, mapper)).isSameInstanceAs(transition);
+              assertThat(transitionedFoo(transition, target.getConfiguration().getOptions()))
+                  .isEqualTo("ordinary:input");
+            })
+        .runTests();
+  }
+
+  @Test
+  public void transitionInstances_deserializedExecProviderKeepsPolicyAndCaches() throws Exception {
+    writeTransitionCacheFixture();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//transition_cache:test");
+    ConfiguredAttributeMapper mapper = target.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider provider =
+        getSkyframeExecutor()
+            .getStarlarkExecTransition(target.getConfiguration().getOptions(), reporter);
+    StarlarkDefinedConfigTransition definition =
+        provider.getStarlarkDefinedConfigTransitionForTesting();
+    new SerializationTester(provider)
+        .addDependency(StarlarkDefinedConfigTransition.class, definition)
+        .makeMemoizing()
+        .setVerificationFunction(
+            (StarlarkAttributeTransitionProvider original,
+                StarlarkAttributeTransitionProvider restored) -> {
+              assertThat(restored.getClass()).isEqualTo(original.getClass());
+              assertThat(restored.allowImmutableFlagChanges()).isTrue();
+              assertThat(restored.isExecTransitionProvider()).isTrue();
+              ConfigurationTransition transition = createTransition(restored, mapper);
+              assertThat(createTransition(restored, mapper)).isSameInstanceAs(transition);
+              assertThat(((StarlarkTransition) transition).isExecTransition()).isTrue();
+            })
+        .runTests();
+  }
+
+  @Test
+  public void transitionInstances_selectedDictionaryOrderWithDifferentInputsIsPreserved()
+      throws Exception {
+    scratch.file(
+        "ordered_transition/rules.bzl",
+        """
+        def _transition(settings, attr):
+            return {"//command_line_option:foo":
+                settings["//command_line_option:foo"] + "|" + ",".join(attr.mapping.keys())}
+
+        ordered = transition(implementation = _transition,
+            inputs = ["//command_line_option:foo"], outputs = ["//command_line_option:foo"])
+        def _impl(ctx):
+            return []
+        empty_rule = rule(implementation = _impl)
+        ordered_rule = rule(implementation = _impl, attrs = {
+            "dep": attr.label(cfg = ordered), "mapping": attr.string_dict(),
+        })
+        """);
+    scratch.file(
+        "ordered_transition/BUILD",
+        """
+        load(":rules.bzl", "empty_rule", "ordered_rule")
+        config_setting(name = "reverse", define_values = {"order": "reverse"})
+        empty_rule(name = "dep")
+        ordered_rule(name = "test", dep = ":dep", mapping = select({
+            ":reverse": {"b": "2", "a": "1"},
+            "//conditions:default": {"a": "1", "b": "2"},
+        }))
+        """);
+    useConfiguration("--foo=one");
+    ConfiguredTargetAndData firstTarget = getConfiguredTargetAndData("//ordered_transition:test");
+    ConfiguredAttributeMapper firstMapper = firstTarget.getAttributeMapperForTesting();
+    StarlarkAttributeTransitionProvider provider = transitionProvider(firstMapper, "dep");
+    ConfigurationTransition first = createTransition(provider, firstMapper);
+    useConfiguration("--foo=two", "--define=order=reverse");
+    ConfiguredTargetAndData secondTarget = getConfiguredTargetAndData("//ordered_transition:test");
+    ConfiguredAttributeMapper secondMapper = secondTarget.getAttributeMapperForTesting();
+    ConfigurationTransition second = createTransition(provider, secondMapper);
+    StarlarkTransitionCache cache = new StarlarkTransitionCache();
+    BuildOptions firstResult =
+        Iterables.getOnlyElement(
+            cache
+                .computeIfAbsent(
+                    firstTarget.getConfiguration().getOptions(),
+                    first,
+                    StarlarkBuildSettingsDetailsValue.EMPTY,
+                    reporter)
+                .values());
+    BuildOptions secondResult =
+        Iterables.getOnlyElement(
+            cache
+                .computeIfAbsent(
+                    secondTarget.getConfiguration().getOptions(),
+                    second,
+                    StarlarkBuildSettingsDetailsValue.EMPTY,
+                    reporter)
+                .values());
+    assertThat(firstResult.get(DummyTestOptions.class).getFoo()).isEqualTo("one|a,b");
+    assertThat(secondResult.get(DummyTestOptions.class).getFoo()).isEqualTo("two|b,a");
+    assertThat(second).isNotSameInstanceAs(first);
+    assertThat(createTransition(provider, secondMapper)).isSameInstanceAs(second);
   }
 
   private void writeBasicTestFiles() throws Exception {

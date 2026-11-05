@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.applyAndValidate;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.LinkedHashMap;
 import java.util.Objects;
@@ -49,13 +52,19 @@ import net.starlark.java.eval.StarlarkSemantics;
  * <p>TODO(bazel-team): Consider allowing dependency-typed attributes to actually return providers
  * instead of just labels (see {@code StarlarkAttributesCollection#addAttribute}).
  */
+@AutoCodec
 public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
 
   public static final String ERROR_MESSAGE_FOR_NO_ATTR =
       "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
 
-  private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
+  // AutoCodec for StarlarkExecTransitionProvider must find this field in the interface jar.
+  protected final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
+
+  // weakKeys compares mappers by identity. FunctionSplitTransition retains attributes, not mappers.
+  private final transient Cache<ConfiguredAttributeMapper, FunctionSplitTransition>
+      transitionInstances = Caffeine.newBuilder().weakKeys().build();
 
   public StarlarkAttributeTransitionProvider(
       StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
@@ -84,11 +93,13 @@ public class StarlarkAttributeTransitionProvider
     AttributeMap attributeMap = data.attributes();
     Preconditions.checkArgument(
         attributeMap == null || attributeMap instanceof ConfiguredAttributeMapper);
-    // TODO(bazel-team): consider caching transition instances to save CPU time, similar to what's
-    // done in StarlarkRuleTransitionProvider. This could benefit builds that apply transitions over
-    // many build graph edges.
-    return new FunctionSplitTransition(
-        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
+    if (attributeMap == null) {
+      // Caffeine does not permit null keys. These transitions have an empty attribute struct.
+      return new FunctionSplitTransition(starlarkDefinedConfigTransition, null);
+    }
+    return transitionInstances.get(
+        (ConfiguredAttributeMapper) attributeMap,
+        mapper -> new FunctionSplitTransition(starlarkDefinedConfigTransition, mapper));
   }
 
   public boolean allowImmutableFlagChanges() {
