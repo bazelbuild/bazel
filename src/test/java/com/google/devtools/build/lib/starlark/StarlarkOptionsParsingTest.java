@@ -454,6 +454,42 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   }
 
   @Test
+  public void testCustomExecScope_dontStoreReferencedFlag() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "flag",
+            build_setting_default = "default",
+            scope = "exec:--//test:host_flag",
+        )
+
+        string_flag(
+            name = "host_flag",
+            build_setting_default = "host_default",
+        )
+        """);
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:flag=custom");
+
+    assertThat(result.getStarlarkOptions()).containsExactly("//test:flag", "custom");
+  }
+
+  @Test
   public void testOptionsAreParsedWithBuildTestsOnly() throws Exception {
     writeBasicIntFlag();
     optionsParser.parse("--build_tests_only");
