@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.Colle
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -66,6 +68,7 @@ import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -192,6 +195,14 @@ public final class RemoteModuleTest {
 
   private static CommandEnvironment initCommand(
       BlazeWorkspace workspace, RemoteOptions remoteOptions) throws AbruptExitException {
+    return initCommand(workspace, remoteOptions, BuildCommand.class);
+  }
+
+  private static CommandEnvironment initCommand(
+      BlazeWorkspace workspace,
+      RemoteOptions remoteOptions,
+      Class<? extends BlazeCommand> commandClass)
+      throws AbruptExitException {
     CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
     CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
@@ -211,7 +222,7 @@ public final class RemoteModuleTest {
     when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
     when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
 
-    Command command = BuildCommand.class.getAnnotation(Command.class);
+    Command command = commandClass.getAnnotation(Command.class);
     return workspace.initCommand(
         command,
         options,
@@ -754,7 +765,14 @@ public final class RemoteModuleTest {
 
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand(BlazeWorkspace workspace) throws AbruptExitException {
-    CommandEnvironment env = initCommand(workspace, remoteOptions);
+    return beforeCommand(workspace, BuildCommand.class);
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(
+      BlazeWorkspace workspace, Class<? extends BlazeCommand> commandClass)
+      throws AbruptExitException {
+    CommandEnvironment env = initCommand(workspace, remoteOptions, commandClass);
     env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
@@ -807,6 +825,51 @@ public final class RemoteModuleTest {
       assertThat(thirdChecker.shouldTrustMetadata(secondOutput, metadata)).isFalse();
       assertThat(thirdChecker.shouldTrustMetadata(firstOutput, metadata)).isTrue();
       afterCommand(thirdEnv);
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void nonBuildingCommand_keepsOutputCheckerOfPreviousBuild() throws Exception {
+    // A command that executes no actions (e.g. info) neither completes targets nor downloads
+    // outputs, so it must not be compared against the previous build nor stand in for it when the
+    // next build runs. See https://github.com/bazelbuild/bazel/issues/32363.
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      BlazeWorkspace workspace = createTestWorkspace(remoteModule, scratch -> {});
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME, "--remote_download_outputs=toplevel");
+      var execRoot =
+          ArtifactRoot.asDerivedRoot(
+              new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
+              ArtifactRoot.RootType.OUTPUT,
+              "out");
+      var output = ActionsTestUtil.createArtifact(execRoot, "output");
+      var metadata =
+          FileArtifactValue.createForRemoteFile(
+              new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+      var buildEnv = beforeCommand(workspace, BuildCommand.class);
+      var buildChecker = remoteModule.getRemoteOutputChecker();
+      buildChecker.addOutputToDownload(output);
+      afterCommand(buildEnv);
+
+      var infoEnv = beforeCommand(workspace, InfoCommand.class);
+      var infoChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(infoChecker).isNotNull();
+      assertThat(infoChecker.getLastRemoteOutputChecker()).isNull();
+      afterCommand(infoEnv);
+
+      var nextBuildEnv = beforeCommand(workspace, BuildCommand.class);
+      var nextBuildChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(nextBuildChecker.getLastRemoteOutputChecker()).isSameInstanceAs(buildChecker);
+      assertThat(nextBuildChecker.shouldTrustMetadata(output, metadata)).isFalse();
+      afterCommand(nextBuildEnv);
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
