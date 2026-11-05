@@ -92,7 +92,7 @@ public final class JavaCompilationHelper {
     this.additionalInputsForDatabinding = additionalInputsForDatabinding;
 
     if (ruleContext.useAutoExecGroups()) {
-      this.execGroup = semantics.getJavaToolchainType();
+      this.execGroup = ruleContext.getAutomaticExecGroup(semantics.getJavaToolchainType());
     } else {
       this.execGroup = DEFAULT_EXEC_GROUP_NAME;
     }
