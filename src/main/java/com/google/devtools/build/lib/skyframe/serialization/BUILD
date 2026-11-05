@@ -126,6 +126,7 @@ java_library(
             "SkyValueRetriever.java",
             "DictCodec.java",
             "StarlarkListCodec.java",
+            "StarlarkSetCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
@@ -256,12 +257,14 @@ java_library(
     srcs = [
         "DictCodec.java",
         "StarlarkListCodec.java",
+        "StarlarkSetCodec.java",
     ],
     deps = [
         ":serialization",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )
