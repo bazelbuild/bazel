@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.Alias;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -218,6 +217,7 @@ final class DependencyProducer
     return new TransitionApplier(
         toLabel,
         configurationKey,
+        parameters.starlarkFlagDetails(),
         attributeTransition,
         parameters.transitionCache(),
         (TransitionApplier.ResultSink) this,
@@ -243,11 +243,6 @@ final class DependencyProducer
         DependencyError.of(
             new OptionsParsingException(
                 getMessageWithEdgeTransitionInfo(e), e.getInvalidArgument(), e)));
-  }
-
-  @Override
-  public void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e) {
-    sink.acceptDependencyError(DependencyError.of(e));
   }
 
   @Override

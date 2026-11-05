@@ -233,7 +233,8 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
               allowImmutableFlagChanges(),
               isExecTransition(),
               attrObject,
-              eventHandler);
+              eventHandler,
+              StarlarkBuildSettingsDetailsValue.EMPTY);
       if (result == null) {
         return buildOptions.clone();
       }

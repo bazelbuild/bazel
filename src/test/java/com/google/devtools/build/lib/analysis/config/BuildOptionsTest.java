@@ -602,23 +602,4 @@ public final class BuildOptionsTest {
     assertThat(oneElementOptions).isNotEqualTo(twoElementOptions);
     assertThat(oneElementOptions.checksum()).isNotEqualTo(twoElementOptions.checksum());
   }
-
-  @Test
-  public void scopeTypesAreDifferent() {
-    var label = Label.parseCanonicalUnchecked("//pkg:option");
-
-    var universalOptions =
-        BuildOptions.builder()
-            .addStarlarkOption(label, "a")
-            .addScopeType(label, new Scope.ScopeType(Scope.ScopeType.UNIVERSAL))
-            .build();
-    var targetOptions =
-        BuildOptions.builder()
-            .addStarlarkOption(label, "a")
-            .addScopeType(label, new Scope.ScopeType(Scope.ScopeType.TARGET))
-            .build();
-
-    assertThat(universalOptions).isNotEqualTo(targetOptions);
-    assertThat(universalOptions.checksum()).isNotEqualTo(targetOptions.checksum());
-  }
 }
