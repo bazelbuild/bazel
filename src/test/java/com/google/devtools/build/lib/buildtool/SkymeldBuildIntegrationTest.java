@@ -573,6 +573,67 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsWarning("Dependency chain:");
   }
 
+  private void writeIncompatibleFilegroup() throws IOException {
+    write(
+        "foo/BUILD",
+        """
+        constraint_setting(name = "incompatible_setting")
+
+        constraint_value(
+            name = "incompatible",
+            constraint_setting = ":incompatible_setting",
+        )
+
+        filegroup(
+            name = "incompatible_fg",
+            srcs = ["foo.in"],
+            target_compatible_with = [":incompatible"],
+        )
+
+        filegroup(
+            name = "compatible_fg",
+            srcs = ["foo.in"],
+        )
+        """);
+    write("foo/foo.in");
+  }
+
+  @Test
+  public void incompatibleTargetMatchedByWildcard_skippedByDefault(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    writeIncompatibleFilegroup();
+
+    buildTarget("//foo:all");
+
+    events.assertDoesNotContainEvent("is incompatible and cannot be built");
+  }
+
+  @Test
+  public void incompatibleTargetMatchedByWildcard_noskipIncompatibleWildcardTargets_fails(
+      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+      throws Exception {
+    addOptions(
+        "--noskip_incompatible_wildcard_targets",
+        "--keep_going=" + keepGoing,
+        "--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    writeIncompatibleFilegroup();
+
+    Exception e = assertThrows(Exception.class, () -> buildTarget("//foo:all"));
+    assertThat(e instanceof BuildFailedException || e instanceof ViewCreationFailedException)
+        .isTrue();
+    String expected =
+        "Target //foo:incompatible_fg is incompatible and cannot be built, but was matched by a"
+            + " wildcard or test_suite and --noskip_incompatible_wildcard_targets is set.";
+    if (keepGoing) {
+      events.assertContainsWarning(expected);
+    } else {
+      // Without --keep_going the error is carried by the exception rather than an event.
+      assertThat(e).hasMessageThat().contains(expected);
+    }
+    events.assertDoesNotContainEvent("explicitly requested");
+  }
+
   @Test
   public void analysisAndExecutionFailure_keepGoing_bothReported() throws Exception {
     addOptions("--keep_going");

@@ -81,6 +81,24 @@ public abstract class AnalysisOptions extends OptionsBase {
   public abstract boolean getSkipIncompatibleExplicitTargets();
 
   @Option(
+      name = "skip_incompatible_wildcard_targets",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          """
+          Skip incompatible top-level targets that were not listed explicitly on the command
+          line: targets matched by a wildcard pattern such as //... or :all, and tests expanded
+          from a test_suite. This is the default. When disabled, building such targets results in
+          an error, so a wildcard build fails instead of silently skipping them. Explicitly listed
+          targets are governed by --skip_incompatible_explicit_targets instead.
+          See: [Skipping incompatible targets]
+
+          [Skipping incompatible targets]: https://bazel.build/extending/platforms#skipping-incompatible-targets
+          """)
+  public abstract boolean getSkipIncompatibleWildcardTargets();
+
+  @Option(
       name = "experimental_extra_action_filter",
       defaultValue = "",
       converter = RegexFilter.RegexFilterConverter.class,

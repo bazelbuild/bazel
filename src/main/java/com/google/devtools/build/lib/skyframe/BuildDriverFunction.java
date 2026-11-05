@@ -261,7 +261,8 @@ public class BuildDriverFunction implements SkyFunction {
                   configuredTarget,
                   buildConfigurationValue,
                   buildDriverKey.isExplicitlyRequested(),
-                  buildDriverKey.shouldSkipIncompatibleExplicitTargets());
+                  buildDriverKey.shouldSkipIncompatibleExplicitTargets(),
+                  buildDriverKey.shouldSkipIncompatibleWildcardTargets());
           if (isConfiguredTargetCompatible == null) {
             return null;
           }
@@ -534,7 +535,8 @@ public class BuildDriverFunction implements SkyFunction {
       ConfiguredTarget configuredTarget,
       BuildConfigurationValue buildConfigurationValue,
       boolean isExplicitlyRequested,
-      boolean skipIncompatibleExplicitTargets)
+      boolean skipIncompatibleExplicitTargets,
+      boolean skipIncompatibleWildcardTargets)
       throws InterruptedException, TargetCompatibilityCheckException {
 
     if (!state.checkedForPlatformCompatibility) {
@@ -544,7 +546,8 @@ public class BuildDriverFunction implements SkyFunction {
               env.getListener(),
               /* eagerlyThrowError= */ true,
               isExplicitlyRequested,
-              skipIncompatibleExplicitTargets);
+              skipIncompatibleExplicitTargets,
+              skipIncompatibleWildcardTargets);
       state.checkedForPlatformCompatibility = true;
       switch (platformCompatibility) {
         case INCOMPATIBLE_EXPLICIT:
