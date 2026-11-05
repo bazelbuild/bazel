@@ -50,6 +50,10 @@ public record DeclaredExecGroup(
     requireNonNull(execCompatibleWith, "execCompatibleWith");
     checkArgument(
         !copyFromDefault || (toolchainTypesMap.isEmpty() && execCompatibleWith.isEmpty()));
+    // Ensures that an exec group's resolved toolchain context lists all of its toolchain types.
+    checkArgument(
+        toolchainTypesMap.values().stream().noneMatch(ToolchainTypeRequirement::ignoreIfInvalid),
+        "Only the default exec group can have toolchain types that are ignored if invalid");
   }
 
   // This is intentionally a string that would fail {@code Identifier.isValid} so that

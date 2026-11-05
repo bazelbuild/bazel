@@ -87,15 +87,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
       BuildConfigurationValue configuration,
       String cppToolchainType) {
 
-    ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext ruleContext
-        && ruleContext.useAutoExecGroups()) {
-      actionOwner =
-          actionConstructionContext.getActionOwner(
-              Label.parseCanonicalUnchecked(cppToolchainType).toString());
-    }
-
-    this.owner = actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
+    this.owner = getActionOwner(actionConstructionContext, cppToolchainType);
     this.shareable = false;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -139,6 +131,18 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.modmapInputFile = other.modmapInputFile;
   }
 
+  static ActionOwner getActionOwner(
+      ActionConstructionContext actionConstructionContext, String cppToolchainType) {
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.useAutoExecGroups()) {
+      String execGroup =
+          ruleContext.getAutomaticExecGroup(Label.parseCanonicalUnchecked(cppToolchainType));
+      if (execGroup != null) {
+        return ruleContext.getActionOwner(execGroup);
+      }
+    }
+    return actionConstructionContext.getActionOwner();
+  }
   @CanIgnoreReturnValue
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
     Preconditions.checkState(
