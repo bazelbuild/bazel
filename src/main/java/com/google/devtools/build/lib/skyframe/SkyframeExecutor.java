@@ -999,7 +999,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     FlagSetFunction flagSetFunction = new FlagSetFunction();
     map.put(SkyFunctions.FLAG_SET, flagSetFunction);
     this.buildDriverFunction = buildDriverFunction;
-    map.put(SkyFunctions.BUILD_OPTIONS_SCOPE, new BuildOptionsScopeFunction());
 
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
@@ -1662,23 +1661,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                     .analysisData(starlarkExecTransition)
                     .build());
 
-    ImmutableMap<String, Label> flagsAliases =
-        baselineOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
-
-    ImmutableSet.Builder<Label> hostFlags = ImmutableSet.builder();
-    for (Map.Entry<String, Label> alias : flagsAliases.entrySet()) {
-      if (alias.getKey().startsWith("host_")) {
-        hostFlags.add(alias.getValue());
-      }
-    }
-
-    // ImmutableSet.copyOf() is needed here because AutoCodec doesn't have a mapping for
-    // ImmutableMap.KeySet and this could cause a serialization failure even though the
-    // key content remains the same before and after serialization and deserialization.
     StarlarkBuildSettingsDetailsValue.Key starlarkBuildSettingsDetailsKey =
         StarlarkBuildSettingsDetailsValue.Key.create(
-            ImmutableSet.copyOf(baselineOptions.getStarlarkOptions().keySet()),
-            ImmutableSet.copyOf(hostFlags.build()));
+            baselineOptions.getStarlarkOptions().keySet(),
+            baselineOptions.get(CoreOptions.class).getHostFlagAliases());
     EvaluationResult<StarlarkBuildSettingsDetailsValue> result =
         evaluate(
             ImmutableList.of(starlarkBuildSettingsDetailsKey),
@@ -2275,6 +2261,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public StarlarkAttributeTransitionProvider getStarlarkExecTransition(
       BuildOptions options, ExtendedEventHandler eventHandler)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
+    StarlarkBuildSettingsDetailsValue scopeDetails = StarlarkBuildSettingsDetailsValue.EMPTY;
+    StarlarkBuildSettingsDetailsValue.Key scopeDetailsKey =
+        StarlarkBuildSettingsDetailsValue.keyForStarlarkOptions(
+            options.getStarlarkOptions(), options.get(CoreOptions.class).getHostFlagAliases());
+    if (scopeDetailsKey != null) {
+      EvaluationResult<SkyValue> result =
+          evaluate(
+              ImmutableList.of(scopeDetailsKey),
+              /* keepGoing= */ false,
+              /* numThreads= */ DEFAULT_THREAD_COUNT,
+              eventHandler);
+      if (result.hasError()) {
+        throw new StarlarkExecTransitionLoadingException(
+            result.getError(scopeDetailsKey).getException());
+      }
+      scopeDetails = (StarlarkBuildSettingsDetailsValue) result.get(scopeDetailsKey);
+    }
     return StarlarkExecTransitionLoader.loadStarlarkExecTransition(
             options,
             (bzlKey) -> {
@@ -2304,7 +2307,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 throw new IllegalStateException("Unknown error while creating exec transition", e);
               }
               return (BzlLoadValue) result.get(bzlKey);
-            })
+            },
+            scopeDetails)
         .orElse(null);
   }
 
@@ -3855,16 +3859,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public ImmutableMap<String, Object> getStarlarkOptions() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, String> getScopesAttributes() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, Object> getOnLeaveScopeValues() {
             return ImmutableMap.of();
           }
 

@@ -41,13 +41,16 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   private static final Label EXECUTION_PLATFORM = Label.parseCanonicalUnchecked("//platform:exec");
 
   private PatchTransition getExecTransition(Label execPlatform) throws Exception {
+    return getExecTransition(execPlatform, targetConfig.getOptions());
+  }
+
+  private PatchTransition getExecTransition(Label execPlatform, BuildOptions options)
+      throws Exception {
     return ExecutionTransitionFactory.createFactory()
         .create(
             AttributeTransitionData.builder()
                 .attributes(FakeAttributeMapper.empty())
-                .analysisData(
-                    getSkyframeExecutor()
-                        .getStarlarkExecTransition(targetConfig.getOptions(), reporter))
+                .analysisData(getSkyframeExecutor().getStarlarkExecTransition(options, reporter))
                 .executionPlatform(execPlatform)
                 .build());
   }
@@ -56,6 +59,60 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   public void executionTransition_cached() throws Exception {
     PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(getExecTransition(EXECUTION_PLATFORM)).isSameInstanceAs(transition);
+  }
+
+  @Test
+  public void executionTransition_cacheDistinguishesScopeDetails() throws Exception {
+    scratch.file(
+        "test/flags.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":flags.bzl", "string_flag")
+        string_flag(name = "flag", build_setting_default = "default", scope = "universal")
+        """);
+    useConfiguration("--experimental_exclude_starlark_flags_from_exec_config=true");
+    BuildOptions withoutFlag = targetConfig.getOptions();
+    Label flag = Label.parseCanonicalUnchecked("//test:flag");
+    BuildOptions withFlag = withoutFlag.toBuilder().addStarlarkOption(flag, "custom").build();
+
+    PatchTransition withoutFlagTransition = getExecTransition(EXECUTION_PLATFORM, withoutFlag);
+    PatchTransition withFlagTransition = getExecTransition(EXECUTION_PLATFORM, withFlag);
+    assertThat(withFlagTransition).isNotSameInstanceAs(withoutFlagTransition);
+    assertThat(getExecTransition(EXECUTION_PLATFORM, withFlag))
+        .isSameInstanceAs(withFlagTransition);
+    assertThat(
+            withFlagTransition
+                .patch(
+                    new BuildOptionsView(withFlag, withFlagTransition.requiresOptionFragments()),
+                    reporter)
+                .getStarlarkOptions())
+        .containsEntry(flag, "custom");
+
+    // Editing the definition must also replace the cached transition, even with identical options.
+    scratch.overwriteFile(
+        "test/BUILD",
+        """
+        load(":flags.bzl", "string_flag")
+        string_flag(name = "flag", build_setting_default = "default", scope = "target")
+        """);
+    invalidatePackages(/* alsoConfigs= */ false);
+    PatchTransition updatedTransition = getExecTransition(EXECUTION_PLATFORM, withFlag);
+    assertThat(updatedTransition).isNotSameInstanceAs(withFlagTransition);
+    assertThat(
+            updatedTransition
+                .patch(
+                    new BuildOptionsView(withFlag, updatedTransition.requiresOptionFragments()),
+                    reporter)
+                .getStarlarkOptions())
+        .doesNotContainKey(flag);
   }
 
   @Test
