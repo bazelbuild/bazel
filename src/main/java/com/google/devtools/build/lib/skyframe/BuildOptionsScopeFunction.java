@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.analysis.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
@@ -66,15 +67,26 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     for (Label scopedFlag : key.getFlagsWithIncompleteScopeInfo()) {
       Scope.ScopeType scopeType = key.getBuildOptions().getScopeTypeMap().get(scopedFlag);
       Object onLeaveScopeValue = key.getBuildOptions().getOnLeaveScopeValues().get(scopedFlag);
-      if (scopeType == null) {
-        Target target = getTarget(env, scopedFlag, scopedFlag.getPackageIdentifier());
+      Target target = null;
+      if (scopeType == null || scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
+        target = getTarget(env, scopedFlag, scopedFlag.getPackageIdentifier());
         if (target == null) {
           return null;
         }
-        scopeType = getScopeType(target);
-        onLeaveScopeValue = getOnleaveScopeValue(target);
+        if (scopeType == null) {
+          scopeType = getScopeType(target);
+          onLeaveScopeValue = getOnleaveScopeValue(target);
+        }
       }
-      scopes.put(scopedFlag, new Scope(scopeType, null));
+      boolean resetToDefault = false;
+      if (scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
+        try {
+          resetToDefault = resetsToDefault(target);
+        } catch (InvalidConfigurationException e) {
+          throw new BuildOptionsScopeFunctionException(e);
+        }
+      }
+      scopes.put(scopedFlag, new Scope(scopeType, null, resetToDefault));
 
       // this is needed because the final BuildOptions used to create the BuildConfigurationKey
       // needs to have the scopeType set for all starlark flags.
@@ -153,7 +165,8 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
               scopes.get(projectScopedFlag).scopeType(),
               projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
-                  : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
+                  : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories()),
+              scopes.get(projectScopedFlag).resetToDefault()));
     }
 
     return BuildOptionsScopeValue.create(
@@ -213,6 +226,28 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     }
 
     return target;
+  }
+
+  private static boolean resetsToDefault(Target target) throws InvalidConfigurationException {
+    var attrs = RawAttributeMapper.of(target.getAssociatedRule());
+    if (!attrs.has("scope_reset")) {
+      return false;
+    }
+    if (!attrs.has("scope_reset", Type.STRING) || attrs.isConfigurable("scope_reset")) {
+      throw new InvalidConfigurationException(
+          target.getLabel() + ": scope_reset must be a non-configurable string attribute");
+    }
+    String policy = attrs.get("scope_reset", Type.STRING);
+    return switch (policy) {
+      case "", "baseline" -> false;
+      case "default" -> true;
+      default ->
+          throw new InvalidConfigurationException(
+              target.getLabel()
+                  + ": invalid scope_reset '"
+                  + policy
+                  + "': expected 'baseline' or 'default'");
+    };
   }
 
   private Scope.ScopeType getScopeType(Target target) {
@@ -282,6 +317,10 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     }
 
     BuildOptionsScopeFunctionException(TargetParsingException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    BuildOptionsScopeFunctionException(InvalidConfigurationException cause) {
       super(cause, Transience.PERSISTENT);
     }
 

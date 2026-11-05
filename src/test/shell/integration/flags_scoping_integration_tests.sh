@@ -601,4 +601,100 @@ EOF
   expect_log "Exec dep flag value: default"
 }
 
+function test_project_scope_reset_to_declared_default() {
+  local -r pkg="$FUNCNAME"
+  mkdir -p "${pkg}/python" "${pkg}/native"
+  cat > "${pkg}/defs.bzl" <<EOF
+ValueInfo = provider(fields = ["value"])
+
+def _flag(ctx):
+    return [ValueInfo(value = ctx.build_setting_value)]
+
+version_flag = rule(implementation = _flag, build_setting = config.string(flag = True), attrs = {
+    "scope": attr.string(),
+    "scope_reset": attr.string(default = "baseline"),
+})
+
+def _probe(ctx):
+    value = ctx.attr._version[ValueInfo].value
+    if value != ctx.attr.expected:
+        fail("%s: expected %s, got %s" % (ctx.label, ctx.attr.expected, value))
+    if ctx.attr.tool and ctx.attr.tool[ValueInfo].value != value:
+        fail("Exec tool lost selected version: %s" % ctx.attr.tool[ValueInfo].value)
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, value)
+    return [DefaultInfo(files = depset([out])), ValueInfo(value = value)]
+
+_attrs = {
+    "expected": attr.string(),
+    "dep": attr.label(),
+    "tool": attr.label(cfg = "exec"),
+    "_version": attr.label(default = "//${pkg}/python:version"),
+}
+probe = rule(implementation = _probe, attrs = _attrs)
+
+def _transition(_settings, _attr):
+    return {"//${pkg}/python:version": "3.14"}
+
+_transition_cfg = transition(implementation = _transition, inputs = [], outputs = ["//${pkg}/python:version"])
+transitioned_probe = rule(implementation = _probe, attrs = _attrs | {
+    "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
+}, cfg = _transition_cfg)
+EOF
+  cat > "${pkg}/python/BUILD.bazel" <<EOF
+load("//${pkg}:defs.bzl", "version_flag", "probe", "transitioned_probe")
+package(default_visibility = ["//visibility:public"])
+version_flag(name = "version", build_setting_default = "neutral", scope = "project", scope_reset = "default")
+probe(name = "tool311", expected = "3.11")
+probe(name = "tool312", expected = "3.12")
+probe(name = "tool314", expected = "3.14")
+probe(name = "binding311", expected = "3.11", dep = "//${pkg}/native:core", tool = ":tool311")
+probe(name = "binding312", expected = "3.12", dep = "//${pkg}/native:core", tool = ":tool312")
+transitioned_probe(name = "transitioned", expected = "3.14", dep = "//${pkg}/native:core", tool = ":tool314")
+EOF
+  cat > "${pkg}/native/BUILD.bazel" <<EOF
+load("//${pkg}:defs.bzl", "probe")
+probe(name = "core", expected = "neutral", visibility = ["//visibility:public"])
+EOF
+  cat > "${pkg}/BUILD" <<EOF
+exports_files(["defs.bzl"])
+EOF
+  cat > "${pkg}/python/PROJECT.scl" <<EOF
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = ["//${pkg}/python"])
+EOF
+
+  # Bindings and owned exec tools retain CLI and transitioned values; native deps use defaults.
+  bazel build //${pkg}/python:binding311 //${pkg}/python:transitioned \
+      --//${pkg}/python:version=3.11 > "$TEST_log" 2>&1 || fail "3.11 build failed"
+  bazel build //${pkg}/python:binding312 //${pkg}/python:transitioned \
+      --//${pkg}/python:version=3.12 > "$TEST_log" 2>&1 || fail "3.12 build failed"
+
+  local first_config second_config default_config
+  first_config=$(bazel cquery //${pkg}/native:core --//${pkg}/python:version=3.11 \
+      2> "$TEST_log") || fail "first query failed"
+  second_config=$(bazel cquery //${pkg}/native:core --//${pkg}/python:version=3.12 \
+      2> "$TEST_log") || fail "second query failed"
+  default_config=$(bazel cquery //${pkg}/native:core --//${pkg}/python:version=neutral \
+      2> "$TEST_log") || fail "default query failed"
+  assert_equals "$first_config" "$second_config"
+  assert_equals "$first_config" "$default_config"
+  local shared_config
+  shared_config=$(bazel cquery \
+      "filter('native:core', deps(set(//${pkg}/python:binding311 //${pkg}/python:transitioned)))" \
+      --//${pkg}/python:version=3.11 2> "$TEST_log") || fail "shared graph query failed"
+  assert_equals "$first_config" "$shared_config"
+
+  # Equal configurations must also have stable artifact paths across all three baselines.
+  local first_path second_path default_path
+  first_path=$(bazel cquery //${pkg}/native:core --output=files --//${pkg}/python:version=3.11 \
+      2> "$TEST_log") || fail "first path query failed"
+  second_path=$(bazel cquery //${pkg}/native:core --output=files --//${pkg}/python:version=3.12 \
+      2> "$TEST_log") || fail "second path query failed"
+  default_path=$(bazel cquery //${pkg}/native:core --output=files --//${pkg}/python:version=neutral \
+      2> "$TEST_log") || fail "default path query failed"
+  assert_equals "$first_path" "$second_path"
+  assert_equals "$first_path" "$default_path"
+}
+
 run_suite "Integration tests for flags scoping"

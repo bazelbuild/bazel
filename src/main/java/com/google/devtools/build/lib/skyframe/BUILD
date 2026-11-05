@@ -952,6 +952,7 @@ java_library(
         ":project_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
