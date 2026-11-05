@@ -884,7 +884,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // Change the mtime of the file but not the digest. See that the value is *not* rebuilt.
     TimestampGranularityUtils.waitForTimestampGranularity(
         path.asPath().stat().getLastChangeTimeNanos(), OutErr.SYSTEM_OUT_ERR);
-    path.asPath().setLastModifiedTime(System.currentTimeMillis());
+    path.asPath().setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(params, expected);
     assertThat(v2).isEqualTo(v1);
     assertTraversalRootHashesAreEqual(v1, v2);

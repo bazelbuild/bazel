@@ -212,7 +212,7 @@ public class ZipDecompressor implements Decompressor {
       // Ensure that all files are at least user-readable. Some archives contain files that
       // are not, but many other tools are working around this and thus mask these issues.
       outputPath.chmod(permissions | 0400);
-      outputPath.setLastModifiedTime(entry.getTime());
+      outputPath.setLastModifiedTimeNanos(entry.getTime() * 1_000_000);
     }
   }
 

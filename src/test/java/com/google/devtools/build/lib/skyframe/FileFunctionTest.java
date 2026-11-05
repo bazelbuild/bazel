@@ -537,9 +537,9 @@ public class FileFunctionTest {
           }
         });
     Path p = file("file");
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
     FileValue a = valueForPath(p);
-    p.setLastModifiedTime(1L);
+    p.setLastModifiedTimeNanos(1L);
     assertThat(valueForPath(p)).isEqualTo(a);
     FileSystemUtils.writeContentAsLatin1(p, "content");
     // Same digest, but now non-empty.
@@ -550,16 +550,16 @@ public class FileFunctionTest {
   public void testUnreadableFileWithNoFastDigest() throws Exception {
     Path p = file("unreadable");
     p.chmod(0);
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
 
     FileValue value = valueForPath(p);
     assertThat(value.exists()).isTrue();
     assertThat(value.getDigest()).isNull();
 
-    p.setLastModifiedTime(10L);
+    p.setLastModifiedTimeNanos(10L);
     assertThat(valueForPath(p)).isNotEqualTo(value);
 
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
     assertThat(valueForPath(p)).isEqualTo(value);
   }
 

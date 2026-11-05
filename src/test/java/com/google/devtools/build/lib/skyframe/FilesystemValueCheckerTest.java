@@ -663,7 +663,7 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(path1, "hello1");
     // Update path2's mtime but not its contents. We expect that an mtime change suffices to update
     // the ctime.
-    path2.setLastModifiedTime(42);
+    path2.setLastModifiedTimeNanos(42);
     // Assert that both files changed. The change detection relies, among other things, on ctime
     // change.
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), key1, key2);

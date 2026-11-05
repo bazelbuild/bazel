@@ -298,7 +298,7 @@ public class FileSystemUtils {
   @ThreadSafe
   public static void touchFile(Path path) throws IOException {
     if (path.exists()) {
-      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+      path.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     } else {
       createEmptyFile(path);
     }
@@ -443,7 +443,7 @@ public class FileSystemUtils {
       // backed by files.
       in.transferTo(out);
     }
-    to.setLastModifiedTime(stat.getLastModifiedTime());
+    to.setLastModifiedTimeNanos(stat.getLastModifiedTimeNanos());
     int perms = stat.getPermissions();
     if (perms != -1) {
       to.chmod(perms);

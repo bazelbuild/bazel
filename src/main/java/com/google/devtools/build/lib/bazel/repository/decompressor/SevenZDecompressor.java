@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
@@ -138,7 +139,7 @@ public class SevenZDecompressor implements Decompressor {
         }
       }
       if (entry.getHasLastModifiedDate()) {
-        outputPath.setLastModifiedTime(entry.getLastModifiedTime().toMillis());
+        outputPath.setLastModifiedTimeNanos(entry.getLastModifiedTime().to(TimeUnit.NANOSECONDS));
       }
     }
   }

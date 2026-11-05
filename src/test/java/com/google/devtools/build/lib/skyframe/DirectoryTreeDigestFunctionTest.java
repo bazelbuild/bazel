@@ -213,7 +213,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     String oldDigest = getTreeDigest("/");
 
     // We don't digest mtimes so this shouldn't affect anything.
-    scratch.resolve("c").setLastModifiedTime(2024L);
+    scratch.resolve("c").setLastModifiedTimeNanos(2024L);
     assertThat(getTreeDigest("/")).isEqualTo(oldDigest);
   }
 

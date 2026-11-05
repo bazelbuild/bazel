@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -75,12 +76,12 @@ public class BlazeTestUtils {
    */
   public static void changeModtime(Path path)
     throws IOException {
-    long prevMtime = path.getLastModifiedTime();
+    long prevMtime = path.getLastModifiedTimeNanos();
     long newMtime = prevMtime;
     do {
-      newMtime += 1000;
-      path.setLastModifiedTime(newMtime);
-    } while (path.getLastModifiedTime() == prevMtime);
+      newMtime += Duration.ofSeconds(1).toNanos();
+      path.setLastModifiedTimeNanos(newMtime);
+    } while (path.getLastModifiedTimeNanos() == prevMtime);
   }
 
   /**

@@ -432,8 +432,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     PathFragment path = artifact.getPath().asFragment();
     injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
 
-    actionFs.getPath(path).setLastModifiedTime(1234567890);
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(1234567890);
+    actionFs.getPath(path).setLastModifiedTimeNanos(1234567890);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isEqualTo(1234567890);
   }
 
   @Test
@@ -443,8 +443,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     PathFragment path = artifact.getPath().asFragment();
     writeLocalFile(actionFs, artifact.getPath().asFragment(), "local contents");
 
-    actionFs.getPath(path).setLastModifiedTime(1234567890);
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(1234567890);
+    actionFs.getPath(path).setLastModifiedTimeNanos(1234567890);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isEqualTo(1234567890);
   }
 
   @Test
@@ -465,9 +465,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       injectRemoteFile(actionFs, targetPath, "content");
     }
 
-    actionFs.getPath(linkPath).setLastModifiedTime(1234567890);
-    assertThat(actionFs.getPath(linkPath).getLastModifiedTime()).isEqualTo(1234567890);
-    assertThat(actionFs.getPath(targetPath).getLastModifiedTime()).isEqualTo(1234567890);
+    actionFs.getPath(linkPath).setLastModifiedTimeNanos(1234567890);
+    assertThat(actionFs.getPath(linkPath).getLastModifiedTimeNanos()).isEqualTo(1234567890);
+    assertThat(actionFs.getPath(targetPath).getLastModifiedTimeNanos()).isEqualTo(1234567890);
   }
 
   @Test

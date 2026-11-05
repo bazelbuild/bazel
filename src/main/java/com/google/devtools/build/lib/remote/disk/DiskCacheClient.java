@@ -123,7 +123,7 @@ public class DiskCacheClient {
     try {
       // Use NOW_SENTINEL_TIME instead of obtaining the current time so that the operation succeeds
       // even when the file has a different owner, as might be the case for a shared cache.
-      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+      path.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     } catch (FileNotFoundException e) {
       return false;
     } catch (FileAccessException e) {
@@ -419,7 +419,7 @@ public class DiskCacheClient {
           // entry: an entry must remain readable by every user of a shared cache, and its mtime
           // records when it was last stored or retrieved.
           temp.chmod(0644);
-          temp.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+          temp.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
           // Fsync temp before we rename it to avoid data loss in the case of machine
           // crashes (the OS may reorder the writes and the rename).
           syncFile(temp);
