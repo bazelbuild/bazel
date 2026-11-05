@@ -20,6 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:__pkg__",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect:equivalence_relation",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",

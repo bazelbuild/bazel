@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -845,6 +846,25 @@ public class Rule extends RuleOrMacroInstance implements Target {
       }
     }
     return labels.values();
+  }
+
+  /** Returns the toolchain requirements declared by this rule outside named execution groups. */
+  public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {
+    var types = ruleClass.getToolchainTypes();
+    if (ruleClass.isStarlark() || !ruleClass.getName().equals("genrule")) {
+      return types;
+    }
+    var labels = NonconfigurableAttributeMapper.of(this).get("toolchains", BuildType.LABEL_LIST);
+    if (labels.isEmpty()) {
+      return types;
+    }
+    var result = ImmutableSet.<ToolchainTypeRequirement>builder().addAll(types);
+    for (Label label : labels) {
+      // This attribute can also name template variable providers, which resolution must ignore.
+      result.add(
+          ToolchainTypeRequirement.builder(label).mandatory(false).ignoreIfInvalid(true).build());
+    }
+    return result.build();
   }
 
   /**
