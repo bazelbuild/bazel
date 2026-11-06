@@ -100,6 +100,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/compat:fake-load-target",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/hash",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",

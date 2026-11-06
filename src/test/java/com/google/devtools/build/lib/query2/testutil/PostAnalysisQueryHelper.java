@@ -86,7 +86,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     super.setUp();
     parserPrefix = PathFragment.EMPTY_FRAGMENT;
     wholeTestUniverse = false;
-    this.analysisHelper = new AnalysisHelper();
+    this.analysisHelper = createAnalysisHelper();
     // Reverse the @Before method list, so that superclass is called before subclass.
     for (Method method :
         Lists.reverse(getMethodsAnnotatedWith(AnalysisHelper.class, Before.class))) {
@@ -157,6 +157,11 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   @Override
   public void clearAllFiles() throws IOException {
     analysisHelper.getRootDirectory().deleteTree();
+  }
+
+  /** Creates the {@link AnalysisHelper} that analyzes the build before each query. */
+  protected AnalysisHelper createAnalysisHelper() {
+    return new AnalysisHelper();
   }
 
   @Override
