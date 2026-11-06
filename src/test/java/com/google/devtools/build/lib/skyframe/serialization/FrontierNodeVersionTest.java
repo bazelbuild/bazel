@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.hash.HashCode;
@@ -66,5 +67,41 @@ public final class FrontierNodeVersionTest {
             "distinguisher",
             /* useFakeStampData= */ false,
             Optional.empty());
+  }
+
+  @Test
+  public void getConfigAndStarlarkSemanticsHash_includesTopLevelConfigAndStarlarkSemantics() {
+    var base =
+        new FrontierNodeVersion(
+            "checksum1",
+            HashCode.fromInt(1),
+            new byte[] {1, 2},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ false,
+            Optional.empty());
+    var differentTopLevelConfig =
+        new FrontierNodeVersion(
+            "checksum2",
+            HashCode.fromInt(1),
+            new byte[] {1, 2},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ false,
+            Optional.empty());
+    var differentStarlarkSemantics =
+        new FrontierNodeVersion(
+            "checksum1",
+            HashCode.fromInt(1),
+            new byte[] {3, 4},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ false,
+            Optional.empty());
+
+    assertThat(base.getConfigAndStarlarkSemanticsHash())
+        .isNotEqualTo(differentTopLevelConfig.getConfigAndStarlarkSemanticsHash());
+    assertThat(base.getConfigAndStarlarkSemanticsHash())
+        .isNotEqualTo(differentStarlarkSemantics.getConfigAndStarlarkSemanticsHash());
   }
 }

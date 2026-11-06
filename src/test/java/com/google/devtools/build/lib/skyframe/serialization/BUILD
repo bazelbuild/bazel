@@ -565,6 +565,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:hash",
         "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

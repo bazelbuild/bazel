@@ -194,13 +194,17 @@ public final class RemoteAnalysisCacheFactory {
 
     if (skycacheMetadataParams != null) {
       skycacheMetadataParams.init(
-          workspaceInfoFromDiff.getEvaluatingVersion().getVal(),
-          String.format("%s-%s", BlazeVersionInfo.instance().getReleaseName(), blazeInstallMD5),
+          frontierNodeVersion.getEvaluatingVersion(),
+          String.format(
+              "%s-%s",
+              BlazeVersionInfo.instance().getReleaseName(),
+              frontierNodeVersion.getBlazeInstallMD5()),
           topLevelTargets.stream().map(Label::toString).collect(toImmutableList()),
-          env.getUseFakeStampData(),
+          frontierNodeVersion.getUseFakeStampData(),
           userOptions,
           projectSclOptions);
-      skycacheMetadataParams.setConfigurationHash(trimmedTopLevelOptions.checksum());
+      skycacheMetadataParams.setConfigurationHash(
+          frontierNodeVersion.getConfigAndStarlarkSemanticsHash());
       skycacheMetadataParams.setOriginalConfigurationOptions(
           getConfigurationOptionsAsStrings(topLevelOptions));
     }
