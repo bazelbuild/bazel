@@ -164,6 +164,14 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("SINGLE_EXTENSION_EVAL");
   public static final SkyFunctionName BAZEL_DEP_GRAPH =
       SkyFunctionName.createHermetic("BAZEL_DEP_GRAPH");
+  public static final SkyFunctionName ROOT_REPO_DEFINITION_INPUTS =
+      SkyFunctionName.createHermetic("ROOT_REPO_DEFINITION_INPUTS");
+  public static final SkyFunctionName RESOLVED_REPO_DEFINITION_INPUTS =
+      SkyFunctionName.createHermetic("RESOLVED_REPO_DEFINITION_INPUTS");
+  public static final SkyFunctionName RESOLVED_REPO_DEFINITION =
+      SkyFunctionName.createHermetic("RESOLVED_REPO_DEFINITION");
+  public static final SkyFunctionName EXTENSION_REPO_SPEC =
+      SkyFunctionName.createHermetic("EXTENSION_REPO_SPEC");
   public static final SkyFunctionName BAZEL_LOCK_FILE =
       SkyFunctionName.createHermetic("BAZEL_LOCK_FILE");
   public static final SkyFunctionName BAZEL_FETCH_ALL =

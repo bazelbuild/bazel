@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
-import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -184,7 +183,7 @@ public class DiscoveryTest extends FoundationTestCase {
                         ImmutableMap::of,
                         directories,
                         new LocalRepoContentsCache()))
-                .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
+                .putAll(RepoDefinitionFunction.skyFunctions(directories))
                 .put(
                     SkyFunctions.REGISTRY,
                     new RegistryFunction(registryFactory, directories.getWorkspace()))
