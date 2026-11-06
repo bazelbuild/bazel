@@ -222,27 +222,12 @@ Genrules configure their tools in the
 [exec configuration](/extending/rules#configurations)
 so the following queries would produce the following outputs:
 
-<table class="table table-condensed table-bordered table-params">
-  <thead>
-    <tr>
-      <th>Query</th>
-      <th>Target Built</th>
-      <th>Output</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>bazel cquery "//x:tool"</td>
-      <td>//x:tool</td>
-      <td>//x:tool(targetconfig)</td>
-    </tr>
-    <tr>
-      <td>bazel cquery "//x:tool" --universe_scope="//x:my_gen"</td>
-      <td>//x:my_gen</td>
-      <td>//x:tool(execconfig)</td>
-    </tr>
-  </tbody>
-</table>
+
+| Query | Target Built | Output |
+| --- | --- | --- |
+| bazel cquery "//x:tool" | //x:tool | //x:tool(targetconfig) |
+| bazel cquery "//x:tool" --universe_scope="//x:my_gen" | //x:my_gen | //x:tool(execconfig) |
+
 
 If this flag is set, its contents are built. _If it's not set, all targets
 mentioned in the query expression are built_ instead. The transitive closure of
