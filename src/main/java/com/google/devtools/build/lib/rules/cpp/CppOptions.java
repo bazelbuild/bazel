@@ -946,8 +946,9 @@ public abstract class CppOptions extends FragmentOptions {
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "Enables experimental C++20 modules support. Use it with `module_interfaces` attribute on"
-              + " `cc_binary` and `cc_library`. While the support is behind the experimental flag,"
+          "Enables experimental C++20 modules support. Use it by adding module interfaces (`.cppm`,"
+              + " `.ixx`, `.ccm`, `.cxxm`, `.c++m`, `.mpp` or `.mxx`) to `srcs` of `cc_library`,"
+              + " `cc_binary` and `cc_test`. While the support is behind the experimental flag,"
               + " there are no guarantees about incompatible changes to it or even keeping the"
               + " support in the future. Consider those risks when using it.")
   public abstract boolean getExperimentalCppModules();

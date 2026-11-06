@@ -364,14 +364,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Sequence.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "module_interfaces",
-            doc =
-                "The list of module interfaces source files to be compiled. Note: this is an"
-                    + " experimental feature, only enabled with --experimental_cpp_modules",
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
             name = "non_compilation_additional_inputs",
             positional = false,
             named = true,
@@ -418,7 +410,6 @@ public interface CcModuleApi<
       Object languageObject,
       Object purposeObject,
       Object separateModuleHeadersObject,
-      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
