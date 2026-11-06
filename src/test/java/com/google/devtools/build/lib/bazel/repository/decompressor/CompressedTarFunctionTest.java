@@ -222,6 +222,33 @@ public class CompressedTarFunctionTest {
   }
 
   @Test
+  public void testDecompressTarWithHardlinkEscape() throws Exception {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File tarGzFile = folder.newFile("malicious_hardlink.tar.gz");
+    try (FileOutputStream fos = new FileOutputStream(tarGzFile);
+        GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
+        TarArchiveOutputStream tos = new TarArchiveOutputStream(gzos)) {
+      TarArchiveEntry entry = new TarArchiveEntry("link", TarArchiveEntry.LF_LINK);
+      entry.setLinkName("../foo");
+      entry.setIds(0, 0);
+      entry.setNames("user", "group");
+      tos.putArchiveEntry(entry);
+      tos.closeArchiveEntry();
+    }
+    Path tarGzPath = fs.getPath(tarGzFile.getAbsolutePath());
+
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(tarGzPath)
+            .setDestinationPath(tarGzPath.getParentDirectory().getRelative("out"))
+            .build();
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("hard link target ../foo is escaping the destination directory");
+  }
+
+  @Test
   public void testDecompressTarWithChainedSymlinkEscape() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path outDir = fs.getPath("/out");
