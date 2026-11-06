@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -114,6 +115,19 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     this.packageLocator = packageLocator;
     this.ignoredSubdirectories = ignoredSubdirectories;
     this.syscallCache = syscallCache;
+  }
+
+  @Override
+  protected void recordRepoDependency(RepositoryName repo)
+      throws EvalException, InterruptedException {
+    if (repo.isMain() || repo.getName().equals(repoDefinition.name())) {
+      return;
+    }
+    try {
+      var unused = getValueAndRecordInput(new RepoRecordedInput.Repository(repo));
+    } catch (IOException e) {
+      throw Starlark.errorf("%s", e.getMessage());
+    }
   }
 
   @Override
