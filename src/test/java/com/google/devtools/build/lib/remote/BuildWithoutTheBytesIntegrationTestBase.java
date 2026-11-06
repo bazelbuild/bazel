@@ -1712,6 +1712,76 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(getOutputPath("a/foo.link").isDirectory()).isTrue();
   }
 
+  private void writeEmptyMapDirectoryRule() throws IOException {
+    addOptions("--experimental_allow_map_directory");
+    write(
+        "a/defs.bzl",
+        """
+        def _map_impl(template_ctx, **kwargs):
+            pass
+
+        def _impl(ctx):
+            input = ctx.actions.declare_directory(ctx.label.name + ".in")
+            ctx.actions.run_shell(outputs = [input], command = "mkdir -p " + input.path)
+            output = ctx.actions.declare_directory(ctx.label.name + ".out")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"in": input},
+                output_directories = {"out": output},
+                tools = {},
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        empty_map_directory = rule(implementation = _impl)
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "empty_map_directory")
+        empty_map_directory(name = "foo")
+        genrule(
+            name = "consumer",
+            srcs = [":foo"],
+            outs = ["consumer.txt"],
+            cmd = "test -d $< && touch $@",
+            tags = ["no-cache", "no-remote"],
+        )
+        """);
+  }
+
+  @Test
+  public void emptyMapDirectoryOutputConsumedByLocalAction_directoryMissing() throws Exception {
+    writeEmptyMapDirectoryRule();
+
+    buildTarget("//a:consumer");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+
+    getOutputPath("a").deleteTree();
+    restartServer();
+
+    buildTarget("//a:consumer");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void toplevelEmptyMapDirectoryOutput_directoryMissing() throws Exception {
+    writeEmptyMapDirectoryRule();
+    setDownloadToplevel();
+
+    buildTarget("//a:foo");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+
+    getOutputPath("a").deleteTree();
+    restartServer();
+
+    buildTarget("//a:foo");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+  }
+
   @Test
   public void multiplePackagePaths_buildsSuccessfully() throws Exception {
     write(
