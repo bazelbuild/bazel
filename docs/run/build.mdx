@@ -617,11 +617,13 @@ If you ever detect a stable inconsistent state with Bazel, please report a bug.
 
 Note: Sandboxing is enabled by default for local execution.
 
-Bazel uses sandboxes to guarantee that actions run hermetically and
-correctly. Bazel runs _spawns_ (loosely speaking: actions) in sandboxes that
-only contain the minimal set of files the tool requires to do its job. Currently
-sandboxing works on Linux 3.12 or newer with the `CONFIG_USER_NS` option
-enabled, and also on macOS 10.11 or newer.
+Bazel can use sandboxes to isolate actions and help detect undeclared file
+dependencies. The exact filesystem and network restrictions depend on the
+selected sandbox strategy, platform, and configuration. See
+[Sandboxing](/docs/sandboxing) for the differences between strategies and how to
+enforce a stronger sandbox when a build requires it. Currently sandboxing works
+on Linux 3.12 or newer with the `CONFIG_USER_NS` option enabled, and also on
+macOS 10.11 or newer.
 
 Bazel will print a warning if your system does not support sandboxing to alert
 you to the fact that builds are not guaranteed to be hermetic and might affect
