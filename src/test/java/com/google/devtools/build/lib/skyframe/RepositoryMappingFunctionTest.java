@@ -379,7 +379,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     assertThat(toolsResult.hasError()).isFalse();
     RepositoryMapping toolsMapping = toolsResult.get(toolsKey).repositoryMapping();
 
-    assertThat(builtinsMapping.entries()).containsAtLeastEntriesIn(toolsMapping.entries());
+    // The builtins repo can see all repos visible from the tools repo.
+    assertThat(toolsMapping.get("bazel_tools").isVisible()).isTrue();
+    assertThat(builtinsMapping.get("bazel_tools")).isEqualTo(toolsMapping.get("bazel_tools"));
     assertThat(builtinsMapping.get("_builtins")).isEqualTo(RepositoryName.create("_builtins"));
     assertThat(builtinsMapping.get("")).isEqualTo(RepositoryName.MAIN);
   }
