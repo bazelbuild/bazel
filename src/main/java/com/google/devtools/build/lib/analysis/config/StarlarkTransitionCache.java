@@ -155,6 +155,7 @@ public final class StarlarkTransitionCache {
    * @param fromOptions source options before the transition
    * @param transition the transition itself
    * @param details information from packages about Starlark build settings needed by transition
+   * @param sourceFlagDetails the details of the Starlark flags of {@code fromOptions}
    * @param eventHandler handler for errors evaluating the transition.
    * @return transition output
    */
@@ -162,9 +163,10 @@ public final class StarlarkTransitionCache {
       BuildOptions fromOptions,
       ConfigurationTransition transition,
       StarlarkBuildSettingsDetailsValue details,
+      StarlarkBuildSettingsDetailsValue sourceFlagDetails,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
-    Key cacheKey = new Key(transition, fromOptions, details);
+    Key cacheKey = new Key(transition, fromOptions, details, sourceFlagDetails);
     Value cachedResult = cache.getIfPresent(cacheKey);
     if (cachedResult != null) {
       if (cachedResult.nonErrorEvents != null) {
@@ -201,7 +203,7 @@ public final class StarlarkTransitionCache {
     result = StarlarkTransition.validate(transition, details, flagsAliases, result);
     result =
         StarlarkTransition.resetPlatformScopedSettings(
-            transition, details, flagsAliases, fromOptions, result);
+            transition, details, sourceFlagDetails, flagsAliases, fromOptions, result);
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.
@@ -220,12 +222,14 @@ public final class StarlarkTransitionCache {
     private final ConfigurationTransition transition;
     private final BuildOptions fromOptions;
     private final StarlarkBuildSettingsDetailsValue details;
+    private final StarlarkBuildSettingsDetailsValue sourceFlagDetails;
     private final int hashCode;
 
     private Key(
         ConfigurationTransition transition,
         BuildOptions fromOptions,
-        StarlarkBuildSettingsDetailsValue details) {
+        StarlarkBuildSettingsDetailsValue details,
+        StarlarkBuildSettingsDetailsValue sourceFlagDetails) {
       // For rule self-transitions, the transition instance encapsulates both the transition logic
       // and attributes of the target it's attached to. This is important: the same transition in
       // the same configuration applied to distinct targets may produce different outputs. See
@@ -233,7 +237,12 @@ public final class StarlarkTransitionCache {
       this.transition = transition;
       this.fromOptions = fromOptions;
       this.details = details;
-      this.hashCode = Objects.hash(transition, fromOptions, details);
+      this.sourceFlagDetails = sourceFlagDetails;
+      // Uses the identity of sourceFlagDetails since it covers all flags of the configuration,
+      // which are expensive to hash on every transitioned dependency edge.
+      this.hashCode =
+          Objects.hash(
+              transition, fromOptions, details, System.identityHashCode(sourceFlagDetails));
     }
 
     @Override
@@ -246,7 +255,8 @@ public final class StarlarkTransitionCache {
       }
       return this.transition.equals(otherKey.transition)
           && this.fromOptions.equals(otherKey.fromOptions)
-          && this.details.equals(otherKey.details);
+          && this.details.equals(otherKey.details)
+          && this.sourceFlagDetails == otherKey.sourceFlagDetails;
     }
 
     @Override

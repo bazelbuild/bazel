@@ -238,6 +238,9 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * @param root transition that was applied
    * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input
    *     and output settings of root. Used to unalias the outputs of {@code root}.
+   * @param sourceFlagDetails the details of the Starlark flags of {@code fromOptions}. Used to find
+   *     the build settings with {@code scope = "platform"}. Build settings that {@code fromOptions}
+   *     doesn't set are outputs of {@code root}, which aren't reset.
    * @param flagsAliases a list of starlark flag aliases defined via --flag_alias.
    * @param fromOptions the options {@code root} was applied to
    * @param toOptions result of applying {@code root}, as returned by {@link #validate}
@@ -247,6 +250,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   public static Map<String, BuildOptions> resetPlatformScopedSettings(
       ConfigurationTransition root,
       StarlarkBuildSettingsDetailsValue details,
+      StarlarkBuildSettingsDetailsValue sourceFlagDetails,
       ImmutableMap<String, Label> flagsAliases,
       BuildOptions fromOptions,
       Map<String, BuildOptions> toOptions)
@@ -269,7 +273,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     for (Entry<String, BuildOptions> entry : toOptions.entrySet()) {
       BuildOptions options = entry.getValue();
       BuildOptions resetOptions =
-          resetPlatformScopedSettingsIfPlatformsChanged(options, fromPlatforms, outputSettings);
+          resetPlatformScopedSettingsIfPlatformsChanged(
+              options, fromPlatforms, outputSettings, sourceFlagDetails);
       changed |= resetOptions != options;
       resetOptionsMap.put(entry.getKey(), resetOptions);
     }
@@ -284,16 +289,18 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * <p>Returns the same instance if no build setting has to be reset.
    */
   private static BuildOptions resetPlatformScopedSettingsIfPlatformsChanged(
-      BuildOptions options, List<Label> fromPlatforms, Set<Label> outputSettings) {
+      BuildOptions options,
+      List<Label> fromPlatforms,
+      Set<Label> outputSettings,
+      StarlarkBuildSettingsDetailsValue sourceFlagDetails) {
     if (!changesPlatforms(options, fromPlatforms)) {
       return options;
     }
     BuildOptions.Builder resetOptions = null;
     for (Label setting : options.getStarlarkOptions().keySet()) {
-      Scope.ScopeType scopeType = options.getScopeTypeMap().get(setting);
-      if (scopeType == null
-          || !scopeType.scopeType().equals(Scope.ScopeType.PLATFORM)
-          || outputSettings.contains(setting)) {
+      Label actual = sourceFlagDetails.aliasToActual().getOrDefault(setting, setting);
+      if (!sourceFlagDetails.scopeTypeOf(actual).equals(Scope.ScopeType.PLATFORM)
+          || outputSettings.contains(actual)) {
         continue;
       }
       if (resetOptions == null) {
