@@ -205,6 +205,17 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   public abstract PathFragment getTlsCaCertificate();
 
   @Option(
+      name = "live_output_streams",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, advertises the stdout and stderr of executing actions as stream names in"
+              + " ExecuteOperationMetadata, which clients can read with ByteStream.Read while the"
+              + " actions run.")
+  public abstract boolean getLiveOutputStreams();
+
+  @Option(
       name = "expected_authorization_token",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
