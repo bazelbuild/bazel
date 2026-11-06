@@ -46,6 +46,11 @@ import javax.annotation.Nullable;
 /** Fetches remotely stored {@link SkyValue}s by {@link SkyKey}. */
 public final class SkyValueRetriever {
 
+  private static final NoCachedData SCHEDULING_HASHES_EXHAUSTED_RESULT =
+      new NoCachedData(MissReason.MISS_REASON_SCHEDULING_HASHES_EXHAUSTED);
+  private static final NoCachedData CACHE_SATURATED_RESULT =
+      new NoCachedData(MissReason.MISS_REASON_CACHE_SATURATED);
+
   private final CompressionService compressionService;
   private final FingerprintValueService fingerprintValueService;
   private final ObjectCodecs codecs;
@@ -358,10 +363,14 @@ public final class SkyValueRetriever {
       while (true) {
         switch (retrievalContext.getState()) {
           case InitialQuery unused -> {
+            if (channelStateAdvisor.isSchedulingHashesExhausted()) {
+              retrievalContext.transitionTo(SCHEDULING_HASHES_EXHAUSTED_RESULT);
+              return SCHEDULING_HASHES_EXHAUSTED_RESULT;
+            }
+
             if (channelStateAdvisor.isSaturated()) {
-              var result = new NoCachedData(MissReason.MISS_REASON_CACHE_SATURATED);
-              retrievalContext.transitionTo(result);
-              return result;
+              retrievalContext.transitionTo(CACHE_SATURATED_RESULT);
+              return CACHE_SATURATED_RESULT;
             }
 
             PackedFingerprint cacheKey;
