@@ -32,6 +32,7 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.Collection;
+import javax.annotation.Nullable;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -143,6 +144,8 @@ public class BuildEventServiceTransportGrpcTest extends AbstractBuildEventServic
           final StreamObserver<PublishBuildToolEventStreamResponse> stream) {
         publishBuildToolEventStreamAccepted = true;
         return new StreamObserver<PublishBuildToolEventStreamRequest>() {
+          @Nullable private Status statusOnHalfClose;
+
           @Override
           public void onNext(PublishBuildToolEventStreamRequest request) {
             synchronized (BuildEventRecorderGrpc.this) {
@@ -157,17 +160,22 @@ public class BuildEventServiceTransportGrpcTest extends AbstractBuildEventServic
               }
               Pair<Status, Collection<PublishBuildToolEventStreamResponse>> response =
                   computeStreamResponse(request);
+              for (PublishBuildToolEventStreamResponse message : response.getSecond()) {
+                stream.onNext(message);
+              }
               Status status = response.getFirst();
               if (status == null || status.isOk()) {
                 successfulStreamEvents.put(request.getOrderedBuildEvent().getStreamId(), request);
-                for (PublishBuildToolEventStreamResponse messages : response.getSecond()) {
-                  stream.onNext(messages);
-                }
-                if (status != null && status.isOk()) {
+              }
+              if (request.getOrderedBuildEvent().getEvent().hasComponentStreamFinished()) {
+                // ACK the final event now, but require the client to half-close every stream.
+                statusOnHalfClose = status;
+              } else if (status != null) {
+                if (status.isOk()) {
                   stream.onCompleted();
+                } else {
+                  stream.onError(status.asException());
                 }
-              } else {
-                stream.onError(status.asException());
               }
             }
           }
@@ -179,7 +187,15 @@ public class BuildEventServiceTransportGrpcTest extends AbstractBuildEventServic
           }
 
           @Override
-          public void onCompleted() {}
+          public void onCompleted() {
+            if (statusOnHalfClose != null) {
+              if (statusOnHalfClose.isOk()) {
+                stream.onCompleted();
+              } else {
+                stream.onError(statusOnHalfClose.asException());
+              }
+            }
+          }
         };
       }
     }

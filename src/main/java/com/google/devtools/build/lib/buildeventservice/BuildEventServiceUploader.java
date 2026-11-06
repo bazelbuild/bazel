@@ -464,7 +464,7 @@ public final class BuildEventServiceUploader implements Runnable {
     // The build events are stored in the order they were sent.
     Deque<Command.SendSerializedBuildEvent> ackQueue = new ArrayDeque<>();
     PendingQuiesce pendingQuiesce = null;
-    boolean lastEventSent = false;
+    Command.SendSerializedBuildEvent lastEvent = null;
     int acksReceived = 0;
     int retryAttempt = 0;
     Command cmd = null;
@@ -519,11 +519,11 @@ public final class BuildEventServiceUploader implements Runnable {
           }
           case Command.SendLastBuildEvent sendLastBuildEventCmd -> {
             // Invariant: the commandQueue may contain commands of any type
-            lastEventSent = true;
             var streamFinishedEvent =
                 new StreamFinishedImpl(
                     sendLastBuildEventCmd.creationTime(), sendLastBuildEventCmd.sequenceNumber());
-            ackQueue.addLast(new Command.SendSerializedBuildEvent(streamFinishedEvent));
+            lastEvent = new Command.SendSerializedBuildEvent(streamFinishedEvent);
+            ackQueue.addLast(lastEvent);
             streamContext.sendOverStream(streamFinishedEvent);
             halfCloseEventUploadingStream();
           }
@@ -548,7 +548,11 @@ public final class BuildEventServiceUploader implements Runnable {
               Command.SendSerializedBuildEvent expected = ackQueue.removeFirst();
               long actualSeqNum = ackReceivedCmd.sequenceNumber();
               if (expected.request.sequenceNumber() == actualSeqNum) {
-                acksReceived++;
+                // The final event may be replayed after its ACK; repeated ACKs must not reset
+                // retries.
+                if (!(expected.request instanceof StreamEvent.StreamFinished)) {
+                  acksReceived++;
+                }
               } else {
                 ackQueue.addFirst(expected);
                 String message =
@@ -584,24 +588,29 @@ public final class BuildEventServiceUploader implements Runnable {
             streamContext = null;
             StreamStatus streamStatus = streamCompleteCmd.status();
             if (streamStatus.isOk()) {
-              if (lastEventSent && ackQueue.isEmpty()) {
+              if (lastEvent != null && ackQueue.isEmpty()) {
                 logger.atInfo().log("publishBuildEvents was successful");
                 // Upload successful. Break out from the while(true) loop.
                 return;
               } else {
                 StreamStatus status =
-                    lastEventSent
+                    lastEvent != null
                         ? ackQueueNotEmptyStatus(ackQueue.size())
                         : lastEventNotSentStatus();
                 BuildProgress.Code bpCode =
-                    lastEventSent
+                    lastEvent != null
                         ? BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNACK_EVENTS_ERROR
                         : BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNSENT_EVENTS_ERROR;
                 throw new BuildEventUploadException(status, bpCode);
               }
-            } else if (lastEventSent && ackQueue.isEmpty()) {
-              throw new BuildEventUploadException(
-                  streamStatus, BuildProgress.Code.BES_STREAM_COMPLETED_WITH_REMOTE_ERROR);
+            } else if (lastEvent != null && ackQueue.isEmpty()) {
+              if (!streamStatus.isRetriable() || streamStatus.isFailedPrecondition()) {
+                throw new BuildEventUploadException(
+                    streamStatus, BuildProgress.Code.BES_STREAM_COMPLETED_WITH_REMOTE_ERROR);
+              }
+              // Retry the final event so the new stream can be half-closed even though all events
+              // were ACKed. Otherwise we would open an empty stream and wait indefinitely.
+              ackQueue.addLast(lastEvent);
             }
 
             if (!streamStatus.isRetriable() || streamStatus.isFailedPrecondition()) {
