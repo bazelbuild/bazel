@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -29,6 +30,8 @@ public final class BuildDriverKey implements SkyKey {
   private final boolean explicitlyRequested;
   private final boolean skipIncompatibleExplicitTargets;
   private final boolean skipIncompatibleWildcardTargets;
+  // The same list for every key in a build.
+  private final ImmutableList<String> errorOnIncompatibleTargetsWithTags;
   private final boolean isTopLevelAspectDriver;
 
   private final boolean extraActionTopLevelOnly;
@@ -42,6 +45,7 @@ public final class BuildDriverKey implements SkyKey {
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
       boolean skipIncompatibleWildcardTargets,
+      ImmutableList<String> errorOnIncompatibleTargetsWithTags,
       boolean extraActionTopLevelOnly,
       boolean keepGoing,
       boolean isTopLevelAspectDriver) {
@@ -50,6 +54,7 @@ public final class BuildDriverKey implements SkyKey {
     this.explicitlyRequested = explicitlyRequested;
     this.skipIncompatibleExplicitTargets = skipIncompatibleExplicitTargets;
     this.skipIncompatibleWildcardTargets = skipIncompatibleWildcardTargets;
+    this.errorOnIncompatibleTargetsWithTags = errorOnIncompatibleTargetsWithTags;
     this.isTopLevelAspectDriver = isTopLevelAspectDriver;
     this.extraActionTopLevelOnly = extraActionTopLevelOnly;
     this.keepGoing = keepGoing;
@@ -61,6 +66,7 @@ public final class BuildDriverKey implements SkyKey {
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
       boolean skipIncompatibleWildcardTargets,
+      ImmutableList<String> errorOnIncompatibleTargetsWithTags,
       boolean extraActionTopLevelOnly,
       boolean keepGoing) {
     return new BuildDriverKey(
@@ -69,6 +75,7 @@ public final class BuildDriverKey implements SkyKey {
         explicitlyRequested,
         skipIncompatibleExplicitTargets,
         skipIncompatibleWildcardTargets,
+        errorOnIncompatibleTargetsWithTags,
         extraActionTopLevelOnly,
         keepGoing,
         /* isTopLevelAspectDriver= */ true);
@@ -80,6 +87,7 @@ public final class BuildDriverKey implements SkyKey {
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
       boolean skipIncompatibleWildcardTargets,
+      ImmutableList<String> errorOnIncompatibleTargetsWithTags,
       boolean extraActionTopLevelOnly,
       boolean keepGoing) {
     return new BuildDriverKey(
@@ -88,6 +96,7 @@ public final class BuildDriverKey implements SkyKey {
         explicitlyRequested,
         skipIncompatibleExplicitTargets,
         skipIncompatibleWildcardTargets,
+        errorOnIncompatibleTargetsWithTags,
         extraActionTopLevelOnly,
         keepGoing,
         /* isTopLevelAspectDriver= */ false);
@@ -111,6 +120,11 @@ public final class BuildDriverKey implements SkyKey {
 
   public boolean shouldSkipIncompatibleWildcardTargets() {
     return skipIncompatibleWildcardTargets;
+  }
+
+  /** The tags from --error_on_incompatible_targets_with_tags. */
+  public ImmutableList<String> getErrorOnIncompatibleTargetsWithTags() {
+    return errorOnIncompatibleTargetsWithTags;
   }
 
   public boolean isTopLevelAspectDriver() {

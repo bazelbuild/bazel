@@ -635,6 +635,54 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void incompatibleTargetWithErrorTag_matchedByWildcard_fails(
+      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+      throws Exception {
+    addOptions(
+        "--error_on_incompatible_targets_with_tags=must_build",
+        "--keep_going=" + keepGoing,
+        "--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    write(
+        "foo/BUILD",
+        """
+        constraint_setting(name = "incompatible_setting")
+
+        constraint_value(
+            name = "incompatible",
+            constraint_setting = ":incompatible_setting",
+        )
+
+        filegroup(
+            name = "tagged",
+            srcs = ["foo.in"],
+            tags = ["must_build"],
+            target_compatible_with = [":incompatible"],
+        )
+
+        filegroup(
+            name = "untagged",
+            srcs = ["foo.in"],
+            target_compatible_with = [":incompatible"],
+        )
+        """);
+    write("foo/foo.in");
+
+    Exception e = assertThrows(Exception.class, () -> buildTarget("//foo:all"));
+    assertThat(e instanceof BuildFailedException || e instanceof ViewCreationFailedException)
+        .isTrue();
+    String expected =
+        "Target //foo:tagged is incompatible and cannot be built, but has a tag listed in"
+            + " --error_on_incompatible_targets_with_tags.";
+    if (keepGoing) {
+      events.assertContainsWarning(expected);
+    } else {
+      // Without --keep_going the error is carried by the exception rather than an event.
+      assertThat(e).hasMessageThat().contains(expected);
+    }
+    events.assertDoesNotContainEvent("Target //foo:untagged is incompatible");
+  }
+
+  @Test
   public void analysisAndExecutionFailure_keepGoing_bothReported() throws Exception {
     addOptions("--keep_going");
     writeMyRuleBzl();
