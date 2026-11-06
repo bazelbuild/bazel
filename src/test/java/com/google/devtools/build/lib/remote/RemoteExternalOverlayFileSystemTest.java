@@ -115,7 +115,7 @@ public final class RemoteExternalOverlayFileSystemTest {
     var externalRoot = PathFragment.create("/output/external");
     var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
-    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
     when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
     overlay.beforeCommand(
@@ -172,7 +172,7 @@ public final class RemoteExternalOverlayFileSystemTest {
     var externalRoot = PathFragment.create("/output/external");
     var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
-    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
     when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
     overlay.beforeCommand(
@@ -226,7 +226,7 @@ public final class RemoteExternalOverlayFileSystemTest {
     var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
     var reporter = new Reporter();
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
-    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
     overlay.beforeCommand(
         cache,
@@ -273,7 +273,7 @@ public final class RemoteExternalOverlayFileSystemTest {
     var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
     var reporter = new Reporter();
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
-    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any(), any()))
         .thenAnswer(
             invocation -> {
               Iterable<? extends ActionInput> inputs = invocation.getArgument(1);
