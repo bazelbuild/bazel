@@ -175,7 +175,7 @@ public class WorkerProcessMetricsCollector {
     if (wpm == null) {
       return;
     }
-    wpm.incrementActionsExecuted();
+    wpm.onExecutionFinished(Instant.ofEpochMilli(clock != null ? clock.currentTimeMillis() : 0));
   }
 
   public static final int MAX_PUBLISHED_WORKER_METRICS = 50;

@@ -110,6 +110,29 @@ public abstract class WorkerOptions extends OptionsBase {
     }
   }
 
+  /** Parses a non-negative integer assignment in the form {@code [mnemonic=]value}. */
+  public static class MnemonicNonNegativeIntegerConverter
+      extends Converter.Contextless<Map.Entry<String, Integer>> {
+
+    private static final Converters.RangeConverter VALUE_CONVERTER =
+        new Converters.RangeConverter(0, Integer.MAX_VALUE);
+
+    @Override
+    public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
+      int pos = input.indexOf('=');
+      if (pos < 0) {
+        return Maps.immutableEntry("", VALUE_CONVERTER.convert(input));
+      }
+      return Maps.immutableEntry(
+          input.substring(0, pos), VALUE_CONVERTER.convert(input.substring(pos + 1)));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "[mnemonic=]value, where value is a non-negative integer";
+    }
+  }
+
   @Option(
       name = "worker_max_instances",
       converter = MultiResourceConverter.class,
@@ -170,6 +193,35 @@ public abstract class WorkerOptions extends OptionsBase {
   public abstract boolean getWorkerVerbose();
 
   public abstract void setWorkerVerbose(boolean value);
+
+  @Option(
+      name = "experimental_worker_idle_timeout_secs",
+      converter = MnemonicNonNegativeIntegerConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "The number of seconds after completing a request that an idle persistent worker may"
+              + " remain alive. A value of zero disables idle-timeout eviction. May be specified"
+              + " as [mnemonic=]value to set a different timeout per mnemonic; a value with no"
+              + " mnemonic applies to all mnemonics. Later values override earlier ones for the"
+              + " mnemonics they affect.",
+      allowMultiple = true)
+  public abstract List<Map.Entry<String, Integer>> getWorkerIdleTimeoutSecs();
+
+  public abstract void setWorkerIdleTimeoutSecs(List<Map.Entry<String, Integer>> value);
+
+  /** Resolves {@link #getWorkerIdleTimeoutSecs} into per-mnemonic timeout values. */
+  public ImmutableMap<String, Integer> getWorkerIdleTimeoutSecsMap() {
+    Map<String, Integer> map = new LinkedHashMap<>();
+    for (Map.Entry<String, Integer> entry : getWorkerIdleTimeoutSecs()) {
+      if (entry.getKey().isEmpty()) {
+        map.clear();
+      }
+      map.put(entry.getKey(), entry.getValue());
+    }
+    return ImmutableMap.copyOf(map);
+  }
 
   @Option(
       name = "worker_extra_flag",

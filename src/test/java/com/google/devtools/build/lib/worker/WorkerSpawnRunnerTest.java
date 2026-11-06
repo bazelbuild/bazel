@@ -277,6 +277,7 @@ public class WorkerSpawnRunnerTest {
     Thread.sleep(50);
     verify(resourceHandle).close();
     verify(resourceHandle, times(0)).invalidateAndClose(any());
+    verify(metricsCollector).onWorkerFinishExecution(worker.getProcessId());
   }
 
   @Test
