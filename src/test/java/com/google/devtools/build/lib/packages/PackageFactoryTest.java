@@ -1058,7 +1058,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
     Package pkg = getPackage("a");
     assertThat(pkg.getPackageArgs().features())
-        .isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
+        .isEqualTo(FeatureSet.parse(ImmutableList.of("bazel_main_repo", "b", "c")));
   }
 
   @Test
