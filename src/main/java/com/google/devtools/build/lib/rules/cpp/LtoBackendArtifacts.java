@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.TreeArtifactExpander;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -123,7 +124,7 @@ public final class LtoBackendArtifacts {
                   featureConfiguration.getCommandLine(
                       CppActionNames.LTO_BACKEND,
                       buildVariables,
-                      inputMetadataProvider,
+                      TreeArtifactExpander.of(inputMetadataProvider),
                       pathMapper));
             } catch (ExpansionException e) {
               throw new CommandLineExpansionException(e.getMessage());
