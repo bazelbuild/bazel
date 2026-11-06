@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -197,8 +200,12 @@ public final class PlatformProducerTest extends ProducerTestCase {
   private PlatformValue fetch(Label platformLabel, ImmutableMap<String, Label> flagAliasMappings)
       throws InvalidPlatformException, OptionsParsingException, InterruptedException {
     PlatformInfoSink sink = new PlatformInfoSink();
+    BuildOptions options = BuildOptions.of(ImmutableList.of(CoreOptions.class));
+    options
+        .get(CoreOptions.class)
+        .setCommandLineFlagAliases(ImmutableList.copyOf(flagAliasMappings.entrySet()));
     PlatformProducer producer =
-        new PlatformProducer(platformLabel, flagAliasMappings, sink, StateMachine.DONE);
+        new PlatformProducer(platformLabel, options, sink, StateMachine.DONE);
     boolean success = executeProducer(producer);
     if (sink.platformValue != null) {
       assertThat(success).isTrue();

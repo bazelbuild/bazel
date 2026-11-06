@@ -86,7 +86,7 @@ public final class StarlarkExecTransitionLoader {
       BzlFileLoader bzlFileLoader,
       StarlarkBuildSettingsDetailsValue scopeDetails)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
-    if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
+    if (options == null || options.hasNoConfig()) {
       return Optional.empty();
     }
     String userRef =
