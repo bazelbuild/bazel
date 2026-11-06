@@ -163,12 +163,11 @@ public class RepositoryUtils {
           int depth = symlink.relativeTo(repoDir).segmentCount() - 1;
           newTarget = PathFragment.create("../".repeat(depth)).getRelative(targetRelativeToRepo);
         } else {
-          // Cross-repo symlink: replant through the parent directory. On Unix, these relative paths
-          // only resolve correctly when the repo is at its original location (under the external
-          // root), not when moved to a shared cache. This is because symlink resolution is based
-          // on physical paths. On Windows, where symlinks are resolved using logical paths, it may
-          // be possible to use these symlinks portably, but this would likely require changes to
-          // FileFunction to mimic this resolution behavior.
+          // Cross-repo symlink: replant through the parent directory. Directory symlinks, including
+          // those created with --windows_enable_symlinks, resolve relative targets against physical
+          // paths. Moving the repo to a shared cache therefore breaks these links. Junctions can
+          // preserve the logical parent on Windows, but relying on that would disagree with
+          // FileFunction's resolution and would not work with directory symlinks.
           portableSymlinksOnly = false;
           symlinksResolveWithinRepo = false;
           // Rewrite for consistency even if not portable. A mix of absolute and relative symlinks
