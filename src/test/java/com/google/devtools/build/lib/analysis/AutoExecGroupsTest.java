@@ -2540,13 +2540,17 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         custom_rule(
             name = "custom_rule_name",
             srcs = ["custom.cc"],
-            exec_group_compatible_with = {
-                "//bazel_internal/test_rules/cc:cpp_toolchain_type": ["//platforms:constraint_2"],
-            },
         )
         """
             .formatted(TestConstants.CPP_TOOLCHAIN_TYPE));
     useConfiguration("--incompatible_auto_exec_groups");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withToolchainTargetConstraints("@@//platforms:constraint_1")
+                .withToolchainExecConstraints("@@//platforms:constraint_2"));
 
     ImmutableList<Action> cppCompileActions =
         getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
@@ -2559,6 +2563,57 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   @Test
   public void javaCommonCompile_javaToolchainTypeAlias_javacActionExecutesOnSecondPlatform()
       throws Exception {
+    scratch.file(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/turbine_canary_deploy.jar");
+    scratch.file(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/tzdata.jar");
+    scratch.overwriteFile(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime', 'java_toolchain')",
+        "load(",
+        "    ':java_toolchain_alias.bzl',",
+        "    'java_toolchain_alias',",
+        "    'java_runtime_alias',",
+        "    'java_host_runtime_alias',",
+        ")",
+        "toolchain_type(name = 'toolchain_type')",
+        "java_toolchain_alias(name='current_java_toolchain')",
+        "java_plugins_flag_alias(name = 'java_plugins_flag_alias')",
+        "filegroup(name = 'message_translations')",
+        "java_toolchain(name = 'toolchain',",
+        "    source_version = '6',",
+        "    target_version = '6',",
+        "    bootclasspath = ['rt.jar'],",
+        "    xlint = ['toto'],",
+        "    javacopts =['-Xmaxerrs 500'],",
+        "    compatible_javacopts = {",
+        "        'appengine': ['-XDappengineCompatible'],",
+        "        'android': ['-XDandroidCompatible'],",
+        "    },",
+        "    tools = [':javac_canary.jar'],",
+        "    javabuilder = [':JavaBuilder_deploy.jar'],",
+        "    jacocorunner = ':jacocorunner.jar',",
+        "    header_compiler = [':turbine_canary_deploy.jar'],",
+        "    header_compiler_direct = [':turbine_graal'],",
+        "    singlejar = ['singlejar'],",
+        "    ijar = ['ijar'],",
+        "    genclass = ['GenClass_deploy.jar'],",
+        "    timezone_data = 'tzdata.jar',",
+        "    java_runtime = ':jvm-k8',",
+        "    exec_compatible_with = ['@@//platforms:constraint_2'],",
+        ")",
+        "java_runtime(",
+        "    name = 'jvm-k8',",
+        "    srcs = [",
+        "        'k8/a',",
+        "        'k8/b',",
+        "    ],",
+        "    java_home = 'k8',",
+        ")",
+        "toolchain(",
+        "    name = 'java_toolchain',",
+        "    toolchain = ':toolchain',",
+        "    toolchain_type = '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "',",
+        "    exec_compatible_with = ['@@//platforms:constraint_2'],",
+        ")");
     scratch.file(
         "test/defs.bzl",
         "load('@rules_java//java:defs.bzl', 'java_common')",
@@ -2587,9 +2642,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
         custom_rule(
             name = "custom_rule_name",
-            exec_group_compatible_with = {
-                "//test:java_toolchain_type": ["//platforms:constraint_2"],
-            },
         )
         """
             .formatted(TestConstants.JAVA_TOOLCHAIN_TYPE));
