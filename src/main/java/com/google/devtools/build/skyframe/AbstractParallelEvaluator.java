@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingTask;
+import com.google.devtools.build.lib.concurrent.QuiescingTask.PriorityTier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
@@ -160,10 +161,70 @@ abstract class AbstractParallelEvaluator {
   /** * An action that evaluates a value. */
   private final class Evaluate extends QuiescingTask {
     private final SkyKey skyKey;
+    // Snapshotted at task creation so PriorityBlockingQueue comparator keys never mutate in place
+    // inside the binary heap and heap sift comparisons avoid ConcurrentHashMap lookups under the
+    // queue's global lock.
+    private final int depth;
+    private final PriorityTier tier;
 
-    private Evaluate(SkyKey skyKey) {
+    private Evaluate(SkyKey skyKey, boolean alreadyStarted) {
       super((AbstractQueueVisitor) evaluatorContext.getExecutor());
       this.skyKey = skyKey;
+      if (evaluatorContext.isDfsScheduled(skyKey)) {
+        this.depth = evaluatorContext.getNodeDepth(skyKey);
+        boolean started =
+            alreadyStarted
+                || (!skyKey.supportsPartialReevaluation()
+                    && stateCache.getIfPresent(skyKey) != null);
+        this.tier = started ? PriorityTier.IN_PROGRESS : PriorityTier.DEPTH_ORDERED;
+      } else {
+        // Priority fields are unused when DFS scheduling is disabled or skyKey routes to a
+        // non-priority pool (such as the execution-phase pool), so skip depth lookup and tier
+        // classification.
+        this.depth = 0;
+        this.tier = PriorityTier.DEPTH_ORDERED;
+      }
+    }
+
+    @Override
+    public PriorityTier priorityTier() {
+      return tier;
+    }
+
+    @Override
+    public int priorityDepth() {
+      return tier == PriorityTier.DEPTH_ORDERED ? depth : 0;
+    }
+
+    /**
+     * Returns a best-effort candidate depth for children enqueued by this evaluation pass,
+     * refreshing from {@link ParallelEvaluatorContext#getNodeDepth} in case a deeper diamond parent
+     * reached this node via {@code ALREADY_EVALUATING} after this task was created:
+     *
+     * <pre>{@code
+     * Shallow parent (d=0)                     Deep parent (d=40)
+     *         │                                        │
+     *         │ 1. Enqueues S first:                   │ 2. Runs ahead of S (deeper!),
+     *         │    Evaluate(S) frozen at this.depth=1  │    hits S (ALREADY_EVALUATING),
+     *         ▼                                        │    updates nodeDepths[S] = 41
+     *         S  ◄─────────────────────────────────────┘
+     *         │
+     *         │ 3. S pops and enqueues child C:
+     *         │    • Without currentChildDepth(): C gets stale 1 + 1 = 2  (starves d=40!)
+     *         │    • With currentChildDepth():    C gets fresh 41 + 1 = 42
+     *         ▼
+     *         C
+     * }</pre>
+     *
+     * <p>This propagation is best-effort: if {@code S} already enqueued {@code C} before the deeper
+     * parent reached {@code S}, {@code C}'s depth is not retroactively updated; only children
+     * enqueued after {@code nodeDepths[S]} is updated pick up the deeper value.
+     */
+    private int currentChildDepth() {
+      if (!evaluatorContext.isDfsScheduled(skyKey)) {
+        return 0;
+      }
+      return Math.max(this.depth, evaluatorContext.getNodeDepth(skyKey)) + 1;
     }
 
     /**
@@ -177,6 +238,7 @@ abstract class AbstractParallelEvaluator {
         NodeEntry entry,
         SkyKey child,
         NodeEntry childEntry,
+        int childDepth,
         boolean depAlreadyExists,
         boolean enqueueParentIfReady,
         @Nullable SkyFunctionEnvironment environmentIfEnqueuing)
@@ -196,7 +258,9 @@ abstract class AbstractParallelEvaluator {
         case DONE:
           if (entry.signalDep(childEntry.getVersion(), child)) {
             if (enqueueParentIfReady) {
-              evaluatorContext.getVisitor().enqueueEvaluation(skyKey, child);
+              evaluatorContext
+                  .getVisitor()
+                  .enqueueEvaluation(skyKey, child, /* alreadyStarted= */ true);
             }
             return true;
           } else {
@@ -206,14 +270,20 @@ abstract class AbstractParallelEvaluator {
               // If a dep was observed not-done by its parent when the parent tried to read its
               // value, but that dep is now done, then this is the only chance the parent has to be
               // signalled by that dep.
-              evaluatorContext.getVisitor().enqueueEvaluation(skyKey, child);
+              evaluatorContext
+                  .getVisitor()
+                  .enqueueEvaluation(skyKey, child, /* alreadyStarted= */ true);
             }
           }
           break;
         case ALREADY_EVALUATING:
+          evaluatorContext.recordChildDepth(child, /* candidateDepth= */ childDepth);
           break;
         case NEEDS_SCHEDULING:
-          evaluatorContext.getVisitor().enqueueEvaluation(child, null);
+          evaluatorContext.recordChildDepth(child, /* candidateDepth= */ childDepth);
+          evaluatorContext
+              .getVisitor()
+              .enqueueEvaluation(child, /* signalingDep= */ null, /* alreadyStarted= */ false);
           break;
       }
       return false;
@@ -334,6 +404,7 @@ abstract class AbstractParallelEvaluator {
                 unknownStatusDeps,
                 entriesToCheck,
                 nodeEntry,
+                currentChildDepth(),
                 /* enqueueParentIfReady= */ false,
                 /* environmentIfEnqueuing= */ null);
         if (!parentIsSignalledAndReady
@@ -372,6 +443,7 @@ abstract class AbstractParallelEvaluator {
           }
           evaluatorContext.signalParentsAndEnqueueIfReady(
               skyKey, rDepsToSignal, nodeEntry.getVersion());
+          evaluatorContext.clearNodeDepth(skyKey);
           return DirtyOutcome.ALREADY_PROCESSED;
         case NEEDS_REBUILDING:
           nodeEntry.markRebuilding();
@@ -389,6 +461,7 @@ abstract class AbstractParallelEvaluator {
         Collection<SkyKey> knownChildren,
         NodeBatch oldChildren,
         NodeEntry nodeEntry,
+        int childDepth,
         boolean enqueueParentIfReady,
         @Nullable SkyFunctionEnvironment environmentIfEnqueuing)
         throws InterruptedException {
@@ -407,6 +480,7 @@ abstract class AbstractParallelEvaluator {
                 nodeEntry,
                 directDep,
                 directDepEntry,
+                childDepth,
                 /* depAlreadyExists= */ true,
                 enqueueParentIfReady,
                 environmentIfEnqueuing);
@@ -542,10 +616,12 @@ abstract class AbstractParallelEvaluator {
             if (shouldFailFast) {
               evaluatorContext.signalParentsOnAbort(
                   skyKey, rdepsToBubbleUpTo, nodeEntry.getVersion());
+              evaluatorContext.clearNodeDepth(skyKey);
               throw SchedulerException.ofError(errorInfo, skyKey, rdepsToBubbleUpTo);
             }
             evaluatorContext.signalParentsAndEnqueueIfReady(
                 skyKey, rdepsToBubbleUpTo, nodeEntry.getVersion());
+            evaluatorContext.clearNodeDepth(skyKey);
             return;
           }
         } catch (RuntimeException re) {
@@ -578,7 +654,9 @@ abstract class AbstractParallelEvaluator {
           dirtyRewindGraphAndResetEntry(skyKey, nodeEntry, (Reset) value);
           stateCache.invalidate(skyKey);
           cancelExternalDeps(env);
-          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
+          evaluatorContext
+              .getVisitor()
+              .enqueueEvaluation(skyKey, /* signalingDep= */ null, /* alreadyStarted= */ true);
           return;
         }
 
@@ -619,6 +697,7 @@ abstract class AbstractParallelEvaluator {
                 env.commitAndGetParents(nodeEntry, /* expectDoneDeps= */ true);
             evaluatorContext.signalParentsAndEnqueueIfReady(
                 skyKey, reverseDeps, nodeEntry.getVersion());
+            evaluatorContext.clearNodeDepth(skyKey);
           } finally {
             evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMMIT);
           }
@@ -736,6 +815,7 @@ abstract class AbstractParallelEvaluator {
           Set<SkyKey> reverseDeps = env.commitAndGetParents(nodeEntry, /* expectDoneDeps= */ true);
           evaluatorContext.signalParentsAndEnqueueIfReady(
               skyKey, reverseDeps, nodeEntry.getVersion());
+          evaluatorContext.clearNodeDepth(skyKey);
           return;
         }
 
@@ -774,10 +854,12 @@ abstract class AbstractParallelEvaluator {
         // new children of this node are already done. Therefore, the rest of this method cannot
         // assume that the node is dirty.
 
+        int childDepth = currentChildDepth();
         handleKnownChildrenForDirtyNode(
             newDepsThatWereInTheLastEvaluation,
             graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
             nodeEntry,
+            childDepth,
             /* enqueueParentIfReady= */ true,
             env);
 
@@ -788,6 +870,7 @@ abstract class AbstractParallelEvaluator {
               nodeEntry,
               newDirectDep,
               newNodes.get(newDirectDep),
+              childDepth,
               /* depAlreadyExists= */ resetDeps.contains(newDirectDep),
               /* enqueueParentIfReady= */ true,
               env);
@@ -819,7 +902,9 @@ abstract class AbstractParallelEvaluator {
       // If a previously requested dep is no longer done, restart this node from scratch.
       stateCache.invalidate(skyKey);
       resetEntry(skyKey, nodeEntry);
-      evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
+      evaluatorContext
+          .getVisitor()
+          .enqueueEvaluation(skyKey, /* signalingDep= */ null, /* alreadyStarted= */ true);
     }
 
     private void cancelExternalDeps(SkyFunctionEnvironment env) {
@@ -1150,7 +1235,11 @@ abstract class AbstractParallelEvaluator {
         .noteInconsistencyAndMaybeThrow(
             skyKey, ImmutableList.of(depKey), Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
     if (triState == DependencyState.NEEDS_SCHEDULING) {
-      evaluatorContext.getVisitor().enqueueEvaluation(depKey, null);
+      evaluatorContext.recordChildDepth(
+          depKey, /* candidateDepth= */ evaluatorContext.getNodeDepth(skyKey) + 1);
+      evaluatorContext
+          .getVisitor()
+          .enqueueEvaluation(depKey, /* signalingDep= */ null, /* alreadyStarted= */ false);
     }
     return MaybeHandleUndoneDepResult.DEP_NOT_DONE;
   }

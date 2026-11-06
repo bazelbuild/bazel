@@ -543,6 +543,22 @@ public abstract class BuildRequestOptions extends OptionsBase {
               + "used with --target_pattern_file or --target_query.")
   public abstract String getTargetQueryFile();
 
+  @Option(
+      name = "experimental_skyframe_loading_and_analysis_dfs_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "If enabled, schedules Skyframe loading and analysis evaluation tasks in depth-first"
+              + " priority order (resumed nodes first, then unstarted nodes deepest-first) to"
+              + " narrow the active evaluation wave and reduce peak heap retained by"
+              + " simultaneously in-flight Skyframe nodes.")
+  public abstract boolean getSkyframeLoadingAndAnalysisDfsScheduling();
+
   /**
    * Do not use directly. Instead use {@link
    * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecutionSourceOfTruth()}.
