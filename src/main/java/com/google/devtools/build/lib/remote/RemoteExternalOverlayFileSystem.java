@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.events.Event;
@@ -292,15 +293,69 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       return false;
     }
     try {
+      if (replacedRepoDir.isDirectory(Symlinks.NOFOLLOW)) {
+        moveBackUnchangedContents(replacedRepoDir, repoDir);
+      }
       replacedDir.deleteTree();
     } catch (IOException e) {
-      // The repo has been injected, so this is only a cleanup, which the next command repeats.
+      // The repo has been injected, so this only affects what is on disk: anything that hasn't
+      // been moved back is downloaded again if requested and the next command deletes the rest.
       reporter.handle(
           Event.warn(
-              "Failed to delete the previous contents of repo %s: %s"
+              "Failed to clean up the previous contents of repo %s: %s"
                   .formatted(repo.getName(), e.getMessage())));
     }
     return true;
+  }
+
+  /**
+   * Moves the files and symlinks below the given directory, which holds the previous contents of a
+   * repo, back to their place in the repo if they match its new contents.
+   *
+   * <p>Whatever materialized these files doesn't necessarily do so again: the completion of a
+   * top-level target may be change pruned and a local action may be an action cache hit, even with
+   * a new server. Such a server doesn't know the previous contents of the repo, so files are
+   * compared to the new contents, which requires digesting those with the expected size.
+   */
+  private void moveBackUnchangedContents(Path replacedDir, PathFragment dir) throws IOException {
+    for (var dirent : replacedDir.readdir(Symlinks.NOFOLLOW)) {
+      var replaced = replacedDir.getChild(dirent.getName());
+      var path = dir.getChild(dirent.getName());
+      var inMemory = externalFs.getPath(path);
+      var target = nativeFs.getPath(path);
+      switch (dirent.getType()) {
+        case FILE -> {
+          // A file may already be in place if it has been prefetched during the injection.
+          if (!target.exists(Symlinks.NOFOLLOW)
+              && inMemory.statIfFound(Symlinks.NOFOLLOW)
+                  instanceof RemoteActionFileSystem.RemoteInMemoryFileInfo info
+              && !AbstractActionInputPrefetcher.shouldDownloadFile(replaced, info.getMetadata())) {
+            // The executable bit can differ between contents with the same digest.
+            replaced.chmod(getMaterializationPermissions(path, /* defaultPermissions= */ 0555));
+            nativeFs.createDirectoryAndParents(dir);
+            replaced.renameTo(target);
+            // Changing the permissions and moving the file can both change its contents proxy.
+            info.getMetadata().setContentsProxy(FileContentsProxy.create(target.stat()));
+          }
+        }
+        case SYMLINK -> {
+          // Some file systems, e.g. on Windows, turn relative symlink targets into absolute ones.
+          if (!target.exists(Symlinks.NOFOLLOW)
+              && inMemory.isSymbolicLink()
+              && dir.getRelative(inMemory.readSymbolicLink())
+                  .equals(dir.getRelative(replaced.readSymbolicLink()))) {
+            nativeFs.createDirectoryAndParents(dir);
+            replaced.renameTo(target);
+          }
+        }
+        case DIRECTORY -> {
+          if (inMemory.isDirectory(Symlinks.NOFOLLOW)) {
+            moveBackUnchangedContents(replaced, path);
+          }
+        }
+        default -> {}
+      }
+    }
   }
 
   /**
