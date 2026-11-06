@@ -275,10 +275,10 @@ public final class Runfiles implements RunfilesApi {
       PathFragment source = entry.getKey();
       Artifact symlink = entry.getValue();
       // drop nested entries; warn if this changes anything
-      int n = source.segmentCount();
       parents.clear();
-      for (int j = 1; j < n; ++j) {
-        PathFragment prefix = source.subFragment(0, n - j);
+      PathFragment prefix = source;
+      while (prefix.isMultiSegment()) {
+        prefix = prefix.getParentDirectory();
         if (noFurtherObstructions.contains(prefix)) {
           break;
         }
@@ -289,7 +289,7 @@ public final class Runfiles implements RunfilesApi {
           if (receiver == RunfilesConflictReceiver.NO_OP) {
             continue outer;
           }
-          PathFragment suffix = source.subFragment(n - j, n);
+          PathFragment suffix = source.relativeTo(prefix);
           PathFragment viaAncestor = ancestor.getExecPath().getRelative(suffix);
           PathFragment expected = symlink.getExecPath();
           if (!viaAncestor.equals(expected)) {
