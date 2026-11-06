@@ -594,6 +594,330 @@ function test_success_on_incompatible_top_level_target_with_skipping() {
   done
 }
 
+# Validates that --noskip_incompatible_wildcard_targets turns incompatible targets
+# matched by a wildcard into errors, while the default still skips them. Both
+# the merged analysis/execution (Skymeld) path and the separate analysis path
+# are checked since they evaluate compatibility in different places.
+function test_wildcard_failure_with_noskip_incompatible_wildcard_targets() {
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  for skymeld in --experimental_merged_skyframe_analysis_execution \
+      --noexperimental_merged_skyframe_analysis_execution; do
+    echo "Testing with ${skymeld}"
+
+    bazel build \
+      "${skymeld}" \
+      --show_result=10 \
+      --host_platform=@//target_skipping:foo3_platform \
+      --platforms=@//target_skipping:foo3_platform \
+      ... &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+    expect_log 'Target //target_skipping:pass_on_foo1 was skipped'
+    expect_not_log 'is incompatible and cannot be built'
+
+    bazel build \
+      "${skymeld}" \
+      --show_result=10 \
+      --host_platform=@//target_skipping:foo3_platform \
+      --platforms=@//target_skipping:foo3_platform \
+      --noskip_incompatible_wildcard_targets \
+      ... &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'ERROR:.* Target //target_skipping:[a-z0-9_]* is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+    expect_log 'Dependency chain:'
+    expect_not_log 'explicitly requested'
+    expect_log '^ERROR: Build did NOT complete successfully'
+
+    # With --keep_going every incompatible target is reported and the
+    # compatible ones are still built.
+    bazel build \
+      "${skymeld}" \
+      --show_result=10 \
+      --host_platform=@//target_skipping:foo3_platform \
+      --platforms=@//target_skipping:foo3_platform \
+      --noskip_incompatible_wildcard_targets \
+      --keep_going \
+      ... &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'Target //target_skipping:pass_on_foo1 is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+    expect_log 'Target //target_skipping:fail_on_foo2 is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+    expect_log 'Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+    expect_log 'Target //target_skipping:some_foo3_target up-to-date'
+    expect_log '^ERROR: Build did NOT complete successfully'
+  done
+}
+
+# Validates that --noskip_incompatible_wildcard_targets also applies to tests expanded
+# from a test_suite, which are never explicitly requested themselves.
+function test_test_suite_failure_with_noskip_incompatible_wildcard_targets() {
+  cat >> target_skipping/BUILD <<'EOF'
+test_suite(
+    name = "suite",
+    tests = [
+        ":pass_on_foo1",
+        ":pass_on_foo1_bar2",
+    ],
+)
+EOF
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  for skymeld in --experimental_merged_skyframe_analysis_execution \
+      --noexperimental_merged_skyframe_analysis_execution; do
+    echo "Testing with ${skymeld}"
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      :suite &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+    expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
+    expect_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --noskip_incompatible_wildcard_targets \
+      :suite &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'ERROR:.* Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+    expect_not_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
+
+    # --build_tests_only does not change this.
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --noskip_incompatible_wildcard_targets \
+      --build_tests_only \
+      :suite &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'ERROR:.* Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+  done
+}
+
+# Validates that --skip_incompatible_explicit_targets and
+# --skip_incompatible_wildcard_targets are independent: the first governs
+# explicitly listed targets and the second governs targets matched by a
+# wildcard, so each can be strict while the other skips.
+function test_explicit_and_wildcard_skipping_are_independent() {
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  # An explicitly listed target is skipped per
+  # --skip_incompatible_explicit_targets even with
+  # --noskip_incompatible_wildcard_targets.
+  bazel test \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --skip_incompatible_explicit_targets \
+    --noskip_incompatible_wildcard_targets \
+    :pass_on_foo1_bar2 &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
+
+  # Without --skip_incompatible_explicit_targets it is an error, and the
+  # message still says it was explicitly requested.
+  bazel test \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --noskip_incompatible_wildcard_targets \
+    :pass_on_foo1_bar2 &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR:.* Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built, but was explicitly requested'
+
+  # A wildcard build is still strict with --skip_incompatible_explicit_targets.
+  bazel test \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --skip_incompatible_explicit_targets \
+    --noskip_incompatible_wildcard_targets \
+    :all &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR:.* Target //target_skipping:[a-z0-9_]* is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+}
+
+# Validates that cquery, which reports incompatible targets instead of failing
+# on them, is unaffected by --noskip_incompatible_wildcard_targets.
+function test_cquery_with_noskip_incompatible_wildcard_targets() {
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel cquery \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --noskip_incompatible_wildcard_targets \
+    :all &> "${TEST_log}" || fail "Bazel cquery failed unexpectedly."
+  expect_log '//target_skipping:pass_on_foo1_bar2 '
+}
+
+# Adds incompatible targets with and without the "must_build" tag, for the
+# --error_on_incompatible_targets_with_tags tests. None of them is compatible
+# with foo1_bar1_platform.
+function write_error_tag_targets() {
+  cat >> target_skipping/BUILD <<'EOF'
+sh_test(
+    name = "tagged_on_foo2",
+    srcs = ["pass.sh"],
+    tags = ["must_build"],
+    target_compatible_with = [":foo2"],
+)
+
+sh_test(
+    name = "untagged_on_foo2",
+    srcs = ["pass.sh"],
+    target_compatible_with = [":foo2"],
+)
+
+test_suite(
+    name = "tagged_suite",
+    tests = [
+        ":pass_on_foo1",
+        ":tagged_on_foo2",
+    ],
+)
+EOF
+}
+
+# Validates that --error_on_incompatible_targets_with_tags turns an incompatible
+# target with a listed tag into an error when a wildcard matches it, while
+# untagged incompatible targets are still skipped and the default is unchanged.
+function test_error_on_incompatible_targets_with_tags_wildcard() {
+  write_error_tag_targets
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  for skymeld in --experimental_merged_skyframe_analysis_execution \
+      --noexperimental_merged_skyframe_analysis_execution; do
+    echo "Testing with ${skymeld}"
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      :all &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+    expect_log '^//target_skipping:tagged_on_foo2  *  SKIPPED$'
+    expect_log '^//target_skipping:untagged_on_foo2  *  SKIPPED$'
+
+    # A tag that no target has changes nothing.
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --error_on_incompatible_targets_with_tags=no_such_tag \
+      :all &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+    expect_log '^//target_skipping:tagged_on_foo2  *  SKIPPED$'
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --error_on_incompatible_targets_with_tags=other_tag,must_build \
+      :all &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'ERROR:.* Target //target_skipping:tagged_on_foo2 is incompatible and cannot be built, but has a tag listed in --error_on_incompatible_targets_with_tags'
+    expect_log 'Dependency chain:'
+    expect_not_log 'untagged_on_foo2 is incompatible'
+
+    # With --keep_going the untagged incompatible targets are still skipped and
+    # the compatible ones still run.
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --error_on_incompatible_targets_with_tags=must_build \
+      --keep_going \
+      :all &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'Target //target_skipping:tagged_on_foo2 is incompatible and cannot be built, but has a tag listed in --error_on_incompatible_targets_with_tags'
+    expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
+    expect_log '^//target_skipping:untagged_on_foo2  *  SKIPPED$'
+  done
+}
+
+# Validates that --error_on_incompatible_targets_with_tags applies to tests
+# expanded from a test_suite.
+function test_error_on_incompatible_targets_with_tags_test_suite() {
+  write_error_tag_targets
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  for skymeld in --experimental_merged_skyframe_analysis_execution \
+      --noexperimental_merged_skyframe_analysis_execution; do
+    echo "Testing with ${skymeld}"
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      :tagged_suite &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+    expect_log '^//target_skipping:tagged_on_foo2  *  SKIPPED$'
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --error_on_incompatible_targets_with_tags=must_build \
+      :tagged_suite &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'ERROR:.* Target //target_skipping:tagged_on_foo2 is incompatible and cannot be built, but has a tag listed in --error_on_incompatible_targets_with_tags'
+  done
+}
+
+# Validates that --error_on_incompatible_targets_with_tags overrides
+# --skip_incompatible_explicit_targets for explicitly listed tagged targets,
+# such as a target list passed with --target_pattern_file.
+function test_error_on_incompatible_targets_with_tags_overrides_explicit_skipping() {
+  write_error_tag_targets
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  printf '%s\n' //target_skipping:tagged_on_foo2 \
+    //target_skipping:untagged_on_foo2 //target_skipping:pass_on_foo1 \
+    > "${TEST_TMPDIR}/targets.txt"
+
+  bazel test \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --skip_incompatible_explicit_targets \
+    --target_pattern_file="${TEST_TMPDIR}/targets.txt" \
+    &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_log '^//target_skipping:tagged_on_foo2  *  SKIPPED$'
+
+  bazel test \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --skip_incompatible_explicit_targets \
+    --error_on_incompatible_targets_with_tags=must_build \
+    --keep_going \
+    --target_pattern_file="${TEST_TMPDIR}/targets.txt" \
+    &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+  expect_log 'Target //target_skipping:tagged_on_foo2 is incompatible and cannot be built, but has a tag listed in --error_on_incompatible_targets_with_tags'
+  expect_log '^//target_skipping:untagged_on_foo2  *  SKIPPED$'
+  expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
+}
+
+# Validates that --error_on_incompatible_targets_with_tags and
+# --skip_incompatible_wildcard_targets work together: a tagged target is an
+# error even when wildcard-matched targets are skipped, and
+# --noskip_incompatible_wildcard_targets still makes untagged ones errors.
+function test_error_on_incompatible_targets_with_tags_and_wildcard_skipping() {
+  write_error_tag_targets
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  for skymeld in --experimental_merged_skyframe_analysis_execution \
+      --noexperimental_merged_skyframe_analysis_execution; do
+    echo "Testing with ${skymeld}"
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --skip_incompatible_wildcard_targets \
+      --error_on_incompatible_targets_with_tags=must_build \
+      --keep_going \
+      :all &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'Target //target_skipping:tagged_on_foo2 is incompatible and cannot be built, but has a tag listed in --error_on_incompatible_targets_with_tags'
+    expect_log '^//target_skipping:untagged_on_foo2  *  SKIPPED$'
+
+    bazel test \
+      "${skymeld}" \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --noskip_incompatible_wildcard_targets \
+      --error_on_incompatible_targets_with_tags=must_build \
+      --keep_going \
+      :all &> "${TEST_log}" && fail "Bazel passed unexpectedly."
+    expect_log 'Target //target_skipping:untagged_on_foo2 is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+    expect_log 'Target //target_skipping:tagged_on_foo2 is incompatible and cannot be built, but was matched by a wildcard or test_suite and --noskip_incompatible_wildcard_targets is set'
+    expect_not_log '^//target_skipping:untagged_on_foo2  *  SKIPPED$'
+  done
+}
+
 # Crudely validates that the build event protocol contains useful information
 # when targets are skipped due to incompatibilities.
 function test_build_event_protocol() {

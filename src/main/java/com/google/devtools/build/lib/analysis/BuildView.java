@@ -404,6 +404,8 @@ public class BuildView {
                         configuredTargets, allTargetsToTest, eventHandler, eventBus),
                 keepGoing,
                 skipIncompatibleExplicitTargets,
+                viewOptions.getSkipIncompatibleWildcardTargets(),
+                ImmutableList.copyOf(viewOptions.getErrorOnIncompatibleTargetsWithTags()),
                 checkForActionConflicts,
                 viewOptions.getExtraActionTopLevelOnly(),
                 executors,
@@ -479,7 +481,9 @@ public class BuildView {
                 skyframeAnalysisResult.getConfiguredTargets(),
                 explicitTargetPatterns,
                 keepGoing,
-                skipIncompatibleExplicitTargets);
+                skipIncompatibleExplicitTargets,
+                viewOptions.getSkipIncompatibleWildcardTargets(),
+                ImmutableList.copyOf(viewOptions.getErrorOnIncompatibleTargetsWithTags()));
 
         if (!platformRestrictions.targetsWithErrors().isEmpty()) {
           // If there are any errored targets (e.g. incompatible targets that are explicitly
