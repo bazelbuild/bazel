@@ -92,30 +92,12 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
   public abstract long getSize();
 
   /**
-   * Returns the time when the entity denoted by the current object was last
-   * modified.
-   */
-  @Override
-  public synchronized long getLastModifiedTime() {
-    return lastModifiedTimeNanos / 1_000_000;
-  }
-
-  /**
    * Returns the time when the entity denoted by the current object was last modified, in
    * nanoseconds since the Unix epoch.
    */
   @Override
   public synchronized long getLastModifiedTimeNanos() {
     return lastModifiedTimeNanos;
-  }
-
-  /**
-   * Returns the time when the entity denoted by the current object was last
-   * changed.
-   */
-  @Override
-  public synchronized long getLastChangeTime() {
-    return lastChangeTimeNanos / 1_000_000;
   }
 
   /**

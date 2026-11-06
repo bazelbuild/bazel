@@ -480,19 +480,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
           }
 
           @Override
-          public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
-          }
-
-          @Override
           public long getLastModifiedTimeNanos() {
             return attributes.lastModifiedTime().to(NANOSECONDS);
-          }
-
-          @Override
-          public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
           }
 
           @Override

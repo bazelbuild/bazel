@@ -582,7 +582,6 @@ public class WindowsFileSystemTest {
     assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
     FileStatus stat = file.stat();
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
   }
 
@@ -596,7 +595,6 @@ public class WindowsFileSystemTest {
     assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_400);
     FileStatus stat = file.stat();
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_400);
   }
 

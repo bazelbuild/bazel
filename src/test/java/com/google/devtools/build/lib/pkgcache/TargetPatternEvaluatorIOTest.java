@@ -203,18 +203,18 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
             }
 
             @Override
-            public synchronized long getLastModifiedTime() {
+            public synchronized long getLastModifiedTimeNanos() {
               try {
-                return stat.getLastModifiedTime();
+                return stat.getLastModifiedTimeNanos();
               } catch (IOException e) {
                 throw new IllegalStateException(e);
               }
             }
 
             @Override
-            public synchronized long getLastChangeTime() {
+            public synchronized long getLastChangeTimeNanos() {
               try {
-                return stat.getLastChangeTime();
+                return stat.getLastChangeTimeNanos();
               } catch (IOException e) {
                 throw new IllegalStateException(e);
               }
