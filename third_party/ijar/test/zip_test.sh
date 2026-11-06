@@ -278,8 +278,23 @@ function test_zipper_output_larger_than_4G() {
 
 function test_no_path_traversal() {
   local folder=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
-  ! (cd $folder && $ZIPPER x $(dirname ${ZIPPER})/test/path_traversal_zip.jar)
-  if [[ -e ${folder}/../ZIPPER_POC_OWNED ]]; then
+  local archive=${folder}/path_traversal.zip
+  mkdir -p ${folder}/out
+
+  # The archive entry escapes `out` to its sibling `output-sibling`. Python's
+  # zipfile module preserves the crafted entry name verbatim.
+  python3 - "${archive}" <<'PY'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1], "w", compression=zipfile.ZIP_STORED) as archive:
+    archive.writestr("../output-sibling/ZIPPER_POC_OWNED", "marker")
+PY
+
+  if (cd ${folder} && ${ZIPPER} x ${archive} -d out); then
+    fail "Path traversal archive should be rejected"
+  fi
+  if [[ -e ${folder}/output-sibling/ZIPPER_POC_OWNED ]]; then
     fail "Path traversal succeeded"
   fi
 }
