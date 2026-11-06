@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -186,6 +187,32 @@ public final class StarlarkProviderCodecTest {
     // Equal but distinct instances, e.g. one kept alive across commands by an interner, must
     // serialize the same as a single instance.
     assertThat(objectCodecs.serializeMemoized(ImmutableList.of(provider, equalProvider)))
+        .isEqualTo(objectCodecs.serializeMemoized(ImmutableList.of(provider, provider)));
+  }
+
+  @Test
+  public void equalityAndSerializationIndependentOfLazilyInitializedTypes() throws Exception {
+    // StarlarkProvider's type-related fields are initialized lazily, but must not affect
+    // serialization or equality.
+    var provider = StarlarkProvider.builder(Location.BUILTIN).buildExported(providerKey);
+    var equalProviderWithTypesInitialized =
+        StarlarkProvider.builder(Location.BUILTIN).buildExported(providerKey);
+    var _ = equalProviderWithTypesInitialized.getStarlarkType(StarlarkSemantics.DEFAULT);
+    var _ =
+        equalProviderWithTypesInitialized.getSupertypes(
+            CallUtils.getBuiltinManager(StarlarkSemantics.DEFAULT));
+
+    assertThat(equalProviderWithTypesInitialized).isNotSameInstanceAs(provider);
+    assertThat(equalProviderWithTypesInitialized).isEqualTo(provider);
+    assertThat(equalProviderWithTypesInitialized.hashCode()).isEqualTo(provider.hashCode());
+
+    ObjectCodecs objectCodecs = new ObjectCodecs();
+
+    // Equal but distinct instances, e.g. one kept alive across commands by an interner, must
+    // serialize the same as a single instance.
+    assertThat(
+            objectCodecs.serializeMemoized(
+                ImmutableList.of(provider, equalProviderWithTypesInitialized)))
         .isEqualTo(objectCodecs.serializeMemoized(ImmutableList.of(provider, provider)));
   }
 
