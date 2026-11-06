@@ -227,6 +227,67 @@ class RepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testRefetchOnlyReloadsChangedPackages(self):
+    def write_module_file(unused, comment):
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'repo = use_repo_rule("//:repo.bzl", "repo")',
+              'repo(name = "my_repo", unused = %d, comment = "%s")'
+              % (unused, comment),
+          ],
+      )
+
+    def assert_loaded(expected, fetched):
+      _, _, stderr = self.RunBazel(['build', '--nobuild', '//:all'])
+      stderr = '\n'.join(stderr)
+      self.assertIn('Analyzed target //:all (%s).' % expected, stderr)
+      if fetched:
+        self.assertIn('JUST FETCHED', stderr)
+      else:
+        self.assertNotIn('JUST FETCHED', stderr)
+      self.assertNoUnexpectedWarning(stderr)
+
+    nothing = '0 packages loaded, 0 targets configured'
+    self.ScratchFile('BUILD.bazel', ['filegroup(name = "all", srcs = ["@my_repo//:all"])'])
+    repo_bzl = [
+        'def _repo_impl(rctx):',
+        '  print("JUST FETCHED")',
+        '  rctx.file("REPO.bazel", "repo(default_visibility = [\'//visibility:public\'])")',
+        '  rctx.file("defs.bzl", "NAME = \'lib\'")',
+        '  rctx.file("BUILD", "filegroup(name = \'all\', srcs = [\'//a:lib\', \'//b:lib\'])")',
+        '  content = "load(\'//:defs.bzl\', \'NAME\')\\nfilegroup(name = NAME)\\n"',
+        '  rctx.file("a/BUILD", "# " + rctx.attr.comment + "\\n" + content)',
+        '  rctx.file("b/BUILD", content)',
+        '  return rctx.repo_metadata(reproducible=True)',
+        'repo = repository_rule(',
+        '    _repo_impl,',
+        '    attrs = {"unused": attr.int(), "comment": attr.string()},',
+        ')',
+    ]
+    self.ScratchFile('repo.bzl', repo_bzl)
+    write_module_file(unused=1, comment='1')
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # A forced fetch adds another entry for the same inputs.
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@my_repo', '--force'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    assert_loaded(nothing, fetched=False)
+
+    # New predeclared inputs miss the cache, but yield the same contents.
+    write_module_file(unused=2, comment='1')
+    assert_loaded(nothing, fetched=True)
+    self.ScratchFile('repo.bzl', ['# A comment.'] + repo_bzl)
+    assert_loaded(nothing, fetched=True)
+
+    # The previous predeclared inputs hit another entry with the same contents.
+    self.ScratchFile('repo.bzl', repo_bzl)
+    assert_loaded(nothing, fetched=False)
+
+    # Only the package with new contents and its reverse dependencies are affected.
+    write_module_file(unused=2, comment='2')
+    assert_loaded('1 packages loaded, 3 targets configured', fetched=True)
+
   def testNotCachedWhenRecordedInputsChange(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -424,6 +485,157 @@ class RepoContentsCacheTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('JUST FETCHED', stderr)
     self.assertNoUnexpectedWarning(stderr)
+
+  def setUpRepoUsedByAction(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '    name = "gen",',
+            '    srcs = ["@my_repo//:data.txt", "@my_repo//:lib", "@my_repo//sub"],',
+            '    outs = ["out.txt"],',
+            '    cmd = "cat $(location @my_repo//:data.txt) > $@",',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  print("JUST FETCHED")',
+            '  rctx.file("REPO.bazel", "repo(default_visibility = [\'//visibility:public\'])")',
+            '  rctx.file("defs.bzl", "NAME = \'lib\'")',
+            '  rctx.file(',
+            '      "BUILD",',
+            '      "load(\':defs.bzl\', \'NAME\')\\nfilegroup(name = NAME)\\n"',
+            '      + "exports_files([\'data.txt\'])",',
+            '  )',
+            '  rctx.file("sub/BUILD", "filegroup(name = \'sub\', srcs = glob([\'*.txt\']))")',
+            '  rctx.file("sub/x.txt", "x")',
+            '  rctx.file("data.txt", "contents")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+  def assertBuildSucceedsWithoutReloading(self, extra_args, expect_fetch):
+    _, _, stderr = self.RunBazel(['build', '//:gen'] + extra_args)
+    stderr = '\n'.join(stderr)
+    self.assertIn(
+        'Analyzed target //:gen (0 packages loaded, 0 targets configured).',
+        stderr,
+    )
+    if expect_fetch:
+      self.assertIn('JUST FETCHED', stderr)
+    else:
+      self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNoUnexpectedWarning(stderr)
+    with open(self.Path('bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'contents')
+
+  def doTestGcWithRunningServer(self, extra_args):
+    self.setUpRepoUsedByAction()
+    self.RunBazel(['build', '//:gen'] + extra_args)
+
+    # The entries that the running server links to are garbage collected.
+    self.RunBazel(
+        [
+            'build',
+            '--repo_contents_cache_gc_max_age=1ms',
+            '--repo_contents_cache_gc_idle_delay=1ms',
+            '//:gen',
+        ]
+        + extra_args
+    )
+    self.sleepUntilCacheEmpty()
+
+    # The repo is fetched again, but its contents are unchanged.
+    self.assertBuildSucceedsWithoutReloading(extra_args, expect_fetch=True)
+    self.assertBuildSucceedsWithoutReloading(extra_args, expect_fetch=False)
+
+  def testGcWithRunningServer(self):
+    self.doTestGcWithRunningServer([])
+
+  def testGcWithRunningServer_withoutCheckExternalRepositoryFiles(self):
+    self.doTestGcWithRunningServer(
+        ['--noexperimental_check_external_repository_files']
+    )
+
+  def testGcWithRunningServer_withoutCheckExternalOtherFiles(self):
+    self.doTestGcWithRunningServer(
+        ['--noexperimental_check_external_other_files']
+    )
+
+  def testGcOfLinkedDuplicateRollsOverToRemainingEntry(self):
+    self.setUpRepoUsedByAction()
+    self.RunBazel(['build', '//:gen'])
+    repo_dir = self.repoDir('my_repo')
+    self.RunBazel(['fetch', '--repo=@my_repo', '--force'])
+    self.RunBazel(['build', '//:gen'])
+    linked_repo = os.readlink(repo_dir)
+
+    # Make the linked entry the older duplicate, which GC removes regardless of
+    # its age.
+    os.utime(linked_repo + '.recorded_inputs', (1000000000, 1000000000))
+    self.RunBazel(
+        [
+            'build',
+            '--repo_contents_cache_gc_max_age=3650d',
+            '--repo_contents_cache_gc_idle_delay=1ms',
+            '//:gen',
+        ]
+    )
+    for _ in range(10):
+      if not os.path.exists(linked_repo):
+        break
+      time.sleep(0.5)
+    self.assertFalse(os.path.exists(linked_repo))
+
+    self.assertBuildSucceedsWithoutReloading([], expect_fetch=False)
+    self.assertNotEqual(os.readlink(repo_dir), linked_repo)
+
+  def testExternallyChangedOverrideLinkIsRestored(self):
+    if self.IsWindows():
+      self.skipTest('Requires creating symlinks')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        ['repo = repository_rule(lambda rctx: None)'],
+    )
+    good = self.ScratchDir('good')
+    self.ScratchFile('good/REPO.bazel')
+    self.ScratchFile('good/BUILD', ['filegroup(name = "target")'])
+    other = self.ScratchDir('other')
+    self.ScratchFile('other/REPO.bazel')
+    self.ScratchFile('other/BUILD')
+    # All commands have to see the override, otherwise they invalidate the repo.
+    self.ScratchFile(
+        '.bazelrc', ['common --override_repository=+repo+my_repo=%s' % good]
+    )
+    args = ['build', '--nobuild', '@my_repo//:target']
+    self.RunBazel(args)
+    repo_dir = self.repoDir('my_repo')
+
+    os.remove(repo_dir)
+    os.symlink(other, repo_dir)
+
+    _, _, stderr = self.RunBazel(args)
+    self.assertIn('has been modified externally', '\n'.join(stderr))
+    self.assertEqual(os.path.realpath(repo_dir), os.path.realpath(good))
 
   def testGc_multipleServers(self):
     module_bazel_lines = [

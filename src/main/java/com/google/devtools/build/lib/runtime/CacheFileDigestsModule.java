@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.common.options.Options;
 
 /** Enables the caching of file digests in {@link DigestUtils}. */
 public class CacheFileDigestsModule extends BlazeModule {
@@ -50,15 +51,29 @@ public class CacheFileDigestsModule extends BlazeModule {
         message, stats.hitCount(), stats.missCount(), stats.hitRate(), stats.evictionCount());
   }
 
+  private void configureCache(int size) {
+    logger.atInfo().log("Reconfiguring cache with size=%d", size);
+    DigestUtils.configureCache(size);
+    lastKnownCacheSize = size;
+  }
+
+  @Override
+  public void beforeCommand(CommandEnvironment env) {
+    // Files are digested as soon as a command loads packages, which may happen before an executor
+    // is created or without one ever being created.
+    if (lastKnownCacheSize == null) {
+      var options = env.getOptions().getOptions(ExecutionOptions.class);
+      configureCache(
+          (options != null ? options : Options.getDefaults(ExecutionOptions.class))
+              .getCacheSizeForComputedFileDigests());
+    }
+  }
+
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    if (lastKnownCacheSize == null
-        || options.getCacheSizeForComputedFileDigests() != lastKnownCacheSize) {
-      logger.atInfo().log(
-          "Reconfiguring cache with size=%d", options.getCacheSizeForComputedFileDigests());
-      DigestUtils.configureCache(options.getCacheSizeForComputedFileDigests());
-      lastKnownCacheSize = options.getCacheSizeForComputedFileDigests();
+    if (options.getCacheSizeForComputedFileDigests() != lastKnownCacheSize) {
+      configureCache(options.getCacheSizeForComputedFileDigests());
     }
 
     if (options.getCacheSizeForComputedFileDigests() == 0) {
