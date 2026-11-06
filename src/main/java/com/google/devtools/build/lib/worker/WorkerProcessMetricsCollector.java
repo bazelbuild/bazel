@@ -131,6 +131,11 @@ public class WorkerProcessMetricsCollector {
   public ImmutableList<WorkerProcessMetrics> collectMetrics() {
     ResourceSnapshot resourceSnapshot = collectResourceUsage();
 
+    if (!resourceSnapshot.available()) {
+      // A failed measurement does not mean the workers are dead.
+      return ImmutableList.copyOf(pidToWorkerProcessMetrics.values());
+    }
+
     ImmutableMap<Long, Integer> pidToMemoryInKb = resourceSnapshot.pidToMemoryInKb();
 
     Instant collectionTime = resourceSnapshot.collectionTime();

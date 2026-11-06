@@ -92,4 +92,29 @@ public final class PsInfoCollectorTest {
         ImmutableMap.of(1L, 3216 + 1234 + 2345 + 3456, 2L, 4232 + 1001 + 1032, 5L, 40000);
     assertThat(resourceSnapshot.pidToMemoryInKb()).isEqualTo(expectedMemoryUsageByPid);
   }
+
+  @Test
+  public void testCollectResourceUsage_psUnavailable_returnsUnavailableSnapshot() {
+    Clock clock = BlazeClock.instance();
+    when(spyCollector.collectDataFromPs()).thenReturn(ImmutableMap.of());
+
+    ResourceSnapshot resourceSnapshot =
+        spyCollector.collectResourceUsage(ImmutableSet.of(1L, 2L), clock);
+
+    assertThat(resourceSnapshot.available()).isFalse();
+    assertThat(resourceSnapshot.pidToMemoryInKb()).isEmpty();
+  }
+
+  @Test
+  public void testCollectResourceUsage_pidMissing_returnsAvailableSnapshot() {
+    Clock clock = BlazeClock.instance();
+    when(spyCollector.collectDataFromPs())
+        .thenReturn(ImmutableMap.of(1L, new PsInfoCollector.PsInfo(1, 0, 3216)));
+
+    ResourceSnapshot resourceSnapshot =
+        spyCollector.collectResourceUsage(ImmutableSet.of(1L, 2L), clock);
+
+    assertThat(resourceSnapshot.available()).isTrue();
+    assertThat(resourceSnapshot.pidToMemoryInKb()).containsExactly(1L, 3216);
+  }
 }
