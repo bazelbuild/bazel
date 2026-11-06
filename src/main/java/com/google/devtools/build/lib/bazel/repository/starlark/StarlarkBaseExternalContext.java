@@ -2613,6 +2613,13 @@ func(
   }
 
   /**
+   * Records that the fetch referred to the given repo by Label, so that the repo is fetched before
+   * the recording one is considered up to date.
+   */
+  protected void recordRepoDependency(RepositoryName repo)
+      throws EvalException, InterruptedException {}
+
+  /**
    * Resolves the label into a file path.
    *
    * @param materialize whether the repo containing the file has to be available on the native file
@@ -2624,6 +2631,7 @@ func(
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
+    recordRepoDependency(label.getRepository());
     if (materialize
         && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
