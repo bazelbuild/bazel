@@ -78,7 +78,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 26;
+  private static final int VERSION = 27;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -285,6 +285,7 @@ public class CompactPersistentActionCache implements ActionCache {
   private final Path cacheRoot;
   private final Path corruptedCacheRoot;
   private final Path tmpDir;
+  private final PathFragment resolvedPathBase;
   private final Clock clock;
   private final PersistentStringIndexer indexer;
   private final ActionMap actionMap;
@@ -297,6 +298,7 @@ public class CompactPersistentActionCache implements ActionCache {
       Path cacheRoot,
       Path corruptedCacheRoot,
       Path tmpDir,
+      PathFragment resolvedPathBase,
       Clock clock,
       PersistentStringIndexer indexer,
       ActionMap actionMap,
@@ -305,6 +307,7 @@ public class CompactPersistentActionCache implements ActionCache {
     this.cacheRoot = cacheRoot;
     this.corruptedCacheRoot = corruptedCacheRoot;
     this.tmpDir = tmpDir;
+    this.resolvedPathBase = resolvedPathBase;
     this.clock = clock;
     this.indexer = indexer;
     this.actionMap = actionMap;
@@ -312,6 +315,12 @@ public class CompactPersistentActionCache implements ActionCache {
     this.misses = misses;
   }
 
+  /**
+   * Loads the action cache from {@code cacheRoot}, creating it if necessary.
+   *
+   * <p>Resolved paths below the parent directory of {@code cacheRoot}, which is the output base in
+   * production, are stored relative to it so that they remain valid if that directory is moved.
+   */
   public static CompactPersistentActionCache create(
       Path cacheRoot,
       Path corruptedCacheRoot,
@@ -325,6 +334,7 @@ public class CompactPersistentActionCache implements ActionCache {
             cacheRoot,
             corruptedCacheRoot,
             tmpDir,
+            cacheRoot.getParentDirectory().asFragment(),
             clock,
             reporterForInitializationErrors,
             /* retrying= */ false);
@@ -338,6 +348,7 @@ public class CompactPersistentActionCache implements ActionCache {
       Path cacheRoot,
       Path corruptedCacheRoot,
       Path tmpDir,
+      PathFragment resolvedPathBase,
       Clock clock,
       EventHandler reporterForInitializationErrors,
       boolean retrying)
@@ -359,6 +370,7 @@ public class CompactPersistentActionCache implements ActionCache {
           cacheRoot,
           corruptedCacheRoot,
           tmpDir,
+          resolvedPathBase,
           clock,
           "Failed to load action cache index data",
           e,
@@ -374,6 +386,7 @@ public class CompactPersistentActionCache implements ActionCache {
           cacheRoot,
           corruptedCacheRoot,
           tmpDir,
+          resolvedPathBase,
           clock,
           "Failed to load action cache timestamp data",
           e,
@@ -389,6 +402,7 @@ public class CompactPersistentActionCache implements ActionCache {
           cacheRoot,
           corruptedCacheRoot,
           tmpDir,
+          resolvedPathBase,
           clock,
           "Failed to load action cache data",
           e,
@@ -405,6 +419,7 @@ public class CompactPersistentActionCache implements ActionCache {
             cacheRoot,
             corruptedCacheRoot,
             tmpDir,
+            resolvedPathBase,
             clock,
             "Failed action cache referential integrity check",
             e,
@@ -437,6 +452,7 @@ public class CompactPersistentActionCache implements ActionCache {
         cacheRoot,
         corruptedCacheRoot,
         tmpDir,
+        resolvedPathBase,
         clock,
         indexer,
         actionMap,
@@ -464,6 +480,7 @@ public class CompactPersistentActionCache implements ActionCache {
       Path cacheRoot,
       Path corruptedCacheRoot,
       Path tmpDir,
+      PathFragment resolvedPathBase,
       Clock clock,
       String message,
       IOException e,
@@ -516,6 +533,7 @@ public class CompactPersistentActionCache implements ActionCache {
         cacheRoot,
         corruptedCacheRoot,
         tmpDir,
+        resolvedPathBase,
         clock,
         reporterForInitializationErrors,
         /* retrying= */ true);
@@ -721,10 +739,17 @@ public class CompactPersistentActionCache implements ActionCache {
     Path newRoot = tmpDir.getChild("new");
     Path oldRoot = tmpDir.getChild("old");
 
-    // Create a new cache backed by a temporary directory.
+    // Create a new cache backed by a temporary directory. It will replace this cache, so it must
+    // store resolved paths relative to the same directory.
     var newCache =
-        CompactPersistentActionCache.create(
-            newRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
+        create(
+            newRoot,
+            corruptedCacheRoot,
+            tmpDir,
+            resolvedPathBase,
+            clock,
+            NullEventHandler.INSTANCE,
+            /* retrying= */ false);
 
     // Copy sufficiently recent entries into the new cache.
     for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
@@ -810,10 +835,22 @@ public class CompactPersistentActionCache implements ActionCache {
     PathFragment resolvedPath = value.getResolvedPath();
     if (resolvedPath != null) {
       VarInt.putVarInt(1, sink);
-      VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.toString()), sink);
+      encodeResolvedPath(resolvedPath, sink);
     } else {
       VarInt.putVarInt(0, sink);
     }
+  }
+
+  private void encodeResolvedPath(PathFragment resolvedPath, OutputStream sink) throws IOException {
+    PathFragment storedPath =
+        resolvedPath.startsWith(resolvedPathBase)
+            ? resolvedPath.relativeTo(resolvedPathBase)
+            : resolvedPath;
+    VarInt.putVarInt(indexer.getOrCreateIndex(storedPath.toString()), sink);
+  }
+
+  private PathFragment decodeResolvedPath(ByteBuffer source) throws IOException {
+    return resolvedPathBase.getRelative(getStringForIndex(indexer, VarInt.getVarInt(source)));
   }
 
   private static final int MAX_REMOTE_METADATA_SIZE =
@@ -841,7 +878,7 @@ public class CompactPersistentActionCache implements ActionCache {
       if (numResolvedPath != 1) {
         throw new IOException("Invalid presence marker for resolved path");
       }
-      resolvedPath = PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
+      resolvedPath = decodeResolvedPath(source);
     }
 
     FileArtifactValue metadata;
@@ -969,7 +1006,7 @@ public class CompactPersistentActionCache implements ActionCache {
         Optional<PathFragment> resolvedPath = serializableTreeArtifactValue.resolvedPath();
         if (resolvedPath.isPresent()) {
           VarInt.putVarInt(1, sink);
-          VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.get().toString()), sink);
+          encodeResolvedPath(resolvedPath.get(), sink);
         } else {
           VarInt.putVarInt(0, sink);
         }
@@ -1094,9 +1131,7 @@ public class CompactPersistentActionCache implements ActionCache {
             throw new IOException(
                 "Invalid presence marker for resolved path: " + resolvedPathPresenceMarker);
           }
-          resolvedPath =
-              Optional.of(
-                  PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source))));
+          resolvedPath = Optional.of(decodeResolvedPath(source));
         }
 
         SerializableTreeArtifactValue value =

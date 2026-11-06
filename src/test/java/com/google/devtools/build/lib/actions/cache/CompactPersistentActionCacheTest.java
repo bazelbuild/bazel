@@ -728,6 +728,123 @@ public class CompactPersistentActionCacheTest {
                 Optional.of(resolvedPath)));
   }
 
+  private CompactPersistentActionCache createCacheInOutputBase(Path outputBase) throws IOException {
+    return CompactPersistentActionCache.create(
+        outputBase.getChild("action_cache"),
+        outputBase.getChild("action_cache.bad"),
+        outputBase.getChild("action_cache.tmp"),
+        clock,
+        NullEventHandler.INSTANCE);
+  }
+
+  private void putEntryWithResolvedPaths(
+      CompactPersistentActionCache cache,
+      String key,
+      Artifact file,
+      PathFragment fileResolvedPath,
+      TreeArtifact tree,
+      PathFragment treeResolvedPath) {
+    cache.put(
+        key,
+        builder(key)
+            .addOutputFile(
+                file,
+                createRemoteMetadata(file, "content", fileResolvedPath),
+                /* saveFileMetadata= */ true)
+            .addOutputTree(
+                tree,
+                createTreeMetadata(
+                    tree,
+                    ImmutableMap.of(),
+                    /* archivedArtifactValue= */ Optional.empty(),
+                    Optional.of(treeResolvedPath)),
+                /* saveTreeMetadata= */ true)
+            .build());
+  }
+
+  private static void assertResolvedPaths(
+      ActionCache.Entry entry,
+      Artifact file,
+      PathFragment fileResolvedPath,
+      TreeArtifact tree,
+      PathFragment treeResolvedPath) {
+    assertThat(entry.getOutputFile(file).getResolvedPath()).isEqualTo(fileResolvedPath);
+    assertThat(entry.getOutputTree(tree).resolvedPath()).hasValue(treeResolvedPath);
+  }
+
+  @Test
+  public void resolvedPaths_belowOutputBase_followMovedOutputBase(
+      @TestParameter boolean trimBeforeMove) throws Exception {
+    Path oldOutputBase = scratch.dir("/old_output_base");
+    Path newOutputBase = scratch.resolve("/new_output_base");
+    Artifact file = ActionsTestUtil.DUMMY_ARTIFACT;
+    TreeArtifact tree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, PathFragment.create("bin/dummy"));
+
+    var cache = createCacheInOutputBase(oldOutputBase);
+    putEntryWithResolvedPaths(
+        cache,
+        "stale",
+        file,
+        oldOutputBase.getRelative("execroot/stale_file").asFragment(),
+        tree,
+        oldOutputBase.getRelative("execroot/stale_tree").asFragment());
+    clock.advance(Duration.ofDays(100));
+    putEntryWithResolvedPaths(
+        cache,
+        "key",
+        file,
+        oldOutputBase.getRelative("execroot/file").asFragment(),
+        tree,
+        oldOutputBase.getRelative("execroot/tree").asFragment());
+    cache.save();
+
+    if (trimBeforeMove) {
+      cache = cache.trim(/* threshold= */ 0.2f, Duration.ofDays(50));
+      assertThat(cache.get("stale")).isNull();
+      cache.save();
+    }
+
+    assertResolvedPaths(
+        cache.get("key"),
+        file,
+        oldOutputBase.getRelative("execroot/file").asFragment(),
+        tree,
+        oldOutputBase.getRelative("execroot/tree").asFragment());
+
+    oldOutputBase.renameTo(newOutputBase);
+    cache = createCacheInOutputBase(newOutputBase);
+
+    assertResolvedPaths(
+        cache.get("key"),
+        file,
+        newOutputBase.getRelative("execroot/file").asFragment(),
+        tree,
+        newOutputBase.getRelative("execroot/tree").asFragment());
+  }
+
+  @Test
+  public void resolvedPaths_outsideOutputBase_remainAbsolute() throws Exception {
+    Path oldOutputBase = scratch.dir("/old_output_base");
+    Path newOutputBase = scratch.resolve("/new_output_base");
+    PathFragment fileResolvedPath = PathFragment.create("/old_output_base2/elsewhere/file");
+    PathFragment treeResolvedPath = PathFragment.create("/elsewhere/tree");
+    Artifact file = ActionsTestUtil.DUMMY_ARTIFACT;
+    TreeArtifact tree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, PathFragment.create("bin/dummy"));
+
+    var cache = createCacheInOutputBase(oldOutputBase);
+    putEntryWithResolvedPaths(cache, "key", file, fileResolvedPath, tree, treeResolvedPath);
+    cache.save();
+
+    oldOutputBase.renameTo(newOutputBase);
+    cache = createCacheInOutputBase(newOutputBase);
+
+    assertResolvedPaths(cache.get("key"), file, fileResolvedPath, tree, treeResolvedPath);
+  }
+
   private static void assertKeyEquals(ActionCache cache1, ActionCache cache2, String key) {
     Object entry = cache1.get(key);
     assertThat(entry).isNotNull();
