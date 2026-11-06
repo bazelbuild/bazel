@@ -411,6 +411,164 @@ class RemoteRepoContentsCacheTest(
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
+  def testReinjectionKeepsUnchangedMaterializedFiles(self):
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  version = rctx.getenv("VERSION")',
+            '  rctx.file("unchanged.txt", "unchanged")',
+            '  rctx.symlink("unchanged.txt", "link.txt")',
+            '  rctx.file("script.sh", "echo hi", executable = version == "2")',
+            '  rctx.file("corrupted.txt", "corrupted")',
+            '  rctx.file("changed.txt", "version " + version)',
+            '  rctx.file("BUILD", """',
+            'filegroup(',
+            '    name = "unchanged",',
+            '    srcs = ["unchanged.txt", "link.txt", "script.sh"],',
+            ')',
+            'filegroup(name = "corrupted", srcs = ["corrupted.txt"])',
+            'filegroup(name = "changed", srcs = ["changed.txt"])',
+            '""")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    all_targets = [
+        '@my_repo//:unchanged',
+        '@my_repo//:corrupted',
+        '@my_repo//:changed',
+    ]
+
+    # Not cached: fetch both versions of the repo.
+    for version in ['1', '2']:
+      _, _, stderr = self.RunBazel(
+          ['build', '--repo_env=VERSION=' + version] + all_targets
+      )
+      self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Cached: the files are downloaded as top-level outputs.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=VERSION=1'] + all_targets
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    corrupted_file = os.path.join(repo_dir, 'corrupted.txt')
+    os.chmod(corrupted_file, 0o644)
+    with open(corrupted_file, 'w') as f:
+      f.write('CORRUPTED')
+
+    # Cached: replacing the repo keeps the unchanged files, including the
+    # symlink and the file whose executable bit changed, as their target isn't
+    # completed again. The corrupted file, which has the expected size, and the
+    # changed file are deleted.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=VERSION=2', '@my_repo//:unchanged']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    for name, contents in [
+        ('unchanged.txt', 'unchanged'),
+        ('link.txt', 'unchanged'),
+        ('script.sh', 'echo hi'),
+    ]:
+      with open(os.path.join(repo_dir, name)) as f:
+        self.assertEqual(f.read(), contents)
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'link.txt')))
+    if not self.IsWindows():
+      self.assertTrue(os.access(os.path.join(repo_dir, 'script.sh'), os.X_OK))
+    self.assertFalse(os.path.exists(corrupted_file))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'changed.txt')))
+
+  def testServerRestartKeepsMaterializedFiles(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '    name = "gen",',
+            '    srcs = ["@my_repo//:input.txt", "@my_repo//:corrupted.txt"],',
+            '    outs = ["out.txt"],',
+            '    cmd = "cat $(SRCS) > $@",',
+            '    tags = ["no-remote"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("input.txt", "input")',
+            '  rctx.file("corrupted.txt", "corrupted")',
+            '  rctx.file("unused.txt", "unused")',
+            '  rctx.file("BUILD", """',
+            'exports_files(["input.txt", "corrupted.txt"])',
+            '""")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    input_file = os.path.join(repo_dir, 'input.txt')
+    corrupted_file = os.path.join(repo_dir, 'corrupted.txt')
+
+    # Not cached: fetch the repo.
+    _, _, stderr = self.RunBazel(['build', '//:gen'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Cached: the action, which isn't remotely cacheable, materializes its
+    # inputs when it runs locally, but nothing else.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//:gen'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(input_file))
+    self.assertTrue(os.path.exists(corrupted_file))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'unused.txt')))
+
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
+    out_file = os.path.join(stdout[0].strip(), 'out.txt')
+    out_file_mtime = os.stat(out_file).st_mtime_ns
+
+    self.RunBazel(['shutdown'])
+    os.chmod(corrupted_file, 0o644)
+    with open(corrupted_file, 'w') as f:
+      f.write('CORRUPTED')
+
+    # Cached: a new server retrieves the repo again. The action is an action
+    # cache hit, so it doesn't materialize its inputs again. Unchanged files
+    # have to stay in place, but the corrupted file, which has the expected
+    # size and isn't known to the new server, must not.
+    _, _, stderr = self.RunBazel(['build', '//:gen'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertEqual(os.stat(out_file).st_mtime_ns, out_file_mtime)
+    with open(input_file) as f:
+      self.assertEqual(f.read(), 'input')
+    self.assertFalse(os.path.exists(corrupted_file))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'unused.txt')))
+
   def testRecordedInputs_differentValues(self):
     platform_file = self.ScratchFile('platform.txt')
 
@@ -464,6 +622,7 @@ class RemoteRepoContentsCacheTest(
             ),
             '  print("JUST FETCHED ON " + platform)',
             '  rctx.file("data.txt", platform)',
+            '  rctx.file("unused.txt", platform)',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
         ],
@@ -494,7 +653,7 @@ class RemoteRepoContentsCacheTest(
     _, _, stderr = self.RunBazel(['build', '//:show_platform'])
     self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'unused.txt')))
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'Linux')
 
@@ -503,7 +662,7 @@ class RemoteRepoContentsCacheTest(
     _, _, stderr = self.RunBazel(['build', '//:show_platform'])
     self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'unused.txt')))
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
 
@@ -3445,6 +3604,81 @@ class RemoteRepoContentsCacheTest(
     with open(os.path.join(reader_dir, 'expanded.txt')) as f:
       self.assertEqual(f.read(), 'goodbye')
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'other.txt')))
+
+
+  def testNoFetchFallsBackToExistingRepoIfCachedRepoHasLostFiles(self):
+    # A repo whose cache entry references files that the remote cache has
+    # lost is a cache miss. With --nofetch, the out-of-date contents of the
+    # repo on disk are used instead, which must thus not be deleted before the
+    # entry has been found to be usable.
+    # Real remote caches serve action results without verifying that the blobs
+    # they reference are still present.
+    self.StopRemoteWorker()
+    self._worker_port = self.StartRemoteWorker(
+        ['--noaction_cache_integrity_check']
+    )
+    self.ScratchFile('.bazelrc', self.BazelrcLines())
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  mode = rctx.os.environ["MODE"]',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("helper.bzl", "MODE = \\"%s\\"" % mode)',
+            '  rctx.file("data.txt", "data for " + mode)',
+            '  print("JUST FETCHED " + mode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl, environ = ["MODE"])',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+
+    # Cache the repo for MODE=new, then fetch it for MODE=old without caching.
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=MODE=new', '--nobuild', '//main:use_data']
+    )
+    self.assertIn('JUST FETCHED new', '\n'.join(stderr))
+    _, _, stderr = self.RunBazel([
+        'build',
+        '--repo_env=MODE=old',
+        '--noremote_upload_local_results',
+        '--nobuild',
+        '//main:use_data',
+    ])
+    self.assertIn('JUST FETCHED old', '\n'.join(stderr))
+
+    # The entry for MODE=new is unusable since the remote cache has lost the
+    # helper file that is downloaded with it, so the repo for MODE=old is used.
+    self.DeleteCasEntry(b'MODE = "new"')
+    _, _, stderr = self.RunBazel(
+        ['build', '--repo_env=MODE=new', '--nofetch', '//main:use_data']
+    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn('fetching is disabled', stderr)
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'data for old')
+    with open(os.path.join(repo_dir, 'helper.bzl')) as f:
+      self.assertEqual(f.read(), 'MODE = "old"')
 
 
 if __name__ == '__main__':
