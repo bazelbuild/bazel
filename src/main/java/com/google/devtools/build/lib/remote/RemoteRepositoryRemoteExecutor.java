@@ -174,12 +174,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(actionDigest, action);
         additionalInputs.put(commandHash, command);
 
-        remoteCache.ensureInputsPresent(
-            context,
-            merkleTree,
-            additionalInputs,
-            /* force= */ true,
-            /* remotePathResolver= */ null);
+        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, /* force= */ true);
       }
 
       try (SilentCloseable c =
