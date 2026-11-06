@@ -1,0 +1,375 @@
+---
+title: 'Starlark flag scoping'
+---
+
+This page explains how to restrict where [user-defined Starlark build
+settings](/extending/config#user-defined-build-settings) propagate in the
+dependency graph using the `scope` and `on_leave_scope` attributes.
+
+## Overview {#overview}
+
+When you set a flag on the command line or modify it in a [configuration
+transition](/extending/config#user-defined-transitions), every transitive
+dependency inherits that flag value unless another transition changes it.
+
+Unrestricted flag propagation causes two build performance problems:
+
+1.  **Out-of-project configuration forks (`ST-<hash>`)**: When a project defines
+    a flag intended only for its own targets (for example,
+    `//my_project/flags:enable_feature_x`) and modifies it in a rule or
+    attribute transition, that flag remains in the configuration when
+    dependencies cross into shared libraries outside the project. Because the
+    configuration hash includes all non-default Starlark options, Bazel
+    re-analyzes and rebuilds shared dependencies in a separate `ST-<hash>`
+    output directory, reducing remote cache hit rates and increasing memory and
+    CPU usage.
+2.  **Unnecessary exec tool rebuilds**: When a target-specific flag propagates
+    across an `exec` transition to build tools (such as compilers, code
+    generators, or linters), changing the flag forks the `exec` configuration
+    and forces Bazel to rebuild those tools.
+
+When a dependency moves outside a flag's declared `scope`, Bazel automatically
+resets or removes the flag so downstream targets share a single canonical
+configuration.
+
+## Supported scopes at a glance {#supported-scopes}
+
+| Scope value | Target dependencies (in project) | Target dependencies (outside project) | Across `exec` transitions | Typical use case |
+| :--- | :--- | :--- | :--- | :--- |
+| **`"target"`** *(default in Skylib)* | Keeps value | Keeps value | Resets to `build_setting_default` (or to the static `on_leave_scope` value, if set) | Standard flags that affect target outputs across the build graph without forking `exec` tools. |
+| **`"project"`** | Keeps value | Resets transitioned value to baseline configuration value (or removes it if unset in baseline) | Preserves value across the `exec` transition, then enforces project boundaries on the `exec` target's package | Project-specific flags that must not fork shared libraries or external `exec` tools. |
+| **`"universal"`** | Keeps value | Keeps value | Keeps value | Flags that must affect both target builds and all `exec` tools (for example, repository-wide `--incompatible_*` or toolchain-wide toggles). |
+| **`"exec:--//pkg:host_flag"`** | Keeps value | Keeps value | Inherits the target-configuration value of `--//pkg:host_flag` | Flags paired with a separate host-side flag so you can override target and `exec` values independently on the command line. |
+
+## Declare a scoped flag {#declare-scoped-flag}
+
+### Predefined flag rules {#predefined-flag-rules}
+
+You can set `scope` directly on Bazel's built-in and Skylib build setting rules:
+
+*   **Skylib build settings** ([`common_settings.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/common_settings.bzl)):
+    `bool_flag`, `string_flag`, `int_flag`, `string_list_flag`,
+    `repeatable_string_flag`, and their `*_setting` counterparts include `scope`
+    (defaulting to `"target"`). They do not expose `on_leave_scope`.
+*   **Native [`label_flag` and `label_setting`](/extending/config#label-typed-build-settings)**:
+    Support both `scope` and `on_leave_scope` (for `"target"`-scoped flags).
+
+```python
+# my_project/flags/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+
+string_flag(
+    name = "release_channel",
+    build_setting_default = "dev",
+    scope = "project",
+    values = ["dev", "alpha", "prod"],
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "instrument_exec_tools",
+    build_setting_default = False,
+    scope = "universal",
+)
+
+label_flag(
+    name = "custom_malloc",
+    build_setting_default = "//base:default_malloc",
+    on_leave_scope = "//base:host_malloc",
+    scope = "target",
+)
+```
+
+### Custom build setting rules {#custom-build-setting-rules}
+
+If you write a custom Starlark `rule(build_setting = ...)` instead of using a
+predefined flag type, add `"scope": attr.string(...)` (and optionally
+`"on_leave_scope"` with the same attribute type as `build_setting`) to your
+rule's `attrs` dictionary:
+
+```python
+# my_project/flags/build_defs.bzl
+BuildSettingInfo = provider(fields = ["value"])
+
+def _custom_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+custom_string_flag = rule(
+    implementation = _custom_flag_impl,
+    build_setting = config.string(flag = True),
+    attrs = {
+        "scope": attr.string(
+            default = "target",
+            doc = "Controls where this flag propagates ('target', 'project', 'universal', or 'exec:--<flag>').",
+        ),
+        "on_leave_scope": attr.string(
+            doc = "Optional value to set when a 'target'-scoped flag crosses an exec transition.",
+        ),
+    },
+)
+```
+
+<Note>
+
+If your custom rule sets a rule-level default other than `"target"` (such as
+`default = "universal"` or `default = "project"`), pass `scope` explicitly on
+each target in `BUILD` if your Bazel version does not yet propagate rule-level
+`scope` defaults for command-line flags.
+
+</Note>
+
+## Scope types in detail {#scope-types}
+
+### Project scope {#project-scope}
+
+Setting `scope = "project"` restricts a flag's non-baseline value to targets
+belonging to the project that owns the flag.
+
+#### Define the project boundary with PROJECT.scl {#define-project-boundary}
+
+When a flag has `scope = "project"`, Bazel looks for a `PROJECT.scl` file in the
+same package as the flag's `BUILD` file (or the nearest parent package) and
+reads the default project directories from the `project` definition:
+
+```python
+# my_project/flags/PROJECT.scl
+project = {
+    "active_directories": {
+        "default": [
+            "//my_project/app",
+            "//my_project/flags",
+            "//my_project/libs",
+        ],
+    },
+}
+```
+
+```python
+# my_project/flags/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+
+string_flag(
+    name = "flavor",
+    build_setting_default = "default",
+    scope = "project",
+    visibility = ["//visibility:public"],
+)
+```
+
+#### Target dependencies {#project-scope-target-deps}
+
+When a Starlark transition modifies a `scope = "project"` flag away from its
+top-level baseline value, Bazel checks whether the target's canonical label
+starts with any path listed in the project's default directories:
+
+*   **In-scope target** (for example, `//my_project/app:main` or
+    `//my_project/libs/foo:bar`): The target keeps the flag's transitioned
+    value.
+*   **Out-of-scope target** (for example, `//common/logging:logger` or an
+    external repository target):
+    *   If `//my_project/flags:flavor` is not explicitly set in the top-level
+        baseline configuration, Bazel removes `//my_project/flags:flavor` from
+        the target's configuration, reverting it to `build_setting_default`.
+    *   If `//my_project/flags:flavor` is explicitly set in the top-level
+        baseline configuration (for example, on the command line or via
+        `PROJECT.scl` configs), Bazel resets `//my_project/flags:flavor` from
+        the transitioned value back to its top-level baseline value.
+    *   If all transitioned flags on the target reset to the baseline
+        configuration, the out-of-scope target returns to the unforked baseline
+        configuration with no `ST-<hash>` suffix.
+
+<Note>
+
+If no `PROJECT.scl` exists or `active_directories` is empty, Bazel treats all
+targets as out of scope and resets any transitioned value to the top-level
+baseline value (even for targets in the flag's own package).
+
+</Note>
+
+#### Exec transitions {#project-scope-exec}
+
+Unlike `scope = "target"`, a `project`-scoped flag does not automatically reset
+on an `exec` transition. Instead, Bazel preserves its value across the `exec`
+transition and evaluates the project boundary check against the `exec` tool
+target's own label:
+
+*   **In-project `exec` tool** (for example, `//my_project/app:main` has an
+    `exec` dependency on a code generator `//my_project/libs/codegen:gen` inside
+    the project's directories): `//my_project/libs/codegen:gen` retains the
+    custom value of `//my_project/flags:flavor`.
+*   **Out-of-project `exec` tool** (for example, `//my_project/app:main` has an
+    `exec` dependency on an external compiler or code generator outside the
+    project's directories): Bazel resets `//my_project/flags:flavor` on that
+    tool to its baseline or default value, avoiding unnecessary host tool
+    rebuilds.
+
+### Target scope and on_leave_scope {#target-scope}
+
+`scope = "target"` is the default scope for all flags defined with Skylib's
+`common_settings.bzl` (and for all Starlark flags when
+`--incompatible_exclude_starlark_flags_from_exec_config=true`):
+
+*   The flag propagates across all target-configured dependencies
+    (`cfg = "target"`).
+*   When crossing an `exec` transition (`cfg = "exec"`), Bazel excludes the flag
+    from the `exec` configuration so that host tools see
+    `build_setting_default`.
+
+#### Customize the exec reset value with on_leave_scope {#on-leave-scope}
+
+`on_leave_scope` applies only to `scope = "target"` flags (and is ignored by
+`"project"` and other scopes). If an `exec` tool requires a fixed non-default
+value when a customized `target`-scoped flag crosses an `exec` transition, set
+`on_leave_scope` on a `label_flag`, `label_setting`, or custom `build_setting`
+rule:
+
+```python
+# my_project/flags/BUILD
+load("//my_project/flags:build_defs.bzl", "custom_string_flag")
+
+custom_string_flag(
+    name = "sanitization_mode",
+    build_setting_default = "full",
+    on_leave_scope = "minimal_host",
+    scope = "target",
+)
+```
+
+When you set `//my_project/flags:sanitization_mode` to a non-default value (for
+example, `--//my_project/flags:sanitization_mode=strict`):
+
+*   Target-configured rules read `"strict"`.
+*   Exec-configured rules read `"minimal_host"` (from `on_leave_scope`).
+
+**Choose between `on_leave_scope` and `scope = "exec:--<host_flag>"`**:
+
+*   Use **`on_leave_scope`** when you have a single flag and `exec` tools should
+    always receive a fixed constant defined in `BUILD` (not overridable on the
+    command line).
+*   Use **`scope = "exec:--<host_flag>"`** (see [Cross-flag exec
+    mapping](#cross-flag-exec-mapping)) when users or `.bazelrc` configs need to
+    override target and `exec` values independently on the command line, or when
+    using Skylib's `common_settings.bzl` rules (which do not expose
+    `on_leave_scope`).
+
+### Universal scope {#universal-scope}
+
+A flag with `scope = "universal"` propagates its value everywhere in the build
+graph, including across `exec` transitions and into external packages. Only an
+explicit Starlark configuration transition that writes to the flag can change
+its value.
+
+```python
+# my_project/flags/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+bool_flag(
+    name = "incompatible_strict_validation",
+    build_setting_default = False,
+    scope = "universal",
+)
+```
+
+<Warning>
+
+Use `scope = "universal"` sparingly. Every change to a `universal` flag
+invalidates the `exec` configuration and forces Bazel to rebuild all host/`exec`
+tools (such as compilers and protocol buffer plugins) in that subgraph.
+
+</Warning>
+
+### Cross-flag exec mapping {#cross-flag-exec-mapping}
+
+Some workflows pair a target flag with a separate host/`exec` flag so you can
+configure target and `exec` behavior independently on the command line (unlike
+`on_leave_scope`, which hardcodes a single static literal in `BUILD`). Setting
+`scope = "exec:--<another_flag_label>"` instructs Bazel to assign the
+target-configuration value of `--<another_flag_label>` to this flag whenever
+transitioning to an `exec` configuration.
+
+```python
+# my_project/flags/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+
+string_flag(
+    name = "launcher",
+    build_setting_default = "default_target_launcher",
+    scope = "exec:--//my_project/flags:host_launcher",
+)
+
+string_flag(
+    name = "host_launcher",
+    build_setting_default = "default_host_launcher",
+    scope = "target",
+)
+```
+
+Register a `--flag_alias` for the host flag in `.bazelrc` (or on the command
+line) so Bazel's option parser resolves the candidate flag:
+
+```bash
+# .bazelrc
+build --flag_alias=host_launcher=//my_project/flags:host_launcher
+```
+
+Run a build passing both flags:
+
+```bash
+bazel build //my_project:app \
+    --//my_project/flags:launcher=custom_target \
+    --//my_project/flags:host_launcher=custom_host
+```
+
+*   Target-configured rules reading `//my_project/flags:launcher` receive
+    `"custom_target"`.
+*   Exec-configured rules reading `//my_project/flags:launcher` receive
+    `"custom_host"` (or `"default_host_launcher"` if
+    `--//my_project/flags:host_launcher` is omitted), without creating an
+    `ST-<hash>` fork on the `exec` configuration when neither flag is
+    customized.
+
+## Verify flag scopes {#verify-flag-scopes}
+
+You can inspect how Bazel scopes flags across in-project targets, out-of-project
+targets, and `exec` targets using [`bazel cquery`](/query/cquery) and `bazel
+config`:
+
+1.  Query the configured dependency graph of your target:
+
+    ```bash
+    bazel cquery 'deps(//my_project/app:main)'
+    ```
+
+    ```text
+    //my_project/app:main (a1b2c3d4...)
+    //my_project/libs:helper (a1b2c3d4...)
+    //common/logging:logger (e5f6g7h8...)
+    ```
+
+2.  Inspect the configuration of an in-scope target versus an out-of-scope
+    target using each target's configuration hash prefix:
+
+    ```bash
+    bazel config a1b2c3d4
+    ```
+
+    ```text
+    BuildConfigurationValue a1b2c3d4...
+    ...
+    Fragment UserDefinedConfiguration: {
+      //my_project/flags:flavor: custom
+    }
+    ```
+
+    ```bash
+    bazel config e5f6g7h8
+    ```
+
+    *(Omits `//my_project/flags:flavor` if it was set via transition and
+    dropped outside `active_directories`, or shows the baseline value.)*
+
+## Further reading {#further-reading}
+
+*   [Configurations](/extending/config)
+*   [Configurable build attributes](/docs/configurable-attributes)
+*   [Configured query (cquery)](/query/cquery)
