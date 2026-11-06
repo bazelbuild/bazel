@@ -426,6 +426,74 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchNewFiles_downloadsDirectlyToFinalPaths() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cas);
+    Artifact a2 = createRemoteArtifact("dir/file2", "fizz buzz", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(
+        prefetcher.prefetchNewFilesInterruptibly(
+            metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    assertThat(FileSystemUtils.readContent(a1.getPath(), UTF_8)).isEqualTo("hello world");
+    assertReadableNonWritableAndExecutable(a1.getPath());
+    assertThat(FileSystemUtils.readContent(a2.getPath(), UTF_8)).isEqualTo("fizz buzz");
+    assertReadableNonWritableAndExecutable(a2.getPath());
+    assertThat(metadata.get(a1).getContentsProxy())
+        .isEqualTo(FileContentsProxy.create(a1.getPath().stat()));
+    // The files are neither checked for up-to-date copies nor moved from temporary paths.
+    verify(fs, never()).statIfFound(a1.getPath().asFragment(), /* followSymlinks= */ true);
+    verify(fs, never()).renameTo(any(), any());
+    assertThat(tempPathGenerator.getTempDir().getDirectoryEntries()).isEmpty();
+    assertThat(prefetcher.downloadedFiles()).containsExactly(a1.getPath(), a2.getPath());
+    assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchNewFiles_onInterrupt_deletesPartialDownloadedFile() throws Exception {
+    Semaphore startSemaphore = new Semaphore(0);
+    Semaphore endSemaphore = new Semaphore(0);
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    mockDownload(
+        prefetcher,
+        cas,
+        () -> {
+          startSemaphore.release();
+          return SettableFuture.create(); // A future that never complete so we can interrupt later
+        });
+
+    AtomicBoolean interrupted = new AtomicBoolean(false);
+    Thread t =
+        new Thread(
+            () -> {
+              try {
+                getFromFuture(
+                    prefetcher.prefetchNewFilesInterruptibly(
+                        ImmutableList.of(a1), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+              } catch (IOException ignored) {
+                // Intentionally left empty
+              } catch (InterruptedException e) {
+                interrupted.set(true);
+              }
+              endSemaphore.release();
+            });
+    t.start();
+    startSemaphore.acquire();
+    // The partial download is written to the final path directly.
+    assertThat(a1.getPath().exists()).isTrue();
+    t.interrupt();
+    endSemaphore.acquire();
+
+    assertThat(interrupted.get()).isTrue();
+    assertThat(a1.getPath().exists()).isFalse();
+  }
+
+  @Test
   public void prefetchFiles_downloadRemoteFiles_withResolvedPath() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();

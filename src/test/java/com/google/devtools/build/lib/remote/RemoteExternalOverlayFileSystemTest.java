@@ -117,6 +117,8 @@ public final class RemoteExternalOverlayFileSystemTest {
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
     when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
+    when(prefetcher.prefetchNewFilesInterruptibly(any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
     when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
     overlay.beforeCommand(
         new InMemoryCombinedCache(digestUtil),
@@ -174,6 +176,8 @@ public final class RemoteExternalOverlayFileSystemTest {
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
     when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
+    when(prefetcher.prefetchNewFilesInterruptibly(any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
     when(prefetcher.isAvailable(any(), any())).thenCallRealMethod();
     overlay.beforeCommand(
         new InMemoryCombinedCache(cacheClient, digestUtil),
@@ -227,6 +231,8 @@ public final class RemoteExternalOverlayFileSystemTest {
     var reporter = new Reporter();
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
     when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
+    when(prefetcher.prefetchNewFilesInterruptibly(any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
     overlay.beforeCommand(
         cache,
