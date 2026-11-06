@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
@@ -198,12 +197,8 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
         return;
       }
 
-      var filesToDownload = new ArrayList<TreeFileArtifact>(treeArtifactValue.getChildren().size());
-      for (var entry : treeArtifactValue.getChildValues().entrySet()) {
-        if (remoteOutputChecker.shouldDownloadOutput(entry.getKey(), entry.getValue())) {
-          filesToDownload.add(entry.getKey());
-        }
-      }
+      var filesToDownload =
+          remoteOutputChecker.getTreeChildrenToDownload(artifact.getExecPath(), treeArtifactValue);
       if (!filesToDownload.isEmpty()) {
         futures.add(
             actionInputPrefetcher.prefetchFiles(
