@@ -373,7 +373,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     for (var dirent : dir.readdir(Symlinks.FOLLOW)) {
       if (dirent.getName().startsWith(prefix) && dirent.getName().endsWith(suffix)) {
         var path = dir.getChild(dirent.getName());
-        old.add(new PathAndMtime(path, path.stat().getLastModifiedTime()));
+        old.add(new PathAndMtime(path, path.stat().getLastModifiedTimeNanos()));
       }
     }
     old.sort(Comparator.comparingLong(PathAndMtime::mtime));

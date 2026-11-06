@@ -45,8 +45,8 @@ public final class FileContentsProxy {
 
   public static FileContentsProxy create(FileStatus stat) throws IOException {
     return new FileContentsProxy(
-        // Note: there are file systems that return mtime for getLastChangeTime() instead of ctime,
-        // such as the JavaIoFileSystem.
+        // Note: there are file systems that return mtime for getLastChangeTimeNanos() instead of
+        // ctime, such as the JavaIoFileSystem.
         stat.getLastChangeTimeNanos(), stat.getLastModifiedTimeNanos(), stat.getNodeId());
   }
 
@@ -66,16 +66,6 @@ public final class FileContentsProxy {
   private record MetadataOnlyFileStatus(
       long getLastChangeTimeNanos, long getLastModifiedTimeNanos, long getNodeId, long getSize)
       implements FileStatus {
-    @Override
-    public long getLastChangeTime() {
-      return Math.floorDiv(getLastChangeTimeNanos, 1_000_000);
-    }
-
-    @Override
-    public long getLastModifiedTime() {
-      return Math.floorDiv(getLastModifiedTimeNanos, 1_000_000);
-    }
-
     @Override
     public boolean isFile() {
       throw new UnsupportedOperationException();

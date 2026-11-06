@@ -63,39 +63,20 @@ public interface FileStatus {
   long getSize() throws IOException;
 
   /**
-   * Returns the last modified time of this file's data (milliseconds since
-   * UNIX epoch).
-   */
-  long getLastModifiedTime() throws IOException;
-
-  /**
    * Returns the last modified time of this file's data in nanoseconds since UNIX epoch, at the
    * finest resolution the file system provides.
-   *
-   * <p>Use this rather than {@link #getLastModifiedTime} to detect changes to a file.
    */
-  default long getLastModifiedTimeNanos() throws IOException {
-    return getLastModifiedTime() * 1_000_000;
-  }
+  long getLastModifiedTimeNanos() throws IOException;
 
   /**
    * Returns the last change time of this file, where change means any change to the file, including
-   * metadata changes (milliseconds since UNIX epoch).
+   * metadata changes, in nanoseconds since UNIX epoch, at the finest resolution the file system
+   * provides.
    *
    * <p>On systems where the last change time is not supported, the last modified time will be
    * returned instead.
    */
-  long getLastChangeTime() throws IOException;
-
-  /**
-   * Returns the last change time of this file in nanoseconds since UNIX epoch, at the finest
-   * resolution the file system provides.
-   *
-   * <p>Use this rather than {@link #getLastChangeTime} to detect changes to a file.
-   */
-  default long getLastChangeTimeNanos() throws IOException {
-    return getLastChangeTime() * 1_000_000;
-  }
+  long getLastChangeTimeNanos() throws IOException;
 
   /**
    * Returns the unique file node id. Usually it is computed using both device

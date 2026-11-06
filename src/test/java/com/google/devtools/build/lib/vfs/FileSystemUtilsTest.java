@@ -809,8 +809,8 @@ public class FileSystemUtilsTest {
     byte[] actual = FileSystemUtils.readContent(file);
     assertThat(actual).isEqualTo(content);
     FileStatus stat = file.stat();
-    assertThat(stat.getLastChangeTime()).isEqualTo(1000);
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1000);
+    assertThat(stat.getLastChangeTimeNanos()).isEqualTo(1_000_000_000L);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo(1_000_000_000L);
 
     clock.advanceMillis(1000);
 
@@ -818,8 +818,8 @@ public class FileSystemUtilsTest {
     FileSystemUtils.maybeUpdateContent(file, content);
     assertThat(actual).isEqualTo(content);
     stat = file.stat();
-    assertThat(stat.getLastChangeTime()).isEqualTo(1000);
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1000);
+    assertThat(stat.getLastChangeTimeNanos()).isEqualTo(1_000_000_000L);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo(1_000_000_000L);
 
     clock.advanceMillis(1000);
 
@@ -830,8 +830,8 @@ public class FileSystemUtilsTest {
     actual = FileSystemUtils.readContent(file);
     assertThat(actual).isEqualTo(content);
     stat = file.stat();
-    assertThat(stat.getLastChangeTime()).isEqualTo(3000);
-    assertThat(stat.getLastModifiedTime()).isEqualTo(3000);
+    assertThat(stat.getLastChangeTimeNanos()).isEqualTo(3_000_000_000L);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo(3_000_000_000L);
   }
 
   @Test

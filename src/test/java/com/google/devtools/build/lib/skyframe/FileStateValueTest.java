@@ -50,7 +50,7 @@ public class FileStateValueTest {
   private static FileContentsProxy makeFileContentsProxy(long ctime, long nodeId)
       throws IOException {
     FileStatus status = Mockito.mock(FileStatus.class);
-    when(status.getLastChangeTime()).thenReturn(ctime);
+    when(status.getLastChangeTimeNanos()).thenReturn(ctime);
     when(status.getNodeId()).thenReturn(nodeId);
     return FileContentsProxy.create(status);
   }

@@ -701,13 +701,13 @@ public abstract class GlobTestBase {
           }
 
           @Override
-          public long getLastModifiedTime() throws IOException {
-            return realStat.getLastModifiedTime();
+          public long getLastModifiedTimeNanos() throws IOException {
+            return realStat.getLastModifiedTimeNanos();
           }
 
           @Override
-          public long getLastChangeTime() throws IOException {
-            return realStat.getLastChangeTime();
+          public long getLastChangeTimeNanos() throws IOException {
+            return realStat.getLastChangeTimeNanos();
           }
 
           @Override
@@ -879,13 +879,13 @@ public abstract class GlobTestBase {
           }
 
           @Override
-          public long getLastModifiedTime() throws IOException {
-            return realStat.getLastModifiedTime();
+          public long getLastModifiedTimeNanos() throws IOException {
+            return realStat.getLastModifiedTimeNanos();
           }
 
           @Override
-          public long getLastChangeTime() throws IOException {
-            return realStat.getLastChangeTime();
+          public long getLastChangeTimeNanos() throws IOException {
+            return realStat.getLastChangeTimeNanos();
           }
 
           @Override
