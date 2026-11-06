@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -81,6 +80,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
   @Before
   public void createBasePkg() throws IOException {
+    targetName = "bin";
     scratch.overwriteFile(
         "base/BUILD",
         """
@@ -294,8 +294,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         .isNotNull();
 
     List<String> commandLine = linkAction.getArguments();
-    String prefix =
-        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
+    String prefix = getTargetConfiguration().getOutputDirectory().getExecPathString();
     assertThat(commandLine)
         .containsAtLeast(
             prefix + "/bin/pkg/bin.lto.merged.o",
@@ -423,8 +422,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     String rootExecPath = getRootExecPath();
 
     List<String> commandLine = linkAction.getArguments();
-    String prefix =
-        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
+    String prefix = getTargetConfiguration().getOutputDirectory().getExecPathString();
 
     assertThat(commandLine).contains("-Wl,@" + prefix + "/bin/pkg/bin-lto-final.params");
 

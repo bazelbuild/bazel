@@ -32,8 +32,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/guava:io",
-        "//third_party/java/jsr305_annotations",
+        "//third_party/java/jspecify_annotations",
         "//third_party/java/junit",
         "//third_party/java/mockito",
         "//third_party/java/truth",
@@ -66,7 +65,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 # BazelTestRunner integration tests

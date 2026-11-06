@@ -25,6 +25,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -41,13 +42,14 @@ import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
+import com.google.devtools.build.lib.util.io.UnsynchronizedByteArrayOutputStream;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -482,12 +484,26 @@ public class CompactPersistentActionCache implements ActionCache {
       // This also ensures that the next initialization attempt will create an empty cache.
       // To avoid using too much disk space, only keep the most recent corrupted cache around.
       corruptedCacheRoot.deleteTree();
-      cacheRoot.renameTo(corruptedCacheRoot);
+      boolean preexistingKept;
+      try {
+        cacheRoot.renameTo(corruptedCacheRoot);
+        preexistingKept = true;
+      } catch (IOException e1) {
+        // If renaming fails, delete instead.
+        preexistingKept = false;
+        try {
+          cacheRoot.deleteTree();
+        } catch (IOException e2) {
+          e2.addSuppressed(e1);
+          throw e2;
+        }
+      }
 
       e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
 
       logger.atWarning().withCause(e).log(
-          "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
+          "Failed to load action cache%s",
+          preexistingKept ? ", preexisting files kept in %s".formatted(corruptedCacheRoot) : "");
 
       reporterForInitializationErrors.handle(
           Event.warn(
@@ -777,8 +793,7 @@ public class CompactPersistentActionCache implements ActionCache {
     return actionMap.size();
   }
 
-  private void encodeRemoteMetadata(FileArtifactValue value, ByteArrayOutputStream sink)
-      throws IOException {
+  private void encodeRemoteMetadata(FileArtifactValue value, OutputStream sink) throws IOException {
     checkArgument(value.isRemote(), "metadata is not remote: %s", value);
 
     MetadataDigestUtils.write(value.getDigest(), sink);
@@ -903,7 +918,8 @@ public class CompactPersistentActionCache implements ActionCache {
         (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
             + maxDiscoveredInputsSize
             + estimatedOutputMetadataSize;
-    ByteArrayOutputStream sink = new ByteArrayOutputStream(estimatedSize);
+    UnsynchronizedByteArrayOutputStream sink =
+        new UnsynchronizedByteArrayOutputStream(estimatedSize);
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
 
@@ -937,7 +953,7 @@ public class CompactPersistentActionCache implements ActionCache {
             serializableTreeArtifactValue.childValues().entrySet()) {
           // Don't put tree-relative paths in the string indexer. They are unlikely to be reused.
           // Instead, write them directly into the encoding.
-          MetadataDigestUtils.write(StringUnsafe.getByteArray(child.getKey()), sink);
+          MetadataDigestUtils.write(StringUnsafe.getInternalStringBytes(child.getKey()), sink);
           encodeRemoteMetadata(child.getValue(), sink);
         }
 

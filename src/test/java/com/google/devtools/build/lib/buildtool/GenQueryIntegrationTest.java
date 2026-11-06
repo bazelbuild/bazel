@@ -988,6 +988,41 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         "@@other_module+//fruits:papaya");
   }
 
+  @Test
+  public void testScopeInRepoOfFailingModuleExtension() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    write(
+        "MODULE.bazel",
+        """
+        ext = use_extension("//ext:ext.bzl", "ext")
+        use_repo(ext, "fruits_repo")
+        """);
+    write("ext/BUILD");
+    write(
+        "ext/ext.bzl",
+        """
+        def _ext_impl(module_ctx):
+            fail("ext failed")
+
+        ext = module_extension(implementation = _ext_impl)
+        """);
+    write(
+        "fruits/BUILD",
+        """
+        genquery(
+            name = "q",
+            expression = "deps(@fruits_repo//:melon)",
+            scope = ["@fruits_repo//:melon"],
+        )
+        """);
+
+    assertThrows(expectedExceptionClass(), () -> buildTarget("//fruits:q"));
+
+    events.assertContainsError("ext failed");
+  }
+
   private void assertQueryResult(String queryTarget, String... expected) throws Exception {
     assertThat(getQueryResult(queryTarget).split("\n"))
         .asList()

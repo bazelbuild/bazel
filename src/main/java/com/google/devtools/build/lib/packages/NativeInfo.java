@@ -90,10 +90,11 @@ public abstract class NativeInfo implements Info, StarlarkEncodable {
       return false;
     }
     // Compare objects' fields and their values
-    if (!Objects.equal(getLegacyStarlarkMethodNames(), other.getLegacyStarlarkMethodNames())) {
+    if (!java.util.Objects.equals(
+        getLegacyStarlarkMethodNames(), other.getLegacyStarlarkMethodNames())) {
       return false;
     }
-    return Objects.equal(getLegacyFields(), other.getLegacyFields());
+    return java.util.Objects.equals(getLegacyFields(), other.getLegacyFields());
   }
 
   @Override

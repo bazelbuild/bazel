@@ -51,6 +51,7 @@ bat_test = rule(
 def _exe_test_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + "." + ctx.file.src.extension)
     ctx.actions.run(
+        mnemonic = "NativeTestSubstitute",
         tools = [ctx.file.src],
         outputs = [out],
         executable = "cmd.exe",

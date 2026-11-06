@@ -115,7 +115,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         state.discoverAndSelectResult.selectionResult.resolvedDepGraph().values().stream()
             // Modules with a null registry have a non-registry override. We don't need to
             // fetch or store the repo spec in this case.
-            .filter(module -> module.getRegistry() != null)
+            .filter(module -> module.getRegistryUrl() != null)
             .map(RepoSpecKey::of)
             .collect(toImmutableSet());
     SkyframeLookupResult repoSpecResults = env.getValuesAndExceptions(repoSpecKeys);
@@ -210,20 +210,13 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         ImmutableMap.builder();
     Map<ModuleKey, YankedVersionsValue.Key> yankedVersionsKeys = new HashMap<>();
     for (InterimModule m : modules) {
-      if (m.getRegistry() == null) {
+      if (m.getRegistryUrl() == null) {
         // Modules with a non-registry override are never yanked.
         yankedVersionsValues.put(m.getKey(), YankedVersionsValue.NONE_YANKED);
         continue;
       }
-      var lockfileYankedVersionsValue =
-          m.getRegistry().tryGetYankedVersionsFromLockfile(m.getKey());
-      if (lockfileYankedVersionsValue.isPresent()) {
-        yankedVersionsValues.put(m.getKey(), lockfileYankedVersionsValue.get());
-      } else {
-        // We need to download the list of yanked versions from the registry.
-        yankedVersionsKeys.put(
-            m.getKey(), YankedVersionsValue.Key.create(m.getName(), m.getRegistry().getUrl()));
-      }
+      yankedVersionsKeys.put(
+          m.getKey(), YankedVersionsValue.Key.create(m.getKey(), m.getRegistryUrl()));
     }
     SkyframeLookupResult yankedVersionsResult =
         env.getValuesAndExceptions(yankedVersionsKeys.values());

@@ -17,7 +17,9 @@ import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGrap
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
@@ -80,6 +82,28 @@ public interface InMemoryGraph extends ProcessableGraph {
    */
   Map<SkyKey, SkyValue> getDoneValues();
 
+  /**
+   * Returns the values of the done nodes whose keys match the given filter.
+   *
+   * <p>Unlike {@link #getDoneValues()}, the result is not a live view: the graph is walked once, in
+   * parallel, and only the values of matching keys are read.
+   */
+  default Map<SkyKey, SkyValue> collectDoneValues(Predicate<SkyKey> keyFilter) {
+    var result = new ConcurrentHashMap<SkyKey, SkyValue>();
+    parallelForEach(
+        entry -> {
+          var key = entry.getKey();
+          if (!keyFilter.test(key)) {
+            return;
+          }
+          var value = ValueWithMetadata.justValue(entry.getValueMaybeWithMetadata());
+          if (value != null && entry.isDone()) {
+            result.put(key, value);
+          }
+        });
+    return result;
+  }
+
   /** Returns an unmodifiable collection of all nodes in the graph. */
   Collection<InMemoryNodeEntry> getAllNodeEntries();
 
@@ -106,16 +130,4 @@ public interface InMemoryGraph extends ProcessableGraph {
   @Nullable
   InMemoryNodeEntry getIfPresent(SkyKey key);
 
-  /**
-   * Minimizes the size of the data structure backing the graph. May be costly to run (O(n)).
-   *
-   * <p>Must NOT be called concurrently with any other methods.
-   *
-   * <p>Useful after removing large numbers of nodes from the in-memory graph, and the data
-   * structure used doesn't have automatic resizing (e.g. ConcurrentHashMap).
-   *
-   * <p>WARNING: Implementations have to take care of existing references into the data structure if
-   * replaced by a new one (e.g. functions that close over the data structure).
-   */
-  void shrinkNodeMap();
 }

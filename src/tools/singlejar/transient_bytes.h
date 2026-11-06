@@ -21,6 +21,9 @@
 #include <inttypes.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <ostream>
 
 #include "src/tools/singlejar/diag.h"
@@ -43,6 +46,8 @@ class TransientBytes {
         data_size_(0),
         first_block_(nullptr),
         last_block_(nullptr) {}
+  TransientBytes(const TransientBytes&) = delete;
+  TransientBytes& operator=(const TransientBytes&) = delete;
 
   ~TransientBytes() {
     while (first_block_) {

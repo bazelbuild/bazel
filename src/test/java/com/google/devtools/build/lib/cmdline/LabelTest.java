@@ -25,8 +25,11 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -337,10 +340,9 @@ public class LabelTest {
   @Test
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseCanonical("//bar/baz");
-    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT)).isEmpty();
+    assertThat(label.getWorkspaceRootForStarlarkOnly()).isEmpty();
     label = Label.parseCanonical("@repo//bar/baz");
-    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT))
-        .isEqualTo("external/repo");
+    assertThat(label.getWorkspaceRootForStarlarkOnly()).isEqualTo("external/repo");
   }
 
   @Test
@@ -530,5 +532,26 @@ public class LabelTest {
             Tables.immutableCell(bar, "quux", foo),
             Tables.immutableCell(foo, "bar", quux))
         .inOrder();
+  }
+
+  @Test
+  public void getRelative_withoutBazelModuleContext() throws Exception {
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      Label base = Label.parseCanonical("@repo//foo:bar");
+      assertThat(base.getRelative(":baz", thread))
+          .isEqualTo(Label.parseCanonical("@repo//foo:baz"));
+      assertThat(base.getRelative("//pkg:baz", thread))
+          .isEqualTo(Label.parseCanonical("@repo//pkg:baz"));
+      assertThat(base.getRelative("//visibility:public", thread))
+          .isEqualTo(Label.parseCanonical("//visibility:public"));
+      EvalException e =
+          assertThrows(EvalException.class, () -> base.getRelative("@other//pkg:baz", thread));
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Label.relative() with an argument containing a repository name can only be used"
+                  + " in .bzl files");
+    }
   }
 }

@@ -5,14 +5,14 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:private"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 TESTUTIL_FILES = [
@@ -32,6 +32,9 @@ TESTUTIL_FILES = [
 java_library(
     name = "testutil",
     srcs = TESTUTIL_FILES,
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",

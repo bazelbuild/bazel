@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 OS_PATH_POLICY_SOURCES = [
@@ -43,6 +43,10 @@ java_library(
 java_library(
     name = "pathfragment",
     srcs = PATH_FRAGMENT_SOURCES,
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+    ],
     deps = [
         ":ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -68,6 +72,11 @@ java_library(
         ],
         exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES + OS_PATH_POLICY_SOURCES,
     ),
+    # This virtual file system is for Blaze's own use only, since it's not quite
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+    ],
     deps = [
         ":pathfragment",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -78,6 +87,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:file_channels",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
@@ -95,6 +105,7 @@ java_library(
         "//third_party/java/guava:hash",
         "//third_party/java/guava:io",
         "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )
@@ -106,8 +117,13 @@ java_library(
         ":pathfragment",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_checker",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

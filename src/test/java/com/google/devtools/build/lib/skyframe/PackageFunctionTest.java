@@ -529,12 +529,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
           }
 
           @Override
-          public long getLastModifiedTime() {
+          public long getLastModifiedTimeNanos() {
             return 0;
           }
 
           @Override
-          public long getLastChangeTime() {
+          public long getLastChangeTimeNanos() {
             return 0;
           }
 
@@ -910,8 +910,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("qux/ext.bzl", "c = 1");
 
     preparePackageLoading(computationMode, rootDirectory);
-    // must be done after preparePackageLoading()
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     Packageoid pkg = validPackageoidWithoutErrors("foo");
     assertThat(pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles())
@@ -972,9 +970,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .isEqualTo(
-            "error loading package 'test/starlark': "
-                + "at /workspace/test/starlark/extension.bzl:1:6: "
-                + "cannot load '//test/starlark:bad_extension.bzl': no such file");
+            """
+            error loading package 'test/starlark': at /workspace/test/starlark/extension.bzl:1:6:
+            cannot load '//test/starlark:bad_extension.bzl': no such file\
+            """);
     assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }

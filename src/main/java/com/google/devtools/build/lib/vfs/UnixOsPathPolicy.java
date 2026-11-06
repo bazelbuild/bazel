@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 
 @VisibleForTesting
 class UnixOsPathPolicy implements OsPathPolicy {
 
   static final UnixOsPathPolicy INSTANCE = new UnixOsPathPolicy();
-  private static final Splitter PATH_SPLITTER = Splitter.onPattern("/+").omitEmptyStrings();
+  private static final Splitter PATH_SPLITTER = Splitter.on('/').omitEmptyStrings();
 
   @Override
   public int needsToNormalize(String path) {
@@ -30,9 +29,6 @@ class UnixOsPathPolicy implements OsPathPolicy {
     char prevChar = 0;
     for (int i = 0; i < n; i++) {
       char c = path.charAt(i);
-      if (c == '\\') {
-        return NEEDS_NORMALIZE;
-      }
       if (c == '/') {
         if (prevChar == '/') {
           return NEEDS_NORMALIZE;
@@ -40,11 +36,15 @@ class UnixOsPathPolicy implements OsPathPolicy {
         if (dotCount == 1 || dotCount == 2) {
           return NEEDS_NORMALIZE;
         }
+        dotCount = 0;
+      } else if (c == '.' && dotCount >= 0) {
+        dotCount++;
+      } else {
+        dotCount = -1;
       }
-      dotCount = c == '.' ? dotCount + 1 : 0;
       prevChar = c;
     }
-    if (prevChar == '/' || dotCount == 1 || dotCount == 2) {
+    if ((n > 1 && prevChar == '/') || dotCount == 1 || dotCount == 2) {
       return NEEDS_NORMALIZE;
     }
     return NORMALIZED;
@@ -71,7 +71,7 @@ class UnixOsPathPolicy implements OsPathPolicy {
     if (isAbsolute) {
       sb.append('/');
     }
-    String[] segments = Iterables.toArray(PATH_SPLITTER.splitToList(path), String.class);
+    String[] segments = PATH_SPLITTER.splitToList(path).toArray(new String[0]);
     int segmentCount = Utils.removeRelativePaths(segments, 0, isAbsolute);
     for (int i = 0; i < segmentCount; ++i) {
       sb.append(segments[i]);

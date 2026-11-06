@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -65,6 +63,7 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.MetadataUtils;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
@@ -85,6 +84,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -172,7 +173,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -200,7 +200,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = {'A'};
@@ -253,6 +252,101 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
+  public void highlyCompressibleUploadCanCompleteEarlyWithoutReadingWholeSource() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, e -> Result.PERMANENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            retrier,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+
+    long size = 64L * 1024 * 1024;
+    long readLimit = 2L * 1024 * 1024;
+    AtomicLong consumed = new AtomicLong();
+    AtomicReference<WriteRequest> firstRequest = new AtomicReference<>();
+    var source =
+        new InputStream() {
+          boolean closed;
+
+          @Override
+          public int read() throws IOException {
+            byte[] b = new byte[1];
+            return read(b, 0, 1) == -1 ? -1 : 0;
+          }
+
+          @Override
+          public int read(byte[] b, int off, int len) throws IOException {
+            if (consumed.get() == size) {
+              return -1;
+            }
+            int n = (int) Math.min(len, size - consumed.get());
+            if (firstRequest.get() == null && consumed.get() + n > readLimit) {
+              throw new IOException("Too much source work before the first upload request");
+            }
+            Arrays.fill(b, off, off + n, (byte) 0);
+            consumed.addAndGet(n);
+            return n;
+          }
+
+          @Override
+          public void close() {
+            closed = true;
+          }
+        };
+    Digest digest =
+        DIGEST_UTIL.compute(
+            out -> {
+              byte[] zeros = new byte[16 * 1024];
+              for (long written = 0; written < size; written += zeros.length) {
+                out.write(zeros);
+              }
+            });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
+            // Permit one request only, exercising the uploader's readiness boundary.
+            ServerCallStreamObserver<WriteResponse> serverResponse =
+                (ServerCallStreamObserver<WriteResponse>) response;
+            serverResponse.disableAutoRequest();
+            serverResponse.request(1);
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {
+                firstRequest.set(request);
+                response.onNext(WriteResponse.newBuilder().setCommittedSize(-1).build());
+                response.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                // The client cancels its request stream after an early successful response.
+              }
+
+              @Override
+              public void onCompleted() {}
+            };
+          }
+        });
+
+    try (Chunker chunker =
+        Chunker.builder().setInput(size, () -> source).setCompressed(true).build()) {
+      uploadBlob(uploader, context, digest, chunker);
+      assertThat(firstRequest.get()).isNotNull();
+      assertThat(firstRequest.get().getResourceName()).isNotEmpty();
+      assertThat(firstRequest.get().getData().size()).isGreaterThan(0);
+      assertThat(firstRequest.get().getFinishWrite()).isFalse();
+      assertThat(consumed.get()).isAtMost(readLimit);
+      assertThat(consumed.get()).isLessThan(size);
+    }
+    assertThat(source.closed).isTrue();
+    Mockito.verifyNoInteractions(mockBackoff);
+  }
+
+  @Test
   public void progressiveUploadShouldWork() throws Exception {
     Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);
     RemoteRetrier retrier =
@@ -264,7 +358,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -381,7 +474,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int chunkSize = 1024;
@@ -503,7 +595,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int chunkSize = 1024;
@@ -562,7 +653,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -621,7 +711,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -691,7 +780,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -730,7 +818,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -784,7 +871,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -817,7 +903,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int numUploads = 10;
@@ -850,7 +935,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
     byte[] blob = new byte[CHUNK_SIZE];
     Chunker chunker = Mockito.mock(Chunker.class);
@@ -860,91 +944,14 @@ public class ByteStreamUploaderTest {
     serviceRegistry.addService(new MaybeFailOnceUploadService(ImmutableMap.of()));
 
     String newMessage =
-        "An IOException was thrown because the process opened too many files. We recommend setting"
-            + " --bep_maximum_open_remote_upload_files flag to a number lower than your system"
-            + " default (run 'ulimit -a' for *nix-based operating systems). Original error message:"
-            + " Too many open files";
+        "An IOException was thrown because the process opened too many files. We recommend"
+            + " checking your system configuration (run 'ulimit -a' for *nix-based operating"
+            + " systems) or setting --bep_maximum_open_remote_upload_files flag for BEP uploads."
+            + " Original error message: Too many open files";
     assertThat(
             assertThrows(IOException.class, () -> uploadBlob(uploader, context, digest, chunker)))
         .hasMessageThat()
         .isEqualTo(newMessage);
-  }
-
-  @Test
-  public void availablePermitsOpenFileSemaphore_fewerPermitsThanUploads_endWithAllPermits()
-      throws Exception {
-    RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(
-            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
-    // number of permits is less than number of uploads to affirm permit is released
-    int maximumOpenFiles = 999;
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            INSTANCE_NAME,
-            referenceCountedChannel,
-            CallCredentialsProvider.NO_CREDENTIALS,
-            retrier,
-            maximumOpenFiles,
-            /* digestFunction= */ DigestFunction.Value.SHA256);
-
-    assertThat(uploader.getOpenedFilePermits().availablePermits()).isEqualTo(999);
-
-    CustomFileTracker customFileTracker = new CustomFileTracker(maximumOpenFiles);
-    int numUploads = 1000;
-    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
-    Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
-    Random rand = new Random();
-    for (int i = 0; i < numUploads; i++) {
-      int blobSize = rand.nextInt(CHUNK_SIZE * 10) + CHUNK_SIZE;
-      byte[] blob = new byte[blobSize];
-      rand.nextBytes(blob);
-      Chunker chunker =
-          TestChunker.builder(customFileTracker).setInput(blob).setChunkSize(CHUNK_SIZE).build();
-      Digest digest = DIGEST_UTIL.compute(blob);
-      chunkers.put(digest, chunker);
-      blobsByHash.put(HashCode.fromString(digest.getHash()), blob);
-    }
-
-    serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
-
-    uploadBlobs(uploader, context, chunkers);
-
-    assertThat(uploader.getOpenedFilePermits().availablePermits()).isEqualTo(maximumOpenFiles);
-  }
-
-  @Test
-  public void noMaximumOpenFilesFlags_nullSemaphore() throws Exception {
-    RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(
-            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            INSTANCE_NAME,
-            referenceCountedChannel,
-            CallCredentialsProvider.NO_CREDENTIALS,
-            retrier,
-            /* maximumOpenFiles= */ -1,
-            /* digestFunction= */ DigestFunction.Value.SHA256);
-    assertThat(uploader.getOpenedFilePermits()).isNull();
-
-    int numUploads = 10;
-    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
-    Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
-    Random rand = new Random();
-    for (int i = 0; i < numUploads; i++) {
-      int blobSize = rand.nextInt(CHUNK_SIZE * 10) + CHUNK_SIZE;
-      byte[] blob = new byte[blobSize];
-      rand.nextBytes(blob);
-      Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
-      Digest digest = DIGEST_UTIL.compute(blob);
-      chunkers.put(digest, chunker);
-      blobsByHash.put(HashCode.fromString(digest.getHash()), blob);
-    }
-
-    serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
-
-    uploadBlobs(uploader, context, chunkers);
-    assertThat(uploader.getOpenedFilePermits()).isNull();
   }
 
   @Test
@@ -960,7 +967,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     List<String> toUpload = ImmutableList.of("aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc");
@@ -1091,7 +1097,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE];
@@ -1153,7 +1158,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE];
@@ -1190,7 +1194,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     serviceRegistry.addService(
@@ -1230,7 +1233,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     serviceRegistry.addService(
@@ -1274,7 +1276,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.BLAKE3);
 
     serviceRegistry.addService(
@@ -1320,7 +1321,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     AtomicInteger numCalls = new AtomicInteger();
@@ -1373,7 +1373,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             callCredentialsProvider,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1429,7 +1428,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             callCredentialsProvider,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1501,7 +1499,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE - 1];
@@ -1561,7 +1558,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1657,7 +1653,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     // Random data is incompressible, so the compressed byte count exceeds the uncompressed size.
@@ -1713,7 +1708,6 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             retrier,
-            /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1919,70 +1913,6 @@ public class ByteStreamUploaderTest {
       response.onNext(
           QueryWriteStatusResponse.newBuilder().setCommittedSize(0).setComplete(false).build());
       response.onCompleted();
-    }
-  }
-
-  /* Custom Chunker used to track number of open files */
-  private static class TestChunker extends Chunker {
-
-    TestChunker(Blob dataSupplier, long size, int chunkSize, boolean compressed) {
-      super(dataSupplier, size, chunkSize, compressed);
-    }
-
-    public static Builder builder(CustomFileTracker customFileTracker) {
-      return new TestChunkerBuilder(customFileTracker);
-    }
-
-    private static class TestChunkerBuilder extends Chunker.Builder {
-      private final CustomFileTracker customFileTracker;
-
-      TestChunkerBuilder(CustomFileTracker customFileTracker) {
-        this.customFileTracker = customFileTracker;
-      }
-
-      @Override
-      public Chunker.Builder setInput(byte[] existingData) {
-        checkState(this.inputStream == null);
-        this.size = existingData.length;
-        return setInput(
-            existingData.length,
-            () -> new TestByteArrayInputStream(existingData, customFileTracker));
-      }
-    }
-  }
-
-  private static class TestByteArrayInputStream extends ByteArrayInputStream {
-    private final CustomFileTracker customFileTracker;
-
-    TestByteArrayInputStream(byte[] buf, CustomFileTracker customFileTracker) {
-      super(buf);
-      this.customFileTracker = customFileTracker;
-      customFileTracker.incrementOpenFiles();
-    }
-
-    @Override
-    public void close() throws IOException {
-      super.close();
-      customFileTracker.decrementOpenFiles();
-    }
-  }
-
-  private static class CustomFileTracker {
-    private final AtomicInteger openFiles = new AtomicInteger(0);
-    private final int maxOpenFiles;
-
-    CustomFileTracker(int maxOpenFiles) {
-      this.maxOpenFiles = maxOpenFiles;
-    }
-
-    private void incrementOpenFiles() {
-      openFiles.getAndIncrement();
-      checkState(openFiles.get() <= maxOpenFiles);
-    }
-
-    private void decrementOpenFiles() {
-      openFiles.getAndDecrement();
-      checkState(openFiles.get() >= 0);
     }
   }
 }

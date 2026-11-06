@@ -35,7 +35,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -269,7 +268,7 @@ public final class ScriptTest {
         try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
           StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
           thread.setThreadLocal(Reporter.class, ScriptTest::reportError);
-          Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+          Starlark.execFile(input, module, thread);
 
         } catch (SyntaxError.Exception ex) {
           // parser/resolver errors

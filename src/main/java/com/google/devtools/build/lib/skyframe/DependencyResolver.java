@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -79,7 +80,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -103,10 +103,10 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /**
- * Helper logic for {@link ConfiguredTargetFunction} and {@link AspectFunction}: performs the
+ * Helper logic for {@code ConfiguredTargetFunction} and {@code AspectFunction}: performs the
  * analysis phase through computation of prerequisites.
  *
- * <p>For the {@link ConfiguredTargetFunction} this includes:
+ * <p>For the {@code ConfiguredTargetFunction} this includes:
  *
  * <ul>
  *   <li>getting this target's {@link Target} and {@link BuildConfigurationValue}
@@ -114,7 +114,7 @@ import net.starlark.java.syntax.Location;
  *       evaluate all rule attributes with {@code select()} and determine exact dependencies
  *   <li>figuring out which toolchains this target needs
  *   <li>getting the {@link ConfiguredTargetValue}s of this target's prerequisites (through
- *       recursive calls to {@link ConfiguredTargetFunction}
+ *       recursive calls to {@code ConfiguredTargetFunction}
  * </ul>
  *
  * <p>Figuring out which toolchains are needed and computing the {@link ConfigConditions} is
@@ -126,9 +126,9 @@ import net.starlark.java.syntax.Location;
  *
  * <p>This class also provides getters for the above data for subsequent analysis logic to use.
  *
- * <p>See {@link ConfiguredTargetFunction} for more review on analysis implementation.
+ * <p>See {@code ConfiguredTargetFunction} for more review on analysis implementation.
  *
- * <p>{@link AspectFunction} shares the logic computing a target's prerequisites via the {@link
+ * <p>{@code AspectFunction} shares the logic computing a target's prerequisites via the {@link
  * DependencyResolver#computeDependencies}.
  */
 public final class DependencyResolver {
@@ -407,7 +407,10 @@ public final class DependencyResolver {
               targetAndConfiguration.getConfiguration() == null
                   ? null
                   : targetAndConfiguration.getConfiguration().getOptions(),
-              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+              targetAndConfiguration.getConfiguration() == null
+                  ? StarlarkBuildSettingsDetailsValue.EMPTY
+                  : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
       if (starlarkExecTransition == null) {
         return false;
       }
@@ -724,6 +727,9 @@ public final class DependencyResolver {
                 new DependencyMapProducer(
                     new PrerequisiteParameters(
                         configuredTargetKey,
+                        ctgValue.getConfiguration() == null
+                            ? StarlarkBuildSettingsDetailsValue.EMPTY
+                            : ctgValue.getConfiguration().starlarkFlagDetails(),
                         ctgValue.getTarget(),
                         aspects,
                         loadExecAspectsKey,
@@ -807,11 +813,6 @@ public final class DependencyResolver {
             TransitionCreationException transitionCreationException = error.transitionCreation();
             throw new ConfiguredValueCreationException(
                 ctgValue.getTarget(), transitionCreationException.getMessage());
-          case BUILD_OPTIONS_SCOPE:
-            BuildOptionsScopeFunctionException buildOptionsScopeFunctionException =
-                error.buildOptionsScope();
-            throw new ConfiguredValueCreationException(
-                ctgValue.getTarget(), buildOptionsScopeFunctionException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {

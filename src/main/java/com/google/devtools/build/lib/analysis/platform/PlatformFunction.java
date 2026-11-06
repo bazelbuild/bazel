@@ -55,7 +55,7 @@ public final class PlatformFunction implements SkyFunction {
   @Nullable
   @Override
   public PlatformValue compute(SkyKey skyKey, Environment env)
-      throws PlatformFunctionException, InterruptedException {
+      throws SkyFunctionException, InterruptedException {
     PlatformValue.Key params = (PlatformValue.Key) skyKey.argument();
     var platformLabel = params.label();
     var pkgId = platformLabel.getPackageIdentifier();
@@ -113,10 +113,13 @@ public final class PlatformFunction implements SkyFunction {
     var parsedFlagsKey =
         ParsedFlagsValue.Key.create(
             platformInfo.flags(),
-            PackageContext.of(pkgId, repoMappingValue.repositoryMapping()),
+            PackageContext.of(
+                configuredTarget.getLabel().getPackageIdentifier(),
+                repoMappingValue.repositoryMapping()),
             // Include default values so that any flags explicitly reset to the default are kept.
             /* includeDefaultValues= */ true,
-            params.flagAliasMappings());
+            params.flagAliasMappings(),
+            /* allowNonFlagBuildSettings= */ true);
     var parsedFlagsValue = (ParsedFlagsValue) env.getValue(parsedFlagsKey);
     if (parsedFlagsValue == null) {
       return null;

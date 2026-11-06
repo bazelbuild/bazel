@@ -34,7 +34,12 @@ class MappedFile {
 
   ~MappedFile() { Close(); }
 
-  bool Open(const std::string& path);
+  // Maps the file at path. If populate is true, the whole file is read in
+  // upfront (MAP_POPULATE), which is faster when most of it will be accessed.
+  // Callers that only read a small part of the file (e.g. a jar's central
+  // directory) should pass false. Ignored where MAP_POPULATE is unavailable
+  // (e.g. macOS) and on Windows, where mappings are always populated lazily.
+  bool Open(const std::string& path, bool populate = true);
 
   bool MapExisting(unsigned char* mapped_start, unsigned char* mapped_end) {
     mapped_start_ = mapped_start;

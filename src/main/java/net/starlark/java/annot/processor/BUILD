@@ -1,14 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 
-package(
-    default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_applicable_licenses = ["//:license"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java/annot:__pkg__"],
 )
 
 # A processor for Starlark annotations.

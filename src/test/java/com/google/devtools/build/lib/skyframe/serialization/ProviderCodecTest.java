@@ -13,19 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link ProviderCodec}. */
+/** Unit tests for {@link BuiltinProvider} (de)serialization. */
 @RunWith(JUnit4.class)
 public final class ProviderCodecTest {
   private static class DummyProvider extends BuiltinProvider<StructImpl> {
@@ -37,12 +32,7 @@ public final class ProviderCodecTest {
   @Test
   public void objectCodecTests() throws Exception {
     DummyProvider dummyProvider = new DummyProvider();
-    new SerializationTester(
-            dummyProvider,
-            StarlarkProvider.builder(Location.BUILTIN)
-                .buildExported(
-                    new StarlarkProvider.Key(
-                        keyForBuild(Label.parseCanonicalUnchecked("//foo:bar.bzl")), "foo")))
+    new SerializationTester(dummyProvider)
         .addDependency(DummyProvider.class, dummyProvider)
         .runTests();
   }

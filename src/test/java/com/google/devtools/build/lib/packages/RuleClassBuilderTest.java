@@ -230,36 +230,6 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testDuplicateExecGroupsThatInheritFromRuleIsOk() throws Exception {
-    RuleClass a =
-        new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT), false)
-            .add(attr("tags", STRING_LIST))
-            .addToolchainTypes(
-                ToolchainTypeRequirement.create(Label.parseCanonicalUnchecked("//some/toolchain")))
-            .build();
-    RuleClass b =
-        new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT), false)
-            .add(attr("tags", STRING_LIST))
-            .addToolchainTypes(
-                ToolchainTypeRequirement.create(
-                    Label.parseCanonicalUnchecked("//some/other/toolchain")))
-            .build();
-    RuleClass c =
-        new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b)
-            .addToolchainTypes(
-                ToolchainTypeRequirement.create(
-                    Label.parseCanonicalUnchecked("//actual/toolchain/we/care/about")))
-            .build();
-    assertThat(c.getDeclaredExecGroups()).containsKey("blueberry");
-    DeclaredExecGroup blueberry = c.getDeclaredExecGroups().get("blueberry");
-    assertThat(blueberry).copiesFromDefault();
-  }
-
-  @Test
   public void testDuplicateExecGroupsThrowsError() throws Exception {
     RuleClass a =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)

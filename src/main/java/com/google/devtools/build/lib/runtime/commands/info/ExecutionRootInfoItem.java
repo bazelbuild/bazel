@@ -31,6 +31,11 @@ public final class ExecutionRootInfoItem extends InfoItem {
   }
 
   @Override
+  public boolean requiresWorkspace() {
+    return true;
+  }
+
+  @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(env);

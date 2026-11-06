@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -136,6 +137,23 @@ public class HttpUtilsTest {
     when(connection.getURL()).thenReturn(URI.create("http://original.example.org").toURL());
     when(connection.getHeaderField("Location")).thenReturn(redirect);
     assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect));
+  }
+
+  @Test
+  public void getLocation_nonAsciiRedirect_percentEncodesAsUtf8() throws Exception {
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example").toURL());
+    // The JDK decodes response headers as ISO-8859-1.
+    when(connection.getHeaderField("Location")).thenReturn(unicodeToInternal("/ä€"));
+    assertThat(HttpUtils.getLocation(connection))
+        .isEqualTo(URI.create("http://lol.example/%C3%A4%E2%82%AC"));
+  }
+
+  @Test
+  public void parseUrl_nonAscii_percentEncodesAsUtf8() throws Exception {
+    assertThat(
+            HttpUtils.parseUrl(unicodeToInternal("https://example.com/€/cafe\u0301%20ä.zip?q=ü#ö")))
+        .isEqualTo(
+            URI.create("https://example.com/%E2%82%AC/cafe%CC%81%20%C3%A4.zip?q=%C3%BC#%C3%B6"));
   }
 
   @Test

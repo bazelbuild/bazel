@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -13,7 +13,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
 
 java_library(
@@ -104,7 +104,7 @@ java_library(
         ":repo_definition",
         ":utils",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:serialization",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",

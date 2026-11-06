@@ -34,7 +34,7 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ToolchainTypeInfo> PROVIDER =
-      new BuiltinProvider<ToolchainTypeInfo>(STARLARK_NAME, ToolchainTypeInfo.class) {};
+      new BuiltinProvider.NonCallable<>(STARLARK_NAME, ToolchainTypeInfo.class) {};
 
   private final Label typeLabel;
   @Nullable private final String noneFoundError;

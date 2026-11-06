@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.NonNegativeIntegerConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -45,13 +46,6 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
   public static final class PositiveIntegerConverter extends RangeConverter {
     public PositiveIntegerConverter() {
       super(1, Integer.MAX_VALUE);
-    }
-  }
-
-  /** A converter for integers that must be at least 0. */
-  public static final class NonNegativeIntegerConverter extends RangeConverter {
-    public NonNegativeIntegerConverter() {
-      super(0, Integer.MAX_VALUE);
     }
   }
 
@@ -126,7 +120,7 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       name = "experimental_remote_analysis_cache_deadline",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "45s",
+      defaultValue = "20s",
       converter = DurationConverter.class,
       help = "Deadline to use for remote analysis cache operations.")
   public abstract Duration getDeadline();

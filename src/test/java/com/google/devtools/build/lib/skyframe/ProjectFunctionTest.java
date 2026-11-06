@@ -17,12 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +31,6 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     writeProjectSclDefinition("test/project_proto.scl");
   }
 
@@ -50,33 +46,6 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
     ProjectValue value = result.get(key);
     assertThat(value.getDefaultProjectDirectories()).isEmpty();
-  }
-
-  @Test
-  public void projectFunction_returnsActiveDirectories() throws Exception {
-    scratch.file(
-        "test/PROJECT.scl",
-        """
-        project = {
-          "active_directories": {'default': ['foo'], 'a': ['bar', '-bar/baz']},
-        }
-        """);
-    scratch.file("test/BUILD");
-    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
-
-    EvaluationResult<ProjectValue> result =
-        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
-    assertThat(result.hasError()).isFalse();
-
-    ProjectValue value = result.get(key);
-    ImmutableMap<String, PathFragmentPrefixTrie> trie =
-        PathFragmentPrefixTrie.transformValues(value.getProjectDirectories());
-    assertThat(trie.get("default").includes(PathFragment.create("foo"))).isTrue();
-    assertThat(trie.get("default").includes(PathFragment.create("bar"))).isFalse();
-    assertThat(trie.get("a").includes(PathFragment.create("bar"))).isTrue();
-    assertThat(trie.get("a").includes(PathFragment.create("bar/baz"))).isFalse();
-    assertThat(trie.get("a").includes(PathFragment.create("bar/qux"))).isTrue();
-    assertThat(trie.get("b")).isNull();
   }
 
   @Test
@@ -96,10 +65,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultProjectDirectories());
-    assertThat(trie.includes(PathFragment.create("a"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("d"))).isFalse();
+    assertThat(value.getDefaultProjectDirectories()).containsExactly("a", "b/c");
   }
 
   @Test
@@ -120,10 +86,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultProjectDirectories());
-    assertThat(trie.includes(PathFragment.create("a"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("d"))).isFalse();
+    assertThat(value.getDefaultProjectDirectories()).containsExactly("a", "b/c");
   }
 
   @Test
@@ -274,8 +237,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(value.getActualProjectFile()).isEqualTo(Label.parseCanonical("//test:PROJECT.scl"));
     assertThat(value.getBuildableUnits().get("default").isDefault()).isTrue();
     assertThat(value.getBuildableUnits().get("non_default").isDefault()).isFalse();
-    assertThat(value.getProjectDirectories()).hasSize(1);
-    assertThat(value.getProjectDirectories().get("default")).containsExactly("//test/...");
+    assertThat(value.getDefaultProjectDirectories()).containsExactly("//test/...");
 
     assertThat(value.getBuildableUnits()).containsKey("default");
     assertThat(value.getBuildableUnits().get("default"))
@@ -359,8 +321,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.get(key).getEnforcementPolicy())
         .isEqualTo(ProjectValue.EnforcementPolicy.WARN);
     assertThat(result.get(key).getAlwaysAllowedConfigs()).isNull();
-    assertThat(result.get(key).getProjectDirectories()).hasSize(1);
-    assertThat(result.get(key).getProjectDirectories().get("default")).isEmpty();
+    assertThat(result.get(key).getDefaultProjectDirectories()).isEmpty();
 
     // Buildable unit defaults:
     assertThat(result.get(key).getBuildableUnits().get("foo").targetPatternMatcher().isEmpty())

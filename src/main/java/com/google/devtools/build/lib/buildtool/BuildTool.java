@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,10 +61,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuil
 import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfterBuildEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.UpdateOptionsEvent;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -84,15 +82,16 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.ExecRootEvent;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
@@ -122,7 +121,6 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -131,6 +129,7 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -234,11 +233,11 @@ public class BuildTool {
           AbruptExitException,
           InvalidConfigurationException,
           TestExecException,
-          LabelSyntaxException,
           ExitException,
           PostExecutionDumpException,
           RepositoryMappingResolutionException,
           OptionsParsingException {
+    maybeSetStopOnFirstFailure(request, result);
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -361,6 +360,7 @@ public class BuildTool {
                     // build in BlazeCommandDispatcher.
                     /* replaceable= */ false));
         env.getEventBus().post(new UpdateOptionsEvent(optionsParser));
+        maybeSetStopOnFirstFailure(optionsParser, result);
       } else {
         // No PROJECT.scl flag updates. Release the original CanonicalCommandLineEvent for posting.
         env.getEventBus()
@@ -378,7 +378,6 @@ public class BuildTool {
       var analysisDeps =
           RemoteAnalysisCacheFactory.create(
               env,
-              projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels(),
               BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
                   buildOptions, env.getReporter()),
@@ -410,21 +409,6 @@ public class BuildTool {
       if (analysisCacheReaderDeps.mode().serializesValues()) {
         Preconditions.checkState(!analysisCachingDeps.bailedOut());
         serializeValues(serializationDependenciesProvider);
-      }
-
-      if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
-        // Skyfocus only works at the end of a successful build.
-        ImmutableSet<Label> topLevelTargets =
-            result.getActualTargets().stream()
-                .map(ConfiguredTarget::getLabel)
-                .collect(toImmutableSet());
-        env.getSkyframeExecutor()
-            .runSkyfocus(
-                topLevelTargets,
-                projectEvaluationResult.activeDirectoriesMatcher(),
-                env.getReporter(),
-                env.getBlazeWorkspace().getPersistentActionCache(),
-                env.getOptions());
       }
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
@@ -508,7 +492,11 @@ public class BuildTool {
               },
               env.getSkyframeExecutor().getMainRepoMapping(env.getReporter()));
       if (targetPlatformFlags.isPresent()) {
-        return targetPlatformFlags.get().mergeWith(originalOptions).getOptions();
+        try {
+          return targetPlatformFlags.get().mergeWith(originalOptions).getOptions();
+        } catch (OptionsParsingException e) {
+          throw new IllegalStateException("Failed to merge platform flags", e);
+        }
       }
     } catch (NoSuchTargetException e) {
       // Already handled by env.getReporter()).
@@ -617,7 +605,8 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
         }
         if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
-            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
+            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()
+            && executionTool.getSpawnStrategyRegistry().forceExclusiveIfLocalTestsInParallel()) {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
@@ -723,9 +712,10 @@ public class BuildTool {
 
                 @Override
                 public boolean forceExclusiveIfLocalTestsInParallel() {
-                  return executionTool
-                      .getTestActionContext()
-                      .forceExclusiveIfLocalTestsInParallel();
+                  return executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()
+                      && executionTool
+                          .getSpawnStrategyRegistry()
+                          .forceExclusiveIfLocalTestsInParallel();
                 }
               },
               remoteAnalysisCachingDependenciesProvider,
@@ -985,6 +975,51 @@ public class BuildTool {
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
     try {
+      detailedExitCode =
+          processRequestHandleCheckedExceptions(
+              request, result, validator, options, targetsForProjectResolution, postBuildCallback);
+    } catch (Throwable throwable) {
+      crash = throwable;
+      detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(crash);
+      Throwables.throwIfUnchecked(throwable);
+      // This point should not be reached. Unchecked exceptions have just been thrown by
+      // Throwables.throwIfUnchecked(), and all checked exceptions should be caught in
+      // processRequestHandleCheckedExceptions.
+      IllegalStateException illegalStateException =
+          new IllegalStateException(
+              "This checked exception should have been handled by"
+                  + " processRequestHandleCheckedExceptions()",
+              throwable);
+      // crash must be an unchecked exception because in the finally block it is passed to
+      // stopRequest() which accepts only Error or RuntimeException.
+      crash = illegalStateException;
+      throw illegalStateException;
+    } finally {
+      if (detailedExitCode == null) {
+        detailedExitCode =
+            CrashFailureDetails.detailedExitCodeForThrowable(
+                new IllegalStateException("Unspecified DetailedExitCode"));
+      }
+      try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
+        stopRequest(result, crash, detailedExitCode);
+      }
+    }
+
+    return result;
+  }
+
+  private DetailedExitCode processRequestHandleCheckedExceptions(
+      BuildRequest request,
+      BuildResult result,
+      TargetValidator validator,
+      OptionsParsingResult options,
+      List<String> targetsForProjectResolution,
+      PostBuildCallback postBuildCallback) {
+    // Don't add any throws here. The purpose of this method is to catch all checked exceptions
+    // so that the catch-all `catch (Throwable throwable)` in `processRequest` only gets to handle
+    // unchecked exceptions.
+    DetailedExitCode detailedExitCode;
+    try {
       try (SilentCloseable c = Profiler.instance().profile("buildTargets")) {
         // This OptionsParsingResult is essentially a wrapper around the OptionsParser in
         // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/runtime/BlazeCommandDispatcher.java#L341. Casting it back to
@@ -1032,8 +1067,8 @@ public class BuildTool {
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
       if (detailedExitCode == null && environmentPendingAbruptExitException != null) {
         detailedExitCode = environmentPendingAbruptExitException.getDetailedExitCode();
-        // Report the exception from the environment - the exception we're handling here is just an
-        // interruption.
+        // Report the exception from the environment - the exception we're handling here is just
+        // an interruption.
         reportExceptionError(environmentPendingAbruptExitException);
       }
       if (detailedExitCode == null) {
@@ -1084,23 +1119,21 @@ public class BuildTool {
                           .build())
                   .build());
       reportExceptionError(e);
-    } catch (Throwable throwable) {
-      crash = throwable;
-      detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(crash);
-      Throwables.throwIfUnchecked(throwable);
-      throw new IllegalStateException(throwable);
-    } finally {
-      if (detailedExitCode == null) {
-        detailedExitCode =
-            CrashFailureDetails.detailedExitCodeForThrowable(
-                new IllegalStateException("Unspecified DetailedExitCode"));
-      }
-      try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
-        stopRequest(result, crash, detailedExitCode);
-      }
+    } catch (OptionsParsingException e) {
+      detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(Strings.nullToEmpty(e.getMessage()))
+                  .setCommand(
+                      FailureDetails.Command.newBuilder()
+                          .setCode(FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE))
+                  .build());
+      reportExceptionError(e);
     }
-
-    return result;
+    // Don't add a `catch (Throwable throwable)` or similar here. The purpose of this method is to
+    // check at compile time that all checked exceptions are handled here so that the catch-all
+    // `catch (Throwable throwable)` in `processRequest` only gets to handle unchecked exceptions.
+    return detailedExitCode;
   }
 
   private void reportRemoteAnalysisServiceStats(
@@ -1215,14 +1248,14 @@ public class BuildTool {
     }
   }
 
-  private static void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
-    if (shouldStopOnFailure(request)) {
-      result.setStopOnFirstFailure(true);
-    }
+  private static void maybeSetStopOnFirstFailure(
+      OptionsProvider optionsProvider, BuildResult result) {
+    result.setStopOnFirstFailure(shouldStopOnFailure(optionsProvider));
   }
 
-  private static boolean shouldStopOnFailure(BuildRequest request) {
-    return !(request.getKeepGoing() && request.getExecutionOptions().getTestKeepGoing());
+  private static boolean shouldStopOnFailure(OptionsProvider optionsProvider) {
+    return !(optionsProvider.getOptions(KeepGoingOption.class).getKeepGoing()
+        && optionsProvider.getOptions(ExecutionOptions.class).getTestKeepGoing());
   }
 
   /** Initializes the output filter to the value given with {@code --output_filter}. */
@@ -1312,32 +1345,6 @@ public class BuildTool {
     }
   }
 
-  /** Returns the project directories found in a project file. */
-  public static PathFragmentPrefixTrie getActiveDirectoriesMatcher(
-      Label projectFile, SkyframeExecutor skyframeExecutor, ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException {
-    ProjectValue.Key key = new ProjectValue.Key(projectFile);
-    EvaluationResult<SkyValue> result =
-        skyframeExecutor.evaluateSkyKeys(
-            eventHandler, ImmutableList.of(key), /* keepGoing= */ false);
-
-    if (result.hasError()) {
-      // InvalidConfigurationException is chosen for convenience, and it's distinguished from
-      // the other InvalidConfigurationException cases by Code.INVALID_PROJECT.
-      throw new InvalidConfigurationException(
-          "unexpected error reading project configuration: " + result.getError(),
-          Code.INVALID_PROJECT);
-    }
-
-    try {
-      return PathFragmentPrefixTrie.of(
-          ((ProjectValue) result.get(key)).getDefaultProjectDirectories());
-    } catch (PathFragmentPrefixTrieException e) {
-      throw new InvalidConfigurationException(
-          "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
-    }
-  }
-
   private Reporter getReporter() {
     return env.getReporter();
   }
@@ -1380,6 +1387,7 @@ public class BuildTool {
                             .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
                     .build()));
       }
+      tryWriteSkycacheMetadata(serializationDependenciesProvider);
       return;
     }
 

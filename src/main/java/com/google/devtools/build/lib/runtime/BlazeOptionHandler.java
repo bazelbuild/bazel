@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions.ConfigDefinition;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.ConfigPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
@@ -47,14 +48,18 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.common.options.GlobalRcUtils;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.UnrecognizedOptionException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 
 /**
  * Handles parsing the blaze command arguments.
@@ -156,6 +162,28 @@ public final class BlazeOptionHandler {
    * was called from the output directory and fail if it was.
    */
   private DetailedExitCode checkCwdInWorkspace(EventHandler eventHandler) {
+    if (workspace.getDirectories().inWorkspace()) {
+      Path workspacePath = workspace.getWorkspace();
+      if (workspacePath != null && workspacePath.getParentDirectory() != null) {
+        Path doNotBuild =
+            workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
+
+        boolean doNotBuildExists;
+        try {
+          doNotBuildExists = doNotBuild.exists();
+        } catch (IOException e) {
+          // TODO(tjgq): Propagate this error.
+          doNotBuildExists = false;
+        }
+
+        if (doNotBuildExists) {
+          String message = getNotInRealWorkspaceError(doNotBuild);
+          eventHandler.handle(Event.error(message));
+          return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
+        }
+      }
+    }
+
     if (!commandAnnotation.mustRunInWorkspace()) {
       return DetailedExitCode.success();
     }
@@ -172,17 +200,6 @@ public final class BlazeOptionHandler {
       return createDetailedExitCode(message, Code.NOT_IN_WORKSPACE);
     }
 
-    Path workspacePath = workspace.getWorkspace();
-    if (workspacePath.getParentDirectory() != null) {
-      Path doNotBuild =
-          workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
-
-      if (doNotBuild.exists()) {
-        String message = getNotInRealWorkspaceError(doNotBuild);
-        eventHandler.handle(Event.error(message));
-        return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
-      }
-    }
     return DetailedExitCode.success();
   }
 
@@ -302,12 +319,33 @@ public final class BlazeOptionHandler {
             runtime.getCommandMap().keySet());
     parseRcOptions(eventHandler, commandToRcArgs);
 
+    // --config flags added by invocation policy are parsed at command-line priority, either before
+    // or after the user's command-line options, so that they are expanded by expandConfigOptions()
+    // below and appear in the original command line exactly as if the user had passed them.
+    ImmutableList<String> prependedConfigs = getPolicyConfigArgs(ConfigPolicy.Order.PREPEND);
+    ImmutableList<String> appendedConfigs = getPolicyConfigArgs(ConfigPolicy.Order.APPEND);
+    if (!prependedConfigs.isEmpty()) {
+      rcfileNotes.add(
+          String.format(
+              "Invocation policy prepended options: %s", Joiner.on(' ').join(prependedConfigs)));
+      optionsParser.parse(
+          PriorityCategory.COMMAND_LINE, GlobalRcUtils.INVOCATION_POLICY_SOURCE, prependedConfigs);
+    }
+
     // Parses the remaining command-line options.
     optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
         remainingCmdLine.build(),
         /* fallbackData= */ null);
+
+    if (!appendedConfigs.isEmpty()) {
+      rcfileNotes.add(
+          String.format(
+              "Invocation policy appended options: %s", Joiner.on(' ').join(appendedConfigs)));
+      optionsParser.parse(
+          PriorityCategory.COMMAND_LINE, GlobalRcUtils.INVOCATION_POLICY_SOURCE, appendedConfigs);
+    }
 
     if (commandAnnotation.buildPhase().analyzes()) {
       // split project files from targets in the traditional sense.
@@ -322,6 +360,37 @@ public final class BlazeOptionHandler {
 
     expandConfigOptions(eventHandler, commandToRcArgs);
     return commandToRcArgs;
+  }
+
+  /**
+   * Returns the {@code --config=<name>} arguments contributed by {@link ConfigPolicy}s with the
+   * given {@link ConfigPolicy.Order}, in policy order. Module-provided policies come before the
+   * user-supplied (command-line) invocation policy.
+   */
+  private ImmutableList<String> getPolicyConfigArgs(ConfigPolicy.Order order)
+      throws OptionsParsingException {
+    ImmutableList.Builder<String> args = ImmutableList.builder();
+    for (ConfigPolicy policy :
+        Iterables.concat(
+            runtime.getModuleInvocationPolicy().getConfigPoliciesList(),
+            invocationPolicy.getConfigPoliciesList())) {
+      if (policy.getName().isEmpty()) {
+        throw new OptionsParsingException(
+            "Invocation policy config_policies entry is missing a name (order: "
+                + policy.getOrder()
+                + ")");
+      }
+      if (policy.getOrder() == ConfigPolicy.Order.UNDEFINED) {
+        throw new OptionsParsingException(
+            "Invocation policy config_policies entry for config '"
+                + policy.getName()
+                + "' has an undefined order");
+      }
+      if (policy.getOrder() == order) {
+        args.add("--config=" + policy.getName());
+      }
+    }
+    return args.build();
   }
 
   /**
@@ -622,11 +691,12 @@ public final class BlazeOptionHandler {
     accumulator.add(commandAnnotation.name());
   }
 
-  private static DetailedExitCode processOptionsParsingException(
+  private DetailedExitCode processOptionsParsingException(
       ExtendedEventHandler eventHandler,
       OptionsParsingException e,
       String logMessage,
       Code failureCode) {
+    e = maybeAddStartupOptionHint(e);
     Event error;
     // Differentiates errors stemming from an invalid argument and errors from different parts of
     // the codebase.
@@ -641,12 +711,60 @@ public final class BlazeOptionHandler {
     return createDetailedExitCode(logMessage + ": " + e.getMessage(), failureCode);
   }
 
+  private OptionsParsingException maybeAddStartupOptionHint(OptionsParsingException e) {
+    if (!(e instanceof UnrecognizedOptionException)) {
+      return e;
+    }
+    String invalidArg = e.getInvalidArgument();
+    if (invalidArg == null) {
+      return e;
+    }
+    String startupFlag = getMatchingStartupOptionFlag(invalidArg);
+    if (startupFlag == null) {
+      return e;
+    }
+    return new UnrecognizedOptionException(
+        invalidArg,
+        String.format(
+            " (%s is a startup option and must appear before the '%s' command)",
+            startupFlag, commandAnnotation.name()));
+  }
+
+  @Nullable
+  private String getMatchingStartupOptionFlag(String arg) {
+    if (!arg.startsWith("--")) {
+      return null;
+    }
+    int eqIndex = arg.indexOf('=');
+    String flag = eqIndex >= 0 ? arg.substring(0, eqIndex) : arg;
+    String name = flag.substring(2);
+    IsolatedOptionsData startupOptions =
+        (IsolatedOptionsData)
+            OptionsParser.getOptionsData(
+                BlazeCommandUtils.getStartupOptions(runtime.getOptionsSuppliers()));
+    OptionDefinition def = startupOptions.getOptionDefinitionFromName(name);
+    if (def == null && eqIndex < 0 && name.startsWith("no")) {
+      def = startupOptions.getOptionDefinitionFromName(name.substring(2));
+      if (def != null && def.requiresValue()) {
+        def = null;
+      }
+    }
+    if (def == null) {
+      return null;
+    }
+    ImmutableList<OptionMetadataTag> tags = ImmutableList.copyOf(def.getOptionMetadataTags());
+    if (tags.contains(OptionMetadataTag.INTERNAL) || tags.contains(OptionMetadataTag.HIDDEN)) {
+      return null;
+    }
+    return flag;
+  }
+
   private String getNotInRealWorkspaceError(Path doNotBuildFile) {
     String message =
         String.format(
             "%1$s should not be called from a %1$s output directory. ", runtime.getProductName());
     try {
-      String realWorkspace = new String(FileSystemUtils.readContentAsLatin1(doNotBuildFile));
+      String realWorkspace = FileSystemUtils.readContentAsLatin1(doNotBuildFile);
       message += String.format("The pertinent workspace directory is: '%s'", realWorkspace);
     } catch (IOException e) {
       // We are exiting anyway.

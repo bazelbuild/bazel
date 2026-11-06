@@ -14,8 +14,6 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -131,15 +129,47 @@ public abstract sealed class Dict<K, V>
           ? Types.dict(Types.NEVER, Types.NEVER)
           : Types.dict(Types.ANY, Types.ANY);
     }
+    // Minimize temp allocations, since this method is called frequently.
+    var accumulator =
+        new BiConsumer<K, V>() {
+          @Nullable StarlarkType firstKeyType;
+          @Nullable ImmutableSet.Builder<StarlarkType> keyTypes;
+          @Nullable StarlarkType firstValueType;
+          @Nullable ImmutableSet.Builder<StarlarkType> valueTypes;
+
+          @Override
+          public void accept(K k, V v) {
+            StarlarkType kt = Starlark.getStarlarkTypePropagatingStackOverflow(k, semantics);
+            if (keyTypes != null) {
+              keyTypes.add(kt);
+            } else if (firstKeyType == null) {
+              firstKeyType = kt;
+            } else if (!kt.equals(firstKeyType)) {
+              keyTypes = ImmutableSet.builder();
+              keyTypes.add(firstKeyType);
+              keyTypes.add(kt);
+            }
+
+            StarlarkType vt = Starlark.getStarlarkTypePropagatingStackOverflow(v, semantics);
+            if (valueTypes != null) {
+              valueTypes.add(vt);
+            } else if (firstValueType == null) {
+              firstValueType = vt;
+            } else if (!vt.equals(firstValueType)) {
+              valueTypes = ImmutableSet.builder();
+              valueTypes.add(firstValueType);
+              valueTypes.add(vt);
+            }
+          }
+        };
+    forEach(accumulator);
     return Types.dict(
-        Types.union(
-            keySet().stream()
-                .map(k -> Starlark.getStarlarkType(k, semantics))
-                .collect(toImmutableSet())),
-        Types.union(
-            values().stream()
-                .map(v -> Starlark.getStarlarkType(v, semantics))
-                .collect(toImmutableSet())));
+        accumulator.keyTypes == null
+            ? accumulator.firstKeyType
+            : Types.union(accumulator.keyTypes.build()),
+        accumulator.valueTypes == null
+            ? accumulator.firstValueType
+            : Types.union(accumulator.valueTypes.build()));
   }
 
   /**
@@ -603,7 +633,6 @@ public abstract sealed class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Deprecated // use putEntry
   @Override
   public final V put(K key, V value) {
@@ -616,7 +645,6 @@ public abstract sealed class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Deprecated // use pop
   @Override
   public final V remove(Object key) {
@@ -750,6 +778,11 @@ public abstract sealed class Dict<K, V>
     @Override
     public Collection<V> values() {
       return Collections.unmodifiableMap(contents).values();
+    }
+
+    @Override
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+      contents.forEach(action);
     }
 
     @Override
@@ -902,6 +935,15 @@ public abstract sealed class Dict<K, V>
     public Set<Map.Entry<K, V>> entrySet() {
       accessedKeys.addAll(super.keySet());
       return super.entrySet();
+    }
+
+    @Override
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+      super.forEach(
+          (k, v) -> {
+            accessedKeys.add(k);
+            action.accept(k, v);
+          });
     }
   }
 }

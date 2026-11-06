@@ -31,27 +31,31 @@ public final class BuildConfigurationKeyValue implements SkyValue {
   /** Key for {@link BuildConfigurationKeyValue} based on the build options. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public static final class Key implements SkyKey {
+  public record Key(BuildOptions buildOptions, boolean forBaseline) implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
+    /**
+     * @deprecated Use {@link #create} or {@link #createForBaseline} instead to ensure interning.
+     */
+    @Deprecated
+    public Key {}
+
     public static Key create(BuildOptions buildOptions) {
-      return interner.intern(new Key(buildOptions));
+      return create(buildOptions, /* forBaseline= */ false);
+    }
+
+    /**
+     * Creates a key for the baseline configuration's options, which skips scoping since that would
+     * create a cycle.
+     */
+    public static Key createForBaseline(BuildOptions buildOptions) {
+      return create(buildOptions, /* forBaseline= */ true);
     }
 
     @VisibleForSerialization
-    @AutoCodec.Interner
-    static Key intern(Key key) {
-      return interner.intern(key);
-    }
-
-    private final BuildOptions buildOptions;
-
-    private Key(BuildOptions buildOptions) {
-      this.buildOptions = buildOptions;
-    }
-
-    public BuildOptions buildOptions() {
-      return buildOptions;
+    @AutoCodec.Instantiator
+    static Key create(BuildOptions buildOptions, boolean forBaseline) {
+      return interner.intern(new Key(buildOptions, forBaseline));
     }
 
     @Override
@@ -60,25 +64,12 @@ public final class BuildConfigurationKeyValue implements SkyValue {
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Key key = (Key) o;
-      return Objects.equals(buildOptions, key.buildOptions);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(buildOptions);
-    }
-
-    @Override
     public String toString() {
-      return "BuildConfigurationKeyValue.Key{buildOptions=" + buildOptions.checksum() + "}";
+      return "BuildConfigurationKeyValue.Key{buildOptions="
+          + buildOptions.checksum()
+          + ", forBaseline="
+          + forBaseline
+          + "}";
     }
 
     @Override

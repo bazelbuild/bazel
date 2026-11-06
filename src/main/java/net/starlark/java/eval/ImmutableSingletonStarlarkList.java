@@ -45,6 +45,16 @@ final class ImmutableSingletonStarlarkList<E> extends ImmutableStarlarkList<E> {
   }
 
   @Override
+  int computeHashCode() {
+    return 6047 + 4673 * (31 + elem.hashCode());
+  }
+
+  @Override
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+    return Starlark.checkedEquals(key, elem);
+  }
+
+  @Override
   public boolean contains(Object o) {
     // StarlarkList contains only valid Starlark objects (which are non-null)
     if (o == null) {

@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextProduce
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -83,12 +84,12 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
@@ -103,6 +104,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -186,8 +188,8 @@ final class AspectFunction implements SkyFunction {
     this.analysisProgressReceiver = analysisProgressReceiver;
   }
 
-  static class State
-      implements SerializableSkyKeyComputeState, UnloadedToolchainContextsProducer.ResultSink {
+  static class State extends SerializableSkyKeyComputeState
+      implements UnloadedToolchainContextsProducer.ResultSink {
     @Nullable InitialValues initialValues;
 
     final DependencyResolver.State computeDependenciesState;
@@ -210,9 +212,6 @@ final class AspectFunction implements SkyFunction {
     // Will be true if the target doesn't require toolchain resolution.
     boolean baseTargetHasNoToolchains;
 
-    @Nullable // Initialized lazily
-    private RetrievalContext retrievalContext = null;
-
     private State(
         boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
@@ -231,15 +230,6 @@ final class AspectFunction implements SkyFunction {
     @Override
     public void acceptUnloadedToolchainContextsError(ToolchainException error) {
       this.baseTargetUnloadedToolchainContextsError = error;
-    }
-
-    @Override
-    public RetrievalContext getRetrievalContext() {
-      if (retrievalContext == null) {
-        retrievalContext = new RetrievalContext();
-      }
-
-      return retrievalContext;
     }
   }
 
@@ -416,7 +406,10 @@ final class AspectFunction implements SkyFunction {
                     ? null
                     : targetAndConfiguration.getConfiguration().getOptions(),
                 (bzlKey) ->
-                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+                targetAndConfiguration.getConfiguration() == null
+                    ? StarlarkBuildSettingsDetailsValue.EMPTY
+                    : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }
@@ -1003,6 +996,12 @@ final class AspectFunction implements SkyFunction {
     } else {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
+        if (analysisEnvironment
+                .getStarlarkSemantics()
+                .get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT)
+            > 0) {
+          NestedSet.beginTargetNestedSetCount();
+        }
         configuredAspect =
             view.getConfiguredTargetFactory()
                 .createAspect(
@@ -1021,6 +1020,8 @@ final class AspectFunction implements SkyFunction {
                     transitiveState.transitivePackages(),
                     key,
                     starlarkExecTransition);
+      } catch (IOException e) {
+        throw new AspectFunctionException(e);
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());
         return null;
@@ -1031,6 +1032,7 @@ final class AspectFunction implements SkyFunction {
       } catch (InvalidExecGroupException e) {
         throw new AspectFunctionException(e);
       } finally {
+        NestedSet.endTargetNestedSetCount();
         CurrentRuleTracker.endConfiguredAspect();
       }
     }
@@ -1104,6 +1106,10 @@ final class AspectFunction implements SkyFunction {
 
     public AspectFunctionException(RuleErrorException cause) {
       super(cause, Transience.PERSISTENT);
+    }
+
+    public AspectFunctionException(IOException cause) {
+      super(cause, Transience.TRANSIENT);
     }
   }
 }

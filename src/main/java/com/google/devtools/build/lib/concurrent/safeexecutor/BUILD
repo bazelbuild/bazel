@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 java_library(
@@ -21,6 +21,7 @@ java_library(
         "SafeExecutorOwner.java",
         "SafeFutures.java",
     ],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",

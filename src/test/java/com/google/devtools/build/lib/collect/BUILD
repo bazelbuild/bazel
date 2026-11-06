@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -13,7 +13,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/collect/compacthashset:srcs",
         "//src/test/java/com/google/devtools/build/lib/collect/nestedset:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_test(
@@ -77,17 +77,6 @@ java_test(
 )
 
 java_test(
-    name = "PathFragmentPrefixTrieTest",
-    srcs = ["PathFragmentPrefixTrieTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect:path_fragment_prefix_trie",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
     name = "SimpleTargetPatternMatcherTest",
     srcs = ["SimpleTargetPatternMatcherTest.java"],
     deps = [
@@ -101,7 +90,10 @@ java_test(
     ],
 )
 
-test_suite(name = "all_tests")
+test_suite(
+    name = "all_tests",
+    visibility = ["//visibility:private"],
+)
 
 test_suite(
     name = "CollectTests",

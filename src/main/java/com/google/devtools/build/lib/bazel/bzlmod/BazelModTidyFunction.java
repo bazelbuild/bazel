@@ -37,7 +37,7 @@ import net.starlark.java.eval.EvalException;
 
 /**
  * Computes all information required for the {@code bazel mod tidy} command, which in particular
- * requires evaluating all module extensions used by the root module.
+ * requires evaluating all module extensions in the dependency graph to update the lockfile.
  */
 public class BazelModTidyFunction implements SkyFunction {
 
@@ -79,18 +79,18 @@ public class BazelModTidyFunction implements SkyFunction {
       throw new IllegalStateException(e);
     }
 
-    ImmutableSet<SkyKey> extensionsUsedByRootModule =
-        depGraphValue.getExtensionUsagesTable().column(ModuleKey.ROOT).keySet().stream()
+    ImmutableSet<SkyKey> extensions =
+        depGraphValue.getExtensionUsagesTable().rowKeySet().stream()
             // Use the eval-only key to avoid errors caused by incorrect imports - we can fix them.
             .map(SingleExtensionValue::evalKey)
             .collect(toImmutableSet());
-    SkyframeLookupResult result = env.getValuesAndExceptions(extensionsUsedByRootModule);
+    SkyframeLookupResult result = env.getValuesAndExceptions(extensions);
     if (env.valuesMissing()) {
       return null;
     }
     ImmutableList.Builder<RootModuleFileFixup> fixups = ImmutableList.builder();
     ImmutableList.Builder<ExternalDepsException> errors = ImmutableList.builder();
-    for (SkyKey extension : extensionsUsedByRootModule) {
+    for (SkyKey extension : extensions) {
       SkyValue value;
       try {
         value = result.getOrThrow(extension, ExternalDepsException.class);

@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.runtime.SafeRequestLogging;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -158,7 +159,7 @@ public final class CrashContext {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("haltJvm", haltJvm)
-        .add("args", args)
+        .add("args", SafeRequestLogging.getRequestLogString(args))
         .add("sendBugReport", sendBugReport)
         .add("extraOomInfo", extraOomInfo)
         .add("eventHandler", eventHandler)

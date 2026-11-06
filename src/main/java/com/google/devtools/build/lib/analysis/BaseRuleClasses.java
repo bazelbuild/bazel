@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -128,6 +126,24 @@ public class BaseRuleClasses {
       Label defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         TestConfiguration.class, defaultValue, COVERAGE_SUPPORT_CONFIGURATION_RESOLVER);
+  }
+
+  public static final String DEFAULT_COLLECT_COVERAGE_SCRIPT_VALUE =
+      "//tools/test:collect_coverage";
+
+  // The attribute map returns the default value of the late-bound attribute itself.
+  @SerializationConstant @VisibleForSerialization
+  static final Resolver<CoverageConfiguration, Label> COLLECT_COVERAGE_SCRIPT_RESOLVER =
+      (rule, attributes, configuration) ->
+          configuration.isCodeCoverageEnabled()
+              ? attributes.get(":collect_coverage_script", BuildType.LABEL)
+              : null;
+
+  /** Resolves to the coverage wrapper only if coverage is collected. */
+  public static LabelLateBoundDefault<CoverageConfiguration> collectCoverageScriptAttribute(
+      Label defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        CoverageConfiguration.class, defaultValue, COLLECT_COVERAGE_SCRIPT_RESOLVER);
   }
 
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
@@ -292,12 +308,6 @@ public class BaseRuleClasses {
                 .dontCheckConstraints()
                 .nonconfigurable("applicable_metadata is not configurable"))
         .add(attr(RuleClass.ASPECT_HINTS_ATTR, LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE));
-  }
-
-  public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
-      throws ConversionException {
-    return builder.add(
-        attr(RuleClass.EXEC_PROPERTIES_ATTR, STRING_DICT).defaultValue(ImmutableMap.of()));
   }
 
   /**

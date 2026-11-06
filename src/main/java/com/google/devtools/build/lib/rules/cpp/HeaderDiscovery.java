@@ -22,10 +22,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -74,11 +73,10 @@ final class HeaderDiscovery {
       NestedSet<Artifact> allowedDerivedInputs,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
-    Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
+    Map<PathFragment, TreeArtifact> treeArtifacts = new HashMap<>();
     for (Artifact a : allowedDerivedInputs.toList()) {
       if (a.isSourceArtifact()) {
         continue;
@@ -94,8 +92,8 @@ final class HeaderDiscovery {
       // action cache hit using the remaining un-renamed artifact.
       // TODO: Consider using a multimap here so that header resolution depends on _all_ identical
       // files, not just a single representative.
-      if (a.isTreeArtifact()) {
-        treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), (SpecialArtifact) a);
+      if (a instanceof TreeArtifact treeArtifact) {
+        treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), treeArtifact);
       } else {
         regularDerivedArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), a);
       }
@@ -111,7 +109,6 @@ final class HeaderDiscovery {
         treeArtifacts,
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout,
         pathMapper);
   }
 
@@ -122,37 +119,12 @@ final class HeaderDiscovery {
       Collection<Path> dependencies,
       List<Path> permittedSystemIncludePrefixes,
       Map<PathFragment, Artifact> regularDerivedArtifacts,
-      Map<PathFragment, SpecialArtifact> treeArtifacts,
+      Map<PathFragment, TreeArtifact> treeArtifacts,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-
-    // This is a very special case: in certain corner cases (notably, protobuf), the WORKSPACE file
-    // contains a local_repository that has the same name and path as the main repository. In this
-    // case, if sibling repository layout is active, files in that local repository have the same
-    // absolute execpath as files in the main repository but not the same *relative* execpath (e.g.
-    // a:b would be ../repo/a/b in the local_repository and a/b in the main repository)
-    //
-    // This would mean that artifacts coming from the local repository would be discovered as ones
-    // in the main repository, thus resulting in "undeclared dependency" errors. The way this flag
-    // hacks around this is by pretending that such artifacts are always in the local_repository if
-    // the action is in it. This of course breaks horribly if there are artifacts from *both*
-    // repositories on the inputs.
-    //
-    // Protobuf uses this to work around the fact that @bazel_tools depends on it (see
-    // https://github.com/bazelbuild/bazel/issues/19973). The fix is either to cut that dependency
-    // or to migrate to bzlmod.
-    boolean ignoreMainRepository =
-        siblingRepositoryLayout
-            && action
-                .getOwner()
-                .getLabel()
-                .getRepository()
-                .getName()
-                .equals(execRoot.getBaseName());
 
     // Check inclusions.
     IncludeProblems absolutePathProblems = new IncludeProblems();
@@ -175,15 +147,8 @@ final class HeaderDiscovery {
             continue;
           }
         }
-        if (execPath.startsWith(execRoot)
-            && (!ignoreMainRepository
-                || artifactResolver.isDerivedArtifact(execPath.relativeTo(execRoot)))) {
+        if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
-        } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
-          // for --experimental_sibling_repository_layout
-          execPathFragment =
-              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                  execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
           // Since gcc is given only relative paths on the command line, non-builtin include paths
           // here should never be absolute. If they are, it's probably due to a non-hermetic
@@ -197,8 +162,7 @@ final class HeaderDiscovery {
       Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
       if (derivedArtifact == null) {
         Optional<PackageIdentifier> pkgId =
-            PackageIdentifier.discoverFromExecPath(
-                execPathFragment, false, siblingRepositoryLayout);
+            PackageIdentifier.discoverFromExecPath(execPathFragment, /* forFiles= */ false);
         if (pkgId.isPresent()) {
           if (possiblyCaseInsensitiveFileSystem) {
             resolvedArtifacts =
@@ -251,7 +215,7 @@ final class HeaderDiscovery {
         continue;
       }
 
-      SpecialArtifact treeArtifact =
+      TreeArtifact treeArtifact =
           findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
       if (treeArtifact != null) {
         inputs.add(treeArtifact);
@@ -285,14 +249,12 @@ final class HeaderDiscovery {
   }
 
   @Nullable
-  private static SpecialArtifact findOwningTreeArtifact(
-      PathFragment execPath,
-      Map<PathFragment, SpecialArtifact> treeArtifacts,
-      PathMapper pathMapper) {
+  private static TreeArtifact findOwningTreeArtifact(
+      PathFragment execPath, Map<PathFragment, TreeArtifact> treeArtifacts, PathMapper pathMapper) {
     // Check the map for the exec path's parent directory first. If the exec path matches a direct
     // child of a tree artifact (a common case), we can skip the full iteration below.
     PathFragment dir = execPath.getParentDirectory();
-    SpecialArtifact tree = treeArtifacts.get(dir);
+    TreeArtifact tree = treeArtifacts.get(dir);
     if (tree != null) {
       return tree;
     }

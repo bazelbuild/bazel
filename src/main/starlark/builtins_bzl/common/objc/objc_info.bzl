@@ -15,12 +15,14 @@
 """The provider ObjcInfo for ObjC rules. For more context see doc param of provider() call."""
 
 def _objcinfo_init(
-        j2objc_library = depset(),
-        module_map = depset(),
-        source = depset(),
-        strict_include = depset(),
-        umbrella_header = depset(),
-        providers = []):  # List of depended-on ObjcInfo providers
+        j2objc_library: depset = depset(),
+        module_map: depset = depset(),
+        source: depset = depset(),
+        strict_include: depset = depset(),
+        umbrella_header: depset = depset(),
+        # List of depended-on ObjcInfo providers
+        # TODO: #27370 - should be Sequence[ObjcInfo]
+        providers: Sequence[struct] = []) -> dict[str, Any]:
     direct_module_maps = module_map.to_list()
     direct_sources = source.to_list()
 

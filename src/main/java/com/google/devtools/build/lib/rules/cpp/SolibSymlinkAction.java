@@ -234,7 +234,9 @@ public final class SolibSymlinkAction extends AbstractAction {
         "Library '%s' does not match expected filetype",
         library.getFilename());
     Preconditions.checkArgument(
-        !library.getRootRelativePath().getPathString().startsWith("_solib_"));
+        !library.getRootRelativePath().getPathString().startsWith("_solib_"),
+        "Library '%s' must not have a root-relative path that starts with _solib_.",
+        library.getRootRelativePath().getPathString());
 
     // Ignore libraries that are already represented by the symlinks.
     ArtifactRoot root = actionConstructionContext.getBinDirectory();

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -33,9 +32,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.util.CPU;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -280,24 +277,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       defaultInToolRepository = true)
   public Label getXcodeConfigLabel() {
     return xcodeConfigLabel;
-  }
-
-  @Override
-  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
-      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
-    List<String> components = new ArrayList<>();
-    if (!appleCpus.appleSplitCpu().isEmpty()) {
-      components.add(applePlatformType);
-      components.add(appleCpus.appleSplitCpu());
-
-      if (options.getMinimumOsVersion() != null) {
-        components.add("min" + options.getMinimumOsVersion());
-      }
-    }
-
-    if (!components.isEmpty()) {
-      ctx.addToMnemonic(Joiner.on('-').join(components));
-    }
   }
 
   @Override

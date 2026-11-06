@@ -58,6 +58,17 @@ public abstract class InfoItem {
   }
 
   /**
+   * Returns true if this info item requires running within a workspace.
+   *
+   * <p>Info items that return true will be omitted when "blaze info" is called without arguments
+   * outside of a workspace, and will cause an error when explicitly requested outside of a
+   * workspace.
+   */
+  public boolean requiresWorkspace() {
+    return false;
+  }
+
+  /**
    * Whether the key is printed when "blaze info" is invoked without arguments.
    *
    * <p>This is usually true for info keys that take multiple lines, thus, cannot really be included

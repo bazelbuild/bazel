@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <optional>
@@ -29,6 +30,7 @@
 #include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/util/port.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -164,12 +166,16 @@ std::string GetJavaBinaryUnderJavabase();
 // Start the Bazel server's JVM in the current directory.
 //
 // Note on Windows: 'server_jvm_args' is NOT expected to be escaped for
-// CreateProcessW, and 'run_in_user_cgroup' is ignored.
+// CreateProcessW, and 'run_in_user_cgroup' is ignored. As the arguments can
+// exceed the command line length limit of CreateProcessW, they are passed to
+// the JVM via the argument file 'argfile', which is deleted after the JVM
+// exits. 'argfile' is ignored on other platforms.
 //
 // This function does not return on success.
 ATTRIBUTE_NORETURN void ExecuteServerJvm(
     const blaze_util::Path& exe,
-    const std::vector<std::string>& server_jvm_args, bool run_in_user_cgroup);
+    const std::vector<std::string>& server_jvm_args,
+    const blaze_util::Path& argfile, bool run_in_user_cgroup);
 
 // Execute the "bazel run" request in the current directory.
 //
@@ -217,7 +223,11 @@ enum class LockMode {
 };
 
 // Acquires a `mode` lock on `path`, creating it if doesn't yet exist.
-// If `block` is true, busy-wait until the lock becomes available.
+// If `timeout` is absl::InfiniteDuration(), busy-wait until the lock becomes
+// available.
+// If `timeout <= absl::ZeroDuration()`, exit immediately if the lock cannot be
+// acquired.
+// Otherwise, wait up to `timeout` duration before exiting.
 // If `batch_mode` is false, release the lock on exec.
 // The `path` is guaranteed to exist when this function returns; if it is
 // deleted concurrently with obtaining the lock, we recreate it and try again.
@@ -229,7 +239,8 @@ enum class LockMode {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block);
+                                                  bool batch_mode,
+                                                  absl::Duration timeout);
 
 // Releases a lock previously obtained from AcquireLock.
 void ReleaseLock(LockHandle lock_handle);
@@ -238,9 +249,11 @@ void ReleaseLock(LockHandle lock_handle);
 bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
 
 // Parses the content of /proc/[pid]/stat (passed as statline) to extract the
-// start time (field 22). Returns true on success and writes the start time to
-// 'start_time'. Returns false on failure.
-bool ParseProcStat(absl::string_view statline, std::string* start_time);
+// start time (field 22) and optionally the process state (field 3). Returns
+// true on success and writes the start time to 'start_time' and state to
+// 'state'. Returns false on failure.
+bool ParseProcStat(absl::string_view statline, std::string* start_time,
+                   char* state = nullptr);
 
 // Parses the content of /proc/[pid]/stat (passed as statline) to generate a
 // diagnostic message explaining why process `pid` has not terminated.
@@ -302,8 +315,8 @@ bool IsEmacsTerminal();
 // issues (ie one stream deleting a line the other intended to be displayed).
 bool IsStandardTerminal();
 
-// Returns the number of columns of the terminal to which stdout is connected,
-// or 80 if there is no such terminal.
+// Returns the number of columns of the terminal to which stdout or stderr is
+// connected, or 80 if there is no such terminal.
 int GetTerminalColumns();
 
 // Gets the system-wide explicit limit for the given resource.

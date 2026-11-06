@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include <cinttypes>
+#include <cstdint>
 
 #if defined(__linux__)
 #include <endian.h>
@@ -120,7 +121,7 @@ class ExtraField {
   uint16_t payload_size() const { return le16toh(payload_size_); }
   void payload_size(uint16_t v) { payload_size_ = htole16(v); }
 
-  uint16_t size() const { return sizeof(ExtraField) + payload_size(); }
+  uint32_t size() const { return sizeof(ExtraField) + payload_size(); }
 
   const ExtraField* next() const {
     return reinterpret_cast<const ExtraField*>(ziph::byte_ptr(this) + size());
@@ -164,7 +165,7 @@ class Zip64ExtraField : public ExtraField {
   void attr_count(int n) { payload_size(n * sizeof(attr_[0])); }
 
   // Space needed for this field to accommodate n_attr attributes
-  static uint16_t space_needed(int n_attrs) {
+  static uint32_t space_needed(int n_attrs) {
     return n_attrs > 0 ? sizeof(Zip64ExtraField) + n_attrs * sizeof(uint64_t)
                        : 0;
   }
@@ -194,15 +195,24 @@ class UnixTimeExtraField : public ExtraField {
   void signature() { ExtraField::signature(0x5455); }
 
   void flags(uint8_t v) { flags_ = v; }
-  bool has_modification_time() const { return flags_ & 1; }
-  bool has_access_time() const { return flags_ & 2; }
-  bool has_creation_time() const { return flags_ & 4; }
+  bool has_modification_time() const {
+    return payload_size() >= sizeof(flags_) && (flags_ & 1) != 0;
+  }
+  bool has_access_time() const {
+    return payload_size() >= sizeof(flags_) && (flags_ & 2) != 0;
+  }
+  bool has_creation_time() const {
+    return payload_size() >= sizeof(flags_) && (flags_ & 4) != 0;
+  }
 
   uint32_t timestamp(int index) const { return le32toh(timestamp_[index]); }
   void timestamp(int index, uint32_t v) { timestamp_[index] = htole32(v); }
 
   int timestamp_count() const {
-    return (payload_size() - sizeof(flags_)) / sizeof(timestamp_[0]);
+    return payload_size() >= sizeof(flags_)
+               ? static_cast<int>((payload_size() - sizeof(flags_)) /
+                                  sizeof(timestamp_[0]))
+               : 0;
   }
 
  private:
@@ -240,7 +250,8 @@ class LH {
     size_t size32 = compressed_file_size32();
     if (ziph::zfield_has_ext64(size32)) {
       const Zip64ExtraField* z64 = zip64_extra_field();
-      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(1);
+      return (z64 == nullptr || z64->attr_count() < 2) ? 0xFFFFFFFF
+                                                       : z64->attr64(1);
     }
     return size32;
   }
@@ -255,7 +266,8 @@ class LH {
     size_t size32 = uncompressed_file_size32();
     if (ziph::zfield_has_ext64(size32)) {
       const Zip64ExtraField* z64 = zip64_extra_field();
-      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(0);
+      return (z64 == nullptr || z64->attr_count() < 1) ? 0xFFFFFFFF
+                                                       : z64->attr64(0);
     }
     return size32;
   }
@@ -406,9 +418,10 @@ class CDH {
     size_t size32 = compressed_file_size32();
     if (ziph::zfield_has_ext64(size32)) {
       const Zip64ExtraField* z64 = zip64_extra_field();
-      return z64 == nullptr ? 0xFFFFFFFF
-                            : z64->attr64(ziph::zfield_has_ext64(
-                                  uncompressed_file_size32()));
+      int attr_no = ziph::zfield_has_ext64(uncompressed_file_size32()) ? 1 : 0;
+      return (z64 == nullptr || attr_no >= z64->attr_count())
+                 ? 0xFFFFFFFF
+                 : z64->attr64(attr_no);
     }
     return size32;
   }
@@ -423,7 +436,8 @@ class CDH {
     uint32_t size32 = uncompressed_file_size32();
     if (ziph::zfield_has_ext64(size32)) {
       const Zip64ExtraField* z64 = zip64_extra_field();
-      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(0);
+      return (z64 == nullptr || z64->attr_count() < 1) ? 0xFFFFFFFF
+                                                       : z64->attr64(0);
     }
     return size32;
   }
@@ -482,11 +496,13 @@ class CDH {
     uint32_t size32 = local_header_offset32();
     if (ziph::zfield_has_ext64(size32)) {
       const Zip64ExtraField* z64 = zip64_extra_field();
-      int attr_no = ziph::zfield_has_ext64(uncompressed_file_size32());
+      int attr_no = ziph::zfield_has_ext64(uncompressed_file_size32()) ? 1 : 0;
       if (ziph::zfield_has_ext64(compressed_file_size32())) {
         ++attr_no;
       }
-      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(attr_no);
+      return (z64 == nullptr || attr_no >= z64->attr_count())
+                 ? 0xFFFFFFFF
+                 : z64->attr64(attr_no);
     }
     return size32;
   }

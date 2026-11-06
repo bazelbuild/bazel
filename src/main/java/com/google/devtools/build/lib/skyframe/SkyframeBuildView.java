@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoade
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -117,6 +118,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionDefinition;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -500,9 +502,9 @@ public final class SkyframeBuildView {
         if (keepGoing) {
           eventHandler.handle(
               Event.warn(
-                  "errors encountered while analyzing target '"
-                      + bad.getKey().getOwner().getLabel()
-                      + "': it will not be built"));
+                  String.format(
+                      "errors encountered while analyzing target '%s', it will not be built.",
+                      bad.getKey().getOwner().getLabel())));
         }
       }
       if (!keepGoing) {
@@ -642,7 +644,7 @@ public final class SkyframeBuildView {
           ViewCreationFailedException,
           BuildFailedException,
           TestExecException {
-    Stopwatch analysisWorkTimer = Stopwatch.createStarted();
+    buildResultListener.setAnalysisTimer(Stopwatch.createStarted());
     EvaluationResult<SkyValue> mainEvaluationResult;
 
     var newKeys =
@@ -710,17 +712,22 @@ public final class SkyframeBuildView {
             eventBus,
             /* lowerThresholdToSignalForExecution= */ (float)
                 (topLevelKeys.size() * skymeldAnalysisOverlapPercentage / 100.0),
-            /* finisher= */ () ->
-                analysisFinishedCallback(
-                    eventBus,
-                    buildResultListener,
-                    skyframeExecutor,
-                    ctKeys,
-                    /* shouldDiscardAnalysisCache= */ shouldDiscardAnalysisCache,
-                    /* shouldClearSyscallCache= */ shouldClearSyscallCache,
-                    /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis(),
-                    /* conflictCheckingMode= */ conflictCheckingMode),
-            /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
+            /* finisher= */ () -> {
+              buildResultListener.stopAnalysisTimer();
+              analysisFinishedCallback(
+                  eventBus,
+                  buildResultListener,
+                  skyframeExecutor,
+                  ctKeys,
+                  /* shouldDiscardAnalysisCache= */ shouldDiscardAnalysisCache,
+                  /* shouldClearSyscallCache= */ shouldClearSyscallCache,
+                  /* measuredAnalysisTime= */ buildResultListener.getAnalysisPhaseTimeInMillis(),
+                  /* conflictCheckingMode= */ conflictCheckingMode);
+            },
+            /* executionGoAheadCallback= */ () -> {
+              buildResultListener.setExecutionTimer(Stopwatch.createStarted());
+              executor.launchQueuedUpExecutionPhaseTasks();
+            })) {
 
       try {
         skyframeExecutor.getIsBuildingExclusiveArtifacts().set(false);
@@ -740,6 +747,7 @@ public final class SkyframeBuildView {
                   executors.executionParallelism(),
                   executor);
         } finally {
+          buildResultListener.stopAnalysisTimer();
           if (shouldClearSyscallCache) {
             skyframeExecutor.clearSyscallCache();
           }
@@ -797,13 +805,19 @@ public final class SkyframeBuildView {
         // Coverage report generation should only be requested after all tests have executed.
         // When --nokeep_going and there's an earlier error, we should skip this and fail fast.
         if ((!mainEvaluationResult.hasError() && !hasExclusiveTestsError) || keepGoing) {
+          if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+          }
           ImmutableSet<Artifact> coverageReportArtifacts =
               coverageReportActionsWrapperSupplier.getCoverageReportArtifacts(
                   buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
           eventBus.post(CoverageArtifactsKnownEvent.create(coverageReportArtifacts));
           additionalArtifactsResult =
-              skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageReportArtifacts), keepGoing);
+              skyframeExecutor.evaluate(
+                  Artifact.keys(coverageReportArtifacts),
+                  keepGoing,
+                  executors.executionParallelism(),
+                  eventHandler);
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
@@ -820,6 +834,8 @@ public final class SkyframeBuildView {
         }
       } finally {
         // No more action execution beyond this point.
+        buildResultListener.stopExecutionTimer();
+        buildResultListener.stopAnalysisTimer();
         skyframeExecutor.clearExecutionStatesSkymeld(eventHandler);
         // Also releases thread locks.
         resourceManager.resetResourceUsage();
@@ -895,9 +911,7 @@ public final class SkyframeBuildView {
 
       return SkyframeAnalysisAndExecutionResult.withErrors(
           /* hasLoadingError= */ errorProcessingResult.hasLoadingError(),
-          // legacy behavior: action conflicts are considered analysis errors.
-          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError()
-              || foundActionConflictInLatestCheck,
+          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError(),
           /* hasActionConflicts= */ foundActionConflictInLatestCheck,
           successfulConfiguredTargets,
           mainEvaluationResult.getWalkableGraph(),
@@ -1052,7 +1066,7 @@ public final class SkyframeBuildView {
           eventHandler.handle(
               Event.warn(
                   String.format(
-                      "errors encountered while analyzing target '%s': it will not be built",
+                      "errors encountered while analyzing target '%s', it will not be built.",
                       e.getArtifact().getOwnerLabel())));
         }
       }
@@ -1115,7 +1129,8 @@ public final class SkyframeBuildView {
     return exclusiveTests.build();
   }
 
-  private static TestType determineTestTypeImpl(
+  @VisibleForTesting
+  static TestType determineTestTypeImpl(
       ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
       Label label,
@@ -1133,7 +1148,10 @@ public final class SkyframeBuildView {
     TestType fromExplicitFlagOrTag;
     if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
         || TargetUtils.isExclusiveTestRule(rule)
-        || (TargetUtils.isExclusiveIfLocalTestRule(rule) && TargetUtils.isLocalTestRule(rule))) {
+        || (TargetUtils.isExclusiveIfLocalTestRule(rule)
+            && (TargetUtils.isLocalTestRule(rule) || TargetUtils.isNoRemoteExecTestRule(rule)))) {
+      // An "exclusive-if-local" test that can never run remotely (because it is pinned to local
+      // execution by its tags) is treated like an ordinary "exclusive" test.
       fromExplicitFlagOrTag = TestType.EXCLUSIVE;
     } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE_IF_LOCAL;
@@ -1141,10 +1159,8 @@ public final class SkyframeBuildView {
       fromExplicitFlagOrTag = TestType.PARALLEL;
     }
 
-    if ((fromExplicitFlagOrTag == TestType.EXCLUSIVE
-            && buildDriverKeyTestContext.forceExclusiveTestsInParallel())
-        || (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
-            && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel())) {
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE
+        && buildDriverKeyTestContext.forceExclusiveTestsInParallel()) {
       eventHandler.handle(
           Event.warn(
               label
@@ -1153,6 +1169,13 @@ public final class SkyframeBuildView {
                   + ", but --test_strategy="
                   + buildDriverKeyTestContext.getTestStrategy()
                   + " forces parallel test execution."));
+      return TestType.PARALLEL;
+    }
+    // A remote-eligible "exclusive-if-local" test is allowed to run in parallel when remote
+    // execution is enabled. This is the expected behavior of the tag rather than a forced override,
+    // so (unlike the "exclusive" case above) no warning is emitted.
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
+        && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel()) {
       return TestType.PARALLEL;
     }
     return fromExplicitFlagOrTag;
@@ -1384,7 +1407,8 @@ public final class SkyframeBuildView {
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       boolean crashIfExecutionPhase,
       boolean dependsOnFileKey)
-      throws InterruptedException,
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException,
@@ -1405,7 +1429,10 @@ public final class SkyframeBuildView {
                 (BzlLoadValue)
                     analysisEnvironment
                         .getSkyframeEnv()
-                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+            configuration == null
+                ? StarlarkBuildSettingsDetailsValue.EMPTY
+                : configuration.starlarkFlagDetails());
     if (starlarkExecTransition == null) {
       return null;
     }

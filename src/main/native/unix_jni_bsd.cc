@@ -35,6 +35,8 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
+#include <cstdint>
+#include <cstdio>
 #include <string>
 
 #include "src/main/native/unix_jni.h"
@@ -53,18 +55,17 @@ string ErrorMessage(int error_number) {
   return string(buf);
 }
 
-uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
-                               StatTimes t) {
+int64_t StatEpochNanoseconds(const portable_stat_struct& statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atimespec.tv_sec * 1000L +
-             statbuf.st_atimespec.tv_nsec / 1000000;
+      return statbuf.st_atimespec.tv_sec * 1000000000L +
+             statbuf.st_atimespec.tv_nsec;
     case STAT_CTIME:
-      return statbuf.st_ctimespec.tv_sec * 1000L +
-             statbuf.st_ctimespec.tv_nsec / 1000000;
+      return statbuf.st_ctimespec.tv_sec * 1000000000L +
+             statbuf.st_ctimespec.tv_nsec;
     case STAT_MTIME:
-      return statbuf.st_mtimespec.tv_sec * 1000L +
-             statbuf.st_mtimespec.tv_nsec / 1000000;
+      return statbuf.st_mtimespec.tv_sec * 1000000000L +
+             statbuf.st_mtimespec.tv_nsec;
   }
 }
 
@@ -73,7 +74,8 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 #if defined(HAVE_EXTATTR)
   ssize_t result =
       extattr_get_file(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
-  *attr_not_found = (errno == ENOATTR);
+  *attr_not_found =
+      (errno == ENOATTR || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 #else
   *attr_not_found = true;
@@ -86,7 +88,8 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 #if defined(HAVE_EXTATTR)
   ssize_t result =
       extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
-  *attr_not_found = (errno == ENOATTR);
+  *attr_not_found =
+      (errno == ENOATTR || errno == ENOTSUP || errno == EOPNOTSUPP);
   return result;
 #else
   *attr_not_found = true;

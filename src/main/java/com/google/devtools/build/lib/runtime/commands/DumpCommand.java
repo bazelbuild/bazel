@@ -16,16 +16,20 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multiset;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper;
@@ -57,19 +61,23 @@ import com.google.devtools.build.lib.server.FailureDetails.DumpCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.Edge;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.InvalidationGraph;
@@ -86,9 +94,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
 import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
@@ -111,13 +121,17 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Implementation of the dump command. */
@@ -328,7 +342,7 @@ public class DumpCommand implements BlazeCommand {
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help =
             "Regex filter of SkyKey names to output. Only used with --skyframe=keys, value, deps,"
-                + " rdeps, function_graph.")
+                + " rdeps, function_graph, changed.")
     public abstract RegexFilter getSkyKeyFilter();
 
     @Option(
@@ -366,9 +380,8 @@ public class DumpCommand implements BlazeCommand {
     VALUE,
     DEPS,
     RDEPS,
+    CHANGED,
     FUNCTION_GRAPH,
-    ACTIVE_DIRECTORIES,
-    ACTIVE_DIRECTORIES_FRONTIER_DEPS,
   }
 
   /** Enum converter for SkyframeDumpOption. */
@@ -517,11 +530,9 @@ public class DumpCommand implements BlazeCommand {
         case VALUE -> evaluator.dumpValues(out, dumpOptions.getSkyKeyFilter());
         case DEPS -> evaluator.dumpDeps(out, dumpOptions.getSkyKeyFilter());
         case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.getSkyKeyFilter());
+        case CHANGED ->
+            dumpChangedValues(env.getSkyframeExecutor(), out, dumpOptions.getSkyKeyFilter());
         case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.getSkyKeyFilter());
-        case ACTIVE_DIRECTORIES ->
-            env.getSkyframeExecutor().getSkyfocusState().dumpActiveDirectories(out);
-        case ACTIVE_DIRECTORIES_FRONTIER_DEPS ->
-            env.getSkyframeExecutor().getSkyfocusState().dumpFrontierSet(out);
         case OFF -> {}
       }
 
@@ -536,6 +547,124 @@ public class DumpCommand implements BlazeCommand {
               .build());
     } finally {
       out.flush();
+    }
+  }
+
+  /**
+   * Dumps the values that the last command created or changed, those among them without changed
+   * dependencies and, for each one matching the filter, the changed dependencies that caused it.
+   *
+   * <p>The evaluations of a command form a sequence in the sense of {@link
+   * MemoizingEvaluator#noteEvaluationsAtSameVersionMayBeFinished}, so the values created or changed
+   * by the last command are those whose version is at least the first version of the latest
+   * sequence. {@code dump} itself doesn't evaluate anything and thus doesn't start a new sequence.
+   */
+  private static void dumpChangedValues(
+      SkyframeExecutor skyframeExecutor, PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    if (!skyframeExecutor.tracksStateForIncrementality()) {
+      out.println("Changes are only tracked when incremental state is kept.");
+      return;
+    }
+    var evaluator = skyframeExecutor.getEvaluator();
+    var since = evaluator.getFirstVersionOfLatestEvaluationSequence();
+    if (since == null) {
+      out.println("Nothing has been evaluated yet.");
+      return;
+    }
+    var graph = evaluator.getInMemoryGraph();
+
+    // Visit the entire graph once to find the changed values, then only visit those.
+    var changed = ConcurrentHashMap.<SkyKey>newKeySet();
+    var changedCounts = ConcurrentHashMultiset.<SkyFunctionName>create();
+    var unchangedCounts = ConcurrentHashMultiset.<SkyFunctionName>create();
+    graph.parallelForEach(
+        entry -> {
+          if (!entry.isDone()) {
+            return;
+          }
+          if (since.atMost(entry.getVersion())) {
+            changed.add(entry.getKey());
+            changedCounts.add(entry.getKey().functionName());
+          } else if (entry instanceof IncrementalInMemoryNodeEntry incrementalEntry
+              && since.atMost(incrementalEntry.lastEvaluatedVersion())) {
+            unchangedCounts.add(entry.getKey().functionName());
+          }
+        });
+    checkNotInterrupted();
+
+    out.println("Values created or changed by the last command:");
+    printCounts(out, changedCounts);
+    out.println();
+    out.println("Values re-evaluated to an equal value, which stopped the invalidation:");
+    printCounts(out, unchangedCounts);
+    out.println();
+
+    // All values are collected and sorted so that dumps can be compared. Formatting their names
+    // dominates and is independent per value, so this is parallel as well.
+    record ChangedValue(String name, ImmutableList<String> changedDeps) {}
+    var changedValues =
+        changed.parallelStream()
+            .<ChangedValue>mapMulti(
+                (key, sink) -> {
+                  var name = key.getCanonicalName();
+                  if (filter.test(name)) {
+                    sink.accept(new ChangedValue(name, changedDepNamesOf(graph, key, changed)));
+                  }
+                })
+            .sorted(comparing(ChangedValue::name))
+            .toList();
+    checkNotInterrupted();
+
+    out.println("Changed values without changed dependencies, the origins of the changes:");
+    for (var value : changedValues) {
+      if (value.changedDeps().isEmpty()) {
+        out.println(value.name());
+      }
+    }
+    out.println();
+
+    out.println("Changed values and the changed dependencies that caused them:");
+    for (var value : changedValues) {
+      if (value.changedDeps().isEmpty()) {
+        continue;
+      }
+      out.println(value.name());
+      for (var dep : value.changedDeps()) {
+        out.print("    ");
+        out.println(dep);
+      }
+      out.println();
+    }
+  }
+
+  private static ImmutableList<String> changedDepNamesOf(
+      InMemoryGraph graph, SkyKey key, Set<SkyKey> changed) {
+    var entry = graph.getIfPresent(key);
+    if (entry == null) {
+      return ImmutableList.of();
+    }
+    var names = new ArrayList<String>();
+    for (var dep : entry.getDirectDeps()) {
+      if (changed.contains(dep)) {
+        names.add(dep.getCanonicalName());
+      }
+    }
+    return ImmutableList.sortedCopyOf(names);
+  }
+
+  private static void printCounts(PrintStream out, Multiset<SkyFunctionName> counts) {
+    counts.entrySet().stream()
+        .sorted(
+            Comparator.<Multiset.Entry<SkyFunctionName>>comparingInt(Multiset.Entry::getCount)
+                .reversed()
+                .thenComparing(entry -> entry.getElement().getName()))
+        .forEachOrdered(entry -> out.printf("%8d %s%n", entry.getCount(), entry.getElement()));
+  }
+
+  private static void checkNotInterrupted() throws InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
     }
   }
 
@@ -577,8 +706,7 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private static void dumpRuleStats(
-      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out)
-      throws InterruptedException {
+      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out) {
     SkyframeStats skyframeStats = executor.getSkyframeStats();
     if (skyframeStats.ruleStats().isEmpty()) {
       out.print("No rules in Bazel server, please run a build command first.");
@@ -678,13 +806,26 @@ public class DumpCommand implements BlazeCommand {
   private static BuildConfigurationKey getConfigurationKey(CommandEnvironment env, String hash) {
     if (hash == null) {
       // Use the target configuration
-      return env.getSkyframeBuildView().getBuildConfiguration().getKey();
+      BuildConfigurationValue configuration = env.getSkyframeBuildView().getBuildConfiguration();
+      if (configuration == null) {
+        env.getReporter().error(null, "No configuration available");
+        return null;
+      }
+      return configuration.getKey();
+    }
+
+    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    if (graph == null) {
+      env.getReporter().error(null, "No Skyframe graph available");
+      return null;
     }
 
     ImmutableList<BuildConfigurationKey> candidates =
-        env.getSkyframeExecutor().getEvaluator().getDoneValues().entrySet().stream()
-            .filter(e -> e.getKey().functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
-            .map(e -> (BuildConfigurationKey) e.getKey())
+        graph
+            .collectDoneValues(key -> key.functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
+            .keySet()
+            .stream()
+            .map(key -> (BuildConfigurationKey) key)
             .filter(k -> k.getOptions().checksum().startsWith(hash))
             .collect(ImmutableList.toImmutableList());
 
@@ -699,29 +840,26 @@ public class DumpCommand implements BlazeCommand {
   @Nullable
   private static SkyKey getMemoryDumpSkyKey(CommandEnvironment env, MemoryMode memoryMode) {
     try {
-      switch (memoryMode.type()) {
-        case PACKAGE -> {
-          return PackageIdentifier.parse(memoryMode.subject);
-        }
-        case STARLARK_MODULE -> {
-          return BzlLoadValue.keyForBuild(Label.parseCanonical(memoryMode.subject));
-        }
+      return switch (memoryMode.type()) {
+        case PACKAGE -> PackageIdentifier.parse(memoryMode.subject);
+        case STARLARK_MODULE -> BzlLoadValue.keyForBuild(Label.parseCanonical(memoryMode.subject));
         case CONFIGURED_TARGET -> {
           String[] labelAndConfig = memoryMode.subject.split("@", 2);
           BuildConfigurationKey configurationKey =
               getConfigurationKey(env, labelAndConfig.length == 2 ? labelAndConfig[1] : null);
-          return ConfiguredTargetKey.builder()
+          if (configurationKey == null) {
+            yield null;
+          }
+          yield ConfiguredTargetKey.builder()
               .setConfigurationKey(configurationKey)
               .setLabel(Label.parseCanonical(labelAndConfig[0]))
               .build();
         }
-      }
+      };
     } catch (LabelSyntaxException e) {
       env.getReporter().error(null, "Cannot parse label: " + e.getMessage());
       return null;
     }
-
-    throw new IllegalStateException();
   }
 
   private static Optional<BlazeCommandResult> dumpSkyframeMemory(
@@ -886,6 +1024,7 @@ public class DumpCommand implements BlazeCommand {
         graphResult =
             GraphDumper.collectInvalidationGraph(
                 entry.dependencyFingerprint(),
+                compressionService,
                 store,
                 env.getBlazeWorkspace().getFingerprinterForAnalysisCaching());
       } else {
@@ -1059,6 +1198,30 @@ public class DumpCommand implements BlazeCommand {
     BuildConfigurationValue buildConfiguration = env.getSkyframeBuildView().getBuildConfiguration();
     if (buildConfiguration != null) {
       serializationDeps.put(BuildOptions.class, buildConfiguration.getOptions());
+      try {
+        PrecomputedValue targetPrecomputed =
+            (PrecomputedValue)
+                skyframeExecutor
+                    .getEvaluator()
+                    .getExistingValue(BaselineOptionsFunction.BASELINE_CONFIGURATION.getKey());
+        PrecomputedValue execPrecomputed =
+            (PrecomputedValue)
+                skyframeExecutor
+                    .getEvaluator()
+                    .getExistingValue(BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.getKey());
+        if (targetPrecomputed != null && execPrecomputed != null) {
+          BuildOptions targetBaseline = (BuildOptions) targetPrecomputed.get();
+          BuildOptions execBaseline = (BuildOptions) execPrecomputed.get();
+          Label topLevelPlatform =
+              buildConfiguration.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+          serializationDeps.put(
+              PlatformConfigurationProvider.class,
+              new DefaultPlatformConfigurationProvider(
+                  topLevelPlatform, targetBaseline, execBaseline));
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
     }
 
     return new ObjectCodecs(registry, serializationDeps.build());

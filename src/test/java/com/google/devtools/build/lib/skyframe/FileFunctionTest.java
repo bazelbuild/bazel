@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -180,9 +179,7 @@ public class FileFunctionTest {
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
-                        CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
@@ -540,9 +537,9 @@ public class FileFunctionTest {
           }
         });
     Path p = file("file");
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
     FileValue a = valueForPath(p);
-    p.setLastModifiedTime(1L);
+    p.setLastModifiedTimeNanos(1L);
     assertThat(valueForPath(p)).isEqualTo(a);
     FileSystemUtils.writeContentAsLatin1(p, "content");
     // Same digest, but now non-empty.
@@ -553,16 +550,16 @@ public class FileFunctionTest {
   public void testUnreadableFileWithNoFastDigest() throws Exception {
     Path p = file("unreadable");
     p.chmod(0);
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
 
     FileValue value = valueForPath(p);
     assertThat(value.exists()).isTrue();
     assertThat(value.getDigest()).isNull();
 
-    p.setLastModifiedTime(10L);
+    p.setLastModifiedTimeNanos(10L);
     assertThat(valueForPath(p)).isNotEqualTo(value);
 
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
     assertThat(valueForPath(p)).isEqualTo(value);
   }
 
@@ -1544,7 +1541,7 @@ public class FileFunctionTest {
   }
 
   /** Returns the files that would be changed/created if {@code path} were to be changed/created. */
-  private static ImmutableList<String> filesTouchedIfTouched(Path path) {
+  private static ImmutableList<String> filesTouchedIfTouched(Path path) throws IOException {
     List<String> filesToBeTouched = new ArrayList<>();
     do {
       filesToBeTouched.add(path.getPathString());

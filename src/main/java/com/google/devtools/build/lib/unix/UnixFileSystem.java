@@ -77,7 +77,16 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   public PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
-    return stat(path, false).isSymbolicLink() ? readSymbolicLink(path) : null;
+    String name = path.toString();
+    long startTime = Profiler.instance().nanoTimeMaybe();
+    var comp = Blocker.begin();
+    try {
+      String result = run(() -> nativePosixFilesService.readlink(name));
+      return result != null ? PathFragment.create(result) : null;
+    } finally {
+      Blocker.end(comp);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
+    }
   }
 
   /** Converts from {@link NativePosixFilesService.Dirent.Type} to {@link Dirent.Type}. */
@@ -138,15 +147,6 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     } finally {
       Blocker.end(comp);
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
-    }
-  }
-
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    try {
-      return statIfFound(path, followSymlinks) != null;
-    } catch (IOException e) {
-      return false;
     }
   }
 
@@ -353,12 +353,13 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return stat(path, followSymlinks).getLastModifiedTime();
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return stat(path, followSymlinks).getLastModifiedTimeNanos();
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
     var comp = Blocker.begin();
     try {
       run(

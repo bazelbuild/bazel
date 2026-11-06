@@ -627,6 +627,13 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     return recorder.getTarget(name);
   }
 
+  /**
+   * Returns the innermost symbolic macro that declared the given target, or null if the target
+   * wasn't declared in this context or wasn't declared in a symbolic macro.
+   */
+  @Nullable
+  public abstract MacroInstance getTargetDeclaringMacro(String name);
+
   // TODO: #19922 - Refactor finalizer expansion such that TargetDefinitionContext can handle
   // working with finalizer macros. At that point, getRulesSnapshotView() and
   // getNonFinalizerInstantiatedRule() must account for the snapshot view here rather than in the
@@ -707,10 +714,11 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   // TODO: #19922 - Don't allow exports_files() to modify visibility of targets that the current
   // symbolic macro did not create. Fun pathological example: exports_files() modifying the
   // visibility of :BUILD inside a symbolic macro.
-  void setVisibilityAndLicense(InputFile inputFile, RuleVisibility visibility, License license) {
+  void setVisibilityAndLicense(
+      InputFile inputFile, RuleVisibility visibility, boolean isLicenseSpecified) {
     String filename = inputFile.getName();
     Target cacheInstance = recorder.getTargetMap().get(filename);
-    if (!(cacheInstance instanceof InputFile)) {
+    if (!(cacheInstance instanceof InputFile cachedInputFile)) {
       throw new IllegalArgumentException(
           "Can't set visibility for nonexistent FileTarget "
               + filename
@@ -718,12 +726,16 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
               + metadata.getName()
               + ".");
     }
-    if (!((InputFile) cacheInstance).isVisibilitySpecified()
-        || cacheInstance.getVisibility() != visibility
-        || !Objects.equals(cacheInstance.getLicense(), license)) {
+    if (!cachedInputFile.isVisibilitySpecified()
+        || !Objects.equals(cachedInputFile.getVisibility(), visibility)
+        || (!cachedInputFile.isLicenseSpecified() && isLicenseSpecified)) {
       recorder.replaceInputFileUnchecked(
           new VisibilityLicenseSpecifiedInputFile(
-              pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
+              pkg,
+              cachedInputFile.getLabel(),
+              cachedInputFile.getLocation(),
+              visibility,
+              cachedInputFile.isLicenseSpecified() || isLicenseSpecified));
     }
   }
 

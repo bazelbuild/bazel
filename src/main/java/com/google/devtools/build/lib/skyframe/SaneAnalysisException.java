@@ -15,6 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 /**
  * Marker interface for exceptions during loading/analysis that do not prevent targets from being
- * configured. See {@link SkyframeBuildView#convertToAnalysisException}.
+ * configured. See {@code SkyframeErrorProcessor#convertToAnalysisException}.
  */
 public interface SaneAnalysisException extends DetailedException {}

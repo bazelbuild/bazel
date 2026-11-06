@@ -64,14 +64,14 @@ public class NativePathTest {
   }
 
   @Test
-  public void testExists() {
+  public void testExists() throws Exception {
     assertThat(fs.getPath(aDirectory.getPath()).exists()).isTrue();
     assertThat(fs.getPath(aFile.getPath()).exists()).isTrue();
     assertThat(fs.getPath("/does/not/exist").exists()).isFalse();
   }
 
   @Test
-  public void testDirectoryEntriesForDirectory() throws IOException {
+  public void testDirectoryEntriesForDirectory() throws Exception {
     assertThat(fs.getPath(tmpDir.getPath()).getDirectoryEntries()).containsExactly(
       fs.getPath(tmpDir.getPath() + "/a_file"),
       fs.getPath(tmpDir.getPath() + "/a_directory"));
@@ -179,7 +179,7 @@ public class NativePathTest {
     Path path = fs.getPath(aFile.getPath());
     String latin1String = new String(allLatin1Chars);
     FileSystemUtils.writeContentAsLatin1(path, latin1String);
-    String fileContent = new String(FileSystemUtils.readContentAsLatin1(path));
+    String fileContent = FileSystemUtils.readContentAsLatin1(path);
     assertThat(latin1String).isEqualTo(fileContent);
   }
 

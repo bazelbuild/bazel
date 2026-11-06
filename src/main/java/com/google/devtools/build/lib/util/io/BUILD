@@ -2,13 +2,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/execlog:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/util:__pkg__"],
 )
 
 # I/O utilities.
@@ -58,6 +61,7 @@ java_library(
         "//third_party/java/guava:io",
         "//third_party/java/guava:math",
         "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
     ],

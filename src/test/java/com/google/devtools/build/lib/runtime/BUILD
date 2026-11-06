@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -35,12 +35,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_compute_resources",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
@@ -92,6 +94,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/runtime:after_command_event",
+        "//src/main/java/com/google/devtools/build/lib/runtime:async_directory_cleaner",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",
@@ -159,12 +162,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:execution_graph_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:memory_pressure_java_proto",
+        "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -251,6 +256,6 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":RuntimeTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )

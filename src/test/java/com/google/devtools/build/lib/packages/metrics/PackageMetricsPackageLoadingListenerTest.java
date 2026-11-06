@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.metrics;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
@@ -623,5 +625,43 @@ public class PackageMetricsPackageLoadingListenerTest {
     when(mockPackage.getTargets()).thenReturn(sortedTargets);
     when(mockPackage.getDeclarations()).thenReturn(fakeDeclarations);
     return mockPackage;
+  }
+
+  @Test
+  public void testCompositePackageLoadingListener_emptyListeners() {
+    PackageLoadingListener listener = PackageLoadingListener.create(ImmutableList.of());
+    assertThat(listener).isSameInstanceAs(PackageLoadingListener.NOOP_LISTENER);
+  }
+
+  @Test
+  public void testCompositePackageLoadingListener_singleListener() {
+    PackageLoadingListener delegate = mock(PackageLoadingListener.class);
+    PackageLoadingListener listener = PackageLoadingListener.create(ImmutableList.of(delegate));
+    assertThat(listener).isSameInstanceAs(delegate);
+  }
+
+  @Test
+  public void testCompositePackageLoadingListener_delegatesAllCallbacks() {
+    PackageLoadingListener listener1 = mock(PackageLoadingListener.class);
+    PackageLoadingListener listener2 = mock(PackageLoadingListener.class);
+    PackageLoadingListener composite =
+        PackageLoadingListener.create(ImmutableList.of(listener1, listener2));
+
+    Package mockPkg = mockPackage("my/pkg", ImmutableMap.of(), 0);
+    Metrics metrics = new Metrics(100, 200);
+    composite.onLoadingCompleteAndSuccessful(
+        mockPkg, StarlarkSemantics.DEFAULT, LazyMacroExpansionPackages.NONE, metrics);
+
+    verify(listener1)
+        .onLoadingCompleteAndSuccessful(
+            mockPkg, StarlarkSemantics.DEFAULT, LazyMacroExpansionPackages.NONE, metrics);
+    verify(listener2)
+        .onLoadingCompleteAndSuccessful(
+            mockPkg, StarlarkSemantics.DEFAULT, LazyMacroExpansionPackages.NONE, metrics);
+
+    composite.onBzlCompileCompleteAndSuccessful(null, 12345L);
+
+    verify(listener1).onBzlCompileCompleteAndSuccessful(null, 12345L);
+    verify(listener2).onBzlCompileCompleteAndSuccessful(null, 12345L);
   }
 }

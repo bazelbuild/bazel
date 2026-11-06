@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.Normalizer;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
@@ -524,5 +526,78 @@ public class WindowsFileSystemTest {
         .withMessage("w/o cache : %s", existsWithoutCache)
         .that(existsWithCache)
         .isEqualTo(existsWithoutCache);
+  }
+
+  @Test
+  public void testOperationsOnInvalidPath(
+      @TestParameter({"*", "?", "<", ">", "\"", "|", "colon:name", "a*b/c?d"}) String invalidPath)
+      throws Exception {
+    Path path = scratchRoot.getRelative(invalidPath);
+    assertThat(path.exists()).isFalse();
+    assertThat(path.isDirectory()).isFalse();
+    assertThat(path.isFile()).isFalse();
+    assertThat(path.isSpecialFile()).isFalse();
+    assertThat(path.isSymbolicLink()).isFalse();
+    assertThat(path.statIfFound()).isNull();
+    assertThat(path.delete()).isFalse();
+    assertThrows(FileNotFoundException.class, () -> path.stat());
+    assertThrows(FileNotFoundException.class, () -> path.getDirectoryEntries());
+    assertThrows(FileNotFoundException.class, () -> path.readSymbolicLink());
+    assertThrows(IOException.class, () -> path.createReadWriteByteChannel());
+    assertThrows(IOException.class, () -> fs.createReadWriteByteChannel(path.asFragment()));
+  }
+
+  @Test
+  public void testCombinedInvalidCharactersAndNestedPaths() throws Exception {
+    Path nested = scratchRoot.getRelative("foo/bar/bad*name/baz?qux/child");
+    assertThat(nested.exists()).isFalse();
+    assertThat(nested.isDirectory()).isFalse();
+    assertThat(nested.isFile()).isFalse();
+    assertThat(nested.isSymbolicLink()).isFalse();
+    assertThat(nested.statIfFound()).isNull();
+    assertThat(nested.delete()).isFalse();
+    assertThrows(FileNotFoundException.class, () -> nested.stat());
+    assertThrows(FileNotFoundException.class, () -> nested.getDirectoryEntries());
+    assertThrows(FileNotFoundException.class, () -> nested.readSymbolicLink());
+    assertThrows(IOException.class, () -> fs.createDirectory(nested.asFragment()));
+    assertThrows(IOException.class, () -> nested.createDirectoryAndParents());
+    assertThrows(
+        IOException.class, () -> nested.createSymbolicLink(scratchRoot.getRelative("target")));
+    assertThrows(
+        IOException.class,
+        () -> fs.renameTo(nested.asFragment(), scratchRoot.getRelative("dest").asFragment()));
+    assertThrows(
+        IOException.class,
+        () -> fs.renameTo(scratchRoot.getRelative("src").asFragment(), nested.asFragment()));
+    assertThrows(IOException.class, () -> nested.createReadWriteByteChannel());
+    assertThrows(IOException.class, () -> fs.createReadWriteByteChannel(nested.asFragment()));
+  }
+
+  @Test
+  public void testSetLastModifiedTimeNanos() throws Exception {
+    Path file = scratchRoot.getRelative("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    // Windows FILETIME has 100ns resolution.
+    file.setLastModifiedTimeNanos((1L << 34) * 1_000_000 + 123_456);
+    assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_400);
+    FileStatus stat = file.stat();
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_400);
+  }
+
+  @Test
+  public void testSetLastModifiedTimeNanosWithSentinel() throws Exception {
+    Path file = scratchRoot.getRelative("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    // To avoid sleeping, first set the modification time to the past.
+    long pastTime = Instant.now().minusSeconds(1).toEpochMilli() * 1_000_000;
+    file.setLastModifiedTimeNanos(pastTime);
+
+    // Even if we get the system time before the setLastModifiedTimeNanos call,
+    // getLastModifiedTimeNanos may return a time which is slightly behind. Simply check that it's
+    // greater than the past time.
+    file.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
+    assertThat(file.getLastModifiedTimeNanos()).isGreaterThan(pastTime);
   }
 }

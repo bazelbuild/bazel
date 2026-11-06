@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -292,7 +293,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         for (CqueryNode dep : accessor.getPrerequisites(keyedConfiguredTarget)) {
           ConfiguredRuleInput.Builder configuredRuleInput =
               Build.ConfiguredRuleInput.newBuilder()
-                  .setLabel(labelPrinter.toString(dep.getOriginalLabel()));
+                  .setLabel(internalToUnicode(labelPrinter.toString(dep.getOriginalLabel())));
           if (dep.getConfigurationChecksum() != null) {
             configuredRuleInput
                 .setConfigurationChecksum(dep.getConfigurationChecksum())

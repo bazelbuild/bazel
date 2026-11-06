@@ -197,6 +197,26 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract List<String> getOutputGroups();
 
   @Option(
+      name = "extra_default_output_groups",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      defaultValue = "null",
+      help =
+          """
+          A list of comma-separated output group names to treat as part of the default set of
+          output groups. Unlike `--output_groups=+foo`, which is always built, an extra default
+          output group is only built when the default set is: it is omitted if `--output_groups`
+          contains an unprefixed group, and can be removed with `--output_groups=-foo`. Intended
+          for wrappers and rc files that want to augment the default outputs without overriding
+          an explicit `--output_groups` selection. Artifacts in these output groups are not
+          displayed in results (see `--show_result`), and no warning is emitted if they are
+          absent from a top-level target or aspect.
+          """)
+  public abstract List<String> getExtraDefaultOutputGroups();
+
+  @Option(
       name = "incompatible_fail_on_unknown_output_groups",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -409,6 +429,19 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract boolean getRewindLostInputs();
 
   @Option(
+      name = "experimental_check_rewound_action_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Fail if regenerating a rewound action changes its recorded output contents. This detects"
+              + " nondeterministic regeneration before dependent actions consume the new result."
+              + " Best effort: requires previous output metadata and may miss changes when another"
+              + " shared action regenerates the outputs.")
+  public abstract boolean getCheckRewoundActionOutputs();
+
+  @Option(
       name = "experimental_max_repeated_lost_inputs",
       defaultValue = "20",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -423,15 +456,11 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_precise_rewinding",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Whether to use precise rewinding. If true, only the lost inputs (and their generating"
-              + " actions) are rewound through aggregation artifacts (e.g. runfiles trees),"
-              + " avoiding rewinding the entire set of inputs to the aggregator. This is a no-op"
-              + " unless --rewind_lost_inputs is true.")
+      help = "No-op slated for removal.")
   public abstract boolean getExperimentalPreciseRewinding();
 
   @Option(
@@ -458,6 +487,45 @@ public abstract class BuildRequestOptions extends OptionsBase {
           "If set, build will read patterns from the file named here, rather than on the command "
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public abstract String getTargetPatternFile();
+
+  @Option(
+      name = "target_query",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, build will evaluate the query expression and build the resulting targets. "
+              + "Example: --target_query='deps(//foo) - deps(//bar)'. May be combined with "
+              + "command-line target patterns. Cannot be used with --target_pattern_file or "
+              + "--target_query_file.")
+  public abstract String getTargetQuery();
+
+  @Option(
+      name = "target_query_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, build will read a query expression from the file named here and build the "
+              + "resulting targets. May be combined with command-line target patterns. Cannot be "
+              + "used with --target_pattern_file or --target_query.")
+  public abstract String getTargetQueryFile();
+
+  @Option(
+      name = "experimental_skyframe_loading_and_analysis_dfs_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "If enabled, schedules Skyframe loading and analysis evaluation tasks in depth-first"
+              + " priority order (resumed nodes first, then unstarted nodes deepest-first) to"
+              + " narrow the active evaluation wave and reduce peak heap retained by"
+              + " simultaneously in-flight Skyframe nodes.")
+  public abstract boolean getSkyframeLoadingAndAnalysisDfsScheduling();
 
   /**
    * Do not use directly. Instead use {@link

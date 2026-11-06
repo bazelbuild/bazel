@@ -39,7 +39,7 @@ public class BazelDocumentationTest {
   public void testBazelUserManual() throws Exception {
     Runfiles runfiles = Runfiles.create();
     String documentationFilePath =
-        runfiles.rlocation("io_bazel/site/en/docs/user-manual.md");
+        runfiles.rlocation("io_bazel/docs/docs/user-manual.mdx");
     final File documentationFile = new File(documentationFilePath);
     DocumentationTestUtil.validateUserManual(
         Bazel.BAZEL_MODULES,

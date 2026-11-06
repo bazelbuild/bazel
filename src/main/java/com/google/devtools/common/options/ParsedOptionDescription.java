@@ -163,7 +163,7 @@ public final class ParsedOptionDescription {
   }
 
   public boolean isFullyRedactedInLogs() {
-    return metadataTags().contains(OptionMetadataTag.FULLY_REDACTED_IN_LOGS);
+    return optionDefinition.isFullyRedactedInLogs();
   }
 
   @Nullable

@@ -207,6 +207,10 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
     return keys;
   }
 
+  final boolean isRewinding(SkyKey skyKey) {
+    return unsuccessfullyRewoundKeys.contains(skyKey);
+  }
+
   /**
    * Returns the set of all dirty keys that have not been enqueued. This is useful for garbage
    * collection, where we would not want to remove dirty nodes that are needed for evaluation (in

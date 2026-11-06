@@ -17,6 +17,7 @@ import static com.google.devtools.build.skyframe.SkyFunctionException.Transience
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
@@ -80,32 +81,30 @@ public class ProjectFunction implements SkyFunction {
       return null;
     }
     Object projectRaw = bzlLoadValue.getModule().getGlobal(ReservedGlobals.PROJECT.getKey());
-    switch (projectRaw) {
-      case null -> {
-        throw new ProjectFunctionException(
-            new TypecheckFailureException(
-                "Project files must define exactly one top-level variable called \"project\""));
-      }
+    return switch (projectRaw) {
+      case null ->
+          throw new ProjectFunctionException(
+              new TypecheckFailureException(
+                  "Project files must define exactly one top-level variable called \"project\""));
       case Dict<?, ?> asDict -> {
         Label actualProjectFile = maybeResolveAlias(key.getProjectFile(), asDict, bzlLoadValue);
         if (!actualProjectFile.equals(key.getProjectFile())) {
           // This is an alias for another project file. Delegate there.
           // TODO: b/382265245 - handle cycles, including self references.
-          return env.getValueOrThrow(
+          yield env.getValueOrThrow(
               new ProjectValue.Key(actualProjectFile), ProjectFunctionException.class);
         }
-        return parseLegacyProjectSchema(asDict, key.getProjectFile());
+        yield parseLegacyProjectSchema(asDict, key.getProjectFile());
       }
-      case StarlarkInfoNoSchema starlarkInfo -> {
-        return parseProtoProjectSchema(starlarkInfo, key.getProjectFile());
-      }
+      case StarlarkInfoNoSchema starlarkInfo ->
+          parseProtoProjectSchema(starlarkInfo, key.getProjectFile());
       default ->
           throw new ProjectFunctionException(
               new TypecheckFailureException(
                   String.format(
                       "%s variable: expected a map of string to objects, got %s",
                       ReservedGlobals.PROJECT.getKey(), projectRaw.getClass())));
-    }
+    };
   }
 
   /**
@@ -332,14 +331,17 @@ public class ProjectFunction implements SkyFunction {
     return alwaysAllowedConfigsBuilder.build();
   }
 
-  private static ImmutableMap<String, Collection<String>> parseProjectDirectories(
-      Object activeDirectoriesRaw) throws ProjectFunctionException {
+  private static ImmutableSet<String> parseProjectDirectories(Object activeDirectoriesRaw)
+      throws ProjectFunctionException {
     @SuppressWarnings("unchecked")
-    ImmutableMap<String, Collection<String>> activeDirectories =
+    ImmutableSet<String> defaultProjectDirectories =
         switch (activeDirectoriesRaw) {
-          case null -> ImmutableMap.of();
+          case null -> ImmutableSet.of();
           case Dict<?, ?> dict -> {
-            ImmutableMap.Builder<String, Collection<String>> builder = ImmutableMap.builder();
+            if (dict.isEmpty()) {
+              yield ImmutableSet.of();
+            }
+            ImmutableSet<String> defaultDirectories = null;
             for (Entry<?, ?> entry : dict.entrySet()) {
               Object k = entry.getKey();
 
@@ -365,15 +367,20 @@ public class ProjectFunction implements SkyFunction {
                 }
               }
 
-              builder.put(activeDirectoriesKey, (Collection<String>) values);
+              if (activeDirectoriesKey.equals("default")) {
+                defaultDirectories = ImmutableSet.copyOf((Collection<String>) values);
+              }
             }
 
-            yield builder.buildOrThrow();
+            if (defaultDirectories == null) {
+              throw new ProjectFunctionException(
+                  new ActiveDirectoriesException(
+                      "non-empty active_directories must contain the 'default' key"));
+            }
+            yield defaultDirectories;
           }
           case List<?> list -> {
-            // The proto schema doesn't need a map. Read a list and store as a {"default": [list}]}
-            // map to preserve backward compatibility.
-            ImmutableList.Builder<String> builder = ImmutableList.builder();
+            ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             for (Object activeDirectory : list) {
               builder.add(
                   checkAndCast(
@@ -382,7 +389,7 @@ public class ProjectFunction implements SkyFunction {
                       /* defaultValue= */ null,
                       "project_directories is a list of strings"));
             }
-            yield ImmutableMap.of("default", builder.build());
+            yield builder.build();
           }
           default ->
               throw new ProjectFunctionException(
@@ -391,12 +398,7 @@ public class ProjectFunction implements SkyFunction {
                           + activeDirectoriesRaw.getClass()));
         };
 
-    if (!activeDirectories.isEmpty() && activeDirectories.get("default") == null) {
-      throw new ProjectFunctionException(
-          new ActiveDirectoriesException(
-              "non-empty active_directories must contain the 'default' key"));
-    }
-    return activeDirectories;
+    return defaultProjectDirectories;
   }
 
   private static boolean isDefaultValue(Object v) {

@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,8 +54,8 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
@@ -94,15 +96,17 @@ public class TestCommand implements BlazeCommand {
     }
   }
 
+  @VisibleForTesting
+  static final String STREAMED_OUTPUT_WARNING =
+      "Streamed test output requested. All tests will be run without sharding, one at a time"
+          + " (sequential execution forced by --test_strategy=exclusive). For parallel execution of"
+          + " multiple tests, use --test_output=errors or --test_output=all.";
+
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).getTestOutput();
     if (testOutput == TestOutputFormat.STREAMED) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Streamed test output requested. All tests will be run without sharding, "
-                      + "one at a time"));
+      env.getReporter().handle(Event.warn(STREAMED_OUTPUT_WARNING));
     }
 
     AnsiTerminalPrinter printer =
@@ -167,12 +171,7 @@ public class TestCommand implements BlazeCommand {
 
     BuildResult buildResult = new BuildTool(env).processRequest(request, null, options);
 
-    Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
-    // TODO(bazel-team): don't handle isEmpty here or fix up a bunch of tests
-    if (buildResult.getSuccessfulTargets() == null) {
-      // This can happen if there were errors in the target parsing or loading phase
-      // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
-      // (original exitcode=SUCCESS).
+    if (!request.getBuildOptions().getPerformAnalysisPhase()) {
       String message = "Couldn't start the build. Unable to run tests";
       env.getReporter().handle(Event.error(message));
       DetailedExitCode detailedExitCode =
@@ -189,8 +188,41 @@ public class TestCommand implements BlazeCommand {
               new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
       return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
-    // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
-    // more tests
+
+    Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
+    if (buildResult.getSuccessfulTargets() == null) {
+      if (buildResult.getSuccess() && !request.getBuildOptions().getPerformExecutionPhase()) {
+        if (testTargets.isEmpty()) {
+          String message = "No test targets were found, yet testing was requested";
+          env.getReporter().handle(Event.error(null, message));
+
+          DetailedExitCode detailedExitCode =
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setTestCommand(
+                          FailureDetails.TestCommand.newBuilder().setCode(Code.NO_TEST_TARGETS))
+                      .build());
+          env.getEventBus()
+              .post(new NoTestsFound(detailedExitCode.getExitCode(), buildResult.getStopTime()));
+          return BlazeCommandResult.detailedExitCode(detailedExitCode);
+        }
+        env.getEventBus()
+            .post(
+                new TestingCompleteEvent(
+                    buildResult.getDetailedExitCode().getExitCode(), buildResult.getStopTime()));
+        return BlazeCommandResult.detailedExitCode(buildResult.getDetailedExitCode());
+      }
+      // This can happen if there were errors in the target parsing or loading phase.
+      String message = "Couldn't start the build. Unable to run tests";
+      env.getReporter().handle(Event.error(message));
+      DetailedExitCode detailedExitCode = buildResult.getDetailedExitCode();
+      env.getEventBus()
+          .post(
+              new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
+      return BlazeCommandResult.detailedExitCode(detailedExitCode);
+    }
+
     if (testTargets.isEmpty()) {
       String message = "No test targets were found, yet testing was requested";
       env.getReporter().handle(Event.error(null, message));
@@ -246,9 +278,9 @@ public class TestCommand implements BlazeCommand {
     if (buildRequest.useValidationAspect()) {
       validatedTargets =
           buildResult.getSuccessfulAspects().stream()
-              .filter(key -> AspectCollection.VALIDATION_ASPECT_NAME.equals(key.getAspectName()))
+              .filter(key -> key.getAspectName().equals(AspectCollection.VALIDATION_ASPECT_NAME))
               .map(AspectKey::getBaseConfiguredTargetKey)
-              .collect(ImmutableSet.toImmutableSet());
+              .collect(toImmutableSet());
     } else {
       validatedTargets = null;
     }
@@ -263,22 +295,39 @@ public class TestCommand implements BlazeCommand {
         buildResult.getTestTargets(), buildResult.getSkippedTargets(), validatedTargets, notifier);
   }
 
-  private static TestLogPathFormatter makeTestLogPathFormatter(
+  @VisibleForTesting
+  public static TestLogPathFormatter makeTestLogPathFormatter(
       ImmutableMap<PathFragment, PathFragment> convenienceSymlinks,
       OptionsParsingResult options,
       CommandEnvironment env) {
-    BlazeRuntime runtime = env.getRuntime();
+    BlazeRuntime runtime = env != null ? env.getRuntime() : null;
     TestSummaryOptions summaryOptions = options.getOptions(TestSummaryOptions.class);
-    if (!summaryOptions.getPrintRelativeTestLogPaths()) {
-      return Path::getPathString;
+    UiOptions uiOptions = options.getOptions(UiOptions.class);
+    boolean useHyperlinks = uiOptions != null && uiOptions.useHyperlinks();
+    PathPrettyPrinter pathPrettyPrinter = null;
+    if (summaryOptions != null && summaryOptions.getPrintRelativeTestLogPaths()) {
+      String productName = runtime != null ? runtime.getProductName() : "bazel";
+      BuildRequestOptions requestOptions =
+          env != null && env.getOptions() != null
+              ? env.getOptions().getOptions(BuildRequestOptions.class)
+              : null;
+      String symlinkPrefix =
+          requestOptions != null ? requestOptions.getSymlinkPrefix(productName) : productName + "-";
+      PathFragment workingDirectory =
+          env != null ? env.getRelativeWorkingDirectory() : PathFragment.EMPTY_FRAGMENT;
+      pathPrettyPrinter =
+          new PathPrettyPrinter(workingDirectory, symlinkPrefix, convenienceSymlinks);
     }
-    String productName = runtime.getProductName();
-    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    PathPrettyPrinter pathPrettyPrinter =
-        new PathPrettyPrinter(
-            env.getRelativeWorkingDirectory(),
-            requestOptions.getSymlinkPrefix(productName),
-            convenienceSymlinks);
-    return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
+    PathPrettyPrinter finalPrettyPrinter = pathPrettyPrinter;
+    return path -> {
+      String displayPath =
+          finalPrettyPrinter != null
+              ? finalPrettyPrinter.getPrettyPath(path.asFragment()).getPathString()
+              : path.getPathString();
+      if (useHyperlinks) {
+        return AnsiTerminal.hyperlink(AnsiTerminal.fileUri(path.getPathString()), displayPath);
+      }
+      return displayPath;
+    };
   }
 }

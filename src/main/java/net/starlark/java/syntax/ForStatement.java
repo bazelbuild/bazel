@@ -31,7 +31,7 @@ public final class ForStatement extends Statement {
       Expression vars,
       Expression iterable,
       ImmutableList<Statement> body) {
-    super(locs, Kind.FOR);
+    super(locs);
     this.forOffset = forOffset;
     this.vars = Preconditions.checkNotNull(vars);
     this.iterable = Preconditions.checkNotNull(iterable);

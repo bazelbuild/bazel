@@ -17,6 +17,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/types.h>
+
+#include <cerrno>
 #include <cstdio>
 
 #ifndef _WIN32

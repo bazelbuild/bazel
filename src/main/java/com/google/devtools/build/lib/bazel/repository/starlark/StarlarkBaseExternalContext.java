@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
@@ -29,6 +28,7 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
+import com.google.devtools.build.lib.remote.LazyMaterializer;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.MaybeValue;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
@@ -62,6 +62,8 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -76,13 +78,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -93,7 +94,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -120,10 +120,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    *
    * <p>The main property of such tasks is that they should under no circumstances keep running
    * after fetching the repository is finished, whether successfully or not. To this end, the {@link
-   * #cancel()} method may be called to interrupt the work and {@link #close()} must be called to
-   * wait for all such work to finish.
+   * #cancel()} method must cancel all such work; {@link StarlarkBaseExternalContext#close()} then
+   * waits for any threads still executing cancelled work to finish.
    */
-  private interface AsyncTask extends SilentCloseable {
+  private interface AsyncTask {
     /** Returns a user-friendly description of the task. */
     String getDescription();
 
@@ -133,21 +133,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     /**
      * Cancels the task, if not done yet. Returns false if the task was still in progress.
      *
-     * <p>Note that the task may still be running after this method returns, the task has just got a
-     * signal to interrupt. Call {@link #close()} to wait for the task to finish.
+     * <p>Note that the task may still be running after this method returns. {@link
+     * StarlarkBaseExternalContext#close()} waits for it to finish.
      *
      * <p>No means of error reporting is provided. Any errors should be reported by other means. The
      * only possible error reported as a consequence of calling this method is one that tells the
      * user that they didn't wait for an async task they should have waited for.
      */
     boolean cancel();
-
-    /**
-     * Waits uninterruptibly until the task is no longer running, even in case it was cancelled but
-     * its underlying thread is still running.
-     */
-    @Override
-    void close();
   }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -168,6 +161,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final String identifyingStringForLogging;
   protected final Label.RepoMappingRecorder repoMappingRecorder;
   private final LinkedHashMap<RepoRecordedInput, String> recordedInputs = new LinkedHashMap<>();
+  private final Set<RepoRecordedInput> inputsChangedDuringEvaluation = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
@@ -231,11 +225,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
     // This is necessary because downloads may still be in progress and could end up writing to the
     // working directory during deletion, which would cause an error.
-    // Note that just calling executorService.close() doesn't suffice as it considers tasks to be
-    // completed immediately after they are cancelled, without waiting for their underlying thread
-    // to complete.
     executorService.close();
-    asyncTasks.forEach(AsyncTask::close);
 
     if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
       workingDirectory.deleteTree();
@@ -250,13 +240,32 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     repoMappingRecorder.storeInThread(thread);
   }
 
-  protected void recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
-    if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
-      throw new IllegalStateException(
-          "Conflicting values recorded for input %s: '%s' vs. '%s'"
-              .formatted(input, recordedInputs.get(input), value));
+  /**
+   * Records the given value for the given input and returns the recorded value, which is the value
+   * observed first if the input has already been recorded.
+   */
+  @CanIgnoreReturnValue
+  @Nullable
+  protected String recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
+    // Don't use putIfAbsent as null is a legitimate value.
+    if (!recordedInputs.containsKey(input)) {
+      recordedInputs.put(input, value);
+      return value;
     }
-    recordedInputs.put(input, value);
+    String recordedValue = recordedInputs.get(input);
+    if (!Objects.equals(recordedValue, value) && inputsChangedDuringEvaluation.add(input)) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  """
+                  %s during the evaluation of %s, which will cause it to be re-evaluated the next \
+                  time Bazel is run. Report this issue to its maintainers.\
+                  """
+                      .formatted(
+                          input.describeChange(recordedValue, value),
+                          identifyingStringForLogging)));
+    }
+    return recordedValue;
   }
 
   @CanIgnoreReturnValue
@@ -269,10 +278,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
     return switch (maybeValue) {
       case MaybeValue.Invalid(String reason) -> throw new IOException(reason);
-      case MaybeValue.Valid(String value) -> {
-        recordInputWithValue(input, value);
-        yield value;
-      }
+      case MaybeValue.Valid(String value) -> recordInputWithValue(input, value);
     };
   }
 
@@ -336,7 +342,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
-        URI url = new URI(entry.getKey());
+        URI url = HttpUtils.parseUrl(entry.getKey());
         Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
           if (Objects.equals(authMap.get("type"), "basic")) {
@@ -346,14 +352,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                       + " provided.",
                   entry.getKey());
             }
-            String credentials = authMap.get("login") + ":" + authMap.get("password");
             headers.put(
                 url,
                 ImmutableMap.of(
                     "Authorization",
                     ImmutableList.of(
-                        "Basic "
-                            + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8)))));
+                        BasicHttpAuthenticationEncoder.encode(
+                            String.valueOf(authMap.get("login")),
+                            String.valueOf(authMap.get("password"))))));
           } else if (Objects.equals(authMap.get("type"), "pattern")) {
             if (!authMap.containsKey("pattern")) {
               throw Starlark.errorf(
@@ -441,6 +447,19 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return result.build();
   }
 
+  /** Returns true if the URL targets localhost (127.0.0.1, ::1, or localhost). */
+  private static boolean isLocalhostUrl(URI url) {
+    String host = url.getHost();
+    if (host == null) {
+      return false;
+    }
+    // URI.getHost() may return IPv6 literals with or without brackets depending on JDK version.
+    return Ascii.equalsIgnoreCase(host, "localhost")
+        || host.equals("127.0.0.1")
+        || host.equals("::1")
+        || host.equals("[::1]");
+  }
+
   private static ImmutableList<URI> getUrls(
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
@@ -457,7 +476,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     for (String urlString : urlStrings) {
       URI url;
       try {
-        url = new URI(urlString);
+        url = HttpUtils.parseUrl(urlString);
       } catch (URISyntaxException e) {
         throw new RepositoryFunctionException(
             new IOException("Bad URL: " + urlString, e), Transience.PERSISTENT);
@@ -467,7 +486,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             new IOException("Unsupported protocol: " + url.getScheme()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        if (!Ascii.equalsIgnoreCase("http", url.getScheme())) {
+        if (!Ascii.equalsIgnoreCase("http", url.getScheme()) || isLocalhostUrl(url)) {
           urls.add(url);
         }
       } else {
@@ -575,7 +594,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     private final Optional<Checksum> checksum;
     private final RepositoryFunctionException checksumValidation;
     private final Future<Path> future;
-    private final Phaser downloadPhaser;
     private final Location location;
 
     private PendingDownload(
@@ -585,7 +603,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
         Optional<Checksum> checksum,
         RepositoryFunctionException checksumValidation,
         Future<Path> future,
-        Phaser downloadPhaser,
         Location location) {
       this.executable = executable;
       this.allowFail = allowFail;
@@ -593,7 +610,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       this.checksum = checksum;
       this.checksumValidation = checksumValidation;
       this.future = future;
-      this.downloadPhaser = downloadPhaser;
       this.location = location;
     }
 
@@ -609,19 +625,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      return !future.cancel(false);
-    }
-
-    @Override
-    public void close() {
-      if (downloadPhaser.register() != 0) {
-        // Not in the download phase, either the download completed normally or
-        // it has completed after a cancellation.
-        return;
-      }
-      try (SilentCloseable c = Profiler.instance().profile("Cancelling download " + outputPath)) {
-        downloadPhaser.arriveAndAwaitAdvance();
-      }
+      return !future.cancel(true);
     }
 
     @StarlarkMethod(
@@ -668,8 +672,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
           Starlark.errorf(
               "Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
           Transience.PERSISTENT);
-    } finally {
-      pendingDownload.close();
     }
     if (pendingDownload.checksumValidation != null) {
       throw pendingDownload.checksumValidation;
@@ -742,7 +744,10 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             doc =
                 """
                 If set, indicate the error in the return value \
-                instead of raising an error for failed downloads.
+                instead of raising an error for failed downloads. A failed download may \
+                leave a partially downloaded file at the output path, or a file that \
+                doesn't match <code>sha256</code> or <code>integrity</code>, so check \
+                <code>success</code> before using the file.
                 """),
         @Param(
             name = "canonical_id",
@@ -827,7 +832,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
       checksumValidation = e;
     }
 
-    StarlarkPath outputPath = getPath(output);
+    StarlarkPath outputPath = getPath(output, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadEvent(
             urls,
@@ -843,7 +848,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
     } catch (IOException e) {
-      Phaser downloadPhaser = new Phaser();
       download =
           new PendingDownload(
               executable,
@@ -852,11 +856,9 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               Futures.immediateFailedFuture(e),
-              downloadPhaser,
               thread.getCallerLocation());
     }
     if (download == null) {
-      Phaser downloadPhaser = new Phaser();
       Future<Path> downloadFuture =
           downloadManager.startDownload(
               executorService,
@@ -869,7 +871,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               outputPath.getPath(),
               nonstrictRepoEnv,
               identifyingStringForLogging,
-              downloadPhaser,
               // The repo rule may modify the file after the download, so we cannot guarantee that
               // hardlinking is safe.
               /* mayHardlink= */ false);
@@ -881,7 +882,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               downloadFuture,
-              downloadPhaser,
               thread.getCallerLocation());
       registerAsyncTask(download);
     }
@@ -1116,17 +1116,16 @@ Strip the given number of leading components from file paths on extraction. Only
             identifyingStringForLogging,
             thread.getCallerLocation());
 
-    StarlarkPath outputPath = getPath(output);
+    StarlarkPath outputPath = getPath(output, thread);
     checkInOutputDirectory("write", outputPath);
     createDirectory(outputPath.getPath());
 
     Path downloadedPath;
-    Path downloadDirectory;
+    Path downloadDirectory = null;
     try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
       downloadDirectory = outputPath.getPath().createTempDirectory("temp");
 
-      Phaser downloadPhaser = new Phaser();
       Future<Path> pendingDownload =
           downloadManager.startDownload(
               executorService,
@@ -1139,7 +1138,6 @@ Strip the given number of leading components from file paths on extraction. Only
               downloadDirectory,
               nonstrictRepoEnv,
               identifyingStringForLogging,
-              downloadPhaser,
               // The archive is not going to be modified and not accessible to the user, so its safe
               // to hardlink.
               /* mayHardlink= */ true);
@@ -1153,13 +1151,16 @@ Strip the given number of leading components from file paths on extraction. Only
               checksum,
               checksumValidation,
               pendingDownload,
-              downloadPhaser,
               thread.getCallerLocation());
       registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
+        // Ensure deterministic contents of the repo directory in case it recovers.
+        if (downloadDirectory != null) {
+          deleteTreeWithRetries(downloadDirectory);
+        }
         ImmutableMap<String, Object> struct =
             ImmutableMap.of("success", false, "error", e.toString());
         return StarlarkInfo.create(StructProvider.STRUCT, struct);
@@ -1212,7 +1213,7 @@ Strip the given number of leading components from file paths on extraction. Only
    * https://github.com/bazelbuild/bazel/issues/20013 for further details.
    */
   private static void deleteTreeWithRetries(Path downloadDirectory)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     Instant start = Instant.now();
     Instant deadline = start.plus(Duration.ofSeconds(5));
 
@@ -1240,6 +1241,12 @@ Strip the given number of leading components from file paths on extraction. Only
                       + e.getMessage(),
                   e),
               Transience.TRANSIENT);
+        }
+        try {
+          Thread.sleep(Math.min(100, attempts * 10L));
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw ie;
         }
       }
     }
@@ -1357,7 +1364,7 @@ Strip the given number of leading components from file paths on extraction. Only
     stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
     int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
     validateStripping("extract", stripPrefix, stripComponents);
-    StarlarkPath archivePath = getPath(archive);
+    StarlarkPath archivePath = getPath(archive, thread);
 
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
@@ -1368,7 +1375,7 @@ Strip the given number of leading components from file paths on extraction. Only
     }
     maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
 
-    StarlarkPath outputPath = getPath(output);
+    StarlarkPath outputPath = getPath(output, thread);
     checkInOutputDirectory("write", outputPath);
 
     Map<String, String> renameFilesMap =
@@ -1503,7 +1510,7 @@ Strip the given number of leading components from file paths on extraction. Only
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p = getPath(path, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newFileEvent(
             p.toString(),
@@ -1528,6 +1535,182 @@ Strip the given number of leading components from file paths on extraction. Only
       throw new RepositoryFunctionException(
           Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
+  }
+
+  @StarlarkMethod(
+      name = "copy",
+      doc =
+          """
+          Copies the file or directory at <code>src</code> to <code>dst</code>. \
+          <p>A copied file is always writable and its executable bit is determined by \
+          <code>executable</code>, not by the source. If <code>src</code> is a symlink, the file \
+          it points to is copied. Parent directories of <code>dst</code> are created as needed \
+          and an existing file or symlink at <code>dst</code> is replaced, but it is an error if \
+          <code>dst</code> is a directory. \
+          <p>A directory is copied recursively, as if each file in it were copied individually: \
+          symlinks are followed so that the copy doesn't contain any, existing files below \
+          <code>dst</code> are overwritten and all other files below <code>dst</code> are kept. \
+          It is an error if <code>dst</code> or any directory to be created below it already \
+          exists as a file or symlink. <code>src</code> and <code>dst</code> must not overlap. \
+          <p>On file systems that support it, a file is copied as a copy-on-write clone that \
+          doesn't take up additional disk space. \
+          """,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "src",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "The path of the existing file or directory to copy."),
+        @Param(
+            name = "dst",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "The path of the copy to create, relative to the repository directory."),
+        @Param(
+            name = "executable",
+            defaultValue = "True",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to make the copied files executable. To make only some of the files in a \
+                directory executable, copy the directory with <code>executable = False</code> \
+                and then copy the files that should be executable individually.
+                """),
+        @Param(
+            name = "watch_src",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to <a href="#watch">watch</a> the source file or directory. Can be the \
+                string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately \
+                invoking the <a href="#watch"><code>watch()</code></a> method for a file and \
+                the <a href="repository_ctx.html#watch_tree"><code>watch_tree()</code></a> \
+                method for a directory; passing 'no' does not attempt to watch the source; \
+                passing 'auto' will only attempt to watch the source when it is legal to do so \
+                (see <code>watch()</code> docs for more information).
+                """),
+      })
+  public void copy(
+      Object src, Object dst, Boolean executable, String watchSrc, StarlarkThread thread)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    StarlarkPath srcPath = getPath(src, thread);
+    StarlarkPath dstPath = getPath(dst, thread);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newCopyEvent(
+            srcPath.toString(),
+            dstPath.toString(),
+            executable,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+    boolean isDir = srcPath.isDir();
+    if (isDir) {
+      maybeWatchTree(srcPath.getPath(), ShouldWatch.fromString(watchSrc), ImmutableList.of());
+    } else {
+      maybeWatch(srcPath, ShouldWatch.fromString(watchSrc));
+    }
+    try {
+      checkInOutputDirectory("write", dstPath);
+      makeDirectories(dstPath.getPath());
+      if (isDir) {
+        createCopyDirectory(dstPath.getPath());
+        copyTree(
+            srcPath.getPath().resolveSymbolicLinks(),
+            dstPath.getPath(),
+            dstPath.getPath().resolveSymbolicLinks(),
+            executable,
+            new HashSet<>());
+      } else {
+        copyFile(srcPath.getPath(), dstPath.getPath(), executable);
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Could not copy " + srcPath + " to " + dstPath + ": " + e.getMessage(), e),
+          Transience.TRANSIENT);
+    } catch (InvalidPathException | EvalException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not copy %s to %s: %s", srcPath, dstPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+  }
+
+  private static void copyFile(Path src, Path dst, boolean executable)
+      throws IOException, EvalException {
+    if (dst.isDirectory(Symlinks.NOFOLLOW)) {
+      throw Starlark.errorf("%s is a directory", dst);
+    }
+    FileSystemUtils.copyFile(src, dst);
+    // The copy has to remain modifiable by later steps of the repo rule such as patching. Its
+    // permissions don't depend on the source since watching the source only tracks its contents.
+    dst.chmod(executable ? 0755 : 0644);
+  }
+
+  /** Creates {@code dir} unless it already exists as a directory, never following symlinks. */
+  private static void createCopyDirectory(Path dir) throws IOException, EvalException {
+    FileStatus stat = dir.statIfFound(Symlinks.NOFOLLOW);
+    if (stat == null) {
+      dir.createDirectory();
+    } else if (stat.isSymbolicLink()) {
+      throw Starlark.errorf("%s is a symlink", dir);
+    } else if (!stat.isDirectory()) {
+      throw Starlark.errorf("%s is not a directory", dir);
+    }
+  }
+
+  /**
+   * Copies the files in the directory {@code src} to the existing directory {@code dst} in the same
+   * way as {@link #copyFile} would copy each of them individually, following all symlinks.
+   *
+   * <p>We don't use {@link FileSystemUtils#copyTreesBelow} as it would copy symlinks as-is, but
+   * tree watches only take the resolved content into account (which is the only consistent behavior
+   * across Unix and Windows).
+   *
+   * @param src the directory to copy, with all symlinks resolved
+   * @param dstRoot the directory that the top-level source directory is copied to, with all
+   *     symlinks resolved
+   * @param ancestors the directories that are currently being copied, with all symlinks resolved
+   */
+  private static void copyTree(
+      Path src, Path dst, Path dstRoot, boolean executable, Set<Path> ancestors)
+      throws IOException, EvalException {
+    if (src.startsWith(dstRoot) || dstRoot.startsWith(src)) {
+      // Copying would never terminate as it keeps picking up its own output.
+      throw Starlark.errorf("%s and %s overlap", src, dstRoot);
+    }
+    if (!ancestors.add(src)) {
+      throw Starlark.errorf("%s is part of a symlink cycle", src);
+    }
+    for (Dirent dirent : src.readdir(Symlinks.NOFOLLOW)) {
+      Path srcChild = src.getChild(dirent.getName());
+      Path dstChild = dst.getChild(dirent.getName());
+      Dirent.Type type = dirent.getType();
+      if (type == Dirent.Type.SYMLINK) {
+        FileStatus stat = srcChild.statIfFound(Symlinks.FOLLOW);
+        if (stat == null) {
+          throw Starlark.errorf("%s is a dangling symlink", srcChild);
+        }
+        srcChild = srcChild.resolveSymbolicLinks();
+        type = stat.isDirectory() ? Dirent.Type.DIRECTORY : Dirent.Type.FILE;
+      }
+      if (type == Dirent.Type.DIRECTORY) {
+        createCopyDirectory(dstChild);
+        copyTree(srcChild, dstChild, dstRoot, executable, ancestors);
+      } else {
+        copyFile(srcChild, dstChild, executable);
+      }
+    }
+    ancestors.remove(src);
   }
 
   // Move to a common location like net.starlark.java.eval.Starlark?
@@ -1593,11 +1776,13 @@ Strip the given number of leading components from file paths on extraction. Only
             doc =
                 "<code>string</code>, <code>Label</code> or <code>path</code> from which to create"
                     + " a path from.")
-      })
-  public StarlarkPath getPath(Object path) throws EvalException, InterruptedException {
+      },
+      useStarlarkThread = true)
+  public StarlarkPath getPath(Object path, StarlarkThread thread)
+      throws EvalException, InterruptedException {
     return switch (path) {
       case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
-      case Label label -> getPathFromLabel(label);
+      case Label label -> getPathFromLabel(label, /* materialize= */ true, thread);
       case StarlarkPath starlarkPath -> starlarkPath;
       // This can never happen because we check it in the Starlark interpreter.
       default -> throw new IllegalArgumentException("expected string or label for path");
@@ -1634,7 +1819,11 @@ Strip the given number of leading components from file paths on extraction. Only
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p =
+        path instanceof Label label
+            // Only the file itself is read, which doesn't require the rest of its repo.
+            ? getPathFromLabel(label, /* materialize= */ false, thread)
+            : getPath(path, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -1736,6 +1925,11 @@ Strip the given number of leading components from file paths on extraction. Only
     }
   }
 
+  /**
+   * Records a watch on a directory's non-recursive contents.
+   *
+   * <p>Callers must have checked recently that the given path points to a directory.
+   */
   protected void maybeWatchDirents(Path path, ShouldWatch shouldWatch)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     RepoCacheFriendlyPath repoCacheFriendlyPath = toRepoCacheFriendlyPath(path, shouldWatch);
@@ -1743,7 +1937,32 @@ Strip the given number of leading components from file paths on extraction. Only
       return;
     }
     try {
+      // Dirents can only be recorded for directories, so we have to additionally track the type of
+      // the file. When checking for invalidation, the type is verified first and if it doesn't
+      // match, the directory entries are never requested.
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
       getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  /**
+   * Records a watch on a directory's recursive contents.
+   *
+   * <p>Callers must have checked recently that the given path points to a directory.
+   */
+  protected void maybeWatchTree(Path path, ShouldWatch shouldWatch, ImmutableList<String> excludes)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    RepoCacheFriendlyPath repoCacheFriendlyPath = toRepoCacheFriendlyPath(path, shouldWatch);
+    if (repoCacheFriendlyPath == null) {
+      return;
+    }
+    try {
+      // Requesting a DirTree for a path that is no longer a directory fails the build rather than
+      // invalidating the repo, so the type is recorded first and checked before the DirTree.
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
+      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath, excludes));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1775,10 +1994,11 @@ Strip the given number of leading components from file paths on extraction. Only
               @ParamType(type = StarlarkPath.class)
             },
             doc = "Path of the file to watch."),
-      })
-  public void watchForStarlark(Object path)
+      },
+      useStarlarkThread = true)
+  public void watchForStarlark(Object path, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    maybeWatch(getPath(path), ShouldWatch.YES);
+    maybeWatch(getPath(path, thread), ShouldWatch.YES);
   }
 
   // Create parent directories for the given path
@@ -1862,9 +2082,9 @@ Strip the given number of leading components from file paths on extraction. Only
 
   protected abstract ImmutableMap<String, String> getRemoteExecProperties() throws EvalException;
 
-  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label)
+  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Path localPath = getPathFromLabel(label).getPath();
+    Path localPath = getPathFromLabel(label, /* materialize= */ true, thread).getPath();
     PathFragment remotePath =
         label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
     return Maps.immutableEntry(remotePath, localPath);
@@ -1875,7 +2095,8 @@ Strip the given number of leading components from file paths on extraction. Only
       int timeout,
       Map<String, String> environment,
       boolean quiet,
-      String workingDirectory)
+      String workingDirectory,
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     checkState(canExecuteRemote());
 
@@ -1884,7 +2105,7 @@ Strip the given number of leading components from file paths on extraction. Only
     ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
     for (Object argumentUnchecked : argumentsUnchecked) {
       if (argumentUnchecked instanceof Label label) {
-        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label);
+        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label, thread);
         argumentsBuilder.add(remotePath.getKey().toString());
         inputsBuilder.put(remotePath);
       } else {
@@ -1907,8 +2128,8 @@ Strip the given number of leading components from file paths on extraction. Only
               workingDirectory,
               Duration.ofSeconds(timeout));
 
-      String stdout = new String(result.stdout(), StandardCharsets.US_ASCII);
-      String stderr = new String(result.stderr(), StandardCharsets.US_ASCII);
+      String stdout = new String(result.stdout(), ISO_8859_1);
+      String stderr = new String(result.stderr(), ISO_8859_1);
 
       if (!quiet) {
         OutErr outErr = OutErr.SYSTEM_OUT_ERR;
@@ -2042,7 +2263,7 @@ Strip the given number of leading components from file paths on extraction. Only
       // Remote execution only sees the explicitly set environment variables, so removing env vars
       // isn't necessary.
       return executeRemote(
-          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory);
+          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory, thread);
     }
 
     // Execute on the local/host machine
@@ -2050,7 +2271,7 @@ Strip the given number of leading components from file paths on extraction. Only
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
       if (arg instanceof Label label) {
-        args.add(getPathFromLabel(label).toString());
+        args.add(getPathFromLabel(label, /* materialize= */ true, thread).toString());
       } else {
         // String or StarlarkPath expected
         args.add(arg.toString());
@@ -2081,7 +2302,7 @@ Strip the given number of leading components from file paths on extraction. Only
 
     Path workingDirectoryPath;
     if (overrideWorkingDirectory != null && !overrideWorkingDirectory.isEmpty()) {
-      workingDirectoryPath = getPath(overrideWorkingDirectory).getPath();
+      workingDirectoryPath = getPath(overrideWorkingDirectory, thread).getPath();
     } else {
       workingDirectoryPath = workingDirectory;
     }
@@ -2172,7 +2393,7 @@ Strip the given number of leading components from file paths on extraction. Only
   public StarlarkWasmModule loadWasm(
       Object path, boolean compile, String allocateFn, String watch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p = getPath(path, thread);
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newLoadWasmEvent(
@@ -2293,7 +2514,7 @@ func(
         wasmModule = m;
         path = m.getPath();
       }
-      default -> path = getPath(pathOrModule);
+      default -> path = getPath(pathOrModule, thread);
     }
     ;
 
@@ -2392,32 +2613,38 @@ func(
     return null;
   }
 
-  // Resolve the label given by value into a file path.
-  protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+  /**
+   * Records that the fetch referred to the given repo by Label, so that the repo is fetched before
+   * the recording one is considered up to date.
+   */
+  protected void recordRepoDependency(RepositoryName repo)
+      throws EvalException, InterruptedException {}
+
+  /**
+   * Resolves the label into a file path.
+   *
+   * @param materialize whether the repo containing the file has to be available on the native file
+   *     system
+   */
+  protected StarlarkPath getPathFromLabel(Label label, boolean materialize, StarlarkThread thread)
+      throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
     }
-    if (!label.getRepository().isMain()
+    recordRepoDependency(label.getRepository());
+    if (materialize
+        && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
-            instanceof RemoteExternalOverlayFileSystem remoteFs) {
+            instanceof LazyMaterializer lazyMaterializer) {
       try {
-        remoteFs.ensureMaterialized(label.getRepository(), env.getListener());
+        lazyMaterializer.ensureMaterialized(
+            label.getRepository(), thread.getCallerLocation(), env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
       }
     }
-    StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
-    try {
-      maybeWatch(
-          starlarkPath,
-          starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL)
-              ? ShouldWatch.NO
-              : ShouldWatch.AUTO);
-    } catch (RepositoryFunctionException e) {
-      throw Starlark.errorf("%s", e.getCause().getMessage());
-    }
-    return starlarkPath;
+    return new StarlarkPath(this, rootedPath.asPath());
   }
 }

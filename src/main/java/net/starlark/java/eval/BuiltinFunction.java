@@ -27,6 +27,8 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 
 /**
  * A BuiltinFunction is a callable Starlark value that reflectively invokes a {@link
@@ -255,9 +257,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
     /**
      * Constructs an ArgumentProcessor for a call to the StarlarkMethod-annotated Java method.
      *
-     * <p>The only work done at construction time is allocating the argument vector, and, only if
-     * the method accepts extra args and/or extra kwargs, allocating the varArgs list and/or kwargs
-     * map.
+     * <p>The only work done at construction time is allocating the argument vector.
      *
      * @param thread the Starlark thread for the call
      * @param desc descriptor for the StarlarkMethod-annotated method
@@ -279,11 +279,9 @@ public sealed class BuiltinFunction implements StarlarkCallable
 
       int n = parameters.length;
       if (desc.acceptsExtraArgs()) {
-        varArgs = new ArrayList<>();
         n++;
       }
       if (desc.acceptsExtraKwargs()) {
-        kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
         n++;
       }
       if (desc.isUseStarlarkThread()) {
@@ -321,7 +319,10 @@ public sealed class BuiltinFunction implements StarlarkCallable
         checkParamValue(param, value);
         vector[paramIndex++] = value;
         argIndex++;
-      } else if (varArgs != null) {
+      } else if (desc.acceptsExtraArgs()) {
+        if (varArgs == null) {
+          varArgs = new ArrayList<>();
+        }
         varArgs.add(value);
       } else {
         unexpectedPositionalArgCount++;
@@ -335,7 +336,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
       // unknown parameter?
       if (index < 0) {
         // spill to **kwargs
-        if (kwargs == null) {
+        if (!desc.acceptsExtraKwargs()) {
           ImmutableList<String> allNames =
               Arrays.stream(parameters)
                   .map(ParamDescriptor::getName)
@@ -344,6 +345,10 @@ public sealed class BuiltinFunction implements StarlarkCallable
               Starlark.errorf(
                   "%s() got unexpected keyword argument '%s'%s",
                   owner.getName(), name, SpellChecker.didYouMean(name, allNames)));
+        }
+
+        if (kwargs == null) {
+          kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
         }
 
         // duplicate named argument?
@@ -359,11 +364,15 @@ public sealed class BuiltinFunction implements StarlarkCallable
       // positional-only param?
       if (!param.isNamed()) {
         // spill to **kwargs
-        if (kwargs == null) {
+        if (!desc.acceptsExtraKwargs()) {
           pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got named argument for positional-only parameter '%s'",
                   owner.getName(), name));
+        }
+
+        if (kwargs == null) {
+          kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
         }
 
         // duplicate named argument?
@@ -440,10 +449,14 @@ public sealed class BuiltinFunction implements StarlarkCallable
 
       int i = parameters.length;
       if (desc.acceptsExtraArgs()) {
-        vector[i++] = Tuple.wrap(varArgs.toArray());
+        vector[i++] =
+            (varArgs == null || varArgs.isEmpty()) ? Tuple.empty() : Tuple.wrap(varArgs.toArray());
       }
       if (desc.acceptsExtraKwargs()) {
-        vector[i++] = Dict.wrap(thread.mutability(), kwargs);
+        vector[i++] =
+            (kwargs == null || kwargs.isEmpty())
+                ? Dict.of(thread.mutability())
+                : Dict.wrap(thread.mutability(), kwargs);
       }
       if (desc.isUseStarlarkThread()) {
         vector[i++] = thread;
@@ -525,15 +538,22 @@ public sealed class BuiltinFunction implements StarlarkCallable
   }
 
   /**
-   * A {@link BuiltinFunction} whose symbol is also a type constructor; for example, {@code list} is
-   * used both as a function that returns list values ({@code l = list((1, 2, 3))}) and a
-   * constructor for list types ({@code type T = list[int]}).
+   * A {@link BuiltinFunction} whose symbol is also a type constructor (and therefore also a reified
+   * type); for example, {@code list} is used both as a function that returns list values ({@code l
+   * = list((1, 2, 3))}), as a constructor for list types ({@code type T = list[int]}), and as a
+   * reified type value denoting {@code list[Any]}.
+   *
+   * <p>For the Starlark type system, it means that a {@link BuiltinTypeFunction} symbol is both a
+   * {@code Callable} and a {@code Type}.
    */
   // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
   // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
   static final class BuiltinTypeFunction extends BuiltinFunction implements TypeConstructor {
+    private final BuiltinTypeFunctionType type;
+
     private BuiltinTypeFunction(Object obj, MethodDescriptor desc) {
       super(obj, desc);
+      this.type = new BuiltinTypeFunctionType(desc.getStarlarkType());
     }
 
     @Override
@@ -549,6 +569,33 @@ public sealed class BuiltinFunction implements StarlarkCallable
       TypeConstructor tc = desc.getManager().getTypeConstructor(tcProxy);
       Preconditions.checkArgument(tc != null, "invalid type constructor proxy: %s", tcProxy);
       return tc.createStarlarkType(argsTuple);
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+      return type;
+    }
+
+    /**
+     * The {@link StarlarkType} of a {@link BuiltinTypeFunction} symbol. At evaluation time, such a
+     * symbol can be used both as a callable value and as (reified) type.
+     */
+    private static final class BuiltinTypeFunctionType extends StarlarkType {
+      private final StarlarkType callableType;
+
+      private BuiltinTypeFunctionType(StarlarkType callableType) {
+        this.callableType = callableType;
+      }
+
+      @Override
+      public String typeRepr() {
+        return String.format("<builtin constructor %s>", callableType.typeRepr());
+      }
+
+      @Override
+      public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
+        return ImmutableList.of(callableType, Types.TYPE);
+      }
     }
   }
 }

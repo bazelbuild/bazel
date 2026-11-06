@@ -769,6 +769,15 @@ public final class BuildType {
     }
 
     /**
+     * Returns the value to use when none of the attribute's selection keys match, or {@link
+     * Starlark#NONE} if the default condition was explicitly specified as {@code None}.
+     */
+    @Nullable
+    public Object getStarlarkDefault() {
+      return isValueSet(DEFAULT_CONDITION_LABEL) ? getDefault() : Starlark.NONE;
+    }
+
+    /**
      * Returns a new {@link ArrayList} containing all the values in the entries of this {@link
      * Selector}, in the same order they were initially specified.
      *
@@ -792,6 +801,17 @@ public final class BuildType {
       // the ordering of our original map, so we use LinkedHashMap instead of HashMap.
       LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(getNumEntries());
       forEach(result::put);
+      return result;
+    }
+
+    /**
+     * Returns a new {@link Map} representing the branches of this {@link Selector}, in the same
+     * order they were initially specified, mapping conditions with {@code None} value to {@link
+     * Starlark#NONE}.
+     */
+    public Map<Label, Object> starlarkMapCopy() {
+      LinkedHashMap<Label, Object> result = Maps.newLinkedHashMapWithExpectedSize(getNumEntries());
+      forEach((label, value) -> result.put(label, isValueSet(label) ? value : Starlark.NONE));
       return result;
     }
 

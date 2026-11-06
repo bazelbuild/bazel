@@ -15,6 +15,8 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <notify.h>
 
+#include <cstdint>
+
 #include "src/main/cpp/util/logging.h"
 #include "src/main/native/darwin/util.h"
 #include "src/main/native/unix_jni.h"

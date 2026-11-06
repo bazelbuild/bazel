@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -113,9 +112,7 @@ abstract class ArtifactFunctionTestCase {
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
-                        null,
-                        CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
+                        null, BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(actionKeyContext))

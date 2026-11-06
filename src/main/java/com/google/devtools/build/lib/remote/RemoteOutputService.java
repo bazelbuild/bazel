@@ -25,8 +25,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.OutputChecker;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -68,10 +70,11 @@ public class RemoteOutputService implements OutputService {
     this.remoteOutputChecker = remoteOutputChecker;
   }
 
-  void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
+  void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher, WalkableGraph graph) {
     this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
     if (rewindLostInputs) {
-      this.rewoundActionSynchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher);
+      this.rewoundActionSynchronizer =
+          new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
     }
   }
 
@@ -166,7 +169,7 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, InterruptedException {
+      throws IOException, LostInputsExecException, InterruptedException {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, outputMetadataStore);
     }

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.applyAndValidate;
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkAttributesCollection.ERROR_MESSAGE_FOR_NO_ATTR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.LinkedHashMap;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
@@ -48,10 +48,14 @@ import net.starlark.java.eval.StarlarkSemantics;
  * <p>For starlark defined rule class transitions, see {@link StarlarkRuleTransitionProvider}.
  *
  * <p>TODO(bazel-team): Consider allowing dependency-typed attributes to actually return providers
- * instead of just labels (see {@link StarlarkAttributesCollection#addAttribute}).
+ * instead of just labels (see {@code StarlarkAttributesCollection#addAttribute}).
  */
 public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
+
+  public static final String ERROR_MESSAGE_FOR_NO_ATTR =
+      "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
+
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   public StarlarkAttributeTransitionProvider(
@@ -70,7 +74,24 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
+  public boolean equals(Object obj) {
+    return obj instanceof StarlarkAttributeTransitionProvider other
+        && getClass() == obj.getClass()
+        && starlarkDefinedConfigTransition.equals(other.starlarkDefinedConfigTransition);
+  }
+
+  @Override
   public SplitTransition create(AttributeTransitionData data) {
+    return createWithScopeDetails(data, StarlarkBuildSettingsDetailsValue.EMPTY);
+  }
+
+  /**
+   * Creates a {@link FunctionSplitTransition} with the given scope details. Only the exec
+   * transition reads them, see {@link
+   * com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionProvider}.
+   */
+  protected SplitTransition createWithScopeDetails(
+      AttributeTransitionData data, StarlarkBuildSettingsDetailsValue scopeDetails) {
     AttributeMap attributeMap = data.attributes();
     Preconditions.checkArgument(
         attributeMap == null || attributeMap instanceof ConfiguredAttributeMapper);
@@ -78,7 +99,7 @@ public class StarlarkAttributeTransitionProvider
     // done in StarlarkRuleTransitionProvider. This could benefit builds that apply transitions over
     // many build graph edges.
     return new FunctionSplitTransition(
-        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
+        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap, scopeDetails);
   }
 
   public boolean allowImmutableFlagChanges() {
@@ -106,12 +127,15 @@ public class StarlarkAttributeTransitionProvider
 
   final class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
     private final StructImpl attrObject;
+    private final StarlarkBuildSettingsDetailsValue scopeDetails;
     private final int hashCode;
 
     private FunctionSplitTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
-        ConfiguredAttributeMapper attributeMap) {
+        ConfiguredAttributeMapper attributeMap,
+        StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(starlarkDefinedConfigTransition);
+      this.scopeDetails = scopeDetails;
 
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       if (attributeMap != null) {
@@ -131,7 +155,8 @@ public class StarlarkAttributeTransitionProvider
         }
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
-      this.hashCode = Objects.hash(attrObject, super.hashCode());
+      int hash = HashCodes.MULTIPLIER * attrObject.hashCode() + super.hashCode();
+      this.hashCode = HashCodes.MULTIPLIER * hash + System.identityHashCode(scopeDetails);
     }
 
     /**
@@ -152,7 +177,8 @@ public class StarlarkAttributeTransitionProvider
               allowImmutableFlagChanges(),
               isExecTransitionProvider(),
               attrObject,
-              eventHandler);
+              eventHandler,
+              scopeDetails);
       if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());
       }
@@ -172,7 +198,9 @@ public class StarlarkAttributeTransitionProvider
       if (!(object instanceof FunctionSplitTransition other)) {
         return false;
       }
-      return Objects.equals(attrObject, other.attrObject) && super.equals(other);
+      return scopeDetails == other.scopeDetails
+          && Objects.equals(attrObject, other.attrObject)
+          && super.equals(other);
     }
 
     @Override

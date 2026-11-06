@@ -29,6 +29,8 @@ load(
 )
 load("@_builtins//:common/util.bzl", "dict_union")
 
+_: Any  # Enable type checking.
+
 exported_rules = dict_union(common_exported_rules, bazel_exported_rules)
 exported_toplevels = dict_union(common_exported_toplevels, bazel_exported_toplevels)
 exported_to_java = dict_union(common_exported_to_java, bazel_exported_to_java)

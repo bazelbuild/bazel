@@ -35,7 +35,9 @@ public interface ConfiguredTargetValue extends ConfiguredObjectValue {
   /**
    * Returns the {@link TargetData} projection for this value.
    *
-   * <p>This is only present for remote cached configured targets.
+   * <p>This is only present for remote cached configured targets. This is necessary because we need
+   * data from the associated target to analyze direct rdeps but when the configured target comes
+   * from the remote analysis cache, we cannot assume that the associated package is in RAM.
    */
   @Nullable
   default TargetData getTargetData() {

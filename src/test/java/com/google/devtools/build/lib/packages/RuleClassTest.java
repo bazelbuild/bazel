@@ -975,6 +975,96 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             + " boolean cannot be used in an outputs substitution template");
   }
 
+  @Test
+  public void implicitOutputs_unsetLabelAttribute_nativeRule_producesNoOutput() throws Exception {
+    RuleClass ruleClass =
+        newRuleClass(
+            "ruleClass",
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.fromTemplates("%{src}.out"),
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("src", LABEL).legacyAllowAnyFileType().build());
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("name", "myrule");
+
+    Rule myRule = createRule(ruleClass, "myrule", attributeValues);
+    assertThat(myRule.containsErrors()).isFalse();
+    assertThat(myRule.getOutputFiles()).isEmpty();
+  }
+
+  @Test
+  public void
+      implicitOutputs_missingMandatoryLabelAttribute_nativeRule_failsWithMissingAttributeErrorOnly()
+          throws Exception {
+    RuleClass ruleClass =
+        newRuleClass(
+            "ruleClass",
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.fromTemplates("%{src}.out"),
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("src", LABEL).mandatory().legacyAllowAnyFileType().build());
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("name", "myrule");
+
+    reporter.removeHandler(failFastHandler);
+    Rule myRule = createRule(ruleClass, "myrule", attributeValues);
+    assertThat(myRule.containsErrors()).isTrue();
+    assertContainsEvent("missing value for mandatory attribute 'src'");
+    assertDoesNotContainEvent("Attribute 'src' has no value");
+  }
+
+  @Test
+  public void
+      implicitOutputs_missingMandatoryLabelAttribute_starlarkRule_failsWithMissingAttributeErrorOnly()
+          throws Exception {
+    RuleClass ruleClass =
+        newRuleClass(
+            "ruleClass",
+            false,
+            false,
+            false,
+            false,
+            false,
+            new ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap(
+                ImmutableMap.of("o", "%{src}.out")),
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("src", LABEL).mandatory().legacyAllowAnyFileType().build());
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("name", "myrule");
+
+    reporter.removeHandler(failFastHandler);
+    Rule myRule = createRule(ruleClass, "myrule", attributeValues);
+    assertThat(myRule.containsErrors()).isTrue();
+    assertContainsEvent("missing value for mandatory attribute 'src'");
+    assertDoesNotContainEvent("Attribute 'src' has no value");
+  }
+
   /**
    * Helper routine that instantiates a rule class with the given computed default and supporting
    * attributes for the default to reference.
@@ -1178,6 +1268,41 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         "second-myrule", "out-third", "out-fourth", "third", "fourth");
     assertWithMessage("invalid output ordering").that(actual).containsExactly("first-myrule",
         "second-myrule", "out-third", "out-fourth", "third", "fourth").inOrder();
+  }
+
+  @Test
+  public void testTwoOutputsAreOrdered() throws Exception {
+    RuleClass ruleClassC =
+        newRuleClass(
+            "ruleC",
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.fromTemplates("implicit-%{name}"),
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("outs", OUTPUT_LIST).build());
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("outs", ImmutableList.of("explicit"));
+    attributeValues.put("name", "myrule");
+
+    Rule rule = createRule(ruleClassC, "myrule", attributeValues);
+
+    assertThat(Lists.transform(rule.getOutputFiles(), OutputFile::getName))
+        .containsExactly("implicit-myrule", "explicit")
+        .inOrder();
+    assertThat(Lists.transform(rule.getImplicitOutputFiles(), OutputFile::getName))
+        .containsExactly("implicit-myrule");
+    assertThat(rule.getExplicitOutputFileMap().keySet()).containsExactly("outs");
+    assertThat(Lists.transform(rule.getExplicitOutputFileMap().get("outs"), OutputFile::getName))
+        .containsExactly("explicit");
   }
 
   @Test

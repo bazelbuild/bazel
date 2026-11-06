@@ -77,7 +77,7 @@ public class DigestUtil {
   }
 
   public Digest compute(byte[] blob) {
-    return buildDigest(hashFn.getHashFunction().hashBytes(blob).toString(), blob.length);
+    return buildDigest(hashFn.getHashFunction().hashBytes(blob).asBytes(), blob.length);
   }
 
   /**
@@ -89,7 +89,7 @@ public class DigestUtil {
    * @param length the number of bytes to hash
    */
   public Digest compute(byte[] data, int offset, int length) {
-    return buildDigest(hashFn.getHashFunction().hashBytes(data, offset, length).toString(), length);
+    return buildDigest(hashFn.getHashFunction().hashBytes(data, offset, length).asBytes(), length);
   }
 
   /** Computes a digest of the given {@link ByteString} without copying its contents. */
@@ -98,26 +98,14 @@ public class DigestUtil {
     for (ByteBuffer buffer : blob.asReadOnlyByteBufferList()) {
       hasher.putBytes(buffer);
     }
-    return buildDigest(hasher.hash().toString(), blob.size());
-  }
-
-  /**
-   * Computes a digest for a file.
-   *
-   * <p>Prefer calling {@link #compute(Path, FileStatus)} when a recently obtained {@link
-   * FileStatus} is available.
-   *
-   * @param path the file path
-   */
-  public Digest compute(Path path) throws IOException {
-    return compute(path, path.stat());
+    return buildDigest(hasher.hash().asBytes(), blob.size());
   }
 
   /**
    * Computes a digest for a file.
    *
    * @param path the file path
-   * @param status a recently obtained file status, if available
+   * @param status a recently obtained file status
    */
   public Digest compute(Path path, FileStatus status) throws IOException {
     return buildDigest(
@@ -177,8 +165,13 @@ public class DigestUtil {
     return hashFn.getHashFunction().hashBytes(data).asBytes();
   }
 
+  /** Builds a {@link Digest} from a binary hash. */
   public static Digest buildDigest(byte[] hash, long size) {
-    return buildDigest(HashCode.fromBytes(hash).toString(), size);
+    Preconditions.checkArgument(hash.length > 0, "A hash must contain at least 1 byte.");
+    return Digest.newBuilder()
+        .setHashBytes(DigestUtils.toHexByteString(hash))
+        .setSizeBytes(size)
+        .build();
   }
 
   public static Digest buildDigest(String hexHash, long size) {

@@ -17,12 +17,13 @@ import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import java.io.IOException;
 
-/** Exceptions thrown by {@link ConfiguredTargetFunction}. */
+/** Exceptions thrown by {@code ConfiguredTargetFunction}. */
 public final class ConfiguredTargetEvaluationExceptions {
   /**
-   * {@link ConfiguredTargetFunction#compute} exception that has already had its error reported to
-   * the user. Callers (like {@link com.google.devtools.build.lib.buildtool.BuildTool}) won't also
+   * {@code ConfiguredTargetFunction#compute} exception that has already had its error reported to
+   * the user. Callers (like {@code com.google.devtools.build.lib.buildtool.BuildTool}) won't also
    * report the error.
    */
   public static class ReportedException extends SkyFunctionException {
@@ -44,8 +45,8 @@ public final class ConfiguredTargetEvaluationExceptions {
   }
 
   /**
-   * {@link ConfiguredTargetFunction#compute} exception that has not had its error reported to the
-   * user. Callers (like {@link com.google.devtools.build.lib.buildtool.BuildTool}) are responsible
+   * {@code ConfiguredTargetFunction#compute} exception that has not had its error reported to the
+   * user. Callers (like {@code com.google.devtools.build.lib.buildtool.BuildTool}) are responsible
    * for reporting the error.
    */
   public static class UnreportedException extends SkyFunctionException {
@@ -55,6 +56,10 @@ public final class ConfiguredTargetEvaluationExceptions {
 
     UnreportedException(ActionConflictException e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    UnreportedException(IOException e) {
+      super(e, Transience.TRANSIENT);
     }
   }
 

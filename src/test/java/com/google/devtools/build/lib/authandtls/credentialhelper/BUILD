@@ -1,29 +1,31 @@
 load("@rules_java//java:defs.bzl", "java_test")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python/zipapp:py_zipapp_binary.bzl", "py_zipapp_binary")
 
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/authandtls:__pkg__"],
 )
 
 java_test(
     name = "credentialhelper",
     timeout = "long",
     srcs = glob(["*.java"]),
-    data = [
-        ":test_credential_helper",
-    ],
+    data = select({
+        "@platforms//os:windows": [":test_credential_helper_zipapp"],
+        "//conditions:default": [":test_credential_helper"],
+    }),
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/authandtls",
@@ -54,4 +56,12 @@ java_test(
 py_binary(
     name = "test_credential_helper",
     srcs = ["test_credential_helper.py"],
+    config_settings = {
+        "@rules_python//command_line_option:enable_runfiles": "INHERIT",
+    },
+)
+
+py_zipapp_binary(
+    name = "test_credential_helper_zipapp",
+    binary = ":test_credential_helper",
 )

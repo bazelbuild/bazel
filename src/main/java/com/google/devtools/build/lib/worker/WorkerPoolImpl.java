@@ -37,8 +37,6 @@ import javax.annotation.Nullable;
 /**
  * Implementation of the WorkerPool.
  *
- * <p>TODO(b/323880131): Remove documentation once we completely remove the legacy implementation.
- *
  * <p>This implementation flattens this to have a single {@code WorkerKeyPool} for each worker key
  * (we don't need the indirection in referencing both mnemonic and worker key since the mnemonic is
  * part of the key). Additionally, it bakes in pool shrinking logic so that we can handle concurrent
@@ -239,9 +237,6 @@ public class WorkerPoolImpl implements WorkerPool {
               worker.getWorkerId(),
               worker.getWorkerKey().hashCode());
         }
-        // TODO(b/323880131): Move postponing of invalidation from {@code WorkerLifecycleManager}
-        // here, since all we need to do is to update the statuses. We keep it like this for now
-        // to preserve the existing behavior.
       }
       return evictedWorkerIds;
     }

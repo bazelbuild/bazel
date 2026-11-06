@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -231,6 +232,16 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
     public Label getLabel() {
       return label;
+    }
+
+    /** Returns the dep to register for the underlying .bzl file (if any). */
+    @Nullable
+    public FileKey getBzlFileKey() {
+      if (label == null) {
+        // Implies kind == Kind.EMPTY_PRELUDE.
+        return null;
+      }
+      return FileKey.create(RootedPath.toRootedPath(root, label.toPathFragment()));
     }
 
     @Override

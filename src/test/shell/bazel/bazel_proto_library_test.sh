@@ -567,16 +567,7 @@ EOF
   bazel build //a:c || fail "build failed"
 }
 
-function test_import_prefix_stripping_no_sibling_layout() {
-  do_test_import_prefix_stripping "--noexperimental_sibling_repository_layout"
-}
-
-function test_import_prefix_stripping_sibling_repository_layout() {
-  do_test_import_prefix_stripping "--experimental_sibling_repository_layout"
-}
-
-function do_test_import_prefix_stripping() {
-  local -r layout_flag=$1
+function test_import_prefix_stripping() {
   mkdir -p e
   touch e/REPO.bazel
 
@@ -667,23 +658,14 @@ message H {
 }
 EOF
 
-  bazel build -s "$layout_flag" //h >& $TEST_log || fail "failed"
-  bazel build -s "$layout_flag" //h:h_cc_proto >& $TEST_log || fail "failed"
-  bazel build -s "$layout_flag" //h:h_java_proto >& $TEST_log || fail "failed"
+  bazel build -s //h >& $TEST_log || fail "failed"
+  bazel build -s //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s //h:h_java_proto >& $TEST_log || fail "failed"
 
   expect_not_log "warning: directory does not exist." # --proto_path is wrong
 }
 
-function test_cross_repo_protos_no_sibling_layout() {
-  do_test_cross_repo_protos "--noexperimental_sibling_repository_layout"
-}
-
-function test_cross_repo_protos_sibling_repository_layout() {
-  do_test_cross_repo_protos "--experimental_sibling_repository_layout"
-}
-
-function do_test_cross_repo_protos() {
-  local -r layout_flag=$1
+function test_cross_repo_protos() {
   mkdir -p e
   touch e/REPO.bazel
 
@@ -789,9 +771,9 @@ message H {
 }
 EOF
 
-  bazel build --verbose_failures "$layout_flag" //h >& $TEST_log || fail "failed"
-  bazel build --verbose_failures "$layout_flag" //h:h_cc_proto >& $TEST_log || fail "failed"
-  bazel build --verbose_failures "$layout_flag" //h:h_java_proto >& $TEST_log || fail "failed"
+  bazel build --verbose_failures //h >& $TEST_log || fail "failed"
+  bazel build --verbose_failures //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build --verbose_failures //h:h_java_proto >& $TEST_log || fail "failed"
 
   expect_not_log "warning: directory does not exist." # --proto_path is wrong
 

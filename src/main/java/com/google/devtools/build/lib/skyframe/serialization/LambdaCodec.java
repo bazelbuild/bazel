@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
-
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -36,12 +34,10 @@ import java.lang.reflect.Method;
  */
 class LambdaCodec extends DeferredObjectCodec<Serializable> {
   private static final Method READ_RESOLVE_METHOD;
-  private static final long SERIALIZED_LAMBDA_OFFSET;
 
   static {
     try {
       READ_RESOLVE_METHOD = SerializedLambda.class.getDeclaredMethod("readResolve");
-      SERIALIZED_LAMBDA_OFFSET = getFieldOffset(LambdaSupplier.class, "serializedLambda");
     } catch (ReflectiveOperationException e) {
       throw new ExceptionInInitializerError(e);
     }
@@ -88,12 +84,16 @@ class LambdaCodec extends DeferredObjectCodec<Serializable> {
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     LambdaSupplier supplier = new LambdaSupplier();
-    context.deserialize(codedIn, supplier, SERIALIZED_LAMBDA_OFFSET);
+    context.deserialize(codedIn, supplier, LambdaSupplier::setSerializedLambda);
     return supplier;
   }
 
   private static class LambdaSupplier implements DeferredValue<Serializable> {
     private SerializedLambda serializedLambda;
+
+    private static void setSerializedLambda(LambdaSupplier supplier, Object obj) {
+      supplier.serializedLambda = (SerializedLambda) obj;
+    }
 
     @Override
     public Serializable call() {

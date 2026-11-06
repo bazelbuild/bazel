@@ -11,7 +11,7 @@ filegroup(
         "//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:srcs",
         "//src/tools/execlog/test/main/java/com/google/devtools/build/execlog:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 java_binary(

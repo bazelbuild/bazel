@@ -21,8 +21,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.List;
 
 /**
  * Contains a sequence of prerequisite artifacts and supplies methods for filtering and reporting
@@ -63,12 +65,28 @@ public final class PrerequisiteArtifacts {
 
   public static NestedSet<Artifact> nestedSet(
       PrerequisitesCollection prerequisitesCollection, String attributeName) {
-    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (FileProvider target :
-        prerequisitesCollection.getPrerequisites(attributeName, FileProvider.class)) {
-      result.addTransitive(target.getFilesToBuild());
+    return nestedSet(prerequisitesCollection.getPrerequisites(attributeName));
+  }
+
+  /**
+   * Returns the union of the files to build of all given prerequisites that have a {@link
+   * FileProvider}, in stable order.
+   */
+  public static NestedSet<Artifact> nestedSet(
+      List<? extends TransitiveInfoCollection> prerequisites) {
+    // Lazily initialize the builder to avoid an allocation when no prerequisites provide files.
+    NestedSetBuilder<Artifact> result = null;
+    for (int i = 0; i < prerequisites.size(); i++) {
+      FileProvider fileProvider = prerequisites.get(i).getProvider(FileProvider.class);
+      if (fileProvider == null) {
+        continue;
+      }
+      if (result == null) {
+        result = NestedSetBuilder.stableOrder();
+      }
+      result.addTransitive(fileProvider.getFilesToBuild());
     }
-    return result.build();
+    return result == null ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : result.build();
   }
 
   /**
@@ -78,16 +96,12 @@ public final class PrerequisiteArtifacts {
     return artifacts;
   }
 
-  private PrerequisiteArtifacts filter(Predicate<String> fileType, boolean errorsForNonMatching) {
+  private PrerequisiteArtifacts filter(Predicate<String> fileType) {
     ImmutableList.Builder<Artifact> filtered = new ImmutableList.Builder<>();
 
     for (Artifact artifact : artifacts) {
       if (fileType.apply(artifact.getFilename())) {
         filtered.add(artifact);
-      } else if (errorsForNonMatching) {
-        ruleContext.attributeError(
-            attributeName,
-            String.format("%s does not match expected type: %s", artifact, fileType));
       }
     }
 
@@ -96,27 +110,11 @@ public final class PrerequisiteArtifacts {
 
   /** Returns an equivalent instance but only containing artifacts of the given type. */
   public PrerequisiteArtifacts filter(FileType fileType) {
-    return filter(fileType, /*errorsForNonMatching=*/ false);
+    return filter((Predicate<String>) fileType);
   }
 
   /** Returns an equivalent instance but only containing artifacts of the given types. */
   public PrerequisiteArtifacts filter(FileTypeSet fileTypeSet) {
-    return filter(fileTypeSet, /*errorsForNonMatching=*/ false);
-  }
-
-  /**
-   * Returns an equivalent instance but only containing artifacts of the given type, reporting
-   * errors for non-matching artifacts.
-   */
-  public PrerequisiteArtifacts errorsForNonMatching(FileType fileType) {
-    return filter(fileType, /*errorsForNonMatching=*/true);
-  }
-
-  /**
-   * Returns an equivalent instance but only containing artifacts of the given types, reporting
-   * errors for non-matching artifacts.
-   */
-  public PrerequisiteArtifacts errorsForNonMatching(FileTypeSet fileTypeSet) {
-    return filter(fileTypeSet, /*errorsForNonMatching=*/true);
+    return filter((Predicate<String>) fileTypeSet);
   }
 }

@@ -14,10 +14,15 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 
 /**
  * The StarlarkCallable interface is implemented by all Starlark values that may be called from
@@ -178,5 +183,20 @@ public interface StarlarkCallable extends StarlarkValue {
    */
   default Location getLocation() {
     return Location.BUILTIN;
+  }
+
+  /**
+   * Returns the first {@link Types.CallableType} in this callable's Starlark type hierarchy.
+   *
+   * @throws NullPointerException if no {@link Types.CallableType} was found.
+   */
+  default Types.CallableType getCallableType(
+      StarlarkSemantics starlarkSemantics, TypeContext typeContext) {
+    StarlarkType type = Starlark.getStarlarkType(this, starlarkSemantics);
+    return checkNotNull(
+        Types.toCallableType(type, typeContext),
+        "Expected type '%s' of '%s' to be callable",
+        type,
+        this);
   }
 }

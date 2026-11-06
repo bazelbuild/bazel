@@ -17,8 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
-import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Comparator.reverseOrder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultN
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -105,10 +105,7 @@ public class ModExecutor {
     this.extensionFilter = extensionFilter;
     this.options = options;
     this.outputStream = outputStream;
-    this.printer =
-        new PrintWriter(
-            new OutputStreamWriter(
-                outputStream, options.getCharset() == ModOptions.Charset.UTF8 ? UTF_8 : US_ASCII));
+    this.printer = new PrintWriter(new OutputStreamWriter(outputStream, ISO_8859_1));
     // Easier lookup table for repo imports by module.
     // It is updated after pruneByDepthAndLink to filter out pruned modules.
     this.extensionRepoImports = computeRepoImportsTable(depGraph.keySet());
@@ -172,8 +169,11 @@ public class ModExecutor {
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
-  public void showRepo(ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions) {
-    var formatter = new RepoOutputFormatter(printer, outputStream, options.getOutputFormat());
+  public void showRepo(
+      ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions, Path externalDirectory) {
+    var formatter =
+        new RepoOutputFormatter(
+            printer, outputStream, options.getOutputFormat(), externalDirectory);
     for (Map.Entry<String, RepoDefinitionValue> e : targetRepoDefinitions.entrySet()) {
       formatter.print(e.getKey(), e.getValue());
     }

@@ -18,6 +18,8 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.SpawnMetrics.ExecKind;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -73,6 +75,64 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
+
+    SpawnMetrics metrics = spawnResult.getMetrics();
+    assertThat(metrics).isNotNull();
+    assertThat(metrics.execKind()).isEqualTo(ExecKind.LOCAL);
+    assertThat(metrics.totalTimeInMs()).isAtLeast(0);
+    assertThat(metrics.queueTimeInMs()).isAtLeast(0);
+    assertThat(metrics.setupTimeInMs()).isAtLeast(0);
+    assertThat(metrics.executionWallTimeInMs()).isAtLeast(0);
+    assertThat(metrics.processOutputsTimeInMs()).isAtLeast(0);
+  }
+
+  @Test
+  public void processWrapperSandboxedSpawnRunner_populatesSpawnMetricsWithOutputs()
+      throws Exception {
+    // Process-wrapper is only supported on POSIX-compatible platforms.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+
+    CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
+    commandEnvironment
+        .getLocalResourceManager()
+        .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
+
+    Path execRoot = commandEnvironment.getExecRoot();
+    execRoot.createDirectory();
+
+    SpawnRunnerTestUtil.copyProcessWrapperIntoPath(execRoot);
+
+    Path sandboxBase = execRoot.getRelative("sandbox");
+    sandboxBase.createDirectory();
+
+    Duration policyTimeout = Duration.ofSeconds(60);
+
+    ProcessWrapperSandboxedSpawnRunner runner =
+        new ProcessWrapperSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
+
+    Spawn spawn =
+        new SpawnBuilder("/bin/sh", "-c", "echo hello > out.txt").withOutput("out.txt").build();
+
+    FileOutErr fileOutErr =
+        new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
+    SpawnExecutionContextForTesting policy =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, policyTimeout);
+
+    SpawnResult spawnResult = runner.exec(spawn, policy);
+
+    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(spawnResult.exitCode()).isEqualTo(0);
+    assertThat(spawnResult.setupSuccess()).isTrue();
+    assertThat(execRoot.getRelative("out.txt").exists()).isTrue();
+
+    SpawnMetrics metrics = spawnResult.getMetrics();
+    assertThat(metrics).isNotNull();
+    assertThat(metrics.execKind()).isEqualTo(ExecKind.LOCAL);
+    assertThat(metrics.totalTimeInMs()).isAtLeast(0);
+    assertThat(metrics.queueTimeInMs()).isAtLeast(0);
+    assertThat(metrics.setupTimeInMs()).isAtLeast(0);
+    assertThat(metrics.executionWallTimeInMs()).isAtLeast(0);
+    assertThat(metrics.processOutputsTimeInMs()).isAtLeast(0);
   }
 
   @Test

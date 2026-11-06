@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -74,11 +74,7 @@ public final class SpawnInputExpanderTest {
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(PathFragment.create("runfiles/workspace/dir/file"), artifact);
@@ -97,11 +93,7 @@ public final class SpawnInputExpanderTest {
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putFileset(fileset, filesetOutputTree);
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, fakeActionInputFileCache, PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -119,11 +111,7 @@ public final class SpawnInputExpanderTest {
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
     assertThat(inputMap)
         .containsExactly(PathFragment.create("runfiles/workspace/dir/file"), artifact);
   }
@@ -144,11 +132,7 @@ public final class SpawnInputExpanderTest {
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
     assertThat(inputMap)
         .containsExactly(
             PathFragment.create("runfiles/workspace/dir/file"), artifact1,
@@ -175,8 +159,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         new FakeActionInputFileCache(),
-        execPath -> PathFragment.create(execPath.getPathString().replace("k8-opt/", "")),
-        PathFragment.EMPTY_FRAGMENT);
+        execPath -> PathFragment.create(execPath.getPathString().replace("k8-opt/", "")));
 
     assertThat(inputMap)
         .containsExactly(
@@ -200,11 +183,7 @@ public final class SpawnInputExpanderTest {
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(PathFragment.create("runfiles/workspace/symlink"), artifact);
@@ -224,11 +203,7 @@ public final class SpawnInputExpanderTest {
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -242,7 +217,7 @@ public final class SpawnInputExpanderTest {
 
   @Test
   public void testRunfilesWithTreeArtifacts() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -262,11 +237,7 @@ public final class SpawnInputExpanderTest {
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, fakeActionInputFileCache, PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -276,7 +247,7 @@ public final class SpawnInputExpanderTest {
 
   @Test
   public void testRunfilesWithTreeArtifacts_pathMapped() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -314,7 +285,7 @@ public final class SpawnInputExpanderTest {
         };
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree, inputMap, fakeActionInputFileCache, pathMapper, PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, fakeActionInputFileCache, pathMapper);
 
     assertThat(inputMap)
         .containsExactly(
@@ -326,7 +297,7 @@ public final class SpawnInputExpanderTest {
 
   @Test
   public void testRunfilesWithArchivedTreeArtifacts() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(treeArtifact);
     TreeArtifactValue treeArtifactValue =
         TreeArtifactValue.newBuilder(treeArtifact)
@@ -342,11 +313,7 @@ public final class SpawnInputExpanderTest {
 
     expander = new SpawnInputExpander(/* expandArchivedTreeArtifacts= */ false);
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, fakeActionInputFileCache, PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -355,7 +322,7 @@ public final class SpawnInputExpanderTest {
 
   @Test
   public void testRunfilesWithTreeArtifactsInSymlinks() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -377,11 +344,7 @@ public final class SpawnInputExpanderTest {
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree,
-        inputMap,
-        fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, fakeActionInputFileCache, PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -391,7 +354,7 @@ public final class SpawnInputExpanderTest {
 
   @Test
   public void testTreeArtifactsInInputs() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -408,35 +371,40 @@ public final class SpawnInputExpanderTest {
 
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hello World").withInput(treeArtifact).build();
     Map<PathFragment, ActionInput> inputMappings =
-        expander.getInputMapping(spawn, fakeActionInputFileCache, PathFragment.EMPTY_FRAGMENT);
+        expander.getInputMapping(spawn, fakeActionInputFileCache);
 
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file1"), file1);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file2"), file2);
   }
 
-  private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
-    SpecialArtifact treeArtifact = createSpecialArtifact(relPath, SpecialArtifactType.TREE);
+  private TreeArtifact createTreeArtifact(String relPath) throws IOException {
+    ArtifactRoot derivedRoot = createDerivedRoot(relPath);
+    Path outputPath = execRoot.getRelative("out").getRelative(relPath);
+    TreeArtifact treeArtifact =
+        TreeArtifact.create(
+            derivedRoot,
+            derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     return treeArtifact;
   }
 
-  private SpecialArtifact createFilesetArtifact(String relPath) throws IOException {
-    return createSpecialArtifact(relPath, SpecialArtifactType.FILESET);
+  private FilesetArtifact createFilesetArtifact(String relPath) throws IOException {
+    ArtifactRoot derivedRoot = createDerivedRoot(relPath);
+    Path outputPath = execRoot.getRelative("out").getRelative(relPath);
+    return FilesetArtifact.create(
+        derivedRoot,
+        derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
+        ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
-  private SpecialArtifact createSpecialArtifact(String relPath, SpecialArtifactType type)
-      throws IOException {
+  private ArtifactRoot createDerivedRoot(String relPath) throws IOException {
     String outputSegment = "out";
     Path outputDir = execRoot.getRelative(outputSegment);
     Path outputPath = outputDir.getRelative(relPath);
     outputPath.createDirectoryAndParents();
-    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, outputSegment);
-    return SpecialArtifact.create(
-        derivedRoot,
-        derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        type);
+    return ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, outputSegment);
   }
 
   @Test
@@ -444,7 +412,7 @@ public final class SpawnInputExpanderTest {
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(createFileset("out"), FilesetOutputTree.EMPTY);
 
-    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap);
 
     assertThat(inputMap).isEmpty();
   }
@@ -460,7 +428,7 @@ public final class SpawnInputExpanderTest {
             FilesetOutputTree.create(
                 ImmutableList.of(link1, link2), /* treeArtifacts= */ ImmutableMap.of()));
 
-    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap);
 
     assertThat(inputMap)
         .containsExactly(
@@ -475,11 +443,8 @@ public final class SpawnInputExpanderTest {
         FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
   }
 
-  private SpecialArtifact createFileset(String execPath) {
-    return SpecialArtifact.create(
-        rootDir,
-        PathFragment.create(execPath),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        SpecialArtifactType.FILESET);
+  private FilesetArtifact createFileset(String execPath) {
+    return FilesetArtifact.create(
+        rootDir, PathFragment.create(execPath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 }

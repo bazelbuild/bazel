@@ -195,8 +195,11 @@ public abstract class ModOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           """
-          The format in which the query results should be printed. Allowed values for query are:
-          `text`, `json`, `graph`.
+          The format in which the results should be printed. Allowed values are `text`, `json`,
+          `graph`, `streamed_proto` and `streamed_jsonproto`, but each subcommand supports only a
+          subset: the graph subcommands (`all_paths`, `deps`, `explain`, `graph` and `path`)
+          support `text`, `json` and `graph`; `show_repo` supports `text`, `streamed_proto` and
+          `streamed_jsonproto`; `show_extension` supports only `text`.
           """)
   public abstract OutputFormat getOutputFormat();
 

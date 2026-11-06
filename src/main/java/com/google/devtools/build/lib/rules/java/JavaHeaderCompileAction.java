@@ -38,10 +38,8 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -76,6 +74,11 @@ import javax.annotation.Nullable;
  */
 public final class JavaHeaderCompileAction extends SpawnAction {
 
+  // 'javac turbine' has been replaced by just 'turbine', but the mnemonic is unchanged for
+  // continuity in the blaze performance logs, and to distinguish direct classpath actions
+  // which use the 'Turbine' mnemonic.
+  // TODO(b/230333695): consider renaming to a more descriptive name
+  private static final String MNEMONIC = "JavacTurbine";
   private static final String DIRECT_CLASSPATH_MNEMONIC = "Turbine";
   private static final String PROGRESS_MESSAGE_PREFIX = "Compiling Java headers";
 
@@ -94,7 +97,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
       String mnemonic,
-      OutputPathsMode outputPathsMode,
       boolean insertDependencies,
       boolean inMemoryJdeps,
       NestedSet<Artifact> additionalArtifactsForPathMapping) {
@@ -108,8 +110,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        mnemonic,
-        outputPathsMode);
+        mnemonic);
     this.insertDependencies = insertDependencies;
     this.inMemoryJdeps = inMemoryJdeps;
     this.additionalArtifactsForPathMapping = additionalArtifactsForPathMapping;
@@ -117,16 +118,15 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    var result = super.getExecutionInfo();
     if (!inMemoryJdeps) {
-      return result;
+      return super.getExecutionInfo();
     }
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     return mergeMaps(
-        result,
-        ImmutableMap.of(
-            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-            outputDepsProto.getExecPathString()));
+        getExecProperties(),
+        attributes.executionInfo(),
+        ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+        outputDepsProto.getExecPathString());
   }
 
   @Override
@@ -503,6 +503,11 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       CustomCommandLine.Builder commandLine =
           CustomCommandLine.builder()
               .addExecPath("--output", outputJar)
+              .addPath(
+                  "--output_root_relative_path",
+                  javaConfiguration.experimentalTurbineOutputRootRelativePath()
+                      ? outputJar.getRootRelativePath()
+                      : null)
               .addExecPath("--header_compilation_output", headerCompilationOutputJar)
               .addExecPath("--gensrc_output", gensrcOutputJar)
               .addExecPath("--resource_output", resourceOutputJar)
@@ -602,8 +607,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                         executionInfo.buildKeepingLast(), DIRECT_CLASSPATH_MNEMONIC),
                 /* progressMessage= */ progressMessage,
                 /* mnemonic= */ DIRECT_CLASSPATH_MNEMONIC,
-                /* outputPathsMode= */ PathMappers.getOutputPathsMode(
-                    ruleContext.getConfiguration()),
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
                 // available to downstream actions. Else just do enough work to locally create the
                 // full .jdeps from the .stripped .jdeps produced on the executor.
@@ -642,7 +645,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
       ruleContext.registerAction(
           new JavaCompileAction(
-              /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
+              /* mnemonic= */ MNEMONIC,
+              /* insertDependencies= */ true,
               /* owner= */ actionOwner,
               /* tools= */ toolsJars,
               /* progressMessage= */ progressMessage,
@@ -652,12 +656,13 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               /* outputs= */ outputs.build(),
               /* env= */ actionEnvironment,
               /* executionInfo= */ executionInfo.buildKeepingLast(),
-              /* extraActionInfoSupplier= */ null,
               /* executableLine= */ executableLine,
               /* flagLine= */ commandLine.build(),
               /* extraCommandLineArgs= */ ImmutableList.of(),
               /* configuration= */ ruleContext.getConfiguration(),
               /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
+              /* additionalArtifactsForPathMapping= */ NestedSetBuilder.emptySet(
+                  Order.STABLE_ORDER),
               /* outputDepsProto= */ outputDepsProto,
               /* classpathMode= */ classpathMode));
     }

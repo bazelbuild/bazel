@@ -49,8 +49,9 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
 
 /**
  * Helper class for checking which keys should be invalidated using a remote analysis cache service.
@@ -140,41 +141,37 @@ public final class AnalysisCacheInvalidator {
     int numInvalidatedKeys = 0;
     InvalidationLookupMetrics.Status status = null;
     ImmutableSet<SkyKey> keysToInvalidate;
+    List<ListenableFuture<Optional<SkyKey>>> futures = null;
     try {
-      List<ListenableFuture<Optional<SkyKey>>> futures =
-          submitInvalidationLookupsBatched(keysToLookup);
-      if (futures == null) {
-        numInvalidatedKeys = keysToLookup.size();
-        status = InvalidationLookupMetrics.Status.TIMED_OUT;
-        return keysToLookup;
-      }
+      futures = submitInvalidationLookupsBatched(keysToLookup);
 
       try (SilentCloseable unused = Profiler.instance().profile("waitInvalidationLookups")) {
-        try {
-          keysToInvalidate =
-              Futures.allAsList(futures).get(INVALIDATION_TIMEOUT_SECONDS, SECONDS).stream()
-                  // Flatten Optionals, keeping only non-empty ones (keys to invalidate)
-                  .flatMap(Optional::stream)
-                  .collect(toImmutableSet());
-          status = InvalidationLookupMetrics.Status.OK;
-          numInvalidatedKeys = keysToInvalidate.size();
-        } catch (ExecutionException e) {
-          status = InvalidationLookupMetrics.Status.ERROR;
-          numInvalidatedKeys = keysToLookup.size();
-          logger.atWarning().withCause(e).log(
-              "Skycache: Error waiting for analysis cache responses during invalidation check."
-                  + " Invalidating everything.");
-          return keysToLookup;
-        } catch (TimeoutException e) {
-          status = InvalidationLookupMetrics.Status.TIMED_OUT;
-          numInvalidatedKeys = keysToLookup.size();
-          logger.atWarning().log(
-              "Skycache: Timeout waiting for analysis cache responses during invalidation check."
-                  + " Invalidating everything.");
-          return keysToLookup;
-        }
+        keysToInvalidate =
+            Futures.allAsList(futures).get(INVALIDATION_TIMEOUT_SECONDS, SECONDS).stream()
+                // Flatten Optionals, keeping only non-empty ones (keys to invalidate)
+                .flatMap(Optional::stream)
+                .collect(toImmutableSet());
+        status = InvalidationLookupMetrics.Status.OK;
+        numInvalidatedKeys = keysToInvalidate.size();
       }
+    } catch (ExecutionException e) {
+      status = InvalidationLookupMetrics.Status.ERROR;
+      numInvalidatedKeys = keysToLookup.size();
+      logger.atWarning().withCause(e).log(
+          "Skycache: Error waiting for analysis cache responses during invalidation check."
+              + " Invalidating everything.");
+      return keysToLookup;
+    } catch (TimeoutException e) {
+      status = InvalidationLookupMetrics.Status.TIMED_OUT;
+      numInvalidatedKeys = keysToLookup.size();
+      logger.atWarning().withCause(e).log(
+          "Skycache: Timeout waiting for analysis cache responses during invalidation check."
+              + " Invalidating everything.");
+      return keysToLookup;
     } finally {
+      if (futures != null && status != InvalidationLookupMetrics.Status.OK) {
+        cancelFutures(futures);
+      }
       stopwatch.stop();
       if (status != null) {
         eventListener.setInvalidationLookupMetrics(
@@ -238,9 +235,9 @@ public final class AnalysisCacheInvalidator {
    * provides a way to scope the lifetime of threads, i.e., so they don't cross over into the next
    * build.
    */
-  @Nullable // returns null if there was a timeout
   private List<ListenableFuture<Optional<SkyKey>>> submitInvalidationLookupsBatched(
-      ImmutableSet<SkyKey> keysToLookup) throws InterruptedException {
+      ImmutableSet<SkyKey> keysToLookup)
+      throws InterruptedException, ExecutionException, TimeoutException {
     int totalKeys = keysToLookup.size();
     @SuppressWarnings("unchecked") // exactly how other generic containers are implemented
     var futures =
@@ -253,6 +250,8 @@ public final class AnalysisCacheInvalidator {
       }
       int batches = IntMath.divide(totalKeys, batchSize, RoundingMode.CEILING);
       var allSet = new CountDownLatch(batches);
+      var submissionAborted = new AtomicBoolean(false);
+      var submissionFailure = new AtomicReference<Throwable>();
       for (int start = 0; start < totalKeys; start += batchSize) {
         final int begin = start;
         final int limit = min(start + batchSize, totalKeys);
@@ -263,8 +262,20 @@ public final class AnalysisCacheInvalidator {
               public void run() {
                 try {
                   for (int i = begin; i < limit; i++) {
-                    futures.set(i, submitInvalidationLookup(keysToLookupList.get(i)));
+                    if (submissionAborted.get()) {
+                      break;
+                    }
+                    ListenableFuture<Optional<SkyKey>> lookupFuture =
+                        submitInvalidationLookup(keysToLookupList.get(i));
+                    futures.set(i, lookupFuture);
+                    if (submissionAborted.get()) {
+                      lookupFuture.cancel(/* mayInterruptIfRunning= */ false);
+                      break;
+                    }
                   }
+                } catch (Throwable t) {
+                  submissionFailure.compareAndSet(null, t);
+                  submissionAborted.set(true);
                 } finally {
                   allSet.countDown();
                 }
@@ -272,18 +283,42 @@ public final class AnalysisCacheInvalidator {
 
               @Override
               public void handleRejection(Throwable t) {
+                submissionFailure.compareAndSet(null, t);
+                submissionAborted.set(true);
                 allSet.countDown();
               }
             });
       }
-      if (!allSet.await(INVALIDATION_TIMEOUT_SECONDS, SECONDS)) {
-        logger.atWarning().log(
-            "Skycache: Timeout waiting to submit (%d) analysis cache invalidation requests."
-                + " Invalidating everything.",
-            totalKeys);
-        return null;
+      boolean allSubmitted = false;
+      try {
+        allSubmitted = allSet.await(INVALIDATION_TIMEOUT_SECONDS, SECONDS);
+      } finally {
+        if (!allSubmitted) {
+          submissionAborted.set(true);
+        }
+        if (submissionAborted.get()) {
+          cancelFutures(futures);
+        }
+      }
+      Throwable failure = submissionFailure.get();
+      if (failure != null) {
+        throw new ExecutionException(failure);
+      }
+      if (!allSubmitted) {
+        throw new TimeoutException(
+            String.format(
+                "Timed out waiting to submit (%d) analysis cache invalidation requests.",
+                totalKeys));
       }
       return futures;
+    }
+  }
+
+  private static void cancelFutures(List<ListenableFuture<Optional<SkyKey>>> futures) {
+    for (ListenableFuture<Optional<SkyKey>> future : futures) {
+      if (future != null) {
+        future.cancel(/* mayInterruptIfRunning= */ false);
+      }
     }
   }
 }

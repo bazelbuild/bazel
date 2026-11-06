@@ -284,7 +284,7 @@ public final class TestActionBuilder {
     if (collectCodeCoverage) {
       collectCoverageScript =
           ruleContext
-              .getPrerequisite("$collect_coverage_script")
+              .getPrerequisite(":collect_coverage_script")
               .getProvider(FilesToRunProvider.class);
       inputsBuilder.addTransitive(collectCoverageScript.getFilesToRun());
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
@@ -348,7 +348,7 @@ public final class TestActionBuilder {
       }
 
       Artifact instrumentedFileManifest =
-          InstrumentedFileManifestAction.getInstrumentedFileManifest(
+          getInstrumentedFileManifest(
               ruleContext, instrumentedFiles.getInstrumentedFiles(), metadataFiles);
       executionSettings =
           new TestTargetExecutionSettings(
@@ -502,5 +502,24 @@ public final class TestActionBuilder {
         ImmutableList.copyOf(results),
         testOutputs.build(),
         coverageParams);
+  }
+
+  private static Artifact getInstrumentedFileManifest(
+      RuleContext ruleContext,
+      NestedSet<Artifact> additionalSourceFiles,
+      NestedSet<Artifact> metadataFiles) {
+    Artifact instrumentedFileManifest =
+        ruleContext.getBinArtifact(ruleContext.getTarget().getName() + ".instrumented_files");
+
+    NestedSet<Artifact> inputs =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(additionalSourceFiles)
+            .addTransitive(metadataFiles)
+            .build();
+    ruleContext.registerAction(
+        new InstrumentedFileManifestAction(
+            ruleContext.getActionOwner(), inputs, instrumentedFileManifest));
+
+    return instrumentedFileManifest;
   }
 }

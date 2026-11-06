@@ -257,7 +257,10 @@ public abstract class DirtyBuildingState {
     if (getLastBuildDirectDeps() == null) {
       return ImmutableSet.of();
     }
-    ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
+    ImmutableSet.Builder<SkyKey> result =
+        dirtyDirectDepIndex == 0
+            ? ImmutableSet.builderWithExpectedSize(getLastBuildDirectDeps().numElements())
+            : ImmutableSet.builder();
     for (int ind = dirtyDirectDepIndex; ind < getNumOfGroupsInLastBuildDirectDeps(); ind++) {
       result.addAll(getLastBuildDirectDeps().getDepGroup(ind));
     }

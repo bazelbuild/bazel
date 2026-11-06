@@ -17,6 +17,10 @@ bazel mod <subcommand> [<options>] [<arg> [<arg>...]]
 
 The available subcommands and their respective required arguments are:
 
+*   `tidy`: Formats `MODULE.bazel` and its included module files and updates
+    `use_repo` calls for supported module extensions. Also evaluates all
+    extensions in the dependency graph to update `MODULE.bazel.lock`.
+
 *   `graph`: Displays the full dependency graph of the project, starting from
     the root module. If one or more modules are specified in `--from`, these
     modules are shown directly under the root, and the graph is only expanded
@@ -43,10 +47,12 @@ The available subcommands and their respective required arguments are:
     modules' direct dependents; and
     4) the argument modules themselves (see [example](#mod-example5)).
 
-*   `show_repo <arg>...`: Displays the definition of the specified repos (see
-    [example](#mod-example6)). Use `--all_repos` to show definitions of all
-    repos in the entire dependency graph, or `--all_visible_repos` to show
-    definitions of all repos visible from the `--base_module`.
+*   `show_repo <arg>...`: Displays the definition and location of the
+    specified repos (see [example](#mod-example6)). This does not cause the
+    repos to be materialized, use `bazel fetch` for that. Use `--all_repos` to
+    show definitions of all repos in the entire dependency graph, or
+    `--all_visible_repos` to show definitions of all repos visible from the
+    `--base_module`.
 
 *   `show_extension <extension>...`: Displays information about each of the
     specified extensions: a list of the generated repos along with the modules
@@ -96,8 +102,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     modules which were originally present in the dependency graph, but became
     unused after module resolution.
 
-*   `--extension_info <var>mode</var>`: Include information about the module extension
-    usages as part of the output graph (see [example](#mod-example7)). `<var>mode</var>`
+*   `--extension_info mode`: Include information about the module extension
+    usages as part of the output graph (see [example](#mod-example7)). `mode`
     can be one of:
 
     *   `hidden` *(default)*: Don't show anything about extensions.
@@ -137,8 +143,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     Therefore, the `"ascii"` charset is present to also support the usage on
     legacy platforms which cannot use Unicode.
 
-*   `--output <var>mode</var>`: Include information about the module extension usages as
-    part of the output graph. `<var>mode</var>' can be one of:
+*   `--output mode`: Include information about the module extension usages as
+    part of the output graph. `mode` can be one of:
 
     *   `text` *(default)*: A human-readable representation of the output graph
         (flattened as a tree).
@@ -157,8 +163,8 @@ The following options only affect the subcommands that print graphs (`graph`,
 
     ### show_repo options
 `show_repo` supports a different set of output formats:
-*   `--output <var>mode</var>`: Change how repository definitions are displayed.
-    `<var>mode</var>` can be one of:
+*   `--output mode`: Change how repository definitions are displayed.
+    `mode` can be one of:
     *   `text` *(default)*: Display repo definitions in Starlark.
     *   `streamed_proto`: Prints a
         [length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
@@ -417,6 +423,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
 
     ```none
     ## rules_cc@0.0.1:
+    # Located at: /home/user/.cache/bazel/_bazel_user/6e893e0f5a92cc4cf5909a6e4b2770f9/external/rules_cc+
     # <builtin>
     http_archive(
       name = "rules_cc+",
@@ -430,6 +437,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     #   /home/user/.cache/bazel/_bazel_user/6e893e0f5a92cc4cf5909a6e4b2770f9/external/bazel_tools/tools/build_defs/repo/http.bzl:355:31 in <toplevel>
 
     ## stardoc:
+    # Located at: /home/user/.cache/bazel/_bazel_user/6e893e0f5a92cc4cf5909a6e4b2770f9/external/stardoc+
     # <builtin>
     http_archive(
       name = "stardoc+",

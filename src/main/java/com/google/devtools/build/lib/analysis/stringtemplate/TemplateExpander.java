@@ -124,7 +124,7 @@ public final class TemplateExpander {
    */
   private String scanVariable() throws ExpansionException {
     char c = buffer[offset];
-    switch (c) {
+    return switch (c) {
       case '(' -> {
         // looks like $(SRCS)
         offset++;
@@ -135,7 +135,7 @@ public final class TemplateExpander {
         if (offset >= length) {
           throw new ExpansionException("unterminated variable reference");
         }
-        return new String(buffer, start, offset - start);
+        yield new String(buffer, start, offset - start);
         // We only parse ${variable} syntax to provide a better error message.
       }
       case '{' -> {
@@ -157,9 +157,7 @@ public final class TemplateExpander {
                 + ")' instead for \"Make\" variables, or escape the '$' as "
                 + "'$$' if you intended this for the shell");
       }
-      case '@', '<', '^' -> {
-        return String.valueOf(c);
-      }
+      case '@', '<', '^' -> String.valueOf(c);
       default -> {
         int start = offset;
         while (offset + 1 < length && Character.isJavaIdentifierPart(buffer[offset + 1])) {
@@ -174,7 +172,7 @@ public final class TemplateExpander {
                 + ")' instead for \"Make\" variables, or escape the '$' as "
                 + "'$$' if you intended this for the shell");
       }
-    }
+    };
   }
 
   /**

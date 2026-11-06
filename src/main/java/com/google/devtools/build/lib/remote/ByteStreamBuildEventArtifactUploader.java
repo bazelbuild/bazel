@@ -83,6 +83,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private final XattrProvider xattrProvider;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
+  private final int maximumOpenFiles;
 
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
@@ -94,7 +95,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       String buildRequestId,
       String commandId,
       XattrProvider xattrProvider,
-      RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
+      RemoteBuildEventUploadMode remoteBuildEventUploadMode,
+      int maximumOpenFiles) {
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -106,6 +108,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.scheduler = Schedulers.from(executor);
     this.xattrProvider = xattrProvider;
     this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
+    this.maximumOpenFiles = maximumOpenFiles;
   }
 
   /** Returns {@code true} if Bazel knows that the file is stored on a remote system. */
@@ -228,10 +231,21 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       }
     }
 
-    if (file.type == LocalFileType.OUTPUT_DIRECTORY
-        || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
-                || file.type == LocalFileType.FAILED_TEST_OUTPUT)
-            && path.isDirectory())) {
+    if (file.type == LocalFileType.OUTPUT_DIRECTORY || file.type == LocalFileType.OUTPUT_SYMLINK) {
+      return new PathMetadata(
+          path,
+          /* digest= */ null,
+          /* directory= */ file.type == LocalFileType.OUTPUT_DIRECTORY,
+          /* symlink= */ file.type == LocalFileType.OUTPUT_SYMLINK,
+          /* remote= */ false,
+          /* isBuildToolLog= */ false,
+          /* specialFile= */ false,
+          digestFunction);
+    }
+    var stat = path.stat();
+    if ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
+            || file.type == LocalFileType.FAILED_TEST_OUTPUT)
+        && stat.isDirectory()) {
       return new PathMetadata(
           path,
           /* digest= */ null,
@@ -242,18 +256,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* specialFile= */ false,
           digestFunction);
     }
-    if (file.type == LocalFileType.OUTPUT_SYMLINK) {
-      return new PathMetadata(
-          path,
-          /* digest= */ null,
-          /* directory= */ false,
-          /* symlink= */ true,
-          /* remote= */ false,
-          /* isBuildToolLog= */ false,
-          /* specialFile= */ false,
-          digestFunction);
-    }
-    if (path.isSpecialFile()) {
+    if (stat.isSpecialFile()) {
       return new PathMetadata(
           path,
           /* digest= */ null,
@@ -265,7 +268,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           digestFunction);
     }
 
-    Digest digest = digestUtil.compute(path);
+    Digest digest = digestUtil.compute(path, stat);
     return new PathMetadata(
         path,
         digest,
@@ -370,6 +373,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private Single<List<PathMetadata>> uploadLocalFiles(
       CombinedCache combinedCache, RemoteActionExecutionContext context, List<PathMetadata> paths) {
+    // Limits the concurrency of in-flight file uploads per batch to prevent opening too many
+    // files simultaneously (governed by --bep_maximum_open_remote_upload_files).
+    int maxConcurrency = maximumOpenFiles > 0 ? maximumOpenFiles : Integer.MAX_VALUE;
     return Flowable.fromIterable(paths)
         .flatMapSingle(
             path -> {
@@ -398,7 +404,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                         reportUploadError(error, path.getPath(), path.getDigest());
                         return Single.just(path);
                       });
-            })
+            },
+            /* delayErrors= */ false,
+            maxConcurrency)
         .collect(Collectors.toList());
   }
 

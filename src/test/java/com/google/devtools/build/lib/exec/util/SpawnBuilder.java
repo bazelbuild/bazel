@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
@@ -55,7 +56,7 @@ public final class SpawnBuilder {
   @Nullable private Set<? extends ActionInput> mandatoryOutputs;
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
-  private ResourceSet resourceSet = ResourceSet.ZERO;
+  private ResourceSetOrBuilder localResources = ResourceSet.ZERO;
   private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
 
@@ -83,7 +84,7 @@ public final class SpawnBuilder {
         tools.build(),
         ImmutableSet.copyOf(outputs),
         mandatoryOutputs,
-        resourceSet,
+        localResources,
         pathMapper);
   }
 
@@ -243,8 +244,8 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
-    this.resourceSet = resourceSet;
+  public SpawnBuilder withLocalResources(ResourceSetOrBuilder localResources) {
+    this.localResources = localResources;
     return this;
   }
 

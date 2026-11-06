@@ -77,7 +77,7 @@ public final class ProcessWrapper {
 
     BinTools binTools = cmdEnv.getBlazeWorkspace().getBinTools();
     ActionInput actionInput = binTools.getActionInput(BIN_BASENAME);
-    if (actionInput != null && OS.isPosixCompatible()) {
+    if (actionInput != null && OS.getCurrent().isPosixCompatible()) {
       return new ProcessWrapper(
           binTools.getEmbeddedPath(BIN_BASENAME).asFragment(),
           actionInput,

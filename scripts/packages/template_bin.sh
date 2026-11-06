@@ -180,7 +180,7 @@ if [ -d "${base}" -a -x "${base}/bin/bazel" ]; then
   rm -fr "${base}"
 fi
 
-mkdir -p ${bin} ${base} ${base}/bin ${base}/etc
+mkdir -p "${bin}" "${base}" "${base}/bin" "${base}/etc"
 echo -n .
 
 unzip -q "${BASH_SOURCE[0]}" bazel bazel-real bazel-complete.bash _bazel bazel.fish -d "${base}/bin"

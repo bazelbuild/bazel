@@ -26,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver.Binding;
 import net.starlark.java.syntax.Resolver.ComprehensionBinding;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.TypeTagger;
 
 /**
@@ -47,21 +48,22 @@ import net.starlark.java.syntax.TypeTagger;
  * further computation because it can no longer create mutable values. (This is occasionally
  * valuable in tests.)
  */
-public final class StarlarkThread {
+public final class StarlarkThread
+    implements net.starlark.java.eval.PrintHandler.StarlarkThreadInfo {
 
   /** The mutability of values created by this thread. */
   private final Mutability mutability;
 
   // profiler state
   //
-  // The profiler field (and savedThread) are set when we first observe during a
+  // The profiler field (and savedCpuTicks) are set when we first observe during a
   // push (function call entry) that the profiler is active. They are unset
   // not in the corresponding pop, but when the last frame is popped, because
   // the profiler session might start in the middle of a call and/or run beyond
   // the lifetime of this thread.
-  final AtomicInteger cpuTicks = new AtomicInteger();
+  private final AtomicInteger cpuTicks = new AtomicInteger();
   @Nullable private CpuProfiler profiler;
-  private StarlarkThread savedThread; // saved StarlarkThread, when profiling reentrant evaluation
+  @Nullable private AtomicInteger savedCpuTicks; // saved counter for reentrant evaluation
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
@@ -143,13 +145,17 @@ public final class StarlarkThread {
     return v == null ? null : key.cast(v);
   }
 
-  /** A Frame records information about an active function call. */
+  /**
+   * A Frame records information about an active function call.
+   *
+   * <p>Frames are reused: once popped, a Frame is reset and kept by its thread for a subsequent
+   * call. Callers must therefore not retain Frame references beyond the lifetime of the call.
+   */
   static final class Frame implements Debug.Frame {
     final StarlarkThread thread;
-    final StarlarkCallable fn; // the called function
+    StarlarkCallable fn; // the called function
 
-    @Nullable
-    final Debug.Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+    @Nullable Debug.Debugger dbg; // the debugger, if active for this frame
 
     Object result = Starlark.NONE; // the operand of a Starlark return statement
 
@@ -168,9 +174,26 @@ public final class StarlarkThread {
 
     private long profileStartTimeNanos; // start time nanos of walltime call profiler
 
-    private Frame(StarlarkThread thread, StarlarkCallable fn) {
+    private Frame(StarlarkThread thread) {
       this.thread = thread;
+    }
+
+    // Prepares this (new or reset) frame for a call to fn.
+    private void init(StarlarkCallable fn) {
       this.fn = fn;
+      this.dbg = Debug.debugger.get();
+    }
+
+    // Restores this frame to its initial state, dropping references to per-call state,
+    // so that it may be reused by a subsequent push.
+    private void reset() {
+      fn = null;
+      dbg = null;
+      result = Starlark.NONE;
+      loc = null;
+      errorLocationSet = false;
+      locals = null;
+      profileStartTimeNanos = 0;
     }
 
     // Updates the PC location in this frame.
@@ -248,7 +271,7 @@ public final class StarlarkThread {
   private final boolean allowRecursion;
 
   /** PrintHandler for Starlark print statements. */
-  private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
+  private net.starlark.java.eval.PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
 
   /** Loader for Starlark load statements. Null if loading is disallowed. */
   @Nullable private Loader loader = null;
@@ -257,6 +280,12 @@ public final class StarlarkThread {
 
   /** Stack of active function calls. */
   private final ArrayList<Frame> callstack = new ArrayList<>();
+
+  /**
+   * Previously popped frames, available for reuse by {@link #push}. Since frames are pushed and
+   * popped in LIFO order, this saves allocating a new frame for every function call.
+   */
+  private final ArrayList<Frame> framePool = new ArrayList<>();
 
   /** A hook for notifications of assignments at top level. */
   PostAssignHook postAssignHook;
@@ -267,9 +296,9 @@ public final class StarlarkThread {
     if (profiler == null) {
       this.profiler = CpuProfiler.get();
       if (profiler != null) {
-        // Associated current Java thread with this StarlarkThread.
+        // Associate the current OS thread with this evaluation's CPU tick counter.
         // (Save the previous association so we can restore it later.)
-        this.savedThread = CpuProfiler.setStarlarkThread(this);
+        this.savedCpuTicks = profiler.setCpuTicksForCurrentThread(cpuTicks);
       }
     }
 
@@ -287,7 +316,9 @@ public final class StarlarkThread {
       }
     }
 
-    Frame fr = new Frame(this, fn);
+    int pooled = framePool.size();
+    Frame fr = pooled > 0 ? framePool.remove(pooled - 1) : new Frame(this);
+    fr.init(fn);
     callstack.add(fr);
 
     // Notify debug tools of the thread's first push.
@@ -319,8 +350,8 @@ public final class StarlarkThread {
       // unregister it from the profiler.
       if (last == 0) {
         // Restore the previous association (in case of reentrant evaluation).
-        CpuProfiler.setStarlarkThread(this.savedThread);
-        this.savedThread = null;
+        profiler.setCpuTicksForCurrentThread(this.savedCpuTicks);
+        this.savedCpuTicks = null;
         this.profiler = null;
       }
     }
@@ -335,6 +366,9 @@ public final class StarlarkThread {
       callProfiler.end(fr.profileStartTimeNanos, fr.fn, contextDescription);
     }
 
+    fr.reset();
+    framePool.add(fr);
+
     // Notify debug tools of the thread's last pop.
     if (last == 0 && Debug.threadHook != null) {
       Debug.threadHook.onPopLast(this);
@@ -347,18 +381,27 @@ public final class StarlarkThread {
   }
 
   /**
-   * A PrintHandler determines how a Starlark thread deals with print statements. It is invoked by
-   * the built-in {@code print} function. Its default behavior is to write the message to standard
-   * error, preceded by the location of the print statement, {@code thread.getCallerLocation()}.
+   * Transitional alias for {@link net.starlark.java.eval.PrintHandler} while callers migrate to the
+   * top-level interface.
    */
   @FunctionalInterface
-  public interface PrintHandler {
+  public interface PrintHandler extends net.starlark.java.eval.PrintHandler {
     void print(StarlarkThread thread, String msg);
+
+    @Override
+    default void print(StarlarkThreadInfo thread, String msg) {
+      print((StarlarkThread) thread, msg);
+    }
   }
 
   /** Returns the PrintHandler for Starlark print statements. */
-  PrintHandler getPrintHandler() {
+  net.starlark.java.eval.PrintHandler getPrintHandler() {
     return printHandler;
+  }
+
+  /** Sets the behavior of Starlark print statements executed by this thread. */
+  public void setPrintHandler(net.starlark.java.eval.PrintHandler h) {
+    this.printHandler = Preconditions.checkNotNull(h);
   }
 
   /** Sets the behavior of Starlark print statements executed by this thread. */
@@ -366,7 +409,8 @@ public final class StarlarkThread {
     this.printHandler = Preconditions.checkNotNull(h);
   }
 
-  private static void defaultPrintHandler(StarlarkThread thread, String msg) {
+  private static void defaultPrintHandler(
+      net.starlark.java.eval.PrintHandler.StarlarkThreadInfo thread, String msg) {
     System.err.println(thread.getCallerLocation() + ": " + msg);
   }
 
@@ -428,6 +472,7 @@ public final class StarlarkThread {
    * a built-in function, this is the location of the call expression that called the built-in. It
    * returns BUILTIN if called with fewer than two frames (such as within a test).
    */
+  @Override
   public Location getCallerLocation() {
     return toplevel() ? Location.BUILTIN : frame(1).loc;
   }
@@ -517,6 +562,10 @@ public final class StarlarkThread {
 
   public StarlarkSemantics getSemantics() {
     return semantics;
+  }
+
+  public TypeContext getTypeContext() {
+    return builtinManager;
   }
 
   /** Reports whether this thread is allowed to make recursive calls. */

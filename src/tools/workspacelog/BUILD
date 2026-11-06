@@ -11,7 +11,7 @@ filegroup(
         "//src/tools/workspacelog/src/main/java/com/google/devtools/build/workspacelog:srcs",
         "//src/tools/workspacelog/test/main/java/com/google/devtools/build/workspacelog:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 java_binary(

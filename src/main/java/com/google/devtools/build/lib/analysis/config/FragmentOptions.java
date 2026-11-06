@@ -16,19 +16,101 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.EnvVar;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractMap;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
+
+  /**
+   * Memoized checksum of these options.
+   *
+   * <p>Inherited by clones, which allows most fragments of a transitioned {@link BuildOptions} to
+   * reuse the checksum of the original. Changing the value of any option resets it.
+   */
+  @Nullable private transient volatile byte[] cachedChecksum;
+
+  @Override
+  public final void onOptionChanged() {
+    cachedChecksum = null;
+  }
+
+  /** Adds the options to the fingerprint. */
+  public final void addToFingerprint(Fingerprint fp) {
+    fp.addBytes(checksum());
+  }
+
+  /** Computes a memoized checksum of the options. */
+  @VisibleForTesting
+  final byte[] checksum() {
+    byte[] checksum = cachedChecksum;
+    if (checksum == null) {
+      var fp = new Fingerprint();
+      fingerprint(fp, this);
+      checksum = fp.digestAndReset();
+      cachedChecksum = checksum;
+    }
+    return checksum;
+  }
+
+  /** Computes a hex checksum of the given options. */
+  public static String hexChecksum(OptionsBase options) {
+    var fp = new Fingerprint();
+    if (options instanceof FragmentOptions fragmentOptions) {
+      fragmentOptions.addToFingerprint(fp); // Use cached checksum.
+    } else {
+      fingerprint(fp, options);
+    }
+    return fp.hexDigestAndReset();
+  }
+
+  private static void fingerprint(Fingerprint fp, OptionsBase options) {
+    fp.addString(options.getOptionsClass().getName());
+    var definitions = OptionDefinition.getOptionDefinitions(options.getOptionsClass());
+    fp.addInt(definitions.size());
+    for (var definition : definitions) {
+      fp.addString(definition.getOptionName());
+      addValueToFingerprint(fp, definition.getValue(options), _ -> "");
+    }
+  }
+
+  /**
+   * Adds the given option value to the fingerprint by stringifying it.
+   *
+   * @param valueType the result of applying this function to the value (and, for collections, each
+   *     element) is also added, which makes the fingerprint sensitive to the type of a value in
+   *     addition to its string representation
+   */
+  static void addValueToFingerprint(
+      Fingerprint fp, @Nullable Object value, Function<Object, String> valueType) {
+    if (value == null) {
+      fp.addBoolean(false);
+      return;
+    }
+    fp.addBoolean(true);
+    fp.addString(valueType.apply(value));
+    if (value instanceof Collection<?> collection) {
+      fp.addInt(collection.size());
+      collection.forEach(element -> addValueToFingerprint(fp, element, valueType));
+    } else {
+      fp.addInt(-1);
+      fp.addString(value.toString());
+    }
+  }
 
   @Override
   @SuppressWarnings("unchecked") // Reflection doesn't support generics
@@ -78,10 +160,67 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     return this;
   }
 
-  /** Converts the options to a string-keyed map. */
-  public Map<String, Object> asMap() {
-    return Options.toMap(this);
+  /** Context needed by implementations of {@link FragmentOptions#processForOutputPathMnemonic}. */
+  public interface OutputDirectoriesContext {
+    /**
+     * If available, returns the baseline version of some FragmentOption.
+     *
+     * <p>Calling this marks the resulting mnemonic as baseline-dependent, so only call it on code
+     * paths that actually need the baseline to decide what to add to the mnemonic.
+     */
+    @Nullable
+    <T extends FragmentOptions> T getBaseline(Class<T> optionsClass);
+
+    /**
+     * Adds given String to the explicit part of the output path.
+     *
+     * <p>A null or empty value is not added to the mnemonic. Ideally this function will eventually
+     * just error when supplied those values.
+     *
+     * @throws AddToMnemonicException if given value cannot be put in an output path.
+     */
+    @CanIgnoreReturnValue
+    OutputDirectoriesContext addToMnemonic(@Nullable String value) throws AddToMnemonicException;
+
+    /**
+     * Mark the option as explicit in output path so it no longer contributes to hash computation.
+     *
+     * <p>Options which are marked must be explicitly included in the output path by {@link
+     * #addToMnemonic} and thus will not be included in the hash of changed options used to
+     * generically disambiguate output directories of different configurations. (See {@link
+     * OutputPathMnemonicComputer}.)
+     *
+     * <p>This tag should only be added to options that can guarantee that any change to that option
+     * corresponds to a change to {@link OutputPathMnemonicComputer#computeMnemonic}. Put
+     * mathematically, given any two BuildOptions instances A and B with respective values for the
+     * marked option a and b (where all other options are the same and there is some potentially
+     * null baseline): {@code a == b iff computeMnemonic(A, baseline) == computeMnemonic(b,
+     * baseline)}
+     *
+     * <p>As a historical note, this used to be implemented as EXPLICIT_IN_OUTPUT_PATH
+     */
+    @CanIgnoreReturnValue
+    OutputDirectoriesContext markAsExplicitInOutputPathFor(String optionName);
+
+    /** Bubble up error with adding to mnemonic (likely a problematic value supplied). */
+    final class AddToMnemonicException extends Exception {
+      final Exception tunneledException;
+      final String badValue;
+
+      AddToMnemonicException(String badValue, Exception e) {
+        super("Invalid option value " + badValue, e);
+        this.tunneledException = e;
+        this.badValue = badValue;
+      }
+    }
   }
+
+  /**
+   * Processes this set of options to contribute to the output directory mnemonic. See {@link
+   * OutputPathMnemonicComputer#computeMnemonic}.
+   */
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws OutputDirectoriesContext.AddToMnemonicException {}
 
   /**
    * Helper method for subclasses to normalize set valued options. In addition to removing

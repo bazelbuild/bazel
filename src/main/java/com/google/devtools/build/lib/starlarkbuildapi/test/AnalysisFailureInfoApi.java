@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -56,6 +58,11 @@ public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFail
   Depset /*<AnalysisFailureApiT>*/ getCauses();
 
   /** Provider class for {@link AnalysisFailureInfoApi} objects. */
+  // Cannot be invoked from Starlark, and therefore isn't statically typed as a Provider.
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
-  interface AnalysisFailureInfoProviderApi extends ProviderApi {}
+  interface AnalysisFailureInfoProviderApi extends ProviderApi {
+    public static StarlarkType getStarlarkType() {
+      return Types.TYPE;
+    }
+  }
 }

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <string>
 #include <thread>  // NOLINT (to silence Google-internal linter)
 #include <vector>
 

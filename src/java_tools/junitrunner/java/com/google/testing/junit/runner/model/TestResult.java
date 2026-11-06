@@ -14,12 +14,11 @@
 
 package com.google.testing.junit.runner.model;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.runner.util.TestIntegration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** Result of executing a test suite or test case. */
 public final class TestResult {
@@ -83,7 +82,7 @@ public final class TestResult {
   private final String className;
   private final Map<String, String> properties;
   private final List<Throwable> failures;
-  @Nullable private final TestInterval runTime;
+  private final @Nullable TestInterval runTime;
   private final Set<TestIntegration> integrations;
   private final Status status;
   private final int numTests;
@@ -123,8 +122,7 @@ public final class TestResult {
     return integrations;
   }
 
-  @Nullable
-  public TestInterval getRunTimeInterval() {
+  public @Nullable TestInterval getRunTimeInterval() {
     return runTime;
   }
 
@@ -160,7 +158,7 @@ public final class TestResult {
     private String className = null;
     private Map<String, String> properties = null;
     private List<Throwable> failures = null;
-    @Nullable private TestInterval runTime = null;
+    private @Nullable TestInterval runTime = null;
     private Set<TestIntegration> integrations = null;
     private Status status = null;
     private Integer numTests = null;

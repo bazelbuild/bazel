@@ -31,6 +31,7 @@ import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -117,7 +118,12 @@ public abstract class DiskBackedFileSystem extends FileSystem {
 
   @Override
   public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    java.nio.file.Path nioPath = checkNotNull(getNioPath(path), "getNioPath() must not be null");
+    java.nio.file.Path nioPath;
+    try {
+      nioPath = checkNotNull(getNioPath(path), "getNioPath() must not be null");
+    } catch (InvalidPathException e) {
+      throw new IOException(path.getPathString() + ERR_NO_SUCH_FILE_OR_DIR, e);
+    }
 
     boolean profileOpen = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
 

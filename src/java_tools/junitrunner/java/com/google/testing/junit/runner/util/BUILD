@@ -12,8 +12,7 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party/java/error_prone:annotations",
-        "//third_party/java/jsr305_annotations",
+        "//third_party/java/jspecify_annotations",
         "//third_party/java/junit:not-testonly",
     ],
 )
@@ -26,7 +25,7 @@ java_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party/java/jsr305_annotations",
+        "//third_party/java/jspecify_annotations",
     ],
 )
 
@@ -56,5 +55,4 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
 )

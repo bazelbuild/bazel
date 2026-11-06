@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileAccessException;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -88,8 +90,8 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path linkB = absolutize("link-b");
     linkA.createSymbolicLink(linkB);
     linkB.createSymbolicLink(linkA);
-    assertThat(linkA.exists(Symlinks.FOLLOW)).isFalse();
-    assertThrows(IOException.class, () -> linkA.statIfFound(Symlinks.FOLLOW));
+    assertThrows(FileSymlinkLoopException.class, () -> linkA.exists(Symlinks.FOLLOW));
+    assertThrows(FileSymlinkLoopException.class, () -> linkA.statIfFound(Symlinks.FOLLOW));
   }
 
   @Test
@@ -257,6 +259,17 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
         Profiler.setTraceProfilerService(null);
       }
     }
+  }
+
+  @Test
+  public void testNonAsciiFilenameInExceptionMessage() throws Exception {
+    Path file = absolutize(unicodeToInternal("nøn-ëxistent"));
+
+    IOException e = assertThrows(IOException.class, () -> file.stat());
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(unicodeToInternal("/nøn-ëxistent (No such file or directory)"));
   }
 
   @Test

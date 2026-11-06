@@ -3,14 +3,13 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/net/starlark/java:__pkg__"],
 )
 
 java_library(
@@ -25,9 +24,8 @@ java_library(
     ],
 )
 
-# SyntaxTests tests the Starlark parser/resolver.
-java_test(
-    name = "SyntaxTests",
+java_library(
+    name = "SyntaxTests_lib",
     srcs = [
         "FileLocationsTest.java",
         "LValueBoundNamesTest.java",
@@ -40,7 +38,6 @@ java_test(
         "ProgramTest.java",
         "ResolverTest.java",
         "StarlarkFileTest.java",
-        "SyntaxTests.java",  # (suite)
         "TypeCheckerTest.java",
         "TypeTaggerTest.java",
         "TypesTest.java",
@@ -54,5 +51,15 @@ java_test(
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
+    ],
+)
+
+# SyntaxTests tests the Starlark parser/resolver.
+java_test(
+    name = "SyntaxTests",
+    srcs = ["SyntaxTests.java"],  # suite
+    deps = [
+        ":SyntaxTests_lib",
+        "//third_party/java/junit",
     ],
 )

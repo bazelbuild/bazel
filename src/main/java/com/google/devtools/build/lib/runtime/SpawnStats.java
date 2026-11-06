@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -54,16 +55,11 @@ public class SpawnStats {
       nonInternalActionsCount.incrementAndGet();
     }
     for (SpawnResult r : actionResult.spawnResults()) {
-      storeRunnerExecKind(r);
+      SpawnMetrics metrics = r.getMetrics();
+      runnerExecKinds.put(r.getRunnerName(), metrics.execKind().toString());
       runners.add(r.getRunnerName());
-      totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTimeInMs());
+      totalWallTimeMillis.addAndGet(metrics.executionWallTimeInMs());
     }
-  }
-
-  private void storeRunnerExecKind(SpawnResult r) {
-    String name = r.getRunnerName();
-    String execKind = r.getMetrics().execKind().toString();
-    runnerExecKinds.put(name, execKind);
   }
 
   public void incrementActionCount() {

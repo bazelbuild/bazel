@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.millisToProto;
 import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
@@ -31,8 +30,8 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -120,8 +119,6 @@ public abstract class SpawnLogContextTestBase {
   protected BuildConfigurationValue configuration;
   protected StoredEventHandler storedEventHandler;
 
-  @TestParameter public boolean siblingRepositoryLayout;
-
   @Before
   public void setup() throws InvalidConfigurationException, OptionsParsingException {
     BuildOptions defaultBuildOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
@@ -129,7 +126,6 @@ public abstract class SpawnLogContextTestBase {
         BuildConfigurationValue.createForTesting(
             defaultBuildOptions,
             "k8-fastbuild",
-            siblingRepositoryLayout,
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 /* workspace= */ null,
@@ -157,14 +153,14 @@ public abstract class SpawnLogContextTestBase {
               }
             },
             new FragmentFactory());
-    outputDir = configuration.getBinDirectory(RepositoryName.MAIN);
+    outputDir = configuration.getBinDirectory();
     execRoot = configuration.getDirectories().getExecRoot(WORKSPACE_NAME);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
 
     externalSourceRoot =
         ArtifactRoot.asExternalSourceRoot(
             Root.fromPath(externalRoot.getChild(externalRepo.getName())));
-    externalOutputDir = configuration.getBinDirectory(externalRepo);
+    externalOutputDir = configuration.getBinDirectory();
     storedEventHandler = new StoredEventHandler();
   }
 
@@ -344,7 +340,7 @@ public abstract class SpawnLogContextTestBase {
   public void testTreeInput(
       @TestParameter InputsMode inputsMode, @TestParameter DirContents dirContents)
       throws Exception {
-    SpecialArtifact treeInput =
+    TreeArtifact treeInput =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
 
     treeInput.getPath().createDirectoryAndParents();
@@ -568,18 +564,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg.getExecPath(siblingRepositoryLayout).getChild("lib.py").getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("lib.py").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.py")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.py").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
@@ -688,21 +680,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg
-                .getExecPath(siblingRepositoryLayout)
-                .getChild("source.txt")
-                .getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("source.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.txt")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact symlinkSourceTarget = ActionsTestUtil.createArtifact(rootDir, "pkg/target.txt");
@@ -822,21 +807,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg
-                .getExecPath(siblingRepositoryLayout)
-                .getChild("source.txt")
-                .getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("source.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.txt")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact symlinkTarget = ActionsTestUtil.createArtifact(outputDir, "pkg/root_target.txt");
@@ -933,16 +911,11 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg.getExecPath(siblingRepositoryLayout).getChild("file.txt").getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("file.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
-            externalOutputDir,
-            someRepoPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("file.txt")
-                .getPathString());
+            externalOutputDir, someRepoPkg.getPackagePath().getChild("file.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact runfilesArtifact =
@@ -1006,21 +979,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg
-                .getExecPath(siblingRepositoryLayout)
-                .getChild("source.txt")
-                .getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("source.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.txt")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact symlinkSourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/not_source.txt");
@@ -1608,11 +1574,10 @@ public abstract class SpawnLogContextTestBase {
   @Test
   public void testFilesetInput(@TestParameter DirContents dirContents) throws Exception {
     Artifact filesetInput =
-        SpecialArtifact.create(
+        FilesetArtifact.create(
             outputDir,
             outputDir.getExecPath().getRelative("dir"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.FILESET);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
 
     filesetInput.getPath().createDirectoryAndParents();
     if (!dirContents.isEmpty()) {
@@ -1752,7 +1717,7 @@ public abstract class SpawnLogContextTestBase {
       @TestParameter DirContents dirContents,
       @TestParameter OutputIndirection indirection)
       throws Exception {
-    SpecialArtifact treeOutput =
+    TreeArtifact treeOutput =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
 
     Path actualPath =
@@ -2210,9 +2175,9 @@ public abstract class SpawnLogContextTestBase {
       RunfilesTree runfilesTree, Artifact... artifacts) throws Exception {
     FakeActionInputFileCache builder = new FakeActionInputFileCache();
     for (Artifact artifact : artifacts) {
-      if (artifact.isTreeArtifact()) {
+      if (artifact instanceof TreeArtifact treeArtifact) {
         // Emulate ActionInputMap: add both tree and children.
-        TreeArtifactValue treeMetadata = createTreeArtifactValue(artifact);
+        TreeArtifactValue treeMetadata = createTreeArtifactValue(treeArtifact);
         builder.put(artifact, treeMetadata.getMetadata());
         for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
             treeMetadata.getChildValues().entrySet()) {
@@ -2242,22 +2207,18 @@ public abstract class SpawnLogContextTestBase {
     when(inputMetadataProvider.getTreeMetadata(any()))
         .thenAnswer(
             invocation -> {
-              SpecialArtifact treeArtifact = invocation.getArgument(0);
+              TreeArtifact treeArtifact = invocation.getArgument(0);
               return createTreeArtifactValue(treeArtifact);
             });
 
     if (runfilesTree != null) {
       new SpawnInputExpander()
           .addSingleRunfilesTreeToInputs(
-              runfilesTree,
-              builder,
-              inputMetadataProvider,
-              PathMapper.NOOP,
-              PathFragment.EMPTY_FRAGMENT);
+              runfilesTree, builder, inputMetadataProvider, PathMapper.NOOP);
     }
 
     for (ActionInput actionInput : actionInputs) {
-      if (actionInput instanceof Artifact artifact && artifact.isTreeArtifact()) {
+      if (actionInput instanceof TreeArtifact artifact) {
         // Emulate SpawnInputExpander: expand to children, preserve if empty.
         TreeArtifactValue treeMetadata = createTreeArtifactValue(artifact);
         if (treeMetadata.getChildren().isEmpty()) {
@@ -2274,17 +2235,15 @@ public abstract class SpawnLogContextTestBase {
     return ImmutableSortedMap.copyOf(builder);
   }
 
-  protected static TreeArtifactValue createTreeArtifactValue(Artifact tree) throws Exception {
-    checkState(tree.isTreeArtifact());
-    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder((SpecialArtifact) tree);
+  protected static TreeArtifactValue createTreeArtifactValue(TreeArtifact tree) throws Exception {
+    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(tree);
     TreeArtifactValue.visitTree(
         tree.getPath(),
         (parentRelativePath, type, traversedSymlink) -> {
           if (type.equals(Dirent.Type.DIRECTORY)) {
             return;
           }
-          TreeFileArtifact child =
-              TreeFileArtifact.createTreeOutput((SpecialArtifact) tree, parentRelativePath);
+          TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, parentRelativePath);
           builder.putChild(child, FileArtifactValue.createForTesting(child));
         });
     return builder.build();

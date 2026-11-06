@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.File;
@@ -43,6 +42,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.Nullable;
 
 /** This interface models a file system. */
@@ -58,10 +58,30 @@ public abstract class FileSystem {
   protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
   protected static final String ERR_FILE_EXISTS = " (File exists)";
   protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
-  protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
-  protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
+  public static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
+  public static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
   public static final String ERR_TOO_MANY_SYMLINKS = " (Too many levels of symbolic links)";
+
+  // Avoid eager initialization of digestBuffers if no FileSystem implementation ever calls the
+  // default implementation of getDigest.
+  private static final class DigestBuffersHolder {
+    private static final int DIGEST_BUFFER_SIZE = 8192;
+
+    /**
+     * A bounded pool of buffers for {@link #getDigest}, meant to reduce allocations while also
+     * supporting virtual threads.
+     */
+    static final AtomicReferenceArray<byte[]> digestBuffers =
+        new AtomicReferenceArray<>(
+            Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4 - 1));
+
+    static {
+      for (int i = 0; i < digestBuffers.length(); i++) {
+        digestBuffers.set(i, new byte[DIGEST_BUFFER_SIZE]);
+      }
+    }
+  }
 
   private final DigestHashFunction digestFunction;
 
@@ -142,7 +162,8 @@ public abstract class FileSystem {
    * <ul>
    *   <li>{@link #createSymbolicLink(PathFragment, PathFragment)}
    *   <li>{@link #getFileSize(PathFragment, boolean)} where {@code followSymlinks=false}
-   *   <li>{@link #getLastModifiedTime(PathFragment, boolean)} where {@code followSymlinks=false}
+   *   <li>{@link #getLastModifiedTimeNanos(PathFragment, boolean)} where {@code
+   *       followSymlinks=false}
    *   <li>{@link #readSymbolicLink(PathFragment)} where the link points to a non-existent file
    * </ul>
    *
@@ -301,21 +322,24 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the last modification time of the file denoted by {@code path}. See {@link
-   * Path#getLastModifiedTime(Symlinks)} for specification.
+   * Returns the last modification time of the file, in nanoseconds since the UNIX epoch, of the
+   * file denoted by {@code path}. See {@link Path#getLastModifiedTimeNanos(Symlinks)} for
+   * specification.
    *
    * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
    * returns false, this method will throw an {@link UnsupportedOperationException} if {@code
    * followSymLinks=false}.
    */
-  public abstract long getLastModifiedTime(PathFragment path, boolean followSymlinks)
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public abstract long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
       throws IOException;
 
   /**
-   * Sets the last modification time of the file denoted by {@code path}. See {@link
-   * Path#setLastModifiedTime} for specification.
+   * Sets the last modification time of the file, in nanoseconds since the UNIX epoch, of the file
+   * denoted by {@code path}. See {@link Path#setLastModifiedTimeNanos} for specification.
    */
-  public abstract void setLastModifiedTime(PathFragment path, long newTime) throws IOException;
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public abstract void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException;
 
   /**
    * Returns value of the given extended attribute name or null if attribute does not exist or file
@@ -357,12 +381,24 @@ public abstract class FileSystem {
    * @throws IOException if the digest could not be computed for any reason
    */
   public byte[] getDigest(PathFragment path) throws IOException {
-    return new ByteSource() {
-      @Override
-      public InputStream openStream() throws IOException {
-        return getInputStream(path);
+    var hasher = digestFunction.getHashFunction().newHasher();
+    int slot =
+        (int) Thread.currentThread().threadId() & (DigestBuffersHolder.digestBuffers.length() - 1);
+    // Only reuse the buffers created during initialization to avoid promoting newly allocated
+    // buffers to the old gen.
+    byte[] pooled = DigestBuffersHolder.digestBuffers.getAndSet(slot, null);
+    byte[] buffer = pooled != null ? pooled : new byte[DigestBuffersHolder.DIGEST_BUFFER_SIZE];
+    try (var in = getInputStream(path)) {
+      int read;
+      while ((read = in.read(buffer)) != -1) {
+        hasher.putBytes(buffer, 0, read);
       }
-    }.hash(digestFunction.getHashFunction()).asBytes();
+    } finally {
+      if (pooled != null) {
+        DigestBuffersHolder.digestBuffers.set(slot, pooled);
+      }
+    }
+    return hasher.hash().asBytes();
   }
 
   /**
@@ -562,16 +598,24 @@ public abstract class FileSystem {
     return readSymbolicLink(path);
   }
 
-  /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
-  public boolean exists(PathFragment path) {
+  /**
+   * Returns true iff this path denotes an existing file of any kind. Follows symbolic links.
+   *
+   * @throws IOException if an error occurs while determining existence
+   */
+  public boolean exists(PathFragment path) throws IOException {
     return exists(path, true);
   }
 
   /**
    * Returns true iff {@code path} denotes an existing file of any kind. See {@link
    * Path#exists(Symlinks)} for specification.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public abstract boolean exists(PathFragment path, boolean followSymlinks);
+  public boolean exists(PathFragment path, boolean followSymlinks) throws IOException {
+    return statIfFound(path, followSymlinks) != null;
+  }
 
   /**
    * Returns a collection containing the names of all entities within the directory denoted by the

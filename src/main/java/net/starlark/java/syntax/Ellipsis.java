@@ -20,7 +20,7 @@ public final class Ellipsis extends Expression {
   private final int startOffset;
 
   Ellipsis(FileLocations locs, int startOffset) {
-    super(locs, Kind.ELLIPSIS);
+    super(locs);
     this.startOffset = startOffset;
   }
 

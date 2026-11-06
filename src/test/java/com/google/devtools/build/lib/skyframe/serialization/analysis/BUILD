@@ -2,13 +2,12 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
 )
 
 java_test(
@@ -48,15 +47,14 @@ java_library(
     name = "SkycacheIntegrationTestBase",
     testonly = True,
     srcs = ["SkycacheIntegrationTestBase.java"],
+    visibility = ["//visibility:public"],
     deps = [
         ":SkycacheIntegrationTestHelpers",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -79,6 +77,7 @@ java_library(
     name = "SkycacheIntegrationTestHelpers",
     testonly = True,
     srcs = ["SkycacheIntegrationTestHelpers.java"],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
@@ -91,7 +90,6 @@ java_library(
 java_test(
     name = "BazelSkycacheIntegrationTest",
     srcs = ["BazelSkycacheIntegrationTest.java"],
-    tags = ["no_windows"],  # b/380393822 - disable until PathFragmentPrefixTrie handles windows correctly.
     deps = [
         ":SkycacheIntegrationTestBase",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
@@ -99,6 +97,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:command_start_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -107,12 +106,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_module",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:long_version_getter_test_injection",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
         "//third_party/java/junit",
         "//third_party/java/mockito",
         "//third_party/java/truth",
@@ -137,10 +136,13 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:missing_skyframe_entry_exception",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -231,21 +233,66 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:key_bytes_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_serializer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:invalidation_data_reference_or_future",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:leaf_id_assignment",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:missing_skyframe_entry_exception",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
+        "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/mockito",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/roaringbitmap",
         "//third_party/java/truth",
         "//third_party/pprof:profile_java_proto",
+    ],
+)
+
+java_test(
+    name = "LeafIdAssignmentTest",
+    size = "small",
+    srcs = ["LeafIdAssignmentTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:leaf_id_assignment",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "UploadLayoutTest",
+    size = "small",
+    srcs = ["UploadLayoutTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -255,11 +302,14 @@ java_test(
     srcs = ["SelectedEntrySerializerTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -270,6 +320,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:frontier_serializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:missing_skyframe_entry_exception",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -304,6 +355,25 @@ java_test(
     srcs = ["SkycacheChannelStateAdvisorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:skycache_channel_state_advisor",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "DefaultPlatformConfigurationProviderTest",
+    srcs = ["DefaultPlatformConfigurationProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_logic",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:default_platform_configuration_provider",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],

@@ -42,9 +42,9 @@ import javax.annotation.Nullable;
  * Utility methods for determining what {@link Fragment}s are required to analyze targets.
  *
  * <p>For example if a target reads <code>--copt</code> as part of its analysis logic, it requires
- * the {@link com.google.devtools.build.lib.rules.cpp.CppConfiguration} fragment.
+ * the {@code com.google.devtools.build.lib.rules.cpp.CppConfiguration} fragment.
  *
- * <p>Used by {@link
+ * <p>Used by {@code
  * com.google.devtools.build.lib.query2.cquery.CqueryOptions#showRequiredConfigFragments}.
  */
 public final class RequiredFragmentsUtil {

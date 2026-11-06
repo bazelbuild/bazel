@@ -18,8 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,7 +37,10 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 
 /** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
 @AutoCodec
@@ -48,7 +53,8 @@ public class ParsedFlagsValue implements SkyValue {
       ImmutableList<String> rawFlags,
       PackageContext packageContext,
       boolean includeDefaultValues,
-      ImmutableMap<String, Label> flagAliasMappings)
+      ImmutableMap<String, Label> flagAliasMappings,
+      boolean allowNonFlagBuildSettings)
       implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
@@ -64,27 +70,55 @@ public class ParsedFlagsValue implements SkyValue {
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
      */
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         ImmutableMap<String, Label> flagAliasMappings) {
-      return create(rawFlags, packageContext, /* includeDefaultValues= */ false, flagAliasMappings);
+      return create(
+          rawFlags,
+          packageContext,
+          /* includeDefaultValues= */ false,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
     }
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
-     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
+     */
+    public static Key create(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        boolean includeDefaultValues,
+        ImmutableMap<String, Label> flagAliasMappings) {
+      return create(
+          rawFlags,
+          packageContext,
+          includeDefaultValues,
+          flagAliasMappings,
+          /* allowNonFlagBuildSettings= */ false);
+    }
+
+    /**
+     * Returns a new {@link Key} for the given command-line flags, such as {@code
+     * --compilation_mode=dbg} or {@code --//custom/starlark:flag=23}.
      */
     @AutoCodec.Instantiator
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         boolean includeDefaultValues,
-        ImmutableMap<String, Label> flagAliasMappings) {
+        ImmutableMap<String, Label> flagAliasMappings,
+        boolean allowNonFlagBuildSettings) {
       return interner.intern(
-          new Key(rawFlags, packageContext, includeDefaultValues, flagAliasMappings));
+          new Key(
+              rawFlags,
+              packageContext,
+              includeDefaultValues,
+              flagAliasMappings,
+              allowNonFlagBuildSettings));
     }
 
     @Override
@@ -100,14 +134,21 @@ public class ParsedFlagsValue implements SkyValue {
 
   static ParsedFlagsValue parseAndCreate(NativeAndStarlarkFlags flags)
       throws OptionsParsingException {
-    return new ParsedFlagsValue(flags, flags.parse());
+    return parseAndCreate(flags, ImmutableSet.of());
+  }
+
+  static ParsedFlagsValue parseAndCreate(
+      NativeAndStarlarkFlags flags, ImmutableSet<String> disabledOptions)
+      throws OptionsParsingException {
+    return new ParsedFlagsValue(flags, flags.parse(), disabledOptions);
   }
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  static ParsedFlagsValue createForDeserialization(NativeAndStarlarkFlags flags) {
+  static ParsedFlagsValue createForDeserialization(
+      NativeAndStarlarkFlags flags, ImmutableSet<String> disabledOptions) {
     try {
-      return parseAndCreate(flags);
+      return parseAndCreate(flags, disabledOptions);
     } catch (OptionsParsingException e) {
       // Should be impossible since it parsed successfully before it was serialized.
       throw new IllegalStateException(e);
@@ -119,9 +160,15 @@ public class ParsedFlagsValue implements SkyValue {
   private final LoadingCache<BuildOptions, BuildConfigurationKey> mergeCache =
       Caffeine.newBuilder().weakKeys().build(this::mergeWithImpl);
 
-  private ParsedFlagsValue(NativeAndStarlarkFlags flags, OptionsParsingResult parsingResult) {
+  private final ImmutableSet<String> disabledOptions;
+
+  private ParsedFlagsValue(
+      NativeAndStarlarkFlags flags,
+      OptionsParsingResult parsingResult,
+      ImmutableSet<String> disabledOptions) {
     this.parsingResult = checkNotNull(parsingResult);
     this.flags = checkNotNull(flags);
+    this.disabledOptions = checkNotNull(disabledOptions);
   }
 
   public OptionsParsingResult parsingResult() {
@@ -158,16 +205,32 @@ public class ParsedFlagsValue implements SkyValue {
    * @return a {@link BuildConfigurationKey} to request the new configuration after applying this
    *     parsed flags value to the original options
    */
-  public BuildConfigurationKey mergeWith(BuildOptions source) {
-    return mergeCache.get(source);
+  public BuildConfigurationKey mergeWith(BuildOptions source) throws OptionsParsingException {
+    try {
+      return mergeCache.get(source);
+    } catch (CompletionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), OptionsParsingException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw e;
+    }
   }
 
-  private BuildConfigurationKey mergeWithImpl(BuildOptions source) {
+  private BuildConfigurationKey mergeWithImpl(BuildOptions source) throws OptionsParsingException {
     BuildOptions.Builder builder = source.toBuilder();
 
     // Handle native options.
     for (OptionValueDescription optionValue : parsingResult.allOptionValues()) {
       OptionDefinition optionDefinition = optionValue.getOptionDefinition();
+
+      String flagName = optionDefinition.getOptionName();
+      if (disabledOptions.contains(flagName)) {
+        throw new OptionsParsingException(
+            String.format(
+                "Cannot set --%s in a platform or platform mapping. It is disabled by"
+                    + " --incompatible_disable_transitions_on.",
+                flagName));
+      }
+
       // All options obtained from an options parser are guaranteed to have been defined in an
       // FragmentOptions class.
       Class<? extends FragmentOptions> fragmentOptionClass =
@@ -181,14 +244,16 @@ public class ParsedFlagsValue implements SkyValue {
       updateOptionValue(fragment, optionDefinition, optionValue);
     }
 
-    // Merge Starlark options. The scope info from the source options is already in the builder,
-    // copied by source.toBuilder(). Add the scope info from this instance's parsed scope
-    // attributes on top of it, then merge the values: flags reset to their default value are
-    // removed by removeStarlarkOption, which also deletes the scope info just added.
-    builder.addScopeTypeMap(
-        BuildOptions.convertScopesAttributes(
-            parsingResult.getScopesAttributes(), parsingResult.getStarlarkOptions()));
+    // Handle Starlark options.
     for (Map.Entry<String, Object> starlarkOption : parsingResult.getStarlarkOptions().entrySet()) {
+      String flagName = starlarkOption.getKey();
+      if (disabledOptions.contains(flagName)) {
+        throw new OptionsParsingException(
+            String.format(
+                "Cannot set %s in a platform or platform mapping. It is disabled by"
+                    + " --incompatible_disable_transitions_on.",
+                flagName));
+      }
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
@@ -202,6 +267,25 @@ public class ParsedFlagsValue implements SkyValue {
     // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
     //  accumulating flags, which is almost certainly not what users want. Instead this should
     //  intelligently merge options.
+    if (optionDefinition.getOptionName().equals("override_platform_cpu_name")) {
+      List<?> previousValue = (List<?>) optionDefinition.getValue(fragment);
+      List<?> newValue = (List<?>) optionValue.getValue();
+      Map<Object, Map.Entry<?, ?>> combined = new LinkedHashMap<>();
+      if (previousValue != null) {
+        for (Object item : previousValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      if (newValue != null) {
+        for (Object item : newValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      optionDefinition.setValue(fragment, ImmutableList.copyOf(combined.values()));
+      return;
+    }
     Object value = optionValue.getValue();
     optionDefinition.setValue(fragment, value);
   }
@@ -230,12 +314,12 @@ public class ParsedFlagsValue implements SkyValue {
     if (!(obj instanceof ParsedFlagsValue that)) {
       return false;
     }
-    return flags.equals(that.flags);
+    return flags.equals(that.flags) && disabledOptions.equals(that.disabledOptions);
   }
 
   @Override
   public int hashCode() {
-    return flags.hashCode();
+    return java.util.Objects.hash(flags, disabledOptions);
   }
 
   @Override

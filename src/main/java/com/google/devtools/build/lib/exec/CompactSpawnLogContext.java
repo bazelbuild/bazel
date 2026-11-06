@@ -154,7 +154,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final CompressionService compressionService;
   private final PathFragment execRoot;
   private final String workspaceName;
-  private final boolean siblingRepositoryLayout;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
@@ -182,19 +181,18 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       String displayName,
       PathFragment execRoot,
       String workspaceName,
-      boolean siblingRepositoryLayout,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
       CompressionService compressionService,
       UUID invocationId,
       ExtendedEventHandler reporter,
-      Predicate<Spawn> logSpawnPredicate)
+      Predicate<Spawn> logSpawnPredicate,
+      boolean expandParamFiles)
       throws IOException, InterruptedException {
-    super(logSpawnPredicate);
+    super(logSpawnPredicate, expandParamFiles);
     this.execRoot = execRoot;
     this.workspaceName = workspaceName;
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
@@ -221,7 +219,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                     ExecLogEntry.Invocation.newBuilder()
                         .setHashFunctionName(internalToUnicode(digestHashFunction.toString()))
                         .setWorkspaceRunfilesDirectory(internalToUnicode(workspaceName))
-                        .setSiblingRepositoryLayout(siblingRepositoryLayout)
                         .setId(internalToUnicode(invocationId.toString()))));
   }
 
@@ -246,7 +243,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
-      builder.addAllArgs(Lists.transform(spawn.getArguments(), StringEncoding::internalToUnicode));
+      builder.addAllArgs(
+          Lists.transform(getLoggedArguments(spawn), StringEncoding::internalToUnicode));
       builder.addAllEnvVars(getEnvironmentVariables(spawn));
       Platform platform = getPlatform(spawn, remoteOptions);
       if (platform != null) {

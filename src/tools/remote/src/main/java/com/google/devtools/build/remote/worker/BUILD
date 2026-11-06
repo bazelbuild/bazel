@@ -11,7 +11,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/remote:__pkg__"],
 )
 
 copy_file(
@@ -28,9 +28,6 @@ java_library(
     ],
     resources = ["//src/main/tools:linux-sandbox"],
     visibility = ["//src/tools/remote:__subpackages__"],
-    runtime_deps = [
-        "//third_party/java/netty_tcnative",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -49,8 +46,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_output_stream",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
@@ -61,6 +58,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/windows",

@@ -26,6 +26,12 @@ import org.junit.runners.JUnit4;
 public class UnixPathTest extends PathAbstractTest {
 
   @Test
+  public void testGetChildAcceptsBackslash() {
+    Path path = create("/foo/bar");
+    assertThat(path.getChild("x\\y")).isEqualTo(create("/foo/bar/x\\y"));
+  }
+
+  @Test
   public void testEqualsAndHashCodeUnix() {
     new EqualsTester()
         .addEqualityGroup(create("/something/else"))

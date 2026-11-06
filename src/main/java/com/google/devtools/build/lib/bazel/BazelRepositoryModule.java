@@ -15,18 +15,18 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -114,6 +114,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -129,9 +130,9 @@ public class BazelRepositoryModule extends BlazeModule {
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
   // Default list of registries.
-  public static final ImmutableSet<String> DEFAULT_REGISTRIES =
-      ImmutableSet.of("https://bcr.bazel.build/");
-  public static final ImmutableMap<String, ImmutableSet<String>> DEFAULT_MODULE_MIRRORS =
+  public static final ImmutableList<String> DEFAULT_REGISTRIES =
+      ImmutableList.of("https://bcr.bazel.build/");
+  public static final ImmutableMap<String, ImmutableList<String>> DEFAULT_MODULE_MIRRORS =
       ImmutableMap.of();
 
   private final RepositoryCache repositoryCache = new RepositoryCache();
@@ -143,9 +144,11 @@ public class BazelRepositoryModule extends BlazeModule {
   private ImmutableMap<String, PathFragment> overrides = ImmutableMap.of();
   private ImmutableMap<String, PathFragment> injections = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
+  private ImmutableMap<String, PathFragment> moduleInjections = ImmutableMap.of();
   private FileSystem filesystem;
-  private ImmutableSet<String> registries;
-  private ImmutableMap<String, ImmutableSet<String>> moduleMirrors;
+  private ImmutableList<String> registries;
+  private ImmutableMap<String, ImmutableList<String>> moduleMirrors;
+  private ImmutableSet<String> watchedRegistries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -436,15 +439,17 @@ public class BazelRepositoryModule extends BlazeModule {
             UrlRewriter.getDownloaderUrlRewriter(
                 env.getWorkspace(), repoOptions.getDownloaderConfigs());
         downloadManager.setUrlRewriter(rewriter);
-      } catch (UrlRewriterParseException e) {
+      } catch (IOException | UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
         // security purposes, and the build must not proceed ignoring it.
+        String locationMsg =
+            e instanceof UrlRewriterParseException parseException
+                ? " at %s".formatted(parseException.getLocation())
+                : "";
         throw new AbruptExitException(
             detailedExitCode(
                 String.format(
-                    "Failed to parse downloader config%s: %s",
-                    e.getLocation() != null ? String.format(" at %s", e.getLocation()) : "",
-                    e.getMessage()),
+                    "Failed to parse downloader config%s: %s", locationMsg, e.getMessage()),
                 Code.BAD_DOWNLOADER_CONFIG));
       }
 
@@ -454,7 +459,7 @@ public class BazelRepositoryModule extends BlazeModule {
             CredentialHelperEnvironment.newBuilder()
                 .setEventReporter(env.getReporter())
                 .setWorkspacePath(env.getWorkspace())
-                .setClientEnvironment(env::getClientEnv)
+                .setClientEnvironment(Suppliers.ofInstance(env.getClientEnv()))
                 .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                 .build();
         CredentialHelperProvider credentialHelperProvider =
@@ -538,7 +543,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
       if (repoOptions.getModuleOverrides() != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
-        for (RepositoryOptions.ModuleOverride override : repoOptions.getModuleOverrides()) {
+        for (RepositoryOptions.ModuleNameAndPath override : repoOptions.getModuleOverrides()) {
           if (override.path().isEmpty()) {
             moduleOverrideMap.remove(override.moduleName());
             continue;
@@ -555,6 +560,25 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       } else {
         moduleOverrides = ImmutableMap.of();
+      }
+
+      if (repoOptions.getModuleInjections() != null) {
+        Map<String, PathFragment> moduleInjectionMap = new LinkedHashMap<>();
+        for (RepositoryOptions.ModuleNameAndPath injection : repoOptions.getModuleInjections()) {
+          if (injection.path().isEmpty()) {
+            moduleInjectionMap.remove(injection.moduleName());
+            continue;
+          }
+          String modulePath = getAbsolutePath(injection.path(), env);
+          moduleInjectionMap.put(injection.moduleName(), PathFragment.create(modulePath));
+        }
+        ImmutableMap<String, PathFragment> newModuleInjections =
+            ImmutableMap.copyOf(moduleInjectionMap);
+        if (!Maps.difference(moduleInjections, newModuleInjections).areEqual()) {
+          moduleInjections = newModuleInjections;
+        }
+      } else {
+        moduleInjections = ImmutableMap.of();
       }
 
       ignoreDevDeps.set(repoOptions.getIgnoreDevDependency());
@@ -624,6 +648,9 @@ public class BazelRepositoryModule extends BlazeModule {
       } else {
         registries = DEFAULT_REGISTRIES;
       }
+      watchedRegistries =
+          parseWatchedRegistries(
+              repoOptions.getWatchedRegistries(), registries, env.getWorkspace());
       if (repoOptions.getModuleMirrors() != null && !repoOptions.getModuleMirrors().isEmpty()) {
         var registryToMirrors =
             repoOptions.getModuleMirrors().stream()
@@ -635,8 +662,10 @@ public class BazelRepositoryModule extends BlazeModule {
                         (a, b) -> b));
         // The key "" returned by the option conversion defines mirrors for all registries that
         // don't have their own explicitly defined.
-        var knownRegistries = Sets.union(registries, ImmutableSet.of(""));
-        var unknownRegistries = Sets.difference(registryToMirrors.keySet(), knownRegistries);
+        var unknownRegistries =
+            registryToMirrors.keySet().stream()
+                .filter(registry -> !registry.isEmpty() && !registries.contains(registry))
+                .collect(toImmutableList());
         if (!unknownRegistries.isEmpty()) {
           throw new AbruptExitException(
               detailedExitCode(
@@ -644,8 +673,8 @@ public class BazelRepositoryModule extends BlazeModule {
                       + String.join(", ", unknownRegistries),
                   Code.UNKNOWN_REGISTRY));
         }
-        var moduleMirrorsBuilder = ImmutableMap.<String, ImmutableSet<String>>builder();
-        var defaultMirrors = registryToMirrors.getOrDefault("", ImmutableSet.of());
+        var moduleMirrorsBuilder = ImmutableMap.<String, ImmutableList<String>>builder();
+        var defaultMirrors = registryToMirrors.getOrDefault("", ImmutableList.of());
         for (String registry : registries) {
           moduleMirrorsBuilder.put(
               registry, registryToMirrors.getOrDefault(registry, defaultMirrors));
@@ -684,14 +713,55 @@ public class BazelRepositoryModule extends BlazeModule {
     }
   }
 
+  /**
+   * Returns the normalized URLs of the {@code --watch_registry} registries with {@code %workspace%}
+   * expanded, as {@link RegistryFunction} sees them.
+   */
+  private static ImmutableSet<String> parseWatchedRegistries(
+      @Nullable List<String> watchedRegistryOptions,
+      ImmutableList<String> registries,
+      @Nullable Path workspace)
+      throws AbruptExitException {
+    if (watchedRegistryOptions == null) {
+      return ImmutableSet.of();
+    }
+    var watched = ImmutableSet.<String>builder();
+    for (String registry : watchedRegistryOptions) {
+      String url = normalizeBaseUrl(registry);
+      if (!registries.contains(url)) {
+        throw invalidWatchedRegistry(
+            registry, "it must also be passed with --registry", Code.UNKNOWN_REGISTRY);
+      }
+      if (workspace != null) {
+        url = url.replace("%workspace%", workspace.getPathString());
+      }
+      try {
+        RegistryFunction.getWatchedRegistryPath(url);
+      } catch (URISyntaxException e) {
+        throw invalidWatchedRegistry(registry, e.getMessage(), Code.INVALID_REGISTRY_URL);
+      }
+      watched.add(url);
+    }
+    return watched.build();
+  }
+
+  private static AbruptExitException invalidWatchedRegistry(
+      String registry, String reason, Code code) {
+    return new AbruptExitException(
+        detailedExitCode("Invalid --watch_registry=%s: %s".formatted(registry, reason), code));
+  }
+
   private static String normalizeBaseUrl(String baseUrl) {
     // Ensure that base URLs aren't duplicated even after /-delimited segments are appended to
     // them.
     return CharMatcher.is('/').trimTrailingFrom(baseUrl);
   }
 
-  private static ImmutableSet<String> normalizeBaseUrls(List<String> baseUrls) {
-    return baseUrls.stream().map(BazelRepositoryModule::normalizeBaseUrl).collect(toImmutableSet());
+  private static ImmutableList<String> normalizeBaseUrls(List<String> baseUrls) {
+    return baseUrls.stream()
+        .map(BazelRepositoryModule::normalizeBaseUrl)
+        .distinct()
+        .collect(toImmutableList());
   }
 
   /**
@@ -733,7 +803,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void afterCommand() throws AbruptExitException {
-    if (repositoryCache.getRepoContentsCache().isEnabled()) {
+    // The lock isn't held if beforeCommand rejected the repo contents cache path.
+    if (repositoryCache.getRepoContentsCache().holdsSharedLock()) {
       try {
         repositoryCache.getRepoContentsCache().releaseSharedLock();
       } catch (IOException e) {
@@ -755,6 +826,7 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
+        PrecomputedValue.injected(ModuleFileFunction.INJECTED_MODULES, moduleInjections),
         PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, fetchDisabled),
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.
@@ -765,6 +837,7 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, moduleMirrors),
+        PrecomputedValue.injected(RegistryFunction.WATCHED_REGISTRIES, watchedRegistries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),

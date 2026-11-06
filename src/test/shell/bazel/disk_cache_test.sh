@@ -65,7 +65,7 @@ EOF
   assert_equals "0" $(cat "${execution_file}")
 }
 
-function test_input_directories_in_external_repo_with_sibling_repository_layout() {
+function test_input_directories_in_external_repo() {
   create_new_workspace
   l=$TEST_TMPDIR/l
   mkdir -p "$l/dir"
@@ -85,7 +85,6 @@ genrule(name="g", srcs=["@l//:dir"], outs=["go"], cmd="find $< > $@")
 EOF
 
   bazel build \
-    --experimental_sibling_repository_layout  \
     --disk_cache="$TEST_TMPDIR/cache" \
     //:g || fail "build failed"
 
@@ -145,8 +144,7 @@ function test_garbage_collection() {
   # Run a build and request an immediate garbage collection.
   # Note that this build doesn't write anything to the disk cache.
   bazel build --disk_cache="$CACHE_DIR" \
-    --experimental_disk_cache_gc_max_size=2M \
-    --experimental_disk_cache_gc_idle_delay=0 \
+    --disk_cache_gc_max_size=2M --disk_cache_gc_idle_delay=0 \
     //a:BUILD >& $TEST_log || fail "Expected build to succeed"
 
   # Give the idle task a bit of time to run.

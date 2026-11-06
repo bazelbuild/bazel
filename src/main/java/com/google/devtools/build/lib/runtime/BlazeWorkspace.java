@@ -287,11 +287,11 @@ public final class BlazeWorkspace {
     long currentTimeMillis = runtime.getClock().currentTimeMillis();
     lastExecutionRange =
         currentTimeMillis >= commandStartTime
-            ? Range.closed(commandStartTime, currentTimeMillis)
+            ? Range.closed(commandStartTime * 1_000_000, currentTimeMillis * 1_000_000)
             : null;
   }
 
-  /** Range that represents the last execution time of a build in millis since epoch. */
+  /** Range that represents the last execution time of a build in nanos since epoch. */
   @Nullable
   public Range<Long> getLastExecutionTimeRange() {
     return lastExecutionRange;

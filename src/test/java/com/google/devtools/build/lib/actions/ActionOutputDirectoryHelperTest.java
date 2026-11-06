@@ -23,7 +23,7 @@ import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testing.common.DirectoryListingHelper;
@@ -239,7 +239,7 @@ public class ActionOutputDirectoryHelperTest {
       throws Exception {
     ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();
     Artifact regularOutput = createOutput("example/regular/file.txt");
-    SpecialArtifact treeOutput = createTreeOutput("example/tree/tree_dir");
+    TreeArtifact treeOutput = createTreeOutput("example/tree/tree_dir");
     ImmutableSet<Artifact> outputs = ImmutableSet.of(regularOutput, treeOutput);
 
     outputDirectoryHelper.createOutputDirectories(outputs);
@@ -274,7 +274,7 @@ public class ActionOutputDirectoryHelperTest {
     };
   }
 
-  private SpecialArtifact createTreeOutput(String relativeExecPath) {
+  private TreeArtifact createTreeOutput(String relativeExecPath) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         outputRoot, outputRoot.getExecPath().getRelative(relativeExecPath));
   }

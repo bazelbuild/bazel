@@ -63,22 +63,20 @@ public interface FileStatus {
   long getSize() throws IOException;
 
   /**
-   * Returns the last modified time of this file's data (milliseconds since
-   * UNIX epoch).
-   *
-   * TODO(bazel-team): Unix actually gives us nanosecond resolution for mtime and ctime. Consider
-   * making use of this.
+   * Returns the last modified time of this file's data in nanoseconds since UNIX epoch, at the
+   * finest resolution the file system provides.
    */
-  long getLastModifiedTime() throws IOException;
+  long getLastModifiedTimeNanos() throws IOException;
 
   /**
    * Returns the last change time of this file, where change means any change to the file, including
-   * metadata changes (milliseconds since UNIX epoch).
+   * metadata changes, in nanoseconds since UNIX epoch, at the finest resolution the file system
+   * provides.
    *
    * <p>On systems where the last change time is not supported, the last modified time will be
    * returned instead.
    */
-  long getLastChangeTime() throws IOException;
+  long getLastChangeTimeNanos() throws IOException;
 
   /**
    * Returns the unique file node id. Usually it is computed using both device

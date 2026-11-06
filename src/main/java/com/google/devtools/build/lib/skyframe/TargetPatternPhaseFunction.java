@@ -185,7 +185,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
-    if (targets.hasError()) {
+    if (targets.hasError() && options.isKeepGoing()) {
       env.getListener().handle(Event.warn("Target pattern parsing failed."));
     }
 
@@ -314,7 +314,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         } catch (TargetParsingException ignore) {
           // We ignore this. Keep going is active.
         }
-        env.getListener().handle(Event.error("Skipping '" + pattern + "': " + e.getMessage()));
+        if (options.isKeepGoing()) {
+          env.getListener().handle(Event.error("Skipping '" + pattern + "': " + e.getMessage()));
+        }
       }
     }
 
@@ -331,7 +333,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         String errorMessage = e.getMessage();
         failedPatterns.add(rawPattern);
         env.getListener().post(PatternExpandingError.failed(rawPattern, errorMessage));
-        env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
+        String message =
+            options.isKeepGoing() ? "Skipping '" + rawPattern + "': " + errorMessage : errorMessage;
+        env.getListener().handle(Event.error(message));
         continue;
       }
       if (value == null) {

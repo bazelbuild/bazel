@@ -324,7 +324,8 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     StarlarkType overallType = null;
     TokenKind operator = null;
     for (Object element : elements) {
-      StarlarkType elementType = Starlark.getStarlarkType(element, semantics);
+      StarlarkType elementType =
+          Starlark.getStarlarkTypePropagatingStackOverflow(element, semantics);
       if (overallType == null) {
         overallType = elementType;
         operator = binaryOpToken(element);

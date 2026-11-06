@@ -69,4 +69,50 @@ public class StringUtilTest {
                 .toString())
         .isEqualTo("begin/a, b, c ...(omitting 2 more item(s))/end");
   }
+
+  @Test
+  public void testFormatNested_nullOrBlankChild() {
+    assertThat(StringUtil.formatNested("prefix", null)).isEqualTo("prefix");
+    assertThat(StringUtil.formatNested("prefix", "")).isEqualTo("prefix");
+    assertThat(StringUtil.formatNested("prefix", "   ")).isEqualTo("prefix");
+    assertThat(StringUtil.formatNested("prefix", "\t\n ")).isEqualTo("prefix");
+  }
+
+  @Test
+  public void testFormatNested_singleLine() {
+    assertThat(StringUtil.formatNested("error header", "something went wrong"))
+        .isEqualTo("error header:\n  something went wrong");
+  }
+
+  @Test
+  public void testFormatNested_trailingColonNormalization() {
+    assertThat(StringUtil.formatNested("error header:", "something went wrong"))
+        .isEqualTo("error header:\n  something went wrong");
+    assertThat(StringUtil.formatNested("error header:   ", "something went wrong"))
+        .isEqualTo("error header:\n  something went wrong");
+  }
+
+  @Test
+  public void testFormatNested_multiLevel() {
+    String leaf = "compilation failed";
+    String mid = StringUtil.formatNested("at /path/b.bzl:10:5", leaf);
+    String top = StringUtil.formatNested("at /path/a.bzl:20:8", mid);
+    assertThat(top)
+        .isEqualTo("at /path/a.bzl:20:8:\n  at /path/b.bzl:10:5:\n    compilation failed");
+  }
+
+  @Test
+  public void testFormatNested_multiLineChild() {
+    String multiLine = "syntax error on line 1\nsyntax error on line 2";
+    assertThat(StringUtil.formatNested("error loading package 'foo'", multiLine))
+        .isEqualTo(
+            "error loading package 'foo':\n  syntax error on line 1\n  syntax error on line 2");
+  }
+
+  @Test
+  public void testFormatNested_crlfChild() {
+    String crlf = "line 1\r\nline 2\r\n";
+    assertThat(StringUtil.formatNested("header", crlf)).isEqualTo("header:\n  line 1\n  line 2");
+  }
 }
+

@@ -52,5 +52,10 @@ final class ProtoWorkerProtocol implements WorkerProtocolImpl {
   }
 
   @Override
-  public void close() {}
+  public void close() {
+    // Intentionally a no-op: ProtoWorkerProtocol holds no buffered streams of its own, and the
+    // underlying process streams are owned by SingleplexWorker/WorkerMultiplexer (which poll
+    // recordingInputStream.available() outside locks and read remaining crash output before
+    // reaping the process via destroyAndWait()).
+  }
 }

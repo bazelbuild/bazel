@@ -2,7 +2,10 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -15,7 +18,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -25,7 +28,7 @@ java_library(
         "CacheHitReportingModule.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
@@ -99,6 +102,12 @@ java_library(
         "BazelStartupOptionsModule.java",
         "BazelWorkspaceStatusModule.java",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -134,6 +143,8 @@ java_library(
     name = "spawn_log_module",
     srcs = [
         "SpawnLogModule.java",
+    ],
+    visibility = [
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
@@ -188,6 +199,9 @@ java_library(
 java_library(
     name = "main",
     srcs = ["Bazel.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":bazel_filesystem_module",
         ":bazel_services",
@@ -213,9 +227,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/outputfilter",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
         "//src/main/java/com/google/devtools/build/lib/platform:sleep_prevention_module",
+        "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_module",
         "//src/main/java/com/google/devtools/build/lib/platform:system_suspension_module",
         "//src/main/java/com/google/devtools/build/lib/profiler:command_profiler_module",
-        "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
+        "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocation_tracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
@@ -245,6 +260,7 @@ java_binary(
         "-Xlint:all",
     ],
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
+    visibility = ["//src:__subpackages__"],
     runtime_deps = [
         ":main",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc
@@ -271,12 +287,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocation_tracker_service_impl",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service_impl",
         "//src/main/java/com/google/devtools/build/lib/util:server_log_path_service_impl",
         "//third_party/java/guava:collect",
     ],

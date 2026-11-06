@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorManager;
 import com.google.devtools.build.lib.bazel.commands.RepositoryFetcher.RepositoryFetcherException;
@@ -30,12 +30,14 @@ import com.google.devtools.build.lib.bazel.commands.TargetFetcher.TargetFetcherE
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.remote.LazyMaterializer;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -67,6 +70,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -165,23 +169,41 @@ public final class VendorCommand implements BlazeCommand {
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
     try {
-      if (!targets.isEmpty()) {
-        if (!vendorOptions.getRepos().isEmpty()) {
+      if (!vendorOptions.getRepos().isEmpty()) {
+        if (!targets.isEmpty()) {
           return createFailedBlazeCommandResult(
               env.getReporter(), "Target patterns and --repo cannot both be specified");
         }
-        result = vendorTargets(env, options, targets);
-      } else if (!vendorOptions.getRepos().isEmpty()) {
+        if (vendorOptions.getLockfileDeps()) {
+          return createFailedBlazeCommandResult(
+              env.getReporter(),
+              Code.OPTIONS_INVALID,
+              "--lockfile_deps and --repo cannot both be specified");
+        }
         result = vendorRepos(env, threadsOption, vendorOptions.getRepos());
+      } else if (!targets.isEmpty() || vendorOptions.getLockfileDeps()) {
+        result =
+            vendorTargets(env, options, threadsOption, targets, vendorOptions.getLockfileDeps());
       } else {
         result = vendorAll(env, threadsOption);
       }
     } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Vendor interrupted: " + e.getMessage());
+      String message =
+          e.getMessage() != null ? "Vendor interrupted: " + e.getMessage() : "Vendor interrupted";
+      return createFailedBlazeCommandResult(env.getReporter(), message);
     } catch (IOException e) {
+      String message =
+          e.getMessage() != null
+              ? "Error while vendoring repos: " + e.getMessage()
+              : "Error while vendoring repos";
+      if (e instanceof DetailedException detailed) {
+        // Keep the failure's own exit code, e.g. so that the command is retried when a file of a
+        // repo has been evicted from the remote cache.
+        return createFailedBlazeCommandResult(
+            env.getReporter(), message, detailed.getDetailedExitCode());
+      }
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Error while vendoring repos: " + e.getMessage());
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
     }
 
     env.getEventBus()
@@ -226,7 +248,8 @@ public final class VendorCommand implements BlazeCommand {
           e != null && e.getMessage() != null
               ? e.getMessage()
               : "Unexpected error during fetching all external deps.";
-      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
     }
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
@@ -248,7 +271,8 @@ public final class VendorCommand implements BlazeCommand {
     } catch (RepositoryFetcherException e) {
       String errorMessage =
           e.getMessage() != null ? e.getMessage() : "Unexpected error during repository fetching.";
-      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
     }
 
     // Split repos to found and not found, vendor found ones and report others
@@ -270,47 +294,90 @@ public final class VendorCommand implements BlazeCommand {
     vendor(env, reposToVendor.build());
     if (!notFoundRepoErrors.isEmpty()) {
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Vendoring some repos failed with errors: " + notFoundRepoErrors);
+          env.getReporter(),
+          Code.QUERY_EVALUATION_ERROR,
+          "Vendoring some repos failed with errors: " + notFoundRepoErrors);
     }
     env.getReporter().handle(Event.info("All requested repos vendored successfully."));
     return BlazeCommandResult.success();
   }
 
   private BlazeCommandResult vendorTargets(
-      CommandEnvironment env, OptionsParsingResult options, List<String> targets)
+      CommandEnvironment env,
+      OptionsParsingResult options,
+      LoadingPhaseThreadsOption threadsOption,
+      List<String> targets,
+      boolean lockfileDeps)
       throws InterruptedException, IOException {
-    // Call fetch which runs build to have the targets graph and configuration set
-    BuildResult buildResult;
-    try {
-      buildResult = TargetFetcher.fetchTargets(env, options, targets);
-    } catch (TargetFetcherException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), Code.QUERY_EVALUATION_ERROR, e.getMessage());
+    ImmutableList.Builder<SkyKey> rootKeys = ImmutableList.builder();
+    if (!targets.isEmpty()) {
+      // Call fetch which runs build to have the targets graph and configuration set
+      BuildResult buildResult;
+      try {
+        buildResult = TargetFetcher.fetchTargets(env, options, targets);
+      } catch (TargetFetcherException e) {
+        return createFailedBlazeCommandResult(
+            env.getReporter(), Code.QUERY_EVALUATION_ERROR, e.getMessage());
+      }
+      buildResult.getActualTargets().stream()
+          .map(ConfiguredTarget::getLookupKey)
+          .forEach(rootKeys::add);
+    }
+    if (lockfileDeps) {
+      // Evaluate what `bazel mod tidy` evaluates so that all repos required to update the
+      // lockfile are reachable in the graph, including those hosting module extensions that are
+      // only used by dependencies.
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setParallelism(threadsOption.getThreads())
+              .setEventHandler(env.getReporter())
+              .build();
+      EvaluationResult<SkyValue> evaluationResult =
+          env.getSkyframeExecutor()
+              .prepareAndGet(ImmutableSet.of(BazelModTidyValue.KEY), evaluationContext);
+      if (evaluationResult.hasError()) {
+        Exception e = evaluationResult.getError().getException();
+        String errorMessage =
+            e != null && e.getMessage() != null
+                ? e.getMessage()
+                : "Unexpected error while evaluating the dependencies of bazel mod tidy.";
+        return createFailedBlazeCommandResult(
+            env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
+      }
+      var modTidyValue = (BazelModTidyValue) evaluationResult.get(BazelModTidyValue.KEY);
+      if (!modTidyValue.errors().isEmpty()) {
+        return createFailedBlazeCommandResult(
+            env.getReporter(),
+            Code.QUERY_EVALUATION_ERROR,
+            String.format(
+                "Failed to process %d extension%s due to errors.",
+                modTidyValue.errors().size(), modTidyValue.errors().size() == 1 ? "" : "s"));
+      }
+      rootKeys.add(BazelModTidyValue.KEY);
     }
 
-    // Traverse the graph created from build to collect repos and vendor them
-    ImmutableList<SkyKey> targetKeys =
-        buildResult.getActualTargets().stream()
-            .map(ConfiguredTarget::getLookupKey)
-            .collect(toImmutableList());
+    // Traverse the graph to collect the repos reachable from the roots and vendor them.
     InMemoryGraph inMemoryGraph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-    ImmutableSet<RepositoryName> reposToVendor = collectReposFromTargets(inMemoryGraph, targetKeys);
+    ImmutableSet<RepositoryName> reposToVendor =
+        collectReposReachableFrom(inMemoryGraph, rootKeys.build());
 
-    env.getReporter().handle(Event.info("Vendoring dependencies for targets..."));
+    String subject =
+        targets.isEmpty()
+            ? "lockfile updates"
+            : lockfileDeps ? "the requested targets and lockfile updates" : "the requested targets";
+    env.getReporter().handle(Event.info("Vendoring dependencies for " + subject + "..."));
     vendor(env, reposToVendor.asList());
     env.getReporter()
-        .handle(
-            Event.info(
-                "All external dependencies for the requested targets vendored successfully."));
+        .handle(Event.info("All external dependencies for " + subject + " vendored successfully."));
     return BlazeCommandResult.success();
   }
 
-  private ImmutableSet<RepositoryName> collectReposFromTargets(
-      InMemoryGraph inMemoryGraph, ImmutableList<SkyKey> targetKeys) throws InterruptedException {
+  private ImmutableSet<RepositoryName> collectReposReachableFrom(
+      InMemoryGraph inMemoryGraph, ImmutableList<SkyKey> rootKeys) throws InterruptedException {
     ImmutableSet.Builder<RepositoryName> repos = ImmutableSet.builder();
-    Queue<SkyKey> nodes = new ArrayDeque<>(targetKeys);
+    Queue<SkyKey> nodes = new ArrayDeque<>(rootKeys);
     // Mark nodes as visited when they are enqueued.
-    Set<SkyKey> visited = new HashSet<>(targetKeys);
+    Set<SkyKey> visited = new HashSet<>(rootKeys);
     while (!nodes.isEmpty()) {
       SkyKey key = nodes.remove();
       NodeEntry nodeEntry = inMemoryGraph.get(null, Reason.VENDOR_EXTERNAL_REPOS, key);
@@ -355,7 +422,7 @@ public final class VendorCommand implements BlazeCommand {
     // The user has to update the Bazel registries this if such conflicts occur.
     Map<String, String> vendorPathToUrl = new HashMap<>();
     for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
-      URI url = URI.create(entry.getKey());
+      URI url = parseRegistryFileUrl(entry.getKey());
       if (Objects.equals(url.getScheme(), "file")) {
         continue;
       }
@@ -373,7 +440,9 @@ public final class VendorCommand implements BlazeCommand {
                     + " cause conflict on case insensitive file systems, please fix by changing the"
                     + " registry URLs!",
                 previousUrl,
-                vendorManager.getVendorPathForUrl(URI.create(previousUrl)).getPathString(),
+                vendorManager
+                    .getVendorPathForUrl(parseRegistryFileUrl(previousUrl))
+                    .getPathString(),
                 entry.getKey(),
                 outputPath));
       }
@@ -404,6 +473,12 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
+    if (externalPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+      // Repos that have been retrieved from the remote repo contents cache may not be on disk yet.
+      for (RepositoryName repo : reposToVendor) {
+        lazyMaterializer.ensureMaterialized(repo, /* location= */ null, env.getReporter());
+      }
+    }
     vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
 
     // 3. Invalidate RepositoryDirectoryValue for vendored repos.
@@ -413,6 +488,14 @@ public final class VendorCommand implements BlazeCommand {
             k ->
                 k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
                     && reposToVendor.contains(k.argument()));
+  }
+
+  private static URI parseRegistryFileUrl(String url) throws IOException {
+    try {
+      return HttpUtils.parseUrl(url);
+    } catch (URISyntaxException e) {
+      throw new IOException("Invalid registry file URL: " + url, e);
+    }
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(

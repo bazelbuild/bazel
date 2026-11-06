@@ -27,6 +27,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.StarlarkType;
 
 /** A provider that gives general information about a target's direct and transitive files. */
 @StarlarkBuiltin(
@@ -60,6 +61,19 @@ public interface DefaultInfoApi extends StructApi {
       allowReturnNones = true)
   @Nullable
   Depset getFiles();
+
+  @StarlarkMethod(
+      name = "executable",
+      doc =
+          "A <a href='../builtins/File.html'><code>File</code></a> object representing the"
+              + " executable that should be executed to run the target, or <code>None</code> if"
+              + " unset. Should be set only for <a"
+              + " href='../globals/bzl.html#rule.executable'><code>executable</code></a> and <a"
+              + " href='../globals/bzl.html#rule.test'><code>test</code></a> targets.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi getExecutable();
 
   @StarlarkMethod(
       name = "files_to_run",
@@ -98,6 +112,10 @@ public interface DefaultInfoApi extends StructApi {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi, FileT extends FileApi>
       extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(DefaultInfoApiProvider.class, DefaultInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "DefaultInfo",

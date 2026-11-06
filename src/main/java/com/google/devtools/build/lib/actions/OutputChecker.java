@@ -26,6 +26,16 @@ public interface OutputChecker {
     return !shouldTrustMetadata(output, metadata);
   }
 
-  /** Returns whether the given metadata should be trusted. */
+  /** Returns whether the given metadata should be trusted when checking filesystem state. */
   boolean shouldTrustMetadata(ActionInput file, FileArtifactValue metadata);
+
+  /**
+   * Returns whether the given metadata should be trusted when checking whether a cached action
+   * entry in ActionCache is up-to-date.
+   *
+   * <p>By default, delegates to {@link #shouldTrustMetadata}.
+   */
+  default boolean shouldTrustCachedMetadata(ActionInput file, FileArtifactValue metadata) {
+    return shouldTrustMetadata(file, metadata);
+  }
 }

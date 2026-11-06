@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -110,21 +111,37 @@ public final class TestInterruptingBugReporterTest {
   public void asyncThread_sendBugReport() throws Exception {
     thrown.expect(IllegalStateException.class);
     thrown.expectMessage("Intentional");
-    Future<Void> future =
-        doSomethingAsync(() -> bugReporter.sendBugReport(new IllegalStateException("Intentional")));
-    throw assertThrows(InterruptedException.class, future::get);
+    assertAsyncInterrupted(
+        () -> bugReporter.sendBugReport(new IllegalStateException("Intentional")));
   }
 
   @Test
   public void asyncThread_handleCrash() throws Exception {
     thrown.expect(IllegalStateException.class);
     thrown.expectMessage("Intentional");
-    Future<Void> future =
-        doSomethingAsync(
-            () ->
-                bugReporter.handleCrash(
-                    Crash.from(new IllegalStateException("Intentional")), CrashContext.halt()));
-    throw assertThrows(InterruptedException.class, future::get);
+    assertAsyncInterrupted(
+        () ->
+            bugReporter.handleCrash(
+                Crash.from(new IllegalStateException("Intentional")), CrashContext.halt()));
+  }
+
+  private void assertAsyncInterrupted(Runnable runnable) throws Exception {
+    CountDownLatch blockLatch = new CountDownLatch(1);
+    try {
+      Future<Void> future =
+          doSomethingAsync(
+              () -> {
+                runnable.run();
+                try {
+                  blockLatch.await();
+                } catch (InterruptedException e) {
+                  // Expected when executor is shut down or interrupted.
+                }
+              });
+      throw assertThrows(InterruptedException.class, future::get);
+    } finally {
+      blockLatch.countDown();
+    }
   }
 
   private Future<Void> doSomethingAsync(Runnable something) {

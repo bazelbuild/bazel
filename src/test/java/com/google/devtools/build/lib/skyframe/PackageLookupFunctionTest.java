@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -73,13 +73,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link PackageLookupFunction}. */
-public abstract class PackageLookupFunctionTest extends FoundationTestCase {
+@RunWith(JUnit4.class)
+public class PackageLookupFunctionTest extends FoundationTestCase {
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
-
-  protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
   @Before
   public final void setUp() throws Exception {
@@ -110,9 +109,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
-            deletedPackages,
-            crossRepositoryLabelViolationStrategy(),
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            deletedPackages, BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         FileStateKey.FILE_STATE,
@@ -131,7 +128,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             ruleClassProvider.getBazelStarlarkEnvironment(),
             Root.fromPath(directories.getWorkspace())));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
 
@@ -234,7 +230,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isFalse();
       assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
-      assertThat(packageLookupValue.getErrorMsg()).isNotNull();
+      assertThat(packageLookupValue.getErrorMsg())
+          .isEqualTo("Package is considered deleted due to .bazelignore");
+      assertThat(packageLookupValue)
+          .isSameInstanceAs(PackageLookupValue.DELETED_BY_BAZELIGNORE_VALUE);
     }
 
     scratch.overwriteFile(
@@ -247,6 +246,25 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isTrue();
+    }
+  }
+
+  @Test
+  public void testIgnoredPackage_repoBazel() throws Exception {
+    scratch.file("ignored_repo/subdir/BUILD");
+    scratch.file("ignored_repo/BUILD");
+    scratch.file(
+        LabelConstants.REPO_FILE_NAME.getPathString(), "ignore_directories([\"ignored_repo\"])");
+
+    ImmutableSet<String> pkgs = ImmutableSet.of("ignored_repo/subdir", "ignored_repo");
+    for (String pkg : pkgs) {
+      PackageLookupValue packageLookupValue = lookupPackage(pkg);
+      assertThat(packageLookupValue.packageExists()).isFalse();
+      assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
+      assertThat(packageLookupValue.getErrorMsg())
+          .isEqualTo("Package is considered deleted due to ignore_directories() in REPO.bazel");
+      assertThat(packageLookupValue)
+          .isSameInstanceAs(PackageLookupValue.DELETED_BY_REPO_BAZEL_VALUE);
     }
   }
 
@@ -367,31 +385,5 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             PackageLookupValue.invalidPackageName("nope2"),
             PackageLookupValue.invalidPackageName("nope2"))
         .testEquals();
-  }
-
-  /**
-   * Runs all tests in the base {@link PackageLookupFunctionTest} class with the {@link
-   * CrossRepositoryLabelViolationStrategy#IGNORE} enum set, and also additional tests specific to
-   * that setting.
-   */
-  @RunWith(JUnit4.class)
-  public static class IgnoreLabelViolationsTest extends PackageLookupFunctionTest {
-    @Override
-    protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
-      return CrossRepositoryLabelViolationStrategy.IGNORE;
-    }
-  }
-
-  /**
-   * Runs all tests in the base {@link PackageLookupFunctionTest} class with the {@link
-   * CrossRepositoryLabelViolationStrategy#ERROR} enum set, and also additional tests specific to
-   * that setting.
-   */
-  @RunWith(JUnit4.class)
-  public static class ErrorLabelViolationsTest extends PackageLookupFunctionTest {
-    @Override
-    protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
-      return CrossRepositoryLabelViolationStrategy.ERROR;
-    }
   }
 }

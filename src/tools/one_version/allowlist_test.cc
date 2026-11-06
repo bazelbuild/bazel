@@ -16,11 +16,11 @@
 
 #include <string>
 
+#include "src/tools/one_version/duplicate_class_collector.h"
 #include "googletest/include/gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
-#include "src/tools/one_version/duplicate_class_collector.h"
 
 namespace one_version {
 
@@ -28,9 +28,9 @@ class AllowlistTest : public ::testing::Test {};
 
 TEST_F(AllowlistTest, Allowlisting) {
   DuplicateClassCollector vc;
-  vc.Add("com/google/Foo", 1, Label("//hello:foo", "hello/libfoo.jar"));
-  vc.Add("com/google/Foo", 2, Label("//hello:bar", "hello/libbar.jar"));
-  vc.Add("com/google/Foo", 2, Label("//hello:baz", "hello/libbaz.jar"));
+  vc.Add("com/google/Foo", 1, vc.AddLabel({"//hello:foo", "hello/libfoo.jar"}));
+  vc.Add("com/google/Foo", 2, vc.AddLabel({"//hello:bar", "hello/libbar.jar"}));
+  vc.Add("com/google/Foo", 2, vc.AddLabel({"//hello:baz", "hello/libbaz.jar"}));
   std::string expected =
       "  com/google/Foo has incompatible definitions in:\n"
       "    crc32=1\n"

@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.OutputChecker;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -65,10 +65,10 @@ public class LocalOutputService implements OutputService {
       if (outputPath.isSymbolicLink()) {
         // Remove the existing symlink first.
         outputPath.delete();
-      }
-      if (localOutputPath.exists()) {
-        // Pre-existing local output directory. Move to outputPath.
-        localOutputPath.renameTo(outputPath);
+        if (localOutputPath.exists()) {
+          // Pre-existing local output directory. Move to outputPath.
+          localOutputPath.renameTo(outputPath);
+        }
       }
     } catch (IOException e) {
       throw new AbruptExitException(

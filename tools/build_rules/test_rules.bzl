@@ -308,7 +308,7 @@ def _rule_test_rule_impl(ctx):
                       "Its list of attributes is: %s") %
                      (rule_name, k, dir(rule_)))
             file_ = ctx.actions.declare_file(exe.basename + "." + k)
-            files += [file_]
+            files.append(file_)
             regexp = provides[k]
             commands += [
                 "file_=%s" % _bash_rlocation(file_),

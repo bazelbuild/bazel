@@ -99,10 +99,6 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
                   .build());
         }
         return GlobValueWithNestedSet.EMPTY;
-      } else if (globSubdirPkgLookupValue
-          instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
-        // We crossed a repository boundary, so glob expansion should not descend into that subdir.
-        return GlobValueWithNestedSet.EMPTY;
       }
     }
 
@@ -209,11 +205,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
         // For symlinks, look up the corresponding FileValue. This ensures that if the symlink
         // changes and "switches types" (say, from a file to a directory), this value will be
         // invalidated. We also need the target's type to properly process the symlink.
-        symlinkFileMap.put(
-            FileValue.key(
-                RootedPath.toRootedPath(
-                    glob.getPackageRoot(), dirPathFragment.getRelative(fileName))),
-            dirent);
+        symlinkFileMap.put(FileValue.key(dirRootedPath.getChild(fileName)), dirent);
         continue;
       }
 
@@ -422,12 +414,6 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
         glob);
 
     PackageLookupValue packageLookupValue = (PackageLookupValue) valueRequested;
-    if (packageLookupValue
-        instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
-      // This is a separate repository, so ignore it.
-      return null;
-    }
-
     boolean isSubpackagesOp = glob.globberOperation() == Globber.Operation.SUBPACKAGES;
     boolean pkgExists = packageLookupValue.packageExists();
 

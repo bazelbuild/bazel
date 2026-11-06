@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeDependencyException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeLookupContinuation;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -149,6 +150,8 @@ public class RoundTripping {
         // Formally, an InterruptedException may occur when interacting with a LookupEnvironment,
         // but the EnvironmentForUtilities never throws it.
         throw new AssertionError("unexpected InterruptedException", e);
+      } catch (LookupAbandonedException e) {
+        throw new AssertionError("unexpected LookupAbandonedException", e);
       }
       if (futureValue == null) {
         throw new MissingResultException(recordingResultProvider.formatRecordedSkyKeys());

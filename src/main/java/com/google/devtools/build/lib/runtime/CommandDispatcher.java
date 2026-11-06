@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.protobuf.Any;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -30,12 +31,6 @@ import java.util.function.Supplier;
  * appropriate command object, parses the options required by the object, and calls its exec method.
  */
 public interface CommandDispatcher {
-
-  /** What to do if the command lock is not available. */
-  enum LockingMode {
-    WAIT, // Wait until it is available
-    ERROR_OUT, // Return with an error
-  }
 
   /** How much output to emit on the console. */
   enum UiVerbosity {
@@ -52,7 +47,7 @@ public interface CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -72,7 +67,7 @@ public interface CommandDispatcher {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      LockingMode lockingMode,
+      Duration blockForLockTimeout,
       UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
@@ -86,7 +81,7 @@ public interface CommandDispatcher {
         invocationPolicy,
         args,
         outErr,
-        lockingMode,
+        blockForLockTimeout,
         uiVerbosity,
         clientDescription,
         firstContactTimeMillis,

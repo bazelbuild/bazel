@@ -9,7 +9,6 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
 )
 
 java_binary(

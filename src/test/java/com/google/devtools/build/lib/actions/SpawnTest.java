@@ -16,7 +16,13 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -100,6 +106,119 @@ public final class SpawnTest {
     Spawn spawn = new SpawnBuilder("/bin/gcc", "@some/other/file", "-o", "foo.o").build();
     assertThat(spawn.getArgumentsWithExpandedParamFiles())
         .containsExactly("/bin/gcc", "@some/other/file", "-o", "foo.o")
+        .inOrder();
+  }
+
+  private static final ResourceSet DECLARED_RESOURCES =
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 250, /* cpu= */ 1);
+
+  @Test
+  public void getLocalResources_appliesResourceOverrides() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("/bin/true")
+            .withLocalResources(DECLARED_RESOURCES)
+            .withExecutionInfo("resources:cpu:4", "")
+            .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
+            .build();
+    ResourceSet resources = spawn.getLocalResources();
+
+    // Execution info and exec properties both override the declared amounts.
+    assertThat(resources.getCpuUsage()).isEqualTo(4.0);
+    assertThat(resources.getMemoryMb()).isEqualTo(8000.0);
+  }
+
+  @Test
+  public void getLocalResources_fixedDeclaration_ignoresResourceOverrides() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("/bin/true")
+            .withLocalResources(ResourceSetOrBuilder.ignoringOverrides(DECLARED_RESOURCES))
+            .withExecutionInfo("resources:cpu:4", "")
+            .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
+            .build();
+
+    assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
+    // The declarations still reach the spawn, so strategy selection is unaffected.
+    assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");
+    assertThat(spawn.getCombinedExecProperties()).containsEntry("resources:memory", "8000");
+  }
+
+  // NullAction's owner has no exec properties, so these only exercise the execution-info route.
+  // Both routes share ResourceSetOrBuilder#buildLocalResources, which the cases above cover.
+  private static BaseSpawn baseSpawn(ResourceSetOrBuilder localResources) {
+    return new BaseSpawn(
+        ImmutableList.of("/bin/true"),
+        /* environment= */ ImmutableMap.of(),
+        /* executionInfo= */ ImmutableMap.of("resources:cpu:4", ""),
+        new ActionsTestUtil.NullAction(),
+        localResources);
+  }
+
+  @Test
+  public void baseSpawn_getLocalResources_appliesResourceOverrides() throws Exception {
+    ResourceSet resources = baseSpawn(DECLARED_RESOURCES).getLocalResources();
+
+    assertThat(resources.getCpuUsage()).isEqualTo(4.0);
+  }
+
+  @Test
+  public void baseSpawn_getLocalResources_fixedDeclaration_keepsDeclaredResources()
+      throws Exception {
+    BaseSpawn spawn = baseSpawn(ResourceSetOrBuilder.ignoringOverrides(DECLARED_RESOURCES));
+
+    assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
+    assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");
+  }
+
+  @Test
+  public void flattenedInputs_empty() {
+    FlattenedInputs flattened = SpawnInputs.empty().plus(ImmutableList.of()).flatten();
+
+    assertThat(flattened).isEmpty();
+    assertThat(flattened.size()).isEqualTo(0);
+    assertThat(flattened.toArray()).isEmpty();
+  }
+
+  @Test
+  public void flattenedInputs_singleSetOrSecondSetOnly() {
+    ActionInput input1 = ActionInputHelper.fromPath("a");
+    ActionInput input2 = ActionInputHelper.fromPath("b");
+    NestedSet<ActionInput> set = NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2);
+
+    FlattenedInputs fromFirst = SpawnInputs.of(set).flatten();
+    assertThat(fromFirst).containsExactly(input1, input2).inOrder();
+    assertThat(fromFirst.toArray()).asList().containsExactly(input1, input2).inOrder();
+
+    FlattenedInputs fromSecond =
+        SpawnInputs.of(NestedSetBuilder.emptySet(Order.STABLE_ORDER), set, ImmutableList.of())
+            .flatten();
+    assertThat(fromSecond).containsExactly(input1, input2).inOrder();
+    assertThat(fromSecond.toArray()).asList().containsExactly(input1, input2).inOrder();
+  }
+
+  @Test
+  public void flattenedInputs_multipleSourcesAndPlus() {
+    ActionInput input1 = ActionInputHelper.fromPath("a");
+    ActionInput input2 = ActionInputHelper.fromPath("b");
+    ActionInput input3 = ActionInputHelper.fromPath("c");
+    ActionInput input4 = ActionInputHelper.fromPath("d");
+    ActionInput input5 = ActionInputHelper.fromPath("e");
+    NestedSet<ActionInput> set1 = NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2);
+    NestedSet<ActionInput> set2 = NestedSetBuilder.create(Order.STABLE_ORDER, input3);
+
+    FlattenedInputs firstAndRest = SpawnInputs.of(set1).plus(ImmutableList.of(input3)).flatten();
+    assertThat(firstAndRest).containsExactly(input1, input2, input3).inOrder();
+    assertThat(firstAndRest.toArray()).asList().containsExactly(input1, input2, input3).inOrder();
+
+    FlattenedInputs flattened =
+        SpawnInputs.of(set1, set2, ImmutableList.of())
+            .plus(ImmutableList.of(input4))
+            .plus(ImmutableList.of(input5))
+            .flatten();
+
+    assertThat(flattened).containsExactly(input1, input2, input3, input4, input5).inOrder();
+    assertThat(flattened.toArray())
+        .asList()
+        .containsExactly(input1, input2, input3, input4, input5)
         .inOrder();
   }
 }

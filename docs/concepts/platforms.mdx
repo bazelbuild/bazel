@@ -122,13 +122,13 @@ defines a platform as a collection of `constraint_value`s:
 platform(
     name = "linux_x86",
     constraint_values = [
-        "@platforms//os::linux",
+        "@platforms//os:linux",
         "@platforms//cpu:x86",
     ],
 )
 ```
 
-This models a machine that must have both the `//@platforms//os:linux` and `//@platforms//cpu:x86`
+This models a machine that must have both the `@platforms//os:linux` and `@platforms//cpu:x86`
 constraints.
 
 Platforms may only have one `constraint_value` for a given `constraint_setting`.

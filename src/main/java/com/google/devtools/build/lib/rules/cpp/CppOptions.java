@@ -142,7 +142,7 @@ public abstract class CppOptions extends FragmentOptions {
   // this without warning spam because of a globally set bazelrc.
   @Option(
       name = "crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
@@ -246,7 +246,7 @@ public abstract class CppOptions extends FragmentOptions {
           "Determines whether C++ binaries will be linked dynamically.  'default' means "
               + "Bazel will choose whether to link dynamically.  'fully' means all libraries "
               + "will be linked dynamically. 'off' means that all libraries will be linked "
-              + "in mostly static mode.")
+              + "in mostly static mode, the exception being dynamically linked system libraries.")
   public abstract DynamicMode getDynamicMode();
 
   @Option(
@@ -816,17 +816,6 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getSaveFeatureState();
 
   @Option(
-      name = "incompatible_disable_nocopts",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When enabled, it removes nocopts attribute from C++ rules. See"
-              + " https://github.com/bazelbuild/bazel/issues/8706 for details.")
-  public abstract boolean getDisableNoCopts();
-
-  @Option(
       name = "apple_generate_dsym",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -947,17 +936,6 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getObjcGenerateDotdFiles();
 
   @Option(
-      name = "experimental_cc_implementation_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
-  public abstract boolean getExperimentalCcImplementationDeps();
-
-  @Option(
       name = "experimental_cpp_modules",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1002,4 +980,13 @@ public abstract class CppOptions extends FragmentOptions {
           "If enabled, will estimate precise resource usage for local execution of"
               + " CppCompileAction.")
   public abstract boolean getExperimentalCppCompileResourcesEstimation();
+
+  @Override
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
+    if (!getOutputDirectoryTag().isEmpty()) {
+      ctx.addToMnemonic(getOutputDirectoryTag());
+    }
+  }
 }

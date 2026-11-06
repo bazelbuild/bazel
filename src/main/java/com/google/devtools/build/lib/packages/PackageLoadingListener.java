@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.List;
@@ -25,19 +26,41 @@ public interface PackageLoadingListener {
   PackageLoadingListener NOOP_LISTENER =
       (pkg, semantics, lazyMacroExpansionPackages, metrics) -> {};
 
-  /** Returns a {@link PackageLoadingListener} from a composed of the input listeners. */
+  /** Returns a {@link PackageLoadingListener} composed of the input listeners. */
   static PackageLoadingListener create(List<PackageLoadingListener> listeners) {
     return switch (listeners.size()) {
       case 0 -> NOOP_LISTENER;
       case 1 -> listeners.get(0);
-      default ->
-          (pkg, semantics, lazyMacroExpansionPackages, metrics) -> {
-            for (PackageLoadingListener listener : listeners) {
-              listener.onLoadingCompleteAndSuccessful(
-                  pkg, semantics, lazyMacroExpansionPackages, metrics);
-            }
-          };
+      default -> new CompositePackageLoadingListener(ImmutableList.copyOf(listeners));
     };
+  }
+
+  /** A {@link PackageLoadingListener} composed of multiple underlying listeners. */
+  final class CompositePackageLoadingListener implements PackageLoadingListener {
+    private final ImmutableList<PackageLoadingListener> listeners;
+
+    private CompositePackageLoadingListener(ImmutableList<PackageLoadingListener> listeners) {
+      this.listeners = listeners;
+    }
+
+    @Override
+    public void onLoadingCompleteAndSuccessful(
+        Package pkg,
+        StarlarkSemantics starlarkSemantics,
+        LazyMacroExpansionPackages lazyMacroExpansionPackages,
+        Metrics metrics) {
+      for (PackageLoadingListener listener : listeners) {
+        listener.onLoadingCompleteAndSuccessful(
+            pkg, starlarkSemantics, lazyMacroExpansionPackages, metrics);
+      }
+    }
+
+    @Override
+    public void onBzlCompileCompleteAndSuccessful(RootedPath path, long fileSize) {
+      for (PackageLoadingListener listener : listeners) {
+        listener.onBzlCompileCompleteAndSuccessful(path, fileSize);
+      }
+    }
   }
 
   /**

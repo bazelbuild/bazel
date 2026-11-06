@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
@@ -158,13 +157,9 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//pkg:a.out");
     OutputFileConfiguredTarget output = (OutputFileConfiguredTarget) ctad.getConfiguredTarget();
     Artifact outputArtifact = output.getArtifact();
-    assertThat(outputArtifact.getRoot())
-        .isEqualTo(
-            ctad.getConfiguration()
-                .getBinDirectory(output.getLabel().getPackageIdentifier().getRepository()));
+    assertThat(outputArtifact.getRoot()).isEqualTo(ctad.getConfiguration().getBinDirectory());
     assertThat(outputArtifact.getExecPath())
-        .isEqualTo(
-            ctad.getConfiguration().getBinFragment(RepositoryName.MAIN).getRelative("pkg/a.out"));
+        .isEqualTo(ctad.getConfiguration().getBinFragment().getRelative("pkg/a.out"));
     assertThat(outputArtifact.getRootRelativePath()).isEqualTo(PathFragment.create("pkg/a.out"));
 
     Action action = getGeneratingAction(outputArtifact);
@@ -1637,10 +1632,13 @@ public class BuildViewTest extends BuildViewTestBase {
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(
             false,
-            false,
             OutputGroupInfo.determineOutputGroups(
-                outputGroups, OutputGroupInfo.ValidationMode.OFF, /* shouldRunTests= */ false),
-            failOnUnknownOutputGroups);
+                outputGroups,
+                /* extraDefaultOutputGroups= */ ImmutableList.of(),
+                OutputGroupInfo.ValidationMode.OFF,
+                /* shouldRunTests= */ false),
+            failOnUnknownOutputGroups,
+            /* forRunCommand= */ false);
     return update(context, ImmutableList.copyOf(aspects), targets);
   }
 
@@ -1778,6 +1776,16 @@ public class BuildViewTest extends BuildViewTestBase {
         "//pkg:foo", ImmutableList.of("+" + OutputGroupInfo.VALIDATION_TOP_LEVEL), true);
     updateWithOutputGroups(
         "//pkg:foo", ImmutableList.of("+" + OutputGroupInfo.VALIDATION_TRANSITIVE), true);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testInternalOutputGroups_noError() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    updateWithOutputGroups(
+        "//pkg:foo", ImmutableList.of("+custom_internal" + OutputGroupInfo.INTERNAL_SUFFIX), true);
+    updateWithOutputGroups(
+        "//pkg:foo", ImmutableList.of("+custom_internal" + OutputGroupInfo.INTERNAL_SUFFIX), false);
     assertNoEvents();
   }
 }

@@ -28,7 +28,7 @@ public final class TypeAliasStatement extends Statement {
       Identifier identifier,
       ImmutableList<Identifier> parameters,
       Expression definition) {
-    super(locs, Kind.TYPE_ALIAS);
+    super(locs);
     this.startOffset = startOffset;
     this.identifier = identifier;
     this.parameters = parameters;

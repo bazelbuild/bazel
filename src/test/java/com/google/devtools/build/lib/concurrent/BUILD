@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -12,7 +12,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/concurrent/safeexecutor:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -20,6 +20,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:cancellable_task",
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/concurrent:task_deduplicator",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
@@ -33,6 +34,7 @@ java_library(
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
         "//third_party/java/mockito",
+        "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
     ],
 )
@@ -50,6 +52,6 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ConcurrentTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )

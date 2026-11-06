@@ -192,7 +192,7 @@ Options that appear before the command and are parsed by the client:
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
 
-`--io_nice_level=&lcub;-1,0,1,2,3,4,5,6,7&rcub;` default: "-1"
+`--io_nice_level={-1,0,1,2,3,4,5,6,7}` default: "-1"
 :   Only on Linux; set a level from 0-7 for best-effort IO scheduling using the sys_ioprio_set system call. 0 is highest priority, 7 is lowest. The anticipatory scheduler may only honor up to priority 4. If set to a negative value, then Bazel does not perform a system call.
 
     Tags:
@@ -357,9 +357,9 @@ Options that appear before the command and are parsed by the client:
 `--repo_contents_cache=&lt;a path&gt;` default: see description
 :   Specifies the location of the repo contents cache, which contains fetched repo
     directories shareable across workspaces. An empty string as argument requests the repo
-    contents cache to be disabled, otherwise the default of `&lcub;--repository_cache&rcub;/contents`
+    contents cache to be disabled, otherwise the default of `{--repository_cache}/contents`
     is used. Note that this means setting `--repository_cache=` would by default disable the
-    repo contents cache as well, unless `--repo_contents_cache=&lcub;some_path&rcub;` is also set.
+    repo contents cache as well, unless `--repo_contents_cache={some_path}` is also set.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -382,13 +382,13 @@ Options that appear before the command and are parsed by the client:
 :   Specifies the cache location of the downloaded values obtained
     during the fetching of external repositories. An empty string
     as argument requests the cache to be disabled,
-    otherwise the default of `&lcub;--output_user_root&rcub;/cache/repos/v1` is used.
+    otherwise the default of `{--output_user_root}/cache/repos/v1` is used.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
 
 `--[no]repository_disable_download` default: "false"
-:   If set, downloading using `ctx.download&lcub;,_and_extract&rcub;` is not allowed during repository
+:   If set, downloading using `ctx.download{,_and_extract}` is not allowed during repository
     fetching. Note that network access is not completely disabled; ctx.execute could
     still run an arbitrary executable that accesses the Internet.
 
@@ -822,7 +822,7 @@ Options relating to Bzlmod output and semantics:
 
 `--allow_yanked_versions=&lt;a string&gt;` multiple uses are accumulated
 :   Specified the module versions in the form of
-    `&lcub;module1&rcub;@&lcub;version1&rcub;,module2@&lcub;version2&rcub;` that will be allowed in the resolved
+    `{module1}@{version1},module2@{version2}` that will be allowed in the resolved
     dependency graph even if they are declared yanked in the registry where they come
     from (if they are not coming from a [`NonRegistryOverride`](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/bzlmod/NonRegistryOverride.java)).
     Otherwise, yanked versions will cause the resolution to fail. You can also define allowed
@@ -876,7 +876,7 @@ Options relating to Bzlmod output and semantics:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
 
 `--override_module=&lt;an equals-separated mapping of module name to path&gt;` multiple uses are accumulated
-:   Override a module with a local path in the form of `&lcub;module name&rcub;=&lcub;path&rcub;`. If the given
+:   Override a module with a local path in the form of `{module name}={path}`. If the given
     path is an absolute path, it will be used as it is. If the given path is a
     relative path, it is relative to the current working directory. If the given path
     starts with `%workspace%`, it is relative to the workspace root, which is the
@@ -993,7 +993,7 @@ Options that affect the verbosity, format or location of logging:
 
 `--bes_keywords=&lt;comma-separated list of options&gt;` multiple uses are accumulated
 :   Specifies a list of notification keywords to be added the default set of keywords
-    published to BES (`command_name=&lcub;command_name&rcub;`, `protocol_name=BEP`).
+    published to BES (`command_name={command_name}`, `protocol_name=BEP`).
     Defaults to none.
 
     Tags:
@@ -1707,7 +1707,7 @@ Miscellaneous options, not otherwise categorized.:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--inject_repository=&lt;an equals-separated mapping of repository name to path&gt;` multiple uses are accumulated
-:   Adds a new repository with a local path in the form of `&lcub;repository name&rcub;=&lcub;path&rcub;`. This
+:   Adds a new repository with a local path in the form of `{repository name}={path}`. This
     only takes effect with `--enable_bzlmod` and is equivalent to adding a
     corresponding `local_repository` to the root module's `MODULE.bazel` file via
     `use_repo_rule`. If the given path is an absolute path, it will be used as it is.
@@ -1723,7 +1723,7 @@ Miscellaneous options, not otherwise categorized.:
     [`bazel_monitoring`](#effect_tag_BAZEL_MONITORING), [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
 
 `--override_repository=&lt;an equals-separated mapping of repository name to path&gt;` multiple uses are accumulated
-:   Override a repository with a local path in the form of `&lcub;repository name&rcub;=&lcub;path&rcub;`,
+:   Override a repository with a local path in the form of `{repository name}={path}`,
     where the repository name can be either a canonical name or an apparent name from the
     point of view of the main repository.
 
@@ -2448,7 +2448,7 @@ Options that control the output of the command:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--[no]incompatible_compact_repo_mapping_manifest` default: "true"
-:   If enabled, the `&lcub;binary&rcub;.repo_mapping` file emits a module extension's repo mapping
+:   If enabled, the `{binary}.repo_mapping` file emits a module extension's repo mapping
     only once instead of once for each repo generated by the extension that
     contributes runfiles.
 
@@ -2763,7 +2763,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the target configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
     See also `--host_features`.
 
     Tags:
@@ -2820,7 +2820,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--host_features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the exec configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -3245,12 +3245,12 @@ Options that govern the behavior of the test environment or test runner:
 
 `--default_test_resources=&lt;a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100&gt;` multiple uses are accumulated
 :   Override the default resources amount for tests. The expected format is
-    `&lcub;resource&rcub;=&lcub;value&rcub;`. If a single positive number is specified as `&lcub;value&rcub;`
+    `{resource}={value}`. If a single positive number is specified as `{value}`
     it will override the default resources for all test sizes. If 4
     comma-separated numbers are specified, they will override the resource
     amount for respectively the `small`, `medium`, `large`, `enormous` test sizes.
     Values can also be `HOST_RAM`/`HOST_CPU`, optionally followed
-    by `[-|*]&lcub;float&rcub;` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
+    by `[-|*]{float}` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
     The default test resources specified by this flag are overridden by explicit
     resources specified in tags.
 
@@ -3408,7 +3408,7 @@ Options specifying or altering a generic input to a Bazel command that does not 
 
 `--flag_alias=&lt;a 'name=label' flag alias&gt;` multiple uses are accumulated
 :   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
-    `&lcub;key&rcub;=&lcub;value&rcub;` as an argument.
+    `{key}={value}` as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`non_configurable`](#metadata_tag_NON_CONFIGURABLE)
@@ -4046,7 +4046,7 @@ Options that let the user configure the intended output, affecting its value, as
     `requires` attribute.
     `some_aspect` will then have access to the values of those aspects'
     providers.
-    `&lcub;bzl-file-label&rcub;%&lcub;aspect_name&rcub;`, for example `//tools:my_def.bzl%my_aspect`, where
+    `{bzl-file-label}%{aspect_name}`, for example `//tools:my_def.bzl%my_aspect`, where
     `my_aspect` is a top-level value from a file `tools/my_def.bzl`.
 
 `--bep_maximum_open_remote_upload_files=&lt;an integer&gt;` default: "-1"
@@ -5274,7 +5274,7 @@ Options that control the output of the command:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--[no]incompatible_compact_repo_mapping_manifest` default: "true"
-:   If enabled, the `&lcub;binary&rcub;.repo_mapping` file emits a module extension's repo mapping
+:   If enabled, the `{binary}.repo_mapping` file emits a module extension's repo mapping
     only once instead of once for each repo generated by the extension that
     contributes runfiles.
 
@@ -5589,7 +5589,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the target configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
     See also `--host_features`.
 
     Tags:
@@ -5646,7 +5646,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--host_features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the exec configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -6071,12 +6071,12 @@ Options that govern the behavior of the test environment or test runner:
 
 `--default_test_resources=&lt;a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100&gt;` multiple uses are accumulated
 :   Override the default resources amount for tests. The expected format is
-    `&lcub;resource&rcub;=&lcub;value&rcub;`. If a single positive number is specified as `&lcub;value&rcub;`
+    `{resource}={value}`. If a single positive number is specified as `{value}`
     it will override the default resources for all test sizes. If 4
     comma-separated numbers are specified, they will override the resource
     amount for respectively the `small`, `medium`, `large`, `enormous` test sizes.
     Values can also be `HOST_RAM`/`HOST_CPU`, optionally followed
-    by `[-|*]&lcub;float&rcub;` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
+    by `[-|*]{float}` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
     The default test resources specified by this flag are overridden by explicit
     resources specified in tags.
 
@@ -6234,7 +6234,7 @@ Options specifying or altering a generic input to a Bazel command that does not 
 
 `--flag_alias=&lt;a 'name=label' flag alias&gt;` multiple uses are accumulated
 :   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
-    `&lcub;key&rcub;=&lcub;value&rcub;` as an argument.
+    `{key}={value}` as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`non_configurable`](#metadata_tag_NON_CONFIGURABLE)
@@ -7248,7 +7248,7 @@ Options that control the output of the command:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--[no]incompatible_compact_repo_mapping_manifest` default: "true"
-:   If enabled, the `&lcub;binary&rcub;.repo_mapping` file emits a module extension's repo mapping
+:   If enabled, the `{binary}.repo_mapping` file emits a module extension's repo mapping
     only once instead of once for each repo generated by the extension that
     contributes runfiles.
 
@@ -7563,7 +7563,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the target configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
     See also `--host_features`.
 
     Tags:
@@ -7620,7 +7620,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--host_features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the exec configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -8045,12 +8045,12 @@ Options that govern the behavior of the test environment or test runner:
 
 `--default_test_resources=&lt;a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100&gt;` multiple uses are accumulated
 :   Override the default resources amount for tests. The expected format is
-    `&lcub;resource&rcub;=&lcub;value&rcub;`. If a single positive number is specified as `&lcub;value&rcub;`
+    `{resource}={value}`. If a single positive number is specified as `{value}`
     it will override the default resources for all test sizes. If 4
     comma-separated numbers are specified, they will override the resource
     amount for respectively the `small`, `medium`, `large`, `enormous` test sizes.
     Values can also be `HOST_RAM`/`HOST_CPU`, optionally followed
-    by `[-|*]&lcub;float&rcub;` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
+    by `[-|*]{float}` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
     The default test resources specified by this flag are overridden by explicit
     resources specified in tags.
 
@@ -8208,7 +8208,7 @@ Options specifying or altering a generic input to a Bazel command that does not 
 
 `--flag_alias=&lt;a 'name=label' flag alias&gt;` multiple uses are accumulated
 :   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
-    `&lcub;key&rcub;=&lcub;value&rcub;` as an argument.
+    `{key}={value}` as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`non_configurable`](#metadata_tag_NON_CONFIGURABLE)
@@ -9049,7 +9049,7 @@ Options that control the output of the command:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--[no]incompatible_compact_repo_mapping_manifest` default: "true"
-:   If enabled, the `&lcub;binary&rcub;.repo_mapping` file emits a module extension's repo mapping
+:   If enabled, the `{binary}.repo_mapping` file emits a module extension's repo mapping
     only once instead of once for each repo generated by the extension that
     contributes runfiles.
 
@@ -9364,7 +9364,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the target configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
     See also `--host_features`.
 
     Tags:
@@ -9421,7 +9421,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--host_features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the exec configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -9846,12 +9846,12 @@ Options that govern the behavior of the test environment or test runner:
 
 `--default_test_resources=&lt;a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100&gt;` multiple uses are accumulated
 :   Override the default resources amount for tests. The expected format is
-    `&lcub;resource&rcub;=&lcub;value&rcub;`. If a single positive number is specified as `&lcub;value&rcub;`
+    `{resource}={value}`. If a single positive number is specified as `{value}`
     it will override the default resources for all test sizes. If 4
     comma-separated numbers are specified, they will override the resource
     amount for respectively the `small`, `medium`, `large`, `enormous` test sizes.
     Values can also be `HOST_RAM`/`HOST_CPU`, optionally followed
-    by `[-|*]&lcub;float&rcub;` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
+    by `[-|*]{float}` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
     The default test resources specified by this flag are overridden by explicit
     resources specified in tags.
 
@@ -10009,7 +10009,7 @@ Options specifying or altering a generic input to a Bazel command that does not 
 
 `--flag_alias=&lt;a 'name=label' flag alias&gt;` multiple uses are accumulated
 :   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
-    `&lcub;key&rcub;=&lcub;value&rcub;` as an argument.
+    `{key}={value}` as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`non_configurable`](#metadata_tag_NON_CONFIGURABLE)
@@ -10470,7 +10470,7 @@ Options that control the output of the command:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--[no]incompatible_compact_repo_mapping_manifest` default: "true"
-:   If enabled, the `&lcub;binary&rcub;.repo_mapping` file emits a module extension's repo mapping
+:   If enabled, the `{binary}.repo_mapping` file emits a module extension's repo mapping
     only once instead of once for each repo generated by the extension that
     contributes runfiles.
 
@@ -10611,7 +10611,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the target configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
     See also `--host_features`.
 
     Tags:
@@ -10644,7 +10644,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--host_features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the exec configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -10902,7 +10902,7 @@ Options specifying or altering a generic input to a Bazel command that does not 
 
 `--flag_alias=&lt;a 'name=label' flag alias&gt;` multiple uses are accumulated
 :   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
-    `&lcub;key&rcub;=&lcub;value&rcub;` as an argument.
+    `{key}={value}` as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`non_configurable`](#metadata_tag_NON_CONFIGURABLE)
@@ -11024,7 +11024,7 @@ Options that control the output of the command:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--[no]incompatible_compact_repo_mapping_manifest` default: "true"
-:   If enabled, the `&lcub;binary&rcub;.repo_mapping` file emits a module extension's repo mapping
+:   If enabled, the `{binary}.repo_mapping` file emits a module extension's repo mapping
     only once instead of once for each repo generated by the extension that
     contributes runfiles.
 
@@ -11165,7 +11165,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the target configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
     See also `--host_features`.
 
     Tags:
@@ -11198,7 +11198,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--host_features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the exec configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -11599,7 +11599,7 @@ Options specifying or altering a generic input to a Bazel command that does not 
 
 `--flag_alias=&lt;a 'name=label' flag alias&gt;` multiple uses are accumulated
 :   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
-    `&lcub;key&rcub;=&lcub;value&rcub;` as an argument.
+    `{key}={value}` as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`non_configurable`](#metadata_tag_NON_CONFIGURABLE)
@@ -12226,7 +12226,7 @@ Options that control the output of the command:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--[no]incompatible_compact_repo_mapping_manifest` default: "true"
-:   If enabled, the `&lcub;binary&rcub;.repo_mapping` file emits a module extension's repo mapping
+:   If enabled, the `{binary}.repo_mapping` file emits a module extension's repo mapping
     only once instead of once for each repo generated by the extension that
     contributes runfiles.
 
@@ -12541,7 +12541,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the target configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
     See also `--host_features`.
 
     Tags:
@@ -12598,7 +12598,7 @@ Options that let the user configure the intended output, affecting its value, as
 
 `--host_features=&lt;a string&gt;` multiple uses are accumulated
 :   The given features will be enabled or disabled by default for targets built in the exec configuration.
-    Specifying `-&lcub;feature&rcub;` will disable the feature. Negative features always override positive ones.
+    Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -13023,12 +13023,12 @@ Options that govern the behavior of the test environment or test runner:
 
 `--default_test_resources=&lt;a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100&gt;` multiple uses are accumulated
 :   Override the default resources amount for tests. The expected format is
-    `&lcub;resource&rcub;=&lcub;value&rcub;`. If a single positive number is specified as `&lcub;value&rcub;`
+    `{resource}={value}`. If a single positive number is specified as `{value}`
     it will override the default resources for all test sizes. If 4
     comma-separated numbers are specified, they will override the resource
     amount for respectively the `small`, `medium`, `large`, `enormous` test sizes.
     Values can also be `HOST_RAM`/`HOST_CPU`, optionally followed
-    by `[-|*]&lcub;float&rcub;` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
+    by `[-|*]{float}` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
     The default test resources specified by this flag are overridden by explicit
     resources specified in tags.
 
@@ -13186,7 +13186,7 @@ Options specifying or altering a generic input to a Bazel command that does not 
 
 `--flag_alias=&lt;a 'name=label' flag alias&gt;` multiple uses are accumulated
 :   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
-    `&lcub;key&rcub;=&lcub;value&rcub;` as an argument.
+    `{key}={value}` as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`non_configurable`](#metadata_tag_NON_CONFIGURABLE)

@@ -70,8 +70,4 @@ public class DeclaredExecGroupSubject extends Subject {
   public void hasExecCompatibleWith(Label constraintLabel) {
     execCompatibleWith().contains(constraintLabel);
   }
-
-  public void copiesFromDefault() {
-    check("copyFromDefault()").that(actual.copyFromDefault()).isTrue();
-  }
 }

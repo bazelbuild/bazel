@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -305,7 +306,7 @@ public final class InstrumentedFilesCollector {
         if (localBaselineCoverageArtifacts != null) {
           baselineCoverageArtifactsBuilder.addAll(localBaselineCoverageArtifacts);
         } else {
-          var baselineCoverageAction = BaselineCoverageAction.create(ruleContext, localSources);
+          var baselineCoverageAction = createBaselineCoverageAction(ruleContext, localSources);
           ruleContext.registerAction(baselineCoverageAction);
           baselineCoverageArtifactsBuilder.add(baselineCoverageAction.getPrimaryOutput());
         }
@@ -318,6 +319,17 @@ public final class InstrumentedFilesCollector {
           coverageSupportFilesBuilder.build(),
           coverageEnvironmentBuilder.buildKeepingLast(),
           reportedToActualSources);
+    }
+
+    private static BaselineCoverageAction createBaselineCoverageAction(
+        RuleContext ruleContext, NestedSet<Artifact> instrumentedFiles) {
+      Artifact coverageData =
+          ruleContext.getPackageRelativeArtifact(
+              PathFragment.create(ruleContext.getTarget().getName())
+                  .getChild("baseline_coverage.dat"),
+              ruleContext.getTestLogsDirectory());
+      return new BaselineCoverageAction(
+          ruleContext.getActionOwner(), instrumentedFiles, coverageData);
     }
   }
 

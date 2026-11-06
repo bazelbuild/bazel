@@ -85,6 +85,23 @@ java_test(
     runtime_deps = [":ScriptTest_lib"],
 )
 
+# Integration test of the Starlark CPU profiler, which requires its own process.
+java_test(
+    name = "CpuProfilerTest",
+    srcs = ["CpuProfilerTest.java"],
+    data = ["//src/main/java/net/starlark/java/eval:cpu_profiler_jni"],
+    jvm_flags = ["-Djava.library.path=src/main/java/net/starlark/java/eval"],
+    main_class = "net.starlark.java.eval.CpuProfilerTest",
+    tags = ["no_windows"],
+    use_testrunner = False,
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/pprof:profile_java_proto",
+    ],
+)
+
 # Script-based benchmarks of the Starlark interpreter.
 java_binary(
     name = "Benchmarks",

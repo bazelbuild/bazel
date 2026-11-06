@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -13,7 +13,9 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages/util/real/linux:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )
 
 java_library(
@@ -34,19 +36,20 @@ java_test(
         include = ["*.java"],
         exclude = [
             "BazelDocumentationTest.java",
+            "StarlarkProviderCodecTest.java",
         ],
     ),
     shard_count = 20,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:feature_set",
@@ -76,6 +79,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tests_for_target_pattern_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_registry_setup_helpers",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
@@ -94,7 +99,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party/java/auto:auto_value",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -113,7 +117,7 @@ java_test(
     name = "BazelDocumentationTests",
     size = "medium",
     srcs = ["BazelDocumentationTest.java"],
-    data = ["//site/en:docs/user-manual.md"],
+    data = ["//docs:docs/user-manual.mdx"],
     test_class = "com.google.devtools.build.lib.packages.BazelDocumentationTest",
     deps = [
         ":DocumentationTestUtil",
@@ -127,12 +131,36 @@ java_test(
     ],
 )
 
+java_test(
+    name = "StarlarkProviderCodecTest",
+    srcs = ["StarlarkProviderCodecTest.java"],
+    test_class = "com.google.devtools.build.lib.packages.StarlarkProviderCodecTest",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
 java_library(
     name = "DocumentationTestUtil",
     srcs = ["DocumentationTestUtil.java"],
+    visibility = [
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/exec:test_policy",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
@@ -162,11 +190,15 @@ java_library(
         "@rules_cc//cc/private/rules_impl:srcs",
         "@rules_cc//cc/toolchains:srcs",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:runfiles",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
@@ -184,9 +216,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/runtime:quiescing_executors_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bazel_skyframe_executor_constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sequenced_skyframe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

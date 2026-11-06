@@ -104,7 +104,7 @@ source files for one or more software projects, and has a `MODULE.bazel` file at
 its root.
 
 The `MODULE.bazel` file may be empty or may contain references to [external
-dependencies](/external/overview) required to build your project.
+dependencies](/versions/8.7.0/external/overview) required to build your project.
 
 First, run the following command to create an empty `MODULE.bazel` file:
 
@@ -179,7 +179,7 @@ bazel_dep(name = "rules_android_ndk", version = "0.1.2")
 ```
 
 For more information, read [Using the Android Native Development Kit with
-Bazel](/docs/android-ndk).
+Bazel](/versions/8.7.0/docs/android-ndk).
 
 It's not necessary to set the API levels to the same value for the SDK and NDK.
 [This page](https://developer.android.com/ndk/guides/stable_apis.html)
@@ -338,7 +338,7 @@ file:
 
 You can now deploy the app to a connected Android device or emulator from the
 command line using the [`bazel
-mobile-install`](/docs/user-manual#mobile-install) command. This command uses
+mobile-install`](/versions/8.7.0/docs/user-manual#mobile-install) command. This command uses
 the Android Debug Bridge (`adb`) to communicate with the device. You must set up
 your device to use `adb` following the instructions in [Android Debug
 Bridge](http://developer.android.com/tools/help/adb.html) before deployment. You

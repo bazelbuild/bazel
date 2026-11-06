@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Map.Entry.comparingByKey;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
@@ -176,7 +178,7 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           """
           Please only use this flag as part of a suggested migration or testing strategy. Note
           that the heuristic has known deficiencies and it is suggested to migrate to
-          relying on just `--experimental_override_name_platform_in_output_dir`.
+          relying on just `--override_platform_cpu_name`.
           """)
   public abstract boolean getUsePlatformsInOutputDirLegacyHeuristic();
 
@@ -445,9 +447,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           `=name`, which unsets the variable of that name. This option can be used
           multiple times; for options given for the same variable, the latest wins,
           options for different variables accumulate.
-
-          Note that unless `--incompatible_repo_env_ignores_action_env` is true, all `name=value`
-          pairs will be available to repository rules.
           """)
   public abstract List<EnvVar> getActionEnvironment();
 
@@ -919,10 +918,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           If `transitive`, they do the same but also include the fragments their
           transitive dependencies require. If `off`, the provider is omitted.
 
-          If not `off`, this also populates `config_setting`'s
-          `ConfigMatchingProvider.requiredFragmentOptions` with the fragment options the
-          `config_setting` requires.
-
           Be careful using this feature: it adds memory to every configured target in the
           build.
           """)
@@ -1027,6 +1022,22 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
 
   public final ImmutableMap<String, Label> getCommandLineFlagAliasesMap() {
     return ALIAS_MAP_CACHE.get(getCommandLineFlagAliases());
+  }
+
+  private static final LoadingCache<ImmutableMap<String, Label>, ImmutableSet<Label>>
+      HOST_FLAG_ALIASES_CACHE =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  aliases ->
+                      aliases.entrySet().stream()
+                          .filter(alias -> alias.getKey().startsWith("host_"))
+                          .map(Map.Entry::getValue)
+                          .collect(toImmutableSet()));
+
+  /** Returns the Starlark flags that {@code --flag_alias} maps to a {@code host_}-prefixed name. */
+  public final ImmutableSet<Label> getHostFlagAliases() {
+    return HOST_FLAG_ALIASES_CACHE.get(getCommandLineFlagAliasesMap());
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */

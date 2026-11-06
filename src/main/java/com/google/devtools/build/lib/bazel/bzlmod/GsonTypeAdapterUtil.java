@@ -385,7 +385,7 @@ public final class GsonTypeAdapterUtil {
 
       @Override
       public Optional<Checksum> read(JsonReader jsonReader) throws IOException {
-        String checksumString = jsonReader.nextString();
+        String checksumString = unicodeToInternal(jsonReader.nextString());
         if (checksumString.equals(NOT_FOUND_MARKER)) {
           return Optional.empty();
         }

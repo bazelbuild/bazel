@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -36,6 +39,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputa
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.UiOptions.UseCurses;
 import com.google.devtools.build.lib.server.TerminalSizeMonitor;
@@ -357,6 +361,37 @@ public class UiEventHandlerTest {
     }
 
     @Test
+    public void afterCommand_fetchNeverFinished_stopsUpdateThread() {
+      ImmutableSet<Thread> threadsBefore = liveUpdateThreads();
+      createUiEventHandler();
+      Thread updateThread =
+          Iterables.getOnlyElement(Sets.difference(liveUpdateThreads(), threadsBefore));
+
+      uiEventHandler.downloadProgress(
+          new FetchProgress() {
+            @Override
+            public String getResourceIdentifier() {
+              return "repository @@foo";
+            }
+
+            @Override
+            public String getProgress() {
+              return "starting";
+            }
+
+            @Override
+            public boolean isFinished() {
+              return false;
+            }
+          });
+      uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
+      assertThat(updateThread.isAlive()).isTrue();
+
+      uiEventHandler.afterCommand(new AfterCommandEvent());
+      assertThat(updateThread.isAlive()).isFalse();
+    }
+
+    @Test
     public void temporarilyDisableProgress() throws Exception {
       uiOptions.setShowProgress(true);
       uiOptions.setUseCursesEnum(UseCurses.YES);
@@ -437,6 +472,12 @@ public class UiEventHandlerTest {
         }
       };
     }
+  }
+
+  private static ImmutableSet<Thread> liveUpdateThreads() {
+    return Thread.getAllStackTraces().keySet().stream()
+        .filter(thread -> thread.getName().equals("cli-update-thread"))
+        .collect(toImmutableSet());
   }
 
   private static int countOccurrences(String haystack, String needle) {

@@ -445,12 +445,12 @@ EOF
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
     //pkg:foo &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
   expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
   expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 }
 
@@ -480,12 +480,12 @@ EOF
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
     //pkg:foo &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
   expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for target platform //pkg:exotic_platform:$"
   expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 }
 

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.StringUtil;
 import javax.annotation.Nullable;
 
 /** Base class for exceptions that happen during toolchain resolution. */
@@ -61,33 +62,27 @@ public abstract class ToolchainException extends Exception implements DetailedEx
   }
 
   /**
-   * Attempt to find a {@link ConfiguredValueCreationException} in a {@link ToolchainException}, or
-   * its causes.
-   *
-   * <p>If one cannot be found, make a new one.
+   * Constructs a {@link ConfiguredValueCreationException} preserving the toolchain resolution
+   * context.
    */
   public ConfiguredValueCreationException asConfiguredValueCreationException(
       TargetAndConfiguration targetAndConfiguration) {
-    for (Throwable cause = getCause();
-        cause != null && cause != cause.getCause();
-        cause = cause.getCause()) {
-      if (cause instanceof ConfiguredValueCreationException configuredValueCreationException) {
-        return configuredValueCreationException;
-      }
-    }
     Cause cause =
         new AnalysisFailedCause(
             targetAndConfiguration.getLabel(),
             configurationIdMessage(targetAndConfiguration.getConfiguration()),
             createDetailedExitCode(
-                String.format(
-                    "While resolving toolchains for target %s: %s",
-                    targetAndConfiguration.getLabel(), getMessage())));
+                StringUtil.formatNested(
+                    String.format(
+                        "While resolving toolchains for target %s",
+                        targetAndConfiguration.getLabel()),
+                    getMessage())));
     return new ConfiguredValueCreationException(
         targetAndConfiguration.getTarget(),
         targetAndConfiguration.getConfiguration().getEventId(),
-        String.format(
-            "While resolving toolchains for target %s: %s", targetAndConfiguration, getMessage()),
+        StringUtil.formatNested(
+            String.format("While resolving toolchains for target %s", targetAndConfiguration),
+            getMessage()),
         NestedSetBuilder.create(Order.STABLE_ORDER, cause),
         getDetailedExitCode());
   }

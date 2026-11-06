@@ -23,7 +23,7 @@ public final class IsInstanceExpression extends Expression {
 
   IsInstanceExpression(
       FileLocations locs, int startOffset, Expression value, Expression type, int rparenOffset) {
-    super(locs, Kind.ISINSTANCE);
+    super(locs);
     this.startOffset = startOffset;
     this.value = value;
     this.type = type;

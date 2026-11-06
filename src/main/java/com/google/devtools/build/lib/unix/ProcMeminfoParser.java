@@ -15,15 +15,10 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.CharMatcher;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
-import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.InputStream;
+import java.util.Arrays;
 
 /**
  * Parse and return information from /proc/meminfo. In case of duplicate entries the first one is
@@ -33,7 +28,8 @@ public class ProcMeminfoParser {
 
   public static final String FILE = "/proc/meminfo";
 
-  private final Map<String, Long> memInfo;
+  private final byte[] content;
+  private final int length;
 
   /**
    * Populates memory information by reading /proc/meminfo.
@@ -45,32 +41,82 @@ public class ProcMeminfoParser {
 
   @VisibleForTesting
   public ProcMeminfoParser(String fileName) throws IOException {
-    List<String> lines = Files.readLines(new File(fileName), Charset.defaultCharset());
-    Map<String, Long> newMemInfo = new HashMap<>();
-    for (String line : lines) {
-      int colon = line.indexOf(':');
-      if (colon == -1) {
-        continue;
-      }
-      String keyword = line.substring(0, colon);
-      String valString = line.substring(colon + 1);
-      try {
-        long val =  Long.parseLong(CharMatcher.inRange('0', '9').retainFrom(valString));
-        newMemInfo.putIfAbsent(keyword, val);
-      } catch (NumberFormatException e) {
-        // Ignore: we'll fail later if somebody tries to capture this value.
+    byte[] buffer = new byte[4096];
+    int length = 0;
+    try (InputStream in = new FileInputStream(fileName)) {
+      int read;
+      while ((read = in.read(buffer, length, buffer.length - length)) != -1) {
+        length += read;
+        if (length == buffer.length) {
+          buffer = Arrays.copyOf(buffer, 2 * buffer.length);
+        }
       }
     }
-    memInfo = ImmutableMap.copyOf(newMemInfo);
+    this.content = buffer;
+    this.length = length;
+  }
+
+  /**
+   * Returns the value of the first line for the given keyword with a valid numeric value, or -1 if
+   * there is no such line. Non-digit characters in the value, such as the unit, are ignored.
+   */
+  private long findKb(String keyword) {
+    int lineStart = 0;
+    while (lineStart < length) {
+      int lineEnd = lineStart;
+      while (lineEnd < length && content[lineEnd] != '\n' && content[lineEnd] != '\r') {
+        lineEnd++;
+      }
+      if (lineHasKeyword(lineStart, lineEnd, keyword)) {
+        long value = parseDigits(lineStart + keyword.length() + 1, lineEnd);
+        if (value != -1) {
+          return value;
+        }
+      }
+      lineStart = lineEnd + 1;
+    }
+    return -1;
+  }
+
+  private boolean lineHasKeyword(int lineStart, int lineEnd, String keyword) {
+    int colon = lineStart + keyword.length();
+    if (colon >= lineEnd || content[colon] != ':') {
+      return false;
+    }
+    for (int i = 0; i < keyword.length(); i++) {
+      if (content[lineStart + i] != keyword.charAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Parses the digits in the given range, returning -1 if there are none or they overflow. */
+  private long parseDigits(int start, int end) {
+    long value = -1;
+    for (int i = start; i < end; i++) {
+      int digit = content[i] - '0';
+      if (digit < 0 || digit > 9) {
+        continue;
+      }
+      if (value == -1) {
+        value = 0;
+      }
+      if (value > (Long.MAX_VALUE - digit) / 10) {
+        return -1;
+      }
+      value = value * 10 + digit;
+    }
+    return value;
   }
 
   /** Gets a named field in KB. */
   long getRamKb(String keyword) throws KeywordNotFoundException {
-    Long val = memInfo.get(keyword);
-    if (val == null) {
+    long value = findKb(keyword);
+    if (value == -1) {
       throw new KeywordNotFoundException(keyword);
     }
-    return val;
+    return value;
   }
 
   /** Return the total physical memory. */
@@ -91,8 +137,9 @@ public class ProcMeminfoParser {
    * line in /proc/meminfo.
    */
   public long getFreeRamKb() throws KeywordNotFoundException {
-    if (memInfo.containsKey("MemAvailable")) {
-      return getRamKb("MemAvailable");
+    long memAvailable = findKb("MemAvailable");
+    if (memAvailable != -1) {
+      return memAvailable;
     }
     // We have no MemAvailable in /proc/meminfo; fall back to the previous estimation.
     return getRamKb("MemTotal")

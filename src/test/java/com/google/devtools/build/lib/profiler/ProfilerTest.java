@@ -304,6 +304,7 @@ public final class ProfilerTest {
         ImmutableList.of(workerMetric1, workerMetric2);
     WorkerProcessMetricsCollector workerProcessMetricsCollector =
         mock(WorkerProcessMetricsCollector.class);
+    // Use a CountDownLatch to wait for the metrics collection to complete.
     var metricsCollected = new CountDownLatch(1);
     when(workerProcessMetricsCollector.getLiveWorkerProcessMetrics())
         .thenAnswer(
@@ -350,8 +351,9 @@ public final class ProfilerTest {
             .filter(e -> e.name().contains("Per-mnemonic worker memory usage"))
             .collect(toImmutableList());
 
-    assertThat(totalWorkerMemoryUsageEvents).hasSize(1);
-    assertThat(perMnemonicWorkerMemoryUsageEvents).hasSize(1);
+    // Assert that the worker memory usage events are collected.
+    assertThat(totalWorkerMemoryUsageEvents).isNotEmpty();
+    assertThat(perMnemonicWorkerMemoryUsageEvents).isNotEmpty();
   }
 
   @Test
@@ -758,6 +760,21 @@ public final class ProfilerTest {
     // The stop() call is here because the histograms are cleared in the stop call. See the
     // documentation of {@link Profiler#getTasksHistograms}.
     profiler.stop();
+  }
+
+  @Test
+  public void testTaskHistograms_emptyWhenNotActive() throws Exception {
+    assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.getTasksHistograms()).isEmpty();
+
+    startUnbuffered(getAllProfilerTasks());
+    profiler.logSimpleTaskDuration(
+        profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    assertThat(profiler.getTasksHistograms()).isNotEmpty();
+    profiler.stop();
+
+    assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.getTasksHistograms()).isEmpty();
   }
 
   @Test

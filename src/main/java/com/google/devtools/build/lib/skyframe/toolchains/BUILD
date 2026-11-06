@@ -2,13 +2,35 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__"],
+)
+
+java_library(
+    name = "abstract_toolchain_cycle_reporter",
+    srcs = ["AbstractToolchainCycleReporter.java"],
+    deps = [
+        ":registered_execution_platforms_value",
+        ":registered_toolchains_value",
+        ":single_toolchain_resolution_value",
+        ":toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:abstract_label_cycle_reporter",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
 )
 
 java_library(
@@ -37,6 +59,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/jsr305_annotations",
@@ -81,6 +104,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:collect",
@@ -92,18 +116,8 @@ java_library(
     name = "registered_execution_platforms_cycle_reporter",
     srcs = ["RegisteredExecutionPlatformsCycleReporter.java"],
     deps = [
-        ":registered_execution_platforms_value",
-        ":toolchain_context_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:abstract_label_cycle_reporter",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        ":abstract_toolchain_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
     ],
 )
 
@@ -136,6 +150,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
@@ -165,19 +180,8 @@ java_library(
     name = "registered_toolchains_cycle_reporter",
     srcs = ["RegisteredToolchainsCycleReporter.java"],
     deps = [
-        ":registered_toolchains_value",
-        ":single_toolchain_resolution_value",
-        ":toolchain_context_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:abstract_label_cycle_reporter",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        ":abstract_toolchain_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
     ],
 )
 
@@ -205,6 +209,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_util",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
@@ -272,6 +277,7 @@ java_library(
         "//third_party/java/auto:auto_value",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -321,6 +327,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",
@@ -359,6 +366,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",

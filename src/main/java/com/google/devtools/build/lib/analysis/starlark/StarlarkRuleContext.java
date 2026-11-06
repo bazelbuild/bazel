@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -126,7 +127,9 @@ import net.starlark.java.eval.Tuple;
  * (such attempts will result in {@link EvalException}s).
  */
 public final class StarlarkRuleContext
-    implements StarlarkRuleContextApi<ConstraintValueInfo>, StarlarkActionContext {
+    implements StarlarkRuleContextApi<ConstraintValueInfo>,
+        StarlarkActionContext,
+        FragmentCollection.FragmentSupplier {
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
@@ -136,10 +139,9 @@ public final class StarlarkRuleContext
 
   private final boolean isForAspect;
 
-  private final StarlarkActionFactory actionFactory;
-
   // The fields below are intended to be final except that they can be cleared by calling
   // `close()` when the object becomes featureless (analogous to freezing).
+  private StarlarkActionFactory actionFactory;
   private RuleContext ruleContext;
   private FragmentCollection fragments;
   @Nullable private AspectDescriptor aspectDescriptor;
@@ -196,7 +198,7 @@ public final class StarlarkRuleContext
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.actionFactory = new StarlarkActionFactory(this);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
-    this.fragments = new FragmentCollection(ruleContext);
+    this.fragments = new FragmentCollection(this);
     this.aspectDescriptor = aspectDescriptor;
     this.isForAspect = aspectDescriptor != null;
     this.ruleClassUnderEvaluation = ruleContext.getRule().getRuleClassObject();
@@ -262,7 +264,8 @@ public final class StarlarkRuleContext
 
       // Populate ctx.attr.
       StarlarkAttributesCollection.Builder builder =
-          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
+          StarlarkAttributesCollection.builder(
+              this, ruleContext.getRulePrerequisitesCollection(), attributes.size());
       for (Attribute attribute : attributes) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
@@ -278,7 +281,9 @@ public final class StarlarkRuleContext
 
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(
-              this, ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection());
+              this,
+              ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection(),
+              attributes.size());
       for (Attribute attribute : attributes) {
         Object defaultValue = attribute.getDefaultValue(null);
         if (defaultValue instanceof ComputedDefault computedDefault) {
@@ -290,7 +295,8 @@ public final class StarlarkRuleContext
 
       this.splitAttributes = null;
       StarlarkAttributesCollection.Builder ruleBuilder =
-          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
+          StarlarkAttributesCollection.builder(
+              this, ruleContext.getRulePrerequisitesCollection(), rule.getAttributes().size());
       try {
         Dict<String, String> makeVariables =
             ((AspectContext) ruleContext)
@@ -478,6 +484,7 @@ public final class StarlarkRuleContext
       ruleContext.ruleError("'super' was not called.");
     }
 
+    actionFactory = null;
     ruleContext = null;
     fragments = null;
     aspectDescriptor = null;
@@ -619,7 +626,7 @@ public final class StarlarkRuleContext
     if (ruleContext != null && ruleContext.getRule().getRuleClassObject().isMaterializerRule()) {
       throw Starlark.errorf("ctx.actions is not available in materializer rules");
     }
-    return actionFactory;
+    return actionFactory != null ? actionFactory : new StarlarkActionFactory(this);
   }
 
   @Override
@@ -739,6 +746,17 @@ public final class StarlarkRuleContext
   }
 
   @Override
+  @Nullable
+  public Object getStarlarkFragment(String name) throws EvalException {
+    return ruleContext.getStarlarkFragment(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getStarlarkFragmentNames() {
+    return ruleContext.getStarlarkFragmentNames();
+  }
+
+  @Override
   public BuildConfigurationValue getConfiguration() throws EvalException {
     checkMutable("configuration");
     return ruleContext.getConfiguration();
@@ -812,13 +830,13 @@ public final class StarlarkRuleContext
   @Override
   public ArtifactRoot getBinDirectory() throws EvalException {
     checkMutable("bin_dir");
-    return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getBinDirectory();
   }
 
   @Override
   public ArtifactRoot getGenfilesDirectory() throws EvalException {
     checkMutable("genfiles_dir");
-    return getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getGenfilesDirectory();
   }
 
   @Override
@@ -1097,10 +1115,10 @@ public final class StarlarkRuleContext
     Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
-      builder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
+      RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DATA_RUNFILES);
     }
     if (Starlark.truth(collectDefault)) {
-      builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+      RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
       Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");

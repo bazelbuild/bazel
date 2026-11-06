@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -50,28 +49,6 @@ public abstract class Template {
   @Override
   public String toString() {
     return getKey();
-  }
-
-  private static final class ErrorTemplate extends Template {
-    private final IOException e;
-    private final String templateName;
-
-    ErrorTemplate(IOException e, String templateName) {
-      this.e = e;
-      this.templateName = templateName;
-    }
-
-    @Override
-    public String getContent(ArtifactPathResolver resolver) throws IOException {
-      throw new IOException(
-          "failed to load resource file '" + templateName + "' due to I/O error: " + e.getMessage(),
-          e);
-    }
-
-    @Override
-    protected String getKey() {
-      return "ERROR: " + e.getMessage();
-    }
   }
 
   private static final class StringTemplate extends Template {
@@ -126,21 +103,6 @@ public abstract class Template {
       return templateArtifact;
     }
   }
-  /**
-   * Loads a template from the given resource. The resource is looked up relative to the given
-   * class. If the resource cannot be loaded, the returned template throws an {@link IOException}
-   * when {@link #getContent} is called. This makes it safe to use this method in a constant
-   * initializer.
-   */
-  public static Template forResource(final Class<?> relativeToClass, final String templateName) {
-    try {
-      String content = ResourceFileLoader.loadResource(relativeToClass, templateName);
-      return forString(content);
-    } catch (final IOException e) {
-      return new ErrorTemplate(e, templateName);
-    }
-  }
-
   /** Returns a template for the given text string. */
   public static Template forString(final String templateText) {
     return new StringTemplate(templateText);

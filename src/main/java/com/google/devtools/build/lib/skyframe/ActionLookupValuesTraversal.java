@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -46,11 +47,6 @@ public final class ActionLookupValuesTraversal {
 
   @ThreadSafe
   void accumulate(ActionLookupKey key, SkyValue value) {
-    if (value instanceof RemoteConfiguredTargetValue) {
-      // Remotely fetched values do not have actions.
-      return;
-    }
-
     boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
     boolean isActionLookupValue = value instanceof ActionLookupValue;
     if (!isConfiguredTarget && !isActionLookupValue) {
@@ -62,13 +58,7 @@ public final class ActionLookupValuesTraversal {
                   value.getClass(), key, value)));
       return;
     }
-    if (isConfiguredTarget
-        && !Objects.equals(
-            key.getConfigurationKey(),
-            ((ConfiguredTargetValue) value).getConfiguredTarget().getConfigurationKey())) {
-      // The configuration of the key doesn't match the configuration of the value. This means that
-      // the ConfiguredTargetValue is delegated from a different key. This ConfiguredTargetValue
-      // will show up again under its own key. Avoids double counting by skipping accumulation.
+    if (isDelegatedConfiguredTargetValue(key, value)) {
       return;
     }
     configuredObjectCount.incrementAndGet();
@@ -85,19 +75,36 @@ public final class ActionLookupValuesTraversal {
       actionLookupValueShards.add(alv);
       return;
     }
-    if (!(value instanceof NonRuleConfiguredTargetValue nonRuleVal)) {
+    ConfiguredTarget configuredTarget;
+    if (value instanceof NonRuleConfiguredTargetValue nonRuleVal) {
+      configuredTarget = nonRuleVal.getConfiguredTarget();
+    } else if (value instanceof RemoteConfiguredTargetValue remoteVal) {
+      configuredTarget = remoteVal.getConfiguredTarget();
+    } else {
       BugReport.sendBugReport(
           new IllegalStateException(
               String.format("Unexpected value type: %s %s %s", value.getClass(), key, value)));
       return;
     }
     AtomicInteger counter =
-        switch (nonRuleVal.getConfiguredTarget()) {
+        switch (configuredTarget) {
           case InputFileConfiguredTarget input -> inputFileConfiguredTargetCount;
           case OutputFileConfiguredTarget output -> outputFileConfiguredTargetCount;
           default -> otherConfiguredTargetCount;
         };
     counter.incrementAndGet();
+  }
+
+  /**
+   * Returns true if {@code value} is a {@link ConfiguredTargetValue} whose configuration does not
+   * match {@code key}'s configuration, meaning the value was delegated from a different key (for
+   * example, after a rule transition) and will show up again under its own key.
+   */
+  public static boolean isDelegatedConfiguredTargetValue(ActionLookupKey key, SkyValue value) {
+    return value instanceof ConfiguredTargetValue ctValue
+        && ctValue.getConfiguredTarget() != null
+        && !Objects.equals(
+            key.getConfigurationKey(), ctValue.getConfiguredTarget().getConfigurationKey());
   }
 
   Sharder<ActionLookupValue> getActionLookupValueShards() {

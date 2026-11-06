@@ -55,14 +55,14 @@ public final class FileArtifactValueTest {
     Path path = fileSystem.getPath(name);
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, content);
-    path.setLastModifiedTime(mtime);
+    path.setLastModifiedTimeNanos(mtime);
     return path;
   }
 
   private Path scratchDir(String name, long mtime) throws IOException {
     Path path = fs.getPath(name);
     path.createDirectoryAndParents();
-    path.setLastModifiedTime(mtime);
+    path.setLastModifiedTimeNanos(mtime);
     return path;
   }
 
@@ -226,7 +226,7 @@ public final class FileArtifactValueTest {
   @Test
   public void testEmptyFile() throws Exception {
     Path path = scratchFile("/root/empty", 1L, "");
-    path.setLastModifiedTime(1L);
+    path.setLastModifiedTimeNanos(1L);
     FileArtifactValue value = createForTesting(path);
     assertThat(value.getDigest()).isEqualTo(path.getDigest());
     assertThat(value.getSize()).isEqualTo(0L);
@@ -268,7 +268,7 @@ public final class FileArtifactValueTest {
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
-    path.setLastModifiedTime(123);
+    path.setLastModifiedTimeNanos(123);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -299,7 +299,7 @@ public final class FileArtifactValueTest {
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -315,7 +315,7 @@ public final class FileArtifactValueTest {
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "cOntent");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -348,7 +348,7 @@ public final class FileArtifactValueTest {
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
     FileSystemUtils.writeContentAsLatin1(path, "content");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     // This is not necessarily the intended behavior, but a consequence of the need to avoid
     // false positives due to hard link creation/deletion. "Breaking" this test in the future while
     // preserving the behavior on other test cases would thus be a welcome change.
@@ -546,5 +546,51 @@ public final class FileArtifactValueTest {
     assertThat(value1.getDigest()).isNull();
     assertThat(value2.getDigest()).isNotNull();
     assertThat(fingerprint1.digestAndReset()).isNotEqualTo(fingerprint2.digestAndReset());
+  }
+
+  @Test
+  public void remoteFileArtifactValueWithMaterializationData_expirationTimeEpochContract() {
+    byte[] digest = new byte[] {1, 2, 3};
+
+    // Expiration timestamp null maps to null.
+    FileArtifactValue nullExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
+    assertThat(nullExp.getExpirationTime()).isNull();
+
+    // Instant.EPOCH maps to 0 epoch milli, which is treated as the unset sentinel
+    // and returns null to align with zero-initialized primitive fields after deserialization.
+    FileArtifactValue epochExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ Instant.EPOCH,
+            /* inMemoryOutput= */ false);
+    assertThat(epochExp.getExpirationTime()).isNull();
+
+    // Initializing to positive instant returns a valid time.
+    Instant validTime = Instant.ofEpochMilli(123456789L);
+    FileArtifactValue validExp =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest,
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ validTime,
+            /* inMemoryOutput= */ false);
+    assertThat(validExp.getExpirationTime()).isEqualTo(validTime);
+
+    // Mutating to EPOCH makes it null.
+    validExp.setExpirationTime(Instant.EPOCH);
+    assertThat(validExp.getExpirationTime()).isNull();
+
+    // Mutating to a new positive instant returns a valid time.
+    Instant newTime = Instant.ofEpochMilli(987654321L);
+    validExp.setExpirationTime(newTime);
+    assertThat(validExp.getExpirationTime()).isEqualTo(newTime);
   }
 }

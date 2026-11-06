@@ -365,7 +365,10 @@ final class LabelVisitor {
               aspect,
               edgeFilter,
               (aspectAttribute, aspectLabel) ->
-                  enqueueTarget(from, aspectAttribute, aspectLabel, depth, count));
+                  // Aspect dependencies are direct dependencies of `from` (which has depth
+                  // `depth - 1`, since `depth` is the depth of `to`), so enqueue them at
+                  // `depth - 1`.
+                  enqueueTarget(from, aspectAttribute, aspectLabel, depth - 1, count));
         }
       }
     }

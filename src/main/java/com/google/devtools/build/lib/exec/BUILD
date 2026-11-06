@@ -2,7 +2,10 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/execlog:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -10,7 +13,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -25,6 +28,7 @@ java_library(
         ":spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
@@ -82,7 +86,7 @@ java_library(
     deps = [
         ":execution_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//third_party/java/guava:base",
     ],
 )
@@ -144,9 +148,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
-        "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action_context",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:failure_details_java_proto",
@@ -194,8 +198,9 @@ java_library(
     deps = [
         ":symlink_tree_helper",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -232,6 +237,7 @@ java_library(
     deps = [
         ":spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/profiler",
     ],
 )
@@ -241,6 +247,8 @@ java_library(
     srcs = ["SpawnExecException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:annotations",
@@ -254,12 +262,12 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/java/guava:annotations",
@@ -279,6 +287,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
@@ -343,6 +352,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
@@ -396,6 +406,7 @@ java_library(
     deps = [
         ":spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:collect",
@@ -418,7 +429,7 @@ java_library(
     srcs = ["StandaloneTestResult.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party/java/auto:auto_value",
@@ -439,7 +450,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:spawn_action",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -480,6 +493,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -498,16 +512,18 @@ java_library(
         ":symlink_tree_helper",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:symlink_tree_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -526,7 +542,8 @@ java_library(
     name = "test_policy",
     srcs = ["TestPolicy.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/java/guava:collect",

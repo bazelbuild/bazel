@@ -18,23 +18,21 @@ import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
-/**
- * An input file to the build system which has a specified {@link #visibility} or {@link #license}.
- */
+/** An input file to the build system which has a specified {@link #visibility} or license. */
 public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
 
   @Nullable private final RuleVisibility visibility;
-  @Nullable private final License license;
+  private final boolean isLicenseSpecified;
 
   VisibilityLicenseSpecifiedInputFile(
       Packageoid pkg,
       Label label,
       Location location,
       @Nullable RuleVisibility visibility,
-      @Nullable License license) {
+      boolean isLicenseSpecified) {
     super(pkg, label, location);
     this.visibility = visibility;
-    this.license = license;
+    this.isLicenseSpecified = isLicenseSpecified;
   }
 
   @Override
@@ -50,15 +48,6 @@ public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
 
   @Override
   public boolean isLicenseSpecified() {
-    return license != null && license.isSpecified();
-  }
-
-  @Override
-  public License getLicense() {
-    if (license != null) {
-      return license;
-    } else {
-      return getPackageDeclarations().getPackageArgs().license();
-    }
+    return isLicenseSpecified;
   }
 }

@@ -245,7 +245,9 @@ public final class RemoteWorker {
       // For now, we use a temporary path if no work path was provided.
       workPath = fs.getPath("/tmp/remote-worker");
     }
-    this.bsServer = new ByteStreamServer(cache, workPath, digestUtil);
+    LiveOutputStreams liveOutputStreams =
+        workerOptions.getLiveOutputStreams() ? new LiveOutputStreams() : null;
+    this.bsServer = new ByteStreamServer(cache, workPath, digestUtil, liveOutputStreams);
     this.casServer = new CasServer(cache);
 
     if (workerOptions.getWorkPath() != null) {
@@ -254,7 +256,13 @@ public final class RemoteWorker {
       workPath.createDirectoryAndParents();
       execServer =
           new ExecutionServer(
-              workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
+              workPath,
+              sandboxPath,
+              workerOptions,
+              cache,
+              operationsCache,
+              digestUtil,
+              liveOutputStreams);
     } else {
       execServer = null;
     }
@@ -320,7 +328,7 @@ public final class RemoteWorker {
       sslContextBuilder.trustManager(
           new File(internalToPlatform(workerOptions.getTlsCaCertificate().getPathString())));
     }
-    return GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
+    return GrpcSslContexts.configure(sslContextBuilder, SslProvider.JDK);
   }
 
   private void createPidFile() throws IOException {

@@ -211,9 +211,28 @@ public abstract class OutputGroupInfo extends StructImpl
     return createInternal(outputGroups.buildOrThrow());
   }
 
+  /**
+   * Determines the set of output groups to build from the {@code --output_groups} and {@code
+   * --extra_default_output_groups} options.
+   *
+   * <p>{@code extraDefaultOutputGroups} are treated as part of the default set of output groups.
+   * Unlike {@code --output_groups=+foo}, which is added unconditionally, an extra default output
+   * group is only built when the default set is: it is dropped when {@code outputGroups} contains
+   * an unprefixed entry and can be subtracted with {@code --output_groups=-foo}.
+   */
   public static ImmutableSortedSet<String> determineOutputGroups(
-      List<String> outputGroups, ValidationMode validationMode, boolean shouldRunTests) {
-    return determineOutputGroups(DEFAULT_GROUPS, outputGroups, validationMode, shouldRunTests);
+      List<String> outputGroups,
+      List<String> extraDefaultOutputGroups,
+      ValidationMode validationMode,
+      boolean shouldRunTests) {
+    Set<String> defaultOutputGroups =
+        extraDefaultOutputGroups.isEmpty()
+            ? DEFAULT_GROUPS
+            : ImmutableSet.<String>builder()
+                .addAll(DEFAULT_GROUPS)
+                .addAll(extraDefaultOutputGroups)
+                .build();
+    return determineOutputGroups(defaultOutputGroups, outputGroups, validationMode, shouldRunTests);
   }
 
   @VisibleForTesting

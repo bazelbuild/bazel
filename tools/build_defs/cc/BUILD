@@ -1,16 +1,12 @@
 licenses(["notice"])
 
-exports_files([
-    "action_names.bzl",
-    "cc_import.bzl",
-])
+exports_files(["action_names.bzl"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
         "//:__pkg__",
-        "//devtools/blaze/integration:__pkg__",
         "//tools/build_defs:__pkg__",
     ],
 )

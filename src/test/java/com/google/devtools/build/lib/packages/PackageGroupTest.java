@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -540,6 +543,42 @@ public class PackageGroupTest extends PackageLoadingTestCase {
 
     grp = getPackageGroup("fruits", "mango");
     assertThat(grp).hasSamePropertiesAs(grp.reduceForSerialization());
+  }
+
+  @Test
+  public void testPackageGroupContentsCodec() throws Exception {
+    RepositoryName mainRepository = RepositoryName.MAIN;
+    RepositoryName otherRepository = RepositoryName.create("other");
+    PackageGroupContents packageGroupContents =
+        PackageGroupContents.create(
+            ImmutableList.of(
+                pkgSpec(mainRepository, "//a"),
+                pkgSpec(mainRepository, "//b/c/..."),
+                pkgSpec(mainRepository, "-//d/e"),
+                pkgSpec(mainRepository, "-//f/..."),
+                pkgSpec(otherRepository, "//z/..."),
+                pkgSpec(mainRepository, "private")));
+
+    SerializationTester serializationTester =
+        new SerializationTester(
+                packageGroupContents,
+                PackageGroupContents.create(ImmutableList.of(pkgSpec(mainRepository, "public"))),
+                PackageGroupContents.create(ImmutableList.of(pkgSpec(mainRepository, "-//..."))),
+                ImmutableList.of(packageGroupContents, packageGroupContents))
+            .makeMemoizingAndAllowFutureBlocking(true)
+            .setVerificationFunction(
+                (originalSubject, deserializedSubject) -> {
+                  assertThat(deserializedSubject).isEqualTo(originalSubject);
+                  if (deserializedSubject instanceof ImmutableList<?> deserializedContentsList) {
+                    assertThat(deserializedContentsList.get(0))
+                        .isSameInstanceAs(deserializedContentsList.get(1));
+                  }
+                });
+    for (ObjectCodec<?> analysisCachingCodec :
+        SerializationRegistrySetupHelpers.analysisCachingCodecs()) {
+      serializationTester.addCodec(analysisCachingCodec);
+    }
+    serializationTester.runTests();
   }
 
   /** Convenience method for obtaining a PackageSpecification. */

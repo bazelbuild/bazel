@@ -23,6 +23,7 @@ from absl import app
 from absl import flags
 import markdownify
 from scripts.docs import clr_converter
+from scripts.docs import mdx_fixes
 
 
 FLAGS = flags.FLAGS
@@ -43,39 +44,52 @@ flags.mark_flag_as_required("in_dir")
 flags.mark_flag_as_required("out_dir")
 
 
-_HEADING_RE = re.compile(r"^# (.+)$", re.MULTILINE)
 _TEMPLATE_RE = re.compile(r"^\{%.+$\n", re.MULTILINE)
 _TAG_RE = re.compile(r"\s?\{:[^}]+\}")
-_HTML_LINK_RE = re.compile(r"\]\(([^)]+)\.html")
 _METADATA_PATTERN = re.compile(
     "^((Project|Book):.+\n)", re.MULTILINE
 )
-_TITLE_RE = re.compile(r"^title: '", re.MULTILINE)
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
-_ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
-_HTML_PRE_PATTERN = re.compile(r"(?:<pre>)(.*?)(?:</pre>)")
-_HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
-_MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
+# Flag docs wrap the anchor link inside <code>, which markdownify drops.
+# Move the link outside <code> so it survives conversion to MDX definition
+# lists.
+_CODE_FLAG_LINK_RE = re.compile(
+    r'<code(?:\s[^>]*)?><a href="(#[^"]+)">(.*?)</a>(.*?)</code>',
+    re.DOTALL,
+)
+# Definition-list flag terms that should expose a copyable deep-link anchor.
+_FLAG_TERM_LINK_RE = re.compile(
+    r"^\[`([^`]+)`\]\(#((?:[^)]*-)?flag--[^)]+)\)",
+)
 _HEADING_TAG_RE = re.compile(
-    r"<h([1-6])([^>]*)>(.*?)</h\1>", re.DOTALL | re.IGNORECASE
+    r"^([^\n]*)<h([1-6])([^>]*)>(.*?)</h\2>",
+    re.DOTALL | re.IGNORECASE | re.MULTILINE,
 )
 _HEADING_ID_ATTR_RE = re.compile(r"""\bid=(["'])([^"']+)\1""")
-_ESCAPED_HEADING_ANCHOR_RE = re.compile(r" &lcub;#([^&]+)&rcub;")
-# Across code blocks and similar pre-formatted blocks, these
-# characters must be converted to HTML entities so they don't
-# look like JavaScript blocks.
+# See docstrings of _format_table_cell() and ()
+# for an explanation.
+_TAGS_TO_FLATTEN_RE = re.compile(r"(?:</?(?:pre|code)[^>]*>)+")
+
+# In prose (outside code/pre blocks), these characters must be converted to
+# HTML entities so they don't look like JSX or JavaScript blocks to MDX parsers.
 _REPLACED_JS_CHARACTERS = {
     "{": "&lcub;",
     "}": "&rcub;",
+    "$": "&#36;",
 }
 
-# Inside code blocks, these characters need to be converted
-# to HTML entities to prevent parser errors.
 _REPLACED_CODE_CHARACTERS = {
     "<": "&lt;",
     ">": "&gt;",
     **_REPLACED_JS_CHARACTERS,
 }
+
+_CONFIGURATION_HTML_BAD_LINE = re.compile(
+    r"^<p>Use this to distinguish different configurations for the same"
+    r" target.+$",
+    re.MULTILINE,
+)
+_INLINE_CODE_RE = re.compile(r"(`[^`]+`)")
 
 
 def _escape_chars(text, replacements):
@@ -89,7 +103,7 @@ def _escape_chars(text, replacements):
   Returns:
     The escaped version of `text`.
   """
-  for c in replacements.keys():
+  for c in replacements:
     text = text.replace(c, replacements[c])
   return text
 
@@ -110,12 +124,63 @@ def _cell_inner_html(cell):
 
 
 def _format_table_cell(cell, content):
-  """Formats table cell content as a markdown table cell."""
+  """Formats table cell content as a markdown table cell.
+
+  Markdownify converts elements bottom-up.
+  For table cells we discard the already converted tag and instead
+  manually "convert" the inner HTML, which can be very complex.
+
+  A better approach would be this:
+  For every tag <foo> that can produce multi-line Markdown output:r
+  If convert_foo is called for a nested table, it should preserve <foo>
+  tags and return the (already converted) content as a single line.
+  Otherwise it just delegates to the super class implementation.
+  However, this cannot be implemented since parent_tags is a set and not a
+  dict or multiset, so we cannot distinguish a simple table from a
+  nested table.
+
+  Args:
+    cell: The BeautifulSoup table cell element (`td` or `th`).
+    content: str; the raw inner HTML content of the table cell.
+
+  Returns:
+    The formatted single-line Markdown table cell string.
+  """
   colspan = 1
   if "colspan" in cell.attrs and cell["colspan"].isdigit():
     colspan = max(1, min(1000, int(cell["colspan"])))
-  # Markdown table rows must be single-line; HTML in cells is fine on one line.
-  return " " + content.replace("\n", " ") + " |" * colspan
+  # Content = raw HTML, i.e. it can contain tags such as <code> or <pre>
+  # with forbidden characters in their values (such as curly braces).
+  # Consequently, we need to escape them here.
+  return f" {_convert_html_to_single_line_md(content)}{' |' * colspan}"
+
+
+def _convert_html_to_single_line_md(content):
+  """Converts 'bad' tags (<pre>, <code>) and fits the result into a single line.
+
+  These tags are 'bad' since they can contain reserved chars such as curly
+  braces,
+  which lead to syntax errors if they appear outside of fenced Markdown code
+  blocks.
+
+  Args:
+    content: str; the raw HTML content to convert.
+
+  Returns:
+    A single-line Markdown/HTML string with `<pre>` and `<code>` tags flattened.
+  """
+  # Convert <pre> and <code> to single fenced code blocks.
+  no_bad_tags = _TAGS_TO_FLATTEN_RE.sub("`", content)
+
+  # Escape special characters outside of fenced code blocks.
+  parts = no_bad_tags.split("`")
+  for i in range(0, len(parts), 2):
+    parts[i] = _escape_chars(parts[i], _REPLACED_JS_CHARACTERS)
+  escaped = "`".join(parts)
+
+  # Remove line breaks.
+  raw_lines = [l.strip() for l in escaped.split("\n")]
+  return " ".join([l for l in raw_lines if l])
 
 
 class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
@@ -154,11 +219,17 @@ class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
     """Custom escape handling."""
     if not text:
       return text
-    escaped = super().escape(text, parent_tags)
-
-    # Unescape underscores that are in the middle of words.
-    escaped = re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
-    return _escape_chars(escaped, _REPLACED_CODE_CHARACTERS)
+    # Fenced and inline code blocks are already safe from MDX parsing.
+    if "pre" in parent_tags or "code" in parent_tags:
+      escaped = super().escape(text, parent_tags)
+      return re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
+    parts = _INLINE_CODE_RE.split(text)
+    for i in range(0, len(parts), 2):
+      escaped = super().escape(parts[i], parent_tags)
+      # Unescape underscores that are in the middle of words.
+      escaped = re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
+      parts[i] = _escape_chars(escaped, _REPLACED_CODE_CHARACTERS)
+    return "".join(parts)
 
 
 def _convert_directory(root_dir, mdx_dir):
@@ -194,18 +265,52 @@ def _convert_file(src, dest):
 
 
 def _transform(path, content):
+  """Transforms the content of an HTML or Markdown file into valid MDX."""
   content = _pre_markdown_transforms(content)
   if path.endswith(".html"):
     if os.path.basename(path) == "command-line-reference.html":
       md = clr_converter.convert(content)
     else:
-      md = _html2md(content)
+      if path.endswith("configuration.html"):
+        fixed_content = _fix_configuration_dot_html(content)
+      elif path.endswith("bzl.html"):
+        fixed_content = _fix_bzl_dot_html(content)
+      else:
+        fixed_content = content
+
+      md = _html2md(fixed_content)
   else:
     md = content
   return _post_markdown_transforms(md)
 
 
+def _fix_configuration_dot_html(content):
+  """Fixes malformed HTML in rules/lib/builtins/configurations.html."""
+
+  def fix(m):
+    return f"{m.group(0).replace('.', '.</li>')}</ul></p>"
+
+  return _CONFIGURATION_HTML_BAD_LINE.sub(fix, content)
+
+
+def _fix_bzl_dot_html(content):
+  """Fixes malformed HTML link in rules/lib/globals/bzl.html.
+
+  There is only a single instance of this bug, so it doesn't
+  make sense to implement a general solution.
+
+  Args:
+    content: str; the HTML content to be fixed.
+  Returns:
+    The fixed HTML content, as string.
+  """
+  href = "../globals/workspace#register_execution_platforms"
+  return content.replace(f'"{href}>', f'"{href}">')
+
+
 def _html2md(content):
+  # HTML content needs a few extra transforms.
+  content = _move_flag_links_outside_code(content)
   return AcornSafeMarkdownConverter(heading_style="ATX").convert(content)
 
 
@@ -223,11 +328,25 @@ def _pre_markdown_transforms(content):
   # Remove Project: and Book: lines
   no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
   no_templates = _TEMPLATE_RE.sub("", no_metadata)
-  with_heading_anchors = _convert_heading_ids_to_mdx_anchors(no_templates)
-  return _HTML_PRE_PATTERN.sub(
-      _escape_chars_in_pre_blocks,
-      with_heading_anchors,
-      re.DOTALL,
+  return _convert_heading_ids_to_mdx_anchors(no_templates)
+
+
+def _move_flag_links_outside_code(content):
+  """Moves in-code flag anchor links outside of <code> tags.
+
+  HtmlUtils.getUsageHtml() renders flags as
+  <code><a href="#flag--name">--name</a>...</code>. Markdownify discards links
+  nested inside inline code, so restructure the HTML before conversion.
+
+  Args:
+    content: str; HTML content before markdown conversion.
+
+  Returns:
+    Content with flag links moved outside of <code> tags.
+  """
+  return _CODE_FLAG_LINK_RE.sub(
+      r'<a href="\1"><code>\2\3</code></a>',
+      content,
   )
 
 
@@ -246,14 +365,17 @@ def _convert_heading_ids_to_mdx_anchors(content):
   """
 
   def repl(match):
-    level = int(match.group(1))
-    attrs = match.group(2)
-    text = match.group(3).strip()
+    level = int(match.group(2))
+    attrs = match.group(3)
+    text = match.group(4).strip()
     id_match = _HEADING_ID_ATTR_RE.search(attrs)
     if not id_match:
       return match.group(0)
+    # Hack: do not add anchor if heading has non-empty prefix (e.g. list tag)
+    line_prefix = match.group(1).strip()
     heading_id = id_match.group(2)
-    return f"{'#' * level} {text} {{#{heading_id}}}"
+    anchor = "" if line_prefix else f" {{#{heading_id}}}"
+    return f"{'#' * level} {text}{anchor}"
 
   return _HEADING_TAG_RE.sub(repl, content)
 
@@ -267,80 +389,34 @@ def _post_markdown_transforms(content):
   Returns:
     The content as fully valid .mdx.
   """
-  no_html_links = _HTML_LINK_RE.sub(_fix_link, content)
-  no_angle_links = _ANGLE_BRACKET_LINK_RE.sub(r"\1", no_html_links)
-  no_double_empty_lines = no_angle_links.replace("\n\n\n", "\n\n")
-  no_trailing_whitespaces = _remove_trailing_whitespaces(no_double_empty_lines)
-  fixed_headings = (
-      no_trailing_whitespaces
-      if _TITLE_RE.search(no_trailing_whitespaces)
-      else _HEADING_RE.sub(_fix_title_heading, no_trailing_whitespaces, count=1)
-  )
-  front_matter_first = _remove_anything_before_front_matter(fixed_headings)
-  no_styles = _remove_style_sections(front_matter_first)
-  return _restore_heading_anchors(no_styles)
+  return _add_flag_anchor_targets(mdx_fixes.apply(content))
 
 
-def _restore_heading_anchors(content):
-  """Restores MDX heading anchors escaped during markdown conversion."""
-  return _ESCAPED_HEADING_ANCHOR_RE.sub(r" {#\1}", content)
+def _add_flag_anchor_targets(content):
+  """Inserts explicit anchor targets for copyable per-flag deep links.
 
-
-def _remove_trailing_whitespaces(content):
-  lines = (l.rstrip() for l in content.split("\n"))
-  return "\n".join(lines)
-
-
-def _fix_title_heading(m):
-  title = m.group(1).replace("'", "\\'")
-  return f"---\ntitle: '{title}'\n---"
-
-
-def _remove_anything_before_front_matter(content):
-  if content.startswith("---\n"):
-    return content
-
-  parts = _MD_FRONT_MATTER_PATTERN.split(content, maxsplit=1)
-  if len(parts) == 1:
-    # Technically this only affects files that we need for the old site,
-    # so the better solution would be to stop generating them.
-    return parts[0]
-
-  return f"---{parts[1]}"
-
-
-def _remove_style_sections(content):
-  m = _HTML_STYLE_PATTERN.search(content)
-  if not m:
-    return content
-
-  parts = _HTML_STYLE_PATTERN.split(content)
-  return f"{parts[0]}{parts[2].lstrip()}"
-
-
-def _escape_chars_in_pre_blocks(matches):
-  """Escapes characters in <pre> blocks that cause mdx parse errors.
-
-  Because some <pre> blocks contain valid HTML elements (e.g. links), < and >
-  are not escaped.
+  After markdown conversion, flag terms look like
+  [`--flag_name`](#flag--flag_name). Mintlify needs an element with a matching
+  id attribute for those links (and copied URLs) to resolve.
 
   Args:
-    matches: re.Match; an object matching a <pre> block and its content.
+    content: str; MDX content after markdown conversion.
 
   Returns:
-    The <pre> block with properly escaped content.
+    Content with <a id="..."></a> targets inserted before each flag term.
   """
-  content = _escape_chars(matches.group(1), _REPLACED_JS_CHARACTERS)
-  return f"<pre>{content}</pre>"
-
-
-def _fix_link(m):
-  raw = m.group(1)
-  # Only keep .html extension for external links.
-  if raw.startswith("http://") or raw.startswith("https://"):
-    return m.group(0)
-
-  return f"]({raw}"
+  seen_anchor_ids = set()
+  lines = []
+  for line in content.split("\n"):
+    match = _FLAG_TERM_LINK_RE.match(line)
+    if match:
+      anchor_id = match.group(2)
+      if anchor_id not in seen_anchor_ids:
+        seen_anchor_ids.add(anchor_id)
+        lines.append(f'<a id="{anchor_id}"></a>')
+        lines.append("")
+    lines.append(line)
+  return "\n".join(lines)
 
 
 def _fail(msg):

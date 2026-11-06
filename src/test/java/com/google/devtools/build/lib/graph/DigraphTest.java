@@ -20,7 +20,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
@@ -75,11 +74,6 @@ public class DigraphTest {
 
     @Override
     public Rule getAssociatedRule() {
-      return null;
-    }
-
-    @Override
-    public License getLicense() {
       return null;
     }
 

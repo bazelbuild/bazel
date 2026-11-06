@@ -86,6 +86,11 @@ public abstract class SerializationContext implements LeafSerializationContext {
    *
    * <p>NOTE: This is only supported by {@link SharedValueSerializationContext}.
    *
+   * <p><b>Warning:</b> The {@code codec}'s runtime <em>class</em> is used to salt the fingerprint
+   * to distinguish shared values that have identical serialized representations. Do not call this
+   * with a {@code codec} whose serialization or deserialization behavior depends on constructor
+   * parameters or instance state, as all instances of the same class share the same salt.
+   *
    * @param child <em>non-null</em> object to be serialized
    * @param distinguisher an optional distinguisher see {@link
    *     FingerprintValueCache.FingerprintWithDistinguisher}

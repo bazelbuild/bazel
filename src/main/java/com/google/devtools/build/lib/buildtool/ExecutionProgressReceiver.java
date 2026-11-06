@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
@@ -34,9 +35,12 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
 import com.google.devtools.build.lib.skyframe.TopLevelAspectsValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectBuiltEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
+import com.google.devtools.build.lib.util.JavaSleeper;
+import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.GroupedDeps;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -45,6 +49,7 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -65,6 +70,9 @@ public final class ExecutionProgressReceiver
 
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
+  // Unlike completedActions.size(), this count is monotonic even when actions are rewound and thus
+  // temporarily removed from completedActions.
+  private final AtomicInteger actionCompletionCount = new AtomicInteger();
   private final EventBus eventBus;
 
   /** Number of exclusive tests. To be accounted for in progress messages. */
@@ -150,6 +158,14 @@ public final class ExecutionProgressReceiver
   }
 
   @Override
+  public void dirtied(SkyKey skyKey, NodeEntry.DirtyType dirtyType) {
+    if (dirtyType == NodeEntry.DirtyType.REWIND
+        && skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
+      completedActions.remove((ActionLookupData) skyKey.argument());
+    }
+  }
+
+  @Override
   public void changePruned(SkyKey skyKey) {
     if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
       eventBus.post(
@@ -160,8 +176,8 @@ public final class ExecutionProgressReceiver
   /**
    * {@inheritDoc}
    *
-   * <p>This method adds the action lookup data to {@link #completedActions} and notifies the {@link
-   * #activityIndicator}.
+   * <p>This method adds the action lookup data to {@link #completedActions} and increments {@link
+   * #actionCompletionCount} if the action was not already marked complete.
    *
    * <p>We could do this only in the {@link EvaluationProgressReceiver#evaluated} method too, but as
    * it happens the action executor tells the reporter about the completed action before the node is
@@ -174,7 +190,9 @@ public final class ExecutionProgressReceiver
   @Override
   public void actionCompleted(ActionLookupData actionLookupData) {
     enqueuedActions.add(actionLookupData);
-    completedActions.add(actionLookupData);
+    if (completedActions.add(actionLookupData)) {
+      actionCompletionCount.incrementAndGet();
+    }
   }
 
   @Override
@@ -189,6 +207,12 @@ public final class ExecutionProgressReceiver
 
   ActionExecutionInactivityWatchdog.InactivityMonitor createInactivityMonitor(
       final ActionExecutionStatusReporter statusReporter) {
+    return createInactivityMonitor(statusReporter, new JavaSleeper());
+  }
+
+  @VisibleForTesting
+  ActionExecutionInactivityWatchdog.InactivityMonitor createInactivityMonitor(
+      ActionExecutionStatusReporter statusReporter, Sleeper sleeper) {
     return new ActionExecutionInactivityWatchdog.InactivityMonitor() {
 
       @Override
@@ -203,11 +227,11 @@ public final class ExecutionProgressReceiver
 
       @Override
       public int waitForNextCompletion(int timeoutSeconds) throws InterruptedException {
-        int before = completedActions.size();
+        int before = actionCompletionCount.get();
         // Otherwise, wake up once per second to see whether something completed.
         for (int i = 0; i < timeoutSeconds; i++) {
-          Thread.sleep(1000);
-          int count = completedActions.size() - before;
+          sleeper.sleepMillis(1000);
+          int count = actionCompletionCount.get() - before;
           if (count > 0) {
             return count;
           }

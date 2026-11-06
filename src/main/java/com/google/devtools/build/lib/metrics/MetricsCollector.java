@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.Entry;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.LatencyBySkyFunction;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.UploadPhaseTimings;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.LocationPrinter;
 import com.google.devtools.build.lib.runtime.SpawnStats;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
@@ -497,6 +499,11 @@ class MetricsCollector {
 
     result.setSerializationExceptionCount(listener.getSerializationExceptionCounts());
 
+    UploadPhaseTimings uploadPhaseTimings = listener.getUploadPhaseTimings();
+    if (uploadPhaseTimings != null) {
+      result.setUploadPhaseTimings(uploadPhaseTimings);
+    }
+
     RemoteAnalysisCachingServicesSupplier supplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
     if (supplier != null && supplier.getPeers() != null) {
@@ -713,6 +720,16 @@ class MetricsCollector {
     Duration cpuTime = Profiler.instance().getServerProcessCpuTime();
     if (cpuTime != null) {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
+    }
+    BuildResultListener buildResultListener = env.getBuildResultListener();
+    if (buildResultListener != null) {
+      if (timingMetrics.getAnalysisPhaseTimeInMs() == 0) {
+        timingMetrics.setAnalysisPhaseTimeInMs(buildResultListener.getAnalysisPhaseTimeInMillis());
+      }
+      if (timingMetrics.getExecutionPhaseTimeInMs() == 0) {
+        timingMetrics.setExecutionPhaseTimeInMs(
+            buildResultListener.getExecutionPhaseTimeInMillis());
+      }
     }
     return timingMetrics.build();
   }

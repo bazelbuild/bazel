@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -11,7 +11,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -82,17 +82,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party/java/guava:collect",
         "//third_party/java/protobuf:protobuf_lite",
-    ],
-)
-
-java_library(
-    name = "path_fragment_prefix_trie",
-    srcs = ["PathFragmentPrefixTrie.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
     ],
 )
 

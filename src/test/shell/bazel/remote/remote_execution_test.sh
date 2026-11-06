@@ -313,7 +313,10 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
+  # The exact number of actions depends on the toolchain in use (e.g. the Xcode
+  # toolchain from apple_support runs additional actions to set up its module
+  # maps), so only check that no action fell back to local execution.
+  expect_log "[0-9]* processes: [0-9]* internal, [0-9]* remote\\."
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -2060,6 +2063,29 @@ sh_test(
 EOF
 }
 
+function setup_exclusive_if_local_test_case() {
+  local extra_tag="${1:-}"
+  local tags='"exclusive-if-local"'
+  if [[ -n "${extra_tag}" ]]; then
+    tags="${tags}, \"${extra_tag}\""
+  fi
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/success.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/success.sh
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = "success_test",
+  srcs = ["success.sh"],
+  tags = [${tags}],
+)
+EOF
+}
+
 function test_exclusive_test_hit_remote_cache() {
   # Test that the exclusive test works with the remote cache.
   setup_exclusive_test_case
@@ -2112,6 +2138,33 @@ function test_exclusive_test_wont_remote_exec() {
 
   # test action + test xml generation
   expect_log "2.*-sandbox"
+}
+
+function test_exclusive_if_local_test_remote_exec() {
+  # Test that an exclusive-if-local test is allowed to run remotely in parallel
+  setup_exclusive_if_local_test_case
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # test action + test xml generation should run remotely, not on local
+  expect_log "2 remote\\."
+  expect_not_log "-sandbox"
+}
+
+function test_exclusive_if_local_test_no_remote_exec_runs_locally() {
+  # Test that an exclusive-if-local test that is also tagged no-remote-exec stays
+  # serialized (runs locally) even when remote execution is enabled.
+  setup_exclusive_if_local_test_case "no-remote-exec"
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # Because the test can't run remotely, it executes locally like an "exclusive" test
+  expect_log "2.*-sandbox"
+  expect_not_log "2 remote\\."
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker
@@ -2244,13 +2297,6 @@ function test_empty_tree_artifact_as_inputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
 }
 
 function test_empty_tree_artifact_as_inputs_remote_cache() {
@@ -2315,15 +2361,6 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
-  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
@@ -3062,16 +3099,6 @@ function test_external_cc_test() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_sibling_repository_layout() {
-  setup_external_cc_test
-
-  bazel test \
-      --test_output=errors \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_sibling_repository_layout \
-      @other_repo//test >& $TEST_log || fail "Test should pass"
-}
-
 function do_test_unresolved_symlink() {
   local -r strategy=$1
   local -r link_target=$2
@@ -3162,7 +3189,7 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "2.5.2")
+bazel_dep(name = "apple_support", version = "2.8.4")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
@@ -3238,28 +3265,10 @@ function test_cc_binary_tool_with_dynamic_deps() {
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
-function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps .
-
-  bazel build \
-      --experimental_sibling_repository_layout \
-      --remote_executor=grpc://localhost:${worker_port} \
-      //pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
 function test_external_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
-function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps other_repo
-
-  bazel build \
-      --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }

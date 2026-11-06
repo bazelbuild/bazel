@@ -133,6 +133,24 @@ public final class StarlarkAnnotations {
   }
 
   /**
+   * Returns the {@link net.starlark.java.syntax.StarlarkType} string representation provided by the
+   * {@link StarlarkBuiltin} annotation of the given class, or null if the class doesn't have an
+   * ancestor annotated as {@link StarlarkBuiltin}.
+   */
+  @Nullable
+  public static String typeRepr(Class<?> classObj) {
+    @Nullable StarlarkBuiltin annotation = getStarlarkBuiltin(classObj);
+    if (annotation == null) {
+      return null;
+    }
+    String annotationTypeRepr = annotation.typeRepr();
+    if (!annotationTypeRepr.isEmpty()) {
+      return annotationTypeRepr;
+    }
+    return annotation.name();
+  }
+
+  /**
    * Returns true if the given classObj or any of its interfaces or supertypes has {@code
    * assignableToStructType} marked in its {@link StarlarkBuiltin} annotation.
    */

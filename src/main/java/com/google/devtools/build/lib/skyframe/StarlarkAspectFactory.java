@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionConflictException;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -51,6 +52,16 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       AspectParameters parameters,
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
+    if (ruleContext
+            .getMainAspect()
+            .getDefinition()
+            .getAttributes()
+            .containsKey("$allowlist_subrules")
+        && !Allowlist.isAvailableFor(
+            ruleContext, "subrules", starlarkAspect.getAspectClass().getExtensionLabel())) {
+      ruleContext.ruleError("Non-allowlisted attempt to use subrules.");
+      return errorConfiguredAspect(ruleContext);
+    }
     RequiredConfigFragmentsProvider requiredConfigFragments;
     Object aspectStarlarkObject;
     try {
@@ -138,7 +149,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
     }
 
     ConfiguredAspect configuredAspect = builder.build();
-    StarlarkProviderValidationUtil.validateArtifacts(ruleContext);
+    StarlarkProviderValidationUtil.validateArtifacts(ruleContext.getAnalysisEnvironment());
     return configuredAspect;
   }
 

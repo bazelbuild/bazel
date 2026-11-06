@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExecutorOwnership;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
+import com.google.devtools.build.lib.concurrent.QuiescingTask.PriorityTier;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.util.ArrayList;
@@ -634,6 +635,90 @@ public class AbstractQueueVisitorTest {
     ConcreteQueueVisitor(ThreadPoolExecutor executor, ExceptionHandlingMode exceptionHandlingMode) {
       super(executor, ExecutorOwnership.SHARED, exceptionHandlingMode, ErrorClassifier.DEFAULT);
     }
+  }
+
+  @Test
+  public void priorityExecutorServiceOrdersTasksByPriority() throws Exception {
+    AbstractQueueVisitor defaultVisitor =
+        AbstractQueueVisitor.create(
+            /* name= */ "DefaultQueueTest", /* parallelism= */ 1, ErrorClassifier.DEFAULT);
+    assertThat(defaultVisitor.ordersTasksByPriority()).isFalse();
+    defaultVisitor.awaitQuiescence(/* interruptWorkers= */ false);
+
+    AbstractQueueVisitor visitor =
+        AbstractQueueVisitor.createWithExecutorService(
+            AbstractQueueVisitor.createPriorityExecutorService(
+                /* parallelism= */ 1, /* poolName= */ "PriorityQueueTest"),
+            ExceptionHandlingMode.FAIL_FAST,
+            ErrorClassifier.DEFAULT);
+    assertThat(visitor.ordersTasksByPriority()).isTrue();
+    CountDownLatch blockerStarted = new CountDownLatch(1);
+    CountDownLatch releaseBlocker = new CountDownLatch(1);
+    List<String> executionOrder = Collections.synchronizedList(new ArrayList<>());
+
+    visitor.execute(
+        () -> {
+          blockerStarted.countDown();
+          Uninterruptibles.awaitUninterruptibly(releaseBlocker);
+        });
+    assertThat(blockerStarted.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+
+    final class PrioritizedTask extends QuiescingTask {
+      private final PriorityTier tier;
+      private final int depth;
+      private final Runnable delegate;
+
+      PrioritizedTask(PriorityTier tier, int depth, Runnable delegate) {
+        super(visitor);
+        this.tier = tier;
+        this.depth = depth;
+        this.delegate = delegate;
+      }
+
+      @Override
+      public PriorityTier priorityTier() {
+        return tier;
+      }
+
+      @Override
+      public int priorityDepth() {
+        return depth;
+      }
+
+      @Override
+      public void runCore() {
+        delegate.run();
+      }
+    }
+
+    visitor.execute(
+        new QuiescingTask(visitor) {
+          @Override
+          public void runCore() {
+            executionOrder.add("default_task");
+          }
+        });
+    visitor.execute(
+        new PrioritizedTask(
+            PriorityTier.DEPTH_ORDERED, /* depth= */ 1, () -> executionOrder.add("depth_1")));
+    visitor.execute(
+        new PrioritizedTask(
+            PriorityTier.IN_PROGRESS, /* depth= */ 0, () -> executionOrder.add("in_progress")));
+    visitor.execute(() -> executionOrder.add("raw_runnable"));
+    visitor.execute(
+        new PrioritizedTask(
+            PriorityTier.DEPTH_ORDERED, /* depth= */ 5, () -> executionOrder.add("depth_5")));
+    visitor.execute(
+        new PrioritizedTask(
+            PriorityTier.DEPTH_ORDERED, /* depth= */ 3, () -> executionOrder.add("depth_3")));
+
+    releaseBlocker.countDown();
+    visitor.awaitQuiescence(/* interruptWorkers= */ false);
+
+    assertThat(executionOrder.subList(0, 2)).containsExactly("in_progress", "raw_runnable");
+    assertThat(executionOrder.subList(2, 6))
+        .containsExactly("depth_5", "depth_3", "depth_1", "default_task")
+        .inOrder();
   }
 
   private static AbstractQueueVisitor createQueueVisitorWithConstantErrorClassification(

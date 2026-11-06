@@ -520,6 +520,15 @@ class ModCommandTest(test_base.TestBase):
     )
     repos = [json.loads(line) for line in stdout]
 
+    _, output_base, _ = self.RunBazel(['info', 'output_base'], rstrip=True)
+    self.assertListEqual(
+        [repo.pop('repoRoot') for repo in repos],
+        [
+            output_base[0] + '/external/' + name
+            for name in ['bar+', 'ext+', 'ext++ext+repo3', 'bar+']
+        ],
+    )
+
     ignored_attrs = {
         'integrity',
         'path',
@@ -660,6 +669,21 @@ class ModCommandTest(test_base.TestBase):
         ],
         rstrip=True,
     )
+    _, output_base, _ = self.RunBazel(['info', 'output_base'], rstrip=True)
+    self.assertListEqual(
+        [line for line in stdout if line.startswith('# Located at: ')],
+        [
+            '# Located at: ' + output_base[0] + '/external/' + name
+            for name in [
+                'bar+',
+                'ext+',
+                'ext++ext+repo3',
+                'ext++ext+repo4',
+                'bar+',
+            ]
+        ],
+    )
+    stdout = [line for line in stdout if not line.startswith('# Located at: ')]
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(
@@ -946,6 +970,42 @@ class ModCommandTest(test_base.TestBase):
     stdout = '\n'.join(stdout)
     self.assertEqual('', stdout)
 
+  def testShowRepoUnicode(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'data_repo = use_repo_rule("//:repo.bzl", "data_repo")',
+            'data_repo(name = "unicode", data = "äöü€🌱")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _impl(ctx):',
+            '  ctx.file("BUILD")',
+            (
+                'data_repo = repository_rule(_impl, attrs = {"data":'
+                ' attr.string()})'
+            ),
+        ],
+    )
+
+    # --charset=ascii is set in the .bazelrc and only affects the tree.
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@unicode'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('  data = "äöü€🌱",', stdout)
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--output=streamed_jsonproto', '@unicode'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('"äöü€🌱"', '\n'.join(stdout))
+
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
         [
@@ -1181,6 +1241,76 @@ class ModCommandTest(test_base.TestBase):
           ],
           module_file.read().split('\n'),
       )
+
+  def createTransitiveTidyExtension(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "dep", version = "1.0")',
+            'local_path_override(module_name = "dep", path = "dep")',
+        ],
+    )
+    self.ScratchFile(
+        'dep/MODULE.bazel',
+        [
+            'module(name = "dep", version = "1.0")',
+            'use_extension("//:ext.bzl", "ext")',
+        ],
+    )
+    self.ScratchFile('dep/BUILD.bazel')
+    self.ScratchFile(
+        'dep/ext.bzl',
+        [
+            'def _impl(ctx):',
+            '    return ctx.extension_metadata(facts = {"key": "value"})',
+            'ext = module_extension(implementation = _impl, facts_version = 1)',
+        ],
+    )
+    return '@@dep+//:ext.bzl%ext'
+
+  def testModTidyLocksTransitiveExtensions(self):
+    extension_id = self.createTransitiveTidyExtension()
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      original = json.load(lockfile)
+    self.assertIn(extension_id, original['moduleExtensions'])
+    self.assertEqual({'key': 'value'}, original['facts'][extension_id])
+    self.assertEqual(1, original['factsVersions'][extension_id])
+
+    # A dependency-only extension must also be updated when its result is stale.
+    with open('dep/ext.bzl', 'a') as extension:
+      extension.write('\n# Changed implementation digest.\n')
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      updated = json.load(lockfile)
+    self.assertNotEqual(
+        original['moduleExtensions'][extension_id],
+        updated['moduleExtensions'][extension_id],
+    )
+
+    # Removing the usage must prune its result, facts, and facts version.
+    self.ScratchFile(
+        'dep/MODULE.bazel', ['module(name = "dep", version = "1.0")']
+    )
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      updated = json.load(lockfile)
+    for field in ['moduleExtensions', 'facts', 'factsVersions']:
+      self.assertNotIn(extension_id, updated.get(field, {}))
+
+  def testModTidyFailsOnTransitiveExtensionError(self):
+    self.createTransitiveTidyExtension()
+    self.ScratchFile(
+        'dep/ext.bzl',
+        [
+            'def _impl(ctx):',
+            '    fail("dependency extension failed")',
+            'ext = module_extension(implementation = _impl)',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(['mod', 'tidy'], allow_failure=True)
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn('dependency extension failed', '\n'.join(stderr))
 
   def testModTidyAlwaysFormatsModuleFile(self):
     self.ScratchFile(
@@ -1692,6 +1822,38 @@ class ModCommandTest(test_base.TestBase):
           ],
           module_file.read().split('\n'),
       )
+
+  def testModCommandWithCycleDoesNotCrash(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "cycle_test")',
+            'cycle_ext = use_extension("//:cycle_def.bzl", "cycle_ext")',
+            'use_repo(cycle_ext, "cycle_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'cycle_def.bzl',
+        [
+            'load("@cycle_repo//:defs.bzl", "dummy")',
+            'def _cycle_impl(ctx):',
+            '    pass',
+            'cycle_ext = module_extension(implementation=_cycle_impl)',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'graph'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr_str = '\n'.join(stderr)
+    self.assertNotIn(
+        'FATAL: bazel crashed due to an internal error', stderr_str
+    )
+    self.assertNotIn('UnsupportedOperationException', stderr_str)
+    self.assertIn('Circular definition of repositories', stderr_str)
 
 
 if __name__ == '__main__':

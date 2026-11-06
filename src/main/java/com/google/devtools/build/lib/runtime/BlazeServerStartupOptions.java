@@ -232,9 +232,22 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
-          "If max_idle_secs is set and the build server has been idle for a while, shut down the "
-              + "server when the system is low on free RAM. Linux and MacOS only.")
+          "If max_idle_secs is set and the build server has been idle for at least 5 minutes, shut"
+              + " down the server when available system memory falls below critical thresholds."
+              + " Linux and macOS only.")
   public abstract boolean getShutdownOnLowSysMem();
+
+  @Option(
+      name = "delete_output_base_on_shutdown",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true, the server will delete its output base directory upon shutting down (whether"
+              + " via explicit shutdown, idle timeout, low memory, or batch mode completion). Only"
+              + " supported on local filesystems; network filesystems (such as NFS) are not"
+              + " supported.")
+  public abstract boolean getDeleteOutputBaseOnShutdown();
 
   @Deprecated
   @Option(
@@ -260,7 +273,9 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "When --noblock_for_lock is passed, Bazel does not wait for a running command to "
-              + "complete, but instead exits immediately.")
+              + "complete, but instead exits immediately. If a duration is specified (e.g."
+              + " --block_for_lock=30s), Bazel will wait up to that duration for the lock before"
+              + " exiting.")
   public abstract boolean getBlockForLock();
 
   @Option(

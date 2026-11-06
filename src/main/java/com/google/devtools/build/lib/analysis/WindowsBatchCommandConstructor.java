@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 
 /** The class for constructing command line for Batch on Windows. */
 public final class WindowsBatchCommandConstructor implements CommandConstructor {
   private final String scriptNameSuffix;
 
-  WindowsBatchCommandConstructor(String scriptNameSuffix) {
+  public WindowsBatchCommandConstructor(String scriptNameSuffix) {
     this.scriptNameSuffix = scriptNameSuffix;
   }
 
@@ -44,10 +45,11 @@ public final class WindowsBatchCommandConstructor implements CommandConstructor 
   }
 
   @Override
-  public Artifact commandAsScript(RuleContext ruleContext, String command) {
-    String scriptFileName = ruleContext.getTarget().getName() + this.scriptNameSuffix;
+  public Artifact commandAsScript(
+      ActionConstructionContext context, String targetName, String command) {
+    String scriptFileName = targetName + this.scriptNameSuffix;
     String scriptFileContents = "@echo off\n" + command;
     return FileWriteAction.createFile(
-        ruleContext, scriptFileName, scriptFileContents, /*executable=*/ true);
+        context, scriptFileName, scriptFileContents, /* executable= */ true);
   }
 }

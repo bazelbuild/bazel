@@ -120,8 +120,4 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
     return ((InMemoryGraph) delegate).getIfPresent(key);
   }
 
-  @Override
-  public void shrinkNodeMap() {
-    ((InMemoryGraph) delegate).shrinkNodeMap();
-  }
 }

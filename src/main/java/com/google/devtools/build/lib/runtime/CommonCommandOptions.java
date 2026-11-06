@@ -112,7 +112,8 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract boolean getAlwaysProfileSlowOperations();
 
   @Option(
-      name = "experimental_install_base_gc_max_age",
+      name = "install_base_gc_max_age",
+      oldName = "experimental_install_base_gc_max_age",
       defaultValue = "30d",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
@@ -126,33 +127,36 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract void setInstallBaseGcMaxAge(Duration value);
 
   @Option(
-      name = "experimental_action_cache_gc_idle_delay",
+      name = "action_cache_gc_idle_delay",
+      oldName = "experimental_action_cache_gc_idle_delay",
       defaultValue = "5m",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = DurationConverter.class,
       help =
           "How long the server must remain idle before a garbage collection of the action cache is"
-              + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+              + " attempted. Ineffectual unless --action_cache_gc_max_age is nonzero.")
   public abstract Duration getActionCacheGcIdleDelay();
 
   public abstract void setActionCacheGcIdleDelay(Duration value);
 
   @Option(
-      name = "experimental_action_cache_gc_threshold",
+      name = "action_cache_gc_threshold",
+      oldName = "experimental_action_cache_gc_threshold",
       defaultValue = "10",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = PercentageConverter.class,
       help =
           "The percentage of stale action cache entries required for garbage collection to be"
-              + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+              + " triggered. Ineffectual unless --action_cache_gc_max_age is nonzero.")
   public abstract int getActionCacheGcThreshold();
 
   public abstract void setActionCacheGcThreshold(int value);
 
   @Option(
-      name = "experimental_action_cache_gc_max_age",
+      name = "action_cache_gc_max_age",
+      oldName = "experimental_action_cache_gc_max_age",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
@@ -161,8 +165,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
           "If set to a nonzero value, the action cache will be periodically garbage collected to"
               + " remove entries older than this age. Garbage collection occurs in the background"
               + " once the server has become idle, as determined by the"
-              + " --experimental_action_cache_gc_idle_delay and"
-              + " --experimental_action_cache_gc_threshold flags.")
+              + " --action_cache_gc_idle_delay and --action_cache_gc_threshold flags.")
   public abstract Duration getActionCacheGcMaxAge();
 
   public abstract void setActionCacheGcMaxAge(Duration value);
@@ -467,6 +470,17 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract boolean getCollectSkyframeCounts();
 
   @Option(
+      name = "experimental_forced_gc_interval",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "How often to force a garbage collection periodically during a command. If zero or"
+              + " negative, no forced garbage collections are run.")
+  public abstract Duration getForcedGcInterval();
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -636,19 +650,6 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract List<EnvVar> getRepositoryEnvironment();
 
   @Option(
-      name = "incompatible_repo_env_ignores_action_env",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          """
-          If true, `--action_env=NAME=VALUE` will no longer affect repository rule \
-          and module extension environments.
-          """)
-  public abstract boolean getRepoEnvIgnoresActionEnv();
-
-  @Option(
       name = "experimental_strict_repo_env",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -656,11 +657,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
-          If true, repository rules and module extensions will only inherit `PATH`, `PATHEXT`
-          (on Windows), and environment variables explicitly specified by `--repo_env`.
-
-          Note that unless `--incompatible_repo_env_ignores_action_env` is true,
-          `--action_env=NAME=VALUE` will also be included.
+          If true, repository rules and module extensions will only inherit `PATH`, `PATHEXT`,
+          `SYSTEMDRIVE` and `SYSTEMROOT` (the last three on Windows), and environment variables
+          explicitly specified by `--repo_env`.
           """)
   public abstract boolean getUseStrictRepoEnv();
 

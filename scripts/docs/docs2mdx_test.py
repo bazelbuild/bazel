@@ -22,6 +22,73 @@ from absl.testing import parameterized
 from scripts.docs import docs2mdx
 
 
+class Docs2MdxTest(unittest.TestCase):
+
+  def test_code_blocks_keep_literal_characters(self):
+    html = """<html><body>
+<h1>Example</h1>
+<pre><code>values = {"define": "species=excelsior"}
+if x &lt; y { return true; }</code></pre>
+</body></html>"""
+    result = docs2mdx._transform("example.html", html)
+
+    self.assertIn('values = {"define": "species=excelsior"}', result)
+    self.assertNotIn("&lcub;", result)
+    self.assertNotIn("&rcub;", result)
+    code_block = result.split("```")[1]
+    self.assertNotIn("&lt;", code_block)
+
+  def test_prose_still_escapes_mdx_special_characters(self):
+    html = """<html><body>
+<p>Compare x &lt; y and use {braces} in prose.</p>
+</body></html>"""
+    result = docs2mdx._transform("example.html", html)
+
+    self.assertIn("&lt;", result)
+    self.assertIn("&lcub;", result)
+    self.assertIn("&rcub;", result)
+
+  def test_pre_blocks_in_markdown_are_not_entity_escaped(self):
+    md = """# Title
+
+<pre>
+config_setting(
+    values = {"define": "species=excelsior"},
+)
+</pre>
+"""
+    result = docs2mdx._transform("example.md", md)
+
+    self.assertIn('values = {"define": "species=excelsior"}', result)
+    self.assertNotIn("&lcub;", result)
+    self.assertNotIn("&rcub;", result)
+
+  def test_inline_backticks_in_html_are_not_entity_escaped(self):
+    html = """<html><body>
+<p>The default value of facts is `{}` and `{output_jar}-src.jar` with `__init__.py`, while {prose} is escaped.</p>
+</body></html>"""
+    result = docs2mdx._transform("example.html", html)
+
+    self.assertIn("`{}`", result)
+    self.assertIn("`{output_jar}-src.jar`", result)
+    self.assertIn("`__init__.py`", result)
+    self.assertIn("&lcub;prose&rcub;", result)
+
+  def test_var_tags_and_double_bracket_templates_are_stripped(self):
+    md = """# Title
+
+#### `--stripopt={{ "<var>" }}strip-option{{ "</var>" }}` {#stripopt}
+
+#### `--copt=<var>cc-option</var>` {#copt}
+"""
+    result = docs2mdx._transform("example.md", md)
+
+    self.assertIn("#### `--stripopt=strip-option` {#stripopt}", result)
+    self.assertIn("#### `--copt=cc-option` {#copt}", result)
+    self.assertNotIn("<var>", result)
+    self.assertNotIn("</var>", result)
+
+
 class Docs2MdxTableCellTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
@@ -78,7 +145,7 @@ class Docs2MdxTableCellTest(parameterized.TestCase):
   </tr>
 </table>
 """,
-          "<pre><code>",
+          "`https://example.com/file.tar.gz`",
           "```",
       ),
   )
@@ -132,6 +199,76 @@ class Docs2MdxHeadingAnchorTest(parameterized.TestCase):
     result = docs2mdx._transform("test.html", html)
     self.assertIn("## Rules", result)
     self.assertNotIn("{#", result)
+
+
+class Docs2MdxCodeFenceTest(unittest.TestCase):
+
+  def test_single_line_fence_is_split_onto_separate_lines(self):
+    md = "Text.\n\n```--output package```\n\nMore text."
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("\n```\n--output package\n```\n", result)
+
+  def test_indented_single_line_fence_keeps_indentation(self):
+    md = "*   Item:\n\n    ```--output graph```\n"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("    ```\n    --output graph\n    ```", result)
+
+  def test_regular_fence_is_unchanged(self):
+    md = "```\nbazel build //foo\n```\n"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("```\nbazel build //foo\n```", result)
+
+
+class Docs2MdxFlagAnchorTest(parameterized.TestCase):
+
+  @parameterized.named_parameters(
+      (
+          "command_specific_flag",
+          """
+<dl>
+<dt id="build-flag--define"><code id="define"><a href="#build-flag--define">--define</a>=&lt;a 'name=value' assignment&gt;</code> multiple uses are accumulated</dt>
+<dd><p>Each --define option specifies an assignment for a build variable.</p></dd>
+</dl>
+""",
+          "build-flag--define",
+      ),
+      (
+          "global_flag",
+          """
+<dl>
+<dt id="flag--test_string"><code><a href="#flag--test_string">--test_string</a>=&lt;a string&gt;</code> default: "test string default"</dt>
+<dd><p>a string-valued option to test simple option operations</p></dd>
+</dl>
+""",
+          "flag--test_string",
+      ),
+      (
+          "boolean_flag",
+          """
+<dl>
+<dt id="flag--expanded_a"><code><a href="#flag--expanded_a">--[no]expanded_a</a></code> default: "true"</dt>
+<dd><p>boolean option</p></dd>
+</dl>
+""",
+          "flag--expanded_a",
+      ),
+  )
+  def test_flag_anchor_preserved(self, html, anchor_id):
+    result = docs2mdx._transform("test.html", html)
+    self.assertIn(f'<a id="{anchor_id}"></a>', result)
+    self.assertIn(f"](#{anchor_id})", result)
+
+  def test_duplicate_anchor_id_inserted_once(self):
+    html = """
+<dl>
+<dt id="build-flag--define"><code><a href="#build-flag--define">--define</a>=&lt;value&gt;</code></dt>
+<dd><p>First definition.</p></dd>
+<dt id="build-flag--define"><code><a href="#build-flag--define">--define</a>=&lt;value&gt;</code></dt>
+<dd><p>Duplicate id should not add a second anchor.</p></dd>
+</dl>
+"""
+    result = docs2mdx._transform("test.html", html)
+    self.assertEqual(result.count('<a id="build-flag--define"></a>'), 1)
 
 
 if __name__ == "__main__":

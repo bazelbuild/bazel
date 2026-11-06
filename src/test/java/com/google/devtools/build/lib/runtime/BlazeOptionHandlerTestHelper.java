@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -41,7 +42,8 @@ class BlazeOptionHandlerTestHelper {
       List<Class<? extends OptionsBase>> optionsClasses,
       boolean allowResidue,
       @Nullable String aliasFlag,
-      boolean skipStarlarkPrefixes)
+      boolean skipStarlarkPrefixes,
+      InvocationPolicy invocationPolicy)
       throws Exception {
     parser = createOptionsParser(optionsClasses, allowResidue, aliasFlag, skipStarlarkPrefixes);
 
@@ -58,6 +60,7 @@ class BlazeOptionHandlerTestHelper {
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeService(new CompressionServiceImpl())
+            .addBlazeModule(new BazelStartupOptionsModule())
             .addBlazeModule(new BazelRulesModule())
             .build();
     runtime.overrideCommands(ImmutableList.of(new MockBuildCommand()));
@@ -76,12 +79,7 @@ class BlazeOptionHandlerTestHelper {
             new MockBuildCommand(),
             MockBuildCommand.class.getAnnotation(Command.class),
             parser,
-            InvocationPolicy.getDefaultInstance());
-  }
-
-  public BlazeOptionHandlerTestHelper(
-      List<Class<? extends OptionsBase>> optionsClasses, boolean allowResidue) throws Exception {
-    this(optionsClasses, allowResidue, /* aliasFlag= */ null, /* skipStarlarkPrefixes= */ false);
+            invocationPolicy);
   }
 
   private static OptionsParser createOptionsParser(

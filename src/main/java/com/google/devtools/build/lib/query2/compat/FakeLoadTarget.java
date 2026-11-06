@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.compat;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Packageoid;
@@ -78,11 +77,6 @@ public class FakeLoadTarget implements Target {
   @Override
   public Rule getAssociatedRule() {
     return null;
-  }
-
-  @Override
-  public License getLicense() {
-    throw new UnsupportedOperationException();
   }
 
   @Override

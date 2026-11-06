@@ -216,6 +216,39 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: //test:my_int_setting=666");
   }
 
+  @Test
+  public void testNonFlagParsing_allowed() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        int_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.int(flag = False),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "int_flag")
+
+        int_flag(
+            name = "my_int_setting",
+            build_setting_default = 42,
+        )
+        """);
+
+    setAllowNonFlagBuildSettings(true);
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting=666");
+
+    assertThat(result.getStarlarkOptions()).hasSize(1);
+    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
+        .isEqualTo(StarlarkInt.of(666));
+  }
+
   // test --bool_flag
   @Test
   public void testBooleanFlag() throws Exception {
@@ -418,6 +451,42 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting=42");
 
     assertThat(result.getStarlarkOptions()).isEmpty();
+  }
+
+  @Test
+  public void testCustomExecScope_dontStoreReferencedFlag() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "flag",
+            build_setting_default = "default",
+            scope = "exec:--//test:host_flag",
+        )
+
+        string_flag(
+            name = "host_flag",
+            build_setting_default = "host_default",
+        )
+        """);
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:flag=custom");
+
+    assertThat(result.getStarlarkOptions()).containsExactly("//test:flag", "custom");
   }
 
   @Test

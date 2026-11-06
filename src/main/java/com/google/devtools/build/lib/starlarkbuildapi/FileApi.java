@@ -109,9 +109,14 @@ public interface FileApi extends StarlarkValue {
       name = "short_path",
       structField = true,
       doc =
-          "The path of this file relative to its root. This excludes the aforementioned "
-              + "<i>root</i>, i.e. configuration-specific fragments of the path. This is also the "
-              + "path under which the file is mapped if it's in the runfiles of a binary.")
+          "The path of this file relative to its root, excluding configuration-specific fragments"
+              + " of the path (the aforementioned <i>root</i>). For files in the main repository,"
+              + " this is the path of the file relative to the repository.<p>For files in external"
+              + " repositories, this path begins with <code>../&lt;repo_name&gt;/</code> (the"
+              + " legacy runfiles path relative to the main repository's runfiles directory)."
+              + " Note that because it starts with <code>../</code>, it cannot simply be joined to"
+              + " <code>RUNFILES_DIR</code>, nor used with runfiles libraries or"
+              + " <code>rlocation</code> without stripping the leading <code>../</code>.")
   String getRunfilesPathString();
 
   @StarlarkMethod(
@@ -119,15 +124,19 @@ public interface FileApi extends StarlarkValue {
       structField = true,
       useStarlarkSemantics = true,
       doc =
-          "The execution path of this file, relative to the workspace's execution directory. It"
-              + " consists of two parts, an optional first part called the <i>root</i> (see also"
-              + " the <a href=\"../builtins/root.html\">root</a> module), and the second part which"
-              + " is the <code>short_path</code>. The root may be empty, which it usually is for"
-              + " non-generated files. For generated files it usually contains a"
-              + " configuration-specific path fragment that encodes things like the target CPU"
-              + " architecture that was used while building said file. Use the"
-              + " <code>short_path</code> for the path under which the file is mapped if it's in"
-              + " the runfiles of a binary.")
+          "The execution path of this file, relative to the workspace's execution directory. For"
+              + " files in the main repository, it consists of two parts: an optional first part"
+              + " called the <i>root</i> (see also the <a href=\"../builtins/root.html\">root</a>"
+              + " module) and the second part which is the <code>short_path</code>. The root may"
+              + " be empty, which it usually is for non-generated files. For generated files it"
+              + " usually contains a configuration-specific path fragment that encodes things like"
+              + " the target CPU architecture that was used while building said file.<p>Note that"
+              + " for files in external repositories, <code>short_path</code> reflects the runfiles"
+              + " tree path (prefixed with <code>../&lt;repo_name&gt;/</code>) rather than the"
+              + " root-relative execution path (prefixed with"
+              + " <code>external/&lt;repo_name&gt;/</code>), so concatenating"
+              + " <code>File.root.path</code> and <code>File.short_path</code> does not yield"
+              + " <code>File.path</code>.")
   String getExecPathStringForStarlark(StarlarkSemantics semantics);
 
   @StarlarkMethod(

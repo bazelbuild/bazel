@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -28,9 +29,12 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
+import java.io.ByteArrayInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URLConnection;
 import org.junit.After;
@@ -46,7 +50,9 @@ public class RetryingInputStreamTest {
   private final InputStream newDelegate = mock(InputStream.class);
   private final Reconnector reconnector = mock(Reconnector.class);
   private final URLConnection connection = mock(URLConnection.class);
-  private final RetryingInputStream stream = new RetryingInputStream(delegate, reconnector);
+  private final URLConnection initialConnection = mock(URLConnection.class);
+  private final RetryingInputStream stream =
+      new RetryingInputStream(delegate, initialConnection, reconnector);
 
   @After
   public void after() throws Exception {
@@ -147,5 +153,139 @@ public class RetryingInputStreamTest {
         .connect(any(Throwable.class), eq(ImmutableMap.of("Range", ImmutableList.of("bytes=1-"))));
       verify(delegate, times(5)).read();
     verify(delegate, times(3)).close();
+  }
+
+  @Test
+  public void reconnect_http206_resumesAtOffset() throws Exception {
+    HttpURLConnection httpConnection = mock(HttpURLConnection.class);
+    when(delegate.read()).thenReturn(1).thenThrow(new SocketTimeoutException());
+    when(reconnector.connect(any(), any())).thenReturn(httpConnection);
+    when(httpConnection.getResponseCode()).thenReturn(HttpURLConnection.HTTP_PARTIAL);
+    when(httpConnection.getHeaderField("Content-Range")).thenReturn("bytes 1-2/3");
+    when(httpConnection.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[] {2, 3}));
+
+    assertThat(stream.read()).isEqualTo(1);
+    assertThat(stream.read()).isEqualTo(2);
+    assertThat(stream.read()).isEqualTo(3);
+    assertThat(stream.read()).isEqualTo(-1);
+
+    verify(reconnector)
+        .connect(any(Throwable.class), eq(ImmutableMap.of("Range", ImmutableList.of("bytes=1-"))));
+    verify(delegate, times(2)).read();
+    verify(delegate).close();
+  }
+
+  @Test
+  public void reconnect_http200_skipsAlreadyReadBytes() throws Exception {
+    HttpURLConnection httpConnection = mock(HttpURLConnection.class);
+    when(delegate.read(any(), anyInt(), anyInt())).thenReturn(5);
+    when(delegate.read()).thenThrow(new SocketTimeoutException());
+    when(reconnector.connect(any(), any())).thenReturn(httpConnection);
+    when(httpConnection.getResponseCode()).thenReturn(HttpURLConnection.HTTP_OK);
+    when(httpConnection.getInputStream())
+        .thenReturn(new ByteArrayInputStream(new byte[] {0, 1, 2, 3, 4, 5, 6}));
+
+    assertThat(stream.read(new byte[5], 0, 5)).isEqualTo(5);
+    assertThat(stream.read()).isEqualTo(5);
+    assertThat(stream.read()).isEqualTo(6);
+    assertThat(stream.read()).isEqualTo(-1);
+
+    verify(reconnector)
+        .connect(any(Throwable.class), eq(ImmutableMap.of("Range", ImmutableList.of("bytes=5-"))));
+    verify(delegate).read(any(), anyInt(), anyInt());
+    verify(delegate).read();
+    verify(delegate).close();
+  }
+
+  @Test
+  public void reconnect_noContentRange_skipsAlreadyReadBytes() throws Exception {
+    when(delegate.read()).thenReturn(1).thenThrow(new SocketTimeoutException());
+    when(reconnector.connect(any(), any())).thenReturn(connection);
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[] {1, 2}));
+
+    assertThat(stream.read()).isEqualTo(1);
+    assertThat(stream.read()).isEqualTo(2);
+
+    verify(reconnector)
+        .connect(any(Throwable.class), eq(ImmutableMap.of("Range", ImmutableList.of("bytes=1-"))));
+    verify(delegate, times(2)).read();
+    verify(delegate).close();
+  }
+
+  @Test
+  public void reconnect_http200ShorterThanOffset_throws() throws Exception {
+    HttpURLConnection httpConnection = mock(HttpURLConnection.class);
+    when(delegate.read(any(), anyInt(), anyInt())).thenReturn(5);
+    when(delegate.read()).thenThrow(new IOException());
+    when(reconnector.connect(any(), any())).thenReturn(httpConnection);
+    when(httpConnection.getResponseCode()).thenReturn(HttpURLConnection.HTTP_OK);
+    when(httpConnection.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[] {0, 1}));
+
+    assertThat(stream.read(new byte[5], 0, 5)).isEqualTo(5);
+    assertThrows(EOFException.class, () -> stream.read());
+
+    verify(reconnector).connect(any(), any());
+    verify(delegate).read(any(), anyInt(), anyInt());
+    verify(delegate).read();
+    verify(delegate).close();
+  }
+
+  @Test
+  public void reconnect_http200WithDifferentContentEncoding_throws() throws Exception {
+    when(initialConnection.getContentEncoding()).thenReturn("gzip");
+    RetryingInputStream stream = new RetryingInputStream(delegate, initialConnection, reconnector);
+    HttpURLConnection httpConnection = mock(HttpURLConnection.class);
+    when(delegate.read()).thenReturn(1).thenThrow(new IOException());
+    when(reconnector.connect(any(), any())).thenReturn(httpConnection);
+    when(httpConnection.getResponseCode()).thenReturn(HttpURLConnection.HTTP_OK);
+
+    assertThat(stream.read()).isEqualTo(1);
+    IOException e = assertThrows(IOException.class, () -> stream.read());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Tried to reconnect at offset 1 but server sent a different representation");
+
+    verify(reconnector).connect(any(), any());
+    verify(delegate, times(2)).read();
+    verify(delegate).close();
+  }
+
+  @Test
+  public void reconnect_http200WithDifferentContentLength_throws() throws Exception {
+    when(initialConnection.getHeaderField("Content-Length")).thenReturn("42");
+    RetryingInputStream stream = new RetryingInputStream(delegate, initialConnection, reconnector);
+    HttpURLConnection httpConnection = mock(HttpURLConnection.class);
+    when(delegate.read()).thenReturn(1).thenThrow(new IOException());
+    when(reconnector.connect(any(), any())).thenReturn(httpConnection);
+    when(httpConnection.getResponseCode()).thenReturn(HttpURLConnection.HTTP_OK);
+    when(httpConnection.getHeaderField("Content-Length")).thenReturn("43");
+
+    assertThat(stream.read()).isEqualTo(1);
+    IOException e = assertThrows(IOException.class, () -> stream.read());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Tried to reconnect at offset 1 but server sent a different representation");
+
+    verify(reconnector).connect(any(), any());
+    verify(delegate, times(2)).read();
+    verify(delegate).close();
+  }
+
+  @Test
+  public void reconnect_invalidContentRange_throws() throws Exception {
+    when(delegate.read()).thenReturn(1).thenThrow(new SocketTimeoutException());
+    when(reconnector.connect(any(), any())).thenReturn(connection);
+    when(connection.getHeaderField("Content-Range")).thenReturn("bytes 0-42/42");
+
+    assertThat(stream.read()).isEqualTo(1);
+    IOException e = assertThrows(IOException.class, () -> stream.read());
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Tried to reconnect at offset 1 but server didn't support it");
+
+    verify(reconnector)
+        .connect(any(Throwable.class), eq(ImmutableMap.of("Range", ImmutableList.of("bytes=1-"))));
+    verify(delegate, times(2)).read();
+    verify(delegate).close();
   }
 }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.FileSystemLock.LockAlreadyHeldException;
 import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -132,6 +133,29 @@ public final class FileSystemLockTest {
   @Test
   public void get_exclusive_whenLockedForExclusiveUse_blocks() throws Exception {
     testBlocks(ExternalFileSystemLock.getExclusive(lockPath), LockMode.EXCLUSIVE);
+  }
+
+  @Test
+  public void tryGet_whenLocked_doesNotReleaseLaterLockOnGc() throws Exception {
+    try (var externalLock = ExternalFileSystemLock.getShared(lockPath)) {
+      assertThrows(
+          LockAlreadyHeldException.class,
+          () -> FileSystemLock.tryGet(lockPath, LockMode.EXCLUSIVE));
+    }
+
+    try (var lock = FileSystemLock.get(lockPath, LockMode.SHARED)) {
+      // On POSIX systems, closing any file descriptor of a file releases all locks the process
+      // holds on it. A channel left open by the failed attempt above would be closed by its cleaner
+      // once garbage collected, which would release the shared lock acquired since then.
+      for (int i = 0; i < 10; i++) {
+        System.gc();
+        Thread.sleep(100);
+      }
+      IOException e =
+          assertThrows(
+              IOException.class, () -> ExternalFileSystemLock.getExclusive(lockPath).close());
+      assertThat(e).hasMessageThat().contains("external helper process failed");
+    }
   }
 
   private void testBlocks(ExternalFileSystemLock externalLock, LockMode mode) throws Exception {

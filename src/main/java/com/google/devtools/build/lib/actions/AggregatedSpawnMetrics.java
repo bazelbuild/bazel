@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -28,6 +30,17 @@ public final class AggregatedSpawnMetrics {
 
   public static final AggregatedSpawnMetrics EMPTY =
       new AggregatedSpawnMetrics(null, null, null, null);
+
+  /** Returns an {@link AggregatedSpawnMetrics} wrapping the single given {@link SpawnMetrics}. */
+  public static AggregatedSpawnMetrics forExec(SpawnMetrics metrics) {
+    requireNonNull(metrics);
+    return switch (metrics.execKind()) {
+      case REMOTE -> new AggregatedSpawnMetrics(metrics, null, null, null);
+      case LOCAL -> new AggregatedSpawnMetrics(null, metrics, null, null);
+      case WORKER -> new AggregatedSpawnMetrics(null, null, metrics, null);
+      case OTHER -> new AggregatedSpawnMetrics(null, null, null, metrics);
+    };
+  }
 
   // Note that we are using fields instead of e.g. a map of SpawnMetrics to avoid the map overhead.
   // While this results in a bit more boilerplate code, it is worth the memory savings.
@@ -100,15 +113,23 @@ public final class AggregatedSpawnMetrics {
    */
   public AggregatedSpawnMetrics sumDurationsMaxOther(SpawnMetrics other) {
     SpawnMetrics.ExecKind kind = other.execKind();
-    SpawnMetrics existing = getMetrics(kind);
-    SpawnMetrics.Builder builder =
-        SpawnMetrics.Builder.forExec(kind)
-            .addDurations(existing)
-            .addDurations(other)
-            .maxNonDurations(existing)
-            .maxNonDurations(other);
+    SpawnMetrics existing =
+        switch (kind) {
+          case REMOTE -> remoteMetrics;
+          case LOCAL -> localMetrics;
+          case WORKER -> workerMetrics;
+          case OTHER -> otherMetrics;
+        };
 
-    SpawnMetrics newMetric = builder.build();
+    SpawnMetrics newMetric =
+        existing == null
+            ? other
+            : SpawnMetrics.Builder.forExec(kind)
+                .addDurations(existing)
+                .addDurations(other)
+                .maxNonDurations(existing)
+                .maxNonDurations(other)
+                .build();
 
     SpawnMetrics newRemoteMetrics = remoteMetrics;
     SpawnMetrics newLocalMetrics = localMetrics;
@@ -232,33 +253,32 @@ public final class AggregatedSpawnMetrics {
     }
 
     private SpawnMetrics.Builder getBuilder(SpawnMetrics.ExecKind kind) {
-      switch (kind) {
+      return switch (kind) {
         case REMOTE -> {
           if (remoteMetricsBuilder == null) {
             remoteMetricsBuilder = SpawnMetrics.Builder.forRemoteExec();
           }
-          return remoteMetricsBuilder;
+          yield remoteMetricsBuilder;
         }
         case LOCAL -> {
           if (localMetricsBuilder == null) {
             localMetricsBuilder = SpawnMetrics.Builder.forLocalExec();
           }
-          return localMetricsBuilder;
+          yield localMetricsBuilder;
         }
         case WORKER -> {
           if (workerMetricsBuilder == null) {
             workerMetricsBuilder = SpawnMetrics.Builder.forWorkerExec();
           }
-          return workerMetricsBuilder;
+          yield workerMetricsBuilder;
         }
         case OTHER -> {
           if (otherMetricsBuilder == null) {
             otherMetricsBuilder = SpawnMetrics.Builder.forOtherExec();
           }
-          return otherMetricsBuilder;
+          yield otherMetricsBuilder;
         }
-      }
-      throw new IllegalArgumentException("Unknown ExecKind: " + kind);
+      };
     }
   }
 }

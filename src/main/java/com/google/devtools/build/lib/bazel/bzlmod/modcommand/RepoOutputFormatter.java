@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
@@ -41,12 +43,22 @@ public class RepoOutputFormatter {
   private final PrintWriter printer;
   private final OutputStream outputStream;
   private final OutputFormat outputFormat;
+  private final Path externalDirectory;
 
   public RepoOutputFormatter(
-      PrintWriter printer, OutputStream outputStream, OutputFormat outputFormat) {
+      PrintWriter printer,
+      OutputStream outputStream,
+      OutputFormat outputFormat,
+      Path externalDirectory) {
     this.printer = printer;
     this.outputStream = outputStream;
     this.outputFormat = outputFormat;
+    this.externalDirectory = externalDirectory;
+  }
+
+  /** Returns the root directory of the given repo. */
+  private Path getRepoRoot(RepoDefinition repoDefinition) {
+    return externalDirectory.getRelative(repoDefinition.name());
   }
 
   public void print(String key, RepoDefinitionValue repoDefinition) {
@@ -69,6 +81,7 @@ public class RepoOutputFormatter {
   private void printStarlark(String key, RepoDefinitionValue repoDefinition) {
     if (repoDefinition instanceof RepoDefinitionValue.Found repoDefValue) {
       printer.printf("## %s:\n", key);
+      printer.printf("# Located at: %s\n", getRepoRoot(repoDefValue.repoDefinition()));
       printStarlark(repoDefValue.repoDefinition());
     }
     if (repoDefinition instanceof RepoDefinitionValue.RepoOverride repoOverrideValue) {
@@ -116,7 +129,7 @@ public class RepoOutputFormatter {
   private void printProtoJson(String key, RepoDefinition repoDefinition) {
     Build.Repository serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
     try {
-      printer.println(jsonPrinter.print(serialized));
+      printer.println(unicodeToInternal(jsonPrinter.print(serialized)));
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalArgumentException(e);
     }
@@ -131,6 +144,7 @@ public class RepoOutputFormatter {
     pbBuilder.setRepoRuleName(internalToUnicode(repoRule.id().ruleName()));
     pbBuilder.setRepoRuleBzlLabel(
         internalToUnicode(repoRule.id().bzlFileLabel().getUnambiguousCanonicalForm()));
+    pbBuilder.setRepoRoot(internalToUnicode(getRepoRoot(repoDefinition).getPathString()));
 
     // TODO: record and print the call stack for the repo definition itself?
 

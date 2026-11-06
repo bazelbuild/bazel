@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions.ConfigDefinition;
 import com.google.devtools.build.lib.skyframe.ProjectValue.BuildableUnit;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -303,6 +305,48 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void directlySet_optionInDisableTransitionsOn_fails() throws Exception {
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=compilation_mode");
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--compilation_mode=opt"],
+                  is_default = True,
+                  description = "user-friendly config description",
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("compilation_mode"),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            "project flags can't set option listed in --incompatible_disable_transitions_on:"
+                + " --compilation_mode");
+  }
+
+  @Test
   public void enforceCanonicalConfigsValidConfig() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
@@ -360,7 +404,7 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
           buildable_units = [
               buildable_unit_pb2.BuildableUnit.create(
                   name = "test_config",
-                  flags = ["--define foo=bar"],
+                  flags = ["--define foo=bar", "--features baz"],
                   is_default = True,
               ),
           ],
@@ -376,19 +420,65 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
-            /* allOptionNames= */ ImmutableSet.of("define"),
+            /* allOptionNames= */ ImmutableSet.of("define", "features"),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     assertThat(flagSetsValue.getOptionsFromFlagset())
-        .contains("--define=foo=bar"); // space is replaced with =
+        .containsExactly("--define=foo=bar", "--features=baz"); // space is replaced with =
     assertContainsPersistentMessage(
         flagSetsValue,
         EventKind.INFO,
         /* frequency= */ 1,
         "Applying flags from the config 'test_config'");
+  }
+
+  @Test
+  public void expandConfigFlags_canonicalizesSpaceSeparatedFlags() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--config=my_config"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    ConfigFlagDefinitions configFlagDefinitions =
+        new ConfigFlagDefinitions(
+            ImmutableListMultimap.of(
+                "my_config",
+                new ConfigDefinition(
+                    ImmutableList.of(
+                        "--features", "foo", "--stamp", "--nostamp", "--define", "a=b"),
+                    "client")));
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(
+                "config", "features", "stamp", "nostamp", "define"),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ configFlagDefinitions,
+            /* enforceCanonical= */ true);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    assertThat(flagSetsValue.getOptionsFromFlagset())
+        .containsExactly("--features=foo", "--stamp", "--nostamp", "--define=a=b");
   }
 
   @Test
@@ -603,7 +693,91 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
     assertThat(thrown).hasMessageThat().contains("Found ['--//test:myflag=other_value']");
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("conflicts with ['--//test:myflag=test_config_value'] in the project file");
     assertThat(thrown).hasMessageThat().doesNotContain("['--//test:other_flag=test_config_value']");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_compatiblePolicy_defineWithDifferentKey_warns()
+      throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "compatible",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--define=project_key=1"]
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions = createBuildOptions("--define=user_key=1");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("define"),
+            /* userOptions= */ ImmutableMap.of("--define=user_key=1", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    FlagSetValue flagSetsValue = executeFunction(key);
+    assertThat(flagSetsValue.getOptionsFromFlagset()).containsExactly("--define=project_key=1");
+    assertContainsPersistentMessage(
+        flagSetsValue,
+        EventKind.WARNING,
+        /* frequency= */ 1,
+        "also sets output-affecting flags in the command line or user bazelrc:"
+            + " ['--define=user_key=1']");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_compatiblePolicy_defineWithSameKeyDifferentValue_fails()
+      throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "compatible",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--define=project_key=1", "--define=other_key=1"]
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions = createBuildOptions("--define=project_key=2");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("define"),
+            /* userOptions= */ ImmutableMap.of("--define=project_key=2", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            "Found ['--define=project_key=2'], which conflicts with ['--define=project_key=1'] in"
+                + " the project file");
+    assertThat(thrown).hasMessageThat().doesNotContain("other_key");
   }
 
   @Test
@@ -1189,6 +1363,8 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   public void enforceCanonicalConfigsNoSclConfigFlagValidDefaultConfig() throws Exception {
+    // Note: it is not possible to directly set options listed in
+    // --incompatible_disable_transitions_on via PROJECT.scl.
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",

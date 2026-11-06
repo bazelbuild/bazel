@@ -1,6 +1,7 @@
 <!--
 Thank you for contributing to Bazel!
 Please read the contribution guidelines: https://bazel.build/contribute
+and guidelines for AI-assisted contributions: https://bazel.build/contribute/ai-assisted-contributions
 -->
 
 ### Description

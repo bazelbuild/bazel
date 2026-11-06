@@ -31,6 +31,9 @@ import net.starlark.java.eval.EvalException;
  * ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the dwp file will be null.
  */
 public final class DebugPackageProvider {
+  // Transformed by Copybara on export
+  private static final String RULES_CC_PREFIX = "@rules_cc+//";
+
   public static final RulesCcProvider RULES_CC_PROVIDER = new RulesCcProvider();
 
   public static DebugPackageProvider get(TransitiveInfoCollection target)
@@ -86,8 +89,7 @@ public final class DebugPackageProvider {
     public RulesCcProvider() {
       super(
           keyForBuild(
-              Label.parseCanonicalUnchecked(
-                  CppSemantics.RULES_CC_PREFIX + "cc/private:debug_package_info.bzl")),
+              Label.parseCanonicalUnchecked(RULES_CC_PREFIX + "cc/private:debug_package_info.bzl")),
           "DebugPackageInfo");
     }
 

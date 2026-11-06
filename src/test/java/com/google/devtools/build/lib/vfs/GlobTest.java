@@ -443,6 +443,23 @@ public class GlobTest {
   }
 
   @Test
+  public void testMatchesLiteralSegments() {
+    for (String literal :
+        ImmutableList.of("node_modules", ".venv", "a.b", "a+b", "a\\wb", "aab|a{1,2}[ab]")) {
+      assertThat(UnixGlob.matches(literal, literal)).isTrue();
+      assertThat(UnixGlob.matches(literal, "other")).isFalse();
+    }
+  }
+
+  @Test
+  public void testMatchesLiteralParenthesesUsesLegacyRegex() {
+    for (String pattern : ImmutableList.of("foo(bar)", "foo(bar", "foo)bar")) {
+      assertThat(UnixGlob.matches(pattern, "foobar")).isTrue();
+      assertThat(UnixGlob.matches(pattern, "foo(bar)")).isFalse();
+    }
+  }
+
+  @Test
   public void testMatchesCallWithNoCache() {
     assertThat(UnixGlob.matches("*a*b", "CaCb", null)).isTrue();
   }

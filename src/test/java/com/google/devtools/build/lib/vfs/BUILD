@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -13,7 +13,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/vfs/bazel:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs/util:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # Tests for Windows-specific functionality that can run cross-platform.
@@ -115,7 +115,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":VfsTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )
 
@@ -146,7 +146,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":VfsWindowsTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )
 
@@ -154,6 +154,7 @@ java_library(
     name = "testutil",
     testonly = 1,
     srcs = ["FileSystemTest.java"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/util",

@@ -35,6 +35,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -213,6 +215,8 @@ public abstract class BuildIntegrationTestCase {
           .build();
     }
   }
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected FileSystem fileSystem;
   protected final EventCollectionApparatus events =
@@ -730,7 +734,7 @@ public abstract class BuildIntegrationTestCase {
     // one for the actual host OS. macOS shares Linux's shell path, but Windows needs a different
     // one.
     if (OS.getCurrent() == OS.WINDOWS) {
-      runtimeWrapper.addOptions("--shell_executable=c:/msys64/usr/bin/bash.exe");
+      runtimeWrapper.addOptions("--shell_executable=C:/msys64/usr/bin/bash.exe");
     }
   }
 
@@ -1036,6 +1040,22 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
+   * Ensures that the value of the {@code --jobs} flag is at least {@code minJobs}.
+   *
+   * <p>Note that the default value for {@code --jobs} is automatically calculated based on host
+   * CPU.
+   */
+  public final void ensureMinimumJobs(int minJobs) throws Exception {
+    int autoJobs = new JobsConverter().convert("auto");
+    if (autoJobs < minJobs) {
+      logger.atInfo().log("Setting --jobs=%s (was %s)", minJobs, autoJobs);
+      addOptions("--jobs=" + minJobs);
+    } else {
+      logger.atInfo().log("Keeping default value of --jobs=%s", autoJobs);
+    }
+  }
+
+  /**
    * The TimestampGranularityMonitor operates on the files created by the request and thus does not
    * help here. Calling this method ensures that files we modify as part of the test environment are
    * considered as changed.
@@ -1107,13 +1127,13 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected void assertContents(String expectedContents, Path path) throws Exception {
-    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    String actualContents = FileSystemUtils.readContentAsLatin1(path);
     // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
     assertThat(actualContents.indent(0).trim()).isEqualTo(expectedContents);
   }
 
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
-    return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
+    return FileSystemUtils.readContentAsLatin1(artifact.getPath());
   }
 
   protected ByteString readContentAsByteArray(Artifact artifact) throws IOException {
@@ -1123,7 +1143,7 @@ public abstract class BuildIntegrationTestCase {
   protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
     FileArtifactValue metadata = getOutputMetadata(output);
     assertThat(metadata.isInline()).isTrue();
-    return new String(FileSystemUtils.readContentAsLatin1(metadata.getInputStream()));
+    return FileSystemUtils.readContentAsLatin1(metadata.getInputStream());
   }
 
   protected FileArtifactValue getOutputMetadata(Artifact output) throws InterruptedException {

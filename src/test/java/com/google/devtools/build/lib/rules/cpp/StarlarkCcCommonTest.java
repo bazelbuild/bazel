@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -5601,7 +5600,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
@@ -5652,7 +5651,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
@@ -6093,13 +6092,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
+  public void testLinkStampExplicitlyEnabledOverridesNoStampFlag() throws Exception {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6109,9 +6106,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6121,9 +6116,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6133,9 +6126,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6145,9 +6136,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -8188,6 +8177,39 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         )
         """);
     getConfiguredTarget("//bazel_internal/test_rules/cc:custom");
+  }
+
+  @Test
+  public void testAbsoluteSymlinkRelativePathThrowsEvalError() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        """
+        load(":custom_rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
+    scratch.file(
+        "bazel_internal/test_rules/cc/custom_rule.bzl",
+        """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            cc_common.absolute_symlink(
+                ctx = ctx,
+                output = out,
+                target_path = "relative/path",
+                progress_message = "Symlinking %{input}",
+            )
+            return [DefaultInfo(files = depset([out]))]
+
+        custom_rule = rule(
+            implementation = _impl,
+        )
+        """);
+
+    checkError(
+        "//bazel_internal/test_rules/cc:custom",
+        "target_path must be an absolute path, got 'relative/path'");
   }
 
   // grep_includes is not supported by Bazel.

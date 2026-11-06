@@ -24,5 +24,4 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )

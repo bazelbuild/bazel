@@ -93,13 +93,15 @@ linux)
   ;;
 
 freebsd)
-  # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk11}"
+  # JAVA_HOME must point to a Java installation. The packages install
+  # under /usr/local/openjdk<N>; take the newest one present.
+  JAVA_HOME="${JAVA_HOME:-$(ls -d /usr/local/openjdk[0-9]* 2>/dev/null | sort -V | tail -n 1)}"
   ;;
 
 openbsd)
-  # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-11}"
+  # JAVA_HOME must point to a Java installation. The packages install
+  # under /usr/local/jdk-<N>; take the newest one present.
+  JAVA_HOME="${JAVA_HOME:-$(ls -d /usr/local/jdk-[0-9]* 2>/dev/null | sort -V | tail -n 1)}"
   ;;
 
 darwin)
@@ -312,12 +314,6 @@ function get_java_version() {
       "Cannot determine JDK version, please set \$JAVA_HOME.\n" \
       "\$JAVAC_VERSION is \"${JAVAC_VERSION}\""
   fi
-}
-
-# Return the target that a bind point to, using Bazel query.
-function get_bind_target() {
-  $BAZEL --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} \
-    query "deps($1, 1) - $1"
 }
 
 # Create a link for a directory on the filesystem

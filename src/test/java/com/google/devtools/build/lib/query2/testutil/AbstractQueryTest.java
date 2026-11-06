@@ -1871,6 +1871,8 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile("build_bazel_apple_support/BUILD");
     helper.writeFile(
         "build_bazel_apple_support/MODULE.bazel", "module(name='build_bazel_apple_support')");
+    helper.writeFile("apple_support_workspace/BUILD");
+    helper.writeFile("apple_support_workspace/MODULE.bazel", "module(name='apple_support')");
     helper.writeFile("third_party/bazel_rules/rules_cc/BUILD");
     helper.writeFile("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
     helper.writeFile("third_party/bazel_rules/rules_shell/BUILD");
@@ -1890,6 +1892,8 @@ public abstract class AbstractQueryTest<T> {
     writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
     Truth.assertThat(evalToString("deps(//a:a)")).contains("//extra:extra");
+    Truth.assertThat(evalToString("deps(//a:a, 1)")).contains("//extra:extra");
+    Truth.assertThat(evalToString("deps(//a:a, 0)")).doesNotContain("//extra:extra");
   }
 
   @Test

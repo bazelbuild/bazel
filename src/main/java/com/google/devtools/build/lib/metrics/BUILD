@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -37,6 +37,8 @@ java_library(
         ":memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:analysis_graph_stats_event",
+        "//src/main/java/com/google/devtools/build/lib/actions:total_and_configured_target_only_metric",
+        "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -55,6 +57,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:location_printer",
         "//src/main/java/com/google/devtools/build/lib/runtime:spawn_stats",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_stats",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
@@ -91,7 +94,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:common_command_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:about_to_clear_analysis_cache_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/common/options",

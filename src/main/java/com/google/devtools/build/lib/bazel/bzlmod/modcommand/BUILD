@@ -2,13 +2,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:__pkg__"],
 )
 
 java_library(
@@ -25,6 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
         "//src/main/java/com/google/devtools/build/lib/util:maybe_complete_set",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:build_java_proto",

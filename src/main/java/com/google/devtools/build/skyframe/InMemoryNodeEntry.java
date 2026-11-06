@@ -70,4 +70,23 @@ public interface InMemoryNodeEntry extends NodeEntry {
   @Override // Remove InterruptedException.
   @Nullable
   MarkedDirtyResult markDirty(DirtyType dirtyType);
+
+  /**
+   * Atomically checks {@link #getLifecycleState} and marks this node changed if in {@link
+   * LifecycleState#CHECK_DEPENDENCIES}.
+   *
+   * <p>Logically equivalent to the following, except executed atomically to avoid a check-then-act
+   * race:
+   *
+   * <pre>{@code
+   * LifecycleState state = entry.getLifecycleState();
+   * if (state == LifecycleState.CHECK_DEPENDENCIES) {
+   *   entry.markDirty(DirtyType.CHANGE);
+   * }
+   * return state;
+   * }</pre>
+   *
+   * @return the lifecycle state observed before potentially marking this node changed
+   */
+  LifecycleState markChangedIfCheckingDependencies();
 }

@@ -37,6 +37,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     "{module: java_config, api: use_header_compilation}",
     "{module: java_config, api: generate_java_deps}",
     "{module: java_config, api: reduce_java_classpath}",
+    "{module: java_config, api: fix_deps_tool}",
+    "{module: java_config, api: experimental_enable_jspecify}",
+    "{module: java_config, api: experimental_turbine_annotation_processing}",
+    "{module: java_config, api: experimental_turbine_cpu_reservation}",
+    "{module: java_config, api: experimental_turbine_output_root_relative_path}",
+    "{module: java_config, api: run_local_java_optimizations}",
   })
   public void testNoArgsPrivateAPIsAreIndeedPrivate(String module, String api) throws Exception {
     scratch.file(
@@ -69,6 +75,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   @TestParameters({
     "{api: create_header_compilation_action}",
     "{api: create_compilation_action}",
+    "{api: create_jvm_compile_action}",
     "{api: target_kind}",
     "{api: collect_native_deps_dirs}",
     "{api: get_runtime_classpath_for_archive}",

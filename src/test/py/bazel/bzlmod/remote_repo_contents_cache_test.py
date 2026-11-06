@@ -15,12 +15,10 @@
 # pylint: disable=g-long-ternary
 # pylint: disable=g-bad-todo
 
-import json
 import os
-import re
 import tempfile
 from absl.testing import absltest
-from src.test.py.bazel import test_base
+from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
 # Whether repos containing symlinks that point out of the repo can be added to
 # the remote repo contents cache. If False, such repos are refetched instead of
@@ -30,39 +28,9 @@ from src.test.py.bazel import test_base
 CROSS_REPO_SYMLINKS_CACHEABLE = False
 
 
-class RemoteRepoContentsCacheTest(test_base.TestBase):
-
-  def setUp(self):
-    test_base.TestBase.setUp(self)
-    self._worker_port = self.StartRemoteWorker()
-    self.ScratchFile(
-        '.bazelrc',
-        [
-            'startup --experimental_remote_repo_contents_cache',
-            # Only use the remote repo contents cache.
-            'common --repo_contents_cache=',
-            'common --remote_cache=grpc://localhost:' + str(self._worker_port),
-            'common --auth_enabled=false',
-            'common --remote_timeout=3600s',
-            'common --verbose_failures',
-        ],
-    )
-
-  def tearDown(self):
-    test_base.TestBase.tearDown(self)
-    self.StopRemoteWorker()
-
-  def RepoDir(self, repo_name, cwd=None):
-    _, stdout, _ = self.RunBazel(['info', 'output_base'], cwd=cwd)
-    self.assertLen(stdout, 1)
-    output_base = stdout[0].strip()
-
-    _, stdout, _ = self.RunBazel(['mod', 'dump_repo_mapping', ''], cwd=cwd)
-    self.assertLen(stdout, 1)
-    mapping = json.loads(stdout[0])
-    canonical_repo_name = mapping[repo_name]
-
-    return output_base + '/external/' + canonical_repo_name
+class RemoteRepoContentsCacheTest(
+    remote_repo_contents_cache_test_base.RemoteRepoContentsCacheTestBase
+):
 
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(
@@ -106,6 +74,139 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     ])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+  def testNonUtf8RepositoryPathsAreRefetched(self):
+    if not self.IsLinux():
+      self.skipTest('requires arbitrary POSIX filename bytes')
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        ['repo = use_repo_rule("//:repo.bzl", "repo")']
+        + [
+            f'repo(name = "{kind}", kind = "{kind}")'
+            for kind in ('names', 'target', 'valid')
+        ],
+    )
+    self.ScratchFile(
+        'make.sh',
+        [
+            r'replacement=$(printf "\357\277\275")',
+            'case "$1" in',
+            (
+                r'  names) echo original > "$(printf "\377")"; echo other >'
+                r' "$replacement";;'
+            ),
+            r'  target) ln -s "$(printf "\376")" link;;',
+            '  valid) echo valid > "$replacement";;',
+            'esac',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _impl(ctx):',
+            (
+                '  result = ctx.execute(["sh", ctx.path(Label("//:make.sh")),'
+                ' ctx.attr.kind])'
+            ),
+            '  if result.return_code: fail(result.stderr)',
+            '  ctx.file("BUILD.bazel", "filegroup(name=\'ok\')")',
+            '  print("FETCHED " + ctx.attr.kind)',
+            '  return ctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_impl, attrs={"kind": attr.string()})',
+        ],
+    )
+
+    args = ['query', 'set(@names//:ok @target//:ok @valid//:ok)']
+    self.RunBazel(args)
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args)
+    log = '\n'.join(stderr)
+    self.assertIn('FETCHED names', log)
+    self.assertIn('FETCHED target', log)
+    self.assertNotIn('FETCHED valid', log)
+    names = os.fsencode(self.RepoDir('names'))
+    with open(os.path.join(names, b'\xff'), 'rb') as f:
+      self.assertEqual(f.read(), b'original\n')
+    with open(os.path.join(names, '\ufffd'.encode()), 'rb') as f:
+      self.assertEqual(f.read(), b'other\n')
+    link = os.path.join(os.fsencode(self.RepoDir('target')), b'link')
+    self.assertEqual(os.readlink(link), b'\xfe')
+
+  def testMaterializationPreservesExecutableBits(self):
+    if self.IsWindows():
+      self.skipTest('POSIX executable permissions')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'source = use_repo_rule("//:repos.bzl", "source")',
+            'source(name = "source")',
+            'copy = use_repo_rule("//:repos.bzl", "copy")',
+            'copy(name = "copy", data = "@source//:plain.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repos.bzl',
+        [
+            'def _source(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                " \"exports_files(['plain.txt'])\\n"
+                "filegroup(name='metadata_only')\")"
+            ),
+            '  rctx.file("plain.txt", "contents", executable=False)',
+            '  rctx.file("run.sh", "contents", executable=True)',
+            '  rctx.file("helper.bzl", "VALUE = 1", executable=False)',
+            '  print("FETCHED SOURCE")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'source = repository_rule(_source)',
+            'def _copy(rctx):',
+            '  directory = rctx.path(rctx.attr.data).dirname',
+            (
+                '  result = rctx.execute(["cp", "-Rp", str(directory) + "/.",'
+                ' "."])'
+            ),
+            '  if result.return_code:',
+            '    fail(result.stderr)',
+            '  return rctx.repo_metadata()',
+            'copy = repository_rule(_copy, attrs={"data": attr.label()})',
+        ],
+    )
+    source_dir = self.RepoDir('source')
+    copy_dir = self.RepoDir('copy')
+
+    def assert_modes():
+      for directory in (source_dir, copy_dir):
+        for name, executable in (
+            ('plain.txt', False),
+            ('run.sh', True),
+            ('helper.bzl', False),
+        ):
+          with self.subTest(directory=directory, name=name):
+            path = os.path.join(directory, name)
+            self.assertEqual(bool(os.stat(path).st_mode & 0o111), executable)
+
+    _, _, stderr = self.RunBazel(['build', '@copy//:metadata_only'])
+    self.assertIn('FETCHED SOURCE', '\n'.join(stderr))
+    assert_modes()
+
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@source//:metadata_only'])
+    self.assertNotIn('FETCHED SOURCE', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(source_dir, 'plain.txt')))
+    self.assertFalse(
+        os.stat(os.path.join(source_dir, 'helper.bzl')).st_mode & 0o111
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@copy//:metadata_only'])
+    self.assertNotIn('FETCHED SOURCE', '\n'.join(stderr))
+    assert_modes()
+
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@copy//:metadata_only'])
+    self.assertNotIn('FETCHED SOURCE', '\n'.join(stderr))
+    assert_modes()
 
   def testLocalRepoContentsCacheInteraction(self):
     self.ScratchFile(
@@ -237,7 +338,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         [
             'def _repo_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
-            '  rctx.watch(Label("@//:data.txt"))',
+            '  rctx.watch(Label("@//:data file.txt"))',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
@@ -247,20 +348,20 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     repo_dir = self.RepoDir('my_repo')
 
     # First fetch: not cached
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change recorded inputs: not cached
-    self.ScratchFile('data.txt', ['two'])
+    self.ScratchFile('data file.txt', ['two'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # Change back to previous recorded inputs: cached (even after expunging)
     self.RunBazel(['clean', '--expunge'])
-    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('data file.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
@@ -405,6 +506,77 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     with open(self.Path('bazel-bin/platform.txt')) as f:
       self.assertEqual(f.read().strip(), 'macOS')
+
+  def testRecordedInputs_labelWithSpace(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['exports_files(["input with space.txt"])'])
+    self.ScratchFile('input with space.txt', ['input'])
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            (
+                '  rctx.file("data.txt", rctx.read(Label("//:input with'
+                ' space.txt")))'
+            ),
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The recorded input with a space in its name is found in the cache.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testRecordedInputs_missingRepoMapping(self):
+    # Constructing a Label with an apparent repo name that isn't mapped records
+    # the missing mapping, which must validate as missing when the repo is
+    # looked up again.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  unused = Label("@optional_missing//:unused")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "data")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The marker file is still valid after a restart of the server.
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # The cache entry is found after expunging.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
   def testRecordedInputs_differentInputs(self):
     platform_file = self.ScratchFile('platform.txt')
@@ -814,6 +986,78 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     # Materialized repo is not refetched after a shutdown
     self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
+
+  def testAccessFromOtherRepo_symlinkInNonCachedRepo(self):
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'link_repo = use_repo_rule("//:link_repo.bzl", "link_repo")',
+            'link_repo(name = "link")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", build_file = "@link//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'link_repo.bzl',
+        [
+            'def _link_repo_impl(rctx):',
+            '  rctx.symlink("../+repo+my_repo/BUILD", "BUILD")',
+            '  return rctx.repo_metadata()',
+            'link_repo = repository_rule(_link_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    other_repo_dir = self.RepoDir('other')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha', '@other//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # After expunging: fetch my_repo only, not materialized
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # Fetch other, which accesses link, which has a relative symlink into
+    # my_repo: my_repo must be materialized.
     _, _, stderr = self.RunBazel(['build', '@other//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
@@ -1375,8 +1619,9 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         'other_repo.bzl',
         [
             'def _other_repo_impl(rctx):',
-            # Reading my_repo's BUILD forces full materialization of my_repo.
-            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            # Reading my_repo's BUILD through rctx.path, unlike reading it by
+            # label, forces full materialization of my_repo.
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
             # other is not reproducible, so it is always fetched and re-triggers
             # materialization of my_repo from the cache.
             '  return rctx.repo_metadata()',
@@ -1433,7 +1678,12 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # and then fully materialized because other accesses it.
     self.RunBazel(['clean', '--expunge'])
     _, _, stderr = self.RunBazel(['build', '@other//:haha'])
-    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'other_repo.bzl:2:41: Materializing remote repo @@+repo+my_repo',
+        stderr,
+    )
     full_layout = snapshot()
 
     # Lazy action-input materialization: my_repo is restored from the cache into
@@ -1462,6 +1712,142 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertEqual(
           os.readlink(os.path.join(repo_dir, 'link1.txt')), 'data.txt'
       )
+
+  def doTestInputBelowSymlinkedDirectories(self, name):
+    # The symlinks at the directories above an input of a local action must be
+    # reproduced on disk rather than created as regular directories, which
+    # would no longer match the contents of the repo and make its full
+    # materialization fail.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            'other_repo_rule(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "exports_files('
+                "['alias/inner_link/nested.txt'])\\n"
+                "filegroup(name='inner_dir', srcs=['alias/inner_link'],"
+                " visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("real/file.txt", "file")',
+            '  rctx.file("real/subdir/nested.txt", "nested")',
+            # A chain of directory symlinks with another directory symlink below
+            # its target.
+            '  rctx.symlink("real", "alias2")',
+            '  rctx.symlink("alias2", "alias")',
+            '  rctx.symlink("real/subdir", "real/inner_link")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading my_repo's BUILD forces full materialization of my_repo.
+            '  rctx.read(rctx.path(rctx.attr.build_file))',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo_rule = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_file",',
+            '  srcs = ["@my_repo//:alias/inner_link/nested.txt"],',
+            '  outs = ["use_file.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+            'genrule(',
+            '  name = "use_source_directory",',
+            '  srcs = ["@my_repo//:inner_dir"],',
+            '  outs = ["use_source_directory.txt"],',
+            '  cmd = "cat $</nested.txt > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    target = '//main:' + name
+    out = self.Path('bazel-bin/main/%s.txt' % name)
+
+    def assert_symlinks_reproduced():
+      for link, link_target, resolved in [
+          ('alias', 'alias2', 'real'),
+          ('alias2', 'real', 'real'),
+          ('real/inner_link', '../real/subdir', 'real/subdir'),
+      ]:
+        self.assertTrue(
+            os.path.samefile(
+                os.path.join(repo_dir, link), os.path.join(repo_dir, resolved)
+            ),
+            link,
+        )
+        if not self.IsWindows():
+          # The exact relative symlink targets are reproduced (POSIX only, as
+          # the representation is platform-dependent).
+          self.assertEqual(
+              os.readlink(os.path.join(repo_dir, link)), link_target
+          )
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', target])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: the repo is a remote cache hit and is not fully
+    # materialized, but the no-cache action still runs locally and must be able
+    # to read its input through the symlinks.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', target])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'real/file.txt')))
+    assert_symlinks_reproduced()
+    with open(out) as f:
+      self.assertEqual(f.read(), 'nested')
+
+    # Fetch other: my_repo is fully materialized, which plants the symlinks
+    # again.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    assert_symlinks_reproduced()
+    with open(os.path.join(repo_dir, 'alias/file.txt')) as f:
+      self.assertEqual(f.read(), 'file')
+
+  def testUseRepoFileBelowSymlinkedDirectories_actionDoesNotUseCache(self):
+    self.doTestInputBelowSymlinkedDirectories('use_file')
+
+  def testUseSourceDirectoryBelowSymlinkedDirectories_actionDoesNotUseCache(
+      self,
+  ):
+    self.doTestInputBelowSymlinkedDirectories('use_source_directory')
 
   def testRepoWithSymlinkChainIntoMainRepoIsNotCached(self):
     # A repo containing a symlink chain that ends with a symlink pointing at a
@@ -1620,7 +2006,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
             # Materialize dep_repo before my_repo so that the external symlink
             # target exists when my_repo is materialized.
             '  rctx.watch(rctx.attr.dep_file)',
-            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
             '  return rctx.repo_metadata()',
             (
                 'other_repo_rule = repository_rule(_other_repo_impl,'
@@ -1763,7 +2149,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         [
             'def _materializer_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
-            '  rctx.read(rctx.attr.dep_file)',
+            '  rctx.read(rctx.path(rctx.attr.dep_file))',
             '  return rctx.repo_metadata()',
             (
                 'materializer_rule = repository_rule(_materializer_impl,'
@@ -1888,94 +2274,6 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertEqual(f.read(), 'dep_hello')
     if CROSS_REPO_SYMLINKS_CACHEABLE:
       self.assertFalse(os.path.exists(os.path.join(my_repo_dir, 'BUILD')))
-
-  def testLostRemoteFile_build(self):
-    # Create a repo with two BUILD files (one in a subpackage), build a target
-    # from one to cause it to be cached, then build that target again after
-    # expunging to verify it is cached.
-    # Then, restart the worker and build a target in the other build file.
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'repo = use_repo_rule("//:repo.bzl", "repo")',
-            'repo(name = "my_repo")',
-        ],
-    )
-
-    self.ScratchFile('BUILD.bazel')
-    self.ScratchFile(
-        'repo.bzl',
-        [
-            'def _repo_impl(rctx):',
-            (
-                '  rctx.file("BUILD", "filegroup(name=\'root\','
-                " srcs=['root.txt'])\")"
-            ),
-            '  rctx.file("root.txt", "root")',
-            (
-                '  rctx.file("sub/BUILD", "filegroup(name=\'sub\','
-                " srcs=['sub.txt'])\")"
-            ),
-            '  rctx.file("sub/sub.txt", "sub")',
-            '  print("JUST FETCHED")',
-            '  return rctx.repo_metadata(reproducible=True)',
-            'repo = repository_rule(_repo_impl)',
-        ],
-    )
-
-    repo_dir = self.RepoDir('my_repo')
-
-    # First fetch: not cached
-    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
-
-    # After expunging: cached
-    self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
-    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
-
-    # Lose all remote files.
-    self.ClearRemoteCache()
-
-    # Build the other target: fails due to the lost input
-    _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
-    # First restart recovers @my_repo, the next one recovers @platforms.
-    self.assertEqual(
-        2,
-        stderr.count(
-            'Found transient remote cache error, retrying the build...'
-        ),
-    )
-    canonical_repo_name = repo_dir[repo_dir.rfind('/') + 1 :]
-    stderr = '\n'.join(stderr)
-    self.assertRegex(
-        stderr,
-        'external/%s/sub/BUILD with digest .*/.* no longer available in the'
-        ' remote cache'
-        % re.escape(canonical_repo_name),
-    )
-    self.assertIn('JUST FETCHED', stderr)
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
-
-    # After expunging again: cached
-    self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
-    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
   def testMemoryPressureRestartDuringCachedFetch(self):
     # Regression test for a cached repo fetch that is interrupted by memory
@@ -2187,7 +2485,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       # symlink target exists when my_repo is materialized.
       other_repo_lines.append('  rctx.watch(rctx.attr.dep_file)')
     other_repo_lines.extend([
-        '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+        '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
         # other_repo is not reproducible, so it is always fetched
         # and triggers materialization of my_repo.
         '  return rctx.repo_metadata()',
@@ -2538,23 +2836,138 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
 
   def testRun(self):
+    ext = '.bat' if self.IsWindows() else '.sh'
+    script_content = (
+        '@echo hello from my_bin'
+        if self.IsWindows()
+        else '#!/bin/sh\necho hello from my_bin'
+    )
+    declare_exe = f'  exe = ctx.actions.declare_file(ctx.label.name + "{ext}")'
+    write_exe = f"  ctx.actions.write(exe, '''{script_content}"
+
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "buildozer", version = "8.5.1")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("my_binary.bzl", """',
+            'def _my_binary_impl(ctx):',
+            declare_exe,
+            write_exe,
+            "''', is_executable=True)",
+            '  return [DefaultInfo(executable = exe)]',
+            'my_binary = rule(',
+            '  implementation = _my_binary_impl,',
+            '  executable = True,',
+            ')',
+            '""")',
+            '  rctx.file("BUILD", """',
+            'load(":my_binary.bzl", "my_binary")',
+            'my_binary(name = "my_bin")',
+            '""")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, stdout, stderr = self.RunBazel(['run', '@my_repo//:my_bin'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from my_bin', '\n'.join(stdout))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, stdout, stderr = self.RunBazel(['run', '@my_repo//:my_bin'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from my_bin', '\n'.join(stdout))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+  def testRunWithSourceDirectoryInRunfiles(self):
+    if self.IsWindows():
+      self.skipTest('requires a shell script')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'dir\'])")',
+            '  rctx.file("dir/data.txt", "hello from a source directory")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/launcher.bzl',
+        [
+            'def _launcher_impl(ctx):',
+            '  exe = ctx.actions.declare_file(ctx.label.name + ".sh")',
+            '  ctx.actions.write(',
+            '    exe,',
+            '    "#!/bin/sh\\ncat \\"$0.runfiles/data/data.txt\\"\\n",',
+            '    is_executable = True,',
+            '  )',
+            '  return [DefaultInfo(',
+            '    executable = exe,',
+            (
+                '    runfiles = ctx.runfiles(root_symlinks = {"data":'
+                ' ctx.file.src}),'
+            ),
+            '  )]',
+            'launcher = rule(',
+            '  implementation = _launcher_impl,',
+            '  attrs = {"src": attr.label(allow_single_file = True)},',
+            '  executable = True,',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("//main:launcher.bzl", "launcher")',
+            'launcher(name = "launcher", src = "@my_repo//:dir")',
         ],
     )
 
     # First fetch: not cached
-    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
+    _, stdout, stderr = self.RunBazel(['run', '//main:launcher'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source directory', '\n'.join(stdout))
 
-    # After expunging: cached
+    # After expunging: cached. Building the binary without downloading its
+    # outputs doesn't download the contents of the source directory.
+    repo_dir = self.RepoDir('my_repo')
     self.RunBazel(['clean', '--expunge'])
-    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
-    repo_dir = self.RepoDir('buildozer')
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'MODULE.bazel')))
+    _, _, stderr = self.RunBazel(
+        ['build', '--remote_download_minimal', '//main:launcher']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'dir/data.txt')))
+
+    # Running the binary downloads them since it has the source directory in
+    # its runfiles.
+    _, stdout, stderr = self.RunBazel(['run', '//main:launcher'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source directory', '\n'.join(stdout))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'dir/data.txt')))
 
   def testReverseDependencyDirection(self):
     # Set up two repos that retain their predeclared input hashes across two
@@ -2711,6 +3124,327 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # via its contents proxy, so my_repo is neither invalidated nor refetched.
     _, _, stderr = self.RunBazel(['build', '//main:use_data'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testChangePruningAfterFreshFetchAndCachedRestore(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  version = rctx.read(Label("@//:version")).strip()',
+            '  rctx.file("BUILD", "")',
+            '  rctx.file("stable.bzl", "NAME = \'stable\'")',
+            '  rctx.file("changing.bzl", "NAME = " + repr(version))',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    for package in ('stable', 'changing'):
+      self.ScratchFile(
+          f'{package}/BUILD.bazel',
+          [
+              f'load("@my_repo//:{package}.bzl", "NAME")',
+              'filegroup(name = NAME)',
+          ],
+      )
+
+    def build(version):
+      _, _, stderr = self.RunBazel(
+          ['build', '--nobuild', '//stable:stable', f'//changing:{version}']
+      )
+      return '\n'.join(stderr)
+
+    self.ScratchFile('version', ['one'])
+    self.assertIn('JUST FETCHED', build('one'))
+    # Let the MODULE.bazel.lock update settle before measuring package loads.
+    build('one')
+
+    # Only //changing should reload when the repository rule runs again.
+    self.ScratchFile('version', ['two'])
+    stderr = build('two')
+    self.assertIn('JUST FETCHED', stderr)
+    analyzed = 'Analyzed 2 targets (1 packages loaded, 1 target configured).'
+    self.assertIn(analyzed, stderr)
+
+    # Restoring the first version from the cache should also preserve //stable.
+    self.ScratchFile('version', ['one'])
+    stderr = build('one')
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn(analyzed, stderr)
+
+  def testMaterializedFileIsNotTreatedAsDirtied(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/31006.
+    # Materializing a repo restored from the remote repo contents cache makes
+    # Bazel serve its files from disk instead of from memory, but this
+    # difference in representation should not result in Skyframe invalidation.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data_file = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("defs.bzl", "DATA = \'data\'")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading my_repo's data.txt forces full materialization of my_repo.
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            (
+                '  rctx.file("data_copy.txt",'
+                ' rctx.read(rctx.path(rctx.attr.data_file)))'
+            ),
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data_file": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("@my_repo//:defs.bzl", "DATA")',
+            'genrule(',
+            '  name = "use_" + DATA,',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    # Cold build: fetch my_repo and upload it to the remote repo contents cache.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Restore my_repo from the cache into the overlay. Its package and .bzl
+    # file are loaded from memory.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    # The lockfile is updated at the end of the first command after an expunge,
+    # which invalidates the repo definitions in the next command. Let that
+    # settle in a command that verifies all of the target's nodes so that the
+    # following commands only observe the effect of materialization.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'Analyzed target //main:use_data (0 packages loaded, 0 targets'
+        ' configured).',
+        stderr,
+    )
+
+    # Fully materialize my_repo onto the local disk by fetching @other, which
+    # reads one of its files.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '@other//:haha'])
+    self.assertIn(
+        'other_repo.bzl:3:49: Materializing remote repo @@+repo+my_repo',
+        '\n'.join(stderr),
+    )
+
+    # Nothing has changed for //main:use_data, so nothing is reloaded or
+    # analyzed again.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn('will be fetched again', stderr)
+    self.assertIn(
+        'Analyzed target //main:use_data (0 packages loaded, 0 targets'
+        ' configured).',
+        stderr,
+    )
+
+  def testRunSourceExecutableWithoutMergedAnalysisAndExecution(self):
+    if self.IsWindows():
+      self.skipTest('requires a shell script')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'tool.sh\'])")',
+            '  rctx.file(',
+            '    "tool.sh",',
+            '    "#!/bin/sh\\necho hello from a source executable\\n",',
+            '    executable = True,',
+            '  )',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    args = [
+        'run',
+        '--noexperimental_merged_skyframe_analysis_execution',
+        '@my_repo//:tool.sh',
+    ]
+
+    _, stdout, stderr = self.RunBazel(args)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source executable', '\n'.join(stdout))
+
+    # After expunging: cached. The executable has to be downloaded to be run.
+    self.RunBazel(['clean', '--expunge'])
+    _, stdout, stderr = self.RunBazel(args)
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from a source executable', '\n'.join(stdout))
+
+  def _setupRepoToVendor(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    return repo_dir[repo_dir.rfind('/') + 1 :]
+
+  def _assertVendored(self, canonical_repo_name):
+    with open(self.Path('vendor/%s/data.txt' % canonical_repo_name)) as f:
+      self.assertEqual(f.read(), 'hello')
+    _, _, stderr = self.RunBazel(
+        ['build', '--vendor_dir=vendor', '@my_repo//:data.txt']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testVendor_fetchedRepo(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+  def testVendor_cachedRepo(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+  def testVendor_cachedRepoInUse(self):
+    canonical_repo_name = self._setupRepoToVendor()
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached, with the contents of data.txt staying remote
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '@my_repo//:data.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--repo=@@' + canonical_repo_name]
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self._assertVendored(canonical_repo_name)
+
+  def testReadOrTemplateOfLabelDoesNotMaterializeRepo(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'reader = use_repo_rule("//:repo.bzl", "reader")',
+            'reader(name = "reader", data = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  rctx.file("other.txt", "other")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+            'def _reader_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'copy.txt\'])")',
+            '  rctx.file("copy.txt", rctx.read(rctx.attr.data))',
+            (
+                '  rctx.template("expanded.txt", rctx.attr.data,'
+                ' {"hello": "goodbye"})'
+            ),
+            'reader = repository_rule(',
+            '  _reader_impl,',
+            '  attrs = {"data": attr.label()},',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    reader_dir = self.RepoDir('reader')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached. Reading a file of the repo through its label,
+    # also as a template, doesn't require the other files of the repo.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@reader//:copy.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(reader_dir, 'copy.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+    with open(os.path.join(reader_dir, 'expanded.txt')) as f:
+      self.assertEqual(f.read(), 'goodbye')
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'other.txt')))
 
 
 if __name__ == '__main__':

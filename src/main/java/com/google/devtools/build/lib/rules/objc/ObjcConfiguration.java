@@ -81,15 +81,11 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
   @Override
   public ImmutableList<String> getCoptsForCompilationMode() {
-    switch (compilationMode) {
-      case DBG, OPT -> {
-        return ImmutableList.of();
-      }
-      case FASTBUILD -> {
-        return ImmutableList.of("-O0", "-DDEBUG=1");
-      }
+    return switch (compilationMode) {
+      case DBG, OPT -> ImmutableList.of();
+      case FASTBUILD -> ImmutableList.of("-O0", "-DDEBUG=1");
       default -> throw new AssertionError();
-    }
+    };
   }
 
   /**

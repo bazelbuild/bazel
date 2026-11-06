@@ -2,18 +2,22 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/remote:__pkg__"],
 )
 
 java_library(
     name = "disk",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
@@ -25,6 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyBaselineDiffCodec;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -347,7 +348,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return key.getOptions().checksum();
   }
 
-  public static ConfiguredTargetKeyValueSharingCodec valueSharingCodec() {
+  public static DeferredObjectCodec<ConfiguredTargetKey> valueSharingCodec() {
     return ConfiguredTargetKeyValueSharingCodec.INSTANCE;
   }
 
@@ -361,6 +362,9 @@ public class ConfiguredTargetKey implements ActionLookupKey {
 
     private static final ConfiguredTargetKeyValueSharingCodec INSTANCE =
         new ConfiguredTargetKeyValueSharingCodec();
+
+    private final DeferredObjectCodec<BuildConfigurationKey> configurationKeyCodec =
+        new BuildConfigurationKeyBaselineDiffCodec();
 
     @Override
     public boolean autoRegister() {
@@ -393,7 +397,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       }
       if (configurationKey != null) {
         context.putSharedValue(
-            configurationKey, /* distinguisher= */ null, BuildConfigurationKey.codec(), codedOut);
+            configurationKey, /* distinguisher= */ null, configurationKeyCodec, codedOut);
       }
       if (executionPlatformLabel != null) {
         context.putSharedValue(
@@ -419,7 +423,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
         context.getSharedValue(
             codedIn,
             /* distinguisher= */ null,
-            BuildConfigurationKey.codec(),
+            configurationKeyCodec,
             builder,
             ConfiguredTargetKeyCodec::setConfigurationKey);
       }

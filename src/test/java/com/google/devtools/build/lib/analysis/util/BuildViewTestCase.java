@@ -44,8 +44,12 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -81,6 +85,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -111,7 +116,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -144,6 +148,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -162,6 +167,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -174,7 +181,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -204,8 +210,10 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.TypeContext;
 import org.junit.After;
 import org.junit.Before;
 
@@ -308,7 +316,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -326,7 +334,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       cleanupInterningPools();
     }
     skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
@@ -443,6 +451,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return buildLanguageOptions.toStarlarkSemantics();
   }
 
+  protected TypeContext getTypeContext() {
+    return CallUtils.getBuiltinManager(getStarlarkSemantics());
+  }
+
   protected PackageValidator getPackageValidator() {
     return PackageValidator.NOOP_VALIDATOR;
   }
@@ -460,8 +472,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
-  protected BuildOptions createBuildOptions(String... args)
-      throws OptionsParsingException, InvalidConfigurationException {
+  protected BuildOptions createBuildOptions(String... args) throws InvalidConfigurationException {
     ImmutableList<String> allArgs = ImmutableList.copyOf(args);
     return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs);
   }
@@ -907,11 +918,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return args.build();
   }
 
+  @Nullable
+  protected CommandLines getCommandLines(Action action) {
+    return switch (action) {
+      case SpawnAction spawnAction -> spawnAction.getCommandLines();
+      case JavaCompileAction javaCompileAction -> javaCompileAction.getCommandLines();
+      case null, default -> null;
+    };
+  }
+
   /** Locates the first parameter file used by the action and returns its command line. */
   @Nullable
   protected final CommandLine paramFileCommandLineForAction(Action action) {
-    if (action instanceof SpawnAction spawnAction) {
-      CommandLines commandLines = spawnAction.getCommandLines();
+    CommandLines commandLines = getCommandLines(action);
+    if (commandLines != null) {
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           return pair.commandLine;
@@ -946,8 +966,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected final String paramFileStringContentsForAction(Action action)
       throws CommandLineExpansionException, InterruptedException, IOException {
-    if (action instanceof SpawnAction spawnAction) {
-      CommandLines commandLines = spawnAction.getCommandLines();
+    CommandLines commandLines = getCommandLines(action);
+    if (commandLines != null) {
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -964,7 +984,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
     for (Artifact input : action.getInputs().toList()) {
-      if (!(input instanceof SpecialArtifact)) {
+      if (!(input instanceof TreeArtifact)) {
         Action generatingAction = getGeneratingAction(input);
         if (generatingAction instanceof ParameterFileWriteAction parameterFileWriteAction) {
           return parameterFileWriteAction;
@@ -1486,7 +1506,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
+        getConfiguration(owner).getBinDirectory(),
         actionLookupKey);
   }
 
@@ -1526,7 +1546,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact.DerivedArtifact getBinArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getBinDirectory(RepositoryName.MAIN),
+        targetConfig.getBinDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1601,7 +1621,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
+        targetConfig.getGenfilesDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1657,7 +1677,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        getConfiguration(owner).getGenfilesDirectory(owner.getLabel().getRepository()),
+        getConfiguration(owner).getGenfilesDirectory(),
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
@@ -1670,7 +1690,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private Artifact getGenfilesArtifact(
       String packageRelativePath, ArtifactOwner owner, BuildConfigurationValue config) {
     return getPackageRelativeDerivedArtifact(
-        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
+        packageRelativePath, config.getGenfilesDirectory(), owner);
   }
 
   protected AspectKey getOwnerForAspect(
@@ -1928,6 +1948,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return execConfig;
   }
 
+  protected final PlatformConfigurationProvider getPlatformConfigurationProvider() {
+    Preconditions.checkNotNull(targetConfig);
+    Preconditions.checkNotNull(execConfig);
+    Label topLevelPlatform =
+        targetConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+    return new DefaultPlatformConfigurationProvider(
+        topLevelPlatform, targetConfig.getOptions(), execConfig.getOptions());
+  }
+
   private BuildConfigurationValue getConfiguration(String label) {
     try {
       return getConfiguration(getConfiguredTarget(label));
@@ -2143,22 +2172,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public ConstantMetadataArtifact getConstantMetadataArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public RunfilesArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public UnresolvedSymlinkArtifact getSymlinkArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
@@ -2193,7 +2224,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public FilesetArtifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
@@ -2350,8 +2381,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .isEqualTo(
             String.format(
                 "%s%s.extra_action_dummy",
-                targetConfig.getGenfilesFragment(RepositoryName.MAIN),
-                convertLabelToPath(targetLabel)));
+                targetConfig.getGenfilesFragment(), convertLabelToPath(targetLabel)));
 
     return (PseudoAction<?>) pseudoAction;
   }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.NonNegativeIntegerConverter;
 import com.google.devtools.common.options.Converters.OptionalPercentageConverter;
 import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -160,12 +161,6 @@ public abstract class MemoryPressureOptions extends OptionsBase {
               + " to changes in that internal implementation without having to wait"
               + " for a binary release.  Passed to JDK Matcher.find()")
   public abstract RegexPatternOption getJvmHeapHistogramInternalObjectPattern();
-
-  static final class NonNegativeIntegerConverter extends RangeConverter {
-    NonNegativeIntegerConverter() {
-      super(0, Integer.MAX_VALUE);
-    }
-  }
 
   static final class GcThrashingLimitsConverter
       extends Converter.Contextless<ImmutableList<GcThrashingDetector.Limit>> {

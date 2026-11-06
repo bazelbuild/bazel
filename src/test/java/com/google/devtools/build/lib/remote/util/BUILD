@@ -10,7 +10,6 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
 )
 
 INTEGRATION_TEST_UTILS_SRCS = ["IntegrationTestUtils.java"]
@@ -23,6 +22,7 @@ java_library(
         ["*.java"],
         exclude = INTEGRATION_TEST_UTILS_SRCS + FREE_PORT_FINDER_SRCS,
     ),
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
@@ -73,6 +73,7 @@ java_library(
     deps = [
         ":free_port_finder",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/java/guava:base",

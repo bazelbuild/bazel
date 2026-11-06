@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/analysis:__pkg__"],
 )
 
 java_library(
@@ -27,19 +27,25 @@ java_library(
         ":platform_producer",
         ":unloaded_toolchain_contexts_inputs",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_root_cause_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_resolution_helpers",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/incompatible_target_checker",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/package_group_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
+        "//src/main/java/com/google/devtools/build/lib/analysis:dependency_resolution_helpers",
         "//src/main/java/com/google/devtools/build/lib/analysis:dormant_dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:invalid_visibility_dependency_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:materialized_deps_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_attribute_transition_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
@@ -61,6 +67,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_collector",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:incompatible_target_checker",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
@@ -76,7 +83,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:base_target_prerequisites_supplier",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_options_scope_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
@@ -118,6 +124,8 @@ java_library(
     deps = [
         ":platform_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
@@ -125,8 +133,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:baseline_options_value",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_options_scope_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_options_scope_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",

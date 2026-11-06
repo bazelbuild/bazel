@@ -2950,7 +2950,15 @@ public abstract class MemoizingEvaluatorTest {
     SkyKey top = skyKey("top");
     SkyKey dep = skyKey("dep");
 
-    tester.getOrCreate(dep).setBuilder(rewindableFunction);
+    tester
+        .getOrCreate(dep)
+        .setBuilder(
+            (skyKey, env) -> {
+              assertThat(tester.evaluator.isRewinding(dep)).isEqualTo(rewindableFunction.calls > 0);
+              // The parent requests a reset, but is not itself a previously completed rewound key.
+              assertThat(tester.evaluator.isRewinding(top)).isFalse();
+              return rewindableFunction.compute(skyKey, env);
+            });
     tester
         .getOrCreate(top)
         .setBuilder(
@@ -2976,6 +2984,8 @@ public abstract class MemoizingEvaluatorTest {
             InconsistencyData.resetRequested(top),
             InconsistencyData.rewind(top, ImmutableSet.of(dep)));
     assertThat(rewindableFunction.calls).isEqualTo(2);
+    assertThat(tester.evaluator.isRewinding(dep)).isFalse();
+    assertThat(tester.evaluator.isRewinding(top)).isFalse();
 
     if (!incrementalitySupported()) {
       return; // Skip assertions on dependency edges when they aren't kept.
@@ -3272,11 +3282,13 @@ public abstract class MemoizingEvaluatorTest {
         .containsExactly(
             InconsistencyData.resetRequested(badTop),
             InconsistencyData.rewind(badTop, ImmutableSet.of(dep)));
+    assertThat(tester.evaluator.isRewinding(dep)).isTrue();
 
     result = tester.eval(/* keepGoing= */ false, new SkyKey[0]);
 
     assertThatEvaluationResult(result).hasNoError();
     assertThat(tester.getEvaluator().getValues().keySet()).containsNoneOf(dep, badTop, goodTop);
+    assertThat(tester.evaluator.isRewinding(dep)).isFalse();
   }
 
   private static void awaitUnchecked(CyclicBarrier barrier) {
@@ -5157,6 +5169,31 @@ public abstract class MemoizingEvaluatorTest {
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.inject(ImmutableMap.of(key, delta));
     assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
+  }
+
+  @Test
+  public void valueInjectionOverDirtyEntryWithDeps() throws Exception {
+    SkyKey dep = nonHermeticKey("dep");
+    SkyKey injectable = nonHermeticKey("injectable");
+    SkyKey other = skyKey("other");
+    tester.getOrCreate(injectable).addDependency(dep).setComputedValue(COPY);
+    tester.set(dep, new StringValue("dep1"));
+    tester.set(other, new StringValue("other"));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, injectable))
+        .isEqualTo(new StringValue("dep1"));
+
+    // Dirty `injectable` through its dep without requesting it, so that it stays dirty.
+    tester.set(dep, new StringValue("dep2"));
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, other))
+        .isEqualTo(new StringValue("other"));
+    assertThat(tester.getDirtyKeys()).containsExactly(dep, injectable);
+
+    // Like for a done node with deps, the injection is turned into an invalidation and the node is
+    // evaluated freshly instead of taking the injected value.
+    tester.differencer.inject(ImmutableMap.of(injectable, Delta.justNew(new StringValue("inj"))));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, injectable))
+        .isEqualTo(new StringValue("dep2"));
   }
 
   @Test

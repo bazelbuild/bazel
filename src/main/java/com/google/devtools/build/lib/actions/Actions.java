@@ -171,7 +171,10 @@ public final class Actions {
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupKey actionLookupKey)
-      throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
+      throws ActionConflictException,
+          InterruptedException,
+          ArtifactGeneratedByOtherRuleException,
+          SourceArtifactUsedAsOutputException {
     assignOwnersAndThrowIfConflictMaybeToleratingSharedActions(
         actionKeyContext, actions, actionLookupKey, /* allowSharedAction= */ false);
   }
@@ -192,7 +195,10 @@ public final class Actions {
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupKey actionLookupKey)
-      throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
+      throws ActionConflictException,
+          InterruptedException,
+          ArtifactGeneratedByOtherRuleException,
+          SourceArtifactUsedAsOutputException {
     assignOwnersAndThrowIfConflictMaybeToleratingSharedActions(
         actionKeyContext, actions, actionLookupKey, /* allowSharedAction= */ true);
   }
@@ -234,7 +240,10 @@ public final class Actions {
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupKey actionLookupKey,
       boolean allowSharedAction)
-      throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
+      throws ActionConflictException,
+          InterruptedException,
+          ArtifactGeneratedByOtherRuleException,
+          SourceArtifactUsedAsOutputException {
     Map<PathFragment, DerivedArtifact> seenArtifacts = new HashMap<>();
     // Loop over the actions, looking at all outputs for conflicts.
     int actionIndex = 0;
@@ -247,12 +256,12 @@ public final class Actions {
               ? ActionLookupData.createUnshareable(actionLookupKey, actionIndex)
               : ActionLookupData.create(actionLookupKey, actionIndex);
       for (Artifact artifact : action.getOutputs()) {
-        Preconditions.checkState(
-            !artifact.isSourceArtifact(),
-            "Source in outputs: %s %s %s",
-            artifact,
-            generatingActionKey,
-            action);
+        if (artifact.isSourceArtifact()) {
+          throw new SourceArtifactUsedAsOutputException(
+              String.format(
+                  "File '%s' is listed as an output of %s but is a source file",
+                  artifact.prettyPrint(), action.prettyPrint()));
+        }
         DerivedArtifact output = (DerivedArtifact) artifact;
         // Has an artifact with this execPath been seen before?
         DerivedArtifact equalOutput = seenArtifacts.putIfAbsent(output.getExecPath(), output);
@@ -375,6 +384,13 @@ public final class Actions {
    */
   public static String escapedPath(String path) {
     return PATH_ESCAPER.escape(path);
+  }
+
+  /** Signals the case of a rule that claims to generate a file that is a source file. */
+  public static class SourceArtifactUsedAsOutputException extends Exception {
+    private SourceArtifactUsedAsOutputException(String message) {
+      super(message);
+    }
   }
 
   /**

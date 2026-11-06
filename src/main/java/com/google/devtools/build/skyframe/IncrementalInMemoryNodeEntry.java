@@ -20,6 +20,8 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.skyframe.PackageoidValue;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -49,26 +51,26 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   protected Object directDeps = null;
 
   /**
-   * This list stores the reverse dependencies of this node that have been declared so far.
+   * This field stores the reverse dependencies of this node that have been declared so far.
    *
    * <p>In case of a single object we store the object unwrapped, without the list, for
    * memory-efficiency.
    *
-   * <p>When an entry is being re-evaluated, this object stores the reverse deps from the previous
-   * evaluation. At the end of evaluation, the changed reverse dep operations from {@link
-   * #reverseDepsDataToConsolidate} are merged in here.
-   */
-  protected Object reverseDeps = ImmutableList.of();
-
-  /**
-   * This list stores objects returned by {@link KeyToConsolidate#create}. Morally they are {@link
-   * KeyToConsolidate} objects, but since some operations are stored bare, we can only declare that
-   * this list holds {@link Object} references. Created lazily to save memory.
+   * <p>When an entry is being evaluated or has delayed reverse dep operations on a done node, this
+   * field also stores the pending operations list (as a {@link DataToConsolidateList} when there
+   * are no prior reverse deps, or wrapped alongside the prior reverse deps in a {@link
+   * ReverseDepsWithDataToConsolidate} record) to avoid a dedicated reference field on every node
+   * entry.
    *
-   * <p>This list serves double duty. For a done node, when a reverse dep is removed, checked for
-   * presence, or possibly added, we store the mutation in this object instead of immediately doing
-   * the operation. That is because removals/checks in reverseDeps are O(N). Originally reverseDeps
-   * was a HashSet, but because of memory consumption we switched to a list.
+   * <p>The pending operations list stores objects returned by {@link KeyToConsolidate#create}.
+   * Morally they are {@link KeyToConsolidate} objects, but since some operations are stored bare,
+   * we can only declare that this list holds {@link Object} references. Created lazily to save
+   * memory.
+   *
+   * <p>The pending operations list serves double duty. For a done node, when a reverse dep is
+   * removed, checked for presence, or possibly added, we store the mutation in this list instead of
+   * immediately doing the operation. That is because removals/checks in reverseDeps are O(N).
+   * Originally reverseDeps was a HashSet, but because of memory consumption we switched to a list.
    *
    * <p>Internally, {@link ReverseDepsUtility} consolidates this data periodically, and when the set
    * of reverse deps is requested. While this operation is not free, it can be done more effectively
@@ -80,7 +82,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
    * calculate the set of reverse deps to signal when this entry finishes evaluation. That is done
    * by {@link ReverseDepsUtility#consolidateDataAndReturnNewElements}.
    */
-  private List<Object> reverseDepsDataToConsolidate = null;
+  protected Object reverseDeps = ImmutableList.of();
 
   public IncrementalInMemoryNodeEntry(SkyKey key) {
     super(key);
@@ -99,6 +101,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
    */
   public void clearSkyValue() {
     Preconditions.checkState(isDone());
+    if (toValue() instanceof PackageoidValue packageoidValue) {
+      InMemoryGraphImpl.weakInternPackageTargetsLabels(packageoidValue);
+    }
     this.value = CLEARED_SKY_VALUE;
   }
 
@@ -221,32 +226,67 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     }
   }
 
-  /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
+  /**
+   * Marker subclass of {@link ArrayList} used to store pending reverse dep operations directly in
+   * {@link #reverseDeps} when there are no prior consolidated reverse deps. Avoids allocating a
+   * wrapper object on initial node evaluations.
+   */
+  private static final class DataToConsolidateList extends ArrayList<Object> {}
+
+  private record ReverseDepsWithDataToConsolidate(
+      Object reverseDeps, List<Object> dataToConsolidate) {}
+
+  /** Sets consolidated {@link #reverseDeps}. Pending data to consolidate must already be null. */
   synchronized void setReverseDepsForReverseDepsUtil(Object reverseDeps) {
+    checkState(getReverseDepsDataToConsolidateForReverseDepsUtil() == null, this);
     this.reverseDeps = reverseDeps;
   }
 
-  /** Sets {@link #reverseDepsDataToConsolidate}. Does not alter {@link #reverseDeps}. */
+  /** Sets pending data to consolidate. Does not alter consolidated {@link #reverseDeps}. */
   synchronized void setReverseDepsDataToConsolidateForReverseDepsUtil(
-      List<Object> dataToConsolidate) {
-    this.reverseDepsDataToConsolidate = dataToConsolidate;
+      @Nullable List<Object> dataToConsolidate) {
+    Object rawReverseDeps = getReverseDepsRawForReverseDepsUtil();
+    if (dataToConsolidate == null) {
+      this.reverseDeps = rawReverseDeps;
+    } else if (rawReverseDeps instanceof List<?> list
+        && list.isEmpty()
+        && dataToConsolidate instanceof DataToConsolidateList) {
+      this.reverseDeps = dataToConsolidate;
+    } else {
+      this.reverseDeps = new ReverseDepsWithDataToConsolidate(rawReverseDeps, dataToConsolidate);
+    }
   }
 
   synchronized Object getReverseDepsRawForReverseDepsUtil() {
+    if (this.reverseDeps instanceof DataToConsolidateList) {
+      return ImmutableList.of();
+    }
+    if (this.reverseDeps instanceof ReverseDepsWithDataToConsolidate consolidated) {
+      return consolidated.reverseDeps();
+    }
     return this.reverseDeps;
   }
 
+  @Nullable
   synchronized List<Object> getReverseDepsDataToConsolidateForReverseDepsUtil() {
-    return this.reverseDepsDataToConsolidate;
+    if (this.reverseDeps instanceof DataToConsolidateList dataToConsolidate) {
+      return dataToConsolidate;
+    }
+    if (this.reverseDeps instanceof ReverseDepsWithDataToConsolidate consolidated) {
+      return consolidated.dataToConsolidate();
+    }
+    return null;
   }
 
   private synchronized void appendToReverseDepOperations(SkyKey reverseDep, Op op) {
     checkState(!isDone(), "Don't append to done %s %s %s", this, reverseDep, op);
-    if (reverseDepsDataToConsolidate == null) {
-      reverseDepsDataToConsolidate = new ArrayList<>();
+    List<Object> dataToConsolidate = getReverseDepsDataToConsolidateForReverseDepsUtil();
+    if (dataToConsolidate == null) {
+      dataToConsolidate = new DataToConsolidateList();
+      setReverseDepsDataToConsolidateForReverseDepsUtil(dataToConsolidate);
     }
     checkState(isDirty() || op != Op.CHECK, "Not dirty check %s %s", this, reverseDep);
-    reverseDepsDataToConsolidate.add(KeyToConsolidate.create(reverseDep, op, this));
+    dataToConsolidate.add(KeyToConsolidate.create(reverseDep, op, this));
   }
 
   @Override
@@ -318,6 +358,11 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
 
     if (isDone()) {
       if (dirtyType == DirtyType.REWIND && getErrorInfo() != null) {
+        if (getValue() != null) {
+          BugReport.sendNonFatalBugReport(
+              new IllegalStateException(
+                  "Skipped rewinding node that has both a value and an error: " + getKey()));
+        }
         return null; // Rewinding errors is no-op.
       }
       GroupedDeps directDeps = GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry());
@@ -403,7 +448,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /** Returns the version at which this node was last evaluated; see {@link NodeVersion}. */
-  final Version lastEvaluatedVersion() {
+  public final Version lastEvaluatedVersion() {
     return version.lastEvaluated();
   }
 
@@ -471,15 +516,16 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /**
-   * For Skyfocus only: clears out all direct dep edges of this node. It is not safe to call this
-   * otherwise.
+   * Clears out all direct dep edges of this node.
+   *
+   * <p>Only safe once the graph no longer needs to be incrementally correct: by Skycache uploads
+   * under {@code --nokeep_state_after_build}.
    */
-  public final synchronized void clearDirectDepsForSkyfocus() {
+  public final synchronized void clearDirectDeps() {
 
     checkState(isDone(), this);
     this.directDeps = GroupedDeps.EMPTY_COMPRESSED;
   }
-
   /** Flushes pending reverse dep operations, which potentially saves memory. */
   public final synchronized void consolidateReverseDeps() {
 

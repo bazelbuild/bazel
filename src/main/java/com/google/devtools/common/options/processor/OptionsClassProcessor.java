@@ -286,7 +286,11 @@ public final class OptionsClassProcessor extends AbstractProcessor {
 
               @Override
               public final int hashCode() {
-                return %2$s.class.hashCode() + Options.toMap(this).hashCode();
+                int result = %2$s.class.hashCode();
+                for (OptionDefinition def : OptionDefinition.getOptionDefinitions(getOptionsClass())) {
+                  result = 31 * result + Objects.hashCode(def.getValue(this));
+                }
+                return result;
               }
             """,
             packageName, implClassName, typeElement.getQualifiedName());
@@ -305,8 +309,13 @@ public final class OptionsClassProcessor extends AbstractProcessor {
                 }
 
                 %4$s
+                // Setting the identical value doesn't need to be reported as a change.
+                @SuppressWarnings({"ReferenceEquality", "OptionalEquality", "StringEquality"})
                 public void set%3$s(%1$s %2$s) {
-                  this.%2$s = %2$s;
+                  if (this.%2$s != %2$s) {
+                    this.%2$s = %2$s;
+                    onOptionChanged();
+                  }
                 }
               """,
               option.fieldType,

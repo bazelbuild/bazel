@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
 import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.QuiescingFutureTask;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.Invalidatio
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureListingDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureNodeDataInfo;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.InvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ListingDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ListingDataInfoOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ListingInvalidationDataInfo;
@@ -88,19 +89,24 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import org.roaringbitmap.RoaringBitmap;
 
 /**
  * Records {@link FileKey}, {@link DirectoryListingKey} or {@link AbstractNestedFileOpNodes}
@@ -164,6 +170,11 @@ final class FileDependencySerializer {
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
 
+  private static final Comparator<NodeInvalidationDataInfo> NODE_DEPENDENCY_COMPARATOR =
+      Comparator.comparingInt(NodeInvalidationDataInfo::cardinality)
+          .reversed()
+          .thenComparing(NodeInvalidationDataInfo::cacheKey);
+
   private final CompressionService compressionService;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
@@ -189,13 +200,29 @@ final class FileDependencySerializer {
               this::populateFutureListingDataInfo,
               FutureListingDataInfo.class);
 
+  private final LeafIdAssignment leafIds;
+
+  /**
+   * Whether a node's bitmap is freed once its last parent has consumed it.
+   *
+   * <p>Freeing is sound only if a node's in-degree is final by the time the node is serialized,
+   * because that in-degree becomes its reference count. {@link SelectedEntrySerializer} guarantees
+   * this by materializing the whole node graph first. {@link SkycacheUploadClient} uploads while
+   * analysis is still running, so a parent can appear after its child was serialized; the child's
+   * count would then reach zero early and a later parent would find the bitmap gone. That path must
+   * pass false and keep every bitmap.
+   */
+  private final boolean releaseBitmaps;
+
   FileDependencySerializer(
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
       CompressionService compressionService,
       KeyValueWriter writer,
       SafeExecutor executor,
-      @Nullable ProfileCollector profileCollector) {
+      @Nullable ProfileCollector profileCollector,
+      LeafIdAssignment leafIds,
+      boolean releaseBitmaps) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
@@ -203,6 +230,8 @@ final class FileDependencySerializer {
     this.executor = executor;
     this.counters = new Counters();
     this.profileCollector = profileCollector;
+    this.leafIds = leafIds;
+    this.releaseBitmaps = releaseBitmaps;
   }
 
   Counters getCounters() {
@@ -228,22 +257,28 @@ final class FileDependencySerializer {
     };
   }
 
-  NodeDataInfo registerDependency(RemoteFileOpNode node) {
-    var reference = (NodeDataInfo) node.getSerializationScratch();
+  NodeInvalidationDataInfo registerDependency(RemoteFileOpNode node) {
+    var reference = (NodeInvalidationDataInfo) node.getSerializationScratch();
     if (reference != null) {
       return reference;
     }
 
     synchronized (node) {
-      reference = (NodeDataInfo) node.getSerializationScratch();
+      reference = (NodeInvalidationDataInfo) node.getSerializationScratch();
       if (reference != null) {
         return reference;
       }
 
+      // The leaf ID walk does not count edges into remote nodes, so no initial count is correct: a
+      // parent that unwraps to a remote node adds its own references, and releases could then pass
+      // through zero while other parents still need to merge it. The bitmap is empty, so pinning
+      // it costs nothing.
       var info =
-          new NodeInvalidationDataInfo(
+          NodeInvalidationDataInfo.pinned(
               PackedFingerprint.fromBytes(node.fingerprint().toByteArray()),
-              WriteStatuses.immediateWriteStatus());
+              WriteStatuses.immediateWriteStatus(),
+              new RoaringBitmap(),
+              /* hasOpaqueDependencies= */ true);
       node.setSerializationScratch(info);
       return info;
     }
@@ -408,30 +443,13 @@ final class FileDependencySerializer {
       KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
       byte[] dataBytes = data.build().toByteArray();
       long keyByteCount = keyBytes.toBytes().length;
-      long valueByteCount = dataBytes.length; // Don't hold on to the bytes any longer than needed
-
-      counters.nodesWaitingForDeps.decrementAndGet();
-      counters.nodesWaitingForUpload.incrementAndGet();
-      counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
-      counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
-
-      WriteStatus writeStatus = writer.put(keyBytes, dataBytes);
-      writeStatus.addListener(
-          () -> {
-            counters.nodesWaitingForUpload.decrementAndGet();
-            counters.nodesUploaded.incrementAndGet();
-            counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
-            counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
-            counters.keyBytesUploaded.addAndGet(keyByteCount);
-            counters.valueBytesUploaded.addAndGet(valueByteCount);
-          },
-          directExecutor());
+      WriteStatus writeStatus = putEntry(keyBytes, keyByteCount, dataBytes);
       if (profileCollector != null) {
         recordInvalidationProfile(
             profileCollector,
             InvalidationEntryType.FILE,
             keyByteCount,
-            valueByteCount,
+            dataBytes.length,
             writeStatus);
       }
       writeStatuses.add(writeStatus);
@@ -511,8 +529,7 @@ final class FileDependencySerializer {
 
     @Override
     public ListenableFuture<Void> apply(FileDataInfo parentData) {
-      RootedPath realParentPath;
-      realParentPath =
+      RootedPath realParentPath =
           switch (parentData) {
             case CONSTANT_FILE ->
                 // Assumes that BundledFileSystem does not symlink outside of BundledFileSystem.
@@ -566,18 +583,26 @@ final class FileDependencySerializer {
       throw new IllegalStateException(
           String.format("Absolute symlink not permitted: %s contained %s", linkPath, link));
     }
-    Symlink.Builder symlinkData = uploader.addSymlinksBuilder().setContents(link.getPathString());
+    // The root-relative directory containing the symlink, e.g. `a/b` for the symlink `a/b/link`.
     PathFragment linkParent = parentRootedPath.getRootRelativePath();
+    // The root-relative, normalized target of the symlink. `PathFragment` normalization collapses
+    // `x/..` pairs, so any remaining `..` segments can only appear as a prefix, and only when the
+    // target climbs above the root.
     PathFragment unresolvedTarget = linkParent.getRelative(link);
-
-    // Assumes that there are no external symlinks, e.g. ones that go above root.
-    checkArgument(
-        !unresolvedTarget.containsUplevelReferences(),
-        "symlink link above root for %s : %s = (%s) + (%s)",
-        parentRootedPath,
-        unresolvedTarget,
-        linkParent,
-        link);
+    if (unresolvedTarget.containsUplevelReferences()) {
+      // Assumes that there are no external symlinks. The only tolerated target above the root is
+      // one that immediately re-enters it, which is rewritten to stay within the root.
+      PathFragment rewrittenLink = tryRewriteLinkWithinRoot(parentRootedPath, unresolvedTarget);
+      if (rewrittenLink == null) {
+        throw new IllegalArgumentException(
+            String.format(
+                "symlink link above root for %s : %s = (%s) + (%s)",
+                parentRootedPath, unresolvedTarget, linkParent, link));
+      }
+      link = rewrittenLink;
+      unresolvedTarget = linkParent.getRelative(link); // Now within the root.
+    }
+    Symlink.Builder symlinkData = uploader.addSymlinksBuilder().setContents(link.getPathString());
 
     try {
       // Includes the version of the link itself in the MTSV.
@@ -601,7 +626,9 @@ final class FileDependencySerializer {
           toRootedPath(parentRootedPath.getRoot(), unresolvedTarget), uploader);
     }
 
-    var parentProcessor = new SymlinkParentProcessor(parentRootedPath, link, uploader, symlinkData);
+    var parentProcessor =
+        new SymlinkParentProcessor(
+            parentRootedPath, unresolvedTarget.getBaseName(), uploader, symlinkData);
 
     // The parent path was changed by the link so it needs to be newly resolved.
     return switch (checkNotNull(
@@ -612,6 +639,71 @@ final class FileDependencySerializer {
       case FutureFileDataInfo future ->
           Futures.transformAsync(future, parentProcessor, directExecutor());
     };
+  }
+
+  /**
+   * Tries to rewrite a symlink whose target climbs above the root so that it stays within the root.
+   *
+   * <p>Only targets that climb a single level above the workspace root and immediately re-enter it
+   * (e.g. {@code ../ROOT_BASE/...}) can be rewritten. The result is the equivalent in-root path,
+   * relative to the symlink's parent directory, so that wire invalidation data remains
+   * root-relative. It resolves to the same file as the original link, but no longer passes through
+   * the root's parent directory or depends on the root's basename.
+   *
+   * <p>Other targets above the root can't be rewritten. Climbing two or more levels above the root
+   * depends on host-specific ancestor directory names, and targets that leave the root without
+   * re-entering it are external.
+   *
+   * <p>Examples, assuming the workspace root is {@code /ws/ROOT_BASE}:
+   *
+   * <pre>
+   *   symlink   link contents                unresolvedTarget       result
+   *   --------  ---------------------------  ---------------------  --------------
+   *   a/b/link  ../../../ROOT_BASE/c/target  ../ROOT_BASE/c/target  ../../c/target
+   *   link      ../ROOT_BASE/c/target        ../ROOT_BASE/c/target  c/target
+   *   foo/bar   ../../ROOT_BASE              ../ROOT_BASE           ..
+   *   a/link    ../../other/target           ../other/target        null
+   *   a/link    ../../../x/ROOT_BASE/t       ../../x/ROOT_BASE/t    null
+   * </pre>
+   *
+   * @param parentRootedPath the real parent of the symlink
+   * @param unresolvedTarget the symlink contents, syntactically resolved against {@code
+   *     parentRootedPath}. Must be root-relative, normalized and contain uplevel references.
+   * @return the rewritten symlink contents, relative to the symlink's parent directory, or null if
+   *     the target can't be rewritten to stay within the root
+   */
+  @Nullable
+  private static PathFragment tryRewriteLinkWithinRoot(
+      RootedPath parentRootedPath, PathFragment unresolvedTarget) {
+    // `asPath()` is non-null here: an absolute root yields absolute root-relative paths, which
+    // never contain uplevel references.
+    String rootBaseName = parentRootedPath.getRoot().asPath().getBaseName();
+    // Assumes the root is never the filesystem root, `/`, which has an empty basename. Otherwise,
+    // `uplevelRoot` below would be just `..`, and targets that remain above the root would be
+    // silently accepted.
+    checkState(
+        !rootBaseName.isEmpty(), "unexpected filesystem root as root for %s", parentRootedPath);
+    // The path prefix that leaves the root and immediately re-enters it, e.g. `../ROOT_BASE`.
+    PathFragment uplevelRoot = PathFragment.create("../" + rootBaseName);
+    if (!unresolvedTarget.startsWith(uplevelRoot)) {
+      return null;
+    }
+    // Strips the `../ROOT_BASE` detour, leaving the target relative to the root itself, e.g.
+    // `../ROOT_BASE/c/target` becomes `c/target`. Since `unresolvedTarget` is normalized, the
+    // remainder cannot start with `..` (`ROOT_BASE/..` would already have been collapsed), so it is
+    // guaranteed to be within the root.
+    PathFragment rootRelativeTarget = unresolvedTarget.relativeTo(uplevelRoot);
+    // Re-expresses the target relative to the symlink's parent directory, which is the form symlink
+    // contents must take. Climbing from `linkParent` up to the root takes one `..` per segment of
+    // `linkParent`, after which `rootRelativeTarget` is appended. For example:
+    //
+    //   linkParent  upToRoot  rootRelativeTarget  result
+    //   `a/b`       `../..`   `c/target`          `../../c/target`
+    //   `foo`       `..`      ``                  `..`
+    //   ``          ``        `c/target`          `c/target`
+    PathFragment linkParent = parentRootedPath.getRootRelativePath();
+    PathFragment upToRoot = PathFragment.create("../".repeat(linkParent.segmentCount()));
+    return upToRoot.getRelative(rootRelativeTarget);
   }
 
   private ListenableFuture<Void> processSymlinkTarget(
@@ -643,17 +735,17 @@ final class FileDependencySerializer {
    */
   private final class SymlinkParentProcessor implements AsyncFunction<FileDataInfo, Void> {
     private final RootedPath parentPath;
-    private final PathFragment link;
+    private final String targetBaseName;
     private final FileInvalidationDataUploader uploader;
     private final Symlink.Builder symlinkData;
 
     private SymlinkParentProcessor(
         RootedPath parentPath,
-        PathFragment link,
+        String targetBaseName,
         FileInvalidationDataUploader uploader,
         Symlink.Builder symlinkData) {
       this.parentPath = parentPath;
-      this.link = link;
+      this.targetBaseName = targetBaseName;
       this.uploader = uploader;
       this.symlinkData = symlinkData;
     }
@@ -662,11 +754,10 @@ final class FileDependencySerializer {
     public ListenableFuture<Void> apply(FileDataInfo realParentData) {
       RootedPath resolvedParentRootedPath;
       switch (realParentData) {
-        case CONSTANT_FILE:
-          // Assumes that symlinks in BundledFileSystem do not escape.
-          resolvedParentRootedPath = parentPath;
-          break;
-        case FileInvalidationDataInfo parentReference:
+        case CONSTANT_FILE ->
+            // Assumes that symlinks in BundledFileSystem do not escape.
+            resolvedParentRootedPath = parentPath;
+        case FileInvalidationDataInfo parentReference -> {
           uploader.addSymlinkParentInfo(parentReference);
           long parentMtsv = parentReference.mtsv();
           if (parentMtsv != LongVersionGetter.MINIMAL) {
@@ -677,12 +768,12 @@ final class FileDependencySerializer {
             return immediateVoidFuture();
           }
           resolvedParentRootedPath = parentReference.realPath();
-          break;
+        }
       }
       return processSymlinkTarget(
           toRootedPath(
               resolvedParentRootedPath.getRoot(),
-              resolvedParentRootedPath.getRootRelativePath().getRelative(link.getBaseName())),
+              resolvedParentRootedPath.getRootRelativePath().getRelative(targetBaseName)),
           uploader);
     }
   }
@@ -697,10 +788,12 @@ final class FileDependencySerializer {
     }
     var handler = new ListingFileHandler(rootedPath);
     switch (registerDependency(FileValue.key(rootedPath))) {
-      case FileDataInfo info:
+      case FileDataInfo info -> {
         return future.completeWith(handler.apply(info));
-      case FutureFileDataInfo futureInfo:
+      }
+      case FutureFileDataInfo futureInfo -> {
         return future.completeWith(Futures.transformAsync(futureInfo, handler, directExecutor()));
+      }
     }
   }
 
@@ -724,18 +817,19 @@ final class FileDependencySerializer {
       long fileMtsv;
       RootedPath realPath;
       switch (info) {
-        case CONSTANT_FILE: // reached only for the root directory
+        case CONSTANT_FILE -> {
+          // reached only for the root directory
           realPath = rootedPath;
           fileMtsv = LongVersionGetter.MINIMAL;
-          break;
-        case FileInvalidationDataInfo fileInfo:
+        }
+        case FileInvalidationDataInfo fileInfo -> {
           writeStatuses.add(fileInfo.writeStatus());
           fileMtsv = fileInfo.mtsv();
           if (fileMtsv != LongVersionGetter.MINIMAL) {
             data.setFileMtsv(fileMtsv);
           }
           realPath = fileInfo.realPath();
-          break;
+        }
       }
 
       ListenableFuture<Long> dirMtsvFuture =
@@ -757,30 +851,13 @@ final class FileDependencySerializer {
             byte[] dataBytes = data.build().toByteArray();
 
             long keyByteCount = keyBytes.toBytes().length;
-            long valueByteCount = dataBytes.length; // Do not hold on to the bytes
-
-            counters.nodesWaitingForDeps.decrementAndGet();
-            counters.nodesWaitingForUpload.incrementAndGet();
-            counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
-            counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
-
-            WriteStatus writeStatus = writer.put(keyBytes, dataBytes);
-            writeStatus.addListener(
-                () -> {
-                  counters.nodesWaitingForUpload.decrementAndGet();
-                  counters.nodesUploaded.incrementAndGet();
-                  counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
-                  counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
-                  counters.keyBytesUploaded.addAndGet(keyByteCount);
-                  counters.valueBytesUploaded.addAndGet(valueByteCount);
-                },
-                directExecutor());
+            WriteStatus writeStatus = putEntry(keyBytes, keyByteCount, dataBytes);
             if (profileCollector != null) {
               recordInvalidationProfile(
                   profileCollector,
                   InvalidationEntryType.LISTING,
                   keyByteCount,
-                  valueByteCount,
+                  dataBytes.length,
                   writeStatus);
             }
             writeStatuses.add(writeStatus);
@@ -793,50 +870,9 @@ final class FileDependencySerializer {
   NodeDataInfoOrFuture populateFutureNodeDataInfo(FutureNodeDataInfo future) {
     counters.nodesWaitingForDeps.incrementAndGet();
 
-    AbstractNestedFileOpNodes node = future.key();
-    var dependencyHandler = new NodeDependencyHandler();
-
-    // Loops through all node dependencies, registering them with the dependencyHandler. The
-    // dependencyHandler triggers recursive registration, keeping track of immediate results and
-    // any futures.
-    for (int i = 0; i < node.analysisDependenciesCount(); i++) {
-      switch (node.getAnalysisDependency(i)) {
-        case FileKey fileKey:
-          dependencyHandler.addFileKey(fileKey);
-          break;
-        case DirectoryListingKey listingKey:
-          dependencyHandler.addListingKey(listingKey);
-          break;
-        case AbstractNestedFileOpNodes nestedKeys:
-          dependencyHandler.addNodeKey(nestedKeys);
-          break;
-        case RemoteFileOpNode remoteNode:
-          dependencyHandler.addRemoteNode(remoteNode);
-          break;
-      }
-    }
-
-    switch (node) {
-      case NestedFileOpNodes plainNodes:
-        break;
-      case NestedFileOpNodesWithSource withSource:
-        dependencyHandler.setSourceFile(withSource.source());
-        break;
-    }
-
-    var allFutures = dependencyHandler.getCombinedFutures();
-    if (allFutures.isEmpty()) {
-      NodeDataInfo result;
-      try {
-        result = dependencyHandler.call();
-      } catch (ExecutionException | IOException e) {
-        // Only thrown when calling Future.get, but none should be present if this is reached.
-        throw new IllegalStateException("unexpected failure", e);
-      }
-      return future.completeWith(result);
-    }
-    return future.completeWith(
-        SafeFutures.call(Futures.whenAllSucceed(allFutures), dependencyHandler, executor));
+    var task = new NodeDependencyHandler(future.key());
+    task.run();
+    return future.completeWith(task);
   }
 
   OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
@@ -849,60 +885,282 @@ final class FileDependencySerializer {
 
   /**
    * Accepts all the dependencies associated with a node, registers their serialization and waits
-   * for processing to complete, signalled through the {@link #call} callback.
+   * for processing to complete.
    *
    * <p>Once processing is complete and all keys are known, uploads the node value. {@link
    * #computeNodeBytes} defines the wire format of nodes.
    */
-  class NodeDependencyHandler implements Callable<NodeDataInfo> {
-    private final ArrayList<String> fileKeys = new ArrayList<>();
-    private final ArrayList<String> listingKeys = new ArrayList<>();
-    private final ArrayList<NodeInvalidationDataInfo> nodeDependencies = new ArrayList<>();
-    @Nullable private FileDataInfoOrFuture sourceFileOrFuture;
+  private final class NodeDependencyHandler extends QuiescingFutureTask<NodeDataInfo>
+      implements FutureCallback<Object> {
+    private final AbstractNestedFileOpNodes node;
 
-    private final WriteStatusBuilder writeStatusBuilder = new WriteStatusBuilder();
-
-    private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
-    private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
-    private final ArrayList<FutureNodeDataInfo> futureNodeDataInfo = new ArrayList<>();
+    private NodeDependencyHandler(AbstractNestedFileOpNodes node) {
+      super(executor);
+      this.node = node;
+    }
 
     @Override
-    public NodeDataInfo call() throws ExecutionException, IOException {
-      for (FutureFileDataInfo futureInfo : futureFileDataInfo) {
-        addFileInfo(Futures.getDone(futureInfo));
-      }
-      for (FutureListingDataInfo futureInfo : futureListingDataInfo) {
-        addListingInfo(Futures.getDone(futureInfo));
-      }
-      for (FutureNodeDataInfo futureInfo : futureNodeDataInfo) {
-        addNodeInfo(Futures.getDone(futureInfo));
-      }
-      @Nullable String sourceFileKey = getSourceFileKey();
-
-      if (fileKeys.isEmpty() && listingKeys.isEmpty() && sourceFileKey == null) {
-        if (nodeDependencies.isEmpty()) {
-          return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
-        }
-        // There are multiple ways that result could become unary here, even if `node` always has at
-        // least 2 children. The following may reduce child count.
-        // 1. Deduplication.
-        // 2. Constant references.
-        // 3. NestedFileOpNodes with the same fingerprints.
-        if (nodeDependencies.size() == 1) {
-          // It ended up as a node wrapping another node. Discards the wrapper.
-          //
-          // TODO: b/364831651 - consider additional special casing for unary file or listing
-          // dependencies.
-          return nodeDependencies.get(0);
+    protected void arrangeSubtasks() {
+      // Loops through all node dependencies, registering them with this handler. This triggers
+      // recursive registration, keeping track of immediate results and any futures.
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (registerDependency(node.getAnalysisDependency(i))) {
+          case InvalidationDataInfo _ -> {} // Synchronously resolved; no future to track.
+          case FutureFileDataInfo future -> trackFuture(future);
+          case FutureListingDataInfo future -> trackFuture(future);
+          case FutureNodeDataInfo future -> trackFuture(future);
         }
       }
 
-      // We need to deduplicate and sort these entries so that serialization is deterministic
-      // and compact.
-      var sortedFileKeys = fileKeys.stream().sorted().distinct().toList();
-      var sortedListingKeys = listingKeys.stream().sorted().distinct().toList();
+      switch (node) {
+        case NestedFileOpNodes _ -> {} // Node has no immediate source file dependency.
+        case NestedFileOpNodesWithSource withSource -> {
+          switch (registerDependency(withSource.source())) {
+            case FileDataInfo _ -> {} // Synchronously resolved; no future to track.
+            case FutureFileDataInfo future -> trackFuture(future);
+          }
+        }
+      }
+    }
+
+    @Override
+    protected NodeDataInfo getValue() {
+      List<NodeInvalidationDataInfo> nodeDependencies = collectNodeDependencies();
+      ReducedDependencies reduced = reduce(nodeDependencies);
+      // Must precede the release below: unwrapping to a delegate boosts its reference count, and
+      // releasing first could drop the delegate's bitmap through a transient zero.
+      @Nullable NodeDataInfo unwrapped = tryUnwrap(reduced);
+      // The only release point, so no exit can strand a child's reference. It precedes publish so
+      // that child bitmaps are freed before the CPU-intensive compression and put.
+      releaseChildBitmaps(nodeDependencies);
+      if (unwrapped != null) {
+        counters.nodesWaitingForDeps.decrementAndGet();
+        return unwrapped;
+      }
+      return publish(reduced);
+    }
+
+    /**
+     * Returns the nested and remote children of {@link #node} that carry invalidation data.
+     *
+     * <p>These are every child that this handler takes a reference on, so all of them must be
+     * passed to {@link #releaseChildBitmaps}.
+     */
+    private List<NodeInvalidationDataInfo> collectNodeDependencies() {
+      var nodeDependencies = new ArrayList<NodeInvalidationDataInfo>();
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (node.getAnalysisDependency(i)) {
+          case AbstractNestedFileOpNodes nestedKeys -> {
+            switch (getSuccessfulNodeDataInfo(nestedKeys)) {
+              case CONSTANT_NODE -> {} // Constant nodes have no invalidation dependencies.
+              case NodeInvalidationDataInfo nodeInfo -> nodeDependencies.add(nodeInfo);
+            }
+          }
+          case RemoteFileOpNode remoteNode -> nodeDependencies.add(registerDependency(remoteNode));
+          // Direct leaf files and listings are evaluated by reduce.
+          case FileKey _, DirectoryListingKey _ -> {}
+        }
+      }
+      return nodeDependencies;
+    }
+
+    /**
+     * The dependencies of a node that survive transitive reduction. See {@code
+     * NodeDependencyHandler.reduce}.
+     *
+     * <p>Not a record: {@link #union} and {@link #writeStatuses} are still mutated by publication,
+     * so this does not have value semantics.
+     */
+    private static final class ReducedDependencies {
+      /** The node's leaf closure, final once reduction returns. */
+      private final RoaringBitmap union;
+
+      /**
+       * The retained nested and remote children, in {@link
+       * FileDependencySerializer#NODE_DEPENDENCY_COMPARATOR} order.
+       */
+      private final List<NodeInvalidationDataInfo> nodeDependencies;
+
+      /** The retained direct file keys, in dependency order. */
+      private final List<String> fileKeys;
+
+      /** The retained direct listing keys, in dependency order. */
+      private final List<String> listingKeys;
+
+      /** The retained source file key, if any. */
+      @Nullable private final String sourceFileKey;
+
+      private final boolean hasOpaqueDependencies;
+
+      /** Write statuses of every retained dependency, to which publication adds the node's own. */
+      private final WriteStatusBuilder writeStatuses;
+
+      private ReducedDependencies(
+          RoaringBitmap union,
+          List<NodeInvalidationDataInfo> nodeDependencies,
+          List<String> fileKeys,
+          List<String> listingKeys,
+          @Nullable String sourceFileKey,
+          boolean hasOpaqueDependencies,
+          WriteStatusBuilder writeStatuses) {
+        this.union = union;
+        this.nodeDependencies = nodeDependencies;
+        this.fileKeys = fileKeys;
+        this.listingKeys = listingKeys;
+        this.sourceFileKey = sourceFileKey;
+        this.hasOpaqueDependencies = hasOpaqueDependencies;
+        this.writeStatuses = writeStatuses;
+      }
+
+      /** Whether any direct file, listing or source leaf was retained. */
+      private boolean hasLeaves() {
+        return !fileKeys.isEmpty() || !listingKeys.isEmpty() || sourceFileKey != null;
+      }
+    }
+
+    /**
+     * Determines which dependencies of {@link #node} survive transitive reduction, and computes its
+     * leaf closure.
+     *
+     * <p>This is the only method that mutates the closure. Once it returns, {@link
+     * ReducedDependencies#union} is final.
+     *
+     * @param nodeDependencies the result of {@link #collectNodeDependencies}. Sorted in place.
+     */
+    private ReducedDependencies reduce(List<NodeInvalidationDataInfo> nodeDependencies) {
+      var writeStatusBuilder = new WriteStatusBuilder();
+      var union = new RoaringBitmap();
+      var retainedNodeDependencies = new ArrayList<NodeInvalidationDataInfo>();
+      boolean hasOpaqueDependencies = false;
+
+      // Phase 1: Total Ordering
+      nodeDependencies.sort(NODE_DEPENDENCY_COMPARATOR);
+
+      // Phase 2: Transitive Reduction
+      // Evaluate child nodes
+      NodeInvalidationDataInfo prev = null;
+      for (NodeInvalidationDataInfo child : nodeDependencies) {
+        if (prev != null && prev.cacheKey().equals(child.cacheKey())) {
+          continue;
+        }
+        prev = child;
+        if (child.mergeInto(union)) {
+          retainedNodeDependencies.add(child);
+          writeStatusBuilder.add(child.writeStatus());
+          hasOpaqueDependencies |= child.hasOpaqueDependencies();
+        }
+      }
+
+      // Second walk of node.getAnalysisDependency: Evaluate direct FileKey and DirectoryListingKey
+      // leaves
+      var retainedFileKeys = new ArrayList<String>();
+      var retainedListingKeys = new ArrayList<String>();
+      for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+        switch (node.getAnalysisDependency(i)) {
+          case FileKey fileKey -> {
+            switch (getSuccessfulFileDataInfo(fileKey)) {
+              // Constant files never change; no invalidation data needed.
+              case CONSTANT_FILE -> {}
+              case FileInvalidationDataInfo fileInfo -> {
+                int id = leafIds.getAnalysisId(fileKey);
+                if (union.checkedAdd(id)) {
+                  retainedFileKeys.add(fileInfo.cacheKey());
+                  writeStatusBuilder.add(fileInfo.writeStatus());
+                }
+              }
+            }
+          }
+          case DirectoryListingKey listingKey -> {
+            switch (getSuccessfulListingDataInfo(listingKey)) {
+              // Constant listings never change; no invalidation data needed.
+              case CONSTANT_LISTING -> {}
+              case ListingInvalidationDataInfo listingInfo -> {
+                int id = leafIds.getAnalysisId(listingKey);
+                if (union.checkedAdd(id)) {
+                  retainedListingKeys.add(listingInfo.cacheKey());
+                  writeStatusBuilder.add(listingInfo.writeStatus());
+                }
+              }
+            }
+          }
+          // Composite and remote child nodes were evaluated by collectNodeDependencies.
+          case AbstractNestedFileOpNodes _, RemoteFileOpNode _ -> {}
+        }
+      }
+
+      // Integrate source file.
+      @Nullable String sourceFileKey = null;
+      switch (node) {
+        case NestedFileOpNodes _ -> {} // Node has no immediate source file dependency.
+        case NestedFileOpNodesWithSource withSource -> {
+          FileKey source = withSource.source();
+          switch (getSuccessfulFileDataInfo(source)) {
+            case CONSTANT_FILE -> {} // Source file is constant; no invalidation data needed.
+            case FileInvalidationDataInfo fileInfo -> {
+              int sourceLeafId = leafIds.getSourceId(source);
+              if (union.checkedAdd(sourceLeafId)) {
+                sourceFileKey = fileInfo.cacheKey();
+                writeStatusBuilder.add(fileInfo.writeStatus());
+              }
+            }
+          }
+        }
+      }
+
+      return new ReducedDependencies(
+          union,
+          retainedNodeDependencies,
+          retainedFileKeys,
+          retainedListingKeys,
+          sourceFileKey,
+          hasOpaqueDependencies,
+          writeStatusBuilder);
+    }
+
+    /**
+     * Phase 3: Unary Unwrapping. Returns what {@link #node} reduces to without being serialized
+     * itself, or null if it must be published.
+     */
+    @Nullable
+    private NodeDataInfo tryUnwrap(ReducedDependencies reduced) {
+      if (reduced.hasLeaves()) {
+        return null;
+      }
+      List<NodeInvalidationDataInfo> retainedNodeDependencies = reduced.nodeDependencies;
+      // TODO(b/558805781): investigate whether the empty case is reachable in practice.
+      if (retainedNodeDependencies.isEmpty()) {
+        return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
+      }
+      // There are multiple ways that result could become unary here, even if `node` always has at
+      // least 2 children. The following may reduce child count.
+      // 1. Deduplication of children with the same fingerprint.
+      // 2. Constant references.
+      // 3. Transitive reduction, when one child's closure covers its siblings and direct leaves.
+      if (retainedNodeDependencies.size() != 1) {
+        return null;
+      }
+      // It ended up as a node wrapping another node. Discards the wrapper.
+      //
+      // TODO: b/364831651 - consider additional special casing for unary file or listing
+      // dependencies.
+      NodeInvalidationDataInfo delegate = retainedNodeDependencies.get(0);
+      // Boost delegate by this parent's incoming edges before decrements to prevent transient zero.
+      delegate.addReferences(this.node.getInDegree());
+      return delegate;
+    }
+
+    /** Phase 4: Wire Serialization & Publication. */
+    private NodeInvalidationDataInfo publish(ReducedDependencies reduced) {
+      // File and listing keys were collected in dependency order, so sort them here.
+      var sortedFileKeys = reduced.fileKeys.stream().sorted().distinct().toList();
+      var sortedListingKeys = reduced.listingKeys.stream().sorted().distinct().toList();
+      // Node dependencies are already ordered by NODE_DEPENDENCY_COMPARATOR, and that order alone
+      // would be canonical with the Phase 2 key deduplication, except for RemoteFileOpNode. A
+      // remote node has the same fingerprint as a local node with the same content, but is opaque,
+      // so its cardinality is Integer.MAX_VALUE. When both forms reach this node, they do not sort
+      // adjacently and both are retained. Sorting and deduplicating by key restores canonicity.
       var sortedNodeDependencies =
-          nodeDependencies.stream()
+          reduced.nodeDependencies.stream()
               .map(NodeInvalidationDataInfo::cacheKey)
               .sorted()
               .distinct()
@@ -917,7 +1175,11 @@ final class FileDependencySerializer {
 
       byte[] nodeBytes =
           computeNodeBytes(
-              sortedNodeDependencies, sortedFileKeys, sortedListingKeys, sourceFileKey, recorder);
+              sortedNodeDependencies,
+              sortedFileKeys,
+              sortedListingKeys,
+              reduced.sourceFileKey,
+              recorder);
       byte[] maybeCompressedBytes = nodeBytes;
       if (maybeCompressedBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
         maybeCompressedBytes = compressBytes(maybeCompressedBytes);
@@ -925,155 +1187,137 @@ final class FileDependencySerializer {
       PackedFingerprint key = writer.fingerprint(maybeCompressedBytes);
 
       long keyByteCount = key.toBytes().length;
-      long valueByteCount =
-          maybeCompressedBytes.length; // Don't hold on to the bytes any longer than needed
-
-      counters.nodesWaitingForDeps.decrementAndGet();
-      counters.nodesWaitingForUpload.incrementAndGet();
-      counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
-      counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
-
-      WriteStatus writeStatus = writer.put(key, maybeCompressedBytes);
-      writeStatus.addListener(
-          () -> {
-            counters.nodesWaitingForUpload.decrementAndGet();
-            counters.nodesUploaded.incrementAndGet();
-            counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
-            counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
-            counters.keyBytesUploaded.addAndGet(keyByteCount);
-            counters.valueBytesUploaded.addAndGet(valueByteCount);
-          },
-          directExecutor());
+      WriteStatus writeStatus = putEntry(key, keyByteCount, maybeCompressedBytes);
 
       if (recorder != null) {
         if (maybeCompressedBytes.length != nodeBytes.length) {
           recorder.setByteScale((double) maybeCompressedBytes.length / (double) nodeBytes.length);
         }
-        recordKeyAndRegisterStatus(recorder, keyByteCount, valueByteCount, writeStatus);
+        recordKeyAndRegisterStatus(
+            recorder, keyByteCount, maybeCompressedBytes.length, writeStatus);
       }
 
+      WriteStatusBuilder writeStatusBuilder = reduced.writeStatuses;
       writeStatusBuilder.add(writeStatus);
-      return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
+
+      // Canonicalize the closure before it is retained. `union` takes its last mutation in reduce,
+      // so it is safe at any point after.
+      //
+      // Both calls are needed and neither is useful alone. `runOptimize` converts ascending spans
+      // into runs, which only pays off because leaf IDs are assigned by a depth-first walk; under
+      // scattered IDs it is a net regression. `trim` then releases the slack from RunContainer's
+      // doubling growth, which otherwise dominates: the copy constructor clones at full capacity,
+      // so the untrimmed form is roughly an order of magnitude larger than the data it holds.
+      //
+      // Trimming earlier, while the bitmap is still accumulating, would merely restart the doubling
+      // sequence and accomplish nothing.
+      RoaringBitmap union = reduced.union;
+      union.runOptimize();
+      union.trim();
+
+      return new NodeInvalidationDataInfo(
+          key,
+          writeStatusBuilder.build(),
+          union,
+          reduced.hasOpaqueDependencies,
+          /* initialReferences= */ node.getInDegree());
     }
 
-    private void addRemoteNode(RemoteFileOpNode remoteNode) {
-      addNodeInfo(registerDependency(remoteNode));
-    }
-
-    private void addFileKey(FileKey fileKey) {
-      switch (registerDependency(fileKey)) {
-        case FileDataInfo info:
-          addFileInfo(info);
-          break;
-        case FutureFileDataInfo futureInfo:
-          futureFileDataInfo.add(futureInfo);
-          break;
+    /**
+     * Drops this node's reference to every child in {@code nodeDependencies}, freeing any child
+     * bitmap whose last parent has now consumed it.
+     *
+     * <p>Iterates {@code nodeDependencies}, the complete set of children this handler took a
+     * reference on, <b>not</b> the retained subset that survives transitive reduction. A child
+     * pruned by reduction was still referenced, so it still has to be released; releasing only the
+     * retained subset would leave the pruned children's refcounts permanently above zero and strand
+     * their bitmaps.
+     */
+    private void releaseChildBitmaps(List<NodeInvalidationDataInfo> nodeDependencies) {
+      if (releaseBitmaps) {
+        for (NodeInvalidationDataInfo child : nodeDependencies) {
+          child.decrementReference();
+        }
       }
     }
 
-    private void addFileInfo(FileDataInfo info) {
-      switch (info) {
-        case CONSTANT_FILE:
-          break;
-        case FileInvalidationDataInfo fileInfo:
-          fileKeys.add(fileInfo.cacheKey());
-          writeStatusBuilder.add(fileInfo.writeStatus());
-          break;
+    @Override
+    protected void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+      counters.nodesWaitingForDeps.decrementAndGet();
+      counters.nodesWithProcessingErrors.incrementAndGet();
+      // Child reference decrements are intentionally omitted here. If any node fails, the overall
+      // serialization and cache upload fail fast and abort. The build will fail, and in-memory
+      // data structures and bitmaps will be discarded anyway, so leaving reference counts non-zero
+      // on error paths is harmless and avoids complex error-handling synchronization.
+    }
+
+    private FileDataInfo getSuccessfulFileDataInfo(FileKey fileKey) {
+      return switch (registerDependency(fileKey)) {
+        case FileDataInfo fileInfo -> fileInfo;
+        case FutureFileDataInfo futureInfo -> getDoneUnchecked(futureInfo);
+      };
+    }
+
+    private ListingDataInfo getSuccessfulListingDataInfo(DirectoryListingKey listingKey) {
+      return switch (registerDependency(listingKey)) {
+        case ListingDataInfo listingInfo -> listingInfo;
+        case FutureListingDataInfo futureInfo -> getDoneUnchecked(futureInfo);
+      };
+    }
+
+    private NodeDataInfo getSuccessfulNodeDataInfo(AbstractNestedFileOpNodes nestedKeys) {
+      return switch (registerDependency(nestedKeys)) {
+        case NodeDataInfo nodeInfo -> nodeInfo;
+        case FutureNodeDataInfo futureInfo -> getDoneUnchecked(futureInfo);
+      };
+    }
+
+    /**
+     * Returns the completed result of {@code future}.
+     *
+     * <p>Only called from {@link #getValue}, which is invoked only after quiescence when there were
+     * no cancellations or errors across any tracked subtask. Therefore, the future is guaranteed to
+     * be completed successfully, and {@link CancellationException} or {@link ExecutionException} is
+     * impossible.
+     */
+    private static <T> T getDoneUnchecked(ListenableFuture<T> future) {
+      try {
+        return Futures.getDone(future);
+      } catch (ExecutionException e) {
+        throw new AssertionError("unexpected failure", e);
       }
     }
 
-    private void addListingKey(DirectoryListingKey listingKey) {
-      switch (registerDependency(listingKey)) {
-        case ListingDataInfo info:
-          addListingInfo(info);
-          break;
-        case FutureListingDataInfo futureInfo:
-          futureListingDataInfo.add(futureInfo);
-          break;
-      }
+    private void trackFuture(ListenableFuture<?> future) {
+      increment();
+      Futures.addCallback(future, this, directExecutor());
     }
 
-    private void addListingInfo(ListingDataInfo info) {
-      switch (info) {
-        case CONSTANT_LISTING:
-          break;
-        case ListingInvalidationDataInfo listingInfo:
-          listingKeys.add(listingInfo.cacheKey());
-          writeStatusBuilder.add(listingInfo.writeStatus());
-          break;
-      }
+    @Override
+    @DoNotCall("Only called via trackFuture")
+    public void onSuccess(Object ignored) {
+      decrement();
     }
 
-    private void addNodeKey(AbstractNestedFileOpNodes nestedKeys) {
-      switch (registerDependency(nestedKeys)) {
-        case NodeDataInfo info:
-          addNodeInfo(info);
-          break;
-        case FutureNodeDataInfo futureInfo:
-          futureNodeDataInfo.add(futureInfo);
-          break;
-      }
+    @Override
+    @DoNotCall("Only called via trackFuture")
+    public void onFailure(Throwable t) {
+      notifyException(t);
     }
 
-    private void addNodeInfo(NodeDataInfo info) {
-      switch (info) {
-        case CONSTANT_NODE:
-          break;
-        case NodeInvalidationDataInfo nodeInfo:
-          nodeDependencies.add(nodeInfo);
-          writeStatusBuilder.add(nodeInfo.writeStatus());
-          break;
-      }
-    }
-
-    private void setSourceFile(FileKey sourceFile) {
-      checkState(
-          sourceFileOrFuture == null,
-          "Attempting to set source file to %s, but it was already set to %s",
-          sourceFile,
-          sourceFileOrFuture);
-      this.sourceFileOrFuture = registerDependency(sourceFile);
-    }
-
-    private ImmutableList<ListenableFuture<?>> getCombinedFutures() {
-      var combined =
-          ImmutableList.<ListenableFuture<?>>builder()
-              .addAll(futureFileDataInfo)
-              .addAll(futureListingDataInfo)
-              .addAll(futureNodeDataInfo);
-      switch (sourceFileOrFuture) {
-        case null -> {}
-        case FileDataInfo unusedSource -> {}
-        case FutureFileDataInfo futureSource -> combined.add(futureSource);
-      }
-      return combined.build();
-    }
-
-    private byte[] compressBytes(byte[] nodeBytes) throws IOException {
+    private byte[] compressBytes(byte[] nodeBytes) {
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      MagicBytes.writeMagicBytes(outputStream);
-      try (OutputStream compressedBytesStream =
-          compressionService.newZstdOutputStream(outputStream)) {
-        compressedBytesStream.write(nodeBytes);
+      try {
+        MagicBytes.writeMagicBytes(outputStream);
+        try (OutputStream compressedBytesStream =
+            compressionService.newZstdOutputStream(outputStream)) {
+          compressedBytesStream.write(nodeBytes);
+        }
+      } catch (IOException e) {
+        throw new AssertionError("Unexpected IOException during in-memory compression", e);
       }
       return outputStream.toByteArray();
-    }
-
-    @Nullable
-    private String getSourceFileKey() throws ExecutionException {
-      if (sourceFileOrFuture == null) {
-        return null;
-      }
-      return switch (switch (sourceFileOrFuture) {
-        case FileDataInfo sourceInfo -> sourceInfo;
-        case FutureFileDataInfo futureSourceInfo -> Futures.getDone(futureSourceInfo);
-      }) {
-        case CONSTANT_FILE -> null;
-        case FileInvalidationDataInfo fileInfo -> {
-          writeStatusBuilder.add(fileInfo.writeStatus());
-          yield fileInfo.cacheKey();
-        }
-      };
     }
   }
 
@@ -1176,6 +1420,35 @@ final class FileDependencySerializer {
     return exists
         ? versionGetter.getFilePathOrSymlinkVersion(path)
         : versionGetter.getNonexistentPathVersion(path);
+  }
+
+  /**
+   * Writes an invalidation entry whose dependencies have all resolved.
+   *
+   * <p>Moves the entry from {@link Counters#nodesWaitingForDeps} to {@link
+   * Counters#nodesWaitingForUpload}, and tracks its bytes as waiting until the write completes.
+   * Does not hold on to {@code value}.
+   */
+  private WriteStatus putEntry(KeyBytesProvider key, long keyByteCount, byte[] value) {
+    long valueByteCount = value.length; // // Don't hold on to the bytes longer than needed.
+
+    counters.nodesWaitingForDeps.decrementAndGet();
+    counters.nodesWaitingForUpload.incrementAndGet();
+    counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
+    counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
+
+    WriteStatus writeStatus = writer.put(key, value);
+    writeStatus.addListener(
+        () -> {
+          counters.nodesWaitingForUpload.decrementAndGet();
+          counters.nodesUploaded.incrementAndGet();
+          counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+          counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+          counters.keyBytesUploaded.addAndGet(keyByteCount);
+          counters.valueBytesUploaded.addAndGet(valueByteCount);
+        },
+        directExecutor());
+    return writeStatus;
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey, Consumer<String> overflowConsumer) {

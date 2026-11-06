@@ -285,12 +285,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
                 }
 
                 @Override
-                public long getLastModifiedTime() throws IOException {
+                public long getLastModifiedTimeNanos() throws IOException {
                   throw new IOException();
                 }
 
                 @Override
-                public long getLastChangeTime() throws IOException {
+                public long getLastChangeTimeNanos() throws IOException {
                   throw new IOException();
                 }
               };
@@ -476,8 +476,8 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       return buildTargets;
     }
 
-    public void doSanityChecks(Artifact[] targets, List<Counter> counters,
-        BuildKind kind) {
+    public void doSanityChecks(Artifact[] targets, List<Counter> counters, BuildKind kind)
+        throws IOException {
       // Check that we really did build all the targets.
       for (Artifact file : targets) {
         assertThat(file.getPath().exists()).isTrue();

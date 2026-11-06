@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
@@ -95,12 +96,33 @@ public final class ReverseDepsUtilityTest {
   }
 
   @Test
-  public void testDuplicateCheckOnGetReverseDeps() {
+  public void removeMatchingConsolidatesPendingRemoval() {
+    var example = new IncrementalInMemoryNodeEntry(KEY);
+    List<SkyKey> expected = new ArrayList<>();
+    for (int i = 0; i < numElements; i++) {
+      SkyKey key = Key.create(i);
+      ReverseDepsUtility.addReverseDep(example, key);
+      if (i >= 2 && i < numElements - 1) {
+        expected.add(key);
+      }
+    }
+    if (numElements > 2) {
+      ReverseDepsUtility.removeReverseDep(example, Key.create(numElements - 1));
+    }
+    ReverseDepsUtility.removeReverseDepsMatching(
+        example, ImmutableSet.of(Key.create(0), Key.create(1), Key.create(numElements - 1)));
+    assertThat(
+            ReverseDepsUtility.consolidateAndGetReverseDeps(example, /* checkConsistency= */ true))
+        .containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testDuplicateCheck() {
     var example = new IncrementalInMemoryNodeEntry(KEY);
     for (int i = 0; i < numElements; i++) {
       ReverseDepsUtility.addReverseDep(example, Key.create(i));
     }
-    // Should only fail when we call getReverseDeps().
+    // Both reading and batch deletion must reject duplicates.
     ReverseDepsUtility.addReverseDep(example, Key.create(0));
     if (numElements == 0) {
       // Will not throw.
@@ -114,6 +136,11 @@ public final class ReverseDepsUtilityTest {
           () ->
               ReverseDepsUtility.consolidateAndGetReverseDeps(
                   example, /* checkConsistency= */ true));
+      assertThrows(
+          IllegalStateException.class,
+          () ->
+              ReverseDepsUtility.removeReverseDepsMatching(
+                  example, ImmutableSet.of(Key.create(0))));
     }
   }
 

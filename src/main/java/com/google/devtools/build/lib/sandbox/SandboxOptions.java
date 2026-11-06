@@ -141,14 +141,15 @@ public abstract class SandboxOptions extends OptionsBase {
   @Option(
       name = "sandbox_block_path",
       allowMultiple = true,
+      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "For sandboxed actions, disallow access to this path.")
-  public abstract List<String> getSandboxBlockPath();
+  public abstract List<PathFragment> getSandboxBlockPath();
 
   /** Sets the list of paths to block in the sandbox. */
-  public abstract void setSandboxBlockPath(List<String> value);
+  public abstract void setSandboxBlockPath(List<PathFragment> value);
 
   @Option(
       name = "sandbox_tmpfs_path",
@@ -165,13 +166,14 @@ public abstract class SandboxOptions extends OptionsBase {
   @Option(
       name = "sandbox_writable_path",
       allowMultiple = true,
+      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "For sandboxed actions, make an existing directory writable in the sandbox"
               + " (if supported by the sandboxing implementation, ignored otherwise).")
-  public abstract List<String> getSandboxWritablePath();
+  public abstract List<PathFragment> getSandboxWritablePath();
 
   @Option(
       name = "sandbox_add_mount_pair",
@@ -216,7 +218,7 @@ public abstract class SandboxOptions extends OptionsBase {
 
   public ImmutableSet<Path> getInaccessiblePaths(FileSystem fs) {
     List<Path> inaccessiblePaths = new ArrayList<>();
-    for (String path : getSandboxBlockPath()) {
+    for (PathFragment path : getSandboxBlockPath()) {
       Path blockedPath = fs.getPath(path);
       try {
         inaccessiblePaths.add(blockedPath.resolveSymbolicLinks());
@@ -324,7 +326,7 @@ public abstract class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "experimental_inmemory_sandbox_stashes",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
@@ -344,7 +346,8 @@ public abstract class SandboxOptions extends OptionsBase {
               + "sandbox_add_mount_pair. Input files will be hardlinked to the sandbox instead of "
               + "symlinked to from the sandbox. "
               + "If action input files are located on a filesystem different from the sandbox, "
-              + "then the input files will be copied instead.")
+              + "then the input files will be copied instead. "
+              + "On Linux, the build fails if linux-sandbox is not supported on the machine.")
   public abstract boolean getUseHermetic();
 
   @Option(

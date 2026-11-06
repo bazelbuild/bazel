@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -104,7 +105,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
   @Before
   public final void initializeParser() throws Exception {
     setUpSkyframe(RuleVisibility.PRIVATE);
-    parser = skyframeExecutor.newTargetPatternPreloader();
+    parser = new SkyframeTargetPatternEvaluator(skyframeExecutor);
     parsingListener = new RecordingParsingListener(reporter);
   }
 

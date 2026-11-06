@@ -152,6 +152,15 @@ public interface PathMapper {
   }
 
   /**
+   * Maps a string argument if string mapping is enabled for this path mapper.
+   *
+   * <p>By default, returns the argument unchanged.
+   */
+  default String mapString(String arg) {
+    return arg;
+  }
+
+  /**
    * Returns a {@link FileRootApi} representing the new root of the given artifact after mapping.
    *
    * <p>All objects returned by this method must be {@link Comparable} among each other.
@@ -170,9 +179,12 @@ public interface PathMapper {
     PathFragment mappedExecPath = map(execPath);
     // map never changes the root-relative part of the exec path, so we can remove that suffix to
     // get the mapped root part.
-    int rootRelativeSegmentCount = execPath.segmentCount() - root.getExecPath().segmentCount();
+    int rootRelativeLength =
+        execPath.getPathString().length() - root.getExecPath().getPathString().length();
+    String mappedExecPathStr = mappedExecPath.getPathString();
     PathFragment mappedRootExecPath =
-        mappedExecPath.subFragment(0, mappedExecPath.segmentCount() - rootRelativeSegmentCount);
+        PathFragment.createAlreadyNormalized(
+            mappedExecPathStr.substring(0, mappedExecPathStr.length() - rootRelativeLength));
     return new MappedArtifactRoot(mappedRootExecPath);
   }
 

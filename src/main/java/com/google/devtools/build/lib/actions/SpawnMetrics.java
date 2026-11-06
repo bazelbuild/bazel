@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
@@ -42,7 +43,10 @@ public class SpawnMetrics {
     this.setupTimeInMs = builder.setupTimeInMs;
     this.uploadTimeInMs = builder.uploadTimeInMs;
     this.executionWallTimeInMs = builder.executionWallTimeInMs;
-    this.retryTimeInMs = ImmutableMap.copyOf(builder.retryTimeInMs);
+    this.retryTimeInMs =
+        builder.retryTimeInMs == null || builder.retryTimeInMs.isEmpty()
+            ? ImmutableMap.of()
+            : ImmutableMap.copyOf(builder.retryTimeInMs);
     this.processOutputsTimeInMs = builder.processOutputsTimeInMs;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
@@ -239,7 +243,14 @@ public class SpawnMetrics {
 
   /** Time spent in previous failed attempts. Does not include queue time. */
   public int retryTimeInMs() {
-    return retryTimeInMs.values().stream().reduce(0, Integer::sum);
+    if (retryTimeInMs.isEmpty()) {
+      return 0;
+    }
+    int sum = 0;
+    for (int duration : retryTimeInMs.values()) {
+      sum += duration;
+    }
+    return sum;
   }
 
   /** Time spent in previous failed attempts, keyed by error code. Does not include queue time. */
@@ -335,7 +346,7 @@ public class SpawnMetrics {
     private int uploadTimeInMs = 0;
     private int executionWallTimeInMs = 0;
     private int processOutputsTimeInMs = 0;
-    private Map<Integer, Integer> retryTimeInMs = new HashMap<>();
+    @Nullable private Map<Integer, Integer> retryTimeInMs = null;
     private long inputBytes = 0;
     private int inputFiles = 0;
     private long memoryEstimateBytes = 0;
@@ -499,13 +510,17 @@ public class SpawnMetrics {
 
     @CanIgnoreReturnValue
     public Builder addRetryTimeInMs(int errorCode, int retryTimeInMs) {
+      if (this.retryTimeInMs == null || !(this.retryTimeInMs instanceof HashMap)) {
+        this.retryTimeInMs =
+            this.retryTimeInMs == null ? new HashMap<>() : new HashMap<>(this.retryTimeInMs);
+      }
       this.retryTimeInMs.merge(errorCode, retryTimeInMs, Integer::sum);
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setRetryTimeInMs(ImmutableMap<Integer, Integer> retryTimeInMs) {
-      this.retryTimeInMs = retryTimeInMs;
+      this.retryTimeInMs = retryTimeInMs == null || retryTimeInMs.isEmpty() ? null : retryTimeInMs;
       return this;
     }
 
@@ -590,8 +605,10 @@ public class SpawnMetrics {
       uploadTimeInMs += metric.uploadTimeInMs();
       setupTimeInMs += metric.setupTimeInMs();
       executionWallTimeInMs += metric.executionWallTimeInMs();
-      for (Map.Entry<Integer, Integer> entry : metric.retryTimeInMs.entrySet()) {
-        addRetryTimeInMs(entry.getKey(), entry.getValue());
+      if (!metric.retryTimeInMs.isEmpty()) {
+        for (Map.Entry<Integer, Integer> entry : metric.retryTimeInMs.entrySet()) {
+          addRetryTimeInMs(entry.getKey(), entry.getValue());
+        }
       }
       processOutputsTimeInMs += metric.processOutputsTimeInMs();
       return this;

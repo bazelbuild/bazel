@@ -2,14 +2,17 @@ load("@rules_java//java:defs.bzl", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/docgen:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )
 
 java_test(
@@ -32,7 +35,7 @@ java_test(
     srcs = ["StarlarkFunctionInfoExtractorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_function",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:extractionexception",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:starlarkfunctioninfoextractor",
@@ -66,7 +69,7 @@ java_test(
     srcs = ["ModuleInfoExtractorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_function",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:extractionexception",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:moduleinfoextractor",

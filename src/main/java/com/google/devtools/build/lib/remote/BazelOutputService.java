@@ -22,10 +22,10 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatRequest;
@@ -476,10 +476,9 @@ public class BazelOutputService implements OutputService {
       if (outputMetadataStore.artifactOmitted(output)) {
         continue;
       }
-      if (output.isTreeArtifact()) {
+      if (output instanceof TreeArtifact treeArtifact) {
         // TODO(chiwang): Use TreeArtifactLocator
-        var children =
-            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
+        var children = outputMetadataStore.getTreeArtifactValue(treeArtifact).getChildren();
         for (var child : children) {
           request.addArtifact(child);
         }
@@ -533,12 +532,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -581,12 +580,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -629,12 +628,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       return 0;
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 

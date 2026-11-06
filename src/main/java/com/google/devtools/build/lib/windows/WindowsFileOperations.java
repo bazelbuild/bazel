@@ -110,7 +110,8 @@ public class WindowsFileOperations {
   public static boolean isSymlinkOrJunction(String path) throws IOException {
     boolean[] result = new boolean[] {false};
     String[] error = new String[] {null};
-    switch (nativeIsSymlinkOrJunction(WindowsPathOperations.asLongPath(path), result, error)) {
+    switch (nativeIsSymlinkOrJunction(
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(path), result, error)) {
       case IS_SYMLINK_OR_JUNCTION_SUCCESS:
         return result[0];
       case IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
@@ -123,13 +124,19 @@ public class WindowsFileOperations {
     throw new IOException(String.format("Cannot tell if '%s' is link: %s", path, error[0]));
   }
 
-  /** Returns the time at which the file was last changed, including metadata changes. */
-  public static long getLastChangeTime(String path, boolean followReparsePoints)
+  /**
+   * Returns the time at which the file was last changed, including metadata changes, in nanoseconds
+   * since the Unix epoch.
+   */
+  public static long getLastChangeTimeNanos(String path, boolean followReparsePoints)
       throws IOException {
     long[] result = new long[] {0};
     String[] error = new String[] {null};
     switch (nativeGetChangeTime(
-        WindowsPathOperations.asLongPath(path), followReparsePoints, result, error)) {
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(path),
+        followReparsePoints,
+        result,
+        error)) {
       case GET_CHANGE_TIME_SUCCESS:
         return result[0];
       case GET_CHANGE_TIME_DOES_NOT_EXIST:
@@ -155,7 +162,9 @@ public class WindowsFileOperations {
   public static void createJunction(String name, String target) throws IOException {
     String[] error = new String[] {null};
     switch (nativeCreateJunction(
-        WindowsPathOperations.asLongPath(name), WindowsPathOperations.asLongPath(target), error)) {
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(name),
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(target),
+        error)) {
       case CREATE_JUNCTION_SUCCESS:
         return;
       case CREATE_JUNCTION_TARGET_NAME_TOO_LONG:
@@ -187,7 +196,9 @@ public class WindowsFileOperations {
   public static void createSymlink(String name, String target) throws IOException {
     String[] error = new String[] {null};
     switch (nativeCreateSymlink(
-        WindowsPathOperations.asLongPath(name), WindowsPathOperations.asLongPath(target), error)) {
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(name),
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(target),
+        error)) {
       case CREATE_SYMLINK_SUCCESS:
         return;
       case CREATE_SYMLINK_TARGET_IS_DIRECTORY:
@@ -204,7 +215,8 @@ public class WindowsFileOperations {
   public static String readSymlinkOrJunction(String name) throws IOException {
     String[] target = new String[] {null};
     String[] error = new String[] {null};
-    switch (nativeReadSymlinkOrJunction(WindowsPathOperations.asLongPath(name), target, error)) {
+    switch (nativeReadSymlinkOrJunction(
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(name), target, error)) {
       case READ_SYMLINK_OR_JUNCTION_SUCCESS:
         return WindowsPathOperations.removeUncPrefixAndUseSlashes(target[0]);
       case READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED:
@@ -222,7 +234,7 @@ public class WindowsFileOperations {
 
   public static boolean deletePath(String path) throws IOException {
     String[] error = new String[] {null};
-    int result = nativeDeletePath(WindowsPathOperations.asLongPath(path), error);
+    int result = nativeDeletePath(WindowsPathOperations.addUncPrefixAndUseBackslashes(path), error);
     switch (result) {
       case DELETE_PATH_SUCCESS:
         return true;

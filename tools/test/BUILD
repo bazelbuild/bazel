@@ -46,7 +46,7 @@ cc_binary(
     srcs = ["windows/tw_main.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     target_compatible_with = ["@platforms//os:windows"],
@@ -68,12 +68,15 @@ cc_binary(
     srcs = ["windows/xml_main.cc"],
     linkopts = select({
         # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
-    deps = [":tw_lib"],
+    deps = [
+        ":tw_lib",
+        ":tw_resources",
+    ],
 )
 
 # Test wrapper binary to run tests on Windows.
@@ -116,7 +119,6 @@ cc_test(
     }),
     deps = [
         ":tw_lib",
-        "//src/main/cpp/util:filesystem",
         "//src/test/cpp/util:windows_test_util",
         "@com_google_googletest//:gtest_main",
     ] + select({

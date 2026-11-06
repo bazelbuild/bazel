@@ -34,6 +34,13 @@ import java.util.Map;
  */
 @SuppressWarnings({"unchecked", "rawtypes", "NonApiType"})
 public final class MultimapCodecs {
+  private static final ImmutableSetMultimapCodec IMMUTABLE_SET_MULTIMAP_CODEC =
+      new ImmutableSetMultimapCodec();
+
+  public static ObjectCodec<ImmutableSetMultimap> immutableSetMultimapCodec() {
+    return IMMUTABLE_SET_MULTIMAP_CODEC;
+  }
+
   @Keep // used reflectively
   private static class ImmutableListMultimapCodec
       extends DeferredObjectCodec<ImmutableListMultimap> {

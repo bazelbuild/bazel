@@ -20,10 +20,12 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "src/main/cpp/util/file_platform.h"

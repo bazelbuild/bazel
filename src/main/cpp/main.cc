@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <memory>
+#include <utility>
 
 #include "src/main/cpp/bazel_startup_options.h"
 #include "src/main/cpp/blaze.h"

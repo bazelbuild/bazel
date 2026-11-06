@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -28,7 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands:paths_to_replace_utils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -52,5 +52,6 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

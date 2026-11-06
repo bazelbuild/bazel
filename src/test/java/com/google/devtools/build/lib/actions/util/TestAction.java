@@ -115,11 +115,23 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
     Preconditions.checkState(discoversInputs(), this);
+    ImmutableList.Builder<Artifact> existingOptionalInputs = ImmutableList.builder();
+    for (Artifact input : optionalInputs) {
+      try {
+        if (input.getPath().exists()) {
+          existingOptionalInputs.add(input);
+        }
+      } catch (IOException e) {
+        DetailedExitCode code = CrashFailureDetails.detailedExitCodeForThrowable(e);
+        throw new ActionExecutionException(
+            "TestAction failed due to exception: " + e.getMessage(), e, this, false, code);
+      }
+    }
     NestedSet<Artifact> discoveredInputs =
-        NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, Iterables.filter(optionalInputs, i -> i.getPath().exists()));
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, existingOptionalInputs.build());
     updateInputs(
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
@@ -131,33 +143,29 @@ public class TestAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    for (Artifact artifact : getInputs().toList()) {
-      // Do not check *.optional artifacts - artifacts with such extension are
-      // used by tests to specify artifacts that may or may not be missing.
-      // This is used, e.g., to test Blaze behavior when action has missing
-      // input artifacts but still is successfully executed.
-      if (!artifact.getPath().exists()) {
-        throw new IllegalStateException("action's input file does not exist: "
-            + artifact.getPath());
-      }
-    }
-
     try {
+      for (Artifact artifact : getInputs().toList()) {
+        // Do not check *.optional artifacts - artifacts with such extension are
+        // used by tests to specify artifacts that may or may not be missing.
+        // This is used, e.g., to test Blaze behavior when action has missing
+        // input artifacts but still is successfully executed.
+        if (!artifact.getPath().exists()) {
+          throw new IllegalStateException(
+              "action's input file does not exist: " + artifact.getPath());
+        }
+      }
+
       effect.call();
+
+      for (Artifact artifact : getOutputs()) {
+        FileSystemUtils.touchFile(artifact.getPath());
+      }
     } catch (RuntimeException | Error | ActionExecutionException | InterruptedException e) {
       throw e;
     } catch (Exception e) {
       DetailedExitCode code = CrashFailureDetails.detailedExitCodeForThrowable(e);
       throw new ActionExecutionException(
           "TestAction failed due to exception: " + e.getMessage(), e, this, false, code);
-    }
-
-    try {
-      for (Artifact artifact : getOutputs()) {
-        FileSystemUtils.touchFile(artifact.getPath());
-      }
-    } catch (IOException e) {
-      throw new AssertionError(e);
     }
 
     return ActionResult.EMPTY;

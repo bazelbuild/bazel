@@ -33,9 +33,11 @@ void *ReserveMemory(size_t size) {
 void CommitMemory(void *ptr, size_t size) {
   bool result = mprotect(ptr, size, PROT_READ | PROT_WRITE) == 0;
   assert(result && "Failed to commit memory");
+  (void)result;
 }
 
 void ReleaseMemory(void *ptr, size_t size) {
   bool result = munmap(ptr, size) == 0;
   assert(result && "Failed to release memory");
+  (void)result;
 }

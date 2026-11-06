@@ -24,6 +24,7 @@ def _impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name + ".exe")
     launcher_artifact = ctx.executable.launcher
     ctx.actions.run(
+        mnemonic = "LauncherMakerTest",
         executable = ctx.executable._launcher_maker,
         inputs = [launcher_artifact],
         outputs = [output],

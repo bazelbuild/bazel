@@ -187,7 +187,7 @@ public enum ApplePlatform implements ApplePlatformApi {
 
   /** Returns a Starlark struct that contains the instances of this enum. */
   public static StructImpl getStarlarkStruct() {
-    Provider constructor = new BuiltinProvider<StructImpl>("platforms", StructImpl.class) {};
+    Provider constructor = new BuiltinProvider.NonCallable<>("platforms", StructImpl.class) {};
     HashMap<String, Object> fields = new HashMap<>();
     for (ApplePlatform type : values()) {
       fields.put(type.starlarkKey, type);

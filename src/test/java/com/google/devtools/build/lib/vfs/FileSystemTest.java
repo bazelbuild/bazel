@@ -277,7 +277,7 @@ public abstract class FileSystemTest {
     Path child = inaccessible.getChild("child");
     FileSystemUtils.createEmptyFile(child);
     inaccessible.setExecutable(false);
-    assertThat(child.exists()).isFalse();
+    assertThrows(IOException.class, () -> child.exists());
     assertThrows(IOException.class, () -> child.statIfFound());
   }
 
@@ -1116,53 +1116,47 @@ public abstract class FileSystemTest {
   // Test the date functions
 
   @Test
-  public void testSetLastModifiedTime_32bit() throws Exception {
+  public void testSetLastModifiedTimeNanos() throws Exception {
     Path file = absolutize("file");
     FileSystemUtils.createEmptyFile(file);
 
-    file.setLastModifiedTime(1 << 30);
-    assertThat(file.getLastModifiedTime()).isEqualTo(1 << 30);
+    file.setLastModifiedTimeNanos((1L << 34) * 1_000_000 + 123_456);
+    assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_456);
+    FileStatus stat = file.stat();
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_456);
   }
 
   @Test
-  public void testSetLastModifiedTime_64bit() throws Exception {
-    Path file = absolutize("file");
-    FileSystemUtils.createEmptyFile(file);
-
-    file.setLastModifiedTime(1L << 34);
-    assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
-  }
-
-  @Test
-  public void testSetLastModifiedTimeWithSentinel() throws Exception {
+  public void testSetLastModifiedTimeNanosWithSentinel() throws Exception {
     Path file = absolutize("file");
     FileSystemUtils.createEmptyFile(file);
 
     // To avoid sleeping, first set the modification time to the past.
-    long pastTime = Instant.now().minusSeconds(1).toEpochMilli();
-    file.setLastModifiedTime(pastTime);
+    long pastTime = Instant.now().minusSeconds(1).toEpochMilli() * 1_000_000;
+    file.setLastModifiedTimeNanos(pastTime);
 
-    // Even if we get the system time before the setLastModifiedTime call, getLastModifiedTime may
-    // return a time which is slightly behind. Simply check that it's greater than the past time.
-    file.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
-    assertThat(file.getLastModifiedTime()).isGreaterThan(pastTime);
+    // Even if we get the system time before the setLastModifiedTimeNanos call,
+    // getLastModifiedTimeNanos may return a time which is slightly behind. Simply check that it's
+    // greater than the past time.
+    file.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
+    assertThat(file.getLastModifiedTimeNanos()).isGreaterThan(pastTime);
   }
 
   @Test
   public void testCreateFileChangesTimeOfDirectory() throws Exception {
-    storeReferenceTime(workingDir.getLastModifiedTime());
+    storeReferenceTime(workingDir.getLastModifiedTimeNanos());
     Path newPath = absolutize("new-file");
     FileSystemUtils.createEmptyFile(newPath);
-    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
   public void testRemoveFileChangesTimeOfDirectory() throws Exception {
     Path newPath = absolutize("new-file");
     FileSystemUtils.createEmptyFile(newPath);
-    storeReferenceTime(workingDir.getLastModifiedTime());
+    storeReferenceTime(workingDir.getLastModifiedTimeNanos());
     newPath.delete();
-    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTimeNanos())).isTrue();
   }
 
   // This test is a little bit strange, as we cannot test the progression
@@ -1175,9 +1169,9 @@ public abstract class FileSystemTest {
     FileSystemUtils.createEmptyFile(syncFile);
 
     Path newFile = absolutize("new-file");
-    storeReferenceTime(syncFile.getLastModifiedTime());
+    storeReferenceTime(syncFile.getLastModifiedTimeNanos());
     FileSystemUtils.createEmptyFile(newFile);
-    assertThat(isLaterThanreferenceTime(newFile.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(newFile.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
@@ -1186,23 +1180,23 @@ public abstract class FileSystemTest {
     FileSystemUtils.createEmptyFile(syncFile);
 
     Path newPath = absolutize("new-dir");
-    storeReferenceTime(syncFile.getLastModifiedTime());
+    storeReferenceTime(syncFile.getLastModifiedTimeNanos());
     assertThat(newPath.createDirectory()).isTrue();
-    assertThat(isLaterThanreferenceTime(newPath.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(newPath.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
   public void testWriteChangesModifiedTime() throws Exception {
-    storeReferenceTime(xFile.getLastModifiedTime());
+    storeReferenceTime(xFile.getLastModifiedTimeNanos());
     FileSystemUtils.writeContentAsLatin1(xFile, "abc19");
-    assertThat(isLaterThanreferenceTime(xFile.getLastModifiedTime())).isTrue();
+    assertThat(isLaterThanreferenceTime(xFile.getLastModifiedTimeNanos())).isTrue();
   }
 
   @Test
   public void testGetLastModifiedTimeThrowsExceptionForNonexistingPath() throws Exception {
     Path newPath = testFS.getPath("/non-existing-dir");
     FileNotFoundException x =
-        assertThrows(FileNotFoundException.class, () -> newPath.getLastModifiedTime());
+        assertThrows(FileNotFoundException.class, newPath::getLastModifiedTimeNanos);
     assertThat(x).hasMessageThat().endsWith(newPath + " (No such file or directory)");
   }
 
@@ -1213,7 +1207,8 @@ public abstract class FileSystemTest {
 
     // Expect the change time to be only slightly behind the current time.
     assertThat(
-            Duration.between(Instant.ofEpochMilli(file.stat().getLastChangeTime()), Instant.now()))
+            Duration.between(
+                Instant.ofEpochSecond(0, file.stat().getLastChangeTimeNanos()), Instant.now()))
         .isLessThan(Duration.ofSeconds(1));
   }
 
@@ -1240,7 +1235,7 @@ public abstract class FileSystemTest {
     String testData = "abc19";
 
     FileSystemUtils.writeContentAsLatin1(xFile, testData);
-    String resultData = new String(FileSystemUtils.readContentAsLatin1(xFile));
+    String resultData = FileSystemUtils.readContentAsLatin1(xFile);
 
     assertThat(resultData).isEqualTo(testData);
   }

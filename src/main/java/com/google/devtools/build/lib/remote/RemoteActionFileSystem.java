@@ -19,7 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
@@ -104,7 +104,7 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends FileSystem implements PathCanonicalizer.Resolver {
+public class RemoteActionFileSystem extends FileSystem {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider inputArtifactData;
@@ -164,12 +164,12 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
         }
 
         @Override
-        public long getLastModifiedTime() {
+        public long getLastModifiedTimeNanos() {
           throw new UnsupportedOperationException();
         }
 
         @Override
-        public long getLastChangeTime() {
+        public long getLastChangeTimeNanos() {
           throw new UnsupportedOperationException();
         }
 
@@ -187,7 +187,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
    * <p>Safe for concurrent access.
    */
   private class TreeArtifactDirectoryCache {
-    private final Set<SpecialArtifact> cachedTrees = new HashSet<>();
+    private final Set<TreeArtifact> cachedTrees = new HashSet<>();
     private final HashMap<PathFragment, HashSet<Dirent>> dirToEntries = new HashMap<>();
 
     @Nullable
@@ -201,7 +201,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       if (treeMetadata == null || treeMetadata.getChildren().isEmpty()) {
         return;
       }
-      SpecialArtifact parent = Iterables.getFirst(treeMetadata.getChildren(), null).getParent();
+      TreeArtifact parent = Iterables.getFirst(treeMetadata.getChildren(), null).getParent();
       if (!cachedTrees.contains(parent)) {
         insertTree(treeMetadata);
         cachedTrees.add(parent);
@@ -248,10 +248,23 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
-    this.pathCanonicalizer = new PathCanonicalizer(this);
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+    this.pathCanonicalizer =
+        new PathCanonicalizer(
+            new PathCanonicalizer.Resolver() {
+              @Override
+              @Nullable
+              public FileStatus statIfFound(PathFragment path) throws IOException {
+                return statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+              }
+
+              @Override
+              public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+                return readSymbolicLinkInternal(path);
+              }
+            });
   }
 
   @Override
@@ -361,6 +374,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       path = resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
       // Failure to delete a nonexistent path is not an error.
+      pathCanonicalizer.clearPrefix(originalPath);
       return false;
     }
 
@@ -429,20 +443,20 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
 
     FileNotFoundException remoteException = null;
     try {
       // We can't set mtime for a remote file, set mtime of in-memory file node instead.
-      remoteOutputTree.setLastModifiedTime(path, newTime);
+      remoteOutputTree.setLastModifiedTimeNanos(path, newTime);
     } catch (FileNotFoundException e) {
       remoteException = e;
     }
 
     FileNotFoundException localException = null;
     try {
-      localFs.getPath(path).setLastModifiedTime(newTime);
+      localFs.getPath(path).setLastModifiedTimeNanos(newTime);
     } catch (FileNotFoundException e) {
       localException = e;
     }
@@ -612,24 +626,16 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
     FileStatus stat = stat(path, followSymlinks);
-    return stat.getLastModifiedTime();
+    return stat.getLastModifiedTimeNanos();
   }
 
   @Override
   public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = stat(path, followSymlinks);
     return stat.getSize();
-  }
-
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    try {
-      return statIfFound(path, followSymlinks) != null;
-    } catch (IOException e) {
-      return false;
-    }
   }
 
   @Override
@@ -735,7 +741,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       }
 
       @Override
-      public long getLastModifiedTime() {
+      public long getLastModifiedTimeNanos() {
         try {
           return m.getModifiedTime();
         } catch (UnsupportedOperationException e) {
@@ -745,8 +751,8 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       }
 
       @Override
-      public long getLastChangeTime() {
-        return getLastModifiedTime();
+      public long getLastChangeTimeNanos() {
+        return getLastModifiedTimeNanos();
       }
 
       @Override

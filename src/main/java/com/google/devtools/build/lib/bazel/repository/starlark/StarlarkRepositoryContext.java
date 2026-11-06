@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -119,6 +118,19 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @Override
+  protected void recordRepoDependency(RepositoryName repo)
+      throws EvalException, InterruptedException {
+    if (repo.isMain() || repo.getName().equals(repoDefinition.name())) {
+      return;
+    }
+    try {
+      var unused = getValueAndRecordInput(new RepoRecordedInput.Repository(repo));
+    } catch (IOException e) {
+      throw Starlark.errorf("%s", e.getMessage());
+    }
+  }
+
+  @Override
   protected boolean shouldDeleteWorkingDirectoryOnClose(boolean successful) {
     return !successful;
   }
@@ -173,9 +185,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     return repoDefinition;
   }
 
-  private StarlarkPath externalPath(String method, Object pathObject)
+  private StarlarkPath externalPath(String method, Object pathObject, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    StarlarkPath starlarkPath = getPath(pathObject);
+    StarlarkPath starlarkPath = getPath(pathObject, thread);
     Path path = starlarkPath.getPath();
     if (packageLocator.getPathEntries().stream().noneMatch(root -> path.startsWith(root.asPath()))
         || path.startsWith(workingDirectory)) {
@@ -193,11 +205,19 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   // This method must not be moved to ModuleExtensionContext as the FS-specific watch in its
-  // implementation would cause lock files to differ across platforms. If this is ever needed, add
-  // a `copy` method instead.
+  // implementation would cause lock files to differ across platforms. Module extensions can use
+  // `copy` instead.
   @StarlarkMethod(
       name = "symlink",
-      doc = "Creates a symlink on the filesystem.",
+      doc =
+          """
+          Creates a symlink on the filesystem. \
+          <p>Prefer <a href="#copy"><code>copy()</code></a> for files and directories: symlinks \
+          may make a repository ineligible for repo contents caches and will have different \
+          behavior if the host doesn't support creating symlinks. Only use <code>symlink()</code> \
+          if changes to the target have to be visible in the repository without refetching it or \
+          if a directory is too large to copy.
+          """,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -219,8 +239,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void symlink(Object target, Object linkName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath targetPath = getPath(target);
-    StarlarkPath linkPath = getPath(linkName);
+    StarlarkPath targetPath = getPath(target, thread);
+    StarlarkPath linkPath = getPath(linkName, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newSymlinkEvent(
             targetPath.toString(),
@@ -318,8 +338,12 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       String watchTemplate,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath(path);
-    StarlarkPath t = getPath(template);
+    StarlarkPath p = getPath(path, thread);
+    StarlarkPath t =
+        template instanceof Label label
+            // Only the template itself is read, which doesn't require the rest of its repo.
+            ? getPathFromLabel(label, /* materialize= */ false, thread)
+            : getPath(template, thread);
     Map<String, String> substitutionMap =
         Dict.cast(substitutions, String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
@@ -392,7 +416,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public boolean delete(Object pathObject, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
-    StarlarkPath starlarkPath = externalPath("delete()", pathObject);
+    StarlarkPath starlarkPath = externalPath("delete()", pathObject, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDeleteEvent(
             starlarkPath.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -443,8 +467,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void rename(Object srcName, Object dstName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath srcPath = getPath(srcName);
-    StarlarkPath dstPath = getPath(dstName);
+    StarlarkPath srcPath = getPath(srcName, thread);
+    StarlarkPath dstPath = getPath(dstName, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newRenameEvent(
             srcPath.toString(),
@@ -478,8 +502,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       name = "patch",
       doc =
           """
-          Apply a patch file to the root directory of external repository. \
-          The patch file should be a standard \
+          Apply a patch file to the root directory of external repository, or to \
+          <code>directory</code> within it. The patch file should be a standard \
           <a href="https://en.wikipedia.org/wiki/Diff#Unified_format"> \
           unified diff format</a> file. \
           The Bazel-native patch implementation doesn't support binary patch \
@@ -505,6 +529,22 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             defaultValue = "0",
             doc = "Strip the specified number of leading components from file names."),
         @Param(
+            name = "directory",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            defaultValue = "''",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Directory to apply the patch in, relative to the repository directory. \
+                File names in the patch are resolved relative to this directory. \
+                Defaults to the repository directory.
+                """),
+        @Param(
             name = "watch_patch",
             defaultValue = "'auto'",
             positional = false,
@@ -519,10 +559,17 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 information.
                 """),
       })
-  public void patch(Object patchFile, StarlarkInt stripI, String watchPatch, StarlarkThread thread)
+  public void patch(
+      Object patchFile,
+      StarlarkInt stripI,
+      Object directory,
+      String watchPatch,
+      StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     int strip = Starlark.toInt(stripI, "strip");
-    StarlarkPath starlarkPath = getPath(patchFile);
+    StarlarkPath starlarkPath = getPath(patchFile, thread);
+    StarlarkPath directoryPath = getPath(directory, thread);
+    checkInOutputDirectory("write", directoryPath);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newPatchEvent(
             starlarkPath.toString(),
@@ -535,7 +582,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
     maybeWatch(starlarkPath, ShouldWatch.fromString(watchPatch));
     try {
-      PatchUtil.apply(starlarkPath.getPath(), strip, workingDirectory);
+      PatchUtil.apply(starlarkPath.getPath(), strip, directoryPath.getPath());
     } catch (PatchFailedException e) {
       throw new RepositoryFunctionException(
           Starlark.errorf("Error applying patch %s: %s", starlarkPath, e.getMessage()),
@@ -579,25 +626,17 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 pattern that would be excluded would be: <code>/example/path/.ignore/**</code> and \
                 <code>/example/patch/scratchFile</code>.
                 """),
-      })
-  public void watchTree(Object path, Sequence<?> exclude)
+      },
+      useStarlarkThread = true)
+  public void watchTree(Object path, Sequence<?> exclude, StarlarkThread thread)
       throws EvalException, InterruptedException, RepositoryFunctionException {
-    StarlarkPath p = getPath(path);
+    StarlarkPath p = getPath(path, thread);
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
     ImmutableList<String> excludes =
         Sequence.cast(exclude, String.class, "excludes").getImmutableList();
-    RepoCacheFriendlyPath repoCacheFriendlyPath =
-        toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
-    if (repoCacheFriendlyPath == null) {
-      return;
-    }
-    try {
-      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath, excludes));
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
+    maybeWatchTree(p.getPath(), ShouldWatch.YES, excludes);
   }
 
   @StarlarkMethod(

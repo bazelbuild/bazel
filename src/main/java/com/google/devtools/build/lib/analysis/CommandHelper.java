@@ -263,7 +263,8 @@ public final class CommandHelper {
       argv = constructor.asExecArgv(command);
     } else {
       // Use script file.
-      scriptFileArtifact = constructor.commandAsScript(ruleContext, command);
+      scriptFileArtifact =
+          constructor.commandAsScript(ruleContext, ruleContext.getTarget().getName(), command);
       argv = constructor.asExecArgv(scriptFileArtifact);
     }
     return Pair.of(argv, scriptFileArtifact);
@@ -283,7 +284,7 @@ public final class CommandHelper {
     if (command.length() <= maxCommandLength(executionOs)) {
       return null;
     } else {
-      return constructor.commandAsScript(ruleCtx, command);
+      return constructor.commandAsScript(ruleCtx, ruleCtx.getTarget().getName(), command);
     }
   }
 

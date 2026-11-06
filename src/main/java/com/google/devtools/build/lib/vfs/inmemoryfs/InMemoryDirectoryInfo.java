@@ -37,13 +37,13 @@ final class InMemoryDirectoryInfo extends InMemoryContentInfo {
   /**
    * Creates a directory info that is presized for the expected number of children if non-negative.
    *
-   * <p>The expected child count should not include the "." and ".." entries, which every directory
-   * contains in addition to its children.
+   * <p>The expected child count should not include the ".." entry, which every directory contains
+   * in addition to its children.
    */
   InMemoryDirectoryInfo(Clock clock, int expectedChildCount) {
     super(clock);
     this.directoryContent =
-        expectedChildCount < 0 ? new HashMap<>() : HashMap.newHashMap(expectedChildCount + 2);
+        expectedChildCount < 0 ? new HashMap<>() : HashMap.newHashMap(expectedChildCount + 1);
     setExecutable(true);
   }
 

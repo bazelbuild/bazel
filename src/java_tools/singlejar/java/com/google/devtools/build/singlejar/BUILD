@@ -11,7 +11,6 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
 )
 
 # This is used as a library outside of Bazel.

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.actions.ToolProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -53,8 +53,8 @@ import javax.annotation.Nullable;
 /** An {@link ActionTemplate} that expands into {@link SpawnAction}s at execution time. */
 public final class SpawnActionTemplate extends ActionKeyComputer
     implements ActionTemplate<SpawnAction> {
-  private final SpecialArtifact inputTreeArtifact;
-  private final SpecialArtifact outputTreeArtifact;
+  private final TreeArtifact inputTreeArtifact;
+  private final TreeArtifact outputTreeArtifact;
   private final NestedSet<Artifact> allInputs;
   private final NestedSet<Artifact> commonTools;
   private final ActionOwner actionOwner;
@@ -83,8 +83,8 @@ public final class SpawnActionTemplate extends ActionKeyComputer
 
   private SpawnActionTemplate(
       ActionOwner actionOwner,
-      SpecialArtifact inputTreeArtifact,
-      SpecialArtifact outputTreeArtifact,
+      TreeArtifact inputTreeArtifact,
+      TreeArtifact outputTreeArtifact,
       NestedSet<Artifact> commonInputs,
       NestedSet<Artifact> commonTools,
       OutputPathMapper outputPathMapper,
@@ -174,7 +174,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
    * through {@link #generateActionsForInputArtifacts}.
    */
   @Override
-  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+  public ImmutableList<TreeArtifact> getInputTreeArtifacts() {
     return ImmutableList.of(inputTreeArtifact);
   }
 
@@ -261,8 +261,8 @@ public final class SpawnActionTemplate extends ActionKeyComputer
     private CustomCommandLine commandLineTemplate;
     private PathFragment executable;
 
-    private final SpecialArtifact inputTreeArtifact;
-    private final SpecialArtifact outputTreeArtifact;
+    private final TreeArtifact inputTreeArtifact;
+    private final TreeArtifact outputTreeArtifact;
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
     private final SpawnAction.Builder spawnActionBuilder;
@@ -273,12 +273,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * @param inputTreeArtifact the required input TreeArtifact.
      * @param outputTreeArtifact the required output TreeArtifact.
      */
-    public Builder(SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
-      Preconditions.checkState(
-          inputTreeArtifact.isTreeArtifact() && outputTreeArtifact.isTreeArtifact(),
-          "Either %s or %s is not a TreeArtifact",
-          inputTreeArtifact,
-          outputTreeArtifact);
+    public Builder(TreeArtifact inputTreeArtifact, TreeArtifact outputTreeArtifact) {
       this.inputTreeArtifact = inputTreeArtifact;
       this.outputTreeArtifact = outputTreeArtifact;
       this.spawnActionBuilder = new SpawnAction.Builder();
@@ -310,7 +305,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * for expanded actions.
      */
     @CanIgnoreReturnValue
-    public Builder addCommonTool(FilesToRunProvider tool) {
+    public Builder addCommonTool(ToolProvider tool) {
       toolsBuilder.addTransitive(tool.getFilesToRun());
       spawnActionBuilder.addTool(tool);
       return this;
@@ -351,7 +346,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * #setExecutable(Artifact)} and {@link #setExecutable(PathFragment)}.
      */
     @CanIgnoreReturnValue
-    public Builder setExecutable(FilesToRunProvider executableProvider) {
+    public Builder setExecutable(ToolProvider executableProvider) {
       Preconditions.checkArgument(
           executableProvider.getExecutable() != null, "The target does not have an executable");
       spawnActionBuilder.setExecutable(executableProvider);
@@ -369,7 +364,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * that, use {@link #setExecutable(Artifact)} instead.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link
-     * #setExecutable(Artifact)} and {@link #setExecutable(FilesToRunProvider)}.
+     * #setExecutable(Artifact)} and {@link #setExecutable(ToolProvider)}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(PathFragment executable) {
@@ -383,7 +378,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
      * the execution root.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link
-     * #setExecutable(FilesToRunProvider)} and {@link #setExecutable(PathFragment)}.
+     * #setExecutable(ToolProvider)} and {@link #setExecutable(PathFragment)}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(Artifact artifact) {
@@ -453,13 +448,17 @@ public final class SpawnActionTemplate extends ActionKeyComputer
           env,
           executionInfo,
           progressMessage,
-          mnemonic,
-          /* outputPathsMode= */ OutputPathsMode.OFF);
+          mnemonic);
     }
 
     @Override
     protected CommandLineLimits getCommandLineLimits() {
       return CommandLineLimits.UNLIMITED;
+    }
+
+    @Override
+    protected OutputPathsMode getOutputPathsMode() {
+      return OutputPathsMode.OFF;
     }
 
     private static final class Builder extends SpawnAction.Builder {

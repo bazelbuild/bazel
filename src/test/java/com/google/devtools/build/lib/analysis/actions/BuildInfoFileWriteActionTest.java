@@ -79,6 +79,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
                   BazelModuleKey.createFakeModuleKeyForTesting(
                       Label.parseCanonicalUnchecked("//test:label")),
                   RepositoryMapping.EMPTY,
+                  /* moduleRepoName= */ null,
                   "test/label.bzl",
                   /* loads= */ ImmutableList.of(),
                   /* bzlTransitiveDigest= */ new byte[0],
@@ -146,7 +147,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
             false,
             StarlarkSemantics.DEFAULT);
     ActionResult actionResult = action.execute(context);
-    String actual = new String(FileSystemUtils.readContentAsLatin1(outputPath));
+    String actual = FileSystemUtils.readContentAsLatin1(outputPath);
 
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(action.getOutputs()).containsExactly(outputFile);
@@ -183,7 +184,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
             false,
             StarlarkSemantics.DEFAULT);
     ActionResult actionResult = action.execute(context);
-    String actual = new String(FileSystemUtils.readContentAsLatin1(outputPath));
+    String actual = FileSystemUtils.readContentAsLatin1(outputPath);
 
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(action.getOutputs()).containsExactly(outputFile);

@@ -24,15 +24,11 @@ exports_files([
     "srcs_version.bzl",
     "toolchain.bzl",
     "utils.bzl",
-    "private/py_test_alias.bzl",
-    # used in this BUILD file.
 ])
 
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]) + [
-        "private/py_test_alias.bzl",
-    ],
+    srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
 )
 
@@ -106,4 +102,3 @@ alias(
     actual = "@rules_python//python:autodetecting_toolchain",
     deprecation = "Use @rules_python//python:autodetecting_toolchain",
 )
-

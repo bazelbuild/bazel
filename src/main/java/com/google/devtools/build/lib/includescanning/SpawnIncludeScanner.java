@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -71,13 +71,15 @@ public class SpawnIncludeScanner {
   private boolean inMemoryOutput;
   private final int remoteExtractionThreshold;
   private final SyscallCache syscallCache;
+  private final String productName;
 
   /** Constructs a new SpawnIncludeScanner. */
   public SpawnIncludeScanner(
-      Path execRoot, int remoteExtractionThreshold, SyscallCache syscallCache) {
+      Path execRoot, int remoteExtractionThreshold, SyscallCache syscallCache, String productName) {
     this.execRoot = execRoot;
     this.remoteExtractionThreshold = remoteExtractionThreshold;
     this.syscallCache = syscallCache;
+    this.productName = productName;
   }
 
   public void setOutputService(OutputService outputService) {
@@ -101,11 +103,11 @@ public class SpawnIncludeScanner {
       return resolver
           .toPath(src)
           .getParentDirectory()
-          .getRelative(src.getFilename() + ".blaze-grepped_includes_" + fileType);
+          .getRelative(src.getFilename() + "." + productName + "-grepped_includes_" + fileType);
     }
     return resolver
         .convertPath(execRoot)
-        .getChild("blaze-grepped_includes_" + fileType.getFileType())
+        .getChild(productName + "-grepped_includes_" + fileType.getFileType())
         .getRelative(src.getExecPath());
   }
 
@@ -239,17 +241,18 @@ public class SpawnIncludeScanner {
 
     @Override
     public ImmutableMap<String, String> getExecutionInfo() {
-      ImmutableMap<String, String> executionInfo = actionExecutionMetadata.getExecutionInfo();
-      if (executionInfo == null) {
-        executionInfo = actionExecutionMetadata.getExecProperties();
-        if (executionInfo == null) {
-          executionInfo = ImmutableMap.of();
-        }
+      ImmutableMap<String, String> baseProperties = getExecProperties();
+      ImmutableMap<String, String> parentExecutionInfo = actionExecutionMetadata.getExecutionInfo();
+      if (parentExecutionInfo.containsKey(ExecutionRequirements.MAP_DIRECTORY_ACTION)
+          && !baseProperties.containsKey(ExecutionRequirements.MAP_DIRECTORY_ACTION)) {
+        return ImmutableMap.<String, String>builderWithExpectedSize(baseProperties.size() + 1)
+            .putAll(baseProperties)
+            .put(
+                ExecutionRequirements.MAP_DIRECTORY_ACTION,
+                parentExecutionInfo.get(ExecutionRequirements.MAP_DIRECTORY_ACTION))
+            .buildOrThrow();
       }
-      if (executionPlatform != null) {
-        return ActionAnalysisMetadata.mergeMaps(executionPlatform.execProperties(), executionInfo);
-      }
-      return executionInfo;
+      return baseProperties;
     }
 
     @Override
@@ -466,8 +469,15 @@ public class SpawnIncludeScanner {
         Artifact grepIncludes,
         Artifact input,
         ActionInput output) {
+      // The resources are fixed because the execution info is the compile action's: its
+      // `resources:` entries describe the compiler process rather than this grep, and charging them
+      // here would make include scanning book a full compile's worth of resources.
       super(
-          arguments, /* environment= */ ImmutableMap.of(), executionInfo, action, LOCAL_RESOURCES);
+          arguments,
+          /* environment= */ ImmutableMap.of(),
+          executionInfo,
+          action,
+          ResourceSetOrBuilder.ignoringOverrides(LOCAL_RESOURCES));
       this.inputs =
           SpawnInputs.of(NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input));
       this.outputs = ImmutableSet.of(output);

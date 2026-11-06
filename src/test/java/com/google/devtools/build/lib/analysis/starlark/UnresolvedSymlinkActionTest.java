@@ -16,21 +16,20 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
@@ -57,13 +56,12 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
 
   @Before
   public final void setUp() throws Exception {
-    ArtifactRoot binDir = targetConfig.getBinDirectory(RepositoryName.MAIN);
+    ArtifactRoot binDir = targetConfig.getBinDirectory();
     outputArtifact =
-        SpecialArtifact.create(
+        UnresolvedSymlinkArtifact.create(
             binDir,
             binDir.getExecPath().getRelative("symlink"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.UNRESOLVED_SYMLINK);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     outputArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     output = outputArtifact.getPath();
     output.getParentDirectory().createDirectoryAndParents();
@@ -163,7 +161,21 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(action)
+    ImmutableList.Builder<UnresolvedSymlinkAction> actions = ImmutableList.builder();
+    for (SymlinkTargetType targetType : SymlinkTargetType.values()) {
+      for (String progressMessage :
+          ImmutableList.of(
+              UnresolvedSymlinkAction.DEFAULT_PROGRESS_MESSAGE, "Creating unresolved symlink")) {
+        actions.add(
+            UnresolvedSymlinkAction.create(
+                NULL_ACTION_OWNER,
+                outputArtifact,
+                "../some/relative/path",
+                targetType,
+                progressMessage));
+      }
+    }
+    new SerializationTester(actions.build().toArray())
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(Root.RootCodecDependencies.class, new Root.RootCodecDependencies(root))
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
@@ -176,6 +188,8 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
                   .isEqualTo(outAction.getPrimaryOutput().getFilename());
               assertThat(inAction.getOwner()).isEqualTo(outAction.getOwner());
               assertThat(inAction.getProgressMessage()).isEqualTo(outAction.getProgressMessage());
+              assertThat(computeKey(inAction)).isEqualTo(computeKey(outAction));
+              assertThat(inAction.describeKey()).isEqualTo(outAction.describeKey());
             })
         .runTests();
   }

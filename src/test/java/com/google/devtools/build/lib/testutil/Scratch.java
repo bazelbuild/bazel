@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -104,9 +105,7 @@ public final class Scratch {
     return workingDir.getRelative(pathName);
   }
 
-  /**
-   * Create a directory in the scratch filesystem, with the given path name.
-   */
+  /** Create a directory in the scratch filesystem, with the given path name. */
   public Path dir(String pathName) throws IOException {
     Path dir = resolve(pathName);
     if (!dir.exists()) {
@@ -129,7 +128,7 @@ public final class Scratch {
   public Path file(String pathName, Charset charset, String... lines) throws IOException {
     Path file = newFile(pathName);
     FileSystemUtils.writeContent(file, charset, linesAsString(lines));
-    file.setLastModifiedTime(-1L);
+    file.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     return file;
   }
 
@@ -141,6 +140,18 @@ public final class Scratch {
     Path file = newFile(pathName);
     FileSystemUtils.writeContent(file, content);
     return file;
+  }
+
+  /** Creates a symbolic link with the given target path. */
+  @CanIgnoreReturnValue
+  public Path symlink(String linkName, String targetPath) throws IOException {
+    Path path = resolve(linkName);
+    Path parentDir = path.getParentDirectory();
+    if (!parentDir.exists()) {
+      parentDir.createDirectoryAndParents();
+    }
+    path.createSymbolicLink(PathFragment.create(targetPath));
+    return path;
   }
 
   public String readFile(String pathName) throws IOException {
@@ -195,10 +206,11 @@ public final class Scratch {
    */
   public Path overwriteFile(String pathName, Charset charset, String... lines) throws IOException {
     Path oldFile = resolve(pathName);
-    long newMTime = oldFile.exists() ? oldFile.getLastModifiedTime() + 1 : -1;
+    long newMTime =
+        oldFile.exists() ? oldFile.getLastModifiedTimeNanos() + 1 : Path.NOW_SENTINEL_TIME;
     oldFile.delete();
     Path newFile = file(pathName, charset, lines);
-    newFile.setLastModifiedTime(newMTime);
+    newFile.setLastModifiedTimeNanos(newMTime);
     return newFile;
   }
 

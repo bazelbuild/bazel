@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -51,10 +51,6 @@ java_library(
 java_library(
     name = "build_event_service_grpc_client",
     srcs = ["BuildEventServiceGrpcClient.java"],
-    runtime_deps = [
-        # This is required for client TLS.
-        "//third_party/java/netty_tcnative",
-    ],
     deps = [
         ":build_event_service_client",
         ":build_event_service_proto_util",

@@ -67,7 +67,7 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
     return new RemoteRepositoryRemoteExecutor(
         (RemoteExecutionCache) cache,
         remoteExecutor,
-        cache.digestUtil,
+        cache.digestUtil(),
         buildRequestId,
         commandId,
         workspaceName,

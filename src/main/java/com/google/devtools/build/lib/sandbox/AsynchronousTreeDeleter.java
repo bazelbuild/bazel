@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.exec.TreeDeleter;
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -38,10 +39,16 @@ import javax.annotation.Nullable;
  * time via {@link #setThreads(int)}. While a build is running, this number should be low to not use
  * precious resources that could otherwise be used for the build itself. But when the build is
  * finished, this number should be raised to quickly go through any pending deletions.
+ *
+ * <p>The backlog is bounded: once {@link #MAX_PENDING_DELETIONS} trees are waiting, the caller
+ * deletes its own tree synchronously until the backlog drains.
  */
 public class AsynchronousTreeDeleter implements TreeDeleter {
 
   public static final String MOVED_TRASH_DIR = "_moved_trash_dir";
+
+  /** Number of trees that may wait for deletion before callers delete their own. */
+  static final int MAX_PENDING_DELETIONS = 256;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -56,6 +63,11 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
 
   /** Constructs a new asynchronous tree deleter backed by just one thread. */
   public AsynchronousTreeDeleter(Path trashBase) {
+    this(trashBase, MAX_PENDING_DELETIONS);
+  }
+
+  @VisibleForTesting
+  AsynchronousTreeDeleter(Path trashBase, int maxPendingDeletions) {
     logger.atInfo().log("Starting async tree deletion pool with 1 thread");
 
     ThreadFactory threadFactory =
@@ -65,9 +77,19 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
             .setPriority(Thread.MIN_PRIORITY)
             .build();
 
+    // A single thread can fall behind a build indefinitely, and every pending tree keeps its
+    // disk space, inodes and hardlinks to sandbox inputs. Once the queue is full, run the deletion
+    // on the caller instead of queueing it. Unlike CallerRunsPolicy, this also runs it after
+    // shutdown, so a deletion racing with shutdown is not dropped.
     service =
         new ThreadPoolExecutor(
-            1, 1, 0L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+            1,
+            1,
+            10L,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(maxPendingDeletions),
+            threadFactory,
+            (deletion, executor) -> deletion.run());
 
     this.trashBase = trashBase;
   }
@@ -76,15 +98,21 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
    * Resizes the thread pool to the given number of threads.
    *
    * <p>If the pool of active threads is larger than the requested number of threads, the resize
-   * will progressively happen as those active threads become inactive. If the requested size is
-   * zero, this will wait for all pending deletions to complete.
+   * will progressively happen as those active threads become inactive.
    *
-   * @param threads desired number of threads, or 0 to go back to synchronous deletion
+   * @param threads desired number of threads
    */
   void setThreads(int threads) {
     checkState(threads > 0, "Use SynchronousTreeDeleter if no async behavior is desired");
     logger.atInfo().log("Resizing async tree deletion pool to %d threads", threads);
-    checkNotNull(service, "Cannot call setThreads after shutdown").setMaximumPoolSize(threads);
+    ThreadPoolExecutor pool = checkNotNull(service, "Cannot call setThreads after shutdown");
+    // Raise maximumPoolSize before corePoolSize when expanding to maintain the invariant
+    // corePoolSize <= maximumPoolSize. When shrinking, only lower corePoolSize so existing
+    // workers remain alive to drain remaining queued tasks in parallel before timing out.
+    if (threads > pool.getMaximumPoolSize()) {
+      pool.setMaximumPoolSize(threads);
+    }
+    pool.setCorePoolSize(threads);
   }
 
   @Override
@@ -117,7 +145,7 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
                 trashPath.deleteTree();
               } catch (IOException e) {
                 logger.atWarning().withCause(e).log(
-                    "Failed to delete tree %s asynchronously", path);
+                    "Failed to delete tree %s (originally %s) asynchronously", trashPath, path);
               }
             });
   }

@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -158,6 +159,16 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (workspaceLockfile == null || hiddenLockfile == null) {
         return null;
       }
+      // The facts recorded by the most recent actual evaluation of the extension, if there is
+      // such a record at the current facts_version. Unlike the workspace lockfile, the hidden
+      // lockfile is not subject to manual edits or merges, so this can be compared against the
+      // workspace lockfile's facts to detect that they have been modified.
+      @Nullable Facts hiddenLockfileFacts = null;
+      if (hiddenLockfile.getFacts().containsKey(extensionId)
+          && hiddenLockfile.getFactsVersions().getOrDefault(extensionId, 0)
+              == currentFactsVersion) {
+        hiddenLockfileFacts = hiddenLockfile.getFacts().get(extensionId);
+      }
       // Prefer the workspace lockfile facts when present, falling back to the hidden lockfile.
       // In both cases, facts whose stored factsVersion differs from the current extension's
       // facts_version are discarded: the extension's schema may have changed.
@@ -168,11 +179,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           workspaceLockfileFacts = workspaceLockfile.getFacts().get(extensionId);
           lockfileFacts = workspaceLockfileFacts;
         }
-      } else {
-        int hiddenFactsVersion = hiddenLockfile.getFactsVersions().getOrDefault(extensionId, 0);
-        if (hiddenFactsVersion == currentFactsVersion) {
-          lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
-        }
+      } else if (hiddenLockfileFacts != null) {
+        lockfileFacts = hiddenLockfileFacts;
       }
       var lockedExtensionMap = workspaceLockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
@@ -194,7 +202,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   usagesValue,
                   extension.getEvalFactors(),
                   lockedExtension,
-                  lockfileFacts);
+                  lockfileFacts,
+                  hiddenLockfileFacts);
           if (singleExtensionValue != null) {
             return singleExtensionValue;
           }
@@ -281,7 +290,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // influence the evaluation of the extension and the validation also runs when the extension
     // result is taken from the lockfile, we can already populate the lockfile info. This is
     // necessary to prevent the extension from rerunning when only the imports change.
-    if (lockfileMode == LockfileMode.UPDATE || lockfileMode == LockfileMode.REFRESH) {
+    if (lockfileMode != LockfileMode.OFF) {
       lockFileInfo =
           Optional.of(
               new LockFileModuleExtension.WithFactors(
@@ -313,6 +322,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
    * Tries to get the evaluation result from the lockfile, if it's still up-to-date. Otherwise,
    * returns {@code null}.
    *
+   * @param facts the facts to attach to the reused result (workspace lockfile facts if present,
+   *     otherwise the hidden lockfile's)
+   * @param hiddenLockfileFacts the facts recorded by the most recent actual evaluation of the
+   *     extension (kept in the hidden lockfile), or {@code null} if there is no such record
    * @throws NeedsSkyframeRestartException in case we need a skyframe restart. Note that we
    *     <em>don't</em> return {@code null} in this case!
    */
@@ -324,7 +337,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       SingleExtensionUsagesValue usagesValue,
       ModuleExtensionEvalFactors evalFactors,
       LockFileModuleExtension lockedExtension,
-      Facts facts)
+      Facts facts,
+      @Nullable Facts hiddenLockfileFacts)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
@@ -354,10 +368,26 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         diffRecorder.record(
             "an input to the extension '" + extensionId + "' changed: " + reason.get());
       }
+      // The results of a reproducible extension are persisted in the hidden lockfile, so whether
+      // such an extension reruns is determined by output base state. This could result in stale
+      // facts in the workspace lockfile (e.g., modified externally by an edit or VCS merge) not
+      // being recognized (in ERROR mode) or repaired (in UPDATE mode) depending on this essentially
+      // invisible state. Since the hidden lockfile is meant to be a fully transparent optimization,
+      // we avoid this by comparing the facts to the ones persisted in it, which have been obtained
+      // from a prior evaluation of the extension. Since it is reproducible and no other diffs have
+      // been detected up to this point, the facts must be what the workspace lockfile should
+      // contain.
+      if (lockedExtension.isReproducible()
+          && !facts.equals(Facts.EMPTY)
+          && !facts.equals(hiddenLockfileFacts)) {
+        diffRecorder.record(
+            "the facts recorded in the lockfile for the extension '"
+                + extensionId
+                + "' do not match the result of its most recent evaluation");
+      }
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
     }
-    // There is intentionally no diff check for facts - they are never invalidated by Bazel.
     if (!diffRecorder.anyDiffsDetected()) {
       return createSingleExtensionValue(
           lockedExtension.getGeneratedRepoSpecs(),
@@ -445,7 +475,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 .get()
                 .generateFixup(
                     usagesValue.getExtensionUsages().get(ModuleKey.ROOT),
-                    generatedRepoSpecs.keySet());
+                    generatedRepoSpecs.keySet(),
+                    usagesValue.getRepoOverrides().entrySet().stream()
+                        .filter(e -> e.getValue().isMain())
+                        .map(e -> e.getKey())
+                        .collect(toImmutableSet()));
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(

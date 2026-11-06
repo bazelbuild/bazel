@@ -20,6 +20,24 @@ import java.util.Arrays;
 
 /** Partial implementation of an immutable {@code StarlarkList}. */
 abstract class ImmutableStarlarkList<E> extends StarlarkList<E> {
+  private transient int hashCode;
+
+  @Override
+  public final int hashCode() {
+    int h = hashCode;
+    if (h == 0) {
+      h = computeHashCode();
+      if (h == 0) {
+        h = 1;
+      }
+      hashCode = h;
+    }
+    return h;
+  }
+
+  int computeHashCode() {
+    return super.hashCode();
+  }
 
   @Override
   public final boolean isImmutable() {

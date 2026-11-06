@@ -254,7 +254,6 @@ bootstrap_java_library = rule(
 java_binary_attrs_common = dict(java_library_attrs)
 java_binary_attrs_common.update({
     "jvm_flags": attr.string_list(),
-    "jvm": attr.label(default = Label("@bazel_tools//tools/jdk:jdk"), allow_files = True),
 })
 
 java_binary_attrs = dict(java_binary_attrs_common)

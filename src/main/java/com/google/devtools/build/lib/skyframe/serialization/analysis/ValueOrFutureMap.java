@@ -59,6 +59,9 @@ final class ValueOrFutureMap<
       if (future.tryTakeOwnership()) {
         try {
           return populator.apply(future);
+        } catch (RuntimeException | Error e) {
+          future = future.failWith(e);
+          throw e;
         } finally {
           future.verifyComplete();
         }

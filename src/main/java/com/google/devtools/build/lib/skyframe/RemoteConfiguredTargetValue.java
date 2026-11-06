@@ -164,8 +164,9 @@ public sealed class RemoteConfiguredTargetValue
               "tried to serialize a cleared ConfiguredTargetValue? %s",
               obj);
       context.serialize(configuredTarget, codedOut);
-      if (obj instanceof RemoteConfiguredTargetValue value) {
-        context.serialize(value.targetData, codedOut);
+      TargetData targetData = obj.getTargetData();
+      if (targetData != null) {
+        context.serialize(targetData, codedOut);
         return;
       }
 
@@ -208,6 +209,13 @@ public sealed class RemoteConfiguredTargetValue
       private ConfiguredTarget configuredTarget;
       private TargetData targetData;
 
+      /**
+       * Returns a new {@link RemoteConfiguredTargetValue} instance for every retrieval.
+       *
+       * <p>This is required because Skycache invalidation ({@link
+       * SkyframeExecutor#isLocallyDelegated}) relies on reference identity to distinguish locally
+       * delegated nodes from independently deserialized ones.
+       */
       @Override
       public RemoteConfiguredTargetValue call() {
         checkNotNull(configuredTarget);

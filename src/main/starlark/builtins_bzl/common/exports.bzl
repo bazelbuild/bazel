@@ -14,6 +14,8 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
+_: Any  # Enable type checking.
+
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
     # that builtins injection is working properly. Its built-in value is
@@ -31,7 +33,7 @@ exported_toplevels = {
 #   on the Bazel command line
 # * no leading symbol means the Starlark rule is used and can't be overridden
 # * leading `-` means the Starlark rule exists, but is not used by default
-exported_rules = {}
+exported_rules: dict[str, Any] = {}
 
 # A list of Starlark functions callable from native rules implementation.
-exported_to_java = {}
+exported_to_java: dict[str, Any] = {}

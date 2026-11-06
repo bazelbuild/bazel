@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -183,8 +182,6 @@ public class BuildRequest implements OptionsProvider {
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
   private final Set<String> starlarkOptionsAllowingMultiple;
-  private final Map<String, String> scopesAttributes;
-  private final Map<String, Object> onLeaveScopeValues;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -239,8 +236,6 @@ public class BuildRequest implements OptionsProvider {
                 });
     this.starlarkOptions = options.getStarlarkOptions();
     this.starlarkOptionsAllowingMultiple = options.getStarlarkOptionsAllowingMultiple();
-    this.scopesAttributes = options.getScopesAttributes();
-    this.onLeaveScopeValues = options.getOnLeaveScopeValues();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
     this.checkForActionConflicts = checkForActionConflicts;
@@ -274,16 +269,6 @@ public class BuildRequest implements OptionsProvider {
   @Override
   public Map<String, Object> getStarlarkOptions() {
     return starlarkOptions;
-  }
-
-  @Override
-  public Map<String, String> getScopesAttributes() {
-    return scopesAttributes;
-  }
-
-  @Override
-  public Map<String, Object> getOnLeaveScopeValues() {
-    return onLeaveScopeValues;
   }
 
   @Override
@@ -424,12 +409,13 @@ public class BuildRequest implements OptionsProvider {
     BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).getTestStrategy().equals("exclusive"),
-        getOptions(BuildEventProtocolOptions.class).getExpandFilesets(),
         OutputGroupInfo.determineOutputGroups(
             buildOptions.getOutputGroups(),
+            buildOptions.getExtraDefaultOutputGroups(),
             validationMode(),
             /* shouldRunTests= */ shouldRunTests()),
-        buildOptions.getIncompatibleFailOnUnknownOutputGroups());
+        buildOptions.getIncompatibleFailOnUnknownOutputGroups(),
+        /* forRunCommand= */ commandName.equals("run"));
   }
 
   public ImmutableList<String> getAspects() {

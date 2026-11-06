@@ -89,6 +89,28 @@ public class SafeRequestLoggingTest {
   }
 
   @Test
+  public void testGetRequestLogStringStripsApparentCredentialValues() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=COURSIER_CREDENTIALS=notprinted",
+                    "--client_env=other=isprinted")))
+        .isEqualTo(
+            "[--client_env=COURSIER_CREDENTIALS=__private_value_removed__,"
+                + " --client_env=other=isprinted]");
+  }
+
+  @Test
+  public void testGetRequestLogStringStripsApparentSecretValues() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=my_SeCrEt=notprinted", "--client_env=other=isprinted")))
+        .isEqualTo(
+            "[--client_env=my_SeCrEt=__private_value_removed__, --client_env=other=isprinted]");
+  }
+
+  @Test
   public void testGetRequestLogIgnoresSensitiveTermsInValues() {
     assertThat(SafeRequestLogging.getRequestLogString(ImmutableList.of("--client_env=ok=COOKIE")))
         .isEqualTo("[--client_env=ok=COOKIE]");
@@ -145,6 +167,27 @@ public class SafeRequestLoggingTest {
             "--remote_header",
             "<REDACTED>",
             "--some_other_flag")
+        .inOrder();
+  }
+
+  @Test
+  public void testRedactArgumentsRedactsInvocationPolicy() {
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "blaze",
+            "--invocation_policy=flag_policies:{flag_name:'bes_header'}",
+            "--batch",
+            "--invocation_policy",
+            "flag_policies:{flag_name:'bes_header'}",
+            "build");
+    assertThat(SafeRequestLogging.redactArguments(args))
+        .containsExactly(
+            "blaze",
+            "--invocation_policy=<REDACTED>",
+            "--batch",
+            "--invocation_policy",
+            "<REDACTED>",
+            "build")
         .inOrder();
   }
 }

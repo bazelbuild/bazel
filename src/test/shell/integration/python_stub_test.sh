@@ -48,6 +48,9 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 # mock interpreter rather than a system interpreter, see discussion in #7947).
 
 use_fake_python_runtimes_for_testsuite
+if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+  add_to_bazelrc "common --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all"
+fi
 
 #### TESTS #############################################################
 

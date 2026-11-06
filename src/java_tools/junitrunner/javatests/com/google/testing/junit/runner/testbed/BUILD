@@ -30,5 +30,4 @@ filegroup(
         "BUILD",
         "XmlOutputExercises.ant.xml",
     ],
-    visibility = ["//src:__subpackages__"],
 )

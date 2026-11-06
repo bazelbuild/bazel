@@ -26,7 +26,7 @@ fi
 PROTO_FILES=$(find third_party/remoteapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto -name "*.proto")
 # For protobuf jars, derived/jars/protobuf+/java/core/libcore.jar must be in front of derived/jars/protobuf+/java/core/liblite.jar, so we sort jars here
 LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder | tr "\n" " ")
-MAVEN_JARS=$(find "derived/maven" -name '*.jar' | sort | grep -Fv netty-tcnative | tr "\n" " ")
+MAVEN_JARS=$(find "derived/maven" -name '*.jar' | sort | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
 ANNOTATION_PROCESSOR_FILES=$(echo src/main/java/com/google/devtools/common/options/processor/OptionsClassProcessor.java src/main/java/com/google/devtools/build/lib/skybridge/SkybridgeInterface.java src/main/java/com/google/devtools/common/options/{Option.java,OptionMetadataTag.java,OptionEffectTag.java,OptionDocumentationCategory.java,OptionsClass.java,Converter.java,OptionsParsingException.java,processor/OptionProcessorException.java,processor/ProcessorUtils.java})

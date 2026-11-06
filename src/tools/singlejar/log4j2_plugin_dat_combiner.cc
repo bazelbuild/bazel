@@ -49,55 +49,56 @@ inline static T swapByteOrder(const T& val) {
   return swapped;
 }
 
-bool readBool(std::istringstream& stream) {
-  bool value;
+static bool readBool(std::istringstream& stream) {
+  uint8_t value = 0;
   stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-  if (stream.eof()) {
+  if (!stream) {
     diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
               __LINE__);
   }
-  return value;
+  return value != 0;
 }
 
-uint32_t readInt(std::istringstream& stream) {
-  uint32_t value;
+static uint32_t readInt(std::istringstream& stream) {
+  uint32_t value = 0;
   stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-  if (stream.eof()) {
+  if (!stream) {
     diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
               __LINE__);
   }
   return swapByteOrder(value);
 }
 
-std::string readUTFString(std::istringstream& stream) {
-  uint16_t length;
+static std::string readUTFString(std::istringstream& stream) {
+  uint16_t length = 0;
   stream.read(reinterpret_cast<char*>(&length), sizeof(length));
-  if (stream.eof()) {
+  if (!stream) {
     diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
               __LINE__);
   }
   length = swapByteOrder(length);  // Convert to host byte order
   std::string result(length, '\0');
   stream.read(&result[0], length);
-  if (stream.eof()) {
+  if (!stream) {
     diag_errx(1, "%s:%d: Log4j2Plugins.dat file is malformed", __FILE__,
               __LINE__);
   }
   return result;
 }
 
-void writeBoolean(std::vector<uint8_t>& buffer, bool value) {
+static void writeBoolean(std::vector<uint8_t>& buffer, bool value) {
   uint8_t byte = value ? 1 : 0;
   buffer.push_back(byte);
 }
 
-void writeInt(std::vector<uint8_t>& buffer, int value) {
+static void writeInt(std::vector<uint8_t>& buffer, int value) {
   value = swapByteOrder(value);
   const uint8_t* data = reinterpret_cast<const uint8_t*>(&value);
   buffer.insert(buffer.end(), data, data + sizeof(value));
 }
 
-void writeUTFString(std::vector<uint8_t>& buffer, const std::string& str) {
+static void writeUTFString(std::vector<uint8_t>& buffer,
+                           const std::string& str) {
   uint16_t length = swapByteOrder(static_cast<uint16_t>(str.size()));
   const uint8_t* lengthData = reinterpret_cast<const uint8_t*>(&length);
   buffer.insert(buffer.end(), lengthData, lengthData + sizeof(length));
@@ -108,7 +109,7 @@ void writeUTFString(std::vector<uint8_t>& buffer, const std::string& str) {
 //
 // Modeled after the Java canonical implementation here:
 // https://github.com/apache/logging-log4j2/blob/8573ef778d2fad2bbec50a687955dccd2a616cc5/log4j-core/src/main/java/org/apache/logging/log4j/core/config/plugins/processor/PluginCache.java#L66-L85
-std::vector<uint8_t> writeLog4j2PluginCacheFile(
+static std::vector<uint8_t> writeLog4j2PluginCacheFile(
     const std::map<std::string, std::map<std::string, PluginEntry>>&
         categories) {
   std::vector<uint8_t> buffer;

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore.GetRequest;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -334,7 +335,7 @@ public final class SerializationWithSkyframeTest {
   @Nullable
   private static ListenableFuture<?> processWithEntries(
       SkyframeLookupContinuation continuation, Map<SkyKey, Object> entries)
-      throws InterruptedException, SkyframeDependencyException {
+      throws InterruptedException, SkyframeDependencyException, LookupAbandonedException {
     return continuation.process(new EnvironmentForUtilities(entries::get));
   }
 

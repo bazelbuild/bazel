@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -96,6 +96,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/profiler:memory_profiler",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:build_event_streamer",
         "//src/main/java/com/google/devtools/build/lib/runtime:common_command_options",
@@ -112,7 +113,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",
-        "//third_party/google/protobuf:any_java_proto",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
@@ -173,13 +173,12 @@ java_library(
 IMPL_VISIBILITY = [
     "//src/main/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
     "//src/test/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
-    "//java/com/google/devtools/build/lib/blaze/google/buildeventservice:__subpackages__",
-    "//javatests/com/google/devtools/build/lib/blaze/google/buildeventservice:__subpackages__",
 ]
 
 java_library(
     name = "command_context_impl",
     srcs = ["CommandContextImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:command_context",
         "//third_party/java/error_prone:annotations",
@@ -192,6 +191,7 @@ java_library(
 java_library(
     name = "build_enqueued_impl",
     srcs = ["BuildEnqueuedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -201,6 +201,7 @@ java_library(
 java_library(
     name = "invocation_started_impl",
     srcs = ["InvocationStartedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -210,6 +211,7 @@ java_library(
 java_library(
     name = "invocation_finished_impl",
     srcs = ["InvocationFinishedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -219,6 +221,7 @@ java_library(
 java_library(
     name = "build_finished_impl",
     srcs = ["BuildFinishedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -228,6 +231,7 @@ java_library(
 java_library(
     name = "bazel_event_impl",
     srcs = ["BazelEventImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:stream_event",
         "//third_party/java/guava:base",
@@ -237,6 +241,7 @@ java_library(
 java_library(
     name = "stream_finished_impl",
     srcs = ["StreamFinishedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:stream_event",
         "//third_party/java/guava:base",

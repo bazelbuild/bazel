@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import javax.annotation.Nullable;
 
 /**
@@ -52,6 +53,8 @@ public interface BuildConfigurationInfo {
 
   CommandLineLimits getCommandLineLimits();
 
+  OutputPathsMode getOutputPathsMode();
+
   /**
    * An auto value class of {@link BuildConfigurationInfo}. This provides a convenient way for
    * creating {@link BuildConfigurationInfo} with only the four fields provided.
@@ -70,6 +73,11 @@ public interface BuildConfigurationInfo {
     @Override
     public final CommandLineLimits getCommandLineLimits() {
       return CommandLineLimits.UNLIMITED;
+    }
+
+    @Override
+    public final OutputPathsMode getOutputPathsMode() {
+      return OutputPathsMode.OFF;
     }
   }
 }

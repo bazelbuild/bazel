@@ -57,8 +57,6 @@ exports_files(["BUILD"])
 EOF
   mkdir external
   bazel build ... &> $TEST_log || fail "Failed to build ..."
-  bazel build --experimental_sibling_repository_layout ... &> $TEST_log \
-      || fail "Failed to build ..."
 }
 
 run_suite "empty package tests"

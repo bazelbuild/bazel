@@ -5,7 +5,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 #   Open-sourced as part of Bazel.
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:private"],
 )
 
 filegroup(
@@ -14,7 +14,10 @@ filegroup(
         "//src/main/java/com/google/devtools/common/options/processor:srcs",
         "//src/main/java/com/google/devtools/common/options/testing:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )
 
 java_library(
@@ -22,6 +25,9 @@ java_library(
     srcs = [
         "InvocationPolicyEnforcer.java",
         "InvocationPolicyParser.java",
+    ],
+    visibility = [
+        "//src:__subpackages__",
     ],
     deps = [
         ":options_internal",
@@ -41,6 +47,9 @@ java_library(
         "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor",
         "//src/main/java/com/google/devtools/common/options/processor:options_class_processor",
     ],
+    visibility = [
+        "//src:__subpackages__",
+    ],
     exports = [":options_internal"],
 )
 
@@ -54,6 +63,10 @@ java_library(
             "InvocationPolicyParser.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/common/options/processor:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
@@ -74,6 +87,9 @@ java_library(
 java_library(
     name = "html_utils",
     srcs = ["HtmlUtils.java"],
+    visibility = [
+        "//src:__subpackages__",
+    ],
     deps = [
         ":options_internal",
         "//src/main/java/com/google/devtools/build/lib/util:markdown",

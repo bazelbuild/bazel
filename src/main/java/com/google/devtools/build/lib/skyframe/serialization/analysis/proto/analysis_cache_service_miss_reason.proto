@@ -31,4 +31,10 @@ enum MissReason {
   MISS_REASON_INFRA_FAILURE = 5;
   // The cache client is saturated and shed the lookup request.
   MISS_REASON_CACHE_SATURATED = 6;
+  // The lookup succeeded, but the retrieved value did not contain a max
+  // transitive source version during a skycache-analysis-only build.
+  MISS_REASON_MISSING_MTSV = 7;
+  // All scheduling hashes were exhausted due to bad hash responses. This is
+  // only set by the client.
+  MISS_REASON_SCHEDULING_HASHES_EXHAUSTED = 8;
 }

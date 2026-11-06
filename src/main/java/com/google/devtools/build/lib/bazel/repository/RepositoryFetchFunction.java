@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -183,10 +182,18 @@ public final class RepositoryFetchFunction implements SkyFunction {
               env,
               "starlark-repository-" + repositoryName.getName(),
               (workerEnv) -> {
-                return computeInternal(
-                    workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
+                var value =
+                    computeInternal(
+                        workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
+                // An ongoing progress event has no matching finished event if computeInternal
+                // returns null for deps in error, or finds the repo up to date after the
+                // CancellationException retry below. A null return is final because the worker
+                // never sees Skyframe restarts.
+                workerEnv.getListener().post(RepositoryFetchProgress.finished(repositoryName));
+                return value;
               });
         } catch (ExecutionException e) {
+          env.getListener().post(RepositoryFetchProgress.finished(repositoryName));
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
           Throwables.throwIfUnchecked(e.getCause());
@@ -366,28 +373,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
           RootedPath cachedRepoDirRootedPath =
               RootedPath.toRootedPath(
                   Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir);
-          // Don't forget to register a FileStateValue on the cache repo dir, so that we know to
+          // Don't forget to register a FileValue on the cache repo dir, so that we know to
           // refetch if the cache entry gets GC'd from under us or the entire cache is deleted.
-          //
-          // Note that registering a FileValue dependency instead would lead to subtly incorrect
-          // behavior when the repo contents cache directory is deleted between builds:
-          // 1. We register a FileValue dependency on the cache entry.
-          // 2. Before the next build, the repo contents cache directory is deleted.
-          // 3. On the next build, FileSystemValueChecker invalidates the underlying
-          //    FileStateValue, which in turn results in the FileValue and the current
-          //    RepositoryDirectoryValue being marked as dirty.
-          // 4. Skyframe visits the dirty nodes bottom up to check for actual changes. In
-          //    particular, it reevaluates FileFunction before RepositoryFetchFunction and thus
-          //    the FileValue of the repo contents cache directory is locked in as non-existent
-          //    before RepositoryFetchFunction can recreate it.
-          // 5. Any other SkyFunction that depends on the FileValue of a file in the repo (e.g.
-          //    PackageFunction) will report that file as missing since the resolved path has a
-          //    parent that is non-existent.
-          // By using FileStateValue directly, which benefits from special logic built into
-          // DirtinessCheckerUtils that recognizes the repo contents cache directories with
-          // non-UUID names and prevents locking in their value during dirtiness checking, we
-          // avoid 4. and thus the incorrect missing file errors in 5.
-          if (env.getValue(FileStateValue.key(cachedRepoDirRootedPath)) == null) {
+          // The FileValue also depends on the parent directories of the entry, which is only safe
+          // since those in the repo contents cache are never invalidated and thus can't be locked
+          // in as non-existent before a refetch recreates them, see
+          // ExternalFilesHelper.FileType.REPO_CONTENTS_CACHE_DIRS.
+          if (env.getValue(FileValue.key(cachedRepoDirRootedPath)) == null) {
             return null;
           }
         }
@@ -395,7 +387,19 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
     }
 
-    if (!repoRoot.exists()) {
+    boolean repoRootExists;
+    try {
+      repoRootExists = repoRoot.exists();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "error checking whether repository root %s exists: %s"
+                  .formatted(repoRoot, e.getMessage()),
+              e),
+          Transience.TRANSIENT);
+    }
+
+    if (!repoRootExists) {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
           new IOException(
@@ -427,7 +431,20 @@ public final class RepositoryFetchFunction implements SkyFunction {
       throws RepositoryFunctionException, InterruptedException {
     Path vendorPath = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).get();
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
-    if (vendorRepoPath.exists()) {
+
+    boolean vendorRepoExists;
+    try {
+      vendorRepoExists = vendorRepoPath.exists();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "error checking whether vendored repo %s exists: %s"
+                  .formatted(vendorRepoPath, e.getMessage()),
+              e),
+          Transience.TRANSIENT);
+    }
+
+    if (vendorRepoExists) {
       Path vendorMarker = vendorPath.getChild(repositoryName.getMarkerFileName());
       if (vendorFile.pinnedRepos().contains(repositoryName)) {
         // pinned repos are used as they are without checking their marker file
@@ -736,8 +753,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
 
+    boolean isOutputDirectoryValidRepoRoot;
+    try {
+      isOutputDirectoryValidRepoRoot = RepositoryUtils.isValidRepoRoot(outputDirectory);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+
     // Make sure the fetched repo has a boundary file.
-    if (!RepositoryUtils.isValidRepoRoot(outputDirectory)) {
+    if (!isOutputDirectoryValidRepoRoot) {
       boolean isSymbolicLink;
       try {
         isSymbolicLink = outputDirectory.isSymbolicLink();
@@ -877,7 +901,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // Check that the directory contains a repo boundary file.
     // Note that we need to do this here since we're not creating a repo boundary file ourselves,
     // but entrusting the entire contents of the repo root to this target directory.
-    if (!RepositoryUtils.isValidRepoRoot(destination)) {
+
+    boolean isDestinationValidRepoRoot;
+    try {
+      isDestinationValidRepoRoot = RepositoryUtils.isValidRepoRoot(destination);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+
+    if (!isDestinationValidRepoRoot) {
       throw new RepositoryFunctionException(
           new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
           Transience.TRANSIENT);

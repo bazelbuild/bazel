@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -44,7 +43,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Processes a directory that may contain a package and subdirectories for the benefit of processes
@@ -162,7 +160,6 @@ public final class ProcessPackageDirectory {
       return reportErrorAndReturn(
           "Failed to list directory contents", e, rootRelativePath, env.getListener());
     }
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -172,13 +169,8 @@ public final class ProcessPackageDirectory {
         dirListingValue, "%s %s %s", rootedPath, repositoryName, dirListingKey);
     return new ProcessPackageDirectoryResult(
         pkgLookupValue.packageExists() && pkgLookupValue.getRoot().equals(rootedPath.getRoot()),
-        getSubdirDeps(
-            dirListingValue,
-            rootedPath,
-            repositoryName,
-            excludedPaths,
-            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
-        /*additionalValuesToAggregate=*/ ImmutableMap.of());
+        getSubdirDeps(dirListingValue, rootedPath, repositoryName, excludedPaths),
+        /* additionalValuesToAggregate= */ ImmutableMap.of());
   }
 
   // Note that it's not enough to just check for the convenience symlinks themselves,
@@ -262,8 +254,7 @@ public final class ProcessPackageDirectory {
       DirectoryListingValue dirListingValue,
       RootedPath rootedPath,
       RepositoryName repositoryName,
-      IgnoredSubdirectories excludedPaths,
-      boolean siblingRepositoryLayout) {
+      IgnoredSubdirectories excludedPaths) {
     Root root = rootedPath.getRoot();
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
@@ -282,11 +273,8 @@ public final class ProcessPackageDirectory {
       }
       String basename = dirent.getName();
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
-      if (!siblingRepositoryLayout
-          && subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)
-          && repositoryName.isMain()) {
-        // Subpackages under //external in the main repo can be processed only
-        // when --experimental_sibling_repository_layout is set.
+      if (subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME) && repositoryName.isMain()) {
+        // //external in the main repo is a reserved package name and never hosts subpackages.
         continue;
       }
 

@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
-
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -25,16 +24,16 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.MacroInstance;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleOrMacroInstance;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -88,13 +87,24 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     /** Consuming target. */
     Rule consumer;
 
-    /** The rule that this edge is an implicit dep of (if applicable). */
+    /**
+     * The rule that this edge is an implicit dep of (if applicable).
+     *
+     * <p>(Mutually exclusive with {@code owningAspect} and {@code owningSubrule}.)
+     */
     @Nullable RuleClass owningRule;
+
+    /**
+     * The subrule that this edge is an implicit dep of (if applicable).
+     *
+     * <p>(Mutually exclusive with {@code owningRule} and {@code owningAspect}.)
+     */
+    @Nullable StarlarkSubruleApi owningSubrule;
 
     /**
      * The aspect that this edge is an implicit dep of (if applicable).
      *
-     * <p>(Mutually exclusive with {@code owningRule}.)
+     * <p>(Mutually exclusive with {@code owningRule} and {@code owningSubrule}.)
      */
     @Nullable StarlarkAspectClass owningAspect;
 
@@ -111,31 +121,55 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
     /** Whether this edge is for an implicit dep. */
     boolean isImplicitDep() {
-      return owningRule != null || owningAspect != null;
+      return owningRule != null || owningAspect != null || owningSubrule != null;
     }
 
     /** The type of owner (if applicable). */
     @Nullable
     String getOwnerKind() {
-      return owningRule != null ? "rule" : owningAspect != null ? "aspect" : null;
+      if (owningRule != null) {
+        return "rule";
+      }
+      if (owningAspect != null) {
+        return "aspect";
+      }
+      if (owningSubrule != null) {
+        return "subrule";
+      }
+      return null;
     }
 
     /**
-     * The exported identifier of the owning rule or aspect (if applicable), e.g. {@code "my_rule"}.
+     * The exported identifier of the owning rule, subrule or aspect (if applicable), e.g. {@code
+     * "my_rule"}.
      */
     @Nullable
     String getOwnerName() {
-      return owningRule != null
-          ? owningRule.getName()
-          : owningAspect != null ? owningAspect.getExportedName() : null;
+      if (owningRule != null) {
+        return owningRule.getName();
+      }
+      if (owningAspect != null) {
+        return owningAspect.getExportedName();
+      }
+      if (owningSubrule != null) {
+        return owningSubrule.getName();
+      }
+      return null;
     }
 
     /** The .bzl of the owning rule or aspect (if applicable). */
     @Nullable
     Label getOwnerDefinitionBzl() {
-      return owningRule != null
-          ? owningRule.getRuleDefinitionEnvironmentLabel()
-          : owningAspect != null ? owningAspect.getExtensionLabel() : null;
+      if (owningRule != null) {
+        return owningRule.getRuleDefinitionEnvironmentLabel();
+      }
+      if (owningAspect != null) {
+        return owningAspect.getExtensionLabel();
+      }
+      if (owningSubrule != null) {
+        return owningSubrule.getExtensionLabel();
+      }
+      return null;
     }
 
     /** The definition location of the owning rule or aspect (if applicable). */
@@ -200,9 +234,15 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     state.verboseVisibilityErrors = context.getConfiguration().verboseVisibilityErrors();
 
     if (isImplicitDep) {
-      // Populate the state with the relevant rule or aspect's info.
+      // Populate the state with the relevant subrule, rule or aspect's info.
       if (mainAspect != null) {
-        state.owningAspect = ((StarlarkAspectClass) mainAspect.getAspectClass());
+        StarlarkSubrule owningSubrule =
+            maybeGetOwningSubrule(attrName, mainAspect.getDefinition().getSubrules());
+        if (owningSubrule != null) {
+          state.owningSubrule = owningSubrule;
+        } else {
+          state.owningAspect = ((StarlarkAspectClass) mainAspect.getAspectClass());
+        }
       } else {
         // Rule extensions can't override private attributes, so we can just walk up the chain to
         // find the rule class that actually introduced the attribute and thus its default.
@@ -212,7 +252,12 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
             && parent.getAttributeProvider().getAttributeByNameMaybe(attrName) != null) {
           owningRule = parent;
         }
-        state.owningRule = owningRule;
+        StarlarkSubrule owningSubrule = maybeGetOwningSubrule(attrName, owningRule.getSubrules());
+        if (owningSubrule != null) {
+          state.owningSubrule = owningSubrule;
+        } else {
+          state.owningRule = owningRule;
+        }
       }
 
       if (!isVisibleToLocation(
@@ -233,6 +278,17 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         context.ruleError(generateVisibilityConflictMessage(state));
       }
     }
+  }
+
+  @Nullable
+  private StarlarkSubrule maybeGetOwningSubrule(
+      String attrName, Collection<? extends StarlarkSubruleApi> subrules) {
+    for (StarlarkSubrule subrule : StarlarkSubrule.getTransitiveSubrules(subrules)) {
+      if (subrule.hasAttr(attrName)) {
+        return subrule;
+      }
+    }
+    return null;
   }
 
   /**
@@ -713,7 +769,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       Rule rule,
       ConfiguredTargetAndData prerequisite,
       boolean forAspect) {
-    if (forAspect || attributeOrNull(rule, "deprecation", Type.STRING) != null) {
+    if (forAspect || rule.getDeprecationWarning() != null) {
       // No warning for aspects because the base target would already have the warning.
       // No warning if the current target is already deprecated.
       return;
@@ -764,7 +820,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // getTarget() called by the depender will not return the alias rule, but its actual target
       return;
     }
-    if (!prerequisite.isTestOnly() || isTestOnlyRule(rule)) {
+    if (!prerequisite.isTestOnly() || rule.isTestOnly()) {
       return;
     }
 
@@ -796,10 +852,5 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     } else {
       context.ruleError(message);
     }
-  }
-
-  private static boolean isTestOnlyRule(Rule rule) {
-    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
-    return mapper.has("testonly", Type.BOOLEAN) && mapper.get("testonly", Type.BOOLEAN);
   }
 }

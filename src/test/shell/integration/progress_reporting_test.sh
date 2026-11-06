@@ -84,7 +84,7 @@ function test_respects_progress_interval() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
-  local -r MATCHER="Executing genrule //${pkg}:x; [0-9]s local"
+  local -r MATCHER="Executing genrule //${pkg}:x; [0-9]s (local)"
 
   cat >"${pkg}/BUILD" <<'EOF'
 genrule(

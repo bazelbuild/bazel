@@ -25,11 +25,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -169,14 +168,12 @@ public class ActionCacheChecker {
 
   @Nullable
   private static TreeArtifactValue getCachedTreeMetadata(
-      @Nullable CachedOutputMetadata cachedOutputMetadata, Artifact artifact) {
-    checkArgument(artifact.isTreeArtifact());
-
+      @Nullable CachedOutputMetadata cachedOutputMetadata, TreeArtifact artifact) {
     if (cachedOutputMetadata == null) {
       return null;
     }
 
-    return cachedOutputMetadata.treeMetadata.get((SpecialArtifact) artifact);
+    return cachedOutputMetadata.treeMetadata.get(artifact);
   }
 
   /**
@@ -200,6 +197,7 @@ public class ActionCacheChecker {
   private static boolean isUpToDate(
       ActionCache.Entry entry,
       Action action,
+      Token token,
       String actionKey,
       NestedSet<Artifact> actionInputs,
       InputMetadataProvider inputMetadataProvider,
@@ -221,14 +219,14 @@ public class ActionCacheChecker {
             useArchivedTreeArtifacts);
 
     for (Artifact artifact : action.getOutputs()) {
-      if (artifact.isTreeArtifact()) {
-        TreeArtifactValue treeMetadata = getCachedTreeMetadata(cachedOutputMetadata, artifact);
+      if (artifact instanceof TreeArtifact treeArtifact) {
+        TreeArtifactValue treeMetadata = getCachedTreeMetadata(cachedOutputMetadata, treeArtifact);
         if (treeMetadata == null) {
-          treeMetadata = getOutputTreeMetadataMaybe(outputMetadataStore, artifact);
+          treeMetadata = getOutputTreeMetadataMaybe(outputMetadataStore, treeArtifact);
         }
         if (treeMetadata != null
-            && shouldTrustTreeMetadata(artifact, treeMetadata, outputChecker)) {
-          builder.addOutputTree((SpecialArtifact) artifact, treeMetadata);
+            && shouldTrustTreeMetadata(treeArtifact, treeMetadata, outputChecker)) {
+          builder.addOutputTree(treeArtifact, treeMetadata);
         } else {
           return false;
         }
@@ -249,6 +247,12 @@ public class ActionCacheChecker {
       FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
       builder.addInputFile(artifact, inputMetadata);
     }
+    // Stash the input digest for reuse when the entry is written after execution. Actions that
+    // discover inputs are excluded: their input set may still grow during execution, and their
+    // discovered exec paths must be recorded individually.
+    if (!action.discoversInputs()) {
+      token.setInputDigest(builder.getInputDigest());
+    }
     return Arrays.equals(entry.getDigest(), builder.build().getDigest());
   }
 
@@ -258,7 +262,7 @@ public class ActionCacheChecker {
     if (outputChecker == null) {
       return true;
     }
-    return outputChecker.shouldTrustMetadata(artifact, metadata);
+    return outputChecker.shouldTrustCachedMetadata(artifact, metadata);
   }
 
   private static boolean shouldTrustTreeMetadata(
@@ -278,7 +282,7 @@ public class ActionCacheChecker {
               .getArchivedRepresentation()
               .map(ArchivedRepresentation::archivedFileValue)
               .orElseThrow();
-      if (!outputChecker.shouldTrustMetadata(archivedArtifact, archivedMetadata)) {
+      if (!outputChecker.shouldTrustCachedMetadata(archivedArtifact, archivedMetadata)) {
         return false;
       }
     }
@@ -286,7 +290,7 @@ public class ActionCacheChecker {
         treeMetadata.getChildValues().entrySet()) {
       TreeFileArtifact child = entry.getKey();
       FileArtifactValue childMetadata = entry.getValue();
-      if (!outputChecker.shouldTrustMetadata(child, childMetadata)) {
+      if (!outputChecker.shouldTrustCachedMetadata(child, childMetadata)) {
         return false;
       }
     }
@@ -327,19 +331,18 @@ public class ActionCacheChecker {
    */
   private record CachedOutputMetadata(
       ImmutableMap<Artifact, FileArtifactValue> fileMetadata,
-      ImmutableMap<SpecialArtifact, TreeArtifactValue> treeMetadata) {}
+      ImmutableMap<TreeArtifact, TreeArtifactValue> treeMetadata) {}
 
   private CachedOutputMetadata loadCachedOutputMetadata(
       Action action, ActionCache.Entry entry, OutputMetadataStore outputMetadataStore)
       throws InterruptedException {
     ImmutableMap.Builder<Artifact, FileArtifactValue> mergedFileMetadata = ImmutableMap.builder();
-    ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata =
+    ImmutableMap.Builder<TreeArtifact, TreeArtifactValue> mergedTreeMetadata =
         ImmutableMap.builder();
     ImmutableSet<String> proxyOutputs = ImmutableSet.copyOf(entry.getProxyOutputs());
 
     for (Artifact artifact : action.getOutputs()) {
-      if (artifact.isTreeArtifact()) {
-        SpecialArtifact parent = (SpecialArtifact) artifact;
+      if (artifact instanceof TreeArtifact parent) {
 
         if (proxyOutputs.contains(parent.getExecPathString())) {
           try {
@@ -435,7 +438,7 @@ public class ActionCacheChecker {
         mergedFileMetadata.buildOrThrow(), mergedTreeMetadata.buildOrThrow());
   }
 
-  private TreeArtifactValue constructProxyTreeMetadata(SpecialArtifact parent)
+  private TreeArtifactValue constructProxyTreeMetadata(TreeArtifact parent)
       throws IOException, InterruptedException {
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
     TreeArtifactValue.visitTree(
@@ -594,6 +597,7 @@ public class ActionCacheChecker {
     if (!isUpToDate(
         entry,
         action,
+        token,
         actionKey,
         actionInputs,
         inputMetadataProvider,
@@ -659,10 +663,9 @@ public class ActionCacheChecker {
 
   @Nullable
   private static TreeArtifactValue getOutputTreeMetadataMaybe(
-      OutputMetadataStore outputMetadataStore, Artifact artifact) throws InterruptedException {
-    checkArgument(artifact.isTreeArtifact());
+      OutputMetadataStore outputMetadataStore, TreeArtifact artifact) throws InterruptedException {
     try {
-      return outputMetadataStore.getTreeArtifactValue((SpecialArtifact) artifact);
+      return outputMetadataStore.getTreeArtifactValue(artifact);
     } catch (IOException e) {
       return null;
     }
@@ -713,8 +716,7 @@ public class ActionCacheChecker {
         actionCache.remove(execPath);
       }
       if (!outputMetadataStore.artifactOmitted(output)) {
-        if (output.isTreeArtifact()) {
-          SpecialArtifact parent = (SpecialArtifact) output;
+        if (output instanceof TreeArtifact parent) {
           TreeArtifactValue metadata = outputMetadataStore.getTreeArtifactValue(parent);
           builder.addOutputTree(parent, metadata, cacheConfig.storeOutputMetadata());
         } else {
@@ -729,16 +731,21 @@ public class ActionCacheChecker {
       }
     }
 
-    ImmutableSet<Artifact> excludePathsFromActionCache =
-        action.discoversInputs() && !action.prunedInputs()
-            ? action.getMandatoryInputs().toSet()
-            : ImmutableSet.of();
+    byte[] tokenInputDigest = token.getInputDigest();
+    if (!action.discoversInputs() && tokenInputDigest != null) {
+      builder.setInputDigest(tokenInputDigest);
+    } else {
+      ImmutableSet<Artifact> excludePathsFromActionCache =
+          action.discoversInputs() && !action.prunedInputs()
+              ? action.getMandatoryInputs().toSet()
+              : ImmutableSet.of();
 
-    for (Artifact input : action.getInputs().toList()) {
-      builder.addInputFile(
-          input,
-          getInputMetadataMaybe(inputMetadataProvider, input),
-          /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+      for (Artifact input : action.getInputs().toList()) {
+        builder.addInputFile(
+            input,
+            getInputMetadataMaybe(inputMetadataProvider, input),
+            /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+      }
     }
 
     actionCache.put(key, builder.build());
@@ -890,8 +897,31 @@ public class ActionCacheChecker {
     /** The result of calling {@link Action#getKey}, or {@code null} if it was not called. */
     @Nullable private String actionKey;
 
+    /**
+     * The digest of the action's input metadata, computed during the {@code isUpToDate} check, or
+     * {@code null} if it was not computed.
+     *
+     * <p>Only populated for actions that do not discover inputs, whose input set cannot change
+     * between the cache check and {@link ActionCacheChecker#updateActionCache}. It is {@code null}
+     * whenever the check short-circuited before hashing inputs (an absent, corrupted or untrusted
+     * entry, or unconditional execution), in which case the inputs are traversed again.
+     *
+     * <p>Declared {@code volatile} because a Skyframe restart may run the check and the subsequent
+     * cache update on different threads.
+     */
+    @Nullable private volatile byte[] inputDigest;
+
     private Token(Action action) {
       this.cacheKey = action.getPrimaryOutput().getExecPathString();
+    }
+
+    @Nullable
+    byte[] getInputDigest() {
+      return inputDigest;
+    }
+
+    void setInputDigest(byte[] inputDigest) {
+      this.inputDigest = inputDigest;
     }
   }
 

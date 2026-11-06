@@ -585,11 +585,6 @@ public class TopLevelConstraintSemantics {
           /* isCompatible= */ true, /* severeMissingEnvironments= */ null);
     }
 
-    public static EnvironmentCompatibility nonSevereIncompatible() {
-      return new EnvironmentCompatibility(
-          /* isCompatible= */ false, /* severeMissingEnvironments= */ null);
-    }
-
     public static EnvironmentCompatibility severeIncompatible(
         ImmutableSet<MissingEnvironment> severeMissingEnvironments) {
       return new EnvironmentCompatibility(/* isCompatible= */ false, severeMissingEnvironments);

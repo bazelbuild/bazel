@@ -26,16 +26,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.TestRuleModule;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -86,22 +83,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     public abstract String getUselessOption();
 
     public abstract void setUselessOption(String value);
-  }
-
-  /** Test fragment. */
-  @RequiresOptions(options = {PathTestOptions.class})
-  public static final class PathTestConfiguration extends Fragment {
-    private final String outputDirectoryName;
-
-    public PathTestConfiguration(BuildOptions buildOptions) {
-      this.outputDirectoryName = buildOptions.get(PathTestOptions.class).getOutputDirectoryName();
-    }
 
     @Override
     public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
-        throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+        throws OutputDirectoriesContext.AddToMnemonicException {
       ctx.markAsExplicitInOutputPathFor("output_directory_name");
-      ctx.addToMnemonic(outputDirectoryName);
+      ctx.addToMnemonic(getOutputDirectoryName());
     }
   }
 
@@ -266,7 +253,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                               ImplicitOutputsFunction.fromTemplates("%{name}.bin")));
 
       builder
-          .addConfigurationFragment(PathTestConfiguration.class)
+          .addConfigurationOptions(PathTestOptions.class)
           .addRuleDefinition(basicRule)
           .addRuleDefinition(incomingTransitionRule)
           .addRuleDefinition(incomingUnrelatedTransitionRule)
@@ -362,7 +349,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                         (target) -> target.getLabel().toString(),
                         (target) ->
                             getConfigurationFromLastBuildResult(target)
-                                .getOutputDirectory(RepositoryName.MAIN)
+                                .getOutputDirectory()
                                 .getRoot()
                                 .asPath()
                                 .relativeTo(getOutputPath())

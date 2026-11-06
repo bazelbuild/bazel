@@ -56,14 +56,6 @@ public abstract class QueryOptions extends CommonQueryOptions {
               + " Starlark rules.")
   public abstract boolean getDisplayFullKind();
 
-  @Option(
-      name = "null",
-      defaultValue = "null",
-      expansion = {"--line_terminator_null=true"},
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Whether each format is terminated with \\0 instead of newline.")
-  public abstract Void getIsNull();
 
   @Option(
       name = "order_results",
@@ -191,6 +183,17 @@ public abstract class QueryOptions extends CommonQueryOptions {
   public abstract TriState getUseGraphlessQuery();
 
   public abstract void setUseGraphlessQuery(TriState value);
+
+  @Option(
+      name = "experimental_parallel_streamed_proto_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, --output=streamed_proto serializes targets in parallel while preserving output"
+              + " order. Has no effect when --proto:rule_classes is enabled.")
+  public abstract boolean getParallelStreamedProtoOutput();
 
   /** Return the current options as a set of QueryEnvironment settings. */
   @Override

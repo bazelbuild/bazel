@@ -25,7 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -491,8 +491,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   private static Iterable<Artifact> archivedTreeArtifactOutputs(Collection<Artifact> outputs) {
     return Iterables.transform(
-        Iterables.filter(outputs, Artifact::isTreeArtifact),
-        tree -> ArchivedTreeArtifact.createForTree((SpecialArtifact) tree));
+        Iterables.filter(outputs, TreeArtifact.class), ArchivedTreeArtifact::createForTree);
   }
 
   /**

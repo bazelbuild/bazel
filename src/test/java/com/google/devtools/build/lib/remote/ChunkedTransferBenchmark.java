@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -78,7 +79,7 @@ public class ChunkedTransferBenchmark {
 
   @Benchmark
   public void uploadChunked(UploadState state) throws Exception {
-    state.uploader.uploadChunked(CONTEXT, state.blobDigest, state.file);
+    state.uploader.uploadChunked(CONTEXT, state.blobDigest, state.file, /* force= */ false);
   }
 
   @State(Scope.Thread)
@@ -123,6 +124,7 @@ public class ChunkedTransferBenchmark {
         totalBytes += chunkData.length;
       }
 
+      when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
       when(combinedCache.downloadBlob(any(), any(Digest.class)))
           .thenAnswer(
               invocation ->
@@ -147,7 +149,7 @@ public class ChunkedTransferBenchmark {
       FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(chunkSizeBytes, 2, 0);
       downloader =
           new ChunkedBlobDownloader(
-              grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL, new ChunkLocationMap());
+              grpcCacheClient, combinedCache, chunkingConfig, new ChunkLocationMap());
     }
 
     @TearDown(Level.Trial)
@@ -186,6 +188,7 @@ public class ChunkedTransferBenchmark {
 
       GrpcCacheClient grpcCacheClient = mock(GrpcCacheClient.class);
       CombinedCache combinedCache = mock(CombinedCache.class);
+      when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
 
       byte[] data = new byte[fileSizeBytes];
       new Random(42).nextBytes(data);
@@ -199,8 +202,7 @@ public class ChunkedTransferBenchmark {
       }
 
       FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(avgChunkSizeBytes, 2, 0);
-      uploader =
-          new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL);
+      uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig);
 
       List<Digest> chunkDigests;
       try (var input = file.getInputStream()) {
@@ -211,7 +213,7 @@ public class ChunkedTransferBenchmark {
           .thenReturn(Futures.immediateFuture(ImmutableSet.copyOf(chunkDigests)));
       when(grpcCacheClient.spliceBlob(any(), any(Digest.class), any(), any()))
           .thenReturn(Futures.immediateVoidFuture());
-      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), anyBoolean()))
           .thenAnswer(
               invocation ->
                   delayedFuture(null, delayMillis, jitterMillis, latencyJitter, scheduler));

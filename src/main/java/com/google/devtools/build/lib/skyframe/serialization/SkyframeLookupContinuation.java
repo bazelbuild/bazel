@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayDeque;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -35,6 +36,9 @@ import javax.annotation.Nullable;
  *
  * <p>This class is designed to reside in {@link SkyKeyComputeState}. In particular, note that
  * {@link #abandon} should be called.
+ *
+ * <p>This class is thread-safe because {@link #abandon} may be called concurrently by a background
+ * thread (e.g. state eviction) while {@link #process} is executing on an evaluator thread.
  */
 public final class SkyframeLookupContinuation {
   private final ArrayDeque<SkyframeLookup<?>> skyframeLookups;
@@ -74,8 +78,8 @@ public final class SkyframeLookupContinuation {
    *     occurring in other threads) or null if a Skyframe restart is needed
    */
   @Nullable
-  public ListenableFuture<?> process(LookupEnvironment env)
-      throws InterruptedException, SkyframeDependencyException {
+  public synchronized ListenableFuture<?> process(LookupEnvironment env)
+      throws InterruptedException, SkyframeDependencyException, LookupAbandonedException {
     return switch (state) {
       case LOOKUP -> doLookup(env);
       case RESUME -> resume(env);
@@ -89,7 +93,7 @@ public final class SkyframeLookupContinuation {
    * <p>This must be called if the lookups cannot be completed, for example, if {@link
    * SkyKeyComputeState#close} is called on any containing compute state or if there's an error.
    */
-  public void abandon(LookupAbandonedException exception) {
+  public synchronized void abandon(LookupAbandonedException exception) {
     for (SkyframeLookup<?> lookup : skyframeLookups) {
       lookup.abandon(exception);
     }
@@ -108,7 +112,7 @@ public final class SkyframeLookupContinuation {
    */
   @Nullable
   private ListenableFuture<?> doLookup(LookupEnvironment env)
-      throws InterruptedException, SkyframeDependencyException {
+      throws InterruptedException, SkyframeDependencyException, LookupAbandonedException {
     if (skyframeLookups.isEmpty()) {
       this.state = State.ENDED;
       return result;
@@ -151,7 +155,8 @@ public final class SkyframeLookupContinuation {
    *
    * @return a future containing the deserialization result
    */
-  private ListenableFuture<?> resume(LookupEnvironment env) throws SkyframeDependencyException {
+  private ListenableFuture<?> resume(LookupEnvironment env)
+      throws SkyframeDependencyException, LookupAbandonedException {
     // There was a Skyframe restart. Everything that was requested should be available now. This
     // method should not be reachable by error bubbling because it can only be reached by
     // pre-existing SkyKeyComputeState, which is evicted before error bubbling.
@@ -171,21 +176,26 @@ public final class SkyframeLookupContinuation {
   }
 
   private void throwDependencyExceptionIfFailed(SkyframeLookup<?> lookup)
-      throws SkyframeDependencyException {
-    if (!lookup.isFailed()) {
-      return;
-    }
-    this.state = State.ENDED;
+      throws SkyframeDependencyException, LookupAbandonedException {
     try {
       var unused = Futures.getDone(lookup);
     } catch (ExecutionException e) {
-      // In general, SkyframeLookups can contain either SkyframeDependencyExceptions or
-      // LookupAbandonedExceptions. This is only reachable before any LookupAbandonedExceptions can
-      // be propagated.
-      var cause = (SkyframeDependencyException) e.getCause();
-      abandon(new PeerFailedException(cause));
-      throw cause;
+      this.state = State.ENDED;
+      Throwable cause = e.getCause();
+      if (cause instanceof SkyframeDependencyException sde) {
+        abandon(new PeerFailedException(sde));
+        throw sde;
+      }
+      if (cause instanceof LookupAbandonedException lae) {
+        abandon(lae);
+        throw lae;
+      }
+      throw new AssertionError("unexpected exception: " + lookup, cause);
+    } catch (CancellationException e) {
+      this.state = State.ENDED;
+      var lae = new LookupAbandonedException(e);
+      abandon(lae);
+      throw lae;
     }
-    throw new IllegalStateException("should have thrown an exception: " + lookup);
   }
 }

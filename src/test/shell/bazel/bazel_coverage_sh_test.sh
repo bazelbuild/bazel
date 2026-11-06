@@ -544,4 +544,47 @@ EOF
 }
 
 
+# Regression test for the combined coverage report action not being a cache hit across builds
+# because the order of the test targets it depends on wasn't deterministic.
+function test_combined_report_is_disk_cache_hit_after_clean() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p tests
+  cat <<'EOF' > tests/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+[
+    sh_test(
+        name = "test_%s" % i,
+        srcs = ["test.sh"],
+    )
+    for i in range(50)
+]
+EOF
+  cat <<'EOF' > tests/test.sh
+#!/usr/bin/env bash
+# Emit a minimal coverage record so that the combined report has something to merge.
+cat <<LCOV > "$COVERAGE_DIR/test.dat"
+SF:tests/test.sh
+DA:1,1
+end_of_record
+LCOV
+EOF
+  chmod +x tests/test.sh
+
+  local -r disk_cache="$TEST_TMPDIR/disk_cache_combined_report"
+  rm -rf "$disk_cache"
+
+  bazel coverage --combined_report=lcov --disk_cache="$disk_cache" //tests/... &>$TEST_log \
+    || fail "Coverage failed"
+  expect_log "LCOV coverage report is located at"
+
+  bazel clean &>$TEST_log || fail "Clean failed"
+
+  bazel coverage --combined_report=lcov --disk_cache="$disk_cache" //tests/... &>$TEST_log \
+    || fail "Coverage failed after clean"
+  expect_log "LCOV coverage report is located at"
+  # All spawns, in particular the one generating the combined report, must be disk cache hits.
+  expect_log "processes: [0-9]* disk cache hit, [0-9]* internal\.$"
+}
+
 run_suite "test tests"

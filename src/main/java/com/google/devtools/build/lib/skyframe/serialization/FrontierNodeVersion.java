@@ -40,7 +40,7 @@ public final class FrontierNodeVersion {
           Optional.of(new SnapshotClientId("for_testing", 123)));
 
   /**
-   * The checksum of the top-level configuration (trimmed of test options).
+   * The fingerprint of the top-level configuration (trimmed of test options).
    *
    * <p>The configuration of any node in the build graph includes a mnemonic (e.g. k8-opt) that is
    * part of its output path. If a transition is applied, this mnemonic is computed based on the
@@ -53,8 +53,6 @@ public final class FrontierNodeVersion {
    *
    * <p>See b/360073915.
    */
-  private final String topLevelConfigChecksum;
-
   private final byte[] topLevelConfigFingerprint;
 
   /**
@@ -75,6 +73,13 @@ public final class FrontierNodeVersion {
    * graph.
    */
   private final byte[] starlarkSemanticsFingerprint;
+
+  /**
+   * The combined hash of configuration inputs ({@link #topLevelConfigFingerprint} and {@link
+   * #starlarkSemanticsFingerprint}), used both in {@link #precomputedFingerprint} and in {@link
+   * SkycacheMetadataParams}.
+   */
+  private final String configAndStarlarkSemanticsHash;
 
   /**
    * The version of the source code (workspace) being evaluated.
@@ -123,11 +128,19 @@ public final class FrontierNodeVersion {
       String distinguisherBytesForTesting,
       boolean useFakeStampData,
       Optional<ClientId> clientId) {
-    this.topLevelConfigChecksum = topLevelConfigChecksum;
     this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
     this.blazeInstallMD5 = blazeInstallMD5;
     this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
     this.starlarkSemanticsFingerprint = Objects.requireNonNull(starlarkSemanticsFingerprint);
+    HashCode configAndStarlarkSemanticsHashCode =
+        Hashing.sha256()
+            .newHasher()
+            .putInt(topLevelConfigFingerprint.length)
+            .putBytes(topLevelConfigFingerprint)
+            .putInt(this.starlarkSemanticsFingerprint.length)
+            .putBytes(this.starlarkSemanticsFingerprint)
+            .hash();
+    this.configAndStarlarkSemanticsHash = configAndStarlarkSemanticsHashCode.toString();
     this.evaluatingVersion = evaluatingVersion.getVal();
     this.evaluatingVersionFingerprint = Longs.toByteArray(evaluatingVersion.getVal());
     this.distinguisherBytesForTesting = distinguisherBytesForTesting.getBytes(UTF_8);
@@ -135,12 +148,9 @@ public final class FrontierNodeVersion {
     this.precomputedFingerprint =
         Hashing.sha256()
             .newHasher()
-            .putInt(topLevelConfigFingerprint.length)
-            .putBytes(topLevelConfigFingerprint)
+            .putBytes(configAndStarlarkSemanticsHashCode.asBytes())
             .putInt(blazeInstallMD5Fingerprint.length)
             .putBytes(blazeInstallMD5Fingerprint)
-            .putInt(this.starlarkSemanticsFingerprint.length)
-            .putBytes(this.starlarkSemanticsFingerprint)
             .putLong(this.evaluatingVersion)
             .putInt(this.distinguisherBytesForTesting.length)
             .putBytes(this.distinguisherBytesForTesting)
@@ -215,7 +225,7 @@ public final class FrontierNodeVersion {
     return useFakeStampData;
   }
 
-  public String getTopLevelConfigChecksum() {
-    return topLevelConfigChecksum;
+  public String getConfigAndStarlarkSemanticsHash() {
+    return configAndStarlarkSemanticsHash;
   }
 }

@@ -46,6 +46,11 @@ final class ConcurrentArtifactPathTrie {
     paths.add(input.getExecPath());
   }
 
+  /** Returns whether the trie contains no artifacts. */
+  boolean isEmpty() {
+    return paths.isEmpty();
+  }
+
   /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
   boolean contains(PathFragment execPath) {
     // By the invariant of this set, there is at most one prefix of execPath in the set. Since the

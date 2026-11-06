@@ -16,7 +16,7 @@ package com.google.testing.junit.runner.model;
 
 import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.junit.runner.Description;
 
 /**
@@ -24,7 +24,7 @@ import org.junit.runner.Description;
  */
 public abstract class TestNode {
   private final Description description;
-  @Nullable private TestResult result = null;
+  private @Nullable TestResult result = null;
 
   TestNode(Description description) {
     if (description == null) {

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MockAction;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -84,7 +84,6 @@ import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 
 /** Unit tests for {@link ExecutionGraphModule}. */
 @RunWith(TestParameterInjector.class)
@@ -798,42 +797,15 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         .inOrder();
   }
 
-  enum LocalLockFreeOutput {
-    LOCAL_LOCK_FREE_OUTPUT_ENABLED(/* optionValue= */ true) {
-      @Override
-      void assertBugReport(BugReporter bugReporter) {
-        verify(bugReporter, never()).sendNonFatalBugReport(any());
-      }
-    },
-    LOCAL_LOCK_FREE_OUTPUT_DISABLED(/* optionValue= */ false) {
-      @Override
-      void assertBugReport(BugReporter bugReporter) {
-        var captor = ArgumentCaptor.forClass(Exception.class);
-        verify(bugReporter).sendNonFatalBugReport(captor.capture());
-        assertThat(captor.getValue())
-            .hasMessageThat()
-            .contains("Multiple spawns produced 'output/foo/out' with overlapping execution time.");
-      }
-    };
-
-    LocalLockFreeOutput(boolean optionValue) {
-      this.optionValue = optionValue;
-    }
-
-    private final boolean optionValue;
-
-    abstract void assertBugReport(BugReporter bugReporter);
-  }
-
   @Test
   public void multipleSpawnsWithSameOutput_overlapping_recordsBothSpawnsWithoutRetry(
-      @TestParameter LocalLockFreeOutput localLockFreeOutput) throws Exception {
+      @TestParameter boolean localLockFreeOutputEnabled) throws Exception {
     var buffer = new ByteArrayOutputStream();
     BugReporter bugReporter = mock(BugReporter.class);
     startLogging(
         eventBus,
         bugReporter,
-        localLockFreeOutput.optionValue,
+        localLockFreeOutputEnabled,
         /* logFileWriteEdges= */ false,
         buffer,
         DependencyInfo.ALL);
@@ -886,7 +858,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
                 .setIdentifier("foo2")
                 .build())
         .inOrder();
-    localLockFreeOutput.assertBugReport(bugReporter);
+    verify(bugReporter, never()).sendNonFatalBugReport(any());
   }
 
   @Test

@@ -50,9 +50,10 @@ The first three events provide information about how Bazel was invoked.
 The `PatternExpanded` build event provides insight
 into which specific targets the `...` pattern expanded to:
 `//foo:foo_lib` and `//foo:foo_test`. It does so by declaring two
-`TargetConfigured` events as children. Note that the `TargetConfigured` event
-declares the `Configuration` event as a child event, even though `Configuration`
-has been posted before the `TargetConfigured` event.
+`TargetConfigured` events as children. Each `TargetConfigured` event then
+declares the corresponding `TargetComplete` event as a child. Target configurations
+(`Configuration`) are posted during analysis and dynamically announced by
+intervening `Progress` events.
 
 Besides the parent and child relationship, events may also refer to each other
 using their build event identifiers. For example, in the above graph the

@@ -176,4 +176,69 @@ public class RemoteOptionsTest {
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
     assertThat(options.getDiskCache()).isEqualTo(PathFragment.create("custom/cache/dir"));
   }
+
+  private static RemoteOptions parseOptions(String... args) throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(RemoteOptions.class);
+  }
+
+  @Test
+  public void remoteProxy_emptyValue_resetsToNull() throws Exception {
+    assertThat(parseOptions("--remote_proxy=unix:/tmp/socket", "--remote_proxy=").getRemoteProxy())
+        .isNull();
+  }
+
+  @Test
+  public void remoteExecutor_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_executor=some.endpoint:1234", "--remote_executor=")
+                .getRemoteExecutor())
+        .isNull();
+  }
+
+  @Test
+  public void remoteCache_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_cache=http://cache.endpoint", "--remote_cache=")
+                .getRemoteCache())
+        .isNull();
+  }
+
+  @Test
+  public void remoteDownloader_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_downloader=grpcs://downloader.endpoint", "--remote_downloader=")
+                .getRemoteDownloader())
+        .isNull();
+  }
+
+  @Test
+  public void remoteBytestreamUriPrefix_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_bytestream_uri_prefix=prefix", "--remote_bytestream_uri_prefix=")
+                .getRemoteBytestreamUriPrefix())
+        .isNull();
+  }
+
+  @Test
+  public void experimentalRemoteOutputService_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions(
+                    "--experimental_remote_output_service=endpoint",
+                    "--experimental_remote_output_service=")
+                .getRemoteOutputService())
+        .isNull();
+  }
+
+  @Test
+  public void experimentalRemoteCaptureCorruptedOutputs_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions(
+                    "--experimental_remote_capture_corrupted_outputs=some/path",
+                    "--experimental_remote_capture_corrupted_outputs=")
+                .getRemoteCaptureCorruptedOutputs())
+        .isNull();
+  }
 }
+

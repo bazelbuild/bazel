@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.sun.management.ThreadMXBean;
@@ -34,7 +34,7 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testEmptyClass() {
-    assertComputedSizeIsCorrect(Empty::new);
+    assertComputedSizeIsCorrect(Empty::new, "new Empty()");
   }
 
   @SuppressWarnings("unused")
@@ -44,7 +44,7 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testOneReference() {
-    assertComputedSizeIsCorrect(OneReference::new);
+    assertComputedSizeIsCorrect(OneReference::new, "new OneReference()");
   }
 
   @SuppressWarnings("unused")
@@ -55,7 +55,7 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testTwoReferences() {
-    assertComputedSizeIsCorrect(TwoReferences::new);
+    assertComputedSizeIsCorrect(TwoReferences::new, "new TwoReferences()");
   }
 
   @SuppressWarnings("unused")
@@ -67,17 +67,33 @@ public class ShallowObjectSizeComputerTest {
 
   @Test
   public void testThreeBooleans() {
-    assertComputedSizeIsCorrect(ThreeBooleans::new);
+    assertComputedSizeIsCorrect(ThreeBooleans::new, "new ThreeBooleans()");
   }
 
   @Test
   public void testObjectArray() {
-    assertComputedSizeIsCorrect(() -> new Object[4]);
+    for (int i = 0; i <= 6; i++) {
+      final int length = i;
+      assertComputedSizeIsCorrect(
+          () -> new Object[length], String.format("new Object[%d]", length));
+    }
   }
 
   @Test
   public void testBooleanArray() {
-    assertComputedSizeIsCorrect(() -> new boolean[4]);
+    for (int i = 0; i <= 6; i++) {
+      final int length = i;
+      assertComputedSizeIsCorrect(
+          () -> new boolean[length], String.format("new boolean[%d]", length));
+    }
+  }
+
+  @Test
+  public void testLongArray() {
+    for (int i = 0; i <= 6; i++) {
+      final int length = i;
+      assertComputedSizeIsCorrect(() -> new long[length], String.format("new long[%d]", length));
+    }
   }
 
   // TODO(lberki): Lambdas without any values closed over must (eventually) be special-cased since
@@ -86,7 +102,7 @@ public class ShallowObjectSizeComputerTest {
   @Test
   public void testClosureWithOneValue() {
     Object o = new Object();
-    assertComputedSizeIsCorrect(() -> (Supplier<Object>) () -> o);
+    assertComputedSizeIsCorrect(() -> (Supplier<Object>) () -> o, "() -> o");
   }
 
   @Test
@@ -94,14 +110,16 @@ public class ShallowObjectSizeComputerTest {
     Object o1 = new Object();
     Object o2 = new Object();
     Object o3 = new Object();
-    assertComputedSizeIsCorrect(() -> (Supplier<Object>) () -> ImmutableList.of(o1, o2, o3));
+    assertComputedSizeIsCorrect(
+        () -> (Supplier<Object>) () -> ImmutableList.of(o1, o2, o3),
+        "() -> ImmutableList.of(o1, o2, o3)");
   }
 
-  private void assertComputedSizeIsCorrect(Supplier<Object> createInstance) {
+  private void assertComputedSizeIsCorrect(Supplier<Object> createInstance, String what) {
     Object sampleToCompute = createInstance.get();
     long computedSize = ShallowObjectSizeComputer.getShallowSize(sampleToCompute);
     long measuredSize = measureSize(createInstance);
-    assertThat(computedSize).isEqualTo(measuredSize);
+    assertWithMessage(what).that(computedSize).isEqualTo(measuredSize);
   }
 
   private static long measureSize(Supplier<Object> createInstance) {

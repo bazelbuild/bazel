@@ -15,8 +15,8 @@ cc_test(
     name = "md5_test",
     srcs = ["md5_test.cc"],
     deps = [
-        "//src/main/cpp/util",
         "//src/main/cpp/util:md5",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -35,6 +35,7 @@ cc_test(
         ":test_util",
         "//src/main/cpp/util:filesystem",
         "@abseil-cpp//absl/strings",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:windows": [
@@ -59,6 +60,7 @@ cc_test(
     deps = [
         ":test_util",
         "//src/main/cpp/util:filesystem",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:windows": [
@@ -78,6 +80,7 @@ cc_test(
         "//src/main/cpp/util:bazel_log_handler",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -86,7 +89,9 @@ cc_test(
     name = "numbers_test",
     srcs = ["numbers_test.cc"],
     deps = [
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:port",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -100,6 +105,7 @@ cc_test(
     shard_count = 2,
     deps = [
         "//src/main/cpp/util:strings",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )

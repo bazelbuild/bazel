@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.SkyframeLookup;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -66,8 +69,40 @@ public final class SkyframeLookupCollectorTest {
     assertHasPeerFailure(lookup3, exception);
   }
 
+  @Test
+  public void abandon_onCompletedLookup_preservesSuccessResult() throws Exception {
+    var parent = new AtomicReference<Object>();
+    var key = createDummyKey();
+    var lookup = new SkyframeLookup<AtomicReference<Object>>(key, parent, AtomicReference::set);
+    var value = new SkyValue() {};
+
+    lookup.acceptValue(key, value);
+    assertThat(lookup.isDone()).isTrue();
+    assertThat(Futures.getDone(lookup)).isNull();
+    assertThat(parent.get()).isSameInstanceAs(value);
+
+    // Calling abandon on an already-completed lookup must not change the result.
+    lookup.abandon(new StateEvictedException());
+    assertThat(lookup.isDone()).isTrue();
+    assertThat(Futures.getDone(lookup)).isNull();
+  }
+
+  @Test
+  public void tryHandleException_completesWithSkyframeDependencyException() {
+    var parent = new AtomicReference<Object>();
+    var key = createDummyKey();
+    var lookup = new SkyframeLookup<AtomicReference<Object>>(key, parent, AtomicReference::set);
+    var exception = new Exception("skyframe error");
+
+    assertThat(lookup.tryHandleException(key, exception)).isTrue();
+    assertThat(lookup.isDone()).isTrue();
+    var thrown = assertThrows(ExecutionException.class, lookup::get);
+    assertThat(thrown).hasCauseThat().isInstanceOf(SkyframeDependencyException.class);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(exception);
+  }
+
   private static void assertHasPeerFailure(SkyframeLookup<?> lookup, Exception exception) {
-    assertThat(lookup.isFailed()).isTrue();
+    assertThat(lookup.isDone()).isTrue();
     var thrown = assertThrows(ExecutionException.class, lookup::get);
     var cause = thrown.getCause();
     assertThat(cause).isInstanceOf(PeerFailedException.class);

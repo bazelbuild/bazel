@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Set;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.junit.internal.runners.ErrorReportingRunner;
 import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
@@ -153,35 +153,35 @@ public class JUnit4Runner {
   }
 
   /**
-   * Apply command-line and sharding filters, if appropriate.<p>
+   * Apply command-line and sharding filters, if appropriate.
    *
-   * Note that this is carefully written to avoid running into potential
-   * problems with the way runners implement filtering. The JavaDoc for
-   * {@link org.junit.runner.manipulation.Filterable} states that tests that
-   * don't match the filter should be removed, which implies if you apply two
-   * filters, you will always get an intersection of the two. Unfortunately, the
-   * filtering implementation of {@link org.junit.runners.ParentRunner} does not
-   * do this, and instead uses a "last applied filter wins" strategy.<p>
+   * <p>Note that this is carefully written to avoid running into potential problems with the way
+   * runners implement filtering. The JavaDoc for {@link org.junit.runner.manipulation.Filterable}
+   * states that tests that don't match the filter should be removed, which implies if you apply two
+   * filters, you will always get an intersection of the two. Unfortunately, the filtering
+   * implementation of {@link org.junit.runners.ParentRunner} does not do this, and instead uses a
+   * "last applied filter wins" strategy.
    *
-   * We work around potential problems by ensuring that if we apply a second
-   * filter, the filter is more restrictive than the first. We also assume that
-   * if filtering fails, the request will have a runner that is a
-   * {@link ErrorReportingRunner}. Luckily, we can cover this with tests to make
-   * sure we don't break if JUnit changes in the future.
+   * <p>We work around potential problems by ensuring that if we apply a second filter, the filter
+   * is more restrictive than the first. We also assume that if filtering fails, the request will
+   * have a runner that is a {@link ErrorReportingRunner}. Luckily, we can cover this with tests to
+   * make sure we don't break if JUnit changes in the future.
    *
    * @param request Request to filter
    * @param shardingFilter Sharding filter to use; {@link Filter#ALL} to not do sharding
-   * @param testIncludeFilterRegexp String denoting a regular expression with which
-   *     to filter tests.  Only test descriptions that match this regular
-   *     expression will be run.  If {@code null}, tests will not be filtered.
-   * @param testExcludeFilterRegexp String denoting a regular expression with which
-   *     to filter tests.  Only test descriptions that do not match this regular
-   *     expression will be run.  If {@code null}, tests will not be filtered.
-   * @return Filtered request (may be a request that delegates to
-   *         {@link ErrorReportingRunner}
+   * @param testIncludeFilterRegexp String denoting a regular expression with which to filter tests.
+   *     Only test descriptions that match this regular expression will be run. If {@code null},
+   *     tests will not be filtered.
+   * @param testExcludeFilterRegexp String denoting a regular expression with which to filter tests.
+   *     Only test descriptions that do not match this regular expression will be run. If {@code
+   *     null}, tests will not be filtered.
+   * @return Filtered request (may be a request that delegates to {@link ErrorReportingRunner}
    */
-  private static Request applyFilters(Request request, Filter shardingFilter,
-      @Nullable String testIncludeFilterRegexp, @Nullable String testExcludeFilterRegexp) {
+  private static Request applyFilters(
+      Request request,
+      Filter shardingFilter,
+      @Nullable String testIncludeFilterRegexp,
+      @Nullable String testExcludeFilterRegexp) {
     // Allow the user to specify a filter on the command line
     boolean allowNoTests = false;
     Filter filter = Filter.ALL;

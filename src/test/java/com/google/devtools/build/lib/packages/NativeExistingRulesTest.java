@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.HashMap;
 import java.util.Map;
 import net.starlark.java.annot.Param;
@@ -35,10 +37,9 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@code native.existing_rule} and {@code native.existing_rules} functions. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class NativeExistingRulesTest extends BuildViewTestCase {
   private TestStarlarkBuiltin testStarlarkBuiltin; // initialized by createRuleClassProvider()
 
@@ -928,5 +929,140 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         Dict.cast(getSaved("copy_attrs"), String.class, Object.class, "copy_attrs");
 
     assertThat(copyAttrs.entrySet()).containsExactlyElementsIn(srcAttrs.entrySet());
+  }
+
+  @Test
+  public void existingRules_filterMacroInternals(@TestParameter boolean defaultOmitMacroInternals)
+      throws Exception {
+    setBuildLanguageOptions(
+        "--incompatible_existing_rules_default_omit_macro_internals=" + defaultOmitMacroInternals);
+
+    scratch.file("common/BUILD");
+    scratch.file(
+        "common/lib.bzl",
+        """
+        def save_existing_rules(prefix):
+            test.save(
+                prefix + "_existing_rules_default",
+                native.existing_rules().keys(),
+            )
+            test.save(
+                prefix + "_existing_rules_omit_macro_internals_false",
+                native.existing_rules(omit_macro_internals = False).keys(),
+            )
+            test.save(
+                prefix + "_existing_rules_omit_macro_internals_true",
+                native.existing_rules(omit_macro_internals = True).keys(),
+            )
+        """);
+
+    scratch.file(
+        "other/BUILD",
+        """
+        test_pkg_group = package_group(
+            name = "test_pkg_group",
+            packages = ["//test"],
+        )
+        """);
+    scratch.file(
+        "other/macros.bzl",
+        """
+        def _other_macro_impl(name, visibility):
+            # Private by default
+            native.filegroup(name = name + "_default_vis")
+            # Explicitly private
+            native.filegroup(name = name + "_explicit_private", visibility = ["//visibility:private"])
+            # Exported
+            native.filegroup(name = name + "_exported", visibility = visibility)
+            # Publicly exported
+            native.filegroup(name = name + "_public", visibility = ["//visibility:public"])
+            # Marked explicitly visible to the test's package. We cannot distinguish this from the
+            # exported case.
+            native.filegroup(name = name + "_vis_to_test", visibility = ["//test:__pkg__"])
+            # Marked explicitly visible to the finalizer's package.
+            native.filegroup(name = name + "_vis_to_finalizer", visibility = ["//finalizer:__pkg__"])
+            # Marked explicitly visible to subpackage tree that includes the test's package.
+            native.filegroup(name = name + "_vis_to_subpackages", visibility = ["//:__subpackages__"])
+            # Marked explicitly visible to a package group that includes the test's package.
+            native.filegroup(name = name + "_vis_to_group", visibility = ["//other:test_pkg_group"])
+
+        other_macro = macro(implementation = _other_macro_impl)
+        """);
+
+    scratch.file("finalizer/BUILD");
+    scratch.file(
+        "finalizer/macros.bzl",
+        """
+        load("//common:lib.bzl", "save_existing_rules")
+
+        def _finalizer_pkg_macro_impl(name, visibility):
+            native.filegroup(name = name + "_default_vis")
+
+        finalizer_pkg_macro = macro(implementation = _finalizer_pkg_macro_impl)
+
+        def _finalizer_impl(name, visibility):
+            save_existing_rules("finalizer")
+
+        my_finalizer = macro(implementation = _finalizer_impl, finalizer = True)
+        """);
+
+    scratch.file(
+        "test/macros.bzl",
+        """
+        def _same_pkg_macro_impl(name, visibility):
+            native.filegroup(name = name + "_default_vis")
+
+        same_pkg_macro = macro(implementation = _same_pkg_macro_impl)
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//common:lib.bzl", "save_existing_rules")
+        load("//finalizer:macros.bzl", "finalizer_pkg_macro", "my_finalizer")
+        load("//other:macros.bzl", "other_macro")
+        load("//test:macros.bzl", "same_pkg_macro")
+
+        filegroup(name = "top_level")
+        same_pkg_macro(name = "same_pkg")
+        finalizer_pkg_macro(name = "fin_pkg")
+        other_macro(name = "other")
+        my_finalizer(name = "fin")
+
+        save_existing_rules("build")
+        """);
+
+    assertThat(getConfiguredTarget("//test:top_level")).isNotNull();
+
+    String[] allRules = {
+      "top_level",
+      "same_pkg_default_vis",
+      "fin_pkg_default_vis",
+      "other_default_vis",
+      "other_explicit_private",
+      "other_exported",
+      "other_public",
+      "other_vis_to_test",
+      "other_vis_to_finalizer",
+      "other_vis_to_subpackages",
+      "other_vis_to_group",
+    };
+    String[] excludingMacroInternals = {
+      "top_level", "other_exported", "other_public", "other_vis_to_test"
+    };
+
+    assertThat(Starlark.toIterable(getSaved("build_existing_rules_default")))
+        .containsExactlyElementsIn(defaultOmitMacroInternals ? excludingMacroInternals : allRules);
+    assertThat(Starlark.toIterable(getSaved("build_existing_rules_omit_macro_internals_false")))
+        .containsExactlyElementsIn(allRules);
+    assertThat(Starlark.toIterable(getSaved("build_existing_rules_omit_macro_internals_true")))
+        .containsExactlyElementsIn(excludingMacroInternals);
+
+    assertThat(Starlark.toIterable(getSaved("finalizer_existing_rules_default")))
+        .containsExactlyElementsIn(defaultOmitMacroInternals ? excludingMacroInternals : allRules);
+    assertThat(Starlark.toIterable(getSaved("finalizer_existing_rules_omit_macro_internals_false")))
+        .containsExactlyElementsIn(allRules);
+    assertThat(Starlark.toIterable(getSaved("finalizer_existing_rules_omit_macro_internals_true")))
+        .containsExactlyElementsIn(excludingMacroInternals);
   }
 }

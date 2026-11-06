@@ -648,11 +648,6 @@ EOF
 }
 
 function test_run_under_script_script_path() {
-  if is_windows; then
-    # TODO(https://github.com/bazelbuild/bazel/issues/22148): Fix --run_under
-    # paths under windows.
-    return
-  fi
   add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "$pkg"
@@ -669,11 +664,15 @@ EOF
 echo "hello there $@"
 EOF
   chmod +x "$pkg/greetings.sh"
-  bazel run --script_path="${TEST_TMPDIR}/script.sh" \
+  local script_ext="sh"
+  if is_windows; then
+    script_ext="bat"
+  fi
+  bazel run --script_path="${TEST_TMPDIR}/script.${script_ext}" \
       --run_under="echo -n 'why ' &&" \
       -- "//$pkg:greetings" friend \
       >"$TEST_log" || fail "expected build to succeed"
-  "${TEST_TMPDIR}/script.sh" >"$TEST_log" || fail "expected run script to succeed"
+  "${TEST_TMPDIR}/script.${script_ext}" >"$TEST_log" || fail "expected run script to succeed"
   expect_log "why hello there friend"
 }
 
@@ -714,6 +713,45 @@ EOF
   # break its runfiles discovery.
   expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell${EXE_EXT} buddy"
   expect_not_log "goodbye"
+}
+
+function test_run_test_without_matching_test_toolchain_fails() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+constraint_setting(name = "flavor")
+
+constraint_value(
+    name = "target_flavor",
+    constraint_setting = ":flavor",
+)
+
+# No registered execution platform satisfies the constraints of this platform,
+# so tests built for it can't be executed.
+platform(
+    name = "target_platform",
+    constraint_values = [":target_flavor"],
+    parents = ["${default_host_platform}"],
+)
+
+sh_test(
+    name = "greeting_test",
+    srcs = ["greeting_test.sh"],
+)
+EOF
+  cat > "$pkg/greeting_test.sh" <<'EOF'
+#!/bin/sh
+echo "hello from test"
+EOF
+  chmod +x "$pkg/greeting_test.sh"
+
+  bazel run --platforms="//$pkg:target_platform" "//$pkg:greeting_test" >$TEST_log 2>&1 \
+      && fail "expected run to fail"
+  expect_log "No matching toolchain found for type .*//tools/test:default_test_toolchain_type, which is required to run tests for target platform //$pkg:target_platform"
+  expect_not_log "hello from test"
 }
 
 function test_run_under_command_change_preserves_cache() {

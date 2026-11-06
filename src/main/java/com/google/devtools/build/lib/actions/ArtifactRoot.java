@@ -183,11 +183,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     MAIN_SOURCE,
     EXTERNAL_SOURCE,
     OUTPUT,
-    // Sibling root types are in effect when --experimental_sibling_repository_layout is activated.
-    // These will eventually replace the above Output types when the flag becomes the default option
-    // and then removed.
-    SIBLING_MAIN_OUTPUT,
-    SIBLING_EXTERNAL_OUTPUT,
   }
 
   private final Root root;
@@ -231,21 +226,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
   }
 
   private static boolean isOutputRootType(RootType rootType) {
-    return rootType == RootType.SIBLING_MAIN_OUTPUT
-        || rootType == RootType.SIBLING_EXTERNAL_OUTPUT
-        || rootType == RootType.OUTPUT;
+    return rootType == RootType.OUTPUT;
   }
 
   public boolean isExternal() {
-    return rootType == RootType.EXTERNAL_SOURCE || rootType == RootType.SIBLING_EXTERNAL_OUTPUT;
-  }
-
-  /**
-   * Returns true if the ArtifactRoot is a legacy derived root type, i.e. a derived root type
-   * created without the --experimental_sibling_repository_layout flag set.
-   */
-  public boolean isLegacy() {
-    return rootType == RootType.OUTPUT;
+    return rootType == RootType.EXTERNAL_SOURCE;
   }
 
   @Override

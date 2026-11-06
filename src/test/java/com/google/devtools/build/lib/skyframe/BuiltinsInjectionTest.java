@@ -493,9 +493,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     Event ev = assertContainsEvent("Internal error while loading Starlark builtins");
     assertThat(ev.getMessage())
         .contains(
-            "Failed to load builtins sources: "
-                + "at /workspace/tools/builtins_staging/exports.bzl:1:6: "
-                + "initialization of module 'helper.bzl' (internal) failed");
+            """
+            Failed to load builtins sources: at /workspace/tools/builtins_staging/exports.bzl:1:6:
+            initialization of module 'helper.bzl' (internal) failed\
+            """);
   }
 
   @Test

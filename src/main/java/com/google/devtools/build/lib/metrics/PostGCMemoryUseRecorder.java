@@ -25,12 +25,17 @@ import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
+import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
+import com.google.devtools.build.lib.profiler.CounterSeriesTask;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.skyframe.AboutToClearAnalysisCacheEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.common.options.Option;
@@ -47,6 +52,9 @@ import java.lang.management.MemoryUsage;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
@@ -109,6 +117,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   @GuardedBy("this")
   private Map<String, Long> garbageStats = new HashMap<>();
 
+  private final AtomicLong lastPostGcHeapBytes = new AtomicLong(0);
+
   private final BugReporter bugReporter;
 
   @GuardedBy("this")
@@ -116,6 +126,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
   @GuardedBy("this")
   private boolean executionStarted;
+
+  private boolean triggerGcBeforeDiscardAnalysisCache;
 
   @VisibleForTesting
   PostGCMemoryUseRecorder(Iterable<GarbageCollectorMXBean> mxBeans, BugReporter bugReporter) {
@@ -145,6 +157,20 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     executionStarted = true;
   }
 
+  @Subscribe
+  private void aboutToClearAnalysisCache(AboutToClearAnalysisCacheEvent event) {
+    if (triggerGcBeforeDiscardAnalysisCache) {
+      try (var _ =
+          GoogleAutoProfilerUtils.profiledAndLogged(
+              "manual GC before discarding analysis cache", ProfilerTask.MANUAL_GC)) {
+        System.gc();
+      }
+      // Google-internal SkyframeExecutor implementations may trigger multiple discards in the same
+      // build (loading objects, then analysis objects). Only trigger GC the first time.
+      triggerGcBeforeDiscardAnalysisCache = false;
+    }
+  }
+
   public synchronized Optional<PeakHeap> getPeakPostGcHeap() {
     return peakHeapTotal;
   }
@@ -172,6 +198,14 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     return ImmutableSortedMap.copyOf(garbageStats);
   }
 
+  /**
+   * Returns the total post-GC heap bytes recorded after the most recent full GC, or 0 if no full GC
+   * has occurred since the last reset.
+   */
+  public long getLastPostGcHeapBytes() {
+    return lastPostGcHeapBytes.get();
+  }
+
   public synchronized void reset() {
     peakHeapTotal = Optional.empty();
     peakHeapTenuredSpace = Optional.empty();
@@ -179,6 +213,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     peakHeapTenuredSpaceDuringExecution = Optional.empty();
     memoryUsageReportedZero = false;
     garbageStats = new HashMap<>();
+    lastPostGcHeapBytes.set(0);
     analysisComplete = false;
     executionStarted = false;
   }
@@ -269,6 +304,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
     Map<String, MemoryUsage> mem = info.getGcInfo().getMemoryUsageAfterGc();
     updatePostGCHeapMemoryUsed(usedTotal, usedTenuredSpace, notification.getTimeStamp());
+    lastPostGcHeapBytes.set(usedTotal);
     if (usedTotal > 0) {
       logger.atInfo().log(
           "Memory use after full GC: %d total, %d tenured", usedTotal, usedTenuredSpace);
@@ -280,8 +316,28 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
   }
 
-  /** Module to support "blaze info peak-heap-size". */
+  private record PostGcHeapUsageTask(
+      String laneName, String seriesName, @Nullable CounterSeriesTask.Color color)
+      implements CounterSeriesTask {}
+
+  private static final CounterSeriesTask POST_GC_HEAP_USAGE =
+      new PostGcHeapUsageTask(
+          "Memory usage (Bazel, post-GC)", "post-GC heap", CounterSeriesTask.Color.GENERIC_WORK);
+
+  private static final class PostGcHeapUsageCollector implements CounterSeriesCollector {
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      long memoryUsage = PostGCMemoryUseRecorder.get().getLastPostGcHeapBytes();
+      if (memoryUsage > 0) {
+        consumer.accept(POST_GC_HEAP_USAGE, (double) memoryUsage / (1024 * 1024));
+      }
+    }
+  }
+
+  /** Module to support "blaze info peak-heap-size" and post-GC profiler collection. */
   public static final class PostGCMemoryUseRecorderModule extends BlazeModule {
+    @Nullable private PostGcHeapUsageCollector postGcHeapUsageCollector = null;
+
     @Override
     public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
       builder.addInfoItems(new PeakMemInfoItem());
@@ -292,6 +348,22 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
       if (!env.getCommandName().equals("info")) {
         PostGCMemoryUseRecorder.get().reset();
         env.getEventBus().register(PostGCMemoryUseRecorder.get());
+        var commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+        if (commonOptions != null
+            && commonOptions.getForcedGcInterval() != null
+            && !commonOptions.getForcedGcInterval().isZero()
+            && !commonOptions.getForcedGcInterval().isNegative()) {
+          postGcHeapUsageCollector = new PostGcHeapUsageCollector();
+          Profiler.instance().registerCounterSeriesCollector(postGcHeapUsageCollector);
+        }
+      }
+    }
+
+    @Override
+    public void afterCommand() {
+      if (postGcHeapUsageCollector != null) {
+        Profiler.instance().unregisterCounterSeriesCollector(postGcHeapUsageCollector);
+        postGcHeapUsageCollector = null;
       }
     }
   }
@@ -318,9 +390,9 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   /** Module to run a full GC after a build is complete on a Blaze server. * */
   public static final class GcAfterBuildModule extends BlazeModule {
 
-    private boolean forceGc = false;
+    private boolean forceGcAfterBuild = false;
 
-    /** Command options for forcing a GC after a build. * */
+    /** Command options for forcing a GC. */
     @OptionsClass
     public abstract static class Options extends OptionsBase {
       @Option(
@@ -329,9 +401,23 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
           effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
           help =
-              "If true calls System.gc() after a build to try and get a post-gc peak heap"
-                  + " measurement.")
-      public abstract boolean getExperimentalForceGcAfterBuild();
+              """
+              If true calls `System.gc()` after a build that did not run any full GC in an attempt
+              to ensure that the peak post-GC heap metric is populated.
+              """)
+      public abstract boolean getForceGcAfterBuild();
+
+      @Option(
+          name = "experimental_force_gc_before_discard_analysis_cache",
+          defaultValue = "false",
+          documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+          effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+          help =
+              """
+              If true calls `System.gc()` before discarding the analysis cache in an attempt to
+              ensure that the peak post-GC heap metric captures the true peak.
+              """)
+      public abstract boolean getForceGcBeforeDiscardAnalysisCache();
     }
 
     @Override
@@ -341,18 +427,20 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
-      Options options = env.getOptions().getOptions(Options.class);
-      if (options != null
-          && ("test".equals(env.getCommand().name()) || "build".equals(env.getCommand().name()))) {
-        forceGc = options.getExperimentalForceGcAfterBuild();
+      if (env.getCommand().buildPhase().executes()) {
+        var options = env.getOptions().getOptions(Options.class);
+        forceGcAfterBuild = options.getForceGcAfterBuild();
+        PostGCMemoryUseRecorder.get().triggerGcBeforeDiscardAnalysisCache =
+            options.getForceGcBeforeDiscardAnalysisCache();
       } else {
-        forceGc = false;
+        forceGcAfterBuild = false;
+        PostGCMemoryUseRecorder.get().triggerGcBeforeDiscardAnalysisCache = false;
       }
     }
 
     @Override
     public void afterCommand() {
-      if (forceGc && !PostGCMemoryUseRecorder.get().getPeakPostGcHeap().isPresent()) {
+      if (forceGcAfterBuild && PostGCMemoryUseRecorder.get().getPeakPostGcHeap().isEmpty()) {
         System.gc();
       }
     }

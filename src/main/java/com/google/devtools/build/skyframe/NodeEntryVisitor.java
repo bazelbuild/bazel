@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,6 +25,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.QuiescingTask;
+import com.google.devtools.build.lib.concurrent.QuiescingTask.PriorityTier;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.RunnableMaker;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.ClassToInstanceMapSkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
@@ -88,29 +91,67 @@ class NodeEntryVisitor {
 
   private class PartialReevaluationRunnableMaker implements RunnableMaker {
     @Override
-    public Runnable make(SkyKey key) {
-      Runnable inner = runnableMaker.make(key);
-      return () -> {
-        PartialReevaluationState state = PartialReevaluationState.EVALUATING;
-        while (state == PartialReevaluationState.EVALUATING) {
-          inner.run();
-          state =
-              partialReevaluationStates.compute(
-                  key,
-                  (k, s) -> {
-                    checkNotNull(s, "Null state during evaluation: %s", k);
-                    switch (s) {
-                      case EVALUATING:
-                        // Note that returning null from this compute function causes the entry to
-                        // be removed from the map.
-                        return null;
-                      case EVALUATING_SIGNALED:
-                        return PartialReevaluationState.EVALUATING;
-                    }
-                    throw new AssertionError(s);
-                  });
+    public Runnable make(SkyKey key, boolean alreadyStarted) {
+      Runnable inner = runnableMaker.make(key, alreadyStarted);
+      if (inner instanceof QuiescingTask innerTask) {
+        return new PartialReevaluationQuiescingTask(key, innerTask);
+      }
+      return () -> runPartialReevaluationLoop(key, inner);
+    }
+  }
+
+  private final class PartialReevaluationQuiescingTask extends QuiescingTask {
+    private final SkyKey key;
+    private final QuiescingTask innerTask;
+
+    private PartialReevaluationQuiescingTask(SkyKey key, QuiescingTask innerTask) {
+      super(innerTask.getQueueVisitor());
+      this.key = key;
+      this.innerTask = innerTask;
+    }
+
+    @Override
+    public PriorityTier priorityTier() {
+      return innerTask.priorityTier();
+    }
+
+    @Override
+    public int priorityDepth() {
+      return innerTask.priorityDepth();
+    }
+
+    @Override
+    public void runCore() {
+      runPartialReevaluationLoop(key, innerTask);
+    }
+  }
+
+  private void runPartialReevaluationLoop(SkyKey key, Runnable inner) {
+    PartialReevaluationState state = PartialReevaluationState.EVALUATING;
+    while (state == PartialReevaluationState.EVALUATING) {
+      if (inner instanceof QuiescingTask quiescingTask) {
+        try {
+          quiescingTask.runCore();
+        } catch (Exception e) {
+          Throwables.throwIfUnchecked(e);
+          throw new IllegalStateException(e);
         }
-      };
+      } else {
+        inner.run();
+      }
+      state =
+          partialReevaluationStates.compute(
+              key,
+              (k, s) -> {
+                checkNotNull(s, "Null state during evaluation: %s", k);
+                return switch (s) {
+                  case EVALUATING ->
+                      // Note that returning null from this compute function causes the entry to
+                      // be removed from the map.
+                      null;
+                  case EVALUATING_SIGNALED -> PartialReevaluationState.EVALUATING;
+                };
+              });
     }
   }
 
@@ -137,11 +178,11 @@ class NodeEntryVisitor {
    * a partial reevaluation is currently running, but that reevaluation will be immediately followed
    * by another reevaluation.
    */
-  void enqueueEvaluation(SkyKey key, @Nullable SkyKey signalingDep) {
+  void enqueueEvaluation(SkyKey key, @Nullable SkyKey signalingDep, boolean alreadyStarted) {
     if (key.supportsPartialReevaluation()) {
-      enqueuePartialReevaluation(key, signalingDep);
+      enqueuePartialReevaluation(key, signalingDep, alreadyStarted);
     } else {
-      innerEnqueueEvaluation(key, runnableMaker);
+      innerEnqueueEvaluation(key, runnableMaker, alreadyStarted);
     }
   }
 
@@ -163,7 +204,7 @@ class NodeEntryVisitor {
             .run(
                 () -> {
                   if (entry.signalDep(entry.getVersion(), null)) {
-                    enqueueEvaluation(skyKey, null);
+                    enqueueEvaluation(skyKey, /* signalingDep= */ null, /* alreadyStarted= */ true);
                   }
                 },
                 MoreExecutors.directExecutor());
@@ -204,7 +245,8 @@ class NodeEntryVisitor {
     return quiescingExecutor.getExceptionLatchForTestingOnly();
   }
 
-  private void enqueuePartialReevaluation(SkyKey key, @Nullable SkyKey signalingDep) {
+  private void enqueuePartialReevaluation(
+      SkyKey key, @Nullable SkyKey signalingDep, boolean alreadyStarted) {
     PartialReevaluationMailbox mailbox = getMailbox(key);
     if (signalingDep != null) {
       mailbox.signal(signalingDep);
@@ -220,7 +262,7 @@ class NodeEntryVisitor {
                     ? PartialReevaluationState.EVALUATING
                     : PartialReevaluationState.EVALUATING_SIGNALED);
     if (reevaluationState.equals(PartialReevaluationState.EVALUATING)) {
-      innerEnqueueEvaluation(key, partialReevaluationRunnableMaker);
+      innerEnqueueEvaluation(key, partialReevaluationRunnableMaker, alreadyStarted);
     }
   }
 
@@ -230,7 +272,8 @@ class NodeEntryVisitor {
             stateCache.get(key, k -> new ClassToInstanceMapSkyKeyComputeState()));
   }
 
-  private void innerEnqueueEvaluation(SkyKey key, RunnableMaker runnableMakerToUse) {
+  private void innerEnqueueEvaluation(
+      SkyKey key, RunnableMaker runnableMakerToUse, boolean alreadyStarted) {
     if (shouldPreventNewEvaluations()) {
       // If an error happens in nokeep_going mode, we still want to mark these nodes as inflight,
       // otherwise cleanup will not happen properly.
@@ -239,25 +282,39 @@ class NodeEntryVisitor {
     }
     progressReceiver.enqueueing(key);
 
-    var runnable = runnableMakerToUse.make(key);
+    var runnable = runnableMakerToUse.make(key, alreadyStarted);
     if (quiescingExecutor
         instanceof MultiThreadPoolsQuiescingExecutor multiThreadPoolsQuiescingExecutor) {
-      ThreadPoolType threadPoolType;
-      if (key instanceof CPUHeavySkyKey) {
-        threadPoolType = ThreadPoolType.CPU_HEAVY;
-      } else if (multiThreadPoolsQuiescingExecutor.hasSeparatePoolForExecutionTasks()
-          && key instanceof ExecutionPhaseSkyKey) {
-        // Only possible with --experimental_merged_skyframe_analysis_execution.
-        threadPoolType = ThreadPoolType.EXECUTION_PHASE;
+      ThreadPoolType threadPoolType = selectThreadPoolType(multiThreadPoolsQuiescingExecutor, key);
+      if (runnable instanceof QuiescingTask quiescingTask) {
+        multiThreadPoolsQuiescingExecutor.execute(
+            quiescingTask,
+            threadPoolType,
+            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
       } else {
-        threadPoolType = ThreadPoolType.REGULAR;
+        multiThreadPoolsQuiescingExecutor.execute(
+            runnable,
+            threadPoolType,
+            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
       }
-      multiThreadPoolsQuiescingExecutor.execute(
-          runnable,
-          threadPoolType,
-          /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
     } else {
-      quiescingExecutor.execute(runnable);
+      if (runnable instanceof QuiescingTask quiescingTask) {
+        quiescingExecutor.execute(quiescingTask);
+      } else {
+        quiescingExecutor.execute(runnable);
+      }
     }
+  }
+
+  static ThreadPoolType selectThreadPoolType(
+      MultiThreadPoolsQuiescingExecutor executor, SkyKey key) {
+    if (key instanceof CPUHeavySkyKey) {
+      return ThreadPoolType.CPU_HEAVY;
+    }
+    if (executor.hasSeparatePoolForExecutionTasks() && key instanceof ExecutionPhaseSkyKey) {
+      // Only possible with --experimental_merged_skyframe_analysis_execution.
+      return ThreadPoolType.EXECUTION_PHASE;
+    }
+    return ThreadPoolType.REGULAR;
   }
 }

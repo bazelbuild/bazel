@@ -14,10 +14,9 @@
 
 package com.google.testing.junit.runner.util;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class for dealing with escaping XML content and attributes.

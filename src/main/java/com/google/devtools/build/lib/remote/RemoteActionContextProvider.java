@@ -18,15 +18,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
+import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -133,17 +135,7 @@ final class RemoteActionContextProvider {
   }
 
   private RemotePathResolver createRemotePathResolver() {
-    Path execRoot = env.getExecRoot();
-    BuildLanguageOptions buildLanguageOptions =
-        env.getOptions().getOptions(BuildLanguageOptions.class);
-    RemotePathResolver remotePathResolver;
-    if (buildLanguageOptions != null
-        && buildLanguageOptions.getExperimentalSiblingRepositoryLayout()) {
-      remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
-    } else {
-      remotePathResolver = new DefaultRemotePathResolver(execRoot);
-    }
-    return remotePathResolver;
+    return new DefaultRemotePathResolver(env.getExecRoot());
   }
 
   public void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
@@ -185,7 +177,8 @@ final class RemoteActionContextProvider {
               captureCorruptedOutputsDir,
               remoteOutputChecker,
               outputService,
-              knownMissingCasDigests);
+              knownMissingCasDigests,
+              env.getSkyframeExecutor()::wasActionRewound);
       env.getEventBus().register(remoteExecutionService);
     }
 
@@ -201,6 +194,7 @@ final class RemoteActionContextProvider {
   public void registerRemoteSpawnStrategy(SpawnStrategyRegistry.Builder registryBuilder) {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    RemoteExecutionService remoteExecutionService = getRemoteExecutionService();
     RemoteSpawnRunner spawnRunner =
         new RemoteSpawnRunner(
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
@@ -208,10 +202,10 @@ final class RemoteActionContextProvider {
             env.getReporter(),
             retryScheduler,
             logDir,
-            getRemoteExecutionService(),
+            remoteExecutionService,
             digestUtil);
     registryBuilder.registerStrategy(
-        new RemoteSpawnStrategy(spawnRunner, executionOptions), "remote");
+        new RemoteSpawnStrategy(remoteExecutionService, spawnRunner, executionOptions), "remote");
   }
 
   /**
@@ -227,6 +221,49 @@ final class RemoteActionContextProvider {
             getRemoteExecutionService(),
             digestUtil);
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");
+  }
+
+  /**
+   * Registers file write and template expansion strategies that store file contents in the disk
+   * and/or remote cache under the {@code remote} identifier if this instance was created with a
+   * cache, otherwise does nothing. Whether they are used is up to {@code --file_write_strategy} and
+   * {@code --template_expansion_strategy}.
+   *
+   * @param registryBuilder builder with which to register the strategies
+   */
+  public void registerFileWriteStrategies(ModuleActionContextRegistry.Builder registryBuilder) {
+    if (combinedCache == null || remoteOutputChecker == null) {
+      return;
+    }
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
+
+    var localFileWriteStrategy = new FileWriteStrategy();
+    var remoteFileWriteStrategy =
+        new RemoteFileWriteStrategy(
+            new FileWriteStrategy(),
+            combinedCache,
+            remoteOutputChecker,
+            digestUtil,
+            env.getBuildRequestId(),
+            env.getCommandId().toString(),
+            remoteOptions.getRemoteCacheTtl(),
+            // Remote execution uploads action inputs regardless of the setting for local results.
+            /* remoteUploadEnabled= */ remoteExecutor != null
+                || remoteOptions.getRemoteUploadLocalResults(),
+            executionOptions.getVerboseFailures());
+
+    registryBuilder.register(FileWriteActionContext.class, remoteFileWriteStrategy, "remote");
+    registryBuilder.register(FileWriteActionContext.class, localFileWriteStrategy, "local");
+    registryBuilder.register(
+        TemplateExpansionContext.class,
+        new LocalTemplateExpansionStrategy(remoteFileWriteStrategy),
+        "remote");
+    registryBuilder.register(
+        TemplateExpansionContext.class,
+        new LocalTemplateExpansionStrategy(localFileWriteStrategy),
+        "local");
   }
 
   CombinedCache getCombinedCache() {

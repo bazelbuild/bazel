@@ -82,7 +82,7 @@ int MappedInputFile::Close() {
 
 struct MappedOutputFileImpl {
   int fd_;
-  int mmap_length_;
+  size_t mmap_length_;
 };
 
 MappedOutputFile::MappedOutputFile(const char* name, size_t estimated_size)
@@ -135,7 +135,11 @@ int MappedOutputFile::Close(size_t size) {
     errmsg_ = errmsg;
     return -1;
   }
-  munmap(buffer_, impl_->mmap_length_);
+  if (munmap(buffer_, impl_->mmap_length_) < 0) {
+    snprintf(errmsg, MAX_ERROR, "munmap(): %s", strerror(errno));
+    errmsg_ = errmsg;
+    return -1;
+  }
   if (ftruncate(impl_->fd_, size) < 0) {
     snprintf(errmsg, MAX_ERROR, "ftruncate(): %s", strerror(errno));
     errmsg_ = errmsg;

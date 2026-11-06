@@ -117,9 +117,7 @@ public class WorkerModule extends BlazeModule {
     Path trashBase = workerDir.getRelative(AsynchronousTreeDeleter.MOVED_TRASH_DIR);
     if (treeDeleter == null) {
       treeDeleter = new AsynchronousTreeDeleter(trashBase);
-      if (trashBase.exists()) {
-        removeStaleTrash(workerDir, trashBase);
-      }
+      removeStaleTrash(workerDir, trashBase);
     }
     VirtualCgroupFactory cgroupFactory =
         OS.getCurrent() != OS.LINUX || sandboxOptions == null
@@ -133,8 +131,8 @@ public class WorkerModule extends BlazeModule {
     WorkerFactory newWorkerFactory =
         new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
     if (!newWorkerFactory.equals(workerFactory)) {
-      if (workerDir.exists()) {
-        try {
+      try {
+        if (workerDir.exists()) {
           // Clean out old log files.
           for (Path logFile : workerDir.getDirectoryEntries()) {
             if (logFile.getBaseName().endsWith(".log")) {
@@ -150,14 +148,14 @@ public class WorkerModule extends BlazeModule {
               }
             }
           }
-        } catch (IOException e) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      String.format(
-                          "Could not delete old worker logs in '%s': %s",
-                          workerDir, e.getMessage())));
         }
+      } catch (IOException e) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    String.format(
+                        "Could not delete old worker logs in '%s': %s",
+                        workerDir, e.getMessage())));
       }
 
       shutdownPool(
@@ -205,6 +203,9 @@ public class WorkerModule extends BlazeModule {
 
   private void removeStaleTrash(Path workerDir, Path trashBase) {
     try {
+      if (!trashBase.exists()) {
+        return;
+      }
       // The AsynchronousTreeDeleter relies on a counter for naming directories that will be
       // moved out of the way before being deleted asynchronously.
       // If there is trash on disk from a previous bazel server instance, the dirs will have

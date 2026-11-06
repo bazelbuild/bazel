@@ -120,7 +120,7 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
 
   @Test
   public void nestedDirTouched_doesNotInvalidateAction() throws Exception {
-    sourceDir.getRelative("subdir/nested").setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    sourceDir.getRelative("subdir/nested").setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     assertNotInvalidatedByBuild();
   }
 

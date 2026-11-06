@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -199,7 +200,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   private SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
-    return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+    return SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
         .setDirectories(directories)
@@ -229,7 +230,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     .addAll(analysisMock.getPrecomputedValues())
                     .add(
                         PrecomputedValue.injected(
-                            ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
                     .build())
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
@@ -260,7 +261,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl()))));
+                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl()))));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
@@ -649,7 +650,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getArtifactFactory()
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
-            getTargetConfiguration().getBinDirectory(label.getRepository()),
+            getTargetConfiguration().getBinDirectory(),
             ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 

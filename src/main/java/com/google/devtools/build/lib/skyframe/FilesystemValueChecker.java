@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresen
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -200,7 +201,8 @@ public class FilesystemValueChecker {
     /**
      * Called on every modified artifact detected by {@link #getDirtyActionValues}.
      *
-     * @param maybeModifiedTime Best effort modified time, -1 when not available/missing.
+     * @param maybeModifiedTime Best effort modified time in nanoseconds since the UNIX epoch, or -1
+     *     when not available/missing.
      * @param artifact Modified output artifact.
      */
     void reportModifiedOutputFile(long maybeModifiedTime, Artifact artifact);
@@ -400,7 +402,7 @@ public class FilesystemValueChecker {
             long maybeModifiedTime = -1;
             if (stat != null) {
               try {
-                maybeModifiedTime = stat.getLastChangeTime();
+                maybeModifiedTime = stat.getLastChangeTimeNanos();
               } catch (UnsupportedOperationException ignored) {
                 // Not all filesystems support change time; falling back to -1.
               }
@@ -531,14 +533,29 @@ public class FilesystemValueChecker {
       FileArtifactValue fileMetadata =
           ActionOutputMetadataStore.fileArtifactValueFromArtifact(
               file, null, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
-      boolean isTrustedRemoteValue =
+      // Remote metadata may record that the file has been materialized in the local filesystem as
+      // a requested top-level output without its generating action having been reexecuted (e.g. by
+      // the completion function after an action cache hit). If the file is missing now, the action
+      // has to be invalidated so that its reevaluation can restore the file in case the current
+      // invocation wants it locally.
+      boolean deletedAfterMaterialization =
           fileMetadata.getType() == FileStateType.NONEXISTENT
+              && lastKnownData.isRemote()
+              && lastKnownData.wasMaterializedAsToplevelOutput();
+      boolean isTrustedRemoteValue =
+          !deletedAfterMaterialization
+              && fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
               && outputChecker.shouldTrustMetadata(file, lastKnownData);
       if (!isTrustedRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
+        if (deletedAfterMaterialization) {
+          // Clear the record so that a reevaluation that chooses not to rematerialize the file
+          // doesn't invalidate the action again on every subsequent invocation.
+          lastKnownData.setMaterializedAsToplevelOutput(false);
+        }
         modifiedOutputsReceiver.reportModifiedOutputFile(
             fileMetadata.getType() != FileStateType.NONEXISTENT
-                ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW)
+                ? file.getPath().getLastModifiedTimeNanos(Symlinks.FOLLOW)
                 : -1,
             file);
         return true;
@@ -606,7 +623,8 @@ public class FilesystemValueChecker {
 
   private static long getBestEffortModifiedTime(Path path) {
     try {
-      return path.exists() ? path.getLastModifiedTime() : -1;
+      FileStatus stat = path.statIfFound();
+      return stat != null ? stat.getLastModifiedTimeNanos() : -1;
     } catch (IOException e) {
       logger.atWarning().atMostEvery(1, MINUTES).withCause(e).log(
           "Failed to get modified time for output at: %s", path);

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import org.junit.Before;
@@ -86,6 +88,60 @@ public final class PatchUtilTest {
     Path newFile = root.getRelative("newfile");
     ImmutableList<String> newFileContent = ImmutableList.of("hello, world");
     assertThat(FileSystemUtils.readLines(newFile, UTF_8)).isEqualTo(newFileContent);
+  }
+
+  @Test
+  public void testAddTwoFilesWithoutSeparator() throws IOException, PatchFailedException {
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/newfile\t1969-12-31 16:00:00.000000000 -0800",
+            "+++ b/newfile\t2019-11-18 09:41:29.206408378 -0800",
+            "@@ -0,0 +1,2 @@",
+            "+I'm a new file",
+            "+hello, world",
+            "--- a/newfile2\t1969-12-31 16:00:00.000000000 -0800",
+            "+++ b/newfile2\t2019-11-18 09:46:48.146505886 -0800",
+            "@@ -0,0 +1,2 @@",
+            "+foo",
+            "+bar");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLines(root.getRelative("newfile"), UTF_8))
+        .containsExactly("I'm a new file", "hello, world")
+        .inOrder();
+    assertThat(FileSystemUtils.readLines(root.getRelative("newfile2"), UTF_8))
+        .containsExactly("foo", "bar")
+        .inOrder();
+  }
+
+  @Test
+  public void testPatchTwoFilesWithoutSeparator() throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.cc", "#include <stdio.h>", "", "void main(){", "}");
+    Path bar = scratch.file("/root/bar.cc", "void lib(){", "}");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.cc",
+            "+++ b/foo.cc",
+            "@@ -1,4 +1,5 @@",
+            " #include <stdio.h>",
+            " ",
+            " void main(){",
+            "+  printf(\"Hello foo\");",
+            " }",
+            "--- a/bar.cc",
+            "+++ b/bar.cc",
+            "@@ -1,2 +1,3 @@",
+            " void lib(){",
+            "+  printf(\"Hello bar\");",
+            " }");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLines(foo, UTF_8))
+        .containsExactly("#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}")
+        .inOrder();
+    assertThat(FileSystemUtils.readLines(bar, UTF_8))
+        .containsExactly("void lib(){", "  printf(\"Hello bar\");", "}")
+        .inOrder();
   }
 
   @Test
@@ -153,6 +209,27 @@ public final class PatchUtilTest {
     assertThat(FileSystemUtils.readLines(oldFile, UTF_8)).isEqualTo(newContent);
     // new file should not change
     assertThat(FileSystemUtils.readLines(newFile, UTF_8)).containsExactly("line one");
+  }
+
+  @Test
+  public void testNonAsciiFileNameAndContent() throws IOException, PatchFailedException {
+    // A single 0xE4 byte, which isn't valid UTF-8.
+    String latin1Line = "line \u00e4";
+    Path file =
+        scratch.file(unicodeToInternal("/root/fïlé.txt"), latin1Line, unicodeToInternal("old ü"));
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            unicodeToInternal("--- a/fïlé.txt"),
+            unicodeToInternal("+++ b/fïlé.txt"),
+            "@@ -1,2 +1,2 @@",
+            " " + latin1Line,
+            unicodeToInternal("-old ü"),
+            unicodeToInternal("+new €"));
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLinesAsLatin1(file))
+        .containsExactly(latin1Line, unicodeToInternal("new €"))
+        .inOrder();
   }
 
   @Test
@@ -730,4 +807,284 @@ public final class PatchUtilTest {
         .hasMessageThat()
         .contains("The patch content must start with ---/+++ prelude lines at line 3");
   }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_addNewline()
+      throws IOException, PatchFailedException {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/17376
+    Path foo =
+        scratch.file(
+            "/root/FormatTokenSource.h",
+            "class IndexedTokenSource : public FormatTokenSource {",
+            "",
+            "#undef DEBUG_TYPE",
+            "",
+            "#endif");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- FormatTokenSource.h",
+            "+++ FormatTokenSource.h",
+            "@@ -1,5 +1,5 @@",
+            "-class IndexedTokenSource : public FormatTokenSource {",
+            "+class LLVM_GSL_POINTER IndexedTokenSource : public FormatTokenSource {",
+            " ",
+            " #undef DEBUG_TYPE",
+            " ",
+            "-#endif",
+            "\\ No newline at end of file",
+            "+#endif");
+    PatchUtil.apply(patchFile, 0, root);
+    ImmutableList<String> expected =
+        ImmutableList.of(
+            "class LLVM_GSL_POINTER IndexedTokenSource : public FormatTokenSource {",
+            "",
+            "#undef DEBUG_TYPE",
+            "",
+            "#endif");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_stillNoNewline()
+      throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.txt", "line1", "line2", "#endif");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1,3 +1,3 @@",
+            " line1",
+            " line2",
+            "-#endif",
+            "\\ No newline at end of file",
+            "+#endif_modified",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> expected = ImmutableList.of("line1", "line2", "#endif_modified");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_contextLine()
+      throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.txt", "old", "tail");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1,2 +1,2 @@",
+            "-old",
+            "+new",
+            " tail",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> expected = ImmutableList.of("new", "tail");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_addFile()
+      throws IOException, PatchFailedException {
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/newfile b/newfile",
+            "new file mode 100644",
+            "--- /dev/null",
+            "+++ b/newfile",
+            "@@ -0,0 +1 @@",
+            "+hello, world",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    Path newFile = root.getRelative("newfile");
+    assertThat(FileSystemUtils.readLines(newFile, UTF_8)).containsExactly("hello, world");
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_deleteFile()
+      throws IOException, PatchFailedException {
+    Path oldFile = scratch.file("/root/oldfile", "bye, world");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/oldfile",
+            "+++ /dev/null",
+            "@@ -1 +0,0 @@",
+            "-bye, world",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(oldFile.exists()).isFalse();
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_multipleFiles()
+      throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.txt", "foo_old");
+    Path bar = scratch.file("/root/bar.txt", "bar_old");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo.txt b/foo.txt",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1 +1 @@",
+            "-foo_old",
+            "\\ No newline at end of file",
+            "+foo_new",
+            "diff --git a/bar.txt b/bar.txt",
+            "--- a/bar.txt",
+            "+++ b/bar.txt",
+            "@@ -1 +1 @@",
+            "-bar_old",
+            "+bar_new",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).containsExactly("foo_new");
+    assertThat(FileSystemUtils.readLines(bar, UTF_8)).containsExactly("bar_new");
+  }
+
+  @Test
+  public void testPatchFollowsDirectorySymlink_addFile() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("/root/outside"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile2",
+            "--- /dev/null",
+            "+++ a/link/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("foo.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchFollowsDirectorySymlink_rename() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("/root/outside"));
+    scratch.file("/root/outside/foo.txt", "content");
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile3",
+            "diff --git a/link/foo.txt b/bar.txt",
+            "similarity index 100%",
+            "rename from link/foo.txt",
+            "rename to bar.txt");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("foo.txt").exists()).isTrue();
+    assertThat(repoDir.getRelative("bar.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchFollowsRelativeSymlinkOutsideRepository() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("../outside"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile4",
+            "--- /dev/null",
+            "+++ a/link/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("foo.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchIntermediateSymlinkPointingOutsideButLeafPointingInside() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    Path outsideDir = scratch.dir("/root/outside");
+    scratch.dir("/root/repo/sub");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("/root/outside"));
+    outsideDir.getRelative("back").createSymbolicLink(PathFragment.create("/root/repo/sub"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile5",
+            "--- /dev/null",
+            "+++ a/link/back/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchFailedException e =
+        assertThrows(
+            PatchFailedException.class,
+            () ->
+                PatchUtil.apply(
+                    /* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir));
+    assertThat(e).hasMessageThat().contains("Cannot patch file outside of external repository");
+    assertThat(outsideDir.getRelative("back/foo.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testPatchIntraRepositorySymlink() throws Exception {
+    Path repoDir = scratch.dir("/root/repo");
+    scratch.dir("/root/repo/sub");
+    repoDir.getRelative("link").createSymbolicLink(PathFragment.create("sub"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile6",
+            "--- /dev/null",
+            "+++ a/link/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchUtil.apply(/* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDir);
+    assertThat(repoDir.getRelative("sub/foo.txt").exists()).isTrue();
+  }
+
+  @Test
+  public void testPatchOutputDirectoryIsSymlink() throws Exception {
+    Path repoDirReal = scratch.dir("/root/repo_real");
+    Path repoDirLink = scratch.dir("/root").getChild("repo_link");
+    repoDirLink.createSymbolicLink(PathFragment.create("repo_real"));
+
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile7",
+            "--- /dev/null",
+            "+++ a/foo.txt",
+            "@@ -0,0 +1,2 @@",
+            "+hello",
+            "+world");
+
+    PatchUtil.apply(/* patchFile= */ patchFile, /* strip= */ 1, /* outputDirectory= */ repoDirLink);
+    assertThat(repoDirReal.getRelative("foo.txt").exists()).isTrue();
+  }
 }
+

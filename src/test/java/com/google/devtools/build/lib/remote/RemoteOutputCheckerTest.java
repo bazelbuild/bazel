@@ -14,6 +14,10 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,6 +29,9 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.common.options.Converters;
+import java.util.function.Predicate;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,6 +66,46 @@ public class RemoteOutputCheckerTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void maybeInvalidateSkyframeValues_downloadRegexChanged_invalidatesCompletions()
+      throws Exception {
+    var previousBuildChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+    var checker =
+        new RemoteOutputChecker(
+            "build",
+            RemoteOutputsMode.MINIMAL,
+            ImmutableList.of(new Converters.RegexPatternConverter().convert(".*\\.txt")),
+            previousBuildChecker);
+    MemoizingEvaluator evaluator = mock(MemoizingEvaluator.class);
+
+    checker.maybeInvalidateSkyframeValues(evaluator);
+
+    verify(evaluator).delete(any(Predicate.class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void maybeInvalidateSkyframeValues_sameDownloadRegex_keepsCompletions() throws Exception {
+    var previousBuildChecker =
+        new RemoteOutputChecker(
+            "build",
+            RemoteOutputsMode.MINIMAL,
+            ImmutableList.of(new Converters.RegexPatternConverter().convert(".*\\.txt")));
+    var checker =
+        new RemoteOutputChecker(
+            "build",
+            RemoteOutputsMode.MINIMAL,
+            ImmutableList.of(new Converters.RegexPatternConverter().convert(".*\\.txt")),
+            previousBuildChecker);
+    MemoizingEvaluator evaluator = mock(MemoizingEvaluator.class);
+
+    checker.maybeInvalidateSkyframeValues(evaluator);
+
+    verify(evaluator, never()).delete(any(Predicate.class));
+  }
+
+  @Test
   public void shouldTrustMetadata_previousBuildDownloadedAll_trusted() {
     // Outputs that the current build does not want downloaded must not be distrusted
     // due to a previous invocation using a broader download policy.
@@ -77,7 +124,7 @@ public class RemoteOutputCheckerTest {
   }
 
   @Test
-  public void shouldTrustMetadata_previousBuildRegexMatch_trusted() {
+  public void shouldTrustMetadata_previousBuildRegexMatch_trusted() throws Exception {
     Artifact artifact = ActionsTestUtil.createArtifact(execRoot, "foo/bar");
     FileArtifactValue metadata =
         FileArtifactValue.createForRemoteFile(
@@ -85,7 +132,9 @@ public class RemoteOutputCheckerTest {
 
     var previousBuildChecker =
         new RemoteOutputChecker(
-            "build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of(unused -> true));
+            "build",
+            RemoteOutputsMode.TOPLEVEL,
+            ImmutableList.of(new Converters.RegexPatternConverter().convert(".*")));
     var currentBuildChecker =
         new RemoteOutputChecker(
             "build", RemoteOutputsMode.TOPLEVEL, ImmutableList.of(), previousBuildChecker);
@@ -128,5 +177,29 @@ public class RemoteOutputCheckerTest {
     currentBuildChecker.addOutputToDownload(artifact);
 
     assertThat(currentBuildChecker.shouldTrustMetadata(artifact, metadata)).isFalse();
+  }
+
+  @Test
+  public void testShouldTrustCachedMetadata_ignoresLastRemoteOutputChecker() {
+    RemoteOutputChecker lastChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+    lastChecker.addOutputToDownload(ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"));
+
+    RemoteOutputChecker checker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.MINIMAL, ImmutableList.of(), lastChecker);
+
+    FileArtifactValue remoteMetadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1, 2, 3}, 10, 1, /* expirationTime= */ null, /* inMemoryOutput= */ false);
+
+    assertThat(
+            checker.shouldTrustCachedMetadata(
+                ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"), remoteMetadata))
+        .isTrue();
+    assertThat(
+            checker.shouldTrustMetadata(
+                ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"), remoteMetadata))
+        .isFalse();
   }
 }

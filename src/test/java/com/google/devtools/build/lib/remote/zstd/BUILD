@@ -25,7 +25,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/zstd",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

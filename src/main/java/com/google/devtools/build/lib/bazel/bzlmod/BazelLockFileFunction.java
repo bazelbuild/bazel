@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.actions.FileValue;
@@ -34,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonSyntaxException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -68,6 +70,10 @@ public class BazelLockFileFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BazelLockfileFunctionException, InterruptedException {
+    if (LOCKFILE_MODE.get(env) == LockfileMode.OFF) {
+      return BazelLockFileValue.EMPTY_LOCKFILE;
+    }
+
     boolean forHiddenLockfile = skyKey == BazelLockFileValue.HIDDEN_KEY;
     RootedPath lockfilePath =
         RootedPath.toRootedPath(
@@ -86,16 +92,18 @@ public class BazelLockFileFunction implements SkyFunction {
                 forHiddenLockfile ? "parse hidden lockfile" : "parse lockfile")) {
       return getLockfileValue(
           lockfilePath, forHiddenLockfile ? LockfileMode.UPDATE : LOCKFILE_MODE.get(env));
-    } catch (IOException
-        | JsonSyntaxException
-        | NullPointerException
-        | IllegalArgumentException e) {
+    } catch (IOException | JsonParseException | NullPointerException | IllegalArgumentException e) {
       if (forHiddenLockfile) {
         return BazelLockFileValue.EMPTY_LOCKFILE;
       }
+      // Gson's syntax errors wrap an exception that quotes the JSON input, which is Unicode, but
+      // its duplicate key errors quote keys that have already been read as internal strings.
+      String message =
+          e instanceof JsonSyntaxException && e.getCause() != null
+              ? unicodeToInternal(e.getMessage())
+              : e.getMessage();
       String actionSuffix;
-      if (e.getMessage() != null
-          && POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(e.getMessage()).find()) {
+      if (message != null && POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(message).find()) {
         actionSuffix =
             " This looks like a merge conflict. See"
                 + " https://bazel.build/external/lockfile#merge-conflicts for advice.";
@@ -106,7 +114,7 @@ public class BazelLockFileFunction implements SkyFunction {
           ExternalDepsException.withMessage(
               Code.BAD_LOCKFILE,
               "Failed to read and parse the MODULE.bazel.lock file with error: %s.%s",
-              e.getMessage(),
+              message,
               actionSuffix),
           Transience.PERSISTENT);
     }
@@ -158,15 +166,12 @@ public class BazelLockFileFunction implements SkyFunction {
       return false;
     }
     for (var extensionMap : lockFileValue.getModuleExtensions().values()) {
-      if (extensionMap == null) {
-        return false;
-      }
-      for (LockFileModuleExtension extension : extensionMap.values()) {
-        if (extension == null || extension.getGeneratedRepoSpecs() == null) {
+      for (var extension : extensionMap.values()) {
+        if (extension.getGeneratedRepoSpecs() == null) {
           return false;
         }
-        for (RepoSpec repoSpec : extension.getGeneratedRepoSpecs().values()) {
-          if (repoSpec == null || repoSpec.repoRuleId() == null) {
+        for (var repoSpec : extension.getGeneratedRepoSpecs().values()) {
+          if (repoSpec.repoRuleId() == null) {
             return false;
           }
         }
