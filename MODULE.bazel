@@ -23,6 +23,7 @@ bazel_dep(name = "googleapis")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "com_google_googletest")
 bazel_dep(name = "grpc-java", version = "1.84.0")
 bazel_dep(name = "grpc", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "mimalloc", version = "3.5.3")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", repo_name = "com_google_protobuf")
 bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
@@ -48,7 +49,7 @@ bazel_dep(name = "rules_cc", version = "0.2.25")
 # Hermetic LLVM toolchains used to cross-compile Bazel to all supported
 # platforms from any host. They are not registered by default; see the `llvm`
 # config in .bazelrc.
-bazel_dep(name = "llvm", version = "0.8.21")
+bazel_dep(name = "llvm", version = "0.8.25")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
