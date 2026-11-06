@@ -210,6 +210,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:runfiles",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party/java/jsr305_annotations",
