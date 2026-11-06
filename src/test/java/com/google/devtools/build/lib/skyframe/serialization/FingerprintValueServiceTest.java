@@ -14,17 +14,63 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class FingerprintValueServiceTest {
+  @Test
+  public void latencyUsesElapsedNanosThroughAsynchronousCompletionAndSignedWrap() throws Exception {
+    var now = new AtomicLong(Long.MAX_VALUE - 5_000);
+    var write = new SettableWriteStatus();
+    var read = SettableFuture.<byte[]>create();
+    FingerprintValueStore store =
+        new FingerprintValueStore() {
+          @Override
+          public WriteStatus put(KeyBytesProvider key, byte[] bytes) {
+            return write;
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider key) {
+            return read;
+          }
+        };
+    var service =
+        new FingerprintValueService(
+            new SafeExecutorOwner(newDirectExecutorService()),
+            store,
+            new FingerprintValueCache(),
+            FingerprintValueService.NONPROD_FINGERPRINTER,
+            now::get);
+    byte[] value = {1, 2};
+    var key = service.fingerprint(value);
+    var putResult = service.put(key, value);
+    var getResult = service.get(key);
+    assertThat(service.getStats().setLatencyMicros()).isEmpty();
+    assertThat(service.getStats().getLatencyMicros()).isEmpty();
+    now.addAndGet(10_000); // Signed nanoTime values wrap, while elapsed time remains positive.
+    write.markSuccess();
+    read.set(value);
+    assertThat(putResult.get()).isTrue();
+    assertThat(getResult.get()).isEqualTo(value);
+    var putBucket = service.getStats().setLatencyMicros().get(0);
+    var getBucket = service.getStats().getLatencyMicros().get(0);
+    assertThat(putBucket.minInclusive()).isEqualTo(10);
+    assertThat(getBucket.minInclusive()).isEqualTo(10);
+    assertThat(putBucket.count()).isEqualTo(1);
+    assertThat(getBucket.count()).isEqualTo(1);
+  }
+
   @Test
   public void fingerprint_isConsistent() {
     FingerprintValueService service =

@@ -28,11 +28,10 @@ import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import javax.annotation.Nullable;
 
 /**
@@ -65,6 +64,7 @@ public final class FingerprintValueService implements KeyValueWriter {
   private final SafeExecutor executor;
   private final FingerprintValueStore store;
   private final FingerprintValueCache cache;
+  private final LongSupplier nanoTime;
 
   /**
    * The function used to generate fingerprints.
@@ -118,10 +118,21 @@ public final class FingerprintValueService implements KeyValueWriter {
       FingerprintValueStore store,
       FingerprintValueCache cache,
       Fingerprinter fingerprinter) {
+    this(executor, store, cache, fingerprinter, System::nanoTime);
+  }
+
+  @VisibleForTesting
+  FingerprintValueService(
+      SafeExecutor executor,
+      FingerprintValueStore store,
+      FingerprintValueCache cache,
+      Fingerprinter fingerprinter,
+      LongSupplier nanoTime) {
     this.executor = executor;
     this.store = store;
     this.cache = cache;
     this.fingerprinter = fingerprinter;
+    this.nanoTime = nanoTime;
 
     this.fingerprintPlaceholder = fingerprint(new byte[] {});
     this.fingerprintLength = fingerprintPlaceholder.toBytes().length;
@@ -171,12 +182,10 @@ public final class FingerprintValueService implements KeyValueWriter {
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-    Instant before = Instant.now();
+    long before = nanoTime.getAsLong();
     WriteStatus status = store.put(fingerprint, serializedBytes);
     status.addListener(
-        () ->
-            setLatencyMicros.add(
-                TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
+        () -> setLatencyMicros.add(TimeUnit.NANOSECONDS.toMicros(nanoTime.getAsLong() - before)),
         directExecutor());
     return status;
   }
@@ -200,12 +209,10 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** Delegates to {@link FingerprintValueStore#get}. */
   public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
-    Instant before = Instant.now();
+    long before = nanoTime.getAsLong();
     ListenableFuture<byte[]> result = store.get(fingerprint);
     result.addListener(
-        () ->
-            getLatencyMicros.add(
-                TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
+        () -> getLatencyMicros.add(TimeUnit.NANOSECONDS.toMicros(nanoTime.getAsLong() - before)),
         directExecutor());
     return result;
   }
