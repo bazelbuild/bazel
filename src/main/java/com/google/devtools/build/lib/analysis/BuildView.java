@@ -42,12 +42,21 @@ import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChan
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RemoteAnalysisCachingEnabledEvent;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
+import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.TopLevelConfigRequestedEvent;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.analysis.producers.TransitionApplier;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory.TestTrimmingTransition;
@@ -64,6 +73,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -104,6 +114,9 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.SettablePla
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -114,6 +127,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -227,6 +241,8 @@ public class BuildView {
       ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
+      ImmutableSet<Label> hostExecTopLevelTargets,
+      boolean runOnHost,
       AnalysisOptions viewOptions,
       BuildRequestOptions buildRequestOptions,
       boolean keepGoing,
@@ -290,6 +306,7 @@ public class BuildView {
               additionalConfigurationChangeEvent);
       BaselineConfigurations baselines =
           skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
+      skyframeExecutor.setRunOnHost(runOnHost);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
 
       Label topLevelPlatform =
@@ -341,20 +358,32 @@ public class BuildView {
                   + " (--nocheck_visibility)."));
     }
 
-    var configurationKey = topLevelConfig.getKey();
+    // Some top-level targets, e.g. the --run_under target of `bazel run`, are configured like a
+    // dependency through an exec transition for the host platform so that they share their
+    // configured targets with such dependencies.
+    BuildConfigurationValue hostExecConfig =
+        hostExecTopLevelTargets.isEmpty()
+            ? null
+            : getHostExecConfiguration(topLevelConfig.getOptions(), eventHandler, keepGoing);
+    Function<Label, BuildConfigurationValue> configurationForTopLevelTarget =
+        label -> hostExecTopLevelTargets.contains(label) ? hostExecConfig : topLevelConfig;
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
         labelToTargetMap.keySet().stream()
             .map(
                 label ->
                     ConfiguredTargetKey.builder()
                         .setLabel(label)
-                        .setConfigurationKey(configurationKey)
+                        .setConfiguration(configurationForTopLevelTarget.apply(label))
                         .build())
             .collect(toImmutableList());
 
     ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
-            aspects, aspectsParameters, labelToTargetMap, topLevelConfig, eventHandler);
+            aspects,
+            aspectsParameters,
+            labelToTargetMap,
+            configurationForTopLevelTarget,
+            eventHandler);
 
     skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
         remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
@@ -529,11 +558,74 @@ public class BuildView {
     return builder.buildOrThrow();
   }
 
+  /**
+   * Returns the configuration of a dependency of a target with the given options through an
+   * attribute with an exec transition for an exec group that resolved to the host platform.
+   */
+  private BuildConfigurationValue getHostExecConfiguration(
+      BuildOptions fromOptions, ExtendedEventHandler eventHandler, boolean keepGoing)
+      throws InvalidConfigurationException, InterruptedException {
+    // Toolchain resolution provides the label of the actual execution platform to the exec
+    // transition, so resolve a possible alias (such as the default --host_platform) as well.
+    PlatformValue.Key hostPlatformKey =
+        PlatformValue.key(
+            fromOptions.get(PlatformOptions.class).getHostPlatform(),
+            fromOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap());
+    Label resolvedHostPlatform =
+        ((PlatformValue) evaluate(hostPlatformKey, eventHandler)).platformInfo().label();
+    PatchTransition execTransition;
+    try {
+      execTransition =
+          ExecutionTransitionFactory.createFactory()
+              .create(
+                  AttributeTransitionData.builder()
+                      .analysisData(
+                          skyframeExecutor.getStarlarkExecTransition(fromOptions, eventHandler))
+                      .executionPlatform(resolvedHostPlatform)
+                      .build());
+    } catch (StarlarkExecTransitionLoadingException e) {
+      throw new InvalidConfigurationException(e);
+    }
+
+    // Apply the transition just like TransitionApplier does for a dependency.
+    StarlarkTransitionCache transitionCache = skyframeBuildView.getStarlarkTransitionCache();
+    StarlarkBuildSettingsDetailsValue.Key detailsKey =
+        TransitionApplier.getStarlarkBuildSettingsDetailsKey(
+            execTransition, fromOptions, transitionCache);
+    StarlarkBuildSettingsDetailsValue details =
+        (StarlarkBuildSettingsDetailsValue) evaluate(detailsKey, eventHandler);
+    BuildOptions execOptions;
+    try {
+      execOptions =
+          Iterables.getOnlyElement(
+              transitionCache
+                  .computeIfAbsent(fromOptions, execTransition, details, eventHandler)
+                  .values());
+    } catch (TransitionException e) {
+      throw new InvalidConfigurationException(e);
+    }
+    return skyframeExecutor.getConfiguration(eventHandler, execOptions, keepGoing);
+  }
+
+  private SkyValue evaluate(SkyKey key, ExtendedEventHandler eventHandler)
+      throws InvalidConfigurationException {
+    EvaluationResult<SkyValue> result =
+        skyframeExecutor.evaluateSkyKeys(
+            eventHandler, ImmutableList.of(key), /* keepGoing= */ false);
+    if (result.hasError()) {
+      Exception e = result.getError(key).getException();
+      throw e != null
+          ? new InvalidConfigurationException(e)
+          : new InvalidConfigurationException("Cycle while evaluating " + key);
+    }
+    return result.get(key);
+  }
+
   private ImmutableList<TopLevelAspectsKey> createTopLevelAspectKeys(
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
       ImmutableMap<Label, Target> topLevelTargets,
-      BuildConfigurationValue configuration,
+      Function<Label, BuildConfigurationValue> configurationForTopLevelTarget,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, ViewCreationFailedException {
     RepositoryMapping mainRepoMapping;
@@ -621,7 +713,10 @@ public class BuildView {
         .map(
             target ->
                 AspectKeyCreator.createTopLevelAspectsKey(
-                    aspectClasses, target.getKey(), configuration, aspectsParameters))
+                    aspectClasses,
+                    target.getKey(),
+                    configurationForTopLevelTarget.apply(target.getKey()),
+                    aspectsParameters))
         .collect(toImmutableList());
   }
 

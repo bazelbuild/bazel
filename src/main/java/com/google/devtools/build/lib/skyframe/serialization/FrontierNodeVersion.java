@@ -37,6 +37,7 @@ public final class FrontierNodeVersion {
           IntVersion.of(9000),
           "distinguisher",
           /* useFakeStampData= */ true,
+          /* runOnHost= */ false,
           Optional.of(new SnapshotClientId("for_testing", 123)));
 
   /**
@@ -103,6 +104,9 @@ public final class FrontierNodeVersion {
   /** Whether this invocations use fake data for stamping (volatile) information. */
   private final boolean useFakeStampData;
 
+  /** Whether the command executes the tests it builds on the host, see {@code bazel run}. */
+  private final boolean runOnHost;
+
   /**
    * The precomputed fingerprint of this node version.
    *
@@ -127,6 +131,7 @@ public final class FrontierNodeVersion {
       IntVersion evaluatingVersion,
       String distinguisherBytesForTesting,
       boolean useFakeStampData,
+      boolean runOnHost,
       Optional<ClientId> clientId) {
     this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
     this.blazeInstallMD5 = blazeInstallMD5;
@@ -145,6 +150,7 @@ public final class FrontierNodeVersion {
     this.evaluatingVersionFingerprint = Longs.toByteArray(evaluatingVersion.getVal());
     this.distinguisherBytesForTesting = distinguisherBytesForTesting.getBytes(UTF_8);
     this.useFakeStampData = useFakeStampData;
+    this.runOnHost = runOnHost;
     this.precomputedFingerprint =
         Hashing.sha256()
             .newHasher()
@@ -155,6 +161,7 @@ public final class FrontierNodeVersion {
             .putInt(this.distinguisherBytesForTesting.length)
             .putBytes(this.distinguisherBytesForTesting)
             .putBoolean(useFakeStampData)
+            .putBoolean(runOnHost)
             .hash()
             .asBytes();
 
@@ -193,6 +200,7 @@ public final class FrontierNodeVersion {
         .add("evaluatingVersion", Arrays.hashCode(evaluatingVersionFingerprint))
         .add("distinguisherBytesForTesting", Arrays.hashCode(distinguisherBytesForTesting))
         .add("useFakeStampData", useFakeStampData)
+        .add("runOnHost", runOnHost)
         .add("precomputed", hashCode())
         .toString();
   }

@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -34,12 +35,16 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
@@ -53,6 +58,10 @@ import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRequestEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.RunBuildCompleteEvent;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -65,6 +74,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -79,6 +89,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -89,6 +100,8 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -401,6 +414,16 @@ public class RunCommand implements BlazeCommand {
         runUnder instanceof LabelRunUnder runUnderLabel
             ? ImmutableList.of(targetString, runUnderLabel.label().toString())
             : ImmutableList.of(targetString);
+    boolean runOnHost =
+        options.getOptions(BuildLanguageOptions.class).getIncompatibleBazelRunOnHost();
+    // If the target to run is the --run_under target itself, it is built in the target
+    // configuration only, just like without --run_under.
+    ImmutableSet<Label> hostExecTopLevelTargets =
+        runOnHost
+                && runUnder instanceof LabelRunUnder runUnderLabel
+                && !isSameTarget(env, targetString, runUnderLabel.label())
+            ? ImmutableSet.of(runUnderLabel.label())
+            : ImmutableSet.of();
     BuildRequest request =
         BuildRequest.builder()
             .setCommandName(RunCommand.class.getAnnotation(Command.class).name())
@@ -409,6 +432,8 @@ public class RunCommand implements BlazeCommand {
             .setStartupOptions(env.getRuntime().getStartupOptionsProvider())
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targetsToBuild)
+            .setHostExecTopLevelTargets(hostExecTopLevelTargets)
+            .setRunOnHost(runOnHost)
             .setStartTimeMillis(env.getCommandStartTime())
             .build();
 
@@ -772,6 +797,9 @@ public class RunCommand implements BlazeCommand {
             env.getSkyframeExecutor()
                 .getActionGraph(env.getReporter())
                 .getGeneratingAction(Iterables.getOnlyElement(statusArtifacts));
+    if (options.getOptions(BuildLanguageOptions.class).getIncompatibleBazelRunOnHost()) {
+      checkTestRunsOnHost(env, builtTargets, testAction);
+    }
     if (testAction.getUnrunnableReason() != null) {
       // Fail just like executing the test action with `bazel test` would.
       env.getReporter().handle(Event.error(testAction.getUnrunnableReason()));
@@ -849,6 +877,83 @@ public class RunCommand implements BlazeCommand {
         .addArgs(testArgs)
         .addArgsFromResidue(argsFromResidue)
         .build();
+  }
+
+  /**
+   * Fails if the test action of the target to run isn't executed on the host platform, which can
+   * happen if the host platform doesn't satisfy the execution constraints of the test's "test" exec
+   * group or lacks a toolchain it requires.
+   */
+  private static void checkTestRunsOnHost(
+      CommandEnvironment env, BuiltTargets builtTargets, TestRunnerAction testAction)
+      throws RunCommandException {
+    // The host platform of the test's configuration may differ from the one on the command line,
+    // e.g. due to platform mappings or a rule transition on a test requested through an alias.
+    // Toolchain resolution reports the label of the actual platform, so resolve a possible alias
+    // (such as the default --host_platform).
+    BuildOptions testOptions =
+        env.getSkyframeExecutor()
+            .getConfiguration(
+                env.getReporter(), builtTargets.targetToRun.getActual().getConfigurationKey())
+            .getOptions();
+    Label hostPlatform = testOptions.get(PlatformOptions.class).getHostPlatform();
+    PlatformValue.Key hostPlatformKey =
+        PlatformValue.key(
+            hostPlatform, testOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap());
+    EvaluationResult<SkyValue> hostPlatformResult =
+        env.getSkyframeExecutor()
+            .evaluateSkyKeys(
+                env.getReporter(), ImmutableList.of(hostPlatformKey), /* keepGoing= */ false);
+    if (hostPlatformResult.hasError()) {
+      // The host platform is always a registered execution platform, so the build would have failed
+      // if it were invalid.
+      return;
+    }
+    Label resolvedHostPlatform =
+        ((PlatformValue) hostPlatformResult.get(hostPlatformKey)).platformInfo().label();
+    PlatformInfo executionPlatform = testAction.getOwner().getExecutionPlatform();
+    if (executionPlatform != null && executionPlatform.label().equals(resolvedHostPlatform)) {
+      return;
+    }
+    String message =
+        String.format(
+            "`bazel run` executes tests on the host platform %s, but the test action of %s is"
+                + " executed on %s since the host platform doesn't satisfy the execution"
+                + " constraints of the \"test\" exec group of the test or lacks a toolchain it"
+                + " requires. To debug, rerun with --toolchain_resolution_debug=.*",
+            hostPlatform,
+            testAction.getOwner().getLabel(),
+            executionPlatform == null ? "no execution platform" : executionPlatform.label());
+    env.getReporter().handle(Event.error(message));
+    throw new RunCommandException(
+        BlazeCommandResult.failureDetail(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setToolchain(
+                    FailureDetails.Toolchain.newBuilder()
+                        .setCode(FailureDetails.Toolchain.Code.NO_MATCHING_EXECUTION_PLATFORM))
+                .build()),
+        builtTargets.stopTime);
+  }
+
+  /** Returns whether the target to run is the given label, i.e. the {@code --run_under} target. */
+  private static boolean isSameTarget(CommandEnvironment env, String targetString, Label label) {
+    try {
+      TargetPattern pattern =
+          new TargetPattern.Parser(
+                  env.getRelativeWorkingDirectory(),
+                  RepositoryName.MAIN,
+                  env.getSkyframeExecutor().getMainRepoMapping(env.getReporter()))
+              .parse(targetString);
+      return pattern.getType() == TargetPattern.Type.SINGLE_TARGET
+          && pattern.getSingleTargetLabel().equals(label);
+    } catch (TargetParsingException | RepositoryMappingResolutionException e) {
+      // Reported when the target pattern is evaluated for the build.
+      return false;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
   }
 
   /**

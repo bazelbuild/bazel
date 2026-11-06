@@ -119,6 +119,12 @@ public final class PrecomputedValue implements SkyValue {
   public static final Injected STAMP_SETTING_MARKER =
       injected(new Precomputed<>("stamp_setting_marker"), Boolean.TRUE);
 
+  /**
+   * Whether the current command executes the tests it builds on the host, in which case their test
+   * actions are resolved for the host platform.
+   */
+  public static final Precomputed<Boolean> RUN_ON_HOST = new Precomputed<>("run_on_host");
+
   private final Object value;
 
   @VisibleForTesting
