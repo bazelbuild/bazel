@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -206,6 +207,142 @@ public final class StarlarkTransitionCompositionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void attributeTransition_execThenStarlark_readsUnsetStarlarkFlag() throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition(
+        "default", "config.exec().and_then(flag_to_foo)");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    assertThat(optionsOf(dep).getFoo()).isEqualTo("flag_default");
+    assertThat(getConfiguration(dep).isExecConfiguration()).isTrue();
+  }
+
+  @Test
+  public void attributeTransition_execThenStarlark_readsStarlarkFlagResetByExec() throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition(
+        "target", "config.exec().and_then(flag_to_foo)");
+    useConfiguration("--//test:flag=custom");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    // The exec transition resets the target-scoped flag to its default.
+    assertThat(optionsOf(dep).getFoo()).isEqualTo("flag_default");
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions()).isEmpty();
+  }
+
+  @Test
+  public void attributeTransition_execThenStarlark_readsStarlarkFlagPropagatedByExec()
+      throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition(
+        "universal", "config.exec().and_then(flag_to_foo)");
+    useConfiguration("--//test:flag=custom");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    assertThat(optionsOf(dep).getFoo()).isEqualTo("custom");
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:flag"), "custom");
+  }
+
+  @Test
+  public void attributeTransition_starlarkThenExec_resetsStarlarkFlag() throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition("target", "set_flag.and_then(config.exec())");
+    useConfiguration("--//test:flag=custom");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    // set_flag runs before the exec transition, which resets the target-scoped flag.
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions()).isEmpty();
+    assertThat(getConfiguration(dep).isExecConfiguration()).isTrue();
+  }
+
+  @Test
+  public void attributeTransition_starlarkThenExec_customExecScopeReadsResetHostFlag()
+      throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+
+        def _reset_host_flag_impl(settings, attr):
+            return {"//test:host_flag": "host_default"}
+
+        reset_host_flag = transition(
+            implementation = _reset_host_flag_impl,
+            inputs = [],
+            outputs = ["//test:host_flag"],
+        )
+
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {"dep": attr.label(cfg = reset_host_flag.and_then(config.exec()))},
+        )
+
+        simple = rule(implementation = lambda ctx: [])
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule", "simple", "string_flag")
+
+        string_flag(
+            name = "flag",
+            build_setting_default = "flag_default",
+            scope = "exec:--//test:host_flag",
+        )
+
+        string_flag(
+            name = "host_flag",
+            build_setting_default = "host_default",
+            scope = "target",
+        )
+
+        my_rule(name = "test", dep = ":dep")
+
+        simple(name = "dep")
+        """);
+    useConfiguration(
+        "--flag_alias=host_flag=//test:host_flag",
+        "--//test:flag=custom",
+        "--//test:host_flag=custom_host");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    // The exec transition sets the flag to the value of the host flag, which reset_host_flag reset.
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions())
+        .containsEntry(Label.parseCanonicalUnchecked("//test:flag"), "host_default");
+  }
+
+  @Test
+  public void attributeTransition_starlarkThenStarlark_readsStarlarkFlagSetViaAlias()
+      throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition(
+        "default", "set_flag_via_alias.and_then(alias_to_foo)");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    assertThat(optionsOf(dep).getFoo()).isEqualTo("flag_set");
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:flag"), "flag_set");
+  }
+
+  @Test
+  public void attributeTransition_starlarkThenStarlark_validatesBothTransitions() throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition(
+        "default", "set_flag_to_int.and_then(set_flag)");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:test");
+
+    // set_flag overwrites the invalid value set by set_flag_to_int.
+    assertContainsEvent("expected value of type 'string' for //test:flag, but got 1 (int)");
+  }
+
+  @Test
   public void attributeTransition_splitComposedWithSplit() throws Exception {
     writeTransitions();
     scratch.file(
@@ -312,6 +449,100 @@ public final class StarlarkTransitionCompositionTest extends BuildViewTestCase {
     getConfiguredTarget("//test:test");
 
     assertContainsEvent("can only be used as an attribute transition");
+  }
+
+  /**
+   * Writes a {@code //test:flag} string flag with the given scope, an alias {@code //test:alias}
+   * for it and a rule whose {@code dep} attribute uses {@code composedTransition}, which can refer
+   * to {@code set_flag} (sets the flag), {@code set_flag_via_alias} (sets the flag through the
+   * alias), {@code set_flag_to_int} (sets the flag to an invalid value), {@code flag_to_foo}
+   * (copies the flag to {@code --foo}) and {@code alias_to_foo} (copies the flag to {@code --foo}
+   * through the alias).
+   */
+  private void writeRuleWithStarlarkFlagAndAttributeTransition(
+      String flagScope, String composedTransition) throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        String.format(
+            """
+            string_flag = rule(
+                implementation = lambda ctx: [],
+                build_setting = config.string(flag = True),
+                attrs = {"scope": attr.string()},
+            )
+
+            def _set_flag_impl(settings, attr):
+                return {"//test:flag": "flag_set"}
+
+            set_flag = transition(
+                implementation = _set_flag_impl,
+                inputs = [],
+                outputs = ["//test:flag"],
+            )
+
+            def _set_flag_via_alias_impl(settings, attr):
+                return {"//test:alias": "flag_set"}
+
+            set_flag_via_alias = transition(
+                implementation = _set_flag_via_alias_impl,
+                inputs = [],
+                outputs = ["//test:alias"],
+            )
+
+            def _set_flag_to_int_impl(settings, attr):
+                return {"//test:flag": 1}
+
+            set_flag_to_int = transition(
+                implementation = _set_flag_to_int_impl,
+                inputs = [],
+                outputs = ["//test:flag"],
+            )
+
+            def _flag_to_foo_impl(settings, attr):
+                return {"//command_line_option:foo": settings["//test:flag"]}
+
+            flag_to_foo = transition(
+                implementation = _flag_to_foo_impl,
+                inputs = ["//test:flag"],
+                outputs = ["//command_line_option:foo"],
+            )
+
+            def _alias_to_foo_impl(settings, attr):
+                return {"//command_line_option:foo": settings["//test:alias"]}
+
+            alias_to_foo = transition(
+                implementation = _alias_to_foo_impl,
+                inputs = ["//test:alias"],
+                outputs = ["//command_line_option:foo"],
+            )
+
+            my_rule = rule(
+                implementation = lambda ctx: [],
+                attrs = {"dep": attr.label(cfg = %s)},
+            )
+
+            simple = rule(implementation = lambda ctx: [])
+            """,
+            composedTransition));
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load("//test:rules.bzl", "my_rule", "simple", "string_flag")
+
+            string_flag(
+                name = "flag",
+                build_setting_default = "flag_default",
+                scope = "%s",
+            )
+
+            alias(name = "alias", actual = ":flag")
+
+            my_rule(name = "test", dep = ":dep")
+
+            simple(name = "dep")
+            """,
+            flagScope));
   }
 
   private void writeRuleWithAttributeTransition(String composedTransition) throws Exception {

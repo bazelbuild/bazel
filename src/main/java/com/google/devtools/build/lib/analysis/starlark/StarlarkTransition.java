@@ -126,10 +126,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * is how we ensure that an unset build setting and a set-to-default build settings represent the
    * same configuration.
    *
-   * @param root transition that was applied. Likely a {@link
-   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory} so we
-   *     decompose and post-process all StarlarkTransitions out of whatever transition is passed
-   *     here.
+   * @param root transition that was applied. All StarlarkTransitions it consists of are
+   *     post-processed.
    * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input
    *     and output settings of root. Use {@link getAllStarlarkBuildSettings}.
    * @param flagsAliases a list of starlark flag aliases defined via --flag_alias.
@@ -137,10 +135,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * @return validated toOptions with default values filtered out
    * @throws TransitionException if an error occurred during Starlark transition application.
    */
-  // TODO(juliexxia): the current implementation masks certain bad transitions and only checks the
-  // final result. I.e. if a transition that writes a non int --//int-build-setting is composed
-  // with another transition that writes --//int-build-setting (without reading it first), then
-  // the bad output of transition 1 is masked.
   public static Map<String, BuildOptions> validate(
       ConfigurationTransition root,
       StarlarkBuildSettingsDetailsValue details,
