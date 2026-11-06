@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Action;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.PathFragment;
 import com.google.devtools.build.lib.buildtool.AqueryProcessor.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -36,9 +38,14 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
+import com.google.devtools.build.lib.util.OS;
 import com.google.protobuf.ExtensionRegistry;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.util.JsonFormat;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -163,6 +170,196 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
             .orElseThrow(() -> new AssertionError("No Genrule action found in the action graph."));
 
     assertThat(genruleAction.getProgressMessage()).contains("Executing genrule //x:x");
+  }
+
+  private void setupMapDirectory() throws Exception {
+    // Use the same Windows shell as BuildIntegrationTestCase: Windows cannot execute a shebang.
+    String shell = OS.getCurrent() == OS.WINDOWS ? "c:/msys64/usr/bin/bash.exe" : "/bin/bash";
+    String shellName = getFileSystem().getPath(shell).getBaseName();
+    write(
+        "mapped/defs.bzl",
+        """
+        def _expand(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for source in input_directories["sources"].children:
+                first = template_ctx.declare_file(
+                    source.basename, directory = output_directories["first"])
+                second = template_ctx.declare_file(
+                    source.basename, directory = output_directories["second"])
+                args = template_ctx.args()
+                args.add_all([tools["copy"], source, first, second])
+                template_ctx.run(
+                    executable = tools["shell"],
+                    inputs = [source, tools["copy"]],
+                    outputs = [first, second],
+                    arguments = [args],
+                )
+
+        def _outputs(ctx, suffix):
+            prefix = ctx.label.name + suffix
+            sources = ctx.actions.declare_directory(prefix + ".sources")
+            first = ctx.actions.declare_directory(prefix + ".first")
+            second = ctx.actions.declare_directory(prefix + ".second")
+            tool = ctx.actions.declare_file(prefix + ".copy.sh")
+            ctx.actions.write(tool, '#!/bin/sh\\ncp "$1" "$2"; cp "$1" "$3"\\n',
+                              is_executable = True)
+            ctx.actions.run_shell(
+                outputs = [sources],
+                command = "mkdir -p {0}; echo a > {0}/a; echo b > {0}/b".format(sources.path),
+            )
+            ctx.actions.map_directory(
+                input_directories = {"sources": sources},
+                output_directories = {"first": first, "second": second},
+                tools = {"copy": tool, "shell": ctx.file._shell},
+                use_default_shell_env = True,
+                implementation = _expand,
+                mnemonic = "ExpandedCopy",
+            )
+            return [first, second]
+
+        def _impl(ctx):
+            return [DefaultInfo(files = depset(_outputs(ctx, "")))]
+
+        def _aspect_impl(target, ctx):
+            return [OutputGroupInfo(mapped = depset(_outputs(ctx, ".aspect")))]
+
+        _attrs = {"_shell": attr.label(default = "//mapped:shell/%s", allow_single_file = True)}
+        mapped_rule = rule(implementation = _impl, attrs = _attrs)
+        mapped_aspect = aspect(implementation = _aspect_impl, attrs = _attrs)
+        """
+            .formatted(shellName));
+    write(
+        "mapped/BUILD",
+        """
+        load(":defs.bzl", "mapped_rule")
+        mapped_rule(name = "example")
+        """);
+    // Keep the shell beside its native DLLs on Windows; only the executable is an action input.
+    getWorkspace()
+        .getRelative("mapped/shell")
+        .createSymbolicLink(getFileSystem().getPath(shell).getParentDirectory());
+  }
+
+  private ActionGraphContainer dumpSkyframe(String format, String expression) throws Exception {
+    addOptions("--output=" + format, "--skyframe_state");
+    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
+    ByteArrayOutputStream stdout = captureStdout(env);
+    QueryExpression query = expression == null ? null : QueryParser.parse(expression, functions);
+    AqueryProcessor processor = new AqueryProcessor(query, TargetPattern.defaultParser());
+    assertThat(processor.dumpActionGraphFromSkyframe(env).isSuccess()).isTrue();
+    if (format.equals("proto")) {
+      return ActionGraphContainer.parseFrom(
+          stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    }
+    ActionGraphContainer.Builder graph = ActionGraphContainer.newBuilder();
+    if (format.equals("jsonproto")) {
+      JsonFormat.parser().merge(stdout.toString(UTF_8), graph);
+    } else {
+      TextFormat.getParser().merge(stdout.toString(UTF_8), graph);
+    }
+    return graph.build();
+  }
+
+  private static String artifactPath(ActionGraphContainer graph, Artifact artifact) {
+    Map<Integer, PathFragment> fragments = new HashMap<>();
+    for (PathFragment fragment : graph.getPathFragmentsList()) {
+      fragments.put(fragment.getId(), fragment);
+    }
+    String path = "";
+    for (int id = artifact.getPathFragmentId(); id != 0; ) {
+      PathFragment fragment = fragments.get(id);
+      path = fragment.getLabel() + (path.isEmpty() ? "" : "/" + path);
+      id = fragment.getParentId();
+    }
+    return path;
+  }
+
+  private void assertExpandedActions(String format, boolean aspect) throws Exception {
+    setupMapDirectory();
+    if (aspect) {
+      addOptions("--aspects=//mapped:defs.bzl%mapped_aspect", "--output_groups=mapped");
+    }
+    buildTarget("//mapped:example");
+    ActionGraphContainer graph =
+        dumpSkyframe(format, "outputs('.*/(a|b)$', mnemonic('ExpandedCopy'))");
+    // Each of the two children writes to both trees but must appear only once.
+    assertThat(graph.getActionsCount()).isEqualTo(2);
+    Map<Integer, Artifact> artifacts = new HashMap<>();
+    for (Artifact artifact : graph.getArtifactsList()) {
+      artifacts.put(artifact.getId(), artifact);
+    }
+    for (Action action : graph.getActionsList()) {
+      assertThat(action.getMnemonic()).isEqualTo("ExpandedCopy");
+      assertThat(action.getActionKey()).isNotEmpty();
+      assertThat(action.getArgumentsCount()).isEqualTo(5);
+      assertThat(action.getOutputIdsCount()).isEqualTo(2);
+      assertThat(action.getOutputIdsList()).contains(action.getPrimaryOutputId());
+      assertThat(action.getInputDepSetIdsList()).isNotEmpty();
+      assertThat(action.getConfigurationId()).isNotEqualTo(0);
+      assertThat(action.getAspectDescriptorIdsCount()).isEqualTo(aspect ? 1 : 0);
+      for (int i = 0; i < 2; i++) {
+        Artifact output = artifacts.get(action.getOutputIds(i));
+        assertThat(output.getIsTreeArtifact()).isFalse();
+        assertThat(artifactPath(graph, output)).isEqualTo(action.getArguments(i + 3));
+      }
+      assertThat(
+              graph.getTargetsList().stream()
+                  .filter(target -> target.getId() == action.getTargetId())
+                  .map(target -> target.getLabel())
+                  .collect(toImmutableList()))
+          .containsExactly("//mapped:example");
+    }
+    assertThat(
+            dumpSkyframe(format, "outputs('not_a_child', mnemonic('ExpandedCopy'))")
+                .getActionsList())
+        .isEmpty();
+  }
+
+  @Test
+  public void skyframeState_expandedTemplateChildren_proto() throws Exception {
+    assertExpandedActions("proto", false);
+  }
+
+  @Test
+  public void skyframeState_expandedTemplateChildren_json() throws Exception {
+    assertExpandedActions("jsonproto", false);
+  }
+
+  @Test
+  public void skyframeState_expandedTemplateChildren_textproto() throws Exception {
+    assertExpandedActions("textproto", false);
+  }
+
+  @Test
+  public void skyframeState_expandedAspectChildren() throws Exception {
+    assertExpandedActions("proto", true);
+  }
+
+  @Test
+  public void skyframeState_unexecutedTemplateHasNoChildren() throws Exception {
+    setupMapDirectory();
+    addOptions("--nobuild");
+    buildTarget("//mapped:example");
+    assertThat(
+            dumpSkyframe("proto", "outputs('.*/(a|b)$', mnemonic('ExpandedCopy'))")
+                .getActionsList())
+        .isEmpty();
+  }
+
+  @Test
+  public void targetQuery_doesNotIncludeExpandedTemplateChildren() throws Exception {
+    setupMapDirectory();
+    buildTarget("//mapped:example");
+    ByteArrayOutputStream stdout = captureReporterStdout();
+    addOptions("--output=proto");
+    runtimeWrapper.runAqueryExprCommand("//mapped:example");
+    ActionGraphContainer graph =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    assertThat(
+            graph.getActionsList().stream()
+                .filter(action -> !action.getActionKey().isEmpty())
+                .map(Action::getMnemonic)
+                .collect(toImmutableList()))
+        .doesNotContain("ExpandedCopy");
   }
 
   private void setupBrokenPackage() throws Exception {

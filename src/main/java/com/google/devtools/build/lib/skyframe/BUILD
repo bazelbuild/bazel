@@ -4298,6 +4298,7 @@ java_library(
     name = "sequenced_skyframe_executor",
     srcs = ["SequencedSkyframeExecutor.java"],
     deps = [
+        ":action_template_expansion_value",
         ":analysis_progress_receiver",
         ":aspect_key_creator",
         ":bazel_skyframe_executor_constants",

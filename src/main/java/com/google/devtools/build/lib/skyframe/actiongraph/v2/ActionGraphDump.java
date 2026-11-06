@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
@@ -337,6 +338,22 @@ public class ActionGraphDump {
       return;
     }
     for (ActionAnalysisMetadata action : configuredTargetValue.getActions()) {
+      dumpSingleAction(configuredTarget, action);
+    }
+  }
+
+  public void dumpActionTemplateExpansion(
+      ActionTemplateExpansionValue expansion, RuleConfiguredTargetValue owner)
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
+          TemplateExpansionException {
+    ConfiguredTarget configuredTarget = owner.getConfiguredTarget();
+    if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
+      return;
+    }
+    // An expansion can produce multiple output trees. Visit its actions once, not once per tree.
+    for (ActionAnalysisMetadata action : expansion.getActions()) {
       dumpSingleAction(configuredTarget, action);
     }
   }
