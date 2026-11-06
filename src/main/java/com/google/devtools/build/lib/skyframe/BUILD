@@ -3175,6 +3175,7 @@ java_library(
     name = "external_files_helper",
     srcs = ["ExternalFilesHelper.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
