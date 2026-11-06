@@ -102,6 +102,22 @@ The following options only affect the subcommands that print graphs (`graph`,
     modules which were originally present in the dependency graph, but became
     unused after module resolution.
 
+*   `--include_toolchain_registrations` (for `mod graph --output=json`):
+    Add a `moduleToolchainRegistrations` array to the root JSON object.
+    Bazel expands the `register_toolchains` patterns from all resolved modules
+    using each registering module's repository mapping. The array contains
+    canonical labels in registration order, with the first occurrence of each
+    label retained. Wildcards use the same `toolchain` rule filter as
+    toolchain resolution. Explicit labels are retained before Bazel checks
+    whether their targets provide a toolchain declaration, so an explicitly
+    registered alias or non-toolchain target appears under its own label.
+
+    Expansion can load packages and fetch their repositories. If a pattern
+    cannot be fully expanded, the command fails. To determine which toolchain
+    a target uses, analysis also considers target settings, platform
+    constraints and configuration-specific registrations such as
+    `--extra_toolchains`.
+
 *   `--extension_info mode`: Include information about the module extension
     usages as part of the output graph (see [example](#mod-example7)). `mode`
     can be one of:

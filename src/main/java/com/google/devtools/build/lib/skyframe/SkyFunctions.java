@@ -134,6 +134,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName REGISTERED_EXECUTION_PLATFORMS =
       SkyFunctionName.createHermetic("REGISTERED_EXECUTION_PLATFORMS");
+  public static final SkyFunctionName MODULE_TOOLCHAIN_LABELS =
+      SkyFunctionName.createHermetic("MODULE_TOOLCHAIN_LABELS");
   public static final SkyFunctionName REGISTERED_TOOLCHAINS =
       SkyFunctionName.createHermetic("REGISTERED_TOOLCHAINS");
   public static final SkyFunctionName SINGLE_TOOLCHAIN_RESOLUTION =

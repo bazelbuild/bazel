@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -76,6 +77,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsValue.ModuleLabels;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -141,8 +143,13 @@ public final class ModCommand implements BlazeCommand {
 
   private void validateArgs(ModSubcommand subcommand, ModOptions modOptions, List<String> args)
       throws InvalidArgumentException {
-
-    // Validate output format.
+    if (modOptions.getIncludeToolchainRegistrations()
+        && (subcommand != ModSubcommand.GRAPH
+            || modOptions.getOutputFormat() != ModOptions.OutputFormat.JSON)) {
+      throw new InvalidArgumentException(
+          "--include_toolchain_registrations requires mod graph --output=json",
+          Code.INVALID_ARGUMENTS);
+    }
     switch (subcommand) {
       case SHOW_REPO -> {
         switch (modOptions.getOutputFormat()) {
@@ -268,6 +275,7 @@ public final class ModCommand implements BlazeCommand {
     BazelDepGraphValue depGraphValue;
     @Nullable BazelModuleInspectorValue moduleInspector;
     @Nullable BazelModTidyValue modTidyValue;
+    @Nullable ModuleLabels moduleToolchains;
     ImmutableList<RepositoryMappingValue> repoMappingValues;
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -289,6 +297,9 @@ public final class ModCommand implements BlazeCommand {
         keys.add(BazelModTidyValue.KEY);
       } else {
         keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
+        if (modOptions.getIncludeToolchainRegistrations()) {
+          keys.add(ModuleLabels.KEY);
+        }
       }
       EvaluationResult<SkyValue> evaluationResult =
           skyframeExecutor.evaluate(
@@ -316,6 +327,7 @@ public final class ModCommand implements BlazeCommand {
           (BazelModuleInspectorValue) evaluationResult.get(BazelModuleInspectorValue.KEY);
 
       modTidyValue = (BazelModTidyValue) evaluationResult.get(BazelModTidyValue.KEY);
+      moduleToolchains = (ModuleLabels) evaluationResult.get(ModuleLabels.KEY);
 
       repoMappingValues =
           repoMappingKeys.stream()
@@ -624,7 +636,17 @@ public final class ModCommand implements BlazeCommand {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
       switch (subcommand) {
-        case GRAPH -> modExecutor.graph(fromKeys);
+        case GRAPH -> {
+          if (moduleToolchains == null) {
+            modExecutor.graph(fromKeys);
+          } else {
+            modExecutor.graphWithToolchainRegistrations(
+                fromKeys,
+                moduleToolchains.labels().stream()
+                    .map(Label::getCanonicalForm)
+                    .collect(toImmutableList()));
+          }
+        }
         case DEPS -> modExecutor.graph(argsAsModules);
         case PATH -> modExecutor.path(fromKeys, argsAsModules);
         case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
