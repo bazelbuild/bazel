@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -416,7 +417,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
       Object toolchainUnchecked,
-      Object stdoutUnchecked)
+      Object stdoutUnchecked,
+      Object timeoutUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.run");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
@@ -468,6 +470,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         resourceSetUnchecked,
         toolchainUnchecked,
         stdoutUnchecked,
+        timeoutUnchecked,
         builder);
   }
 
@@ -605,7 +608,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object timeoutUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.run_shell");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
@@ -675,6 +679,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         resourceSetUnchecked,
         toolchainUnchecked,
         /* stdoutUnchecked= */ Starlark.NONE,
+        timeoutUnchecked,
         builder);
   }
 
@@ -728,6 +733,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object resourceSetUnchecked,
       Object toolchainUnchecked,
       Object stdoutUnchecked,
+      Object timeoutUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -885,6 +891,17 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder.setResources(
             StarlarkActionResourceSetBuilder.create(
                 (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+      }
+    }
+
+    // Resolve timeout from action-level parameter.
+    if (timeoutUnchecked != Starlark.NONE) {
+      int timeoutSecs = ((StarlarkInt) timeoutUnchecked).toInt("timeout");
+      if (timeoutSecs < 0) {
+        throw Starlark.errorf("'timeout' must be a non-negative integer, got %d", timeoutSecs);
+      }
+      if (timeoutSecs > 0) {
+        builder.setTimeout(Duration.ofSeconds(timeoutSecs));
       }
     }
 
