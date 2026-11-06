@@ -125,4 +125,13 @@ public class IgnoredSubdirectoriesTest {
         .isEqualTo(IgnoredSubdirectories.IgnoredReason.REPO_BAZEL);
     assertThat(ignored.matchingEntryReason(PathFragment.create("not_ignored"))).isNull();
   }
+
+  @Test
+  public void matchingEntryWithLegacyParentheses() {
+    IgnoredSubdirectories ignored = IgnoredSubdirectories.of(prefixes(), patterns("**/(foo*)"));
+    assertThat(ignored.matchingEntry(PathFragment.create("foo"))).isEqualTo("**/(foo*)");
+    assertThat(ignored.matchingEntry(PathFragment.create("parent/foobar"))).isEqualTo("**/(foo*)");
+    assertThat(ignored.matchingEntryReason(PathFragment.create("parent/foobar")))
+        .isEqualTo(IgnoredSubdirectories.IgnoredReason.REPO_BAZEL);
+  }
 }
