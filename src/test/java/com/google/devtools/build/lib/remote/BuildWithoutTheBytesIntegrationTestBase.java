@@ -699,6 +699,63 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void symlinkAction_parentDirectoryOfRemoteTargetMissing(
+      @TestParameter boolean isExecutable) throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            file = ctx.actions.declare_file(ctx.label.name + "_dir/file")
+
+            # Use ctx.actions.run_shell instead of ctx.actions.write, so that it runs remotely.
+            ctx.actions.run_shell(
+                outputs = [file],
+                command = "echo -n hello > $1",
+                arguments = [file.path],
+            )
+
+            sym = ctx.actions.declare_file(ctx.label.name + ".sym")
+            ctx.actions.symlink(output = sym, target_file = file, is_executable = %s)
+
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run_shell(
+                inputs = [sym],
+                outputs = [out],
+                command = "[[ hello == $(cat $1) ]] && touch $2",
+                arguments = [sym.path, out.path],
+                execution_requirements = {"no-remote": ""},
+            )
+
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(_impl)
+        """
+            .formatted(isExecutable ? "True" : "False"));
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "my")
+        """);
+
+    setDownloadMinimal();
+    buildTarget("//a:my");
+
+    // The action cache outlives the output directory, so the file's generating action is a cache
+    // hit that doesn't recreate the directory.
+    getOutputPath("a/my_dir").deleteTree();
+    restartServer();
+    // Only the symlink's metadata stops being trusted, which forces just that action to rerun.
+    addOptions("--remote_download_regex=.*/my\\.sym$");
+
+    buildTarget("//a:my");
+
+    assertOutputEquals(getOutputPath("a/my.sym"), "hello");
+  }
+
+  @Test
   public void localAction_inputSymlinkToDirectory() throws Exception {
     injectFile("hello".getBytes(UTF_8));
     write(

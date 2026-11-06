@@ -52,9 +52,25 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
         assertThrows(BuildFailedException.class, () -> buildTarget("//test:test_ln"));
     assertThat(e).hasMessageThat().isNull();
 
-    events.assertContainsError("output 'test/test.out' is a dangling symbolic link");
+    events.assertContainsError("output 'test/test.out' is a dangling symbolic link: ");
+    events.assertContainsError("wrong.out");
     events.assertContainsError(
         "Executing genrule //test:test_ln failed: not all outputs were created");
+  }
+
+  @Test
+  public void testSymlinkCycleIsNotReportedAsDangling() throws Exception {
+    write(
+        "test/BUILD",
+        "genrule(name='test_ln', srcs=[], outs=['test.out'],"
+            + " cmd='/bin/ln -sf test.out $(@D)/test.out')\n");
+
+    addOptions("--keep_going");
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:test_ln"));
+
+    events.assertContainsError(
+        "output 'test/test.out' is a symbolic link that could not be resolved: ");
+    events.assertDoesNotContainEvent("dangling symbolic link");
   }
 
   /** Tests that bad symlinks for inputs are properly handled. */

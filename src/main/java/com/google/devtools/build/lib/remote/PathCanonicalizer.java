@@ -67,6 +67,16 @@ final class PathCanonicalizer {
      * @throws IOException if an I/O error occurs
      */
     PathFragment readSymbolicLink(PathFragment path) throws IOException;
+
+    /**
+     * Returns whether a path is known to exist and not to be a symlink even though {@link
+     * #statIfFound} doesn't find one of its ancestors.
+     *
+     * <p>This is only called after such a failure, so it doesn't have to be fast.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    boolean existsDespiteMissingAncestor(PathFragment path) throws IOException;
   }
 
   /** A trie node. */
@@ -138,6 +148,11 @@ final class PathCanonicalizer {
         PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
         FileStatus status = resolver.statIfFound(naivePath);
         if (status == null) {
+          // A directory that doesn't exist can't contain symlinks, so the part of the path that
+          // hasn't been canonicalized yet already is.
+          if (resolver.existsDespiteMissingAncestor(path)) {
+            return path;
+          }
           throw new FileNotFoundException(naivePath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR);
         }
         Node resolvedNode;

@@ -264,6 +264,12 @@ public class RemoteActionFileSystem extends FileSystem {
               public PathFragment readSymbolicLink(PathFragment path) throws IOException {
                 return readSymbolicLinkInternal(path);
               }
+
+              @Override
+              public boolean existsDespiteMissingAncestor(PathFragment path) throws IOException {
+                FileStatus stat = statInput(path);
+                return stat != null && !stat.isSymbolicLink();
+              }
             });
   }
 
@@ -362,7 +368,14 @@ public class RemoteActionFileSystem extends FileSystem {
   private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
     PathFragment parentPath = path.getParentDirectory();
     if (parentPath != null) {
-      return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+      try {
+        return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+      } catch (FileNotFoundException e) {
+        if (statInput(path) != null) {
+          return path;
+        }
+        throw e;
+      }
     }
     return path;
   }
@@ -673,10 +686,7 @@ public class RemoteActionFileSystem extends FileSystem {
       if (followMode == FollowMode.FOLLOW_ALL) {
         path = resolveSymbolicLinks(path).asFragment();
       } else if (followMode == FollowMode.FOLLOW_PARENT) {
-        PathFragment parent = path.getParentDirectory();
-        if (parent != null) {
-          path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
-        }
+        path = resolveSymbolicLinksForParent(path);
       }
     } catch (FileNotFoundException e) {
       return null;
@@ -684,16 +694,9 @@ public class RemoteActionFileSystem extends FileSystem {
 
     // Since the path has been canonicalized, the operations below never need to follow symlinks.
 
-    if (path.startsWith(execRoot)) {
-      var execPath = path.relativeTo(execRoot);
-      var actionInput = inputArtifactData.getInput(execPath);
-      var metadata = actionInput != null ? inputArtifactData.getInputMetadata(actionInput) : null;
-      if (metadata != null) {
-        return statFromMetadata(metadata);
-      }
-      if (inputTreeArtifactDirectoryCache.get(execPath) != null) {
-        return DIRECTORY_FILE_STATUS;
-      }
+    FileStatus inputStat = statInput(path);
+    if (inputStat != null) {
+      return inputStat;
     }
 
     FileStatus stat = remoteOutputTree.statIfFound(path, /* followSymlinks= */ false);
@@ -705,6 +708,31 @@ public class RemoteActionFileSystem extends FileSystem {
       return localFs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
     }
 
+    return null;
+  }
+
+  /**
+   * Returns the status of a path that is known to exist because it is an action input or a
+   * directory in an input tree artifact, or null if it isn't.
+   *
+   * <p>This doesn't depend on the parent directories of the path existing in any of the sources:
+   * the metadata of a remote input can come from an action cache hit, in which case nothing has to
+   * have created them in this execution root.
+   */
+  @Nullable
+  private FileStatus statInput(PathFragment path) throws IOException {
+    if (!path.startsWith(execRoot)) {
+      return null;
+    }
+    var execPath = path.relativeTo(execRoot);
+    var actionInput = inputArtifactData.getInput(execPath);
+    var metadata = actionInput != null ? inputArtifactData.getInputMetadata(actionInput) : null;
+    if (metadata != null) {
+      return statFromMetadata(metadata);
+    }
+    if (inputTreeArtifactDirectoryCache.get(execPath) != null) {
+      return DIRECTORY_FILE_STATUS;
+    }
     return null;
   }
 
