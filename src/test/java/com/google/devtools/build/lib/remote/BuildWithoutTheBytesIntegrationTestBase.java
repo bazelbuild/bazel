@@ -713,9 +713,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getOutputPath("sym").deleteTree();
     getOutputPath("a").deleteTree();
     restartServer();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
 
     buildTarget("//a:consumer");
 
+    assertThat(actionEventCollector.getCachedOutputNames()).contains("link.txt");
+    assertThat(actionEventCollector.getExecutedOutputNames()).contains("consumer.txt");
     assertOutputEquals(getOutputPath("a/consumer.txt"), "hello");
   }
 
@@ -814,9 +818,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     restartServer();
     // Only the symlink's metadata stops being trusted, which forces just that action to rerun.
     addOptions("--remote_download_regex=.*/my\\.sym$");
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
 
     buildTarget("//a:my");
 
+    assertThat(actionEventCollector.getCachedOutputNames()).contains("file");
+    assertThat(actionEventCollector.getExecutedOutputNames()).contains("my.sym");
     assertOutputEquals(getOutputPath("a/my.sym"), "hello");
   }
 
@@ -3060,6 +3068,18 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     public List<CachedActionEvent> getCachedActionEvents() {
       return cachedActionEvents;
+    }
+
+    public ImmutableSet<String> getExecutedOutputNames() {
+      return actionExecutedEvents.stream()
+          .map(e -> e.getAction().getPrimaryOutput().getFilename())
+          .collect(toImmutableSet());
+    }
+
+    public ImmutableSet<String> getCachedOutputNames() {
+      return cachedActionEvents.stream()
+          .map(e -> e.getAction().getPrimaryOutput().getFilename())
+          .collect(toImmutableSet());
     }
   }
 

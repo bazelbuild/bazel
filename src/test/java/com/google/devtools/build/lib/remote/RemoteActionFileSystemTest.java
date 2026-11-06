@@ -394,6 +394,40 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void statAndExists_remoteInputBelowSymlinkToMissingParent() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("missing/file", "remote contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment linkPath = getOutputPath("sym");
+
+    actionFs
+        .getPath(linkPath)
+        .createSymbolicLink(artifact.getPath().getParentDirectory().asFragment());
+
+    PathFragment path = linkPath.getChild("file");
+    assertThat(actionFs.stat(path, /* followSymlinks= */ true).isFile()).isTrue();
+    assertThat(actionFs.stat(path, /* followSymlinks= */ false).isFile()).isTrue();
+    assertThat(actionFs.resolveSymbolicLinks(path).asFragment())
+        .isEqualTo(artifact.getPath().asFragment());
+  }
+
+  @Test
+  public void statAndExists_remoteInputBelowDanglingSymlink_notFound() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("parent/file", "remote contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment path = artifact.getPath().asFragment();
+
+    actionFs
+        .getPath(path.getParentDirectory())
+        .createSymbolicLink(PathFragment.create("/does_not_exist"));
+
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ false)).isNull();
+    assertThat(actionFs.statIfFound(path, /* followSymlinks= */ true)).isNull();
+    assertThrows(FileNotFoundException.class, () -> actionFs.readSymbolicLink(path));
+  }
+
+  @Test
   public void statAndExists_danglingSymlinkNextToRemoteInputWithMissingParent() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createRemoteArtifact("missing/parent/file", "remote contents", inputs);
