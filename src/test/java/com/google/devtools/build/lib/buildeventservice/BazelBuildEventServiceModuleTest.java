@@ -469,6 +469,49 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   }
 
   @Test
+  public void testAfterCommand_waitForUploadCompleteWarn() throws Exception {
+    buildEventService.setDelayBeforeClosingStream(Duration.ofMillis(100));
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE_WARN",
+        "--bes_timeout=5s");
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode()).isEqualTo(ExitCode.SUCCESS);
+    afterBuildCommand();
+    events.assertNoWarningsOrErrors();
+    assertThat(besUploadCompleteEvents).hasSize(1);
+    assertThat(besUploadCompleteEvents.get(0).duration()).isGreaterThan(Duration.ZERO);
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadCompleteWarn_slowFullCloseWarning() throws Exception {
+    buildEventService.setDelayBeforeClosingStream(Duration.ofSeconds(10));
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE_WARN",
+        "--bes_timeout=5s");
+    ImmutableSet<BuildEventTransport> bepTransports = getBepTransports();
+    assertThat(bepTransports).hasSize(1);
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode()).isEqualTo(ExitCode.SUCCESS);
+    afterBuildCommand();
+    events.assertContainsWarning("The Build Event Protocol upload timed out");
+    for (BuildEventTransport bepTransport : bepTransports) {
+      assertThat(bepTransport.close().isDone()).isTrue();
+    }
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadCompleteWarn_slowHalfCloseWarning() throws Exception {
+    buildEventService.setDelayBeforeHalfClosingStream(Duration.ofSeconds(10));
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE_WARN",
+        "--bes_timeout=5s");
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode()).isEqualTo(ExitCode.SUCCESS);
+    afterBuildCommand();
+    events.assertContainsWarning("The Build Event Protocol upload timed out");
+  }
+
+  @Test
   public void testAfterCommand_noWaitForUploadComplete() throws Exception {
     buildEventService.setDelayBeforeClosingStream(Duration.ZERO);
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=NOWAIT_FOR_UPLOAD_COMPLETE");
@@ -733,8 +776,39 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   public void testAfterCommand_waitForUploadComplete_errorOnComplete() throws Exception {
     buildEventService.setErrorMessage("Boom1");
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode())
+        .isEqualTo(ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
     afterBuildCommand();
     events.assertContainsError("The Build Event Protocol upload failed: DATA_LOSS: Boom1");
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadCompleteWarn_errorOnComplete() throws Exception {
+    buildEventService.setErrorMessage("Boom7");
+    runBuildWithOptions(
+        "--bes_backend=inprocess", "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE_WARN");
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode()).isEqualTo(ExitCode.SUCCESS);
+    afterBuildCommand();
+    events.assertContainsWarning("The Build Event Protocol upload failed: DATA_LOSS: Boom7");
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadCompleteWarn_retryableErrorEarlyInStream()
+      throws Exception {
+    int numRetries = 3;
+    buildEventService.setErrorMessageAndCode("Boom9", Status.UNAVAILABLE);
+    buildEventService.setErrorEarlyInStream(true);
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE_WARN",
+        "--build_event_upload_max_retries=" + numRetries);
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode()).isEqualTo(ExitCode.SUCCESS);
+    afterBuildCommand();
+    events.assertContainsWarning(
+        Pattern.compile(
+            "The Build Event Protocol upload failed: no publishBuildEvents retry attempts left:"
+                + " UNAVAILABLE: Boom9"));
+    assertThat(buildEventService.getRequestsReceivedCount()).isEqualTo(numRetries + 1);
   }
 
   @Test
