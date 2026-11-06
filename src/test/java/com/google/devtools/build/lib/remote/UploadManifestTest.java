@@ -20,11 +20,15 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
+import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
@@ -198,6 +202,89 @@ public class UploadManifestTest {
     remotePathResolver = new RemotePathResolver.DefaultRemotePathResolver(execRoot);
   }
 
+  private enum CommandOutputForm {
+    MODERN_OUTPUT_PATHS(
+        Command.newBuilder()
+            .addOutputPaths("dangling-link")
+            .addOutputPaths("directory-link")
+            .addOutputPaths("file-link")
+            .build(),
+        ActionResult.newBuilder()
+            .addOutputSymlinks(symlink("file-link", "file-target"))
+            .addOutputSymlinks(symlink("directory-link", "directory-target"))
+            .addOutputSymlinks(symlink("dangling-link", "missing-target"))
+            .build()),
+    LEGACY_SPLIT_OUTPUTS_COMPATIBILITY(
+        Command.newBuilder()
+            .addOutputFiles("dangling-link")
+            .addOutputFiles("file-link")
+            .addOutputDirectories("directory-link")
+            .build(),
+        ActionResult.newBuilder()
+            .addOutputFileSymlinks(symlink("file-link", "file-target"))
+            .addOutputDirectorySymlinks(symlink("directory-link", "directory-target"))
+            .addOutputFileSymlinks(symlink("dangling-link", "missing-target"))
+            .build()),
+    OUTPUT_PATHS_TAKE_PRECEDENCE(
+        Command.newBuilder()
+            .addOutputPaths("dangling-link")
+            .addOutputPaths("directory-link")
+            .addOutputPaths("file-link")
+            .addOutputFiles("ignored-file")
+            .addOutputDirectories("ignored-directory")
+            .build(),
+        ActionResult.newBuilder()
+            .addOutputSymlinks(symlink("file-link", "file-target"))
+            .addOutputSymlinks(symlink("directory-link", "directory-target"))
+            .addOutputSymlinks(symlink("dangling-link", "missing-target"))
+            .build());
+
+    final Command command;
+    final ActionResult expectedResult;
+
+    CommandOutputForm(Command command, ActionResult expectedResult) {
+      this.command = command;
+      this.expectedResult = expectedResult;
+    }
+  }
+
+  private static OutputSymlink symlink(String path, String target) {
+    return OutputSymlink.newBuilder().setPath(path).setTarget(target).build();
+  }
+
+  @Test
+  public void create_symlinkResultFieldsFollowCommandOutputForm(
+      @TestParameter CommandOutputForm outputForm) throws Exception {
+    FileSystemUtils.writeContent(execRoot.getRelative("file-target"), new byte[] {1, 2, 3});
+    execRoot.getRelative("directory-target").createDirectory();
+    Path fileLink = execRoot.getRelative("file-link");
+    fileLink.createSymbolicLink(PathFragment.create("file-target"));
+    Path directoryLink = execRoot.getRelative("directory-link");
+    directoryLink.createSymbolicLink(PathFragment.create("directory-target"));
+    Path danglingLink = execRoot.getRelative("dangling-link");
+    danglingLink.createSymbolicLink(PathFragment.create("missing-target"));
+    Action action =
+        Action.newBuilder().setCommandDigest(digestUtil.compute(outputForm.command)).build();
+
+    UploadManifest manifest =
+        UploadManifest.create(
+            CacheCapabilities.getDefaultInstance(),
+            digestUtil,
+            remotePathResolver,
+            digestUtil.computeActionKey(action),
+            action,
+            outputForm.command,
+            ImmutableList.of(fileLink, directoryLink, danglingLink),
+            /* outErr= */ null,
+            /* exitCode= */ 0,
+            /* startTime= */ null,
+            /* wallTimeInMs= */ 0,
+            /* preserveExecutableBit= */ false);
+
+    assertThat(manifest.getActionResult()).isEqualTo(outputForm.expectedResult);
+    assertThat(manifest.getDigestToFile()).isEmpty();
+  }
+
   @Test
   public void actionResult_absoluteFileSymlinkAsFile() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
@@ -271,7 +358,6 @@ public class UploadManifestTest {
     assertThat(um.getDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
     expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("target");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
@@ -293,7 +379,6 @@ public class UploadManifestTest {
     assertThat(um.getDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectorySymlinksBuilder().setPath("link").setTarget("dir");
     expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("dir");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
@@ -336,7 +421,6 @@ public class UploadManifestTest {
     assertThat(um.getDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("/execroot/target");
     expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("/execroot/target");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
@@ -359,7 +443,6 @@ public class UploadManifestTest {
     assertThat(um.getDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
     expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("target");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
