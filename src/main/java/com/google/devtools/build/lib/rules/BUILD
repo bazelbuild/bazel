@@ -163,6 +163,7 @@ java_library(
     name = "repository/repo_recorded_input",
     srcs = ["repository/RepoRecordedInput.java"],
     deps = [
+        ":repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
