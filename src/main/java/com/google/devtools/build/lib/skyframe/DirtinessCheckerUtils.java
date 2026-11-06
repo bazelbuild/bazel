@@ -107,6 +107,7 @@ public class DirtinessCheckerUtils {
     private final UnionDirtinessChecker checker = createBasicFilesystemDirtinessChecker();
     private final ConcurrentHashMap<RepositoryName, RootedPath> dirtyExternalRepos =
         new ConcurrentHashMap<>();
+    private final Set<RepositoryName> dirtyLinkedRepos = ConcurrentHashMap.newKeySet();
 
     ExternalDirtinessChecker(
         ExternalFilesHelper externalFilesHelper, EnumSet<FileType> fileTypesToCheck) {
@@ -142,6 +143,9 @@ public class DirtinessCheckerUtils {
       boolean cacheable = isCacheableType(fileType);
       SkyValue newValue =
           checker.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
+      if (fileType == FileType.EXTERNAL_REPO && newValue instanceof FileStateValue newState) {
+        newValue = externalFilesHelper.presentRepoFileState(rootedPath, newState);
+      }
       if (Objects.equal(newValue, oldValue)) {
         return DirtyResult.notDirty();
       }
@@ -156,7 +160,12 @@ public class DirtinessCheckerUtils {
           case DIFFERENT -> {
             var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
             if (repositoryName != null) {
-              dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
+              if (externalFilesHelper.isChangeInLinkedRepo(
+                  repositoryName, rootedPath, oldFileState)) {
+                dirtyLinkedRepos.add(repositoryName);
+              } else {
+                dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
+              }
             }
             yield DirtyResult.dirty();
           }
@@ -174,6 +183,10 @@ public class DirtinessCheckerUtils {
 
     Map<RepositoryName, RootedPath> getDirtyExternalRepos() {
       return Collections.unmodifiableMap(dirtyExternalRepos);
+    }
+
+    Set<RepositoryName> getDirtyLinkedRepos() {
+      return Collections.unmodifiableSet(dirtyLinkedRepos);
     }
 
     private static boolean isCacheableType(FileType fileType) {
