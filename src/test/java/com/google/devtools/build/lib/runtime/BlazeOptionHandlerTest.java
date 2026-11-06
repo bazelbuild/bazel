@@ -1169,7 +1169,7 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
         .containsExactly(
-            Event.warn(
+            Event.info(
                 "The following configs were expanded more than once: [bar]. For repeatable flags, "
                     + "repeats are counted twice and may lead to unexpected behavior."));
     assertThat(optionHandler.getRcfileNotes())
@@ -1210,7 +1210,7 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
         .containsExactly(
-            Event.warn(
+            Event.info(
                 "The following configs were expanded more than once: [foo, bar]. For repeatable "
                     + "flags, repeats are counted twice and may lead to unexpected behavior."));
     assertThat(optionHandler.getRcfileNotes())
@@ -1436,7 +1436,7 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
         .containsExactly(
-            Event.warn(
+            Event.info(
                 "The following configs were expanded more than once: [other]. For repeatable "
                     + "flags, repeats are counted twice and may lead to unexpected behavior."));
 
@@ -1579,7 +1579,7 @@ public class BlazeOptionHandlerTest {
                 "There is a recursive chain of configs 10 configs long: [gamma, delta, epsilon, "
                     + "zeta, eta, theta, iota, kappa, lambda, mu]. This seems excessive, "
                     + "and might be hiding errors."),
-            Event.warn(
+            Event.info(
                 "The following configs were expanded more than once: [gamma, delta, epsilon, zeta, "
                     + "eta, theta, iota, kappa, lambda, mu]. For repeatable flags, repeats are "
                     + "counted twice and may lead to unexpected behavior."));
