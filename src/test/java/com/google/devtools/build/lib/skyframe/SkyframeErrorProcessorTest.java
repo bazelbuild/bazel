@@ -534,6 +534,7 @@ public class SkyframeErrorProcessorTest {
             /* explicitlyRequested= */ true,
             /* skipIncompatibleExplicitTargets= */ false,
             /* skipIncompatibleWildcardTargets= */ true,
+            /* errorOnIncompatibleTargetsWithTags= */ ImmutableList.of(),
             /* extraActionTopLevelOnly= */ false,
             /* keepGoing= */ true);
     CycleInfo cycleInfo =
@@ -2117,6 +2118,7 @@ public class SkyframeErrorProcessorTest {
             /* explicitlyRequested= */ true,
             /* skipIncompatibleExplicitTargets= */ false,
             /* skipIncompatibleWildcardTargets= */ true,
+            /* errorOnIncompatibleTargetsWithTags= */ ImmutableList.of(),
             /* extraActionTopLevelOnly= */ false,
             /* keepGoing= */ true);
 
@@ -3039,6 +3041,7 @@ public class SkyframeErrorProcessorTest {
               /* explicitlyRequested= */ true,
               /* skipIncompatibleExplicitTargets= */ false,
               /* skipIncompatibleWildcardTargets= */ true,
+              /* errorOnIncompatibleTargetsWithTags= */ ImmutableList.of(),
               /* extraActionTopLevelOnly= */ false,
               /* keepGoing= */ true);
       case TARGET_COMPLETION ->

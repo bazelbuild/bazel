@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
 
 /**
  * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
@@ -91,12 +93,32 @@ public abstract class AnalysisOptions extends OptionsBase {
           line: targets matched by a wildcard pattern such as //... or :all, and tests expanded
           from a test_suite. This is the default. When disabled, building such targets results in
           an error, so a wildcard build fails instead of silently skipping them. Explicitly listed
-          targets are governed by --skip_incompatible_explicit_targets instead.
+          targets are governed by --skip_incompatible_explicit_targets instead, and targets with a
+          tag listed in --error_on_incompatible_targets_with_tags are an error either way.
           See: [Skipping incompatible targets]
 
           [Skipping incompatible targets]: https://bazel.build/extending/platforms#skipping-incompatible-targets
           """)
   public abstract boolean getSkipIncompatibleWildcardTargets();
+
+  @Option(
+      name = "error_on_incompatible_targets_with_tags",
+      defaultValue = "",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          """
+          A comma-separated list of tags. An incompatible top-level target with any of these
+          tags is an error, the same as an explicitly listed one, however it was requested
+          (including through a wildcard such as //... or a test_suite) and regardless of
+          --skip_incompatible_explicit_targets and --skip_incompatible_wildcard_targets. Other
+          incompatible targets are handled as those flags say.
+          See: [Skipping incompatible targets]
+
+          [Skipping incompatible targets]: https://bazel.build/extending/platforms#skipping-incompatible-targets
+          """)
+  public abstract List<String> getErrorOnIncompatibleTargetsWithTags();
 
   @Option(
       name = "experimental_extra_action_filter",

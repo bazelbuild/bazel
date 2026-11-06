@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
@@ -105,15 +106,23 @@ public class TopLevelConstraintSemantics {
    * Returns the compatibility of a ConfiguredTarget with the platform.
    *
    * <p>See {@link #checkPlatformRestrictions}.
+   *
+   * @param errorTags the tags from --error_on_incompatible_targets_with_tags
+   * @param targetLookup looks up the target's tags, only when it is incompatible and not already an
+   *     error for being explicitly requested
+   * @return null if the {@code targetLookup} performs a Skyframe lookup and the value is missing.
    */
+  @Nullable
   public static PlatformCompatibility compatibilityWithPlatformRestrictions(
       ConfiguredTarget configuredTarget,
       ExtendedEventHandler eventHandler,
       boolean eagerlyThrowError,
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
-      boolean skipIncompatibleWildcardTargets)
-      throws TargetCompatibilityCheckException {
+      boolean skipIncompatibleWildcardTargets,
+      ImmutableList<String> errorTags,
+      TargetLookup targetLookup)
+      throws TargetCompatibilityCheckException, InterruptedException {
 
     RuleContextConstraintSemantics.IncompatibleCheckResult incompatibleCheckResult =
         RuleContextConstraintSemantics.checkForIncompatibility(configuredTarget);
@@ -127,34 +136,70 @@ public class TopLevelConstraintSemantics {
     //
     // --skip_incompatible_explicit_targets governs explicitly listed targets, and
     // --skip_incompatible_wildcard_targets governs the rest: targets matched by a wildcard pattern
-    // or expanded from a test_suite.
-    boolean isError =
-        explicitlyRequested ? !skipIncompatibleExplicitTargets : !skipIncompatibleWildcardTargets;
-    if (isError) {
+    // or expanded from a test_suite. A target with a tag listed in
+    // --error_on_incompatible_targets_with_tags is an error regardless of either.
+    String reason;
+    if (explicitlyRequested ? !skipIncompatibleExplicitTargets : !skipIncompatibleWildcardTargets) {
+      reason =
+          explicitlyRequested
+              ? "was explicitly requested"
+              : "was matched by a wildcard or test_suite and"
+                  + " --noskip_incompatible_wildcard_targets is set";
+    } else {
+      // Its tags are only looked up here, once it is known to be incompatible and not already an
+      // error.
+      Boolean hasErrorTag = hasErrorTag(configuredTarget, errorTags, targetLookup);
+      if (hasErrorTag == null) {
+        return null;
+      }
+      reason = hasErrorTag ? "has a tag listed in --error_on_incompatible_targets_with_tags" : null;
+    }
+    if (reason != null) {
       if (eagerlyThrowError) {
         // Use the slightly simpler form for printing error messages. I.e. no "@" prefix for
         // targets in the main repository.
         throw getExceptionForRequestedIncompatibleTarget(
-            configuredTarget, incompatibleCheckResult.underlyingTarget(), explicitlyRequested);
+            configuredTarget, incompatibleCheckResult.underlyingTarget(), reason);
       }
       eventHandler.handle(
           Event.warn(
               getIncompatibleMessage(
-                  configuredTarget,
-                  incompatibleCheckResult.underlyingTarget(),
-                  explicitlyRequested)));
+                  configuredTarget, incompatibleCheckResult.underlyingTarget(), reason)));
       return PlatformCompatibility.INCOMPATIBLE_EXPLICIT;
     }
-    // We've been instructed to skip this kind of target.
+    // We've been instructed to skip this kind of target, and it has no tag that requires it to be
+    // compatible.
     return PlatformCompatibility.INCOMPATIBLE_IMPLICIT;
   }
 
+  /**
+   * Returns whether the target has a tag in {@code errorTags}, or null if {@code targetLookup}
+   * performs a Skyframe lookup and the value is missing.
+   */
+  @Nullable
+  private static Boolean hasErrorTag(
+      ConfiguredTarget configuredTarget, ImmutableList<String> errorTags, TargetLookup targetLookup)
+      throws InterruptedException {
+    if (errorTags.isEmpty()) {
+      return false;
+    }
+    Target target;
+    try {
+      target = targetLookup.getTarget(configuredTarget.getOriginalLabel());
+    } catch (NoSuchPackageException | NoSuchTargetException e) {
+      // Unreachable: the target was configured, so its package loaded and it exists.
+      return false;
+    }
+    if (target == null) {
+      return null;
+    }
+    return target instanceof Rule rule && errorTags.stream().anyMatch(rule.getRuleTags()::contains);
+  }
+
   private static TargetCompatibilityCheckException getExceptionForRequestedIncompatibleTarget(
-      ConfiguredTarget configuredTarget,
-      ConfiguredTarget underlyingTarget,
-      boolean explicitlyRequested) {
+      ConfiguredTarget configuredTarget, ConfiguredTarget underlyingTarget, String reason) {
     String targetIncompatibleMessage =
-        getIncompatibleMessage(configuredTarget, underlyingTarget, explicitlyRequested);
+        getIncompatibleMessage(configuredTarget, underlyingTarget, reason);
     return new TargetCompatibilityCheckException(
         targetIncompatibleMessage,
         FailureDetail.newBuilder()
@@ -164,16 +209,11 @@ public class TopLevelConstraintSemantics {
   }
 
   private static String getIncompatibleMessage(
-      ConfiguredTarget configuredTarget,
-      ConfiguredTarget underlyingTarget,
-      boolean explicitlyRequested) {
+      ConfiguredTarget configuredTarget, ConfiguredTarget underlyingTarget, String reason) {
     return String.format(
         "Target %s is incompatible and cannot be built, but %s.%s",
         configuredTarget.getOriginalLabel(),
-        explicitlyRequested
-            ? "was explicitly requested"
-            : "was matched by a wildcard or test_suite and"
-                + " --noskip_incompatible_wildcard_targets is set",
+        reason,
         // We need access to the provider so we pass in the underlying target here that is
         // responsible for the incompatibility.
         reportOnIncompatibility(underlyingTarget));
@@ -248,10 +288,14 @@ public class TopLevelConstraintSemantics {
    * wildcard or expanded from a test_suite, are errored if
    * --noskip_incompatible_wildcard_targets is set.
    *
+   * <p>Targets that are incompatible with the target platform and have a tag in {@code errorTags}
+   * (--error_on_incompatible_targets_with_tags) are always errored.
+   *
    * @param topLevelTargets the build's top-level targets
    * @param explicitTargetPatterns the set of explicit target patterns specified by the user on the
    *     command line. Every target must be in the unambiguous canonical form (i.e., with the "@"
    *     prefix for all targets including in the main repository).
+   * @param errorTags the tags from --error_on_incompatible_targets_with_tags.
    * @return the set of to-be-skipped and errored top-level targets.
    * @throws ViewCreationFailedException if any incompatible top-level target is errored and
    *     --keep_going is not set.
@@ -261,21 +305,26 @@ public class TopLevelConstraintSemantics {
       ImmutableSet<Label> explicitTargetPatterns,
       boolean keepGoing,
       boolean skipIncompatibleExplicitTargets,
-      boolean skipIncompatibleWildcardTargets)
-      throws ViewCreationFailedException {
+      boolean skipIncompatibleWildcardTargets,
+      ImmutableList<String> errorTags)
+      throws ViewCreationFailedException, InterruptedException {
     ImmutableSet.Builder<ConfiguredTarget> incompatibleTargets = ImmutableSet.builder();
     ImmutableSet.Builder<ConfiguredTarget> incompatibleButRequestedTargets = ImmutableSet.builder();
 
     try {
       for (ConfiguredTarget target : topLevelTargets) {
+        // getOrLoadTarget doesn't return null.
         PlatformCompatibility platformCompatibility =
-            compatibilityWithPlatformRestrictions(
-                target,
-                eventHandler,
-                /* eagerlyThrowError= */ !keepGoing,
-                explicitTargetPatterns.contains(target.getOriginalLabel()),
-                skipIncompatibleExplicitTargets,
-                skipIncompatibleWildcardTargets);
+            Preconditions.checkNotNull(
+                compatibilityWithPlatformRestrictions(
+                    target,
+                    eventHandler,
+                    /* eagerlyThrowError= */ !keepGoing,
+                    explicitTargetPatterns.contains(target.getOriginalLabel()),
+                    skipIncompatibleExplicitTargets,
+                    skipIncompatibleWildcardTargets,
+                    errorTags,
+                    this::getOrLoadTarget));
         if (PlatformCompatibility.INCOMPATIBLE_EXPLICIT.equals(platformCompatibility)) {
           incompatibleButRequestedTargets.add(target);
         } else if (PlatformCompatibility.INCOMPATIBLE_IMPLICIT.equals(platformCompatibility)) {
