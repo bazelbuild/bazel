@@ -36,6 +36,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   private final Set<SkyKey> dirtyKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> inflightKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> unsuccessfullyRewoundKeys = Sets.newConcurrentHashSet();
+  private Set<SkyKey> orphanCandidates = Sets.newConcurrentHashSet();
 
   // Nodes that were dirtied because one of their transitive dependencies changed
   private final ConcurrentHashMultiset<SkyFunctionName> dirtied;
@@ -180,6 +181,19 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   @Override
   public final void removeFromInflight(SkyKey skyKey) {
     inflightKeys.remove(skyKey);
+  }
+
+  @Override
+  public final void removedDependency(SkyKey skyKey) {
+    if (skyKey.canBeDeletedWhenUnreferenced()) {
+      orphanCandidates.add(skyKey);
+    }
+  }
+
+  final Set<SkyKey> getAndClearOrphanCandidates() {
+    Set<SkyKey> keys = orphanCandidates;
+    orphanCandidates = Sets.newConcurrentHashSet();
+    return keys;
   }
 
   @Override

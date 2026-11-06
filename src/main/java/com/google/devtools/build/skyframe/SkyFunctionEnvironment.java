@@ -996,6 +996,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       for (SkyKey key : depsToRemove) {
         NodeEntry oldDepEntry = checkNotNull(oldDepEntries.get(key), key);
         oldDepEntry.removeReverseDep(skyKey);
+        evaluatorContext.getProgressReceiver().removedDependency(key);
       }
     }
 
