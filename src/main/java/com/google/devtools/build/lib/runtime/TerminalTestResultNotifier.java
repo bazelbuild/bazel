@@ -108,13 +108,16 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
    * @param showAllTests if true, print information about each test regardless of its status
    * @param showNoStatusTests if true, print information about not executed tests (no status tests)
    * @param showAllTestCases if true, print all test cases status and detailed information
+   * @param showCachedTests if true, print information about passed tests whose action didn't run
+   * @param showSkippedTests if true, print information about skipped tests
    */
   private void printSummary(
       Set<TestSummary> summaries,
       boolean showAllTests,
       boolean showNoStatusTests,
       boolean showAllTestCases,
-      boolean showCachedTests) {
+      boolean showCachedTests,
+      boolean showSkippedTests) {
     boolean withConfig = duplicateLabels(summaries);
     int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
@@ -134,8 +137,12 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       }
 
       if (!showCachedTests
-          && ((summary.getStatus() == BlazeTestStatus.PASSED && !summary.actionRan())
-              || summary.isSkipped())) {
+          && summary.getStatus() == BlazeTestStatus.PASSED
+          && !summary.actionRan()) {
+        continue;
+      }
+
+      if (!showSkippedTests && summary.isSkipped()) {
         continue;
       }
 
@@ -165,6 +172,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED);
   private static final ImmutableSet<TestSummaryFormat> SHOW_CACHED_TESTS_FORMATS =
       Sets.immutableEnumSet(DETAILED, SHORT);
+  private static final ImmutableSet<TestSummaryFormat> SHOW_SKIPPED_TESTS_FORMATS =
+      Sets.immutableEnumSet(DETAILED);
 
   /**
    * Prints a test summary information for all tests to the terminal.
@@ -229,8 +238,14 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           boolean showNoStatusTests = SHOW_NO_STATUS_TESTS_FORMATS.contains(testSummaryFormat);
           boolean showAllTestCases = SHOW_ALL_TEST_CASES_FORMATS.contains(testSummaryFormat);
           boolean showCachedTests = SHOW_CACHED_TESTS_FORMATS.contains(testSummaryFormat);
+          boolean showSkippedTests = SHOW_SKIPPED_TESTS_FORMATS.contains(testSummaryFormat);
           printSummary(
-              summaries, showAllTests, showNoStatusTests, showAllTestCases, showCachedTests);
+              summaries,
+              showAllTests,
+              showNoStatusTests,
+              showAllTestCases,
+              showCachedTests,
+              showSkippedTests);
         break;
         }
 

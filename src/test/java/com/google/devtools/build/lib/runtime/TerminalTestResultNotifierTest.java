@@ -483,8 +483,17 @@ public final class TerminalTestResultNotifierTest {
   }
 
   @Test
-  public void shortOption_skippedTestPrinted() throws Exception {
+  public void shortOption_skippedTestNotPrinted() throws Exception {
     printSkippedTestSummary(ExecutionOptions.TestSummaryFormat.SHORT);
+
+    ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+    verify(ansiTerminalPrinter, atLeastOnce()).print(messageCaptor.capture());
+    assertThat(String.join("", messageCaptor.getAllValues())).doesNotContain("SKIPPED");
+  }
+
+  @Test
+  public void detailedOption_skippedTestPrinted() throws Exception {
+    printSkippedTestSummary(ExecutionOptions.TestSummaryFormat.DETAILED);
 
     ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
     verify(ansiTerminalPrinter, atLeastOnce()).print(messageCaptor.capture());
