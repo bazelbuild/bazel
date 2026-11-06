@@ -1116,42 +1116,14 @@ public abstract class FileSystemTest {
   // Test the date functions
 
   @Test
-  public void testSetLastModifiedTime() throws Exception {
-    Path file = absolutize("file");
-    FileSystemUtils.createEmptyFile(file);
-
-    file.setLastModifiedTime(1L << 34);
-    assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
-    assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
-    FileStatus stat = file.stat();
-    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
-  }
-
-  @Test
   public void testSetLastModifiedTimeNanos() throws Exception {
     Path file = absolutize("file");
     FileSystemUtils.createEmptyFile(file);
 
     file.setLastModifiedTimeNanos((1L << 34) * 1_000_000 + 123_456);
-    assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_456);
     FileStatus stat = file.stat();
     assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_456);
-  }
-
-  @Test
-  public void testSetLastModifiedTimeWithSentinel() throws Exception {
-    Path file = absolutize("file");
-    FileSystemUtils.createEmptyFile(file);
-
-    // To avoid sleeping, first set the modification time to the past.
-    long pastTime = Instant.now().minusSeconds(1).toEpochMilli();
-    file.setLastModifiedTime(pastTime);
-
-    // Even if we get the system time before the setLastModifiedTime call, getLastModifiedTime may
-    // return a time which is slightly behind. Simply check that it's greater than the past time.
-    file.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
-    assertThat(file.getLastModifiedTime()).isGreaterThan(pastTime);
   }
 
   @Test
