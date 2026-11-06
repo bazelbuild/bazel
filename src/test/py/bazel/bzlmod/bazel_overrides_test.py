@@ -14,6 +14,7 @@
 # limitations under the License.
 # pylint: disable=g-long-ternary
 
+import gzip
 import json
 import os
 import shutil
@@ -121,6 +122,46 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
+
+  def testRegistryModulePatchDoesNotRecheckUnrelatedRepo(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    build = ['build', '--nobuild', '@aaa//:lib_aaa', '@ddd//:lib_ddd']
+    self.RunBazel(build)
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  patches = ["//:aaa.patch"],',
+            '  patch_strip = 1,',
+            ')',
+        ],
+        mode='a',
+    )
+    self.RunBazel(
+        build
+        + [
+            '--profile=override.json.gz',
+            '--record_full_profiler_data',
+            '--noslim_profile',
+        ]
+    )
+    with gzip.open(self.Path('override.json.gz'), 'rt', encoding='utf-8') as f:
+      repository_checks = {
+          event['name']
+          for event in json.load(f)['traceEvents']
+          if event.get('ph') == 'X' and event.get('cat') == 'Fetching repository'
+      }
+    self.assertIn('@@aaa+', repository_checks)
+    self.assertNotIn('@@ddd+', repository_checks)
 
   def testSingleVersionOverrideWithPatchCmds(self):
     self.writeMainProjectFiles()
