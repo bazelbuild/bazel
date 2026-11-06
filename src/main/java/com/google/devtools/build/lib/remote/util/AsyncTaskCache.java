@@ -122,6 +122,15 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     finished.put(key, value);
   }
 
+  /**
+   * Returns the cached result for {@code key}, or null if there is none. Safe to call concurrently
+   * with {@link #execute}.
+   */
+  @Nullable
+  public ValueT getFinished(KeyT key) {
+    return finished.get(key);
+  }
+
   /** Returns a set of keys for tasks which is still executing. */
   public ImmutableSet<KeyT> getInProgressTasks() {
     synchronized (lock) {

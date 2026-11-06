@@ -33,6 +33,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.function.ObjLongConsumer;
 
 /**
  * A representation of the inputs to a remotely executed action represented as a Merkle tree.
@@ -150,6 +151,23 @@ public sealed interface MerkleTree {
 
     public Collection<Digest> allDigests() {
       return Collections2.transform(blobs.keySet(), MerkleTree.Uploadable::adaptToDigest);
+    }
+
+    /**
+     * Calls {@code consumer} with the binary hash and the size of every blob. Unlike {@link
+     * #allDigests()}, this doesn't allocate for blobs backed by a {@link FileArtifactValue}, whose
+     * hash array is passed as is and must not be modified.
+     */
+    public void forEachBlob(ObjLongConsumer<byte[]> consumer) {
+      for (Object key : blobs.keySet()) {
+        switch (key) {
+          case Digest digest ->
+              consumer.accept(DigestUtil.toBinaryDigest(digest), digest.getSizeBytes());
+          case FileArtifactValue metadata ->
+              consumer.accept(metadata.getDigest(), metadata.getSize());
+          default -> throw new IllegalStateException("Unexpected blob type: " + key);
+        }
+      }
     }
 
     @VisibleForTesting
