@@ -403,7 +403,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
             tags = ["exclusive"],
         )
 
-        foo_test(
+        cc_test(
             name = "exclusive_if_local_no_remote_exec",
             size = "small",
             srcs = ["a"],

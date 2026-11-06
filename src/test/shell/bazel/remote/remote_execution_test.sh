@@ -2129,7 +2129,6 @@ function setup_exclusive_if_local_test_case() {
   if [[ -n "${extra_tag}" ]]; then
     tags="${tags}, \"${extra_tag}\""
   fi
-  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -2137,7 +2136,6 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<EOF
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
