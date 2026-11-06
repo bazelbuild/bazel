@@ -192,7 +192,9 @@ public final class RemoteWorker {
       // For now, we use a temporary path if no work path was provided.
       workPath = fs.getPath("/tmp/remote-worker");
     }
-    this.bsServer = new ByteStreamServer(cache, workPath, digestUtil);
+    LiveOutputStreams liveOutputStreams =
+        workerOptions.liveOutputStreams ? new LiveOutputStreams() : null;
+    this.bsServer = new ByteStreamServer(cache, workPath, digestUtil, liveOutputStreams);
     this.casServer = new CasServer(cache);
 
     if (workerOptions.workPath != null) {
@@ -201,7 +203,13 @@ public final class RemoteWorker {
       workPath.createDirectoryAndParents();
       execServer =
           new ExecutionServer(
-              workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
+              workPath,
+              sandboxPath,
+              workerOptions,
+              cache,
+              operationsCache,
+              digestUtil,
+              liveOutputStreams);
     } else {
       execServer = null;
     }
