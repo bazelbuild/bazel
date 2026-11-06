@@ -657,8 +657,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
-          If true, repository rules and module extensions will only inherit `PATH`, `PATHEXT`
-          (on Windows), and environment variables explicitly specified by `--repo_env`.
+          If true, repository rules and module extensions will only inherit `PATH`, `PATHEXT`,
+          `SYSTEMDRIVE` and `SYSTEMROOT` (the last three on Windows), and environment variables
+          explicitly specified by `--repo_env`.
           """)
   public abstract boolean getUseStrictRepoEnv();
 
