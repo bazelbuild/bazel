@@ -321,6 +321,7 @@ public class ActionExecutionFunction implements SkyFunction {
           getInputDepKeys(
               consumedArtifactsTrackerSupplier.get(),
               allInputs,
+              state.allInputs.actionCacheInputs,
               action.getSchedulingDependencies(),
               state);
 
@@ -381,6 +382,7 @@ public class ActionExecutionFunction implements SkyFunction {
           getInputDepKeys(
               /* consumedArtifactsTracker= */ null,
               allInputs,
+              state.allInputs.actionCacheInputs,
               action.getSchedulingDependencies(),
               /* state= */ null);
       ActionInputMap inputArtifactData = state.inputArtifactData;
@@ -460,6 +462,7 @@ public class ActionExecutionFunction implements SkyFunction {
   private static ImmutableSet<SkyKey> getInputDepKeys(
       @Nullable ConsumedArtifactsTracker consumedArtifactsTracker,
       NestedSet<Artifact> allInputs,
+      @Nullable List<Artifact> actionCacheInputs,
       NestedSet<Artifact> schedulingDependencies,
       @Nullable // may be null if consumedArtifactsTracker is null
           InputDiscoveryState state) {
@@ -474,6 +477,13 @@ public class ActionExecutionFunction implements SkyFunction {
       state.checkedForConsumedArtifactRegistration = true;
     }
 
+    // Inputs recorded in the action cache are direct leaves of allInputs (see AllInputs), but those
+    // that are also scheduling dependencies are already covered by the request for the latter.
+    Set<Artifact> leavesBeneathSchedulingDependencies =
+        actionCacheInputs == null
+            ? ImmutableSet.of()
+            : getArtifactsBeneathSchedulingDependencies(schedulingDependencies, actionCacheInputs);
+
     // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order to
     // save memory:
     // - This top layer costs 1 extra ArtifactNestedSetKey node.
@@ -485,7 +495,9 @@ public class ActionExecutionFunction implements SkyFunction {
           if (registerConsumed) {
             consumedArtifactsTracker.registerConsumedArtifact(leaf);
           }
-          result.add(Artifact.key(leaf));
+          if (!leavesBeneathSchedulingDependencies.contains(leaf)) {
+            result.add(Artifact.key(leaf));
+          }
         },
         result::add);
 
@@ -500,6 +512,43 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     return result.build();
+  }
+
+  /**
+   * Returns those of the given {@code artifacts} that are transitive Skyframe dependencies of an
+   * action because they are beneath the {@link ArtifactNestedSetKey} that {@link #getInputDepKeys}
+   * requests for its {@code schedulingDependencies}.
+   *
+   * <p>Requesting the {@link Artifact#key} of such an artifact individually would only add a
+   * redundant edge: since {@link ArtifactNestedSetValue} is not subject to change pruning, the
+   * action is already invalidated when any artifact beneath it changes, and the value of the
+   * artifact can be obtained with {@link #lookupIndirectInput} once the nested set key is done.
+   * These redundant edges add up for actions that discover many of their scheduling dependencies as
+   * inputs, such as C++ compilations without include scanning, which "discover" every declared
+   * header.
+   */
+  private static Set<Artifact> getArtifactsBeneathSchedulingDependencies(
+      NestedSet<Artifact> schedulingDependencies, Collection<Artifact> artifacts) {
+    // A singleton scheduling dependency is requested directly (see getInputDepKeys) and requesting
+    // it again doesn't add an edge.
+    if (artifacts.isEmpty()
+        || schedulingDependencies.isEmpty()
+        || schedulingDependencies.isSingleton()) {
+      return ImmutableSet.of();
+    }
+    // Iterate over the flattened scheduling dependencies, which are cached and shared between all
+    // actions with the same scheduling dependencies, instead of copying them into a set.
+    Set<Artifact> remaining = CompactHashSet.create(artifacts);
+    Set<Artifact> result = CompactHashSet.create();
+    for (Artifact schedulingDependency : schedulingDependencies.toList()) {
+      if (remaining.remove(schedulingDependency)) {
+        result.add(schedulingDependency);
+        if (remaining.isEmpty()) {
+          break;
+        }
+      }
+    }
+    return result;
   }
 
   /**
@@ -525,7 +574,9 @@ public class ActionExecutionFunction implements SkyFunction {
         e);
 
     // inputDepKeys only contains keys in the initial, pre-input-discovery Skyframe request. If the
-    // action discovers inputs, we must combine them with discovered input keys.
+    // action discovers inputs, we must combine them with discovered input keys. Discovered inputs
+    // beneath the scheduling dependencies are not direct dependencies, but ActionRewindStrategy
+    // tolerates that and finds them beneath the ArtifactNestedSetKey in inputDepKeys.
     ImmutableSet<SkyKey> failedActionDeps;
     if (e.isFromInputDiscovery()) {
       // The action failed during input discovery. We don't know the discovered inputs, so just add
@@ -923,9 +974,13 @@ public class ActionExecutionFunction implements SkyFunction {
    * added to {@link InputDiscoveryState#lateDiscoveredInputArtifactData} instead: the action file
    * system reads {@code inputArtifactData} and outlives the action itself, but {@link
    * ActionInputMap} is not thread-safe, so mutating it at that point would race with those reads.
+   *
+   * <p>Only discovered inputs that aren't already transitive dependencies of the action via its
+   * scheduling dependencies are requested from Skyframe (see {@link
+   * #getArtifactsBeneathSchedulingDependencies}).
    */
   private void addDiscoveredInputs(
-      InputDiscoveryState state, Environment env, Action actionForError, boolean afterExecution)
+      InputDiscoveryState state, Environment env, Action action, boolean afterExecution)
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
     //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
@@ -948,9 +1003,33 @@ public class ActionExecutionFunction implements SkyFunction {
             ? state.getOrCreateLateDiscoveredInputArtifactData(unknownDiscoveredInputs.size())
             : state.inputArtifactData;
 
-    SkyframeLookupResult nonMandatoryDiscovered =
-        env.getValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
+    Set<Artifact> beneathSchedulingDependencies =
+        getArtifactsBeneathSchedulingDependencies(
+            action.getSchedulingDependencies(), unknownDiscoveredInputs);
+    List<Artifact> inputsToRequest =
+        new ArrayList<>(unknownDiscoveredInputs.size() - beneathSchedulingDependencies.size());
     for (Artifact input : unknownDiscoveredInputs) {
+      SkyValue value =
+          beneathSchedulingDependencies.contains(input)
+              ? lookupIndirectInput(Artifact.key(input))
+              : null;
+      if (value != null) {
+        addDiscoveredInputToMap(inputData, input, value);
+      } else {
+        // Besides inputs that aren't scheduling dependencies, this also covers the rare case of a
+        // scheduling dependency that was rewound and completed with an error after the nested set
+        // containing it was done (see lookupInput). Requesting it directly surfaces the error.
+        inputsToRequest.add(input);
+      }
+    }
+
+    if (inputsToRequest.isEmpty()) {
+      return;
+    }
+
+    SkyframeLookupResult nonMandatoryDiscovered =
+        env.getValuesAndExceptions(Artifact.keys(inputsToRequest));
+    for (Artifact input : inputsToRequest) {
       SkyValue retrievedMetadata;
       try {
         retrievedMetadata =
@@ -960,32 +1039,36 @@ public class ActionExecutionFunction implements SkyFunction {
           throw new IllegalStateException(
               String.format(
                   "Non-source artifact had SourceArtifactException %s %s",
-                  input.toDebugString(), actionForError.prettyPrint()),
+                  input.toDebugString(), action.prettyPrint()),
               e);
         }
 
-        skyframeActionExecutor.printError(e.getMessage(), actionForError);
+        skyframeActionExecutor.printError(e.getMessage(), action);
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
         // it likely has no label, so we'd have to use the Action's label anyway. Just use the
         // default ActionFailed event constructed by ActionExecutionException.
         String message = "discovered input file does not exist";
         DetailedExitCode code = createDetailedExitCodeForMissingDiscoveredInput(message);
-        throw new ActionExecutionException(message, actionForError, false, code);
+        throw new ActionExecutionException(message, action, false, code);
       }
       if (retrievedMetadata == null) {
         checkState(
             env.valuesMissing(),
             "%s had no metadata but all values were present for %s",
             input,
-            actionForError);
+            action);
         continue;
       }
-      if (retrievedMetadata instanceof MissingArtifactValue) {
-        retrievedMetadata = FileArtifactValue.MISSING_FILE_MARKER;
-      }
-      ActionInputMapHelper.addToMap(
-          inputData, input, retrievedMetadata, MetadataConsumerForMetrics.NO_OP);
+      addDiscoveredInputToMap(inputData, input, retrievedMetadata);
     }
+  }
+
+  private static void addDiscoveredInputToMap(
+      ActionInputMap inputData, Artifact input, SkyValue value) {
+    if (value instanceof MissingArtifactValue) {
+      value = FileArtifactValue.MISSING_FILE_MARKER;
+    }
+    ActionInputMapHelper.addToMap(inputData, input, value, MetadataConsumerForMetrics.NO_OP);
   }
 
   private static class CheckInputResults {
@@ -1233,6 +1316,15 @@ public class ActionExecutionFunction implements SkyFunction {
     if (inputDepKeys.contains(key)) {
       return env.getLookupHandleForPreviouslyRequestedDeps().get(key);
     }
+    return lookupIndirectInput(key);
+  }
+
+  /**
+   * Looks up the value of an input that is beneath an already-requested {@link
+   * ArtifactNestedSetKey} that is done, without adding a Skyframe dependency.
+   */
+  @Nullable
+  private SkyValue lookupIndirectInput(SkyKey key) throws InterruptedException {
     NodeEntry entry = evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(key);
     if (entry == null) {
       return null;
