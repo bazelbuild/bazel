@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -540,13 +539,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  private static void verifyAutomaticExecGroupExists(String execGroup, RuleContext ruleContext)
-      throws EvalException {
-    if (!ruleContext.hasToolchainContext(execGroup)) {
-      throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", execGroup);
-    }
-  }
-
   private static void checkValidGroupName(String execGroup) throws EvalException {
     if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)) {
       throw Starlark.errorf("Invalid name for exec group '%s'.", execGroup);
@@ -826,9 +818,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
       // If toolchain and exec_groups are both defined, verify they are compatible.
       if (useAutoExecGroups && toolchainLabel != null) {
-        if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
-            .map(ToolchainTypeRequirement::toolchainType)
-            .noneMatch(toolchainLabel::equals)) {
+        if (!ruleContext
+            .getToolchainContexts()
+            .getToolchainContext(execGroup)
+            .requestedToolchainTypeLabels()
+            .containsKey(toolchainLabel)) {
           throw Starlark.errorf(
               "`toolchain` and `exec_group` parameters inside actions.{run, run_shell} are not"
                   + " compatible; use one of them or define `toolchain` which is compatible with"
@@ -838,8 +832,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
       builder.setExecGroup(execGroup);
     } else if (useAutoExecGroups && toolchainLabel != null) {
-      verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
-      builder.setExecGroup(toolchainLabel.toString());
+      String execGroup = ruleContext.getAutomaticExecGroup(toolchainLabel);
+      if (execGroup == null) {
+        throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", toolchainLabel);
+      }
+      builder.setExecGroup(execGroup);
     } else {
       builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
     }

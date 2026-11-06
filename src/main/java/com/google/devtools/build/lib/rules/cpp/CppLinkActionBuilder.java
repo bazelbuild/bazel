@@ -1255,15 +1255,8 @@ public class CppLinkActionBuilder {
       return cppLinkExecGroupOwner;
     }
     Preconditions.checkArgument(linkActionConstruction.getContext() instanceof RuleContext);
-    if (((RuleContext) linkActionConstruction.getContext()).useAutoExecGroups()) {
-      ActionOwner autoExecGroupOwner =
-          linkActionConstruction.getContext().getActionOwner(cppSemantics.getCppToolchainType());
-      return autoExecGroupOwner == null
-          ? linkActionConstruction.getContext().getActionOwner()
-          : autoExecGroupOwner;
-    }
-
-    return linkActionConstruction.getContext().getActionOwner();
+    return CppCompileActionBuilder.getActionOwner(
+        linkActionConstruction.getContext(), cppSemantics.getCppToolchainType());
   }
 
   /** Sets the mnemonic for the link action. */
