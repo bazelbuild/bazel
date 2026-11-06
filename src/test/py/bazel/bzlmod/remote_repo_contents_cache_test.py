@@ -3447,5 +3447,57 @@ class RemoteRepoContentsCacheTest(
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'other.txt')))
 
 
+  def testReadOrTemplateOfLabelDoesNotMaterializeRepo(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'reader = use_repo_rule("//:repo.bzl", "reader")',
+            'reader(name = "reader", data = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  rctx.file("other.txt", "other")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+            'def _reader_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'copy.txt\'])")',
+            '  rctx.file("copy.txt", rctx.read(rctx.attr.data))',
+            (
+                '  rctx.template("expanded.txt", rctx.attr.data,'
+                ' {"hello": "goodbye"})'
+            ),
+            'reader = repository_rule(',
+            '  _reader_impl,',
+            '  attrs = {"data": attr.label()},',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    reader_dir = self.RepoDir('reader')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:data.txt'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached. Reading a file of the repo through its label,
+    # also as a template, doesn't require the other files of the repo.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@reader//:copy.txt'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(reader_dir, 'copy.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+    with open(os.path.join(reader_dir, 'expanded.txt')) as f:
+      self.assertEqual(f.read(), 'goodbye')
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'other.txt')))
+
 if __name__ == '__main__':
   absltest.main()
