@@ -264,7 +264,7 @@ record PlatformKeys(
       }
     }
 
-    // The label may be an alias of an execution platform, such as the default --host_platform.
+    // The label may be an alias of an execution platform.
     return platformInfos.entrySet().stream()
         .filter(entry -> entry.getKey().getLabel().equals(platformLabel))
         .map(entry -> entry.getValue().label())
