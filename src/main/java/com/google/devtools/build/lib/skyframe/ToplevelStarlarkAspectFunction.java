@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.producers.RuleTransitionApplier;
 import com.google.devtools.build.lib.analysis.producers.RuleTransitionApplier.IdempotencyState;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationData;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -401,6 +402,11 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     @Override
     public TransitiveDependencyState getTransitiveState() {
       return state.transitiveState;
+    }
+
+    @Override
+    public StarlarkBuildSettingsDetailsValue getPreRuleTransitionFlagDetails() {
+      return StarlarkBuildSettingsDetailsValue.EMPTY;
     }
   }
 

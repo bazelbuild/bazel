@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -30,18 +31,31 @@ public final class BuildConfigurationKeyValue implements SkyValue {
   /** Key for {@link BuildConfigurationKeyValue} based on the build options. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public record Key(BuildOptions buildOptions) implements SkyKey {
+  public record Key(BuildOptions buildOptions, boolean forBaseline) implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     /**
-     * @deprecated Use {@link #create} instead to ensure interning.
+     * @deprecated Use {@link #create} or {@link #createForBaseline} instead to ensure interning.
      */
     @Deprecated
     public Key {}
 
-    @AutoCodec.Instantiator
     public static Key create(BuildOptions buildOptions) {
-      return interner.intern(new Key(buildOptions));
+      return create(buildOptions, /* forBaseline= */ false);
+    }
+
+    /**
+     * Creates a key for the baseline configuration's options, which skips scoping since that would
+     * create a cycle.
+     */
+    public static Key createForBaseline(BuildOptions buildOptions) {
+      return create(buildOptions, /* forBaseline= */ true);
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(BuildOptions buildOptions, boolean forBaseline) {
+      return interner.intern(new Key(buildOptions, forBaseline));
     }
 
     @Override
@@ -51,7 +65,11 @@ public final class BuildConfigurationKeyValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "BuildConfigurationKeyValue.Key{buildOptions=" + buildOptions.checksum() + "}";
+      return "BuildConfigurationKeyValue.Key{buildOptions="
+          + buildOptions.checksum()
+          + ", forBaseline="
+          + forBaseline
+          + "}";
     }
 
     @Override

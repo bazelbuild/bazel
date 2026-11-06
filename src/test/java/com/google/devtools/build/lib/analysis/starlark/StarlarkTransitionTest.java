@@ -458,6 +458,28 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void disableTransitionsOn_doesNotApplyToExecTransition() throws Exception {
+    // The builtin exec transition reads and propagates these. If the flag applied to it, every
+    // target with a cfg="exec" dependency would fail to analyze.
+    setBuildLanguageOptions(
+        "--incompatible_disable_transitions_on=experimental_exec_config,shell_executable,"
+            + "existing_flag");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx): pass",
+        "my_rule = rule(implementation = _impl, attrs = {'dep': attr.label(cfg = 'exec')})",
+        "simple = rule(implementation = _impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule', 'simple')",
+        "simple(name = 'dep')",
+        "my_rule(name = 'gen', dep = ':dep')");
+
+    assertThat(getConfiguredTarget("//test:gen")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
   public void testNonConfigurableOptionAsTransitionInputFails() throws Exception {
     scratch.file(
         "test/defs.bzl",
@@ -1107,5 +1129,51 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
                     && ctKey.getLabel().toString().equals(label))
         .map(e -> ((ConfiguredTargetValue) e.getValue()).getConfiguredTarget())
         .collect(toImmutableList());
+  }
+
+  @Test
+  public void disableTransitionsOn_blocksPlatformDefinition() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        platform(
+            name = "my_platform",
+            flags = ["--disallowed_option=bar"],
+        )
+        """);
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=disallowed_option");
+    Exception expected =
+        assertThrows(Exception.class, () -> useConfiguration("--platforms=//test:my_platform"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Cannot set --disallowed_option in a platform or platform mapping");
+  }
+
+  @Test
+  public void disableTransitionsOn_blocksPlatformMapping() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        platform(
+            name = "my_platform",
+        )
+        """);
+    scratch.file(
+        "my_mapping",
+        """
+        platforms:
+          //test:my_platform
+            --disallowed_option=bar
+        """);
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=disallowed_option");
+    Exception expected =
+        assertThrows(
+            Exception.class,
+            () ->
+                useConfiguration(
+                    "--platform_mappings=my_mapping", "--platforms=//test:my_platform"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Cannot set --disallowed_option in a platform or platform mapping");
   }
 }

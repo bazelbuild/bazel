@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.devtools.build.lib.analysis.config.FragmentOptions.addMapToFingerprint;
+import static com.google.devtools.build.lib.analysis.config.FragmentOptions.addValueToFingerprint;
 import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static java.util.Comparator.naturalOrder;
@@ -80,21 +80,6 @@ public final class BuildOptions implements Cloneable {
             Collectors.toMap(e -> Label.parseCanonicalUnchecked(e.getKey()), Map.Entry::getValue));
   }
 
-  /**
-   * Converts the map containing String representation of scopes attributes to a map of {@link
-   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}, keeping only entries
-   * for flags present in {@code starlarkOptions}.
-   */
-  public static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
-      Map<String, String> scopesAttributes, Map<String, Object> starlarkOptions) {
-    return scopesAttributes.entrySet().stream()
-        .filter(e -> starlarkOptions.containsKey(e.getKey()))
-        .collect(
-            toImmutableMap(
-                e -> Label.parseCanonicalUnchecked(e.getKey()),
-                e -> new Scope.ScopeType(e.getValue())));
-  }
-
   public static BuildOptions getDefaultBuildOptionsForFragments(
       Iterable<Class<? extends FragmentOptions>> fragmentClasses) {
     try {
@@ -116,9 +101,6 @@ public final class BuildOptions implements Cloneable {
     }
     return builder
         .addStarlarkOptions(labelizeStarlarkOptions(provider.getStarlarkOptions()))
-        .addScopeTypeMap(
-            convertScopesAttributes(provider.getScopesAttributes(), provider.getStarlarkOptions()))
-        .addOnLeaveScopeValues(labelizeStarlarkOptions(provider.getOnLeaveScopeValues()))
         .build();
   }
 
@@ -188,10 +170,13 @@ public final class BuildOptions implements Cloneable {
           } else {
             var fp = new Fingerprint();
             fragmentOptionsMap.forEach((_, options) -> options.addToFingerprint(fp));
-            // Starlark types are observable to Starlark code, see b/478938163.
-            addMapToFingerprint(fp, starlarkOptionsMap, Starlark::type);
-            addMapToFingerprint(fp, scopes, /* valueType= */ _ -> "");
-            addMapToFingerprint(fp, onLeaveScopeValuesMap, Starlark::type);
+            fp.addInt(starlarkOptionsMap.size());
+            starlarkOptionsMap.forEach(
+                (label, value) -> {
+                  fp.addString(label.toString());
+                  // Starlark types are observable to Starlark code, see b/478938163.
+                  addValueToFingerprint(fp, value, Starlark::type);
+                });
             checksum = fp.hexDigestAndReset();
           }
         }
@@ -219,8 +204,6 @@ public final class BuildOptions implements Cloneable {
         .add("checksum", checksum())
         .add("fragmentOptions", fragmentOptionsMap.values())
         .add("starlarkOptions", starlarkOptionsMap)
-        .add("scopes", scopes)
-        .add("onLeaveScopeValues", onLeaveScopeValuesMap)
         .toString();
   }
 
@@ -243,22 +226,6 @@ public final class BuildOptions implements Cloneable {
   }
 
   /**
-   * Map of {@link ScopeType} for starlark options. Before the final {@link BuildOptions} is
-   * produced to create the final {@link BuildConfigurationKey}, the {@link ScopeType} for each
-   * starlark flag is expected to be resolved. If there is a transition involved introducing a
-   * starlark flag that is not already part of the baseline configuration, the {@link ScopeType} for
-   * that flag will be null until the final {@link BuildOptions} is produced.
-   */
-  public ImmutableMap<Label, Scope.ScopeType> getScopeTypeMap() {
-    return scopes;
-  }
-
-  /** Starlark on-leave scope values, sorted lexicographically by name. */
-  public ImmutableMap<Label, Object> getOnLeaveScopeValues() {
-    return onLeaveScopeValuesMap;
-  }
-
-  /**
    * Creates a copy of the BuildOptions object that contains copies of the FragmentOptions and
    * Starlark options.
    */
@@ -273,9 +240,7 @@ public final class BuildOptions implements Cloneable {
                     e -> e.getValue().clone()));
     // Note that this assumes that starlark option values are immutable.
     ImmutableMap<Label, Object> starlarkOptions = ImmutableMap.copyOf(starlarkOptionsMap);
-    ImmutableMap<Label, Scope.ScopeType> scopes = this.scopes;
-    ImmutableMap<Label, Object> onLeaveScopeValues = ImmutableMap.copyOf(onLeaveScopeValuesMap);
-    return new BuildOptions(nativeOptions, starlarkOptions, scopes, onLeaveScopeValues);
+    return new BuildOptions(nativeOptions, starlarkOptions);
   }
 
   @Override
@@ -305,13 +270,6 @@ public final class BuildOptions implements Cloneable {
    */
   private final ImmutableMap<Label, Object> starlarkOptionsMap;
 
-  // TODO: b/377559852 - Merge scopes into starlarkOptionsMap
-  /** Maps Starlark options names to {@link Scope} information */
-  private final ImmutableMap<Label, Scope.ScopeType> scopes;
-
-  /** Maps Starlark options names to their on-leave scope values. */
-  private final ImmutableMap<Label, Object> onLeaveScopeValuesMap;
-
   // Lazily initialized both for performance and correctness - BuildOptions instances may be mutated
   // after construction but before consumption. Access via checksum() to ensure initialization. This
   // field is volatile as per https://errorprone.info/bugpattern/DoubleCheckedLocking, which
@@ -320,13 +278,9 @@ public final class BuildOptions implements Cloneable {
 
   private BuildOptions(
       ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap,
-      ImmutableMap<Label, Object> starlarkOptionsMap,
-      ImmutableMap<Label, Scope.ScopeType> scopes,
-      ImmutableMap<Label, Object> onLeaveScopeValuesMap) {
+      ImmutableMap<Label, Object> starlarkOptionsMap) {
     this.fragmentOptionsMap = fragmentOptionsMap;
     this.starlarkOptionsMap = starlarkOptionsMap;
-    this.scopes = scopes;
-    this.onLeaveScopeValuesMap = onLeaveScopeValuesMap;
   }
 
   /**
@@ -405,8 +359,6 @@ public final class BuildOptions implements Cloneable {
         this.addFragmentOptions(fragment);
       }
       this.addStarlarkOptions(options.getStarlarkOptions());
-      this.addScopeTypeMap(options.getScopeTypeMap());
-      this.addOnLeaveScopeValues(options.getOnLeaveScopeValues());
       return this;
     }
 
@@ -456,67 +408,17 @@ public final class BuildOptions implements Cloneable {
       return this;
     }
 
-    /**
-     * Adds ScopeType for a Starlark option to the builder. Overrides previous instances of the same
-     * key.
-     */
-    @CanIgnoreReturnValue
-    public Builder addScopeType(Label key, Scope.ScopeType value) {
-      scopes.put(key, value);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addScopeTypeMap(Map<Label, Scope.ScopeType> scopes) {
-      for (Map.Entry<Label, Scope.ScopeType> entry : scopes.entrySet()) {
-        this.scopes.put(entry.getKey(), entry.getValue());
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder removeScope(Label key) {
-      scopes.remove(key);
-      return this;
-    }
-
-    /** Removes the value and associated ScopeType for the Starlark option with the given key. */
+    /** Removes the Starlark option with the given key. */
     @CanIgnoreReturnValue
     public Builder removeStarlarkOption(Label key) {
       starlarkOptions.remove(key);
-      removeScope(key);
-      onLeaveScopeValues.remove(key);
-      return this;
-    }
-
-    /**
-     * Adds multiple Starlark on-leave scope values to the builder. Overrides previous instances of
-     * the same key.
-     */
-    @CanIgnoreReturnValue
-    public Builder addOnLeaveScopeValues(Map<Label, Object> options) {
-      onLeaveScopeValues.putAll(options);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addOnLeaveScopeValue(Label key, Object value) {
-      onLeaveScopeValues.put(key, value);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder removeOnLeaveScopeValue(Label key) {
-      onLeaveScopeValues.remove(key);
       return this;
     }
 
     public BuildOptions build() {
       return new BuildOptions(
           sortedImmutableHashMap(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
-          sortedImmutableHashMap(starlarkOptions, naturalOrder()),
-          sortedImmutableHashMap(scopes, naturalOrder()),
-          sortedImmutableHashMap(onLeaveScopeValues, naturalOrder()));
+          sortedImmutableHashMap(starlarkOptions, naturalOrder()));
     }
 
     /**
@@ -537,10 +439,6 @@ public final class BuildOptions implements Cloneable {
     private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions =
         new HashMap<>();
     private final LinkedHashMap<Label, Object> starlarkOptions = new LinkedHashMap<>();
-
-    // TODO: b/377559852 - Merge scopes into starlarkOptionsMap
-    private final LinkedHashMap<Label, Scope.ScopeType> scopes = new LinkedHashMap<>();
-    private final LinkedHashMap<Label, Object> onLeaveScopeValues = new LinkedHashMap<>();
 
     private Builder() {}
   }
@@ -574,8 +472,6 @@ public final class BuildOptions implements Cloneable {
         throws SerializationException, IOException {
       context.putSharedValue(options.fragmentOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
       context.putSharedValue(options.starlarkOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
-      context.putSharedValue(options.scopes, null, IMMUTABLE_MAP_CODEC, codedOut);
-      context.putSharedValue(options.onLeaveScopeValuesMap, null, IMMUTABLE_MAP_CODEC, codedOut);
     }
 
     @Override
@@ -595,14 +491,6 @@ public final class BuildOptions implements Cloneable {
           IMMUTABLE_MAP_CODEC,
           builder,
           DeserializationBuilder::setStarlarkOptionsMap);
-      context.getSharedValue(
-          codedIn, null, IMMUTABLE_MAP_CODEC, builder, DeserializationBuilder::setScopes);
-      context.getSharedValue(
-          codedIn,
-          null,
-          IMMUTABLE_MAP_CODEC,
-          builder,
-          DeserializationBuilder::setOnLeaveScopeValuesMap);
       return builder;
     }
 
@@ -611,14 +499,10 @@ public final class BuildOptions implements Cloneable {
 
       ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
       ImmutableMap<Label, Object> starlarkOptionsMap;
-      // TODO: b/377559852 - Merge scopes into starlarkOptionsMap
-      ImmutableMap<Label, Scope.ScopeType> scopes;
-      ImmutableMap<Label, Object> onLeaveScopeValuesMap;
 
       @Override
       public BuildOptions call() {
-        return new BuildOptions(
-            fragmentOptionsMap, starlarkOptionsMap, scopes, onLeaveScopeValuesMap);
+        return new BuildOptions(fragmentOptionsMap, starlarkOptionsMap);
       }
 
       @SuppressWarnings("unchecked")
@@ -630,16 +514,6 @@ public final class BuildOptions implements Cloneable {
       @SuppressWarnings("unchecked")
       private static void setStarlarkOptionsMap(DeserializationBuilder builder, Object value) {
         builder.starlarkOptionsMap = (ImmutableMap<Label, Object>) value;
-      }
-
-      @SuppressWarnings("unchecked")
-      private static void setScopes(DeserializationBuilder builder, Object value) {
-        builder.scopes = (ImmutableMap<Label, Scope.ScopeType>) value;
-      }
-
-      @SuppressWarnings("unchecked")
-      private static void setOnLeaveScopeValuesMap(DeserializationBuilder builder, Object value) {
-        builder.onLeaveScopeValuesMap = (ImmutableMap<Label, Object>) value;
       }
     }
   }

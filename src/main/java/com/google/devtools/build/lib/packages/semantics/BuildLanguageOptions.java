@@ -574,7 +574,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
       help =
-          "A comma-separated list of flags that cannot be used in transitions inputs or outputs.")
+          "A comma-separated list of flags that cannot be used in transitions inputs or outputs, "
+              + "PROJECT.scl files, platform definitions, or platform mappings.")
   public abstract ImmutableList<String> getIncompatibleDisableTransitionsOn();
 
   @Option(
