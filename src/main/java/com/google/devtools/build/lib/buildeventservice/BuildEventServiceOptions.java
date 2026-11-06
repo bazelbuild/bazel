@@ -193,6 +193,9 @@ public abstract class BuildEventServiceOptions extends OptionsBase {
           - `wait_for_upload_complete`: blocks at the end of the current invocation until
             all events (including lifecycle events if applicable) are uploaded and
             acknowledged by the backend.
+          - `wait_for_upload_complete_warn`: like `wait_for_upload_complete`, but an upload
+            failure or timeout is reported as a warning and does not change the exit code of
+            the invocation. Set `--bes_timeout` to bound how long the invocation waits.
           - `nowait_for_upload_complete`: blocks at the beginning of the next invocation
             until all events (including lifecycle events if applicable) are uploaded and
             acknowledged by the backend.
@@ -267,6 +270,11 @@ public abstract class BuildEventServiceOptions extends OptionsBase {
   public enum BesUploadMode {
     /** Block at the end of the build waiting for the upload to complete */
     WAIT_FOR_UPLOAD_COMPLETE,
+    /**
+     * Block at the end of the build waiting for the upload to complete, but report an upload
+     * failure or timeout as a warning instead of failing the invocation.
+     */
+    WAIT_FOR_UPLOAD_COMPLETE_WARN,
     /** Block at the beginning of the next build waiting for upload completion */
     NOWAIT_FOR_UPLOAD_COMPLETE,
     /**
