@@ -904,11 +904,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         linkPath,
         Completable.defer(
             () -> {
-              if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
-                // If the symlink is a source file in an external repo, its parent directory may not
-                // exist yet.
-                checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
-              }
+              // The parent directory may not exist yet if the symlink is a source file in an
+              // external repo or an output of an action cache hit, which doesn't recreate output
+              // directories.
+              checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
               linkPath.delete();

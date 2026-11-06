@@ -655,6 +655,71 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void localAction_inputSymlink_parentDirectoryMissing() throws Exception {
+    write(
+        "sym/defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.symlink(output = out, target_file = ctx.file.src)
+            return DefaultInfo(files = depset([out]))
+
+        my_symlink = rule(
+            implementation = _impl,
+            attrs = {"src": attr.label(allow_single_file = True)},
+        )
+        """);
+
+    write(
+        "sym/BUILD",
+        """
+        load(":defs.bzl", "my_symlink")
+
+        my_symlink(
+            name = "link.txt",
+            src = "//a:gen",
+            visibility = ["//visibility:public"],
+        )
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "gen",
+            outs = ["gen.txt"],
+            cmd = "echo -n hello > $@",
+            visibility = ["//visibility:public"],
+        )
+
+        genrule(
+            name = "consumer",
+            srcs = ["//sym:link.txt"],
+            outs = ["consumer.txt"],
+            cmd = "cat $< > $@",
+            # Run locally even with a disk cache, which "no-remote" alone doesn't prevent.
+            tags = [
+                "no-cache",
+                "no-remote",
+            ],
+        )
+        """);
+
+    setDownloadMinimal();
+    buildTarget("//a:consumer");
+
+    // The action cache outlives the output directories, so the symlink action is a cache hit that
+    // doesn't recreate its own, which no other action in this build creates.
+    getOutputPath("sym").deleteTree();
+    getOutputPath("a").deleteTree();
+    restartServer();
+
+    buildTarget("//a:consumer");
+
+    assertOutputEquals(getOutputPath("a/consumer.txt"), "hello");
+  }
+
+  @Test
   public void localAction_inputSymlinkToGeneratedFile() throws Exception {
     injectFile("hello".getBytes(UTF_8));
     write(
