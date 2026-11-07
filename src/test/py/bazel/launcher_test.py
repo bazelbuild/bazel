@@ -647,6 +647,34 @@ class LauncherTest(test_base.TestBase):
     classpath = stdout[stdout.index('-classpath') + 1]
     self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.(jar|txt)$')
 
+  def testWindowsJavaTestCoverage(self):
+    if not self.IsWindows():
+      return
+    self.AddBazelDep('rules_java')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_java//java:java_test.bzl", "java_test")',
+            'java_test(',
+            '  name = "foo_test",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "foo.Main",',
+            '  use_testrunner = False,',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo/Main.java',
+        [
+            'package foo;',
+            'public class Main {',
+            '  public static void main(String[] args) {}',
+            '}',
+        ],
+    )
+
+    self.RunBazel(['coverage', '//foo:foo_test'])
+
   def testWindowsShBinaryLauncherWithoutRunfilesManifest(self):
     # Without a runfiles manifest, e.g. in a remotely executed action, the
     # launcher derives the script's path from its own path, so the script's
