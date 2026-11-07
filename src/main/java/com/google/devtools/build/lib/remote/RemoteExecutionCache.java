@@ -131,13 +131,24 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      @Nullable ChunkingFunctionValue chunkingFunction) {
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap) {
     super(
         checkNotNull(remoteCacheClient),
         diskCacheClient,
         symlinkTemplate,
         digestUtil,
-        chunkingFunction);
+        chunkingFunction,
+        chunkLocationMap);
+  }
+
+  RemoteExecutionCache(
+      RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      @Nullable String symlinkTemplate,
+      DigestUtil digestUtil,
+      ListenableFuture<Chunking> chunking) {
+    super(checkNotNull(remoteCacheClient), diskCacheClient, symlinkTemplate, digestUtil, chunking);
   }
 
   @VisibleForTesting
@@ -228,7 +239,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
               throw new CacheNotFoundException(digest, path.getPathString());
             }
           }
-          return remoteCacheClient.uploadFile(context, digest, path, force);
+          return uploadOrChunkFile(context, digest, path, force);
         },
         directExecutor());
   }
