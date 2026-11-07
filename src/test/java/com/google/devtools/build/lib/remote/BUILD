@@ -65,7 +65,9 @@ java_library(
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
             "ChunkedTransferBenchmark.java",
-            "ChunkedCacheIntegrationTest.java",
+            "ChunkedCacheIntegrationTestBase.java",
+            "ChunkedCacheFastCdcIntegrationTest.java",
+            "ChunkedCacheRepMaxIntegrationTest.java",
             "ChunkedDiskCacheIntegrationTest.java",
             "DiskCacheIntegrationTest.java",
         ],
@@ -115,6 +117,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/remote:scrubber",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
+        "//src/main/java/com/google/devtools/build/lib/remote/chunking",
         "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
@@ -123,7 +126,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/downloader",
         "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/logging",
-        "//src/main/java/com/google/devtools/build/lib/remote/chunking",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
@@ -223,6 +225,8 @@ java_opt_binary(
         "//third_party:guava",
         "//third_party:jmh",
         "//third_party:mockito",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -283,14 +287,9 @@ java_test(
     ],
 )
 
-java_test(
-    name = "ChunkedCacheIntegrationTest",
-    srcs = ["ChunkedCacheIntegrationTest.java"],
-    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
-    tags = ["requires-network"],
-    runtime_deps = [
-        "//third_party/grpc-java:grpc-jar",
-    ],
+java_library(
+    name = "ChunkedCacheIntegrationTestBase",
+    srcs = ["ChunkedCacheIntegrationTestBase.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
@@ -308,6 +307,34 @@ java_test(
         "@grpc-java//api",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_test(
+    name = "ChunkedCacheFastCdcIntegrationTest",
+    srcs = ["ChunkedCacheFastCdcIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        ":ChunkedCacheIntegrationTestBase",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "ChunkedCacheRepMaxIntegrationTest",
+    srcs = ["ChunkedCacheRepMaxIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        ":ChunkedCacheIntegrationTestBase",
+        "//third_party:junit4",
     ],
 )
 

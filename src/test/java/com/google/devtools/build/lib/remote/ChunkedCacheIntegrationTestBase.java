@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -49,24 +50,31 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/** Integration tests for chunked remote cache using SplitBlob/SpliceBlob APIs. */
-@RunWith(JUnit4.class)
-public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
-  @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+/** Base class for integration tests for chunked remote cache using SplitBlob/SpliceBlob APIs. */
+public abstract class ChunkedCacheIntegrationTestBase extends BuildIntegrationTestCase {
+  // The worker keeps spliced-blob mappings separately from the disk CAS. Its disk-only action
+  // cache integrity check cannot resolve those mappings and would turn chunked outputs into
+  // cache misses before the client gets a chance to download them.
+  @ClassRule @Rule
+  public static final WorkerInstance worker =
+      IntegrationTestUtils.createWorker("--action_cache_integrity_check=false");
+
+  protected abstract String getChunkingFunction();
 
   @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
     addOptions(
         "--remote_cache=grpc://localhost:" + worker.getPort(),
-        "--experimental_remote_cache_chunking");
+        "--remote_download_outputs=all",
+        "--experimental_remote_cache_chunking",
+        "--experimental_remote_cache_chunking_function=%s".formatted(getChunkingFunction()));
   }
 
   @Override
@@ -98,6 +106,8 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
   private void cleanAndRestartServer() throws Exception {
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     createRuntimeWrapper();
+    addOptions("--remote_upload_local_results=false");
+    events.clear();
   }
 
   private byte[] readFileBytes(Path path) throws IOException {
@@ -156,6 +166,9 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
           casStub.splitBlob(SplitBlobRequest.newBuilder().setBlobDigest(blobDigest).build());
       List<Digest> chunkDigests = splitResponse.getChunkDigestsList();
 
+      assertThat(splitResponse.getChunkingFunction())
+          .isEqualTo(
+              ChunkingFunction.Value.valueOf(getChunkingFunction().toUpperCase(Locale.ROOT)));
       assertThat(chunkDigests.size()).isGreaterThan(1);
       long totalChunkSize = chunkDigests.stream().mapToLong(Digest::getSizeBytes).sum();
       assertThat(totalChunkSize).isEqualTo(originalContent.length);
@@ -187,6 +200,7 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//:large_file");
 
+    events.assertContainsInfo("1 remote cache hit");
     assertThat(output.exists()).isTrue();
     assertThat(readFileBytes(output)).isEqualTo(originalContent);
   }
@@ -242,6 +256,7 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//:combined");
 
+    events.assertContainsInfo("3 remote cache hit");
     assertThat(readFileBytes(outputA)).isEqualTo(contentA);
     assertThat(readFileBytes(outputB)).isEqualTo(contentB);
     assertThat(readFileBytes(outputCombined)).isEqualTo(contentCombined);
@@ -301,6 +316,7 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//:large", "//:small");
 
+    events.assertContainsInfo("2 remote cache hit");
     assertThat(readFileBytes(largePath)).isEqualTo(largeContent);
     assertThat(readContent(smallPath, UTF_8)).isEqualTo("small output\n");
   }

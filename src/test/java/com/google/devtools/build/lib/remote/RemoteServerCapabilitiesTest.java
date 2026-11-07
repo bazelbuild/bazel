@@ -20,9 +20,11 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
+import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.PriorityCapabilities;
 import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
+import build.bazel.remote.execution.v2.RepMaxCdcParams;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableList;
@@ -33,9 +35,12 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -48,22 +53,73 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link RemoteServerCapabilities}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RemoteServerCapabilitiesTest {
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
   private ListeningScheduledExecutorService retryService;
+
+  @Test
+  public void chunkingCapabilities_matchRequestedFunction(
+      @TestParameter ChunkingFunctionValue function,
+      @TestParameter boolean enabled,
+      @TestParameter boolean supportsFastCdc,
+      @TestParameter boolean supportsRepMaxCdc)
+      throws Exception {
+    RemoteOptions options =
+        Options.parse(
+                RemoteOptions.class,
+                "--experimental_remote_cache_chunking=" + enabled,
+                "--experimental_remote_cache_chunking_function="
+                    + function.name().toLowerCase(Locale.ROOT))
+            .getOptions();
+    CacheCapabilities.Builder cache =
+        CacheCapabilities.newBuilder()
+            .addDigestFunctions(DigestFunction.Value.SHA256)
+            .setSplitBlobSupport(true)
+            .setSpliceBlobSupport(true)
+            .setActionCacheUpdateCapabilities(
+                ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true));
+    if (supportsFastCdc) {
+      cache.setFastCdc2020Params(FastCdc2020Params.getDefaultInstance());
+    }
+    if (supportsRepMaxCdc) {
+      cache.setRepMaxCdcParams(RepMaxCdcParams.getDefaultInstance());
+    }
+    ServerCapabilities capabilities =
+        ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
+            .setCacheCapabilities(cache)
+            .build();
+
+    var status =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            capabilities,
+            options,
+            DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.CACHE);
+    boolean supported =
+        switch (function) {
+          case AUTO -> supportsFastCdc || supportsRepMaxCdc;
+          case FAST_CDC_2020 -> supportsFastCdc;
+          case REP_MAX_CDC -> supportsRepMaxCdc;
+        };
+    assertThat(status.isOk()).isEqualTo(!enabled || supported);
+    assertThat(status.getErrors()).hasSize(enabled && !supported ? 1 : 0);
+    assertThat(options.getEffectiveChunkingFunction()).isEqualTo(enabled ? function : null);
+  }
 
   @Before
   public final void setUp() throws Exception {
