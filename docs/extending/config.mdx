@@ -798,7 +798,9 @@ Building `//pkg:app` requires \\(2n+2\\) targets:
 Imagine you [implement](#user-defined-build-settings) a flag
 `--//foo:owner=<STRING>` and `//pkg:i_b` applies
 
-    depConfig = myConfig + depConfig.owner="$(myConfig.owner)$(b)"
+```
+depConfig = myConfig + depConfig.owner="$(myConfig.owner)$(b)"
+```
 
 In other words, `//pkg:i_b` appends `b` to the old value of `--owner` for all
 its deps.
