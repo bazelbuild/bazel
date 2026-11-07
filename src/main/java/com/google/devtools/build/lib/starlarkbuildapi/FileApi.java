@@ -116,8 +116,29 @@ public interface FileApi extends StarlarkValue {
               + " legacy runfiles path relative to the main repository's runfiles directory)."
               + " Note that because it starts with <code>../</code>, it cannot simply be joined to"
               + " <code>RUNFILES_DIR</code>, nor used with runfiles libraries or"
-              + " <code>rlocation</code> without stripping the leading <code>../</code>.")
+              + " <code>rlocation</code> without stripping the leading <code>../</code>. Use <a"
+              + " href=\"#rlocation_path\"><code>rlocation_path</code></a> for that instead.")
   String getRunfilesPathString();
+
+  @StarlarkMethod(
+      name = "rlocation_path",
+      structField = true,
+      useStarlarkSemantics = true,
+      doc =
+          "The path of this file relative to the root of a runfiles tree, which is the path that"
+              + " the <code>Rlocation</code> function of runfiles libraries accepts. This is the"
+              + " path that <a"
+              + " href=\"/reference/be/make-variables#predefined_label_variables\"><code>$(rlocationpath)</code></a>"
+              + " expands to. It begins with the canonical name of the file's repository, or with"
+              + " <code>_main</code> for files in the main repository.<p>The path only refers to"
+              + " the file if the file is in the runfiles at its default location, not only via the"
+              + " <code>symlinks</code> or <code>root_symlinks</code> parameters of <a"
+              + " href=\"../builtins/ctx.html#runfiles\"><code>ctx.runfiles</code></a>.<p>To pass"
+              + " the rlocation paths of many files to an action, prefer <code>args.add_all(files,"
+              + " map_each = _rlocation_path)</code> with a top-level function"
+              + " <code>_rlocation_path</code> that returns <code>f.rlocation_path</code> over"
+              + " building a list of strings during analysis.")
+  String getRlocationPathForStarlark(StarlarkSemantics semantics);
 
   @StarlarkMethod(
       name = "path",
