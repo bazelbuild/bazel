@@ -708,7 +708,7 @@ class LauncherTest(test_base.TestBase):
         coverage = f.read()
     self.AssertExitCode(exit_code, 0, stderr, stdout)
     self.assertIn('SF:foo/Lib.java', coverage)
-    self.assertIn('DA:3,1', coverage)
+    self.assertIn('DA:4,1', coverage)
 
   def testWindowsShBinaryLauncherWithoutRunfilesManifest(self):
     # Without a runfiles manifest, e.g. in a remotely executed action, the
