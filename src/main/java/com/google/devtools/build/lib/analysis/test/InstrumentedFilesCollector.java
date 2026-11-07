@@ -247,7 +247,7 @@ public final class InstrumentedFilesCollector {
     final NestedSetBuilder<Artifact> baselineCoverageArtifactsBuilder;
     final NestedSetBuilder<Artifact> coverageSupportFilesBuilder;
     final ImmutableMap.Builder<String, String> coverageEnvironmentBuilder;
-    final NestedSet<Tuple> reportedToActualSources;
+    final NestedSetBuilder<Tuple> reportedToActualSourcesBuilder;
     private NestedSet<Artifact> localSources;
     @Nullable private List<Artifact> localBaselineCoverageArtifacts;
 
@@ -262,7 +262,8 @@ public final class InstrumentedFilesCollector {
       coverageSupportFilesBuilder =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(coverageSupportFiles);
       coverageEnvironmentBuilder = ImmutableMap.builder();
-      this.reportedToActualSources = reportedToActualSources;
+      reportedToActualSourcesBuilder =
+          NestedSetBuilder.<Tuple>stableOrder().addTransitive(reportedToActualSources);
     }
 
     InstrumentedFilesInfoBuilder(RuleContext ruleContext) {
@@ -280,6 +281,7 @@ public final class InstrumentedFilesCollector {
         baselineCoverageArtifactsBuilder.addTransitive(provider.getBaselineCoverageArtifacts());
         coverageSupportFilesBuilder.addTransitive(provider.getCoverageSupportFiles());
         coverageEnvironmentBuilder.putAll(provider.getCoverageEnvironment());
+        reportedToActualSourcesBuilder.addTransitive(provider.getReportedToActualSources());
       }
     }
 
@@ -318,7 +320,7 @@ public final class InstrumentedFilesCollector {
           baselineCoverageArtifactsBuilder.build(),
           coverageSupportFilesBuilder.build(),
           coverageEnvironmentBuilder.buildKeepingLast(),
-          reportedToActualSources);
+          reportedToActualSourcesBuilder.build());
     }
 
     private static BaselineCoverageAction createBaselineCoverageAction(

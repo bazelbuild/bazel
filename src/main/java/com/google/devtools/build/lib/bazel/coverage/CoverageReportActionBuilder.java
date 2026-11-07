@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -66,6 +68,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Tuple;
 
 /**
  * A class to create the coverage report generator action.
@@ -75,8 +78,9 @@ import javax.annotation.Nullable;
  * invocation. It can also be viewed as a single sink node of the action graph.
  *
  * <p>Its inputs are the individual coverage.dat files from the test outputs (each shard produces
- * one) and the baseline coverage artifacts. Note that each ConfiguredTarget among the transitive
- * dependencies of the top level test targets may provide baseline coverage artifacts.
+ * one) and the baseline coverage report. Note that each ConfiguredTarget among the transitive
+ * dependencies of the top level test targets may provide baseline coverage artifacts, which are
+ * merged into the baseline coverage report by a separate action.
  *
  * <p>The coverage report generation can have two phases, though they both run in the same action.
  * The source code of the coverage report tool {@code lcov_merger} is in the {@code
@@ -237,76 +241,118 @@ public final class CoverageReportActionBuilder {
       return null;
     }
     checkNotNull(actionOwner);
-    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
-    NestedSet<Artifact> coverageArtifacts =
-        builder.addTransitive(baselineCoverageArtifacts).build();
-    if (!coverageArtifacts.isEmpty()) {
-      Artifact baselineLcovArtifact =
-          factory.getDerivedArtifact(
-              TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
-              directories.getBuildDataDirectory(workspaceName),
-              artifactOwner);
-      Action baselineLcovFileAction =
-          generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts, actionOwner);
-      Action baselineReportAction =
-          generateCoverageReportAction(
-              new CoverageArgs(
-                  directories,
-                  baselineCoverageArtifacts,
-                  baselineLcovArtifact,
-                  factory,
-                  artifactOwner,
-                  reportGenerator,
-                  workspaceName,
-                  /* htmlReport= */ null,
-                  actionOwner),
-              coverageHelper,
-              configuredTargets,
-              "_baseline_report.dat");
-      Artifact coverageLcovArtifact =
-          factory.getDerivedArtifact(
-              TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
-              directories.getBuildDataDirectory(workspaceName),
-              artifactOwner);
-      Action coverageLcovFileAction =
-          generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
-      Action coverageReportAction =
-          generateCoverageReportAction(
-              new CoverageArgs(
-                  directories,
-                  coverageArtifacts,
-                  coverageLcovArtifact,
-                  factory,
-                  artifactOwner,
-                  reportGenerator,
-                  workspaceName,
-                  htmlReport,
-                  actionOwner),
-              coverageHelper,
-              configuredTargets,
-              "_coverage_report.dat");
-      return new CoverageReportActionsWrapper(
-          baselineReportAction,
-          coverageReportAction,
-          ImmutableList.of(baselineLcovFileAction, coverageLcovFileAction),
-          actionKeyContext);
-    } else {
+    var baselineCoverageArtifactsBuilder = NestedSetBuilder.<Artifact>stableOrder();
+    var instrumentedFilesBuilder = NestedSetBuilder.<Artifact>stableOrder();
+    var reportedToActualSourcesBuilder = NestedSetBuilder.<Tuple>stableOrder();
+    for (ConfiguredTarget target : configuredTargets) {
+      InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+      if (provider != null) {
+        baselineCoverageArtifactsBuilder.addTransitive(provider.getBaselineCoverageArtifacts());
+        instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
+        reportedToActualSourcesBuilder.addTransitive(provider.getReportedToActualSources());
+      }
+    }
+    NestedSet<Artifact> baselineCoverageArtifacts = baselineCoverageArtifactsBuilder.build();
+    NestedSet<Artifact> testCoverageArtifacts = builder.build();
+    if (baselineCoverageArtifacts.isEmpty() && testCoverageArtifacts.isEmpty()) {
       reporter.handle(
           Event.error("Cannot generate coverage report - no coverage information was collected"));
       return null;
     }
-  }
 
-  private static NestedSet<Artifact> getBaselineCoverageArtifacts(
-      Collection<ConfiguredTarget> configuredTargets) {
-    var baselineCoverageArtifacts = NestedSetBuilder.<Artifact>stableOrder();
-    for (ConfiguredTarget target : configuredTargets) {
-      InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-      if (provider != null) {
-        baselineCoverageArtifacts.addTransitive(provider.getBaselineCoverageArtifacts());
-      }
+    ArtifactRoot root = directories.getBuildDataDirectory(workspaceName);
+    ImmutableList.Builder<ActionAnalysisMetadata> intermediateActions = ImmutableList.builder();
+
+    // Baseline coverage files are generated by rules and, unlike the coverage reports of tests, may
+    // contain coverage for source files that aren't instrumented (e.g. C++ headers of external
+    // dependencies included by an instrumented source file) or that are reported under a different
+    // path (e.g. virtual C++ include paths). Apply the same filtering and path mapping to them that
+    // the coverage collection of tests applies to their reports.
+    Artifact sourceFileManifest =
+        factory.getDerivedArtifact(
+            TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_source_file_manifest.tmp"),
+            root,
+            artifactOwner);
+    intermediateActions.add(
+        new LazyWritePathsFileAction(
+            actionOwner,
+            sourceFileManifest,
+            instrumentedFilesBuilder.build(),
+            /* filesToIgnore= */ ImmutableSet.of(),
+            /* includeDerivedArtifacts= */ true));
+    NestedSet<Tuple> reportedToActualSources = reportedToActualSourcesBuilder.build();
+    Artifact reportedToActualSourcesFile = null;
+    if (!reportedToActualSources.isEmpty()) {
+      reportedToActualSourcesFile =
+          factory.getDerivedArtifact(
+              TestRunnerAction.COVERAGE_TMP_ROOT.getRelative(
+                  "baseline_reported_to_actual_sources.tmp"),
+              root,
+              artifactOwner);
+      intermediateActions.add(
+          new LazyWriteNestedSetOfTupleAction(
+              actionOwner, reportedToActualSourcesFile, reportedToActualSources, ":"));
     }
-    return baselineCoverageArtifacts.build();
+
+    Artifact baselineLcovArtifact =
+        factory.getDerivedArtifact(
+            TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
+            root,
+            artifactOwner);
+    intermediateActions.add(
+        generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts, actionOwner));
+    Action baselineReportAction =
+        generateCoverageReportAction(
+            new CoverageArgs(
+                directories,
+                baselineCoverageArtifacts,
+                baselineLcovArtifact,
+                factory,
+                artifactOwner,
+                reportGenerator,
+                workspaceName,
+                /* htmlReport= */ null,
+                actionOwner,
+                sourceFileManifest,
+                reportedToActualSourcesFile),
+            coverageHelper,
+            configuredTargets,
+            "_baseline_report.dat");
+
+    // The coverage reports of tests have already been filtered by the test actions, so the
+    // combined report only needs to merge them with the filtered baseline report.
+    NestedSetBuilder<Artifact> coverageArtifactsBuilder =
+        NestedSetBuilder.<Artifact>stableOrder().addTransitive(testCoverageArtifacts);
+    if (!baselineCoverageArtifacts.isEmpty()) {
+      coverageArtifactsBuilder.add(baselineReportAction.getPrimaryOutput());
+    }
+    NestedSet<Artifact> coverageArtifacts = coverageArtifactsBuilder.build();
+    Artifact coverageLcovArtifact =
+        factory.getDerivedArtifact(
+            TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
+            root,
+            artifactOwner);
+    intermediateActions.add(
+        generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner));
+    Action coverageReportAction =
+        generateCoverageReportAction(
+            new CoverageArgs(
+                directories,
+                coverageArtifacts,
+                coverageLcovArtifact,
+                factory,
+                artifactOwner,
+                reportGenerator,
+                workspaceName,
+                htmlReport,
+                actionOwner,
+                /* sourceFileManifest= */ null,
+                /* reportedToActualSourcesFile= */ null),
+            coverageHelper,
+            configuredTargets,
+            "_coverage_report.dat");
+    return new CoverageReportActionsWrapper(
+        baselineReportAction, coverageReportAction, intermediateActions.build(), actionKeyContext);
   }
 
   private static LazyWritePathsFileAction generateLcovFileWriteAction(
@@ -359,6 +405,12 @@ public final class CoverageReportActionBuilder {
             .add(args.lcovArtifact());
     if (runfilesTree != null) {
       inputsBuilder.add(runfilesTree);
+    }
+    if (args.sourceFileManifest() != null) {
+      inputsBuilder.add(args.sourceFileManifest());
+    }
+    if (args.reportedToActualSourcesFile() != null) {
+      inputsBuilder.add(args.reportedToActualSourcesFile());
     }
 
     ImmutableSet.Builder<Artifact> outputsBuilder =

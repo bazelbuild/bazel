@@ -127,15 +127,16 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   /**
    * A set of pairs of reported source file path and the actual source file path, relative to the
-   * workspace directory, if the two values are different. If the reported source file is the same
-   * as the actual source path it will not be included in this set.
+   * workspace directory, if the two values are different, collected from this target and its
+   * transitive dependencies. If the reported source file is the same as the actual source path it
+   * will not be included in this set.
    *
    * <p>This is useful for virtual include paths in C++, which get reported at the include location
    * and not the real source path. For example, the reported include source file can be
    * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
    * actual source path is "include/common/strategy.h".
    */
-  NestedSet<Tuple> getReportedToActualSources() {
+  public NestedSet<Tuple> getReportedToActualSources() {
     return reportedToActualSources;
   }
 

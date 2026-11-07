@@ -129,8 +129,15 @@ public class BazelCoverageReportModule extends BlazeModule {
                   // A file that contains all the exec paths to the coverage artifacts
                   "--reports_file=" + args.lcovArtifact().getExecPathString(),
                   "--output_file=" + lcovOutput.getExecPathString());
-        return argsBuilder.build();
+      if (args.sourceFileManifest() != null) {
+        argsBuilder.add("--source_file_manifest=" + args.sourceFileManifest().getExecPathString());
       }
+      if (args.reportedToActualSourcesFile() != null) {
+        argsBuilder.add(
+            "--sources_to_replace_file=" + args.reportedToActualSourcesFile().getExecPathString());
+      }
+      return argsBuilder.build();
+    }
 
     @Override
     public String getLocationMessage(CoverageArgs args, Artifact lcovOutput) {
