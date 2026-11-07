@@ -98,7 +98,6 @@ import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.LocalOutputService;
-import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -353,12 +352,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 ProxyMetadataFactory.NO_PROXIES,
                 null),
             ActionOutputDirectoryHelper.createForTesting(),
-            new LocalOutputService(directories) {
-              @Override
-              public RewoundActionSynchronizer getRewoundActionSynchronizer() {
-                return rewoundActionSynchronizer;
-              }
-            },
+            new LocalOutputService(directories),
             /* keepStateAfterBuild= */ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(
             () -> "", EMPTY_COMPLETION_RECEIVER);
@@ -410,9 +404,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   /** A non-persistent cache. */
   protected InMemoryActionCache inMemoryCache;
-
-  /** The synchronizer provided by the output service of builds. */
-  protected RewoundActionSynchronizer rewoundActionSynchronizer = RewoundActionSynchronizer.NOOP;
 
   protected SkyFunction actionTemplateExpansionFunction;
 
