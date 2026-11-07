@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.LocalOutputService;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -260,7 +261,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     Artifact.ARTIFACT,
                     new ArtifactFunction(
-                        () -> true,
+                        () -> ActionFileSystemType.DISABLED,
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
                         skyframeActionExecutor,

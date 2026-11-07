@@ -1533,6 +1533,256 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void emptyTreeConsumedByLocalAction_directoryMissing() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        """
+        load(":output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo",
+            content_map = {},
+        )
+
+        genrule(
+            name = "foobar",
+            srcs = [":foo"],
+            outs = ["foobar.txt"],
+            cmd = "test -d $< && touch $@",
+            # Run locally even with a disk cache, which "no-remote" alone doesn't prevent.
+            tags = [
+                "no-cache",
+                "no-remote",
+            ],
+        )
+        """);
+    setDownloadMinimal();
+    buildTarget("//:foobar");
+
+    // The action cache outlives the output directories, so the action generating the tree artifact
+    // is a cache hit that doesn't recreate its directory.
+    getOutputPath("foo").deleteTree();
+    getOutputPath("foobar.txt").delete();
+    restartServer();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+
+    buildTarget("//:foobar");
+
+    assertThat(actionEventCollector.getCachedActionEvents()).isNotEmpty();
+    assertThat(getOutputPath("foo").isDirectory()).isTrue();
+    assertThat(getOutputPath("foobar.txt").exists()).isTrue();
+  }
+
+  @Test
+  public void symlinkToEmptyTreeConsumedByLocalAction_directoryMissing() throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            ctx.actions.run_shell(
+                outputs = [dir],
+                command = "mkdir -p $1",
+                arguments = [dir.path],
+            )
+
+            sym = ctx.actions.declare_directory(ctx.label.name + ".sym")
+            ctx.actions.symlink(output = sym, target_file = dir)
+
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run_shell(
+                inputs = [sym],
+                outputs = [out],
+                command = "test -d $1 && touch $2",
+                arguments = [sym.path, out.path],
+                execution_requirements = {
+                    "no-cache": "",
+                    "no-remote": "",
+                },
+            )
+
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(_impl)
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "my")
+        """);
+    setDownloadMinimal();
+    buildTarget("//a:my");
+
+    // The action cache outlives the output directories, so the action generating the tree artifact
+    // is a cache hit that doesn't recreate its directory.
+    getOutputPath("a").deleteTree();
+    restartServer();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+
+    buildTarget("//a:my");
+
+    assertThat(actionEventCollector.getCachedActionEvents()).isNotEmpty();
+    assertThat(getOutputPath("a/my.sym").isDirectory()).isTrue();
+    assertThat(getOutputPath("a/my.out").exists()).isTrue();
+  }
+
+  @Test
+  public void toplevelEmptyTree_directoryMissing(@TestParameter boolean restartServer)
+      throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        """
+        load(":output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo",
+            content_map = {},
+        )
+        """);
+    setDownloadToplevel();
+    buildTarget("//:foo");
+    waitDownloads();
+
+    getOutputPath("foo").deleteTree();
+    if (restartServer) {
+      restartServer();
+    }
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertThat(getOutputPath("foo").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void emptyTreeAndSymlinkToItFromSameAction_treeMissing(@TestParameter boolean linkFirst)
+      throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            real = ctx.actions.declare_directory(ctx.label.name + ".real")
+            link = ctx.actions.declare_directory(ctx.label.name + ".link")
+            ctx.actions.run_shell(
+                outputs = [link, real] if ctx.attr.link_first else [real, link],
+                command = "rmdir {link} && ln -s {target} {link}".format(
+                    link = link.path,
+                    target = real.basename,
+                ),
+                execution_requirements = {"no-remote-exec": ""},
+            )
+            return [DefaultInfo(files = depset([link, real]))]
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"link_first": attr.bool()},
+        )
+        """);
+    write(
+        "a/BUILD",
+        String.format(
+            """
+            load(":defs.bzl", "my_rule")
+            my_rule(name = "foo", link_first = %s)
+            genrule(
+                name = "consumer",
+                srcs = [":foo"],
+                outs = ["consumer.txt"],
+                cmd = "touch $@",
+                tags = ["no-cache", "no-remote"],
+            )
+            """,
+            linkFirst ? "True" : "False"));
+
+    buildTarget("//a:consumer");
+
+    getOutputPath("a/foo.real").deleteTree();
+    assertThat(getOutputPath("a/foo.link").isSymbolicLink()).isTrue();
+    restartServer();
+
+    buildTarget("//a:consumer");
+
+    assertThat(getOutputPath("a/foo.real").isDirectory()).isTrue();
+    assertThat(getOutputPath("a/foo.link").isDirectory()).isTrue();
+  }
+
+  private void writeEmptyMapDirectoryRule() throws IOException {
+    addOptions("--experimental_allow_map_directory");
+    write(
+        "a/defs.bzl",
+        """
+        def _map_impl(template_ctx, **kwargs):
+            pass
+
+        def _impl(ctx):
+            input = ctx.actions.declare_directory(ctx.label.name + ".in")
+            ctx.actions.run_shell(outputs = [input], command = "mkdir -p " + input.path)
+            output = ctx.actions.declare_directory(ctx.label.name + ".out")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"in": input},
+                output_directories = {"out": output},
+                tools = {},
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        empty_map_directory = rule(implementation = _impl)
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "empty_map_directory")
+        empty_map_directory(name = "foo")
+        genrule(
+            name = "consumer",
+            srcs = [":foo"],
+            outs = ["consumer.txt"],
+            cmd = "test -d $< && touch $@",
+            tags = ["no-cache", "no-remote"],
+        )
+        """);
+  }
+
+  @Test
+  public void emptyMapDirectoryOutputConsumedByLocalAction_directoryMissing() throws Exception {
+    writeEmptyMapDirectoryRule();
+
+    buildTarget("//a:consumer");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+
+    getOutputPath("a").deleteTree();
+    restartServer();
+
+    buildTarget("//a:consumer");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void toplevelEmptyMapDirectoryOutput_directoryMissing() throws Exception {
+    writeEmptyMapDirectoryRule();
+    setDownloadToplevel();
+
+    buildTarget("//a:foo");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+
+    getOutputPath("a").deleteTree();
+    restartServer();
+
+    buildTarget("//a:foo");
+
+    assertThat(getOutputPath("a/foo.out").isDirectory()).isTrue();
+  }
+
+  @Test
   public void multiplePackagePaths_buildsSuccessfully() throws Exception {
     write(
         "../a/src/BUILD",

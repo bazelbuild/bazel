@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -70,7 +71,7 @@ import javax.annotation.Nullable;
  */
 public final class ArtifactFunction implements SkyFunction {
 
-  private final Supplier<Boolean> mkdirForTreeArtifacts;
+  private final Supplier<ActionFileSystemType> actionFileSystemType;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
   private final XattrProvider xattrProvider;
   private final SkyframeActionExecutor actionExecutor;
@@ -100,12 +101,12 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   public ArtifactFunction(
-      Supplier<Boolean> mkdirForTreeArtifacts,
+      Supplier<ActionFileSystemType> actionFileSystemType,
       MetadataConsumerForMetrics sourceArtifactsSeen,
       XattrProvider xattrProvider,
       SkyframeActionExecutor actionExecutor,
       Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
-    this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
+    this.actionFileSystemType = actionFileSystemType;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
     this.xattrProvider = xattrProvider;
     this.actionExecutor = actionExecutor;
@@ -157,11 +158,18 @@ public final class ArtifactFunction implements SkyFunction {
     // actions, execute those actions in parallel and then aggregate the action execution results.
     ActionTemplate<?> actionTemplate = artifactDependencies.maybeGetTemplateActionForTreeArtifact();
     if (actionTemplate != null) {
-      if (mkdirForTreeArtifacts.get()) {
+      ActionFileSystemType fileSystemType = actionFileSystemType.get();
+      if (!fileSystemType.inMemoryFileSystem()) {
         mkdirForTreeArtifact(artifact, env, actionTemplate);
       }
       var result = createTreeArtifactValueFromActionKey(artifactDependencies, env);
       if (result != null) {
+        // Children are materialized on demand, but an empty expansion has no action or child that
+        // would cause the directory to be created for local actions and top-level outputs.
+        if (fileSystemType == ActionFileSystemType.REMOTE_FILE_SYSTEM
+            && result.getChildren().isEmpty()) {
+          mkdirForTreeArtifact(artifact, env, actionTemplate);
+        }
         SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, artifact, result, env);
         env.getListener().post(new ActionTemplateOutputEvent(artifact, result));
       }
