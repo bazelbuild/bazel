@@ -119,7 +119,6 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -957,9 +956,6 @@ public final class SkyframeActionExecutor {
                 // accepted hits, not hits rejected by NotifyOnActionCacheHit above.
                 token == null ? previousOutputs : null,
                 /* fileOutErr= */ null);
-        if (token == null) {
-          createMissingEmptyTreeOutputs(action, outputMetadataStore);
-        }
         if (!eventPosted) {
           eventHandler.post(
               new CachedActionEvent(
@@ -972,37 +968,6 @@ public final class SkyframeActionExecutor {
       }
     }
     return token;
-  }
-
-  /**
-   * Recreates the directories of empty tree artifacts after an action cache hit.
-   *
-   * <p>The action cache can outlive the output tree if the outputs of an action are remote. While
-   * these outputs are materialized when needed, an empty tree artifact has no children that would
-   * cause its directory to be recreated.
-   */
-  private void createMissingEmptyTreeOutputs(Action action, OutputMetadataStore outputMetadataStore)
-      throws ActionExecutionException, InterruptedException {
-    for (Artifact output : action.getOutputs()) {
-      if (!(output instanceof TreeArtifact tree) || outputMetadataStore.artifactOmitted(tree)) {
-        continue;
-      }
-      try {
-        if (outputMetadataStore.getTreeArtifactValue(tree).getChildren().isEmpty()
-            && !tree.getPath().exists(Symlinks.NOFOLLOW)) {
-          tree.getPath().createDirectoryAndParents();
-          tree.getPath().chmod(getOutputPermissions().getPermissionsMode());
-        }
-      } catch (IOException e) {
-        throw toActionExecutionException(
-            String.format(
-                "failed to create output directory '%s': %s", tree.getPath(), e.getMessage()),
-            e,
-            action,
-            /* actionOutput= */ null,
-            Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE);
-      }
-    }
   }
 
   void updateActionCache(
