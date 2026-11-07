@@ -20,6 +20,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
@@ -130,7 +131,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
       } catch (IOException e) {
         close();
         throw new BrokenDiffAwarenessException(
-            "Error encountered with local file system watcher " + e);
+            "Error encountered with local file system watcher "
+                + StringEncoding.platformToInternal(e.toString()));
       }
       return newView(ImmutableSet.of());
     }
@@ -144,7 +146,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     } catch (IOException e) {
       close();
       throw new BrokenDiffAwarenessException(
-          "Error encountered with local file system watcher " + e);
+          "Error encountered with local file system watcher "
+              + StringEncoding.platformToInternal(e.toString()));
     } catch (ClosedWatchServiceException e) {
       throw new BrokenDiffAwarenessException(
           "Internal error with the local file system watcher " + e);
@@ -361,7 +364,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
 
     private boolean isIgnored(Path path) {
       PathFragment pathFragment =
-          PathFragment.create(path.toAbsolutePath().toString()).toRelative();
+          PathFragment.create(StringEncoding.platformToInternal(path.toAbsolutePath().toString()))
+              .toRelative();
       return ignoredPaths.matchingEntry(pathFragment) != null;
     }
 
