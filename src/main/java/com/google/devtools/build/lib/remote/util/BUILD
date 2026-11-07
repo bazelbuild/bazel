@@ -77,6 +77,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/google/protobuf:any_java_proto",
         "//third_party/google/protobuf:duration_java_proto",
@@ -99,6 +100,7 @@ java_library(
     srcs = ["TracingMetadataUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party/java/grpc:context",
         "//third_party/java/grpc:core",
         "//third_party/java/grpc:protobuf",

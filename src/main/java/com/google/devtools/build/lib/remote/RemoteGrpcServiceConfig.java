@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -91,7 +92,11 @@ public final class RemoteGrpcServiceConfig {
       return ImmutableMap.copyOf(serviceConfig);
     } catch (JsonParseException e) {
       throw new IOException(
-          "failed to parse " + serviceConfigPath.getPathString() + ": " + e.getMessage(), e);
+          "failed to parse "
+              + serviceConfigPath.getPathString()
+              + ": "
+              + unicodeToInternal(e.getMessage()),
+          e);
     }
   }
 
@@ -139,7 +144,8 @@ public final class RemoteGrpcServiceConfig {
       JsonObject object, ImmutableSet<String> supportedFields, String path) throws IOException {
     for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
       if (!supportedFields.contains(entry.getKey())) {
-        throw new IOException(path + " contains unsupported field '" + entry.getKey() + "'");
+        throw new IOException(
+            path + " contains unsupported field '" + unicodeToInternal(entry.getKey()) + "'");
       }
     }
   }

@@ -15,6 +15,7 @@
 package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.remote.worker.ExecutionServer.CLIENT_ENV;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
 
@@ -276,7 +277,7 @@ public final class RemoteWorker {
       java.nio.file.Path markerFile =
           workerOptions.getFailureMarkerFile() == null
               ? null
-              : Paths.get(workerOptions.getFailureMarkerFile().getPathString());
+              : Paths.get(internalToPlatform(workerOptions.getFailureMarkerFile().getPathString()));
       interceptors.add(
           new FailFirstNInterceptor(
               workerOptions.getFailureCount(), workerOptions.getFailureMethod(), markerFile));
@@ -471,7 +472,7 @@ public final class RemoteWorker {
     Path sandboxPath = null;
     try {
       sandboxPath = fs.getPath(remoteWorkerOptions.getWorkPath()).getChild("linux-sandbox");
-      try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
+      try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathFile())) {
         ByteStreams.copy(sandbox, fos);
       }
       sandboxPath.setExecutable(true);
@@ -488,7 +489,7 @@ public final class RemoteWorker {
                 .buildForCommand(ImmutableList.of("true")),
             ImmutableMap.of(),
             sandboxPath.getParentDirectory().getPathFile(),
-            System.getenv());
+            CLIENT_ENV);
     try {
       cmdResult = cmd.execute();
     } catch (CommandException e) {
