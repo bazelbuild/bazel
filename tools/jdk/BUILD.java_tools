@@ -603,6 +603,32 @@ java_binary(
     runtime_deps = [":proguard_import"],
 )
 
+##################### proguard_allowlister
+
+# See comment for ":ijar_cc_binary_main".
+cc_library(
+    name = "proguard_allowlister_cc_bin_main",
+    srcs = ["java_tools/tools/jdk/proguard_allowlister.cc"],
+    copts = SUPRESSED_WARNINGS,
+    linkstatic = 1,  # provides main()
+    deps = [":proguard_allowlister_lib"],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "proguard_allowlister_cc_bin",
+    visibility = ["//visibility:public"],
+    deps = [":proguard_allowlister_cc_bin_main"],
+)
+
+cc_library(
+    name = "proguard_allowlister_lib",
+    srcs = ["java_tools/tools/jdk/proguard_allowlister_lib.cc"],
+    hdrs = ["java_tools/tools/jdk/proguard_allowlister_lib.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
+)
+
 ##################### one_version
 
 # See comment for ":ijar_cc_binary_main".
