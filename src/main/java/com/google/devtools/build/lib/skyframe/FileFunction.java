@@ -61,14 +61,18 @@ import javax.annotation.Nullable;
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ImmutableList<Root> immutablePaths;
+  private final ExternalFilesHelper externalFilesHelper;
 
   public FileFunction(
-      AtomicReference<PathPackageLocator> pkgLocator, BlazeDirectories directories) {
+      AtomicReference<PathPackageLocator> pkgLocator,
+      BlazeDirectories directories,
+      ExternalFilesHelper externalFilesHelper) {
     this.pkgLocator = pkgLocator;
     this.immutablePaths =
         ImmutableList.of(
             Root.fromPath(directories.getOutputBase()),
             Root.fromPath(directories.getInstallBase()));
+    this.externalFilesHelper = externalFilesHelper;
   }
 
   private static class SymlinkResolutionState {
@@ -166,6 +170,14 @@ public class FileFunction implements SkyFunction {
     // We check whether the path to be transformed is under the output base or the install base.
     // These directories are under the control of Bazel and it therefore does not make much sense
     // to check for changes in them or in their ancestors in the usual Skyframe way.
+    // The same holds for the entries of the repo contents cache, which Bazel never modifies after
+    // creating them. Rooting a path at its entry also keeps the long path of the cache out of the
+    // keys of all files in cached repos. The cache can't be in the main repo, so no package path
+    // entry can contain it.
+    Root repoContentsCacheEntry = externalFilesHelper.getRepoContentsCacheEntryRoot(path);
+    if (repoContentsCacheEntry != null) {
+      return RootedPath.toRootedPath(repoContentsCacheEntry, path);
+    }
     return RootedPath.toRootedPathMaybeUnderRoot(
         path, Iterables.concat(pkgLocator.get().getPathEntries(), immutablePaths));
   }

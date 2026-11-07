@@ -165,7 +165,8 @@ public abstract class GlobTestBase {
     skyFunctions.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(
+        SkyFunctions.FILE, new FileFunction(pkgLocator, directories, externalFilesHelper));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(
