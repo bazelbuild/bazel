@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.AnalysisTime
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -59,11 +58,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -257,8 +257,6 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
         .append(options.getLineTerminator());
   }
 
-  private static final int PROJECTION_BATCH_SIZE = 4096;
-
   // Intern by ActionLookupKey while walking. Later operations can use the identity of a single
   // shared object per configured target and access its stable name without another map lookup.
   private static final class HashTarget extends CompactConfiguredHashes.Node<HashTarget> {
@@ -266,7 +264,14 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
     int lastParentOrdinal = -1;
 
     HashTarget(int ordinal, CqueryNode node, boolean deferName) throws IOException {
-      super(ordinal, deferName ? "" : stableName(node));
+      this(ordinal, node);
+      if (!deferName) {
+        name = stableName(node);
+      }
+    }
+
+    HashTarget(int ordinal, CqueryNode node) {
+      super(ordinal, "");
       this.node = node;
     }
 
@@ -356,136 +361,197 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       Set<HashTarget> failed,
       @Nullable ExecutorService pool)
       throws IOException, InterruptedException {
+    if (pool != null) {
+      return collectGraphWithParallelInterning(partialResult, roots, failed, pool);
+    }
     Map<ActionLookupKey, HashTarget> seen = new HashMap<>();
+    collectRoots(partialResult, roots, seen, /* deferName= */ false);
+    List<HashTarget> nodes = new ArrayList<>(roots);
+    for (int i = 0; i < nodes.size(); ) {
+      int end = nodes.size();
+      while (i < end) {
+        HashTarget target = nodes.get(i++);
+        Iterable<CqueryNode> directDeps = depsRetriever.getDirectDeps(target.node);
+        if (directDeps == null) {
+          failed.add(target);
+          continue;
+        }
+        ActionLookupKey parentKey = target.node.getLookupKey();
+        ImmutableList.Builder<HashTarget> ordered = ImmutableList.builder();
+        for (CqueryNode dep : directDeps) {
+          ActionLookupKey key = dep.getLookupKey();
+          if (key.equals(parentKey)) {
+            continue;
+          }
+          HashTarget child = seen.get(key);
+          if (child == null) {
+            child = new HashTarget(nodes.size(), dep, /* deferName= */ false);
+            seen.put(key, child);
+            nodes.add(child);
+          }
+          if (child.lastParentOrdinal != target.ordinal) {
+            child.lastParentOrdinal = target.ordinal;
+            ordered.add(child);
+          }
+        }
+        target.deps = ordered.build();
+        sortAndCheck(target, /* deduplicate= */ false);
+      }
+      reportProgress(i, nodes.size());
+    }
+    return nodes;
+  }
+
+  private void collectRoots(
+      Iterable<CqueryNode> partialResult,
+      List<HashTarget> roots,
+      Map<ActionLookupKey, HashTarget> seen,
+      boolean deferName)
+      throws IOException {
     for (CqueryNode node : partialResult) {
       ActionLookupKey key = node.getLookupKey();
       if ((topLevelConfigurations == null
               || topLevelConfigurations.containsConfiguredTargetKey(key))
           && !seen.containsKey(key)) {
-        HashTarget target = new HashTarget(roots.size(), node, pool != null);
+        HashTarget target = new HashTarget(roots.size(), node, deferName);
         seen.put(key, target);
         roots.add(target);
       }
     }
-    List<HashTarget> nodes = new ArrayList<>(roots);
-    for (int i = 0; i < nodes.size(); ) {
+  }
+
+  private List<HashTarget> collectGraphWithParallelInterning(
+      Iterable<CqueryNode> partialResult,
+      List<HashTarget> roots,
+      Set<HashTarget> failed,
+      ExecutorService pool)
+      throws IOException, InterruptedException {
+    var seen = new ConcurrentHashMap<ActionLookupKey, HashTarget>();
+    collectRoots(partialResult, roots, seen, /* deferName= */ true);
+    var nodes = new ArrayList<>(roots);
+    var nextOrdinal = new AtomicInteger(nodes.size());
+    for (int start = 0; start < nodes.size(); ) {
       int end = nodes.size();
-      ProjectionBatch batch = pool == null ? null : projectBatch(nodes, i, end, pool);
-      while (i < end) {
-        int first = i;
-        int limit = pool == null ? end : Math.min(end, first + PROJECTION_BATCH_SIZE);
-        Iterable<CqueryNode>[] prefetched = batch == null ? null : batch.await();
-        // Project the next batch while this thread interns the current batch's edges.
-        batch = pool == null || limit == end ? null : projectBatch(nodes, limit, end, pool);
-        while (i < limit) {
-          HashTarget target = nodes.get(i++);
-          ImmutableList.Builder<HashTarget> ordered = ImmutableList.builder();
-          Iterable<CqueryNode> directDeps =
-              prefetched == null
-                  ? depsRetriever.getDirectDeps(target.node)
-                  : prefetched[i - 1 - first];
-          if (directDeps == null) {
-            failed.add(target);
-            continue;
-          }
-          for (CqueryNode dep : directDeps) {
-            ActionLookupKey key = dep.getLookupKey();
-            if (key.equals(target.node.getLookupKey())) {
-              continue;
-            }
-            HashTarget candidate = seen.get(key);
-            if (candidate == null) {
-              candidate = new HashTarget(nodes.size(), dep, pool != null);
-              seen.put(key, candidate);
-              nodes.add(candidate);
-            }
-            if (candidate.lastParentOrdinal != target.ordinal) {
-              candidate.lastParentOrdinal = target.ordinal;
-              ordered.add(candidate);
-            }
-          }
-          target.deps = ordered.build();
-          if (pool == null) {
-            sortAndCheck(target);
-          }
-        }
-      }
-      eventHandler.handle(
-          Event.progress(
-              String.format(
-                  "Hashing: visited %d configured targets (%d pending)", i, nodes.size() - i)));
-    }
-    if (pool != null) {
+      var additions = new ConcurrentLinkedQueue<List<HashTarget>>();
+      var failures = new ConcurrentLinkedQueue<HashTarget>();
       ranges(
           pool,
-          0,
-          nodes.size(),
-          1024,
+          start,
+          end,
+          128,
           (a, b) -> {
+            var discovered = new ArrayList<HashTarget>();
             for (int i = a; i < b; i++) {
               HashTarget target = nodes.get(i);
-              target.name = HashTarget.stableName(target.node);
+              Iterable<CqueryNode> directDeps = depsRetriever.getDirectDeps(target.node);
+              if (directDeps == null) {
+                failures.add(target);
+                continue;
+              }
+              ActionLookupKey parentKey = target.node.getLookupKey();
+              ImmutableList.Builder<HashTarget> deps = ImmutableList.builder();
+              for (CqueryNode dep : directDeps) {
+                ActionLookupKey key = dep.getLookupKey();
+                if (key.equals(parentKey)) {
+                  continue;
+                }
+                HashTarget child = seen.get(key);
+                if (child == null) {
+                  child =
+                      seen.computeIfAbsent(
+                          key,
+                          unused -> {
+                            var added = new HashTarget(nextOrdinal.getAndIncrement(), dep);
+                            discovered.add(added);
+                            return added;
+                          });
+                }
+                deps.add(child);
+              }
+              target.deps = deps.build();
+            }
+            if (!discovered.isEmpty()) {
+              additions.add(discovered);
             }
           });
-      ranges(
-          pool,
-          0,
-          nodes.size(),
-          512,
-          (a, b) -> {
-            for (int i = a; i < b; i++) {
-              sortAndCheck(nodes.get(i));
-            }
-          });
+      // Ordinals index nodes during direct hashing and combination. Only the roots' input
+      // order and each row's stable-name order affect the emitted result.
+      int size = nextOrdinal.get();
+      nodes.ensureCapacity(size);
+      for (int i = end; i < size; i++) {
+        nodes.add(null);
+      }
+      for (var discovered : additions) {
+        for (HashTarget target : discovered) {
+          nodes.set(target.ordinal, target);
+        }
+      }
+      failed.addAll(failures);
+      reportProgress(end, nodes.size());
+      start = end;
     }
+    finishParallelGraph(nodes, pool);
     return nodes;
   }
 
-  private record ProjectionBatch(Iterable<CqueryNode>[] deps, List<Future<Void>> work) {
-    Iterable<CqueryNode>[] await() throws IOException, InterruptedException {
-      for (var task : work) {
-        MoreFutures.waitForFutureAndGetWithCheckedException(
-            task, /* cancelOnInterrupt= */ true, IOException.class);
-      }
-      return deps;
-    }
+  private void reportProgress(int visited, int total) {
+    eventHandler.handle(
+        Event.progress(
+            String.format(
+                "Hashing: visited %d configured targets (%d pending)", visited, total - visited)));
   }
 
-  private ProjectionBatch projectBatch(
-      List<HashTarget> nodes, int first, int end, ExecutorService pool) {
-    int limit = Math.min(end, first + PROJECTION_BATCH_SIZE);
-    // The collector can append to nodes while the workers read this snapshot.
-    var targets = nodes.subList(first, limit).toArray(HashTarget[]::new);
-    @SuppressWarnings("unchecked")
-    Iterable<CqueryNode>[] deps = (Iterable<CqueryNode>[]) new Iterable<?>[targets.length];
-    var work = new ArrayList<Future<Void>>();
-    for (int start = 0; start < targets.length; start += 64) {
-      int left = start;
-      int right = Math.min(start + 64, targets.length);
-      work.add(
-          pool.submit(
-              () -> {
-                for (int i = left; i < right; i++) {
-                  deps[i] = depsRetriever.getDirectDeps(targets[i].node);
-                }
-                return null;
-              }));
-    }
-    return new ProjectionBatch(deps, work);
+  private static void finishParallelGraph(List<HashTarget> nodes, ExecutorService pool)
+      throws IOException, InterruptedException {
+    ranges(
+        pool,
+        0,
+        nodes.size(),
+        1024,
+        (a, b) -> {
+          for (int i = a; i < b; i++) {
+            HashTarget target = nodes.get(i);
+            target.name = HashTarget.stableName(target.node);
+          }
+        });
+    ranges(
+        pool,
+        0,
+        nodes.size(),
+        512,
+        (a, b) -> {
+          for (int i = a; i < b; i++) {
+            sortAndCheck(nodes.get(i), /* deduplicate= */ true);
+          }
+        });
   }
 
-  private static void sortAndCheck(HashTarget target) throws IOException {
+  private static void sortAndCheck(HashTarget target, boolean deduplicate) throws IOException {
     if (target.deps.size() <= 1) {
       return;
     }
-    target.deps = ImmutableList.sortedCopyOf(BY_NAME, target.deps);
-    for (int j = 1; j < target.deps.size(); j++) {
-      if (target.deps.get(j - 1).name.equals(target.deps.get(j).name)) {
+    var sorted = ImmutableList.sortedCopyOf(BY_NAME, target.deps);
+    ImmutableList.Builder<HashTarget> unique = null;
+    for (int j = 1; j < sorted.size(); j++) {
+      HashTarget previous = sorted.get(j - 1);
+      HashTarget current = sorted.get(j);
+      if (deduplicate && previous == current) {
+        if (unique == null) {
+          unique = ImmutableList.builder();
+          unique.addAll(sorted.subList(0, j));
+        }
+        continue;
+      }
+      if (previous.name.equals(current.name)) {
         throw new IOException(
             "Distinct configured dependencies have the same hash identity under "
                 + target.node.getLookupKey());
       }
+      if (unique != null) {
+        unique.add(current);
+      }
     }
+    target.deps = unique == null ? sorted : unique.build();
   }
 
   // Reuse only values verified in this processOutput call. Cap the retained map and node-to-value
