@@ -286,9 +286,19 @@ public interface OutputService {
     SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
         throws InterruptedException;
 
-    /** Guards an action from the beginning to the end of its {@link Action#execute execution}. */
+    /**
+     * Guards an action from the beginning to the end of its {@link Action#execute execution},
+     * during which it may read its {@link Action#getInputs inputs} and the given discovered inputs.
+     *
+     * <p>The discovered inputs are those returned by {@link Action#discoverInputs}, which aren't
+     * necessarily part of {@link Action#getInputs} yet: {@code CppCompileAction}, for example, only
+     * adds them after execution. They are empty for actions that don't discover inputs.
+     */
     SilentCloseable enterActionExecution(
-        Action action, boolean wasRewound, InputMetadataProvider metadataProvider)
+        Action action,
+        boolean wasRewound,
+        NestedSet<Artifact> discoveredInputs,
+        InputMetadataProvider metadataProvider)
         throws InterruptedException;
 
     /**
@@ -317,7 +327,10 @@ public interface OutputService {
 
           @Override
           public SilentCloseable enterActionExecution(
-              Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
+              Action action,
+              boolean wasRewound,
+              NestedSet<Artifact> discoveredInputs,
+              InputMetadataProvider metadataProvider) {
             return () -> {};
           }
 
