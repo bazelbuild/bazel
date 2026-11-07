@@ -154,6 +154,36 @@ public class GlobCacheTest {
   }
 
   @Test
+  public void testIgnoredDirectory_filesAndDirs_excludesIgnoredDir() throws Exception {
+    createCache(PathFragment.create("isolated/foo"));
+    assertThat(cache.globUnsorted(list("**"), NONE, Globber.Operation.FILES_AND_DIRS, true))
+        .containsExactly(
+            "BUILD",
+            "bar",
+            "bar/first.js",
+            "bar/second.js",
+            "first.js",
+            "first.txt",
+            "second.js",
+            "second.txt");
+    assertThat(cache.globUnsorted(list("*"), NONE, Globber.Operation.FILES_AND_DIRS, true))
+        .containsExactly("BUILD", "bar", "first.js", "first.txt", "second.js", "second.txt");
+    assertThat(cache.globUnsorted(list("foo"), NONE, Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
+  }
+
+  @Test
+  public void testIgnoredDirectory_subpackages_excludesIgnoredSubpackage() throws Exception {
+    createCache(PathFragment.create("isolated/sub"));
+    assertThat(cache.globUnsorted(list("**"), NONE, Globber.Operation.SUBPACKAGES, true)).isEmpty();
+    assertThat(cache.globUnsorted(list("*"), NONE, Globber.Operation.SUBPACKAGES, true)).isEmpty();
+    assertThat(cache.globUnsorted(list("sub"), NONE, Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
+    assertThat(cache.globUnsorted(list("sub/**"), NONE, Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
+  }
+
+  @Test
   public void testSafeGlob() throws Exception {
     List<Path> paths = cache.safeGlobUnsorted("*.js", Globber.Operation.FILES_AND_DIRS).get();
     assertPathsAre(paths,
