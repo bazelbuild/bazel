@@ -228,6 +228,11 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     }
   }
 
+  @Override
+  public final void deleteKeys(Iterable<SkyKey> keys) {
+    Iterables.addAll(valuesToDelete, keys);
+  }
+
   private void setAndCheckEvaluateState(boolean newValue, Iterable<? extends SkyKey> roots) {
     checkState(
         evaluating.getAndSet(newValue) != newValue, "Re-entrant evaluation for request: %s", roots);
