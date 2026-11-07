@@ -606,11 +606,14 @@ public final class SandboxModule extends BlazeModule {
     commonShutdown();
   }
 
-  private Path getStaleTrashDir(Path trashBase) throws IOException {
+    private Path getStaleTrashDir(Path trashBase) throws IOException {
     int i = 0;
+    int maxAttempts = 10000; // Defensive threshold guard against Infinite Loop / DoS
     while (trashBase.getParentDirectory().getChild("stale-trash-" + i++).exists()) {
-      ;
+      if (i > maxAttempts) {
+        throw new IOException("Failed to allocate a unique trash directory: Max attempts exceeded.");
+      }
     }
     return trashBase.getParentDirectory().getChild("stale-trash-" + --i);
   }
-}
+
