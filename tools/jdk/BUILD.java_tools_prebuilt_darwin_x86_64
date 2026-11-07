@@ -37,4 +37,15 @@ filegroup(
     ) or fail("No ijar binary found"),
 )
 
+filegroup(
+    name = "zipper_prebuilt_binary",
+    srcs = glob(
+        [
+            "java_tools/ijar/zipper",
+            "java_tools/ijar/zipper.exe",
+        ],
+        allow_empty = True,
+    ) or fail("No zipper binary found"),
+)
+
 # LINT.ThenChange(//tools/jdk/BUILD.java_tools_prebuilt)
