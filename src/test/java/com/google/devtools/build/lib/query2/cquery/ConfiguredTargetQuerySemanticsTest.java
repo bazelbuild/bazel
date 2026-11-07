@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
@@ -776,6 +778,74 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     helper.setUniverseScope("//test:transitioner,//test:simple");
     Set<CqueryNode> result = eval("config(//test:simple, target)");
     assertThat(result.size()).isEqualTo(1);
+  }
+
+  @Test
+  public void flatteningNestedAspectsPreservesOwnedInputs() throws Exception {
+    writeFile(
+        "aspects/defs.bzl",
+        """
+        def _impl(ctx):
+            return []
+        def _inspect(target, ctx):
+            return []
+        inner = aspect(implementation = _inspect, attrs = {
+            "_tool": attr.label(default = Label("//aspects:tool")),
+        })
+        outer = aspect(implementation = _inspect, attr_aspects = ["deps"])
+        forward = rule(implementation = _impl, attrs = {
+            "deps": attr.label_list(aspects = [inner]),
+        })
+        use = rule(implementation = _impl, attrs = {
+            "deps": attr.label_list(aspects = [outer]),
+            "direct": attr.label(),
+        })
+        """);
+    writeFile(
+        "aspects/BUILD",
+        """
+        load(":defs.bzl", "forward", "use")
+        filegroup(name = "first")
+        filegroup(name = "second")
+        filegroup(name = "tool")
+        forward(name = "left", deps = [":first"])
+        forward(name = "right", deps = [":second"])
+        forward(name = "same_label", deps = [":tool"])
+        use(name = "left_first", deps = [":left", ":right"])
+        use(name = "right_first", deps = [":right", ":left"])
+        use(name = "direct", deps = [":left", ":right"], direct = ":first")
+        use(name = "overlap", deps = [":same_label"])
+        """);
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    for (String root : ImmutableList.of("left_first", "right_first")) {
+      assertThat(evalToListOfStrings("filter('^//aspects:', deps(//aspects:" + root + ", 1))"))
+          .containsExactly(
+              "//aspects:" + root, "//aspects:left", "//aspects:right", "//aspects:tool");
+    }
+    assertThat(evalToListOfStrings("filter('^//aspects:', deps(//aspects:direct, 1))"))
+        .containsExactly(
+            "//aspects:direct", "//aspects:left", "//aspects:right", "//aspects:first",
+            "//aspects:tool");
+    assertThat(evalToListOfStrings("filter('^//aspects:', deps(//aspects:overlap, 1))"))
+        .containsExactly("//aspects:overlap", "//aspects:same_label", "//aspects:tool");
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
+    var env = getHelper().getPostAnalysisQueryEnvironment(ImmutableList.of("//aspects:left_first"));
+    var results = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(env);
+    env.evaluateQuery(QueryExpression.parse("deps(//aspects:left_first)", env), results);
+    var inner =
+        results.getResult().stream()
+            .filter(
+                target ->
+                    target
+                        .getDescription(LabelPrinter.legacy())
+                        .equals("//aspects:defs.bzl%inner of //aspects:first"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(env.getFwdDeps(ImmutableList.of(inner)).stream()
+            .map(n -> n.getDescription(LabelPrinter.legacy()))
+            .toList())
+        .containsAtLeast("//aspects:first", "//aspects:tool");
   }
 
   @Test

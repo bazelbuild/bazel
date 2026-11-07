@@ -749,7 +749,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       } else if (settings.contains(Setting.INCLUDE_ASPECTS)
           && key.functionName().equals(SkyFunctions.ASPECT)) {
         Preconditions.checkState(!settings.contains(Setting.EXPLICIT_ASPECTS));
-        if (resolvedAspectClasses.contains(((AspectKey) key).getAspectClass())) {
+        AspectKey aspectKey = (AspectKey) key;
+        if (resolvedAspectClasses.contains(aspectKey.getAspectClass())) {
           continue;
         }
         // When an aspect is attached to an alias configured target, it bypasses standard dependency
@@ -758,7 +759,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         // usual call to ConfiguredTargetFunction.computeDependencies, so graph.getDirectDeps()
         // won't include them. So we defer "resolving" the aspect class to the non-alias version,
         // which properly reflects all dependencies. See AspectFunction for details.
-        if (!isAliasConfiguredTarget(((AspectKey) key).getBaseConfiguredTargetKey())) {
+        if (!isAliasConfiguredTarget(aspectKey.getBaseConfiguredTargetKey())) {
           // Make sure we don't examine aspects of this type again. This saves us from unnecessarily
           // traversing a target's transitive deps because it propagates an aspect down those deps.
           // The deps added by the aspect are a function of the aspect's class, not the target it's
@@ -767,10 +768,16 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           // aspect class. This has real memory and performance consequences: see b/163052263.
           // Note the aspect could attach *another* aspect type to its deps. That will still get
           // examined through the recursive call.
-          resolvedAspectClasses.add(((AspectKey) key).getAspectClass());
+          resolvedAspectClasses.add(aspectKey.getAspectClass());
         }
-        values.addAll(
-            targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
+        Iterable<SkyKey> aspectDeps = graph.getDirectDeps(key);
+        if (graph.getValue(key) instanceof AspectValue value && value.baseIsOnlyAttachment()) {
+          // An explicit aspect has an edge to its base target. Flattening that attachment must
+          // not add a direct input to whichever rule happens to discover the aspect first.
+          var base = aspectKey.getBaseConfiguredTargetKey();
+          aspectDeps = Iterables.filter(aspectDeps, dep -> !base.equals(dep));
+        }
+        values.addAll(targetifyValues(null, aspectDeps, knownCtDeps, resolvedAspectClasses));
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         values.addAll(
             targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));

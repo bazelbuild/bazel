@@ -24,14 +24,17 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandStartEvent;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
@@ -41,6 +44,8 @@ import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -64,6 +69,52 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
             env.setVersionGetter(versionGetter);
           }
         });
+  }
+
+  @Test
+  public void aspectBaseDependencySurvivesSerialization() throws Exception {
+    write(
+        "scope/defs.bzl",
+        """
+        def _impl(target, ctx):
+            return []
+        inspect = aspect(implementation = _impl, attrs = {
+            "_tool": attr.label(default = Label("//scope:tool")),
+        })
+        """);
+    write(
+        "scope/BUILD",
+        """
+        filegroup(name = "plain")
+        filegroup(name = "tool")
+        alias(name = "alias", actual = ":plain")
+        """);
+    addOptions(
+        "--nobuild", "--experimental_active_directories=", "--aspects=//scope:defs.bzl%inspect");
+    assertUploadSuccess("//scope:plain", "//scope:tool", "//scope:alias");
+
+    var deps = getSkyframeExecutor().getRemoteAnalysisCacheReaderDepsProvider();
+    var codecs = deps.getObjectCodecs();
+    var store = deps.getFingerprintValueService();
+    var compression = new CompressionServiceImpl();
+    var expected = Map.of("plain", true, "tool", false, "alias", false);
+    var actual = new HashMap<String, Boolean>();
+    var keys = getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
+    for (var key : keys) {
+      if (key instanceof AspectKey aspect && expected.containsKey(aspect.getLabel().getName())) {
+        var value = (AspectValue) getSkyframeExecutor().getEvaluator().getExistingValue(key);
+        var serialized = codecs.serializeMemoizedAndBlocking(compression, store, value);
+        var copy =
+            (AspectValue)
+                codecs.deserializeMemoizedAndBlocking(compression, store, serialized.getObject());
+        assertThat(copy).isInstanceOf(DeserializedSkyValue.class);
+        assertThat(AspectValue.isForAliasTarget(value))
+            .isEqualTo(aspect.getLabel().getName().equals("alias"));
+        assertThat(copy.baseIsOnlyAttachment()).isEqualTo(value.baseIsOnlyAttachment());
+        actual.put(aspect.getLabel().getName(), copy.baseIsOnlyAttachment());
+      }
+    }
+    assertThat(actual).isEqualTo(expected);
   }
 
   private static class FailingFingerprintValueStore implements FingerprintValueStore {
