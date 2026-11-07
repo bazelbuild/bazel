@@ -55,6 +55,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -145,17 +146,28 @@ public abstract sealed class RepoRecordedInput {
     /**
      * Splits the given list of recorded input values into batches such that within each batch, all
      * recorded inputs's {@link SkyKey}s can be requested together.
+     *
+     * <p>A file in an external repo joins the current batch if a file in the same repo has already
+     * been requested, since that repo is then already a dependency and can't introduce a new cycle.
      */
     public static ImmutableList<ImmutableList<WithValue>> splitIntoBatches(
         List<WithValue> recordedInputValues) {
       var batches = ImmutableList.<ImmutableList<WithValue>>builder();
       var currentBatch = new ArrayList<WithValue>();
+      var requestedExternalRepos = new HashSet<RepositoryName>();
       for (var recordedInputValue : recordedInputValues) {
-        if (!recordedInputValue.input().canBeRequestedUnconditionally()
+        var input = recordedInputValue.input();
+        Optional<RepositoryName> externalRepo =
+            input instanceof File file && file.path.inExternalRepo()
+                ? file.path.repoName()
+                : Optional.empty();
+        if (!input.canBeRequestedUnconditionally()
+            && !(externalRepo.isPresent() && requestedExternalRepos.contains(externalRepo.get()))
             && !currentBatch.isEmpty()) {
           batches.add(ImmutableList.copyOf(currentBatch));
           currentBatch.clear();
         }
+        externalRepo.ifPresent(requestedExternalRepos::add);
         currentBatch.add(recordedInputValue);
       }
       if (!currentBatch.isEmpty()) {

@@ -181,4 +181,34 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
             ImmutableList.of(
                 parse("FILE:@@foo//:baz bac").orElseThrow(), parse("ENV:KEY value").orElseThrow()));
   }
+
+  @Test
+  public void testSplitIntoBatches_filesInAlreadyRequestedExternalRepo() {
+    assertThat(
+            splitIntoBatches(
+                ImmutableList.of(
+                    parse("FILE:@@//:a 1").orElseThrow(),
+                    parse("FILE:@@foo//:b 2").orElseThrow(),
+                    parse("FILE:@@foo//:c 3").orElseThrow(),
+                    parse("ENV:KEY value").orElseThrow(),
+                    parse("FILE:@@bar//:d 4").orElseThrow(),
+                    parse("FILE:@@foo//:e 5").orElseThrow(),
+                    parse("FILE:@@bar//:f 6").orElseThrow(),
+                    parse("DIRENTS:@@foo//:g 7").orElseThrow(),
+                    parse("FILE:@@foo//:h 8").orElseThrow())))
+        .containsExactly(
+            ImmutableList.of(parse("FILE:@@//:a 1").orElseThrow()),
+            ImmutableList.of(
+                parse("FILE:@@foo//:b 2").orElseThrow(),
+                parse("FILE:@@foo//:c 3").orElseThrow(),
+                parse("ENV:KEY value").orElseThrow()),
+            ImmutableList.of(
+                parse("FILE:@@bar//:d 4").orElseThrow(),
+                parse("FILE:@@foo//:e 5").orElseThrow(),
+                parse("FILE:@@bar//:f 6").orElseThrow()),
+            ImmutableList.of(
+                parse("DIRENTS:@@foo//:g 7").orElseThrow(),
+                parse("FILE:@@foo//:h 8").orElseThrow()))
+        .inOrder();
+  }
 }
