@@ -211,6 +211,22 @@ platform(
   configuration.
 </p>
 
+<h4 id="platform_flags_changing_platforms">Changing Platforms</h4>
+
+<p>
+  When a transition changes the target platform, the flags of the new platform are applied on top
+  of the existing configuration, which still contains the flags set by the previous platform.
+  A flag that the new platform does not set keeps the value set by the previous platform.
+</p>
+
+<p>
+  To avoid this for a Starlark flag, define it with <code>scope = "platform"</code>. Such a flag
+  is reset to its default value whenever a transition changes the target platform, unless the
+  flag is one of the transition's outputs. In that case, the value returned by the transition is
+  used instead, even if it is the value the flag had before the transition. Platforms are compared
+  by label, so an <code>alias</code> of a platform counts as a different platform.
+</p>
+
 <h4 id=platform_flags_repeated>Platforms and Repeatable Flags</h4>
 
 <p>

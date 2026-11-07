@@ -3273,6 +3273,308 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 
+  private void writePlatformScopedFlagFiles() throws Exception {
+    scratch.file(
+        "test/flags/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/flags/BUILD",
+        """
+        load(":defs.bzl", "string_flag")
+
+        string_flag(
+            name = "platform_flag",
+            build_setting_default = "default",
+            scope = "platform",
+        )
+
+        string_flag(
+            name = "target_flag",
+            build_setting_default = "default",
+            scope = "target",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "a",
+            flags = [
+                "--//test/flags:platform_flag=from_a",
+                "--//test/flags:target_flag=from_a",
+            ],
+        )
+
+        platform(name = "b")
+
+        alias(
+            name = "b_alias",
+            actual = ":b",
+        )
+
+        platform(
+            name = "c",
+            flags = ["--//test/flags:platform_flag=from_c"],
+        )
+        """);
+    scratch.file(
+        "test/starlark/rules.bzl",
+        """
+        def _change_platform_impl(settings, attr):
+            return {"//command_line_option:platforms": [attr.platform]}
+
+        _change_platform = transition(
+            implementation = _change_platform_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+
+        def _change_platform_and_flag_impl(settings, attr):
+            return {
+                "//command_line_option:platforms": [attr.platform],
+                "//test/flags:platform_flag": (
+                    attr.flag_value or settings["//test/flags:platform_flag"]
+                ),
+            }
+
+        _change_platform_and_flag = transition(
+            implementation = _change_platform_and_flag_impl,
+            inputs = ["//test/flags:platform_flag"],
+            outputs = [
+                "//command_line_option:platforms",
+                "//test/flags:platform_flag",
+            ],
+        )
+
+        def _impl(ctx):
+            return []
+
+        change_platform = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = _change_platform),
+                "platform": attr.string(),
+            },
+        )
+
+        change_platform_and_flag = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = _change_platform_and_flag),
+                "platform": attr.string(),
+                "flag_value": attr.string(),
+            },
+        )
+
+        simple_rule = rule(implementation = _impl)
+        """);
+  }
+
+  @Test
+  public void testPlatformScopedFlag_resetWhenPlatformChanges() throws Exception {
+    writePlatformScopedFlagFiles();
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "change_platform", "simple_rule")
+
+        change_platform(
+            name = "test",
+            dep = ":dep",
+            platform = "//platforms:b",
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    useConfiguration("--platforms=//platforms:a");
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
+    assertThat(getStarlarkOption(test, "//test/flags:platform_flag")).isEqualTo("from_a");
+    assertThat(getStarlarkOption(test, "//test/flags:target_flag")).isEqualTo("from_a");
+
+    ConfiguredTarget dep = getDirectPrerequisite(test, "//test/starlark:dep");
+    assertThat(getStarlarkOption(dep, "//test/flags:platform_flag")).isNull();
+    // Flags without platform scope keep the value set by the previous platform.
+    assertThat(getStarlarkOption(dep, "//test/flags:target_flag")).isEqualTo("from_a");
+  }
+
+  @Test
+  public void testPlatformScopedFlag_newPlatformValueApplies() throws Exception {
+    writePlatformScopedFlagFiles();
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "change_platform", "simple_rule")
+
+        change_platform(
+            name = "test",
+            dep = ":dep",
+            platform = "//platforms:c",
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    useConfiguration("--platforms=//platforms:a");
+    ConfiguredTarget dep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:dep");
+    assertThat(getStarlarkOption(dep, "//test/flags:platform_flag")).isEqualTo("from_c");
+  }
+
+  @Test
+  public void testPlatformScopedFlag_keptWhenTransitionOutputsIt() throws Exception {
+    writePlatformScopedFlagFiles();
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "change_platform_and_flag", "simple_rule")
+
+        change_platform_and_flag(
+            name = "keep",
+            dep = ":dep",
+            platform = "//platforms:b",
+        )
+
+        change_platform_and_flag(
+            name = "set",
+            dep = ":dep",
+            flag_value = "from_transition",
+            platform = "//platforms:b",
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    useConfiguration("--platforms=//platforms:a");
+    ConfiguredTarget keptDep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:keep"), "//test/starlark:dep");
+    assertThat(getStarlarkOption(keptDep, "//test/flags:platform_flag")).isEqualTo("from_a");
+    ConfiguredTarget setDep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:set"), "//test/starlark:dep");
+    assertThat(getStarlarkOption(setDep, "//test/flags:platform_flag"))
+        .isEqualTo("from_transition");
+  }
+
+  @Test
+  public void testPlatformScopedFlag_keptWithoutPlatformChange() throws Exception {
+    writePlatformScopedFlagFiles();
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "change_platform", "simple_rule")
+
+        change_platform(
+            name = "test",
+            dep = ":dep",
+            platform = "//platforms:b",
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    useConfiguration("--platforms=//platforms:b", "--//test/flags:platform_flag=from_command_line");
+    ConfiguredTarget dep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:dep");
+    assertThat(getStarlarkOption(dep, "//test/flags:platform_flag")).isEqualTo("from_command_line");
+  }
+
+  @Test
+  public void testPlatformScopedFlag_aliasIsDifferentPlatform() throws Exception {
+    writePlatformScopedFlagFiles();
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "change_platform", "simple_rule")
+
+        change_platform(
+            name = "test",
+            dep = ":dep",
+            platform = "//platforms:b_alias",
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    useConfiguration("--platforms=//platforms:b", "--//test/flags:platform_flag=from_command_line");
+    ConfiguredTarget dep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:dep");
+    assertThat(getStarlarkOption(dep, "//test/flags:platform_flag")).isNull();
+  }
+
+  @Test
+  public void testPlatformScopedFlag_onLeaveScopeIsError() throws Exception {
+    scratch.file(
+        "test/flags/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(),
+                "on_leave_scope": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "test/flags/BUILD",
+        """
+        load(":defs.bzl", "string_flag")
+
+        string_flag(
+            name = "platform_flag",
+            build_setting_default = "default",
+            scope = "platform",
+            on_leave_scope = "left",
+        )
+        """);
+    scratch.file(
+        "test/starlark/rules.bzl",
+        """
+        def _set_flag_impl(settings, attr):
+            return {"//test/flags:platform_flag": "from_transition"}
+
+        _set_flag = transition(
+            implementation = _set_flag_impl,
+            inputs = [],
+            outputs = ["//test/flags:platform_flag"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        set_flag = rule(
+            implementation = _impl,
+            attrs = {"dep": attr.label(cfg = _set_flag)},
+        )
+
+        simple_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "set_flag", "simple_rule")
+
+        set_flag(
+            name = "test",
+            dep = ":dep",
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/starlark:test");
+    assertContainsEvent(
+        "Can't load flag --//test/flags:platform_flag: \"on_leave_scope\" can't be set on a flag"
+            + " with scope \"platform\".");
+  }
+
   /*
    * If the transition claims to change --cpu but doesn't, it doesn't constitute a platform change
    * and also doesn't affect any other options.
