@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,6 +25,11 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link SafeRequestLogging}. */
 @RunWith(JUnit4.class)
 public class SafeRequestLoggingTest {
+
+  @After
+  public void resetRedactedNames() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of());
+  }
 
   @Test
   public void testGetRequestLogStringPassesThroughNonSensitiveClientEnv() {
@@ -189,5 +195,119 @@ public class SafeRequestLoggingTest {
             "<REDACTED>",
             "build")
         .inOrder();
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_exactNameIsRedacted_wholeNameOnly() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("MY_INTERNAL_SIGNER"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=MY_INTERNAL_SIGNER=notprinted",
+                    "--client_env=MY_INTERNAL_SIGNER_2=isprinted",
+                    "--client_env=X_MY_INTERNAL_SIGNER=isprinted")))
+        .isEqualTo(
+            "[--client_env=MY_INTERNAL_SIGNER=__private_value_removed__,"
+                + " --client_env=MY_INTERNAL_SIGNER_2=isprinted,"
+                + " --client_env=X_MY_INTERNAL_SIGNER=isprinted]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_isCaseInsensitive() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("my_internal_signer"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of("--client_env=MY_INTERNAL_SIGNER=notprinted")))
+        .isEqualTo("[--client_env=MY_INTERNAL_SIGNER=__private_value_removed__]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_starMatchesAnyRunWithinName() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("GLYD_*", "*_SIGNING_*"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=GLYD_X=notprinted",
+                    "--client_env=GLYD_X=a=b",
+                    "--client_env=PGP_SIGNING_PWD=notprinted",
+                    "--client_env=XGLYD_X=isprinted",
+                    "--client_env=OTHER=GLYD_X")))
+        .isEqualTo(
+            "[--client_env=GLYD_X=__private_value_removed__,"
+                + " --client_env=GLYD_X=__private_value_removed__,"
+                + " --client_env=PGP_SIGNING_PWD=__private_value_removed__,"
+                + " --client_env=XGLYD_X=isprinted,"
+                + " --client_env=OTHER=GLYD_X]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_leadingStarMatchesSuffix() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("*_SIGNER"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=MY_INTERNAL_SIGNER=notprinted",
+                    "--client_env=_SIGNER=notprinted",
+                    "--client_env=MY_SIGNER_ID=isprinted")))
+        .isEqualTo(
+            "[--client_env=MY_INTERNAL_SIGNER=__private_value_removed__,"
+                + " --client_env=_SIGNER=__private_value_removed__,"
+                + " --client_env=MY_SIGNER_ID=isprinted]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_bareStarRedactsEveryVariable() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("*"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of("--client_env=A=notprinted", "--client_env=B=notprinted")))
+        .isEqualTo(
+            "[--client_env=A=__private_value_removed__,"
+                + " --client_env=B=__private_value_removed__]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_regexMetacharactersAreLiteral() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("A.B", "C[0]"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=A.B=notprinted",
+                    "--client_env=AXB=isprinted",
+                    "--client_env=C[0]=notprinted",
+                    "--client_env=C0=isprinted")))
+        .isEqualTo(
+            "[--client_env=A.B=__private_value_removed__,"
+                + " --client_env=AXB=isprinted,"
+                + " --client_env=C[0]=__private_value_removed__,"
+                + " --client_env=C0=isprinted]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_builtInHeuristicStillApplies() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("MY_INTERNAL_SIGNER"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of("--client_env=MY_TOKEN=notprinted")))
+        .isEqualTo("[--client_env=MY_TOKEN=__private_value_removed__]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_emptyListRestoresDefault() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("MY_INTERNAL_SIGNER"));
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of());
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of("--client_env=MY_INTERNAL_SIGNER=isprinted")))
+        .isEqualTo("[--client_env=MY_INTERNAL_SIGNER=isprinted]");
+  }
+
+  @Test
+  public void setRedactedClientEnvNames_onlyAffectsClientEnvArgs() {
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("MY_INTERNAL_SIGNER"));
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of("--package_path=MY_INTERNAL_SIGNER=x", "MY_INTERNAL_SIGNER=y")))
+        .isEqualTo("[--package_path=MY_INTERNAL_SIGNER=x, MY_INTERNAL_SIGNER=y]");
   }
 }
