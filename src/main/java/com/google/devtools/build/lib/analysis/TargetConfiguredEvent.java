@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.util.StringEncoding;
 import javax.annotation.Nullable;
 
 /** Event reporting about the configuration associated with a given target */
@@ -84,14 +86,17 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
     if (rule != null && RawAttributeMapper.of(rule).has("tags")) {
       // Not every rule has tags, as, due to the "external" package we also have to expect
       // repository rules at this place.
-      builder.addAllTag(RawAttributeMapper.of(rule).getMergedValues("tags", Types.STRING_LIST));
+      builder.addAllTag(
+          Iterables.transform(
+              RawAttributeMapper.of(rule).getMergedValues("tags", Types.STRING_LIST),
+              StringEncoding::internalToUnicode));
     }
     if (TargetUtils.isTestRule(target)) {
       builder.setTestSize(
           bepTestSize(target.getName(), TestSize.getTestSize(target.getAssociatedRule())));
     }
     if (actual != null) {
-      builder.setActual(actual.toString());
+      builder.setActual(StringEncoding.internalToUnicode(actual.toString()));
     }
     return GenericBuildEvent.protoChaining(this).setConfigured(builder.build()).build();
   }
