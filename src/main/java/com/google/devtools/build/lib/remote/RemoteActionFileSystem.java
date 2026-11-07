@@ -404,7 +404,9 @@ public class RemoteActionFileSystem extends FileSystem {
       }
       throw e;
     }
-    return localFs.getPath(path).getInputStream();
+    // The delegate may overlay external repositories by their canonical paths. Letting the host
+    // file system resolve an exec-root symlink would bypass that overlay.
+    return localFs.getPath(resolveSymbolicLinks(path).asFragment()).getInputStream();
   }
 
   /** Downloads the file at {@code path} if it is remote. */
@@ -653,7 +655,6 @@ public class RemoteActionFileSystem extends FileSystem {
     return statInternal(
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
-
 
   /**
    * Internal stat implementation.
