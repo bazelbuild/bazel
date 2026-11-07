@@ -1,3 +1,50 @@
+## Release 11.0.0-pre.20261028.2 (2026-11-06)
+
+```
+Baseline: ecb89d3cf2e09bd9d04d09b280fe3d649833b12a
+
+Cherry picks:
+
+   + e7e982927047cbec547ce5d7753f2cf9c5f7f046:
+     Honor --incompatible_disable_transitions_on in PROJECT.scl files
+     and platform definitions and platform mappings. Also change the
+     behavior of this flag to allow these flags to be set in the exec
+     transition passed by --experimental_exec_config.
+   + 1585138a0cae7625b09c74c682482d737b2ef83d:
+     Handle GitHub API errors and skip rolling releases in
+     relnotes.py.
+```
+
+New features:
+
+  - The new `--inject_module={module name}={path}` flag adds a module
+    from a local path as a dependency of the root module, without
+    editing `MODULE.bazel`.
+  - The new `copy` method on `repository_ctx` and `module_ctx` copies
+    a file or directory, using OS and file system optimizations such
+    as reflinks if available.
+
+Important changes:
+
+  - Visibility of implicit dependencies of subrules are checked
+    against the subrule package instead of that of the rule.
+  - `--test_env==NAME` (and `--action_env==NAME`) now also unsets
+    variables that Bazel sets by default, e.g. `--test_env==HOME`.
+  - Fix a crash when input pruning and remote action rewinding
+    interact with runfiles trees.
+  - Reduce zstd-compressed remote upload size and encoding overhead.
+  - Bazel detects file changes using file modification and change
+    times at the full precision provided by the operating system
+    instead of at millisecond precision.
+  - Asynchronous sandbox deletion now deletes on the action thread
+    once 256 sandbox trees are waiting, bounding the disk space,
+    inodes and hardlinks held by pending deletions.
+  - Fixed the handling of non-ASCII characters in repository
+    downloads, archive extraction, registries, module extension facts
+    in the lockfile and `bazel mod` output.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Chris McDonald, David Zbarsky, Dmitry Spikhalsky, Fabian Meumertzheim, Fabian Meumertzheim, John Cater, Keith Smiley, Showta Ishizaki, Son Luong Ngoc, Tamir Duberstein.
+
 ## Release 11.0.0-pre.20261022.3 (2026-11-05)
 
 ```

@@ -62,6 +62,13 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     this.regularPoolExecutorService = super.getExecutorService();
     this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
     this.executionPhaseExecutorService = executionPhaseExecutorService;
+    Preconditions.checkArgument(
+        ordersTasksByPriority() == ordersTasksByPriority(this.cpuHeavyPoolExecutorService),
+        "regular and CPU-heavy pools must agree on priority ordering");
+    Preconditions.checkArgument(
+        executionPhaseExecutorService == null
+            || !ordersTasksByPriority(executionPhaseExecutorService),
+        "execution-phase pool must not use priority ordering");
     this.executionPhaseTasksGoAhead = executionPhaseExecutorService == null;
 
     if (executionPhaseExecutorService != null) {

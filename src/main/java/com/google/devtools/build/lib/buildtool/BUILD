@@ -24,7 +24,6 @@ java_library(
         "//third_party/java/caffeine",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
-        "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
     ],
 )
