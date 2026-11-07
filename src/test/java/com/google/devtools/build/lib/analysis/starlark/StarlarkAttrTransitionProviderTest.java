@@ -1850,6 +1850,109 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     assertThat(getConfiguration(test)).isEqualTo(getConfiguration(dep2));
   }
 
+  /**
+   * Regression test for https://github.com/bazelbuild/bazel/issues/31806: a flag whose rule
+   * defaults "scope" must result in the same configuration whether it's set on the command line or
+   * by a transition.
+   */
+  @Test
+  public void testRuleDefinedScopeDefault_sameForCommandLineAndTransition() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _basic_impl(ctx):
+            return []
+
+        universal_flag = rule(
+            implementation = _basic_impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+
+        target_flag = rule(
+            implementation = _basic_impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "target")},
+        )
+
+        def _off_impl(settings, attr):
+            return {"//test:universal": "disabled", "//test:target": "disabled"}
+
+        _off = transition(
+            implementation = _off_impl,
+            inputs = [],
+            outputs = ["//test:universal", "//test:target"],
+        )
+
+        def _on_impl(settings, attr):
+            return {"//test:universal": "enabled", "//test:target": "enabled"}
+
+        _on = transition(
+            implementation = _on_impl,
+            inputs = [],
+            outputs = ["//test:universal", "//test:target"],
+        )
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        off_rule = rule(
+            implementation = _impl,
+            attrs = {"dep": attr.label(cfg = _off)},
+        )
+
+        on_rule = rule(
+            implementation = _impl,
+            attrs = {"dep": attr.label(cfg = _on)},
+        )
+
+        simple = rule(_basic_impl)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "off_rule", "on_rule", "simple", "target_flag", "universal_flag")
+
+        universal_flag(
+            name = "universal",
+            build_setting_default = "disabled",
+        )
+
+        target_flag(
+            name = "target",
+            build_setting_default = "disabled",
+        )
+
+        off_rule(
+            name = "outer",
+            dep = ":inner",
+        )
+
+        on_rule(
+            name = "inner",
+            dep = ":dep",
+        )
+
+        simple(name = "dep")
+        """);
+    useConfiguration("--//test:universal=enabled", "--//test:target=enabled");
+
+    ConfiguredTarget outer = getConfiguredTarget("//test:outer");
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget inner =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(outer).getValue("dep"));
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(inner).getValue("dep"));
+
+    // Transitioning the flags back to their command line values must not change the configuration.
+    assertThat(getConfiguration(dep)).isEqualTo(getConfiguration(outer));
+  }
+
   private void writeFilesWithMultipleNativeOptionTransitions() throws Exception {
     scratch.file(
         "test/transitions.bzl",
