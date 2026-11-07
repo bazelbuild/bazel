@@ -647,19 +647,37 @@ class LauncherTest(test_base.TestBase):
     classpath = stdout[stdout.index('-classpath') + 1]
     self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.(jar|txt)$')
 
-  def testWindowsJavaLauncherSetsJacocoMainClass(self):
+  def testWindowsJavaTestCoverage(self):
     if not self.IsWindows():
       return
     self.AddBazelDep('rules_java')
     self.ScratchFile(
         'foo/BUILD',
         [
-            'load("@rules_java//java:java_binary.bzl", "java_binary")',
-            'java_binary(',
-            '  name = "foo",',
+            'load("@rules_java//java:java_library.bzl", "java_library")',
+            'load("@rules_java//java:java_test.bzl", "java_test")',
+            'java_library(',
+            '  name = "lib",',
+            '  srcs = ["Lib.java"],',
+            ')',
+            'java_test(',
+            '  name = "foo_test",',
             '  srcs = ["Main.java"],',
             '  main_class = "foo.Main",',
+            '  use_testrunner = False,',
+            '  deps = [":lib"],',
             ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo/Lib.java',
+        [
+            'package foo;',
+            'public class Lib {',
+            '  public static int add(int a, int b) {',
+            '    return a + b;',
+            '  }',
+            '}',
         ],
     )
     self.ScratchFile(
@@ -668,22 +686,29 @@ class LauncherTest(test_base.TestBase):
             'package foo;',
             'public class Main {',
             '  public static void main(String[] args) {',
-            '    System.out.println("JACOCO_MAIN_CLASS=" +',
-            '        System.getenv("JACOCO_MAIN_CLASS"));',
+            '    if (Lib.add(1, 2) != 3) {',
+            '      System.exit(1);',
+            '    }',
             '  }',
             '}',
         ],
     )
 
-    # With coverage enabled, the launcher starts JacocoCoverageRunner, which
-    # needs JACOCO_MAIN_CLASS to find the actual main class.
-    self.RunBazel(['build', '--collect_code_coverage', '//foo'])
-    _, stdout, _ = self.RunBazel(
-        ['info', '--collect_code_coverage', 'bazel-bin']
+    exit_code, stdout, stderr = self.RunBazel(
+        ['coverage', '--test_output=errors', '//foo:foo_test'],
+        allow_failure=True,
     )
-    binary = os.path.join(stdout[0], 'foo', 'foo.exe')
-    _, stdout, _ = self.RunProgram([binary])
-    self.assertIn('JACOCO_MAIN_CLASS=foo.Main', stdout)
+    _, testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
+    coverage_dat = os.path.join(
+        testlogs[0], 'foo', 'foo_test', 'coverage.dat'
+    )
+    coverage = ''
+    if os.path.exists(coverage_dat):
+      with open(coverage_dat, 'r') as f:
+        coverage = f.read()
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.assertIn('SF:foo/Lib.java', coverage)
+    self.assertIn('DA:3,1', coverage)
 
   def testWindowsShBinaryLauncherWithoutRunfilesManifest(self):
     # Without a runfiles manifest, e.g. in a remotely executed action, the
