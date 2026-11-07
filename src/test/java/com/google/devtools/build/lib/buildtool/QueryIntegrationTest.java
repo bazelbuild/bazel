@@ -436,6 +436,110 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void declaredToolchainsDistinguishReadersFromOrdinaryLabelsAcrossTransitions()
+      throws Exception {
+    write(
+        "tools/defs.bzl",
+        """
+        def _provider(ctx):
+            return [platform_common.ToolchainInfo(text = ctx.label.name)]
+
+        provider_rule = rule(implementation = _provider)
+
+        def _write(ctx, text):
+            output = ctx.actions.declare_file(ctx.label.name + ".txt")
+            ctx.actions.write(output, text)
+            return [DefaultInfo(files = depset([output]))]
+
+        def _reader(ctx):
+            default_tool = ctx.toolchains["//tools:default_type"]
+            named_tool = ctx.exec_groups["named"].toolchains["//tools:named_type"]
+            return _write(ctx, default_tool.text + "/" + named_tool.text)
+
+        reader = rule(
+            implementation = _reader,
+            toolchains = ["//tools:default_type"],
+            exec_groups = {"named": exec_group(toolchains = ["//tools:named_type"])},
+        )
+
+        def _manual(ctx):
+            return _write(ctx, ctx.attr.ref.label.name)
+
+        manual = rule(implementation = _manual, attrs = {"ref": attr.label()})
+
+        def _use_alternate(settings, attr):
+            return {"//command_line_option:extra_toolchains": [
+                "//tools:alternate_registration",
+                "//tools:named_registration",
+            ]}
+
+        alternate = transition(
+            implementation = _use_alternate,
+            inputs = [],
+            outputs = ["//command_line_option:extra_toolchains"],
+        )
+
+        def _forward(ctx):
+            return [DefaultInfo(files = ctx.attr.dep[0][DefaultInfo].files)]
+
+        forward = rule(
+            implementation = _forward,
+            attrs = {
+                "dep": attr.label(cfg = alternate),
+                "_allowlist_function_transition": attr.label(
+                    default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+                ),
+            },
+        )
+        """);
+    write("tools/binding.bzl", "BINDING = ':initial'");
+    write(
+        "tools/BUILD",
+        """
+        load(":binding.bzl", "BINDING")
+        load(":defs.bzl", "forward", "manual", "provider_rule", "reader")
+        toolchain_type(name = "default_type")
+        toolchain_type(name = "named_type")
+        provider_rule(name = "initial")
+        provider_rule(name = "replacement")
+        provider_rule(name = "alternative")
+        provider_rule(name = "named_tool")
+        toolchain(name = "registration", toolchain_type = ":default_type", toolchain = BINDING)
+        toolchain(name = "alternate_registration", toolchain_type = ":default_type", toolchain = ":alternative")
+        toolchain(name = "named_registration", toolchain_type = ":named_type", toolchain = ":named_tool")
+        reader(name = "uses_tools")
+        manual(name = "mentions_type", ref = ":default_type")
+        forward(name = "alternate_reader", dep = ":uses_tools")
+        forward(name = "alternate_manual", dep = ":mentions_type")
+        """);
+
+    addOptions("--extra_toolchains=//tools:registration,//tools:named_registration");
+    for (String binding : List.of("initial", "replacement")) {
+      write("tools/binding.bzl", "BINDING = ':" + binding + "'");
+      buildTarget("//tools:uses_tools", "//tools:alternate_reader", "//tools:alternate_manual");
+      assertThat(readContentAsLatin1String(getArtifact("//tools:uses_tools", ".txt")))
+          .isEqualTo(binding + "/named_tool");
+      assertThat(readContentAsLatin1String(getArtifact("//tools:alternate_reader", ".txt")))
+          .isEqualTo("alternative/named_tool");
+      assertThat(readContentAsLatin1String(getArtifact("//tools:alternate_manual", ".txt")))
+          .isEqualTo("default_type");
+    }
+
+    ProtoQueryOutput metadata =
+        getProtoQueryResult(
+            "//tools:uses_tools + //tools:mentions_type",
+            "--proto:possible_toolchain_types",
+            "--proto:output_rule_attrs=");
+    Build.Rule reader = getProtoTarget(metadata, "//tools:uses_tools").getRule();
+    Build.Rule manual = getProtoTarget(metadata, "//tools:mentions_type").getRule();
+    assertThat(reader.getPossibleToolchainTypes().getLabelList())
+        .containsExactly("@@//tools:default_type", "@@//tools:named_type");
+    assertThat(manual.getRuleInputList()).contains("//tools:default_type");
+    assertThat(manual.hasPossibleToolchainTypes()).isTrue();
+    assertThat(manual.getPossibleToolchainTypes().getLabelList()).isEmpty();
+  }
+
+  @Test
   public void testProtoOutputRecognizesBuildBazelFile() throws Exception {
     writePackageWithBuildBazelFile();
 

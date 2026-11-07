@@ -369,6 +369,17 @@ public abstract class CommonQueryOptions extends OptionsBase {
   public abstract boolean getProtoIncludeAttributeSourceAspects();
 
   @Option(
+      name = "proto:possible_toolchain_types",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Include toolchain type candidates declared by each rule and aspects attached to its"
+              + " possible dependency edges in proto output. Native genrules can also name template"
+              + " variable providers. This does not resolve toolchains.")
+  public abstract boolean getProtoPossibleToolchainTypes();
+
+  @Option(
       name = "proto:rule_classes",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
