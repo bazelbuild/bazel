@@ -39,8 +39,8 @@ import javax.annotation.Nullable;
  * canonicalization mapping. The other direction is handled purely in memory and reconstituted at
  * load-time.
  *
- * <p>Thread-safety is ensured by locking on all mutating operations. Read-only operations are not
- * locked.
+ * <p>Thread-safety is ensured by locking on all mutating operations. Lookups are not locked unless
+ * they miss or replace the indexed instance of a string (see {@link #useInstance}).
  */
 @ConditionallyThreadSafe // Each instance must be instantiated with a different dataPath.
 final class PersistentStringIndexer implements StringIndexer {
@@ -104,6 +104,7 @@ final class PersistentStringIndexer implements StringIndexer {
   public Integer getOrCreateIndex(String s) {
     Integer i = stringToInt.get(s);
     if (i != null) {
+      useInstance(s, i);
       return i;
     }
     s = s.intern();
@@ -137,7 +138,43 @@ final class PersistentStringIndexer implements StringIndexer {
   @Override
   @Nullable
   public Integer getIndex(String s) {
-    return stringToInt.get(s);
+    Integer i = stringToInt.get(s);
+    if (i == null) {
+      // The entry may be absent while useInstance replaces its key.
+      lock.lock();
+      try {
+        i = stringToInt.get(s);
+      } finally {
+        lock.unlock();
+      }
+      if (i == null) {
+        return null;
+      }
+    }
+    useInstance(s, i);
+    return i;
+  }
+
+  /**
+   * Makes the index hold {@code s} instead of an equal but distinct instance, such as one read from
+   * disk.
+   *
+   * <p>Callers usually pass strings that are retained elsewhere anyway, such as the exec paths of
+   * artifacts, so that the index doesn't retain a copy of them.
+   */
+  private void useInstance(String s, Integer i) {
+    if (getStringForIndex(i) == s) {
+      return;
+    }
+    lock.lock();
+    try {
+      String current = getStringForIndex(i);
+      if (current != s && s.equals(current) && stringToInt.replaceKey(s, i)) {
+        intToString.set(i, s);
+      }
+    } finally {
+      lock.unlock();
+    }
   }
 
   @Override
@@ -244,6 +281,19 @@ final class PersistentStringIndexer implements StringIndexer {
     @Override
     public Integer remove(Object object) {
       throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Replaces the key equal to {@code key} with {@code key} itself if it maps to {@code value}.
+     *
+     * <p>This isn't journaled since the persisted entries don't change.
+     */
+    boolean replaceKey(String key, Integer value) {
+      if (!delegate().remove(key, value)) {
+        return false;
+      }
+      delegate().put(key, value);
+      return true;
     }
 
     void flush() {
