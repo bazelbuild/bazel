@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import com.google.devtools.build.lib.util.io.RecordAlignedBufferedOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;
@@ -63,8 +64,8 @@ public abstract class MapCodec<K, V> {
   /**
    * Creates a new reader.
    *
-   * <p>The file contents are eagerly read into memory, under the assumption that they will be
-   * iterated to completion in short order.
+   * <p>Files that fit in a single byte array are read eagerly. Larger files are streamed through a
+   * bounded buffer.
    *
    * @param path the path to the file to read
    * @param version the expected version number
@@ -76,30 +77,37 @@ public abstract class MapCodec<K, V> {
     if (size < MIN_MAPFILE_SIZE) {
       throw new IncompatibleFormatException("%s is too short: %s bytes".formatted(path, size));
     }
+    InputStream stream;
     if (size > MAX_ARRAY_SIZE) {
-      throw new IncompatibleFormatException("%s is too long: %s bytes".formatted(path, size));
+      stream = new BufferedInputStream(path.getInputStream(), 64 * 1024);
+    } else {
+      // Read the whole file upfront as a performance optimization (minimize syscalls).
+      byte[] bytes;
+      try (InputStream in = path.getInputStream()) {
+        bytes = in.readAllBytes();
+      }
+      stream = new ByteArrayInputStream(bytes);
     }
 
-    // Read the whole file upfront as a performance optimization (minimize syscalls).
-    byte[] bytes;
-    try (InputStream in = path.getInputStream()) {
-      bytes = in.readAllBytes();
+    DataInputStream in = new DataInputStream(stream);
+    try {
+      if (in.readLong() != MAGIC) {
+        throw new IncompatibleFormatException("Bad magic number");
+      }
+      long persistedVersion = in.readLong();
+      if (persistedVersion != version) {
+        throw new IncompatibleFormatException(
+            "Incompatible version: want %d, got %d".formatted(version, persistedVersion));
+      }
+      return new Reader(in);
+    } catch (IOException e) {
+      try {
+        in.close();
+      } catch (IOException closeFailure) {
+        e.addSuppressed(closeFailure);
+      }
+      throw e;
     }
-
-    DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
-
-    if (in.readLong() != MAGIC) {
-      // Not a PersistentMap.
-      throw new IncompatibleFormatException("Bad magic number");
-    }
-    long persistedVersion = in.readLong();
-    if (persistedVersion != version) {
-      // Incompatible version.
-      throw new IncompatibleFormatException(
-          "Incompatible version: want %d, got %d".formatted(version, persistedVersion));
-    }
-
-    return new Reader(in);
   }
 
   /** Reads key/value pairs from a {@link DataInputStream}. */
@@ -123,10 +131,11 @@ public abstract class MapCodec<K, V> {
      */
     @Nullable
     public Entry<K, V> readEntry() throws IOException {
-      if (in.available() == 0) {
+      int marker = in.read();
+      if (marker == -1) {
         return null;
       }
-      if (in.readUnsignedByte() != ENTRY_MAGIC) {
+      if (marker != ENTRY_MAGIC) {
         throw new IOException("Corrupted entry separator");
       }
       K key = readKey(in);
