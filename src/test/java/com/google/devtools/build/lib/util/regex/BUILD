@@ -42,6 +42,7 @@ java_binary(
 java_fuzz_test(
     name = "RegexUtilFuzzTest",
     srcs = ["RegexUtilFuzzTest.java"],
+    dicts = ["RegexUtilFuzzTest.dict"],
     jvm_flags = [
         "-Djazzer.instrumentation_includes=java.util.regex.*:com.google.devtools.build.lib.util.*",
         # The fuzz test intentionally passes untrusted input into Pattern#compile, don't report that fact.
