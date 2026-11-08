@@ -2057,6 +2057,42 @@ EOF_BUILD
   ) || fail "inherited environments must contribute to the relevant hashes"
 }
 
+function test_forward_hashes_retain_dirty_nodes_outside_requested_roots() {
+  local -r pkg=$FUNCNAME
+  local child
+  for child in a b; do
+    mkdir -p "$pkg/$child"
+    echo 'filegroup(name = "item", srcs = ["input.txt"])' > "$pkg/$child/BUILD"
+    echo before > "$pkg/$child/input.txt"
+  done
+  printf '//%s/a:item\n//%s/b:item\n' "$pkg" "$pkg" > labels
+  # Isolate the post-analysis cleanup from the normal end-of-command dirty-node GC.
+  local -a hash=(cquery --version_window_for_dirty_node_gc=-1 --experimental_generate_hashes
+      --experimental_cquery_hash_top_level --target_pattern_file=labels)
+  bazel "${hash[@]}" > both 2>"$TEST_log" || fail "could not hash both roots"
+  local initial_count
+  initial_count=$(bazel dump --skyframe=count 2>"$TEST_log" | awk '$1 == "QUERY_DIRECT_TARGET_HASH" {print $2}')
+  [[ "$initial_count" -gt 0 ]] || fail "no direct hash nodes in the graph"
+
+  echo after > "$pkg/b/input.txt"
+  printf '//%s/a:item\n' "$pkg" > labels
+  bazel "${hash[@]}" > narrow 2>"$TEST_log" || fail "could not hash the unchanged root"
+  assert_equals "$(grep -F "//$pkg/a:item" both)" "$(cat narrow)"
+  assert_equals "$initial_count" \
+      "$(bazel dump --skyframe=count 2>"$TEST_log" | awk '$1 == "QUERY_DIRECT_TARGET_HASH" {print $2}')"
+
+  printf '//%s/b:item\n' "$pkg" >> labels
+  bazel "${hash[@]}" > after 2>"$TEST_log" || fail "could not hash the changed root"
+  assert_equals "$(cat narrow)" "$(grep -F "//$pkg/a:item" after)"
+  local -r edited_target="//$pkg/b:item"
+  local before_hash after_hash
+  before_hash=$(awk -F '\t' -v label="$edited_target" '$1 == label {print $3}' both)
+  after_hash=$(awk -F '\t' -v label="$edited_target" '$1 == label {print $3}' after)
+  [[ "$before_hash" =~ ^[0-9a-f]{64}$ ]] || fail "invalid initial hash for $edited_target"
+  [[ "$after_hash" =~ ^[0-9a-f]{64}$ ]] || fail "invalid updated hash for $edited_target"
+  assert_not_equals "$before_hash" "$after_hash"
+}
+
 function test_parallel_generate_hashes_agrees_on_mutation_and_partial_analysis() {
   local -r pkg=$FUNCNAME
   mkdir -p "$pkg"
