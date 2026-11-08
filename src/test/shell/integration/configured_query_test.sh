@@ -2037,4 +2037,34 @@ function test_parallel_rule_catalog_preserves_rows_and_order() {
   diff hashes-1 hashes-4 || fail "parallel hashing changed rows"
 }
 
+function test_exact_hash_roots_after_target_removal() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+filegroup(name = "keep", tags = ["manual"])
+filegroup(name = "remove")
+EOF
+  cat > "$pkg/roots.txt" <<EOF
+//$pkg:remove
+//$pkg:keep
+EOF
+  local -a args=(
+    --keep_going
+    --experimental_generate_hashes
+    --experimental_cquery_hash_top_level
+    --target_pattern_file="$pkg/roots.txt"
+  )
+  bazel cquery "${args[@]}" > before 2> "$TEST_log" || fail "Expected success"
+  assert_contains "^//$pkg:remove[[:space:]]" before
+  assert_contains "^//$pkg:keep[[:space:]]" before
+
+  echo 'filegroup(name = "keep", tags = ["manual"])' > "$pkg/BUILD"
+  if bazel cquery "${args[@]}" > after 2> "$TEST_log"; then
+    fail "Expected removed exact label to fail"
+  fi
+  expect_log "target 'remove' not declared in package '$pkg'"
+  grep -v "^//$pkg:remove[[:space:]]" before > expected
+  diff -u expected after || fail "Expected the surviving explicit root and its unchanged hash"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

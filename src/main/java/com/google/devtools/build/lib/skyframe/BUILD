@@ -3756,6 +3756,8 @@ java_library(
     srcs = ["TargetPatternPhaseFunction.java"],
     deps = [
         ":environment_backed_recursive_package_provider",
+        ":ignored_subdirectories_value",
+        ":package_value",
         ":pattern_expanding_error",
         ":repository_mapping_value",
         ":target_pattern_error_function",
@@ -3767,6 +3769,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:no_such_package_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
