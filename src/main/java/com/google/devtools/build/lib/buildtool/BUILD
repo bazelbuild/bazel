@@ -203,6 +203,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//src/main/java/com/google/devtools/build/lib/collect:path_fragment_prefix_trie",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:blaze_executor",
         "//src/main/java/com/google/devtools/build/lib/exec:check_up_to_date_filter",
