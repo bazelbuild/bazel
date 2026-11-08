@@ -1902,6 +1902,104 @@ EOF
     || fail "Expected the hash of //$pkg:a to change"
 }
 
+function test_generate_hashes_include_observed_analysis_repo_mappings() {
+  local workspace
+  workspace="$(mktemp -d "$TEST_TMPDIR/analysis_repo_mapping.XXXXXX")"
+  workspaces+=("$workspace")
+  cd "$workspace"
+  setup_module_dot_bazel >/dev/null
+
+  cat >> MODULE.bazel <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "stable")
+EOF
+  cp MODULE.bazel base.MODULE.bazel
+  cat > ext.bzl <<'EOF'
+def _repo_impl(ctx):
+    ctx.file("BUILD.bazel", "")
+    return ctx.repo_metadata(reproducible = True)
+
+_repo = repository_rule(implementation = _repo_impl)
+
+def _ext_impl(ctx):
+    for name in ["stable", "sibling", "other"]:
+        _repo(name = name)
+    return ctx.extension_metadata(reproducible = True)
+
+ext = module_extension(implementation = _ext_impl)
+EOF
+  cat > rules.bzl <<'EOF'
+RuleToken = provider()
+AspectToken = provider()
+
+def _plain(ctx):
+    return []
+
+def _value(ctx):
+    return [RuleToken(value = str(Label("@sibling//:input")))]
+
+def _aspect(target, ctx):
+    return [AspectToken(value = str(ctx.package_relative_label("@sibling//:input")))]
+
+def _write(ctx):
+    dep = ctx.attr.dep
+    tokens = [dep[p].value for p in [RuleToken, AspectToken] if p in dep]
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, "\n".join(tokens))
+    return [DefaultInfo(files = depset([out]))]
+
+plain = rule(implementation = _plain)
+value = rule(implementation = _value)
+token_aspect = aspect(implementation = _aspect)
+write = rule(
+    implementation = _write,
+    attrs = {"dep": attr.label(aspects = [token_aspect])},
+)
+EOF
+  cat > BUILD.bazel <<'EOF'
+load(":rules.bzl", "plain", "value", "write")
+
+plain(name = "plain")
+value(name = "value")
+write(name = "aspect_only", dep = ":plain")
+write(name = "both", dep = ":value")
+EOF
+
+  local -ar roots=(//:aspect_only //:both //:plain //:value)
+  local -ar flags=(--experimental_generate_hashes --experimental_explicit_aspects)
+  local -r query="set(${roots[*]})"
+  local stage
+  for stage in base changed unrelated restored; do
+    cp base.MODULE.bazel MODULE.bazel
+    case "$stage" in
+      changed) echo 'use_repo(ext, "sibling")' >> MODULE.bazel ;;
+      unrelated) echo 'use_repo(ext, "sibling", "other")' >> MODULE.bazel ;;
+    esac
+    # The rule and the aspect only return providers. Warm their configured values with an
+    # ordinary build before asking cquery for hashes.
+    bazel build "${roots[@]}" &> "$TEST_log" || fail "build failed at $stage"
+    cat bazel-bin/aspect_only.txt bazel-bin/both.txt > "outputs.$stage"
+    bazel cquery "${flags[@]}" "$query" > "serial.$stage" 2> "$TEST_log" \
+      || fail "serial hashing failed at $stage"
+    bazel cquery "${flags[@]}" --experimental_cquery_hash_workers=4 "$query" > "parallel.$stage" \
+      2> "$TEST_log" || fail "parallel hashing failed at $stage"
+    LC_ALL=C sort "serial.$stage" > "hashes.$stage"
+    diff "hashes.$stage" <(LC_ALL=C sort "parallel.$stage") || fail "hash workers differ at $stage"
+    diff <(printf '%s\n' "${roots[@]}") <(cut -d' ' -f1 "hashes.$stage") \
+      || fail "missing configured roots at $stage"
+  done
+
+  grep -q "unknown repo 'sibling'" outputs.base || fail "expected an invisible repository"
+  grep -q "+sibling//:input" outputs.changed || fail "expected a visible repository"
+  diff outputs.base outputs.restored || fail "restoring the mapping changed the build"
+  diff outputs.changed outputs.unrelated || fail "unused mapping changed the build"
+  diff hashes.base hashes.restored || fail "restoring the mapping changed hashes"
+  diff hashes.changed hashes.unrelated || fail "unused mapping changed hashes"
+  diff <(printf '%s\n' //:aspect_only //:both //:value) \
+    <(LC_ALL=C comm -23 hashes.base hashes.changed | cut -d' ' -f1) \
+    || fail "expected changed hashes for exactly the mapping consumers"
+}
+
 function test_parallel_generate_hashes_agrees_on_mutation_and_partial_analysis() {
   local -r pkg=$FUNCNAME
   mkdir -p "$pkg"

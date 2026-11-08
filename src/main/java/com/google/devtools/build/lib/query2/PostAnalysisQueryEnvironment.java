@@ -100,6 +100,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -430,16 +431,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   /** Returns the configured edges for hashing, or null if analysis left any edge unavailable. */
   @Nullable
-  protected final ImmutableList<T> getCompleteFwdDeps(T target) throws InterruptedException {
-    return getCompleteFwdDeps(target, false);
-  }
-
-  @Nullable
-  protected final ImmutableList<T> getCompleteFwdDeps(T target, boolean rawEdges)
+  protected final ImmutableList<T> getCompleteFwdDeps(
+      T target, boolean rawEdges, BiConsumer<AspectKey, AspectValue> aspectObserver)
       throws InterruptedException {
     SkyKey key = getConfiguredTargetKey(target);
     List<SkyKey> unavailable = new ArrayList<>();
-    Iterable<SkyKey> direct = getDepsForTargetification(key, unavailable);
+    Iterable<SkyKey> direct = getDepsForTargetification(key, unavailable, aspectObserver);
     ImmutableList<T> rawDeps = null;
     ImmutableList<ClassifiedDependency<T>> classified = ImmutableList.of();
     if (rawEdges
@@ -469,11 +466,20 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return rawDeps != null ? rawDeps : filterFwdDeps(target, classified);
   }
 
-  private Iterable<SkyKey> getDepsForTargetification(SkyKey key, @Nullable List<SkyKey> unavailable)
+  private Iterable<SkyKey> getDepsForTargetification(
+      SkyKey key,
+      @Nullable List<SkyKey> unavailable,
+      @Nullable BiConsumer<AspectKey, AspectValue> aspectObserver)
       throws InterruptedException {
-    if (unavailable != null && graph.getValue(key) == null) {
-      unavailable.add(key);
-      return ImmutableList.of();
+    if (unavailable != null) {
+      SkyValue value = graph.getValue(key);
+      if (value == null) {
+        unavailable.add(key);
+        return ImmutableList.of();
+      }
+      if (aspectObserver != null && key instanceof AspectKey aspectKey) {
+        aspectObserver.accept(aspectKey, (AspectValue) value);
+      }
     }
     return graph.getDirectDeps(key);
   }
@@ -855,7 +861,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         }
         targetifyInto(
             null,
-            getDepsForTargetification(key, unavailable),
+            getDepsForTargetification(key, unavailable, /* aspectObserver= */ null),
             knownCtDeps,
             resolvedAspectClasses,
             unavailable,
@@ -864,7 +870,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         targetifyInto(
             null,
-            getDepsForTargetification(key, unavailable),
+            getDepsForTargetification(key, unavailable, /* aspectObserver= */ null),
             knownCtDeps,
             resolvedAspectClasses,
             unavailable,
