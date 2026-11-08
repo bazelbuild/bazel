@@ -391,9 +391,9 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .setInputFileConfiguredTargetCount(4)
                 .setOutputArtifactCount(2 + outputArtifactCount)
                 .setOtherConfiguredTargetCount(0)
-                // ArtifactNestedSet node for stale nested set is still in graph, since it is
-                // technically still valid (even though nobody wants that nested set anymore).
-                .setPostInvocationSkyframeNodeCount(newGraphSize + 1)
+                // Without Skymeld, the next evaluation collects the obsolete ArtifactNestedSetKey.
+                .setPostInvocationSkyframeNodeCount(
+                    newGraphSize + (skymeldWasInvolvedForBaselineBuild ? 0 : 1))
                 .build());
     ArtifactMetrics.FilesMetric singleFileMetric =
         ArtifactMetrics.FilesMetric.newBuilder().setSizeInBytes(15L).setCount(1).build();
@@ -423,7 +423,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .setInputFileConfiguredTargetCount(4)
                 .setOutputArtifactCount(2 + outputArtifactCount)
                 .setOtherConfiguredTargetCount(0)
-                .setPostInvocationSkyframeNodeCount(newGraphSize + 1)
+                .setPostInvocationSkyframeNodeCount(newGraphSize)
                 .build());
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
@@ -437,14 +437,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       newGraphSize -= 1;
     }
 
-    // Stale action execution have been GC'ed.
+    // The stale action execution nodes and obsolete ArtifactNestedSetKeys have been collected.
     assertThat(
             buildMetricsEventListener
                 .event
                 .getBuildMetrics()
                 .getBuildGraphMetrics()
                 .getPostInvocationSkyframeNodeCount())
-        .isEqualTo(newGraphSize - 1);
+        .isEqualTo(newGraphSize - 3);
 
     // Do a null full build. Back to baseline.
     addOptions("--build");
@@ -454,15 +454,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       newGraphSize += 1;
     }
 
-    // We now have three copies of the ArtifactNestedSetKey, since the re-analysis didn't re-use the
-    // old nested set.
+    // The graph retains one ArtifactNestedSetKey for //a's inputs.
     assertThat(
             buildMetricsEventListener
                 .event
                 .getBuildMetrics()
                 .getBuildGraphMetrics()
                 .getPostInvocationSkyframeNodeCount())
-        .isEqualTo(newGraphSize + 2);
+        .isEqualTo(newGraphSize);
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
         .comparingExpectedFieldsOnly()
@@ -483,7 +482,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
             BuildGraphMetrics.newBuilder()
                 // Analysis not re-triggered, even of the input file that was changed.
                 .setInputFileConfiguredTargetCount(0)
-                .setPostInvocationSkyframeNodeCount(newGraphSize + 2)
+                .setPostInvocationSkyframeNodeCount(newGraphSize)
                 .build());
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
