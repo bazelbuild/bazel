@@ -41,7 +41,8 @@ final class CompactConfiguredHashes {
   // Every listed dependency is an interned member of the same graph. A missing direct hash
   // or failed dependency walk poisons dependents, as in the keep-going formatter.
   static class Node<N extends Node<N>> {
-    final int ordinal;
+    // Parallel graph collection assigns ordinals when it appends newly discovered nodes.
+    int ordinal;
     // Populated before any worker starts sorting or combining. A parallel pass can fill all stable
     // names after interning.
     String name;
