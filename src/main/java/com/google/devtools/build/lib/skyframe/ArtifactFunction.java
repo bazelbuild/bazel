@@ -349,14 +349,9 @@ public final class ArtifactFunction implements SkyFunction {
     //
     // In the future, we need to make this result the source of truth for the files available to
     // the action so that we at least have consistency.
-    TraversalRequest request =
-        DirectoryArtifactTraversalRequest.create(
-            DirectTraversalRoot.forRootedPath(path),
-            /* skipTestingForSubpackage= */ true,
-            "Directory artifact " + artifact.prettyPrint());
     byte[] digest;
     try {
-      digest = digestSourceDirectory(request, env);
+      digest = digestSourceDirectory(path, "Directory artifact " + artifact.prettyPrint(), env);
     } catch (RecursiveFilesystemTraversalException e) {
       // Use a switch to guarantee that if a new type is added, this stops compiling.
       switch (e.getType()) {
@@ -374,7 +369,7 @@ public final class ArtifactFunction implements SkyFunction {
         case GENERATED_PATH_CONFLICT:
           throw new IllegalStateException(
               String.format(
-                  "Generated conflict in source tree: %s %s %s", artifact, fileValue, request),
+                  "Generated conflict in source tree: %s %s %s", artifact, fileValue, path),
               e);
       }
       throw new IllegalStateException("Can't get here", e);
@@ -386,15 +381,9 @@ public final class ArtifactFunction implements SkyFunction {
   @Nullable
   public static byte[] digestSourceDirectory(RootedPath path, String errorInfo, Environment env)
       throws RecursiveFilesystemTraversalException, InterruptedException {
-    return digestSourceDirectory(
+    var request =
         DirectoryArtifactTraversalRequest.create(
-            DirectTraversalRoot.forRootedPath(path), /* skipTestingForSubpackage= */ true, errorInfo),
-        env);
-  }
-
-  @Nullable
-  private static byte[] digestSourceDirectory(TraversalRequest request, Environment env)
-      throws RecursiveFilesystemTraversalException, InterruptedException {
+            DirectTraversalRoot.forRootedPath(path), /* skipTestingForSubpackage= */ true, errorInfo);
     var value =
         (RecursiveFilesystemTraversalValue)
             env.getValueOrThrow(request, RecursiveFilesystemTraversalException.class);
