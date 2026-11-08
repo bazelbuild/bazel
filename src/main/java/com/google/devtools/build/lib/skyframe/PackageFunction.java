@@ -1041,7 +1041,9 @@ public abstract class PackageFunction implements SkyFunction {
     // Load (optional) prelude, which determines environment.
     ImmutableMap<String, Object> preludeBindings = null;
     // Can be null in tests.
-    if (packageFactory != null) {
+    if (packageFactory != null
+        && !starlarkBuiltinsValue.starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_DISABLE_BUILD_PRELUDE)) {
       // Load the prelude from the same repository as the package being loaded.
       Label rawPreludeLabel = packageFactory.getRuleClassProvider().getPreludeLabel();
       if (rawPreludeLabel != null) {
