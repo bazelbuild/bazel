@@ -92,7 +92,6 @@ public class ActionCacheChecker {
 
     public static Builder builder() {
       return new AutoValue_ActionCacheChecker_CacheConfig.Builder()
-          .setCheckOutputFiles(true)
           .setBustActionCachesTargets(ImmutableSet.of());
     }
 
@@ -125,7 +124,11 @@ public class ActionCacheChecker {
     this.cacheConfig =
         cacheConfig != null
             ? cacheConfig
-            : CacheConfig.builder().setEnabled(true).setStoreOutputMetadata(false).build();
+            : CacheConfig.builder()
+                .setEnabled(true)
+                .setStoreOutputMetadata(false)
+                .setCheckOutputFiles(true)
+                .build();
     if (this.cacheConfig.enabled()) {
       this.actionCache = Preconditions.checkNotNull(actionCache);
     } else {
