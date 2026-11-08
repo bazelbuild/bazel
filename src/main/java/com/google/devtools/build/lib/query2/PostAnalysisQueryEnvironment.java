@@ -30,6 +30,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -445,12 +446,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         && !settings.contains(Setting.ONLY_TARGET_DEPS)
         && !settings.contains(Setting.NO_IMPLICIT_DEPS)) {
       // Neither filter consumes edge classification. Passing a null parent marks all edges
-      // implicit while preserving the same configured, aspect and toolchain projection.
+      // implicit. The hash collector already deduplicates canonical configured dependency keys.
       ImmutableList.Builder<T> raw = ImmutableList.builder();
       targetifyInto(
           null,
           direct,
-          new HashSet<>(),
+          /* knownCtDeps= */ null,
           new HashSet<>(),
           unavailable,
           (node, implicit) -> node,
@@ -745,7 +746,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   private <R> void targetifyInto(
       @Nullable T parent,
       Iterable<? extends SkyKey> dependencies,
-      Set<SkyKey> knownCtDeps,
+      @Nullable Set<SkyKey> knownCtDeps,
       Set<AspectClass> resolvedAspectClasses,
       @Nullable List<SkyKey> unavailable,
       DependencyProjection<T, R> projection,
@@ -759,8 +760,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
 
-    boolean explicitAspects =
-        settings.containsAll(ImmutableSet.of(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS));
+    boolean includeAspects = settings.contains(Setting.INCLUDE_ASPECTS);
+    boolean explicitAspects = includeAspects && settings.contains(Setting.EXPLICIT_ASPECTS);
 
     // TODO(bazel-team): The end-goal approach is to treat aspects and toolchains as
     // first-class query nodes just like targets. In other words, let query expressions reference
@@ -771,7 +772,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     // implemented behind the --experimental_explicit_aspects flag.
     // See https://github.com/bazelbuild/bazel/issues/16310 for details.
     for (SkyKey key : dependencies) {
-      if (knownCtDeps.contains(key)) {
+      if (knownCtDeps != null && knownCtDeps.contains(key)) {
         continue;
       }
       if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)
@@ -827,9 +828,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         }
 
         values.add(projection.apply(dependency, implicitDep));
-        knownCtDeps.add(key);
-      } else if (settings.contains(Setting.INCLUDE_ASPECTS)
-          && key.functionName().equals(SkyFunctions.ASPECT)) {
+        if (knownCtDeps != null) {
+          knownCtDeps.add(key);
+        }
+      } else if (includeAspects && key.functionName().equals(SkyFunctions.ASPECT)) {
         Preconditions.checkState(!settings.contains(Setting.EXPLICIT_ASPECTS));
         if (resolvedAspectClasses.contains(((AspectKey) key).getAspectClass())) {
           continue;
@@ -1002,8 +1004,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     /** A list of null configured top-level targets. */
     private final ImmutableList<Label> nulls;
 
+    private final ImmutableSet<ActionLookupKey> configuredTopLevelKeys;
+    @Nullable private final ImmutableSet<ConfiguredTarget> analyzedRoots;
+
     public TopLevelConfigurations(
         Collection<TargetAndConfiguration> topLevelTargetsAndConfigurations) {
+      this(topLevelTargetsAndConfigurations, Set.of(), /* useAnalyzedRoots= */ false);
+    }
+
+    public TopLevelConfigurations(
+        Collection<TargetAndConfiguration> topLevelTargetsAndConfigurations,
+        Set<ConfiguredTarget> configuredTopLevelTargets,
+        boolean useAnalyzedRoots) {
       ImmutableMap.Builder<Label, BuildConfigurationValue> nonNullsBuilder =
           ImmutableMap.builderWithExpectedSize(topLevelTargetsAndConfigurations.size());
       ImmutableList.Builder<Label> nullsBuilder = new ImmutableList.Builder<>();
@@ -1020,6 +1032,24 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           ImmutableSortedSet.copyOf(
               Comparator.comparing(BuildConfigurationValue::checksum), nonNulls.values());
       nulls = nullsBuilder.build();
+      var keys =
+          ImmutableSet.<ActionLookupKey>builderWithExpectedSize(configuredTopLevelTargets.size());
+      for (ConfiguredTarget target : configuredTopLevelTargets) {
+        keys.add(target.getLookupKey());
+      }
+      configuredTopLevelKeys = keys.build();
+      analyzedRoots = useAnalyzedRoots ? ImmutableSet.copyOf(configuredTopLevelTargets) : null;
+    }
+
+    /** Returns the analyzed roots when the analysis scope exactly matches the hash query. */
+    @Nullable
+    public ImmutableSet<ConfiguredTarget> getAnalyzedRoots() {
+      return analyzedRoots;
+    }
+
+    /** Tests the exact key returned by top-level analysis, including any rule transition. */
+    public boolean containsConfiguredTargetKey(ActionLookupKey key) {
+      return configuredTopLevelKeys.contains(key);
     }
 
     public int size() {

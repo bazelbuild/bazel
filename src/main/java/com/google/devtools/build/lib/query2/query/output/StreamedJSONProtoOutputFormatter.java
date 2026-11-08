@@ -31,7 +31,21 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
     return "streamed_jsonproto";
   }
 
-  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
+  private final JsonFormat.Printer jsonPrinter =
+      JsonFormat.printer().omittingInsignificantWhitespace();
+
+  /** Writes one unconfigured target as a single JSON line. */
+  public void writeTarget(Target target, LabelPrinter labelPrinter, OutputStream out)
+      throws IOException, InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
+    out.write(
+        jsonPrinter
+            .print(toTargetProtoBuffer(target, labelPrinter))
+            .getBytes(StandardCharsets.UTF_8));
+    out.write('\n');
+  }
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
@@ -41,15 +55,7 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
         for (Target target : partialResult) {
-          if (Thread.interrupted()) {
-            throw new InterruptedException();
-          }
-          out.write(
-              jsonPrinter
-                  .omittingInsignificantWhitespace()
-                  .print(toTargetProtoBuffer(target, labelPrinter))
-                  .getBytes(StandardCharsets.UTF_8));
-          out.write('\n');
+          writeTarget(target, labelPrinter, out);
         }
       }
     };

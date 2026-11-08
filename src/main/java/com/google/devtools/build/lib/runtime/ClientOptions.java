@@ -50,6 +50,18 @@ public abstract class ClientOptions extends OptionsBase {
       this.option = option;
     }
 
+    public int getRcIndex() {
+      return blazeRc;
+    }
+
+    public String getCommand() {
+      return command;
+    }
+
+    public String getOption() {
+      return option;
+    }
+
     @Override
     public String toString() {
       return String.format("%d:%s=%s", blazeRc, command, option);

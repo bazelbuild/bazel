@@ -5,4 +5,11 @@ Queries the specified targets, taking options into account. Unlike query,
 cquery works on the post analysis phase configured target graph. It understands
 and takes into account configurations and configuration transitions.
 
+For top-level hashes, omit <targets> and pass --experimental_generate_hashes,
+--experimental_cquery_hash_top_level, and --target_pattern_file=<file>. The file
+contains one canonical target label per line. Blank lines and lines starting
+with # are ignored. Labels are literal, including names such as :all. Only
+those labels are requested as roots, and their transitive configured
+dependencies contribute to their hashes.
+
 %{options}

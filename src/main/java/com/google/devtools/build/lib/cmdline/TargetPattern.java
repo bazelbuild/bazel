@@ -265,6 +265,15 @@ public abstract class TargetPattern {
     return MoreObjects.toStringHelper(this).add("originalPattern", originalPattern);
   }
 
+  /** Parses a canonical label without interpreting wildcard suffixes. */
+  public static TargetPattern parseExactLabel(String label) throws TargetParsingException {
+    try {
+      return new SingleTarget(label, Label.parseCanonical(label));
+    } catch (LabelSyntaxException e) {
+      throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
+    }
+  }
+
   @VisibleForTesting
   static final class SingleTarget extends TargetPattern {
 
