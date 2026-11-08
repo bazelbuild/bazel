@@ -74,7 +74,7 @@ public final class SourceFileDigestFunction implements SkyFunction {
   public static final class Value implements SkyValue {
     static final Value MISSING =
         new Value("<missing>".getBytes(StandardCharsets.UTF_8), /* executable= */ false);
-    // Directories used as source labels are not hashed recursively.
+    // DirectTargetHashFunction chooses how to hash the contents of a directory.
     static final Value DIRECTORY =
         new Value("<directory>".getBytes(StandardCharsets.UTF_8), /* executable= */ false);
     static final Value SPECIAL =

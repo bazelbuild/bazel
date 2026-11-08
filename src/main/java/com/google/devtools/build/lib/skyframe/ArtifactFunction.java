@@ -353,12 +353,10 @@ public final class ArtifactFunction implements SkyFunction {
         DirectoryArtifactTraversalRequest.create(
             DirectTraversalRoot.forRootedPath(path),
             /* skipTestingForSubpackage= */ true,
-            artifact);
-    RecursiveFilesystemTraversalValue value;
+            "Directory artifact " + artifact.prettyPrint());
+    byte[] digest;
     try {
-      value =
-          (RecursiveFilesystemTraversalValue)
-              env.getValueOrThrow(request, RecursiveFilesystemTraversalException.class);
+      digest = digestSourceDirectory(request, env);
     } catch (RecursiveFilesystemTraversalException e) {
       // Use a switch to guarantee that if a new type is added, this stops compiling.
       switch (e.getType()) {
@@ -381,6 +379,25 @@ public final class ArtifactFunction implements SkyFunction {
       }
       throw new IllegalStateException("Can't get here", e);
     }
+    return digest == null ? null : FileArtifactValue.createForDirectoryWithHash(digest);
+  }
+
+  /** Hashes a source directory using the same traversal as source artifact metadata. */
+  @Nullable
+  public static byte[] digestSourceDirectory(RootedPath path, String errorInfo, Environment env)
+      throws RecursiveFilesystemTraversalException, InterruptedException {
+    return digestSourceDirectory(
+        DirectoryArtifactTraversalRequest.create(
+            DirectTraversalRoot.forRootedPath(path), /* skipTestingForSubpackage= */ true, errorInfo),
+        env);
+  }
+
+  @Nullable
+  private static byte[] digestSourceDirectory(TraversalRequest request, Environment env)
+      throws RecursiveFilesystemTraversalException, InterruptedException {
+    var value =
+        (RecursiveFilesystemTraversalValue)
+            env.getValueOrThrow(request, RecursiveFilesystemTraversalException.class);
     if (value == null) {
       return null;
     }
@@ -389,7 +406,7 @@ public final class ArtifactFunction implements SkyFunction {
       fp.addString(file.getNameInSymlinkTree().getPathString());
       fp.addBytes(file.getMetadata().getDigest());
     }
-    return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
+    return fp.digestAndReset();
   }
 
   @Override
@@ -591,20 +608,20 @@ public final class ArtifactFunction implements SkyFunction {
         SkyKey.newInterner();
 
     private static DirectoryArtifactTraversalRequest create(
-        DirectTraversalRoot root, boolean skipTestingForSubpackage, Artifact artifact) {
+        DirectTraversalRoot root, boolean skipTestingForSubpackage, String errorInfo) {
       return interner.intern(
-          new DirectoryArtifactTraversalRequest(root, skipTestingForSubpackage, artifact));
+          new DirectoryArtifactTraversalRequest(root, skipTestingForSubpackage, errorInfo));
     }
 
     private final DirectTraversalRoot root;
     private final boolean skipTestingForSubpackage;
-    private final Artifact artifact;
+    private final String errorInfo;
 
     private DirectoryArtifactTraversalRequest(
-        DirectTraversalRoot root, boolean skipTestingForSubpackage, Artifact artifact) {
+        DirectTraversalRoot root, boolean skipTestingForSubpackage, String errorInfo) {
       this.root = root;
       this.skipTestingForSubpackage = skipTestingForSubpackage;
-      this.artifact = artifact;
+      this.errorInfo = errorInfo;
     }
 
     @Override
@@ -634,13 +651,13 @@ public final class ArtifactFunction implements SkyFunction {
 
     @Override
     protected String errorInfo() {
-      return "Directory artifact " + artifact.prettyPrint();
+      return errorInfo;
     }
 
     @Override
     protected TraversalRequest duplicateWithOverrides(
         DirectTraversalRoot newRoot, boolean newSkipTestingForSubpackage) {
-      return create(newRoot, newSkipTestingForSubpackage, artifact);
+      return create(newRoot, newSkipTestingForSubpackage, errorInfo);
     }
 
     @Override
@@ -650,7 +667,7 @@ public final class ArtifactFunction implements SkyFunction {
 
     @Override
     public int hashCode() {
-      // Artifact is only for error info and not considered in hash code or equality.
+      // Error info is not considered in hash code or equality.
       return root.hashCode() * 31 + Boolean.hashCode(skipTestingForSubpackage);
     }
 
@@ -662,7 +679,7 @@ public final class ArtifactFunction implements SkyFunction {
       if (!(o instanceof DirectoryArtifactTraversalRequest other)) {
         return false;
       }
-      // Artifact is only for error info and not considered in hash code or equality.
+      // Error info is not considered in hash code or equality.
       return root.equals(other.root) && skipTestingForSubpackage == other.skipTestingForSubpackage;
     }
   }
