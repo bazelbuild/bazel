@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
@@ -235,7 +234,6 @@ public final class CqueryCommand implements BlazeCommand {
           || !buildOptions.getTargetPatternFile().isEmpty()
           || !buildOptions.getTargetQuery().isEmpty()
           || !buildOptions.getTargetQueryFile().isEmpty()
-          || options.getOptions(ExecutionOptions.class).getCacheProbeOutput() != null
           || !loading.getBuildManualTests()
           || !loading.getBuildTagFilterList().isEmpty()
           || loading.getCompileOneDependency()
