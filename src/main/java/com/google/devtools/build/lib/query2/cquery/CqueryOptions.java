@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnumConverter;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
-import com.google.devtools.common.options.Converters.NonNegativeIntegerConverter;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -32,6 +32,13 @@ public abstract class CqueryOptions extends CommonQueryOptions {
   public static class TransitionsConverter extends EnumConverter<Transitions> {
     public TransitionsConverter() {
       super(Transitions.class, "transition verbosity");
+    }
+  }
+
+  /** Validates the configured hash worker count. */
+  public static final class HashWorkersConverter extends RangeConverter {
+    public HashWorkersConverter() {
+      super(0, Integer.MAX_VALUE);
     }
   }
 
@@ -111,7 +118,7 @@ public abstract class CqueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "experimental_cquery_hash_workers",
-      converter = NonNegativeIntegerConverter.class,
+      converter = HashWorkersConverter.class,
       defaultValue = "1",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
