@@ -99,8 +99,8 @@ public abstract class CqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "Frame whole-workspace top-level hash output with the invocation ID, an options"
-              + " fingerprint, and a completion record.")
+          "Frame top-level hash output for //... or --target_pattern_file with the invocation ID,"
+              + " an options fingerprint, and a completion record.")
   public abstract boolean getHashStreamReceipt();
 
   @Option(
