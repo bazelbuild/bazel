@@ -132,26 +132,13 @@ public final class TargetPatternsHelper {
       return ImmutableList.<String>builder().addAll(queryTargets).addAll(targets).build();
     }
 
-    if (!buildRequestOptions.getTargetPatternFile().isEmpty()) {
-      // Works for absolute or relative file.
-      Path residuePath =
-          env.getWorkingDirectory().getRelative(buildRequestOptions.getTargetPatternFile());
-      try {
-        env.getEventBus()
-            .post(
-                InputFileEvent.create(
-                    /* type= */ "target_pattern_file", residuePath.getFileSize()));
-        targets =
-            FileSystemUtils.readLines(residuePath, ISO_8859_1).stream()
-                .map(s -> TARGET_PATTERN_SPLITTER.splitToList(s).get(0))
-                .map(String::trim)
-                .filter(Predicate.not(String::isEmpty))
-                .collect(toImmutableList());
-      } catch (IOException e) {
-        throw new TargetPatternsHelperException(
-            "I/O error reading from " + residuePath.getPathString() + ": " + e.getMessage(),
-            TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
-      }
+    if (hasTargetPatternFile) {
+      targets =
+          readTargetPatternFile(env, buildRequestOptions.getTargetPatternFile()).stream()
+              .map(s -> TARGET_PATTERN_SPLITTER.splitToList(s).get(0))
+              .map(String::trim)
+              .filter(Predicate.not(String::isEmpty))
+              .collect(toImmutableList());
     } else {
       try (SilentCloseable closeable =
           Profiler.instance().profile("ProjectFileSupport.getTargets")) {
@@ -159,6 +146,20 @@ public final class TargetPatternsHelper {
       }
     }
     return targets;
+  }
+
+  static ImmutableList<String> readTargetPatternFile(CommandEnvironment env, String file)
+      throws TargetPatternsHelperException {
+    Path path = env.getWorkingDirectory().getRelative(file);
+    try {
+      env.getEventBus()
+          .post(InputFileEvent.create(/* type= */ "target_pattern_file", path.getFileSize()));
+      return FileSystemUtils.readLines(path, ISO_8859_1);
+    } catch (IOException e) {
+      throw new TargetPatternsHelperException(
+          "I/O error reading from " + path.getPathString() + ": " + e.getMessage(),
+          TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
+    }
   }
 
   /** Thrown when target patterns couldn't be read. */

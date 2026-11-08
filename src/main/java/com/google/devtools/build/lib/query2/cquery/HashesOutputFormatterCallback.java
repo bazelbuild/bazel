@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -23,12 +24,14 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.AnalysisTime
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -60,6 +63,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /**
@@ -84,6 +88,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private final SkyframeExecutor skyframeExecutor;
   private final DepsRetriever depsRetriever;
+  @Nullable private final TopLevelConfigurations topLevelConfigurations;
   private final LabelPrinter labelPrinter;
   private final boolean keepGoing;
 
@@ -94,11 +99,13 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<CqueryNode> accessor,
       DepsRetriever depsRetriever,
+      @Nullable TopLevelConfigurations topLevelConfigurations,
       LabelPrinter labelPrinter,
       boolean keepGoing) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.skyframeExecutor = skyframeExecutor;
     this.depsRetriever = depsRetriever;
+    this.topLevelConfigurations = topLevelConfigurations;
     this.labelPrinter = labelPrinter;
     this.keepGoing = keepGoing;
   }
@@ -209,6 +216,10 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       for (HashTarget target : roots) {
         CqueryNode root = target.node;
         byte[] hash = target.hash;
+        if (topLevelConfigurations != null) {
+          writeTopLevelRow(root, hash);
+          continue;
+        }
         if (hash == null) {
           continue;
         }
@@ -223,8 +234,27 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
             .append(BaseEncoding.base16().lowerCase().encode(hash))
             .append(options.getLineTerminator());
       }
+      // Keep-going reports individual failed digests as blank rows and still completes the
+      // stream. Fail-fast returns before emitting any rows or the completion marker.
+      if (options.getHashStreamReceipt()) {
+        printStream.append("# complete\n");
+      }
       printStream.flush();
     }
+  }
+
+  private void writeTopLevelRow(CqueryNode root, @Nullable byte[] hash) throws IOException {
+    String checksum = root.getConfigurationChecksum();
+    CqueryNode actual = root.getActual();
+    printStream
+        .append(internalToUnicode(root.getOriginalLabel().getCanonicalForm()))
+        .append('\t')
+        .append(checksum == null ? "none" : checksum)
+        .append('\t')
+        .append(hash == null ? "" : BaseEncoding.base16().lowerCase().encode(hash))
+        .append('\t')
+        .append(actual == root ? "" : internalToUnicode(actual.getLabel().getCanonicalForm()))
+        .append(options.getLineTerminator());
   }
 
   private static final int PROJECTION_BATCH_SIZE = 4096;
@@ -328,33 +358,25 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       throws IOException, InterruptedException {
     Map<ActionLookupKey, HashTarget> seen = new HashMap<>();
     for (CqueryNode node : partialResult) {
-      if (!seen.containsKey(node.getLookupKey())) {
+      ActionLookupKey key = node.getLookupKey();
+      if ((topLevelConfigurations == null
+              || topLevelConfigurations.containsConfiguredTargetKey(key))
+          && !seen.containsKey(key)) {
         HashTarget target = new HashTarget(roots.size(), node, pool != null);
-        seen.put(node.getLookupKey(), target);
+        seen.put(key, target);
         roots.add(target);
       }
     }
     List<HashTarget> nodes = new ArrayList<>(roots);
     for (int i = 0; i < nodes.size(); ) {
       int end = nodes.size();
+      ProjectionBatch batch = pool == null ? null : projectBatch(nodes, i, end, pool);
       while (i < end) {
         int first = i;
         int limit = pool == null ? end : Math.min(end, first + PROJECTION_BATCH_SIZE);
-        @SuppressWarnings("unchecked")
-        Iterable<CqueryNode>[] prefetched =
-            pool == null ? null : (Iterable<CqueryNode>[]) new Iterable<?>[limit - first];
-        if (pool != null) {
-          ranges(
-              pool,
-              first,
-              limit,
-              64,
-              (a, b) -> {
-                for (int j = a; j < b; j++) {
-                  prefetched[j - first] = depsRetriever.getDirectDeps(nodes.get(j).node);
-                }
-              });
-        }
+        Iterable<CqueryNode>[] prefetched = batch == null ? null : batch.await();
+        // Project the next batch while this thread interns the current batch's edges.
+        batch = pool == null || limit == end ? null : projectBatch(nodes, limit, end, pool);
         while (i < limit) {
           HashTarget target = nodes.get(i++);
           ImmutableList.Builder<HashTarget> ordered = ImmutableList.builder();
@@ -419,6 +441,39 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
     return nodes;
   }
 
+  private record ProjectionBatch(Iterable<CqueryNode>[] deps, List<Future<Void>> work) {
+    Iterable<CqueryNode>[] await() throws IOException, InterruptedException {
+      for (var task : work) {
+        MoreFutures.waitForFutureAndGetWithCheckedException(
+            task, /* cancelOnInterrupt= */ true, IOException.class);
+      }
+      return deps;
+    }
+  }
+
+  private ProjectionBatch projectBatch(
+      List<HashTarget> nodes, int first, int end, ExecutorService pool) {
+    int limit = Math.min(end, first + PROJECTION_BATCH_SIZE);
+    // The collector can append to nodes while the workers read this snapshot.
+    var targets = nodes.subList(first, limit).toArray(HashTarget[]::new);
+    @SuppressWarnings("unchecked")
+    Iterable<CqueryNode>[] deps = (Iterable<CqueryNode>[]) new Iterable<?>[targets.length];
+    var work = new ArrayList<Future<Void>>();
+    for (int start = 0; start < targets.length; start += 64) {
+      int left = start;
+      int right = Math.min(start + 64, targets.length);
+      work.add(
+          pool.submit(
+              () -> {
+                for (int i = left; i < right; i++) {
+                  deps[i] = depsRetriever.getDirectDeps(targets[i].node);
+                }
+                return null;
+              }));
+    }
+    return new ProjectionBatch(deps, work);
+  }
+
   private static void sortAndCheck(HashTarget target) throws IOException {
     if (target.deps.size() <= 1) {
       return;
@@ -440,11 +495,11 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   private static final int DIRECT_EVAL_BATCH = 16384;
 
   private static final class DirectDigest {
-    final DirectTargetHashFunction.Key key;
+    final SkyKey key;
     @Nullable byte[] bytes;
     @Nullable String error;
 
-    DirectDigest(DirectTargetHashFunction.Key key) {
+    DirectDigest(SkyKey key) {
       this.key = key;
     }
   }
@@ -460,7 +515,8 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
             .build();
     if (!nodes.isEmpty()) {
       // Flush any pending Skyframe invalidation before consulting done values directly.
-      SkyKey barrierKey = DirectTargetHashFunction.key(nodes.get(0).node.getOriginalLabel());
+      SkyKey barrierKey =
+          DirectTargetHashFunction.configuredKey(nodes.get(0).node.getOriginalLabel());
       skyframeExecutor.prepareAndGet(ImmutableSet.of(barrierKey), context);
     }
     for (int first = 0; first < nodes.size(); first += DIRECT_WINDOW) {
@@ -474,7 +530,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
         var label = nodes.get(first + i).node.getOriginalLabel();
         var slot = cache.get(label);
         if (slot == null) {
-          slot = new DirectDigest(DirectTargetHashFunction.key(label));
+          slot = new DirectDigest(DirectTargetHashFunction.configuredKey(label));
           cache.put(label, slot);
           fresh.add(slot);
         }
@@ -578,7 +634,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       throws InterruptedException {
     ImmutableSet<SkyKey> keys =
         batch.stream()
-            .map(target -> DirectTargetHashFunction.key(target.node.getOriginalLabel()))
+            .map(target -> DirectTargetHashFunction.configuredKey(target.node.getOriginalLabel()))
             .collect(toImmutableSet());
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(
@@ -589,7 +645,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .build());
     for (HashTarget target : batch) {
       CqueryNode node = target.node;
-      var key = DirectTargetHashFunction.key(node.getOriginalLabel());
+      var key = DirectTargetHashFunction.configuredKey(node.getOriginalLabel());
       var value = (DirectTargetHashFunction.Value) result.get(key);
       if (value == null) {
         failed.add(target);

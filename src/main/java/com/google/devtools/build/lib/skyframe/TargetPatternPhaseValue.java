@@ -150,6 +150,32 @@ public final class TargetPatternPhaseValue implements SkyValue {
       boolean expandTestSuites,
       @Nullable TestFilter testFilter,
       boolean keepGoing) {
+    return key(
+        targetPatterns,
+        offset,
+        compileOneDependency,
+        buildTestsOnly,
+        determineTests,
+        buildTargetFilter,
+        buildManualTests,
+        expandTestSuites,
+        testFilter,
+        keepGoing,
+        /* targetsAreLabels= */ false);
+  }
+
+  static TargetPatternPhaseKey key(
+      ImmutableList<String> targetPatterns,
+      PathFragment offset,
+      boolean compileOneDependency,
+      boolean buildTestsOnly,
+      boolean determineTests,
+      ImmutableList<String> buildTargetFilter,
+      boolean buildManualTests,
+      boolean expandTestSuites,
+      @Nullable TestFilter testFilter,
+      boolean keepGoing,
+      boolean targetsAreLabels) {
     return new TargetPatternPhaseKey(
         targetPatterns,
         offset,
@@ -160,7 +186,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
         buildManualTests,
         expandTestSuites,
         testFilter,
-        keepGoing);
+        keepGoing,
+        targetsAreLabels);
   }
 
   /**
@@ -183,7 +210,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
         false,
         false,
         null,
-        keepGoing);
+        keepGoing,
+        /* targetsAreLabels= */ false);
   }
 
   /** The configuration needed to run the target pattern evaluation phase. */
@@ -200,6 +228,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean expandTestSuites;
     @Nullable private final TestFilter testFilter;
     private final boolean keepGoing;
+    private final boolean targetsAreLabels;
 
     private TargetPatternPhaseKey(
         ImmutableList<String> targetPatterns,
@@ -211,7 +240,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
         boolean buildManualTests,
         boolean expandTestSuites,
         @Nullable TestFilter testFilter,
-        boolean keepGoing) {
+        boolean keepGoing,
+        boolean targetsAreLabels) {
       this.targetPatterns = Preconditions.checkNotNull(targetPatterns);
       this.offset = Preconditions.checkNotNull(offset);
       this.compileOneDependency = compileOneDependency;
@@ -222,6 +252,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       this.expandTestSuites = expandTestSuites;
       this.testFilter = testFilter;
       this.keepGoing = keepGoing;
+      this.targetsAreLabels = targetsAreLabels;
       if (buildTestsOnly || determineTests) {
         Preconditions.checkNotNull(testFilter);
       }
@@ -272,6 +303,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
       return keepGoing;
     }
 
+    boolean targetsAreLabels() {
+      return targetsAreLabels;
+    }
+
     @Override
     public String toString() {
       StringBuilder result = new StringBuilder();
@@ -285,6 +320,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       result.append(expandTestSuites ? " EXPAND_TEST_SUITES" : "");
       result.append(testFilter != null ? " " + testFilter : "");
       result.append(keepGoing ? " KEEP_GOING" : "");
+      result.append(targetsAreLabels ? " EXACT_LABELS" : "");
       return result.toString();
     }
 
@@ -299,7 +335,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
           buildManualTests,
           expandTestSuites,
           testFilter,
-          keepGoing);
+          keepGoing,
+          targetsAreLabels);
     }
 
     @Override
@@ -319,7 +356,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
           && other.buildManualTests == buildManualTests
           && other.expandTestSuites == expandTestSuites
           && Objects.equals(other.testFilter, testFilter)
-          && other.keepGoing == keepGoing;
+          && other.keepGoing == keepGoing
+          && other.targetsAreLabels == targetsAreLabels;
     }
   }
 }

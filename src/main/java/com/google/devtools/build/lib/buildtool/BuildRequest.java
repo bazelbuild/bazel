@@ -79,6 +79,7 @@ public class BuildRequest implements OptionsProvider {
     private String commandName;
     private OutErr outErr;
     private List<String> targets;
+    private boolean targetsAreLabels;
     private long startTimeMillis; // milliseconds since UNIX epoch.
     private boolean needsInstrumentationFilter;
     private boolean runTests;
@@ -120,6 +121,12 @@ public class BuildRequest implements OptionsProvider {
     @CanIgnoreReturnValue
     public Builder setTargets(List<String> targets) {
       this.targets = targets;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setTargetsAreLabels(boolean targetsAreLabels) {
+      this.targetsAreLabels = targetsAreLabels;
       return this;
     }
 
@@ -168,6 +175,7 @@ public class BuildRequest implements OptionsProvider {
           options,
           startupOptions,
           targets,
+          targetsAreLabels,
           outErr,
           id,
           startTimeMillis,
@@ -193,6 +201,7 @@ public class BuildRequest implements OptionsProvider {
 
   private final OutErr outErr;
   private final List<String> targets;
+  private final boolean targetsAreLabels;
 
   private final long startTimeMillis; // milliseconds since UNIX epoch.
 
@@ -208,6 +217,7 @@ public class BuildRequest implements OptionsProvider {
       final OptionsParsingResult options,
       final OptionsParsingResult startupOptions,
       List<String> targets,
+      boolean targetsAreLabels,
       OutErr outErr,
       UUID id,
       long startTimeMillis,
@@ -219,6 +229,7 @@ public class BuildRequest implements OptionsProvider {
     this.optionsDescription = OptionsUtils.asShellEscapedString(options);
     this.outErr = outErr;
     this.targets = targets;
+    this.targetsAreLabels = targetsAreLabels;
     this.id = id;
     this.startTimeMillis = startTimeMillis;
     this.userOptions =
@@ -326,6 +337,11 @@ public class BuildRequest implements OptionsProvider {
   /** Returns the (immutable) list of targets to build in commandline form. */
   public List<String> getTargets() {
     return targets;
+  }
+
+  /** Whether to load targets as literal canonical labels. */
+  public boolean targetsAreLabels() {
+    return targetsAreLabels;
   }
 
   /**

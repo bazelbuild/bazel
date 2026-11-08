@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.LabelVisitationUtils;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
@@ -103,6 +102,34 @@ public final class DirectTargetHashFunction implements SkyFunction {
 
   public static Key key(Label label) {
     return Key.create(label);
+  }
+
+  /** Cquery supplies configured edges separately, so it only needs the digest. */
+  public static SkyKey configuredKey(Label label) {
+    return ConfiguredKey.interner.intern(new ConfiguredKey(label));
+  }
+
+  private static final class ConfiguredKey extends AbstractSkyKey<Label> {
+    private static final SkyKeyInterner<ConfiguredKey> interner = SkyKey.newInterner();
+
+    private ConfiguredKey(Label label) {
+      super(label);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return NAME;
+    }
+
+    @Override
+    public String getCanonicalName() {
+      return NAME + ":configured:" + argument().toString().replace('\n', '_');
+    }
+
+    @Override
+    public SkyKeyInterner<ConfiguredKey> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   /** Key for {@link DirectTargetHashFunction}. */
@@ -184,7 +211,6 @@ public final class DirectTargetHashFunction implements SkyFunction {
       throws DirectTargetHashFunctionException, InterruptedException {
     Label label = (Label) skyKey.argument();
     Target target;
-    Package pkg;
     try {
       Object loaded = TargetLoadingUtil.loadTarget(env, label);
       if (!(loaded instanceof TargetAndErrorIfAny targetAndErrorIfAny)) {
@@ -194,17 +220,11 @@ public final class DirectTargetHashFunction implements SkyFunction {
         throw targetAndErrorIfAny.getErrorLoadingTarget();
       }
       target = targetAndErrorIfAny.getTarget();
-      pkg = targetAndErrorIfAny.getPackage();
     } catch (NoSuchThingException e) {
       throw new DirectTargetHashFunctionException(e);
     }
 
-    // Sorted so the hash does not depend on attribute or visitation order.
-    TreeSet<Label> deps = new TreeSet<>();
-    LabelVisitationUtils.visitTarget(
-        target,
-        DependencyFilter.NO_NODEP_ATTRIBUTES,
-        (fromTarget, attribute, toLabel) -> deps.add(toLabel));
+    var deps = skyKey instanceof Key ? collectQueryDependencies(target) : null;
     // The implementations of a toolchain() and the digests of the definitions of the repos they
     // come from.
     TreeMap<Label, byte[]> toolchainImplementationDigests = new TreeMap<>();
@@ -214,10 +234,12 @@ public final class DirectTargetHashFunction implements SkyFunction {
       AggregatingAttributeMapper attributes = AggregatingAttributeMapper.of(rule);
       ImmutableSet<Label> implementations =
           attributes.getReachableLabels("toolchain", /* includeSelectKeys= */ false);
-      for (Label selectKey :
-          attributes.getReachableLabels("toolchain", /* includeSelectKeys= */ true)) {
-        if (!implementations.contains(selectKey)) {
-          deps.add(selectKey);
+      if (deps != null) {
+        for (Label selectKey :
+            attributes.getReachableLabels("toolchain", /* includeSelectKeys= */ true)) {
+          if (!implementations.contains(selectKey)) {
+            deps.add(selectKey);
+          }
         }
       }
       for (Label implementation : implementations) {
@@ -236,77 +258,20 @@ public final class DirectTargetHashFunction implements SkyFunction {
         }
         if (digest != null) {
           toolchainImplementationDigests.put(implementation, digest);
-        } else {
+        } else if (deps != null) {
           deps.add(implementation);
         }
       }
     }
-    if (target instanceof Rule rule) {
-      // LabelVisitationUtils only visits the toolchain types of the default exec group.
-      for (DeclaredExecGroup execGroup :
-          rule.getRuleClassObject().getDeclaredExecGroups().values()) {
-        for (ToolchainTypeRequirement toolchainType : execGroup.toolchainTypes()) {
-          deps.add(toolchainType.toolchainType());
-        }
-      }
-    }
-    if (target instanceof Rule rule && rule.hasAspects()) {
-      // Conservatively include the deps of every aspect that may apply, like
-      // --aspect_deps=conservative.
-      for (Attribute attribute :
-          rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).keySet()) {
-        for (Aspect aspect : attribute.getAspects(rule)) {
-          AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              aspect,
-              DependencyFilter.ALL_DEPS,
-              (aspectAttribute, aspectLabel) -> deps.add(aspectLabel));
-          AspectDefinition definition = aspect.getDefinition();
-          for (ToolchainTypeRequirement toolchainType : definition.getToolchainTypes()) {
-            deps.add(toolchainType.toolchainType());
-          }
-          for (DeclaredExecGroup execGroup : definition.execGroups().values()) {
-            for (ToolchainTypeRequirement toolchainType : execGroup.toolchainTypes()) {
-              deps.add(toolchainType.toolchainType());
-            }
-          }
-        }
-      }
-    }
-    deps.remove(label);
-
-    // Source files of external repos that only change when refetched are hashed by the digest of
-    // the whole repo, rather than tracking each file in Skyframe.
-    RepoContentDigestFunction.Value repoDigest = null;
-    if (!label.getRepository().isMain()
-        && (target instanceof InputFile || target instanceof Rule)) {
-      try {
-        repoDigest =
-            (RepoContentDigestFunction.Value)
-                env.getValueOrThrow(
-                    RepoContentDigestFunction.key(label.getRepository()), IOException.class);
-      } catch (IOException e) {
-        throw new DirectTargetHashFunctionException(e);
-      }
-      if (repoDigest == null) {
-        return null;
-      }
-      if (repoDigest.usesFileDigests()) {
-        repoDigest = null;
-      }
-    }
-    boolean coversPackageFiles = false;
-    if (repoDigest != null && target instanceof Rule) {
-      // The repo digest covers the rule's source files in this package, so they don't need to be
-      // visited. This keeps the walk from visiting every file of large toolchain repos.
-      coversPackageFiles =
-          deps.removeIf(
-              dep ->
-                  dep.getPackageIdentifier().equals(label.getPackageIdentifier())
-                      && pkg.getTargetOrNull(dep.getName()) instanceof InputFile);
+    if (deps != null) {
+      deps.remove(label);
     }
 
+    // Retain external source edges and hash only files that are reachable. The source digest
+    // function reads the FileValue digest (already held in memory for R2C2 files) and falls
+    // back to a cached content read on ordinary filesystems.
     SourceFileDigestFunction.Value fileDigest = null;
-    if (target instanceof InputFile inputFile && repoDigest == null) {
+    if (target instanceof InputFile inputFile) {
       try {
         fileDigest =
             (SourceFileDigestFunction.Value)
@@ -344,12 +309,27 @@ public final class DirectTargetHashFunction implements SkyFunction {
       fp.addString(implementation.getKey().getUnambiguousCanonicalForm());
       fp.addBytes(implementation.getValue());
     }
-    if (repoDigest != null && (target instanceof InputFile || coversPackageFiles)) {
-      fp.addString("<repo contents>");
-      fp.addBytes(repoDigest.getDigest());
-    }
     if (fileDigest != null) {
       fp.addBytes(fileDigest.getDigest());
+      if (fileDigest == SourceFileDigestFunction.Value.DIRECTORY && !label.getRepository().isMain()) {
+        // A directory label has no file digest. Preserve the fetched repository's conservative
+        // invalidation in this rare case rather than silently skipping its children.
+        RepoContentDigestFunction.Value repo;
+        try {
+          repo = (RepoContentDigestFunction.Value)
+              env.getValueOrThrow(
+                  RepoContentDigestFunction.key(label.getRepository()), IOException.class);
+        } catch (IOException e) {
+          throw new DirectTargetHashFunctionException(e);
+        }
+        if (repo == null) {
+          return null;
+        }
+        if (!repo.usesFileDigests()) {
+          fp.addString("<directory repo contents>");
+          fp.addBytes(repo.getDigest());
+        }
+      }
       if (fileDigest.isExecutable()) {
         // Only added when set, so that hashes of non-executable files are unaffected.
         fp.addString("<executable>");
@@ -357,8 +337,49 @@ public final class DirectTargetHashFunction implements SkyFunction {
     }
     return new Value(
         fp.digestAndReset(),
-        ImmutableList.copyOf(deps),
+        deps == null ? ImmutableList.of() : ImmutableList.copyOf(deps),
         target instanceof Rule rule && rule.getRuleClass().equals("toolchain_type"));
+  }
+
+  private static TreeSet<Label> collectQueryDependencies(Target target) {
+    // Sort to keep traversal and hashing independent of visitation order.
+    TreeSet<Label> deps = new TreeSet<>();
+    LabelVisitationUtils.visitTarget(
+        target,
+        DependencyFilter.NO_NODEP_ATTRIBUTES,
+        (fromTarget, attribute, toLabel) -> deps.add(toLabel));
+    if (target instanceof Rule rule) {
+      // LabelVisitationUtils only visits the toolchain types of the default exec group.
+      for (DeclaredExecGroup execGroup :
+          rule.getRuleClassObject().getDeclaredExecGroups().values()) {
+        for (ToolchainTypeRequirement toolchainType : execGroup.toolchainTypes()) {
+          deps.add(toolchainType.toolchainType());
+        }
+      }
+    }
+    if (target instanceof Rule rule && rule.hasAspects()) {
+      // Conservatively include the deps of every aspect that may apply, like
+      // --aspect_deps=conservative.
+      for (Attribute attribute :
+          rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).keySet()) {
+        for (Aspect aspect : attribute.getAspects(rule)) {
+          AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+              aspect,
+              DependencyFilter.ALL_DEPS,
+              (aspectAttribute, aspectLabel) -> deps.add(aspectLabel));
+          AspectDefinition definition = aspect.getDefinition();
+          for (ToolchainTypeRequirement toolchainType : definition.getToolchainTypes()) {
+            deps.add(toolchainType.toolchainType());
+          }
+          for (DeclaredExecGroup execGroup : definition.execGroups().values()) {
+            for (ToolchainTypeRequirement toolchainType : execGroup.toolchainTypes()) {
+              deps.add(toolchainType.toolchainType());
+            }
+          }
+        }
+      }
+    }
+    return deps;
   }
 
   /**
@@ -552,7 +573,8 @@ public final class DirectTargetHashFunction implements SkyFunction {
         env.getValuesAndExceptions(fileKeys.stream().filter(k -> k != null).toList());
 
     Fingerprint fp = new Fingerprint();
-    String externalPrefix = directories.getOutputBase().getRelative("external").getPathString() + "/";
+    String externalPrefix =
+        directories.getOutputBase().getRelative("external").getPathString() + "/";
     for (var entry : hashedDefinitions.entrySet()) {
       RepoRule repoRule = entry.getValue().repoRule();
       fp.addString(entry.getKey());

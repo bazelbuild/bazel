@@ -3296,6 +3296,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean keepGoing,
       boolean determineTests)
       throws TargetParsingException, InterruptedException {
+    return loadTargetPatternsWithFilters(
+        eventHandler,
+        targetPatterns,
+        relativeWorkingDirectory,
+        options,
+        threadCount,
+        keepGoing,
+        determineTests,
+        /* targetsAreLabels= */ false);
+  }
+
+  public TargetPatternPhaseValue loadTargetPatternsWithFilters(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      PathFragment relativeWorkingDirectory,
+      LoadingOptions options,
+      int threadCount,
+      boolean keepGoing,
+      boolean determineTests,
+      boolean targetsAreLabels)
+      throws TargetParsingException, InterruptedException {
     SkyKey key =
         TargetPatternPhaseValue.key(
             ImmutableList.copyOf(targetPatterns),
@@ -3307,7 +3328,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             options.getBuildManualTests(),
             options.getExpandTestSuites(),
             TestFilter.forOptions(options),
-            keepGoing);
+            keepGoing,
+            targetsAreLabels);
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 
