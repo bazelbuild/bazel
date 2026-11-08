@@ -2002,4 +2002,38 @@ function test_generate_hashes_rejects_dependency_filters() {
   expect_log "can't be combined with --noimplicit_deps or --notool_deps"
 }
 
+function test_parallel_rule_catalog_preserves_rows_and_order() {
+  local workspace
+  workspace=$(mktemp -d "$TEST_TMPDIR/catalog.XXXXXXXX")
+  workspaces+=("$workspace")
+  cd "$workspace"
+  setup_module_dot_bazel >/dev/null
+
+  local -r pkg=$FUNCNAME
+  local i workers
+  mkdir -p "$pkg"
+  echo 'fixture source' > "$pkg/source.txt"
+  {
+    # Force a spill even though each individual row fits in memory.
+    echo 'long_tag = "x" * 10000'
+    for (( i = 0; i < 257; i++ )); do
+      printf 'filegroup(name = "rule_%03d", srcs = ["source.txt"], tags = [long_tag])\n' "$i"
+    done
+  } > "$pkg/BUILD.bazel"
+
+  local -ar common=(
+    --experimental_generate_hashes --experimental_cquery_hash_top_level
+    --experimental_explicit_aspects --build_manual_tests
+    --noproto:rule_inputs_and_outputs --proto:output_rule_attrs=tags
+  )
+  for workers in 1 4; do
+    bazel cquery "${common[@]}" --experimental_cquery_hash_workers="$workers" \
+      --experimental_cquery_rule_catalog="$PWD/catalog-$workers.jsonl" '//...' \
+      > "hashes-$workers" 2> "$TEST_log" || fail "catalog with $workers workers"
+    assert_equals 257 "$(wc -l < "catalog-$workers.jsonl")"
+  done
+  diff catalog-1.jsonl catalog-4.jsonl || fail "parallel catalog changed rows"
+  diff hashes-1 hashes-4 || fail "parallel hashing changed rows"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

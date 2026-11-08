@@ -297,8 +297,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>(options.getTargetPatterns().size());
     for (String pattern : options.getTargetPatterns()) {
       try {
-        patternSkyKeys.add(
-            TargetPatternValue.key(SignedTargetPattern.parse(pattern, parser), policy));
+        SignedTargetPattern parsed =
+            options.targetsAreLabels()
+                ? SignedTargetPattern.create(
+                    TargetPattern.parseExactLabel(pattern), SignedTargetPattern.Sign.POSITIVE)
+                : SignedTargetPattern.parse(pattern, parser);
+        patternSkyKeys.add(TargetPatternValue.key(parsed, policy));
       } catch (TargetParsingException e) {
         failedPatterns.add(pattern);
         // We post a PatternExpandingError here - the pattern could not be parsed, so we don't even

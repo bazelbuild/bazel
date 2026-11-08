@@ -69,6 +69,47 @@ public abstract class CqueryOptions extends CommonQueryOptions {
   public abstract boolean getGenerateHashes();
 
   @Option(
+      name = "experimental_cquery_hash_top_level",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "With --experimental_generate_hashes, limit output to the analyzed top-level"
+              + " configured keys in the query result. Print tab-separated canonical label,"
+              + " full configuration checksum (or 'none'), hash (empty if unavailable),"
+              + " and actual label (empty for non-aliases).")
+  public abstract boolean getTopLevelHashOutput();
+
+  public final boolean useTopLevelHashOutput() {
+    return getGenerateHashes() && getTopLevelHashOutput();
+  }
+
+  @Option(
+      name = "experimental_cquery_hash_stream_receipt",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Frame whole-workspace top-level hash output with the invocation ID, an options"
+              + " fingerprint, and a completion record.")
+  public abstract boolean getHashStreamReceipt();
+
+  @Option(
+      name = "experimental_cquery_rule_catalog",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Write unconfigured rules matching the literal //... query to this file using"
+              + " streamed_jsonproto and the --proto options. Requires top-level hash output."
+              + " The catalog includes rules that fail analysis and is written only if loading"
+              + " succeeds.")
+  public abstract String getRuleCatalogOutput();
+
+  @Option(
       name = "experimental_cquery_hash_workers",
       converter = NonNegativeIntegerConverter.class,
       defaultValue = "1",

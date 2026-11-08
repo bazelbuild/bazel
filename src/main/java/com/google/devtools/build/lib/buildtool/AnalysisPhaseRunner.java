@@ -304,11 +304,13 @@ public final class AnalysisPhaseRunner {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
     ImmutableSet<Label> explicitTargetPatterns =
-        getExplicitTargetPatterns(
-            env,
-            request.getTargets(),
-            request.getKeepGoing(),
-            request.getLoadingPhaseThreadCount());
+        request.targetsAreLabels()
+            ? loadingResult.getTargetLabels()
+            : getExplicitTargetPatterns(
+                env,
+                request.getTargets(),
+                request.getKeepGoing(),
+                request.getLoadingPhaseThreadCount());
 
     BuildView view =
         new BuildView(

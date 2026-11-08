@@ -181,6 +181,7 @@ public class HashesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
             ct -> env.getFwdDeps(ImmutableList.of(ct)),
+            /* topLevelConfigurations= */ null,
             LabelPrinter.legacy(),
             /* keepGoing= */ false);
     env.evaluateQuery(expression, callback);

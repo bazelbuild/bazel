@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -63,8 +64,11 @@ import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCall
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -192,6 +196,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
               skyframeExecutor,
               accessor,
               target -> getCompleteFwdDeps(target, cqueryOptions.useParallelHashing()),
+              cqueryOptions.useTopLevelHashOutput() ? topLevelConfigurations : null,
               getLabelPrinter(),
               keepGoing));
     }
@@ -268,7 +273,9 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       throws QueryException, InterruptedException, IOException {
     // Most small cqueries are cheaper as individual lookups. Limit this index to hash queries
     // whose universe and configuration count would make the Cartesian product substantial.
-    if (indexSource != null && transitiveConfigurations.size() >= 16
+    if (topLevelConfigurations.getAnalyzedRoots() == null
+        && indexSource != null
+        && transitiveConfigurations.size() >= 16
         && (long) topLevelConfigurations.size() * transitiveConfigurations.size() >= 65536) {
       configuredKeysByLabel = indexMainConfiguredKeys(indexSource);
     }
@@ -279,6 +286,18 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       configuredKeysByLabel = null;
       indexSource = null;
     }
+  }
+
+  @Override
+  protected void evalTopLevelInternal(
+      QueryExpression expr, OutputFormatterCallback<CqueryNode> callback)
+      throws QueryException, InterruptedException {
+    var analyzedRoots = topLevelConfigurations.getAnalyzedRoots();
+    if (analyzedRoots != null) {
+      callback.process(Iterables.transform(analyzedRoots, target -> target));
+      return;
+    }
+    super.evalTopLevelInternal(expr, callback);
   }
 
   private Map<Label, List<ConfiguredTargetKey>> indexMainConfiguredKeys(SkyframeExecutor source) {
