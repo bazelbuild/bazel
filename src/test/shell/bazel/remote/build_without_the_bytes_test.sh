@@ -663,11 +663,7 @@ EOF
   assert_exists bazel-bin/a/test
 }
 
-function test_download_regex_changed_with_action_cache_hit_for_test() {
-  # Regression test for #25762
-  # Test that changes to --remote_download_regex are effective when matching
-  # test.xml even when the test is cached.
-
+function write_test_xml_fixture() {
   add_rules_shell "MODULE.bazel"
   mkdir -p a
 
@@ -685,6 +681,7 @@ cat > "$XML_OUTPUT_FILE" <<EOF2
 </testsuites>
 EOF2
 echo "hi" > "$TEST_UNDECLARED_OUTPUTS_DIR/out.txt"
+cp "$XML_OUTPUT_FILE" "$TEST_UNDECLARED_OUTPUTS_DIR/test.xml"
 EOF
 
   chmod +x a/test.sh
@@ -696,6 +693,13 @@ sh_test(
   srcs = [ 'test.sh' ],
 )
 EOF
+}
+
+function test_download_regex_changed_with_action_cache_hit_for_test() {
+  # Regression test for #25762
+  # Test that changes to --remote_download_regex are effective when matching
+  # test.xml even when the test is cached.
+  write_test_xml_fixture
 
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -718,6 +722,31 @@ EOF
     //a:test >& $TEST_log || fail "Expected success"
 
   assert_exists bazel-testlogs/a/test/test.xml
+}
+
+function test_detailed_summary_downloads_cached_test_xml_in_minimal_mode() {
+  write_test_xml_fixture
+  local cache_dir
+  cache_dir="$(mktemp -d)"
+  local -a flags=(
+    --disk_cache="$cache_dir"
+    --remote_download_minimal
+    --nozip_undeclared_test_outputs
+  )
+
+  bazel test "${flags[@]}" //a:test >& "$TEST_log" || fail "Expected success"
+  bazel clean >& "$TEST_log" || fail "Expected successful clean"
+  bazel test "${flags[@]}" //a:test >& "$TEST_log" || fail "Expected a cached result"
+  expect_log "disk cache hit"
+  assert_not_exists bazel-testlogs/a/test/test.xml
+
+  bazel test "${flags[@]}" --test_summary=detailed //a:test >& "$TEST_log" \
+    || fail "Expected a detailed summary for the cached test"
+  expect_log "disk cache hit"
+  expect_log "PASSED .*test_case"
+  assert_contains "test_case succeeded" bazel-testlogs/a/test/test.xml
+  assert_not_exists bazel-testlogs/a/test/test.outputs/test.xml
+  assert_not_exists bazel-testlogs/a/test/test.outputs/out.txt
 }
 
 function do_test_non_test_toplevel_targets() {

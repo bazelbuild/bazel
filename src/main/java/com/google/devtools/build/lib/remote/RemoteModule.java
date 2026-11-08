@@ -556,12 +556,20 @@ public final class RemoteModule extends BlazeModule {
             : ImmutableList.of();
 
     boolean executes = env.getCommand().buildPhase().executes();
+    boolean downloadTestXml =
+        remoteOptions.getRemoteOutputsMode() == RemoteOutputsMode.MINIMAL
+            && executionOptions != null
+            && switch (executionOptions.getTestSummary()) {
+              case DETAILED, TESTCASE -> true;
+              default -> false;
+            };
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
             remoteOptions.getRemoteOutputsMode(),
             downloadRegexes,
-            executes ? lastRemoteOutputChecker : null);
+            executes ? lastRemoteOutputChecker : null,
+            downloadTestXml);
     if (executes) {
       remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
     }

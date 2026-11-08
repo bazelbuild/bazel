@@ -55,6 +55,8 @@ import javax.annotation.Nullable;
  * mode and the TTL of remote metadata.
  */
 public class RemoteOutputChecker implements OutputChecker {
+  private static final PathFragment TEST_XML = PathFragment.create("test.xml");
+
   private enum CommandMode {
     UNKNOWN,
     BUILD,
@@ -65,6 +67,7 @@ public class RemoteOutputChecker implements OutputChecker {
 
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
+  private final boolean downloadTestXml;
   @Nullable private RemoteOutputChecker lastRemoteOutputChecker;
 
   @Nullable private Clock clock;
@@ -86,6 +89,20 @@ public class RemoteOutputChecker implements OutputChecker {
       RemoteOutputsMode outputsMode,
       ImmutableList<RegexPatternOption> downloadRegexes,
       RemoteOutputChecker lastRemoteOutputChecker) {
+    this(
+        commandName,
+        outputsMode,
+        downloadRegexes,
+        lastRemoteOutputChecker,
+        /* downloadTestXml= */ false);
+  }
+
+  RemoteOutputChecker(
+      String commandName,
+      RemoteOutputsMode outputsMode,
+      ImmutableList<RegexPatternOption> downloadRegexes,
+      @Nullable RemoteOutputChecker lastRemoteOutputChecker,
+      boolean downloadTestXml) {
     this.commandMode =
         switch (commandName) {
           case "build" -> CommandMode.BUILD;
@@ -95,6 +112,7 @@ public class RemoteOutputChecker implements OutputChecker {
           default -> CommandMode.UNKNOWN;
         };
     this.outputsMode = outputsMode;
+    this.downloadTestXml = downloadTestXml;
     this.downloadRegexes = downloadRegexes;
     this.patternsToDownload =
         downloadRegexes.stream().map(RegexPatternOption::matcher).collect(toImmutableList());
@@ -242,10 +260,18 @@ public class RemoteOutputChecker implements OutputChecker {
 
   private void addTargetUnderTest(ProviderCollection target) {
     TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
-    if (outputsMode != RemoteOutputsMode.MINIMAL
-        && (commandMode == CommandMode.TEST || commandMode == CommandMode.COVERAGE)) {
-      // In test or coverage mode, download the outputs of the test runner action.
-      addOutputsToDownload(testProvider.getTestParams().getOutputs());
+    if (commandMode == CommandMode.TEST || commandMode == CommandMode.COVERAGE) {
+      var outputs = testProvider.getTestParams().getOutputs();
+      if (outputsMode != RemoteOutputsMode.MINIMAL) {
+        // In test or coverage mode, download the outputs of the test runner action.
+        addOutputsToDownload(outputs);
+      } else if (downloadTestXml) {
+        for (var output : outputs) {
+          if (output.getExecPath().endsWith(TEST_XML)) {
+            addOutputToDownload(output);
+          }
+        }
+      }
     }
     if (commandMode == CommandMode.COVERAGE) {
       // In coverage mode, download the per-test and aggregated coverage files.
@@ -431,12 +457,13 @@ public class RemoteOutputChecker implements OutputChecker {
 
     // Run mode is part of TopLevelArtifactContext, and thus of target and aspect completion keys,
     // so transitions to and from it do not require manual invalidation. The outputs to download
-    // under the current mode and regexes are determined when a target completes, so a completed
-    // target is invalidated if either changed.
+    // are determined when a target completes, so invalidate completed targets when that policy
+    // changes.
     boolean runTransition =
         lastRemoteOutputChecker.commandMode == CommandMode.RUN || commandMode == CommandMode.RUN;
     if (lastRemoteOutputChecker.outputsMode != outputsMode
         || !lastRemoteOutputChecker.downloadRegexes.equals(downloadRegexes)
+        || lastRemoteOutputChecker.downloadTestXml != downloadTestXml
         || (lastRemoteOutputChecker.commandMode != commandMode && !runTransition)) {
       memoizingEvaluator.delete(
           k -> {
