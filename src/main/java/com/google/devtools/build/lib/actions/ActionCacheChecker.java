@@ -92,7 +92,7 @@ public class ActionCacheChecker {
     abstract Label bustActionCachesTarget();
 
     public static Builder builder() {
-      return new AutoValue_ActionCacheChecker_CacheConfig.Builder().setCheckOutputFiles(true);
+      return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
     }
 
     /** Builder for ActionCacheChecker.CacheConfig. */
@@ -124,7 +124,11 @@ public class ActionCacheChecker {
     this.cacheConfig =
         cacheConfig != null
             ? cacheConfig
-            : CacheConfig.builder().setEnabled(true).setStoreOutputMetadata(false).build();
+            : CacheConfig.builder()
+                .setEnabled(true)
+                .setStoreOutputMetadata(false)
+                .setCheckOutputFiles(true)
+                .build();
     if (this.cacheConfig.enabled()) {
       this.actionCache = Preconditions.checkNotNull(actionCache);
     } else {
