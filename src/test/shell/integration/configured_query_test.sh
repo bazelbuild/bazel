@@ -2220,7 +2220,7 @@ function test_parallel_rule_catalog_preserves_rows_and_order() {
   )
   for workers in 1 4; do
     bazel cquery "${common[@]}" --experimental_cquery_hash_workers="$workers" \
-      --experimental_cquery_rule_catalog="$PWD/catalog-$workers.jsonl" '//...' \
+      --experimental_cquery_rule_catalog="catalog-$workers.jsonl" '//...' \
       > "hashes-$workers" 2> "$TEST_log" || fail "catalog with $workers workers"
     assert_equals 257 "$(awk 'END { print NR }' "catalog-$workers.jsonl")"
   done
