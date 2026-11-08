@@ -124,7 +124,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     // Forward-only hashing starts from this analysis's roots. Keep unrelated dirty
     // values available for change pruning. General queries still clean up old nodes
     // because reverse traversals can see state left behind by earlier commands.
-    if (!hashing || !useAnalyzedRoots) {
+    if (!useAnalyzedRoots) {
       env.getSkyframeExecutor()
           .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
     }
