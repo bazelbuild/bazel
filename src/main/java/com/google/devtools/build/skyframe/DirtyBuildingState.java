@@ -19,6 +19,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
+import java.lang.ref.WeakReference;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -119,6 +120,8 @@ public abstract class DirtyBuildingState {
    * re-evaluated. Used by {@link DirtyBuildingState#getNextDirtyDirectDeps} and {@link #signalDep}.
    */
   protected int dirtyDirectDepIndex = 0;
+
+  @Nullable private WeakReference<ImmutableSet<SkyKey>> remainingDirtyDirectDeps;
 
   protected DirtyBuildingState(DirtyType dirtyType) {
     state = initialState(dirtyType);
@@ -266,8 +269,27 @@ public abstract class DirtyBuildingState {
     }
     if (!preservePosition) {
       dirtyDirectDepIndex = getNumOfGroupsInLastBuildDirectDeps();
+      remainingDirtyDirectDeps = null;
     }
     return result.build();
+  }
+
+  /**
+   * Partial reevaluation can repeatedly request the same suffix while rebuilding.
+   * Reuse it between attempts when the garbage collector has kept it.
+   */
+  final ImmutableSet<SkyKey> getRemainingDirtyDirectDepsForPartialReevaluation()
+      throws InterruptedException {
+    ImmutableSet<SkyKey> remaining =
+        remainingDirtyDirectDeps == null ? null : remainingDirtyDirectDeps.get();
+    if (remaining != null) {
+      return remaining;
+    }
+    remaining = getAllRemainingDirtyDirectDeps(/* preservePosition= */ true);
+    if (!remaining.isEmpty()) {
+      remainingDirtyDirectDeps = new WeakReference<>(remaining);
+    }
+    return remaining;
   }
 
   ImmutableSet<SkyKey> getResetDirectDeps() {
