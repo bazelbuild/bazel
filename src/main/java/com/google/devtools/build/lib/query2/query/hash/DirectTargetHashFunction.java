@@ -48,11 +48,14 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.query.output.SyntheticAttributeHashCalculator;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
+import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -311,24 +314,9 @@ public final class DirectTargetHashFunction implements SkyFunction {
     }
     if (fileDigest != null) {
       fp.addBytes(fileDigest.getDigest());
-      if (fileDigest == SourceFileDigestFunction.Value.DIRECTORY && !label.getRepository().isMain()) {
-        // A directory label has no file digest. Preserve the fetched repository's conservative
-        // invalidation in this rare case rather than silently skipping its children.
-        RepoContentDigestFunction.Value repo;
-        try {
-          repo = (RepoContentDigestFunction.Value)
-              env.getValueOrThrow(
-                  RepoContentDigestFunction.key(label.getRepository()), IOException.class);
-        } catch (IOException e) {
-          throw new DirectTargetHashFunctionException(e);
-        }
-        if (repo == null) {
-          return null;
-        }
-        if (!repo.usesFileDigests()) {
-          fp.addString("<directory repo contents>");
-          fp.addBytes(repo.getDigest());
-        }
+      if (fileDigest == SourceFileDigestFunction.Value.DIRECTORY
+          && !appendDirectoryDigest((InputFile) target, fp, env)) {
+        return null;
       }
       if (fileDigest.isExecutable()) {
         // Only added when set, so that hashes of non-executable files are unaffected.
@@ -339,6 +327,50 @@ public final class DirectTargetHashFunction implements SkyFunction {
         fp.digestAndReset(),
         deps == null ? ImmutableList.of() : ImmutableList.copyOf(deps),
         target instanceof Rule rule && rule.getRuleClass().equals("toolchain_type"));
+  }
+
+  /** Returns false while Skyframe evaluates the source directory's dependencies. */
+  private static boolean appendDirectoryDigest(InputFile input, Fingerprint fp, Environment env)
+      throws DirectTargetHashFunctionException, InterruptedException {
+    Label label = input.getLabel();
+    if (!label.getRepository().isMain()) {
+      RepoContentDigestFunction.Value repo;
+      try {
+        repo =
+            (RepoContentDigestFunction.Value)
+                env.getValueOrThrow(
+                    RepoContentDigestFunction.key(label.getRepository()), IOException.class);
+      } catch (IOException e) {
+        throw new DirectTargetHashFunctionException(e);
+      }
+      if (repo == null) {
+        return false;
+      }
+      // Fetched repositories already have a digest that covers their directory trees.
+      if (!repo.usesFileDigests()) {
+        fp.addString("<directory repo contents>");
+        fp.addBytes(repo.getDigest());
+        return true;
+      }
+    }
+    if (TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+      byte[] digest;
+      try {
+        digest =
+            ArtifactFunction.digestSourceDirectory(
+                RootedPath.toRootedPath(input.getPackageMetadata().sourceRoot(), input.getPath()),
+                "Source directory " + label,
+                env);
+      } catch (RecursiveFilesystemTraversalException e) {
+        throw new DirectTargetHashFunctionException(new IOException(e.getMessage(), e));
+      }
+      if (digest == null) {
+        return false;
+      }
+      fp.addString("<source directory contents>");
+      fp.addBytes(digest);
+    }
+    return true;
   }
 
   private static TreeSet<Label> collectQueryDependencies(Target target) {

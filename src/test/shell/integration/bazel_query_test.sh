@@ -1661,6 +1661,39 @@ function test_generate_hashes() {
     || fail "Expected the hash of //hashes:b to change"
 }
 
+function test_generate_hashes_source_directory_children() {
+  mkdir -p directory_hashes/tree
+  cat > directory_hashes/BUILD.bazel <<'EOF'
+filegroup(name = "directory", srcs = ["tree"])
+filegroup(name = "files", srcs = glob(["tree/*.txt"]))
+EOF
+  local command
+  local stage
+  local target
+  local expression='//directory_hashes:directory + //directory_hashes:files'
+  for command in query cquery; do
+    rm -f directory_hashes/tree/b.txt
+    echo original > directory_hashes/tree/a.txt
+    for stage in before same edited added; do
+      case "$stage" in
+        edited) echo edited > directory_hashes/tree/a.txt ;;
+        added) echo added > directory_hashes/tree/b.txt ;;
+      esac
+      bazel "$command" --experimental_generate_hashes "$expression" > "$stage" \
+        2> "$TEST_log" || fail "Expected $command to hash the source directory"
+      assert_equals 2 "$(wc -l < "$stage")"
+    done
+    diff <(sort before) <(sort same) || fail "Expected stable $command hashes"
+    for target in directory files; do
+      local pattern="^//directory_hashes:$target[[:space:]]"
+      [[ "$(grep "$pattern" before)" != "$(grep "$pattern" edited)" ]] \
+        || fail "Expected $command hash of $target to change after editing a child"
+      [[ "$(grep "$pattern" edited)" != "$(grep "$pattern" added)" ]] \
+        || fail "Expected $command hash of $target to change after adding a child"
+    done
+  done
+}
+
 function test_generate_hashes_line_terminator_null() {
   write_generate_hashes_workspace
 
