@@ -144,6 +144,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:build_java_proto",

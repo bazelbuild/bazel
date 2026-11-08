@@ -347,11 +347,13 @@ carries its `aspect_id`. Resolve that ID in the same output's `aspects` table.
 The table includes the identities of referenced applications outside the
 selected result. For `--output=streamed_proto`, read the table across all frames.
 
-The table records the reported aspect class and parameters, the base configured
-target key, and the ordered base applications. Resolve aspect and configuration
-IDs separately for each query output. With `--noproto:include_configurations`,
-the flat `QueryResult` represents each selected application as its underlying
-target. Use configuration-aware output to distinguish those applications.
+The table identifies an application within one query using its reported aspect
+class and parameters, base configured target key, and ordered base applications.
+These fields can stay the same when the aspect implementation changes. Resolve
+aspect and configuration IDs separately for each query output. With
+`--noproto:include_configurations`, the flat `QueryResult` represents each selected
+application as its underlying target. Use configuration-aware output to distinguish
+those applications.
 
 ### Graph output {#graph-output}
 

@@ -265,7 +265,7 @@ message ConfiguredTarget {
   uint32 configuration_id = 3;
 }
 
-// Identity of an aspect application referenced in an explicit cquery result.
+// Identifies an aspect application within one explicit cquery result.
 message ConfiguredAspect {
   // Local to this cquery result (including all frames of a streamed result).
   uint32 id = 1;

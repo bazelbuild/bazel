@@ -316,12 +316,13 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private AnalysisProtosV2.ConfiguredAspect aspectIdentity(AspectKey aspect, int id) {
     var base = aspect.getBaseConfiguredTargetKey();
     var descriptor =
-        AnalysisProtosV2.AspectDescriptor.newBuilder().setName(aspect.getAspectClass().getName());
+        AnalysisProtosV2.AspectDescriptor.newBuilder()
+            .setName(internalToUnicode(aspect.getAspectClass().getName()));
     for (var parameter : aspect.getParameters().getAttributes().entries()) {
       descriptor.addParameters(
           AnalysisProtosV2.KeyValuePair.newBuilder()
               .setKey(parameter.getKey())
-              .setValue(parameter.getValue()));
+              .setValue(internalToUnicode(parameter.getValue())));
     }
     var node =
         AnalysisProtosV2.ConfiguredAspect.newBuilder()

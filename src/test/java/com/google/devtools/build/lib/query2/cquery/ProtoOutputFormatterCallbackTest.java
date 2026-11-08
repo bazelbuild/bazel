@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -59,6 +60,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -514,17 +516,22 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .isNotEqualTo(aspectDepExecConfigProto.getConfigurationId());
   }
 
+  private void writeUtf8File(String path, String content) throws IOException {
+    // The scratch filesystem names paths and writes file contents as internal byte strings.
+    writeFile(unicodeToInternal(path), unicodeToInternal(content));
+  }
+
   private void writeExplicitAspectGraph() throws Exception {
     options.setTransitions(Transitions.LITE);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
-    writeFile(
-        "test/defs.bzl",
+    writeUtf8File(
+        "test/色.bzl",
         """
         Color = provider()
         paint = aspect(
             implementation = lambda target, ctx: [Color()],
             attrs = {
-                "color": attr.string(values = ["red", "blue"]),
+                "color": attr.string(values = ["red", "blå"]),
                 "_driver": attr.label(default = "//test:driver"),
                 "_exec_driver": attr.label(default = "//test:driver", cfg = "exec"),
             },
@@ -540,20 +547,20 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 implementation = lambda ctx: [],
                 attrs = {
                     "dep": attr.label(aspects = aspects),
-                    "color": attr.string(values = ["red", "blue"]),
+                    "color": attr.string(values = ["red", "blå"]),
                 },
             )
         painted = _owner([paint])
         tinted = _owner([tint])
         """);
-    writeFile(
+    writeUtf8File(
         "test/BUILD",
         """
-        load(":defs.bzl", "painted", "tinted")
+        load(":色.bzl", "painted", "tinted")
         filegroup(name = "base")
         filegroup(name = "driver")
         tinted(name = "red", color = "red", dep = ":base")
-        tinted(name = "blue", color = "blue", dep = ":base")
+        tinted(name = "blue", color = "blå", dep = ":base")
         painted(name = "red_paint", color = "red", dep = ":base")
         """);
   }
@@ -576,6 +583,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(result.getAspectResultsCount()).isEqualTo(4);
     for (String color : List.of("red", "blue")) {
       var owner = getRuleProtoByName(result.getResultsList(), "//test:" + color);
+      String parameterValue = color.equals("blue") ? "blå" : "red";
       var applications =
           owner.getTarget().getRule().getConfiguredRuleInputList().stream()
               .filter(ConfiguredRuleInput::hasAspectId)
@@ -589,12 +597,12 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
               .orElseThrow();
       var paint = getAspect(result, Iterables.getOnlyElement(tint.getBaseAspectIdsList()));
       assertThat(applications).contains(paint);
-      assertThat(paint.getAspectDescriptor().getName()).endsWith("%paint");
       assertThat(paint.getBaseTarget().getLabel()).isEqualTo("//test:base");
       assertThat(paint.getBaseTarget().getConfigurationId()).isEqualTo(owner.getConfigurationId());
-      assertThat(paint.getAspectDescriptor().getParametersList())
-          .containsExactly(
-              AnalysisProtosV2.KeyValuePair.newBuilder().setKey("color").setValue(color).build());
+      var parameter = Iterables.getOnlyElement(paint.getAspectDescriptor().getParametersList());
+      assertThat(parameter.getKey()).isEqualTo("color");
+      assertThat(parameter.getValue()).isEqualTo(parameterValue);
+      assertThat(paint.getAspectDescriptor().getName()).isEqualTo("//test:色.bzl%paint");
       var paintResult =
           result.getAspectResultsList().stream()
               .filter(a -> a.getAspectId() == paint.getId())
@@ -621,7 +629,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             .filter(ConfiguredRuleInput::hasAspectId)
             .map(input -> getAspect(owner, input.getAspectId()).getAspectDescriptor().getName())
             .toList();
-    assertThat(references).containsExactly("//test:defs.bzl%tint", "//test:defs.bzl%paint");
+    assertThat(references).containsExactly("//test:色.bzl%tint", "//test:色.bzl%paint");
 
     var partial =
         getProtoOutput(
@@ -643,7 +651,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void flatExplicitAspectsKeepUnderlyingTargetProjection() throws Exception {
     writeExplicitAspectGraph();
     options.setProtoIncludeConfigurations(false);
-    String expression = "filter('^//test:', deps(//test:red))";
+    String expression = "filter('^//test:', deps(//test:blue))";
     var parser = Build.QueryResult.parser();
     for (var outputType : List.of(OutputType.BINARY, OutputType.DELIMITED_BINARY)) {
       var frames =
