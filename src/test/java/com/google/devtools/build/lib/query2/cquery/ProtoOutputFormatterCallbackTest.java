@@ -640,6 +640,37 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   }
 
   @Test
+  public void flatExplicitAspectsKeepUnderlyingTargetProjection() throws Exception {
+    writeExplicitAspectGraph();
+    options.setProtoIncludeConfigurations(false);
+    String expression = "filter('^//test:', deps(//test:red))";
+    var parser = Build.QueryResult.parser();
+    for (var outputType : List.of(OutputType.BINARY, OutputType.DELIMITED_BINARY)) {
+      var frames =
+          outputType == OutputType.BINARY
+              ? ImmutableList.of(getProtoOutput(expression, parser))
+              : getStreamedProtoOutput(expression, parser);
+      var baseRows =
+          frames.stream()
+              .flatMap(frame -> frame.getTargetList().stream())
+              .filter(t -> t.hasRule() && t.getRule().getName().equals("//test:base"))
+              .map(t -> t.getRule().getConfiguredRuleInputList())
+              .toList();
+      // The ordinary base and both explicit aspects appear as underlying rule targets.
+      assertThat(baseRows).hasSize(3);
+      assertThat(
+              baseRows.stream()
+                  .flatMap(List::stream)
+                  .filter(input -> input.getLabel().equals("//test:driver"))
+                  .map(ConfiguredRuleInput::getConfigurationChecksum)
+                  .collect(toImmutableSet()))
+          .hasSize(2);
+      assertThat(baseRows.stream().flatMap(List::stream).anyMatch(ConfiguredRuleInput::hasAspectId))
+          .isFalse();
+    }
+  }
+
+  @Test
   public void explicitPrivateToolsHaveForwardAndReverseEdges() throws Exception {
     writeExplicitAspectGraph();
     var forward = getProtoOutput("deps(//test:red, 2)", CqueryResult.parser());
