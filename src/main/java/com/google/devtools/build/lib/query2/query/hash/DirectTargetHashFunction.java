@@ -273,16 +273,16 @@ public final class DirectTargetHashFunction implements SkyFunction {
     // Retain external source edges and hash only files that are reachable. The source digest
     // function reads the FileValue digest (already held in memory for R2C2 files) and falls
     // back to a cached content read on ordinary filesystems.
+    RootedPath inputPath = null;
     SourceFileDigestFunction.Value fileDigest = null;
     if (target instanceof InputFile inputFile) {
+      inputPath =
+          RootedPath.toRootedPath(inputFile.getPackageMetadata().sourceRoot(), inputFile.getPath());
       try {
         fileDigest =
             (SourceFileDigestFunction.Value)
                 env.getValueOrThrow(
-                    SourceFileDigestFunction.key(
-                        RootedPath.toRootedPath(
-                            inputFile.getPackageMetadata().sourceRoot(), inputFile.getPath())),
-                    IOException.class);
+                    SourceFileDigestFunction.key(inputPath), IOException.class);
       } catch (IOException e) {
         throw new DirectTargetHashFunctionException(e);
       }
@@ -315,7 +315,7 @@ public final class DirectTargetHashFunction implements SkyFunction {
     if (fileDigest != null) {
       fp.addBytes(fileDigest.getDigest());
       if (fileDigest == SourceFileDigestFunction.Value.DIRECTORY
-          && !appendDirectoryDigest((InputFile) target, fp, env)) {
+          && !appendDirectoryDigest(label, inputPath, fp, env)) {
         return null;
       }
       if (fileDigest.isExecutable()) {
@@ -330,9 +330,9 @@ public final class DirectTargetHashFunction implements SkyFunction {
   }
 
   /** Returns false while Skyframe evaluates the source directory's dependencies. */
-  private static boolean appendDirectoryDigest(InputFile input, Fingerprint fp, Environment env)
+  private static boolean appendDirectoryDigest(
+      Label label, RootedPath path, Fingerprint fp, Environment env)
       throws DirectTargetHashFunctionException, InterruptedException {
-    Label label = input.getLabel();
     if (!label.getRepository().isMain()) {
       RepoContentDigestFunction.Value repo;
       try {
@@ -356,11 +356,7 @@ public final class DirectTargetHashFunction implements SkyFunction {
     if (TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       byte[] digest;
       try {
-        digest =
-            ArtifactFunction.digestSourceDirectory(
-                RootedPath.toRootedPath(input.getPackageMetadata().sourceRoot(), input.getPath()),
-                "Source directory " + label,
-                env);
+        digest = ArtifactFunction.digestSourceDirectory(path, "Source directory " + label, env);
       } catch (RecursiveFilesystemTraversalException e) {
         throw new DirectTargetHashFunctionException(new IOException(e.getMessage(), e));
       }
