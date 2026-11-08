@@ -63,7 +63,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -429,7 +428,6 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
     var seen = new ConcurrentHashMap<ActionLookupKey, HashTarget>();
     collectRoots(partialResult, roots, seen, /* deferName= */ true);
     var nodes = new ArrayList<>(roots);
-    var nextOrdinal = new AtomicInteger(nodes.size());
     for (int start = 0; start < nodes.size(); ) {
       int end = nodes.size();
       var additions = new ConcurrentLinkedQueue<List<HashTarget>>();
@@ -461,7 +459,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
                       seen.computeIfAbsent(
                           key,
                           unused -> {
-                            var added = new HashTarget(nextOrdinal.getAndIncrement(), dep);
+                            var added = new HashTarget(/* ordinal= */ -1, dep);
                             discovered.add(added);
                             return added;
                           });
@@ -476,14 +474,10 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
           });
       // Ordinals index nodes during direct hashing and combination. Only the roots' input
       // order and each row's stable-name order affect the emitted result.
-      int size = nextOrdinal.get();
-      nodes.ensureCapacity(size);
-      for (int i = end; i < size; i++) {
-        nodes.add(null);
-      }
       for (var discovered : additions) {
         for (HashTarget target : discovered) {
-          nodes.set(target.ordinal, target);
+          target.ordinal = nodes.size();
+          nodes.add(target);
         }
       }
       failed.addAll(failures);
