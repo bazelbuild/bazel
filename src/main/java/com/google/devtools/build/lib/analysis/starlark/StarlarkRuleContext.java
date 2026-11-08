@@ -144,6 +144,7 @@ public final class StarlarkRuleContext
   // `close()` when the object becomes featureless (analogous to freezing).
   private StarlarkActionFactory actionFactory;
   private RuleContext ruleContext;
+  @Nullable private LocationExpansion locationExpansion;
   private FragmentCollection fragments;
   @Nullable private AspectDescriptor aspectDescriptor;
 
@@ -487,6 +488,7 @@ public final class StarlarkRuleContext
 
     actionFactory = null;
     ruleContext = null;
+    locationExpansion = null;
     fragments = null;
     aspectDescriptor = null;
     cachedMakeVariables = null;
@@ -1075,8 +1077,21 @@ public final class StarlarkRuleContext
       throws EvalException {
     checkMutable("expand_location");
     try {
+      boolean preferExecutable =
+          thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE);
+      boolean literal = !input.contains("$(");
+      if (locationExpansion != null
+          && locationExpansion.matches(targets, shortPaths, preferExecutable)) {
+        if (shortPaths) {
+          checkPrivateAccess(thread);
+        }
+        return literal ? input : locationExpansion.expander().expand(input);
+      }
+
       var locationTargets = Sequence.cast(targets, TransitiveInfoCollection.class, "targets");
-      if (!input.contains("$(")) {
+      if (literal) {
         validateUniqueLocationTargets(locationTargets);
         if (shortPaths) {
           checkPrivateAccess(thread);
@@ -1084,11 +1099,7 @@ public final class StarlarkRuleContext
         return input;
       }
       ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap =
-          makeLabelMap(
-              locationTargets,
-              thread
-                  .getSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE));
+          makeLabelMap(locationTargets, preferExecutable);
       LocationExpander expander;
       if (!shortPaths) {
         expander = LocationExpander.withExecPaths(ruleContext, labelMap);
@@ -1096,9 +1107,34 @@ public final class StarlarkRuleContext
         checkPrivateAccess(thread);
         expander = LocationExpander.withRunfilesPaths(ruleContext, labelMap);
       }
+      locationExpansion =
+          new LocationExpansion(
+              locationTargets.getImmutableList(), shortPaths, preferExecutable, expander);
       return expander.expand(input);
     } catch (IllegalStateException ise) {
       throw new EvalException(ise);
+    }
+  }
+
+  private record LocationExpansion(
+      ImmutableList<TransitiveInfoCollection> targets,
+      boolean shortPaths,
+      boolean preferExecutable,
+      LocationExpander expander) {
+    boolean matches(Sequence<?> current, boolean shortPaths, boolean preferExecutable) {
+      if (this.shortPaths != shortPaths
+          || this.preferExecutable != preferExecutable
+          || targets.size() != current.size()) {
+        return false;
+      }
+      // Starlark lists can change in place. Compare the current targets to the snapshot,
+      // and use identity because configured targets can share labels with different artifacts.
+      for (int i = 0; i < targets.size(); ++i) {
+        if (targets.get(i) != current.get(i)) {
+          return false;
+        }
+      }
+      return true;
     }
   }
 
