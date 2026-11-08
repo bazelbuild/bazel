@@ -814,17 +814,19 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   private EnvironmentChecksums checksumsFor(BuildOptions options) {
     String checksum = options.checksum();
     var names = new TreeSet<String>();
-    if (options.contains(CoreOptions.class)) {
-      collectInheritedNames(options.get(CoreOptions.class).getActionEnvironment(), names);
+    var coreOptions = options.get(CoreOptions.class);
+    if (coreOptions != null) {
+      collectInheritedNames(coreOptions.getActionEnvironment(), names);
     }
     String action = withInheritedEnvironment(checksum, names);
-    if (!options.contains(TestOptions.class)) {
+    var testOptions = options.get(TestOptions.class);
+    if (testOptions == null) {
       return new EnvironmentChecksums(action, null);
     }
-    var tests = new TreeSet<String>();
-    collectInheritedNames(options.get(TestOptions.class).getTestEnvironment(), tests);
     // A test rule can also generate ordinary actions.
-    String test = names.addAll(tests) ? withInheritedEnvironment(checksum, names) : null;
+    int actionNameCount = names.size();
+    collectInheritedNames(testOptions.getTestEnvironment(), names);
+    String test = names.size() > actionNameCount ? withInheritedEnvironment(checksum, names) : null;
     return new EnvironmentChecksums(action, test);
   }
 
