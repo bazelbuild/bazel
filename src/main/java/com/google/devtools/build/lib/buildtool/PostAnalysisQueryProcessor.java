@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallba
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback.IoExceptionInterruptedException;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -103,8 +104,10 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                   .build()));
     }
 
+    CommonQueryOptions options = getQueryOptions(env);
+    boolean hashing = options instanceof CqueryOptions cqueryOptions && cqueryOptions.getGenerateHashes();
     try (QueryRuntimeHelper queryRuntimeHelper =
-        env.getRuntime().getQueryRuntimeHelperFactory().create(env, getQueryOptions(env))) {
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env, options)) {
       doPostAnalysisQuery(
           request,
           env,
@@ -113,10 +116,11 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
           analysisResult.getAspectsMap(),
           env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
           queryRuntimeHelper,
-          queryExpression);
+          queryExpression,
+          hashing);
     } catch (QueryException e) {
       String errorMessage = "Error doing post analysis query";
-      if (!request.getKeepGoing()) {
+      if (!request.getKeepGoing() || hashing) {
         throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
       }
       env.getReporter().error(null, errorMessage + ": " + e.getFailureDetail().getMessage());
@@ -127,7 +131,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
               .setMessage(errorMessage + ": " + e.getMessage())
               .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
               .build();
-      if (!request.getKeepGoing()) {
+      if (!request.getKeepGoing() || hashing) {
         throw new ViewCreationFailedException(errorMessage, failureDetail, e);
       }
       env.getReporter().error(null, failureDetail.getMessage());
@@ -175,7 +179,8 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects,
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
-      QueryExpression queryExpression)
+      QueryExpression queryExpression,
+      boolean hashing)
       throws InterruptedException,
           QueryException,
           IOException,
@@ -249,5 +254,11 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     }
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
+    if (hashing && !result.getSuccess()) {
+      throw new QueryException(
+          queryExpression,
+          "Errors encountered while evaluating the hash query",
+          result.getDetailedExitCode().getFailureDetail());
+    }
   }
 }

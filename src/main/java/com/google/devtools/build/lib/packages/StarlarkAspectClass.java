@@ -38,7 +38,7 @@ public final class StarlarkAspectClass implements AspectClass {
     this.name = extensionKey.getLabel() + "%" + exportedName;
   }
 
-  BzlLoadValue.Key getExtensionKey() {
+  public BzlLoadValue.Key getExtensionKey() {
     return extensionKey;
   }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnumConverter;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.common.options.Converters.NonNegativeIntegerConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -66,6 +67,22 @@ public abstract class CqueryOptions extends CommonQueryOptions {
               + " --experimental_generate_hashes, select()s are resolved, so the hashes are only"
               + " valid for the build options they were computed with.")
   public abstract boolean getGenerateHashes();
+
+  @Option(
+      name = "experimental_cquery_hash_workers",
+      converter = NonNegativeIntegerConverter.class,
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Maximum number of workers for configured query hashing. One uses the serial path. "
+              + "Zero uses all processors available to this JVM.")
+  public abstract int getHashWorkers();
+
+  /** Whether the caller requested the parallel hashing path, even on a single-processor JVM. */
+  final boolean useParallelHashing() {
+    return getHashWorkers() != 1;
+  }
 
   @Option(
       name = "transitions",

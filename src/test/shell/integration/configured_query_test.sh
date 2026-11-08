@@ -1902,6 +1902,96 @@ EOF
     || fail "Expected the hash of //$pkg:a to change"
 }
 
+function test_parallel_generate_hashes_agrees_on_mutation_and_partial_analysis() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat >"$pkg/BUILD" <<EOF
+filegroup(name = "leaf", srcs = ["input"])
+alias(name = "indirect", actual = ":leaf")
+genquery(name = "listing", expression = "deps(//$pkg:leaf)", scope = [":leaf"])
+filegroup(name = "top", srcs = [":indirect", ":leaf", ":listing"])
+filegroup(name = "missing", srcs = ["//$pkg/missing_package:input"])
+EOF
+  local -ar common=(--experimental_generate_hashes --experimental_explicit_aspects)
+  local -r query="set(//$pkg:top //$pkg:indirect //$pkg:listing)"
+  local content
+  for content in first second; do
+    echo "$content" > "$pkg/input"
+    bazel cquery "${common[@]}" "$query" > reference 2> "$TEST_log" || fail "serial hash failed"
+    bazel cquery "${common[@]}" --experimental_cquery_hash_workers=4 "$query" > actual 2> "$TEST_log" \
+      || fail "parallel hash failed"
+    # An alias may have multiple configured instances. Check the requested labels and every
+    # identity rather than assuming a single row per label.
+    diff <(printf '%s\n' "//$pkg:indirect" "//$pkg:listing" "//$pkg:top") \
+      <(cut -d' ' -f1 actual | LC_ALL=C sort -u) || fail "different requested labels"
+    assert_equals "$(wc -l < actual)" "$(cut -d' ' -f1,2 actual | LC_ALL=C sort -u | wc -l)"
+    diff <(LC_ALL=C sort reference) <(LC_ALL=C sort actual) || fail "different root digests"
+    grep "^//$pkg:top " actual > "top.$content" || fail "missing root"
+  done
+  cmp -s top.first top.second && fail "source change did not reach top"
+
+  local -r partial="set(//$pkg:missing //$pkg:top)"
+  if bazel cquery "${common[@]}" --keep_going "$partial" > reference 2> "$TEST_log"; then
+    fail "serial hash accepted a missing dependency"
+  fi
+  if bazel cquery "${common[@]}" --experimental_cquery_hash_workers=4 --keep_going "$partial" > actual 2> "$TEST_log"; then
+    fail "parallel hash accepted a missing dependency"
+  fi
+  assert_equals 1 "$(wc -l < actual)"
+  grep "^//$pkg:top " actual || fail "independent healthy root is missing"
+  diff reference actual || fail "different partial results"
+}
+
+function test_hashes_include_distinct_non_idempotent_transition_instances() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/rules.bzl" <<EOF
+Value = provider(fields = ["value"])
+
+def _setting_impl(ctx):
+    return [Value(value = ctx.build_setting_value)]
+
+setting = rule(implementation = _setting_impl, build_setting = config.string())
+
+def _append_impl(settings, attr):
+    return {"//$pkg:s": settings["//$pkg:s"] + "-next"}
+
+append = transition(implementation = _append_impl, inputs = ["//$pkg:s"], outputs = ["//$pkg:s"])
+
+def _impl(ctx):
+    return []
+
+def _subject_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, ctx.attr._setting[Value].value)
+    return [DefaultInfo(files = depset([out]))]
+
+subject = rule(
+    implementation = _subject_impl,
+    cfg = append,
+    attrs = {"_setting": attr.label(default = "//$pkg:s")},
+)
+wrapper = rule(implementation = _impl, attrs = {"dep": attr.label(cfg = append)})
+EOF
+  cat > "$pkg/BUILD" <<EOF
+load(":rules.bzl", "setting", "subject", "wrapper")
+setting(name = "s", build_setting_default = "initial")
+subject(name = "subject")
+wrapper(name = "caller", dep = ":subject")
+EOF
+  local -r expression="//$pkg:all intersect //$pkg:subject"
+  bazel cquery --output=label "$expression" > normal 2> "$TEST_log" || fail "ordinary cquery"
+  assert_equals 1 "$(wc -l < normal)"
+  bazel cquery --experimental_generate_hashes "$expression" > reference 2> "$TEST_log" \
+    || fail "serial hashes"
+  bazel cquery --experimental_generate_hashes --experimental_cquery_hash_workers=4 \
+    "$expression" > parallel 2> "$TEST_log" || fail "parallel hashes"
+  assert_equals 2 "$(wc -l < reference)"
+  assert_equals 2 "$(cut -d' ' -f2 reference | sort -u | wc -l)"
+  assert_equals 2 "$(cut -d' ' -f3 reference | sort -u | wc -l)"
+  diff <(LC_ALL=C sort reference) <(LC_ALL=C sort parallel) || fail "different root digests"
+}
+
 function test_generate_hashes_rejects_dependency_filters() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg

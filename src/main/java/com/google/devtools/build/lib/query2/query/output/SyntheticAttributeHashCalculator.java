@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Map;
 
 /**
@@ -60,6 +63,20 @@ public final class SyntheticAttributeHashCalculator {
       HashFunction hashFunction,
       boolean includeAttributeSourceAspects,
       boolean includeStarlarkRuleEnv) {
+    return compute(
+        rule, serializedAttributes, extraDataForAttrHash, hashFunction, includeAttributeSourceAspects,
+        includeStarlarkRuleEnv, /* canonicalizeLabelSelects= */ false);
+  }
+
+  /** Computes the native target hash with optional ordering of label-valued select conditions. */
+  public static String compute(
+      Rule rule,
+      Map<Attribute, Build.Attribute> serializedAttributes,
+      Object extraDataForAttrHash,
+      HashFunction hashFunction,
+      boolean includeAttributeSourceAspects,
+      boolean includeStarlarkRuleEnv,
+      boolean canonicalizeLabelSelects) {
     HashingOutputStream hashingOutputStream =
         new HashingOutputStream(hashFunction, ByteStreams.nullOutputStream());
     CodedOutputStream codedOut = CodedOutputStream.newInstance(hashingOutputStream);
@@ -128,6 +145,24 @@ public final class SyntheticAttributeHashCalculator {
         attrPb = serializedAttributes.get(attr);
       }
 
+      if (canonicalizeLabelSelects && attrName.equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
+        // Bazel synthesizes this private membership list from condition keys in traversal order.
+        var labels = new ArrayList<>(attrPb.getStringListValueList());
+        labels.sort(Comparator.naturalOrder());
+        attrPb = attrPb.toBuilder().clearStringListValue().addAllStringListValue(labels).build();
+      } else if (canonicalizeLabelSelects
+          && valueToHash instanceof SelectorList<?>
+          && (attr.getType() == BuildType.LABEL || attr.getType() == BuildType.LABEL_LIST)) {
+        // Bazel resolves these arms by condition and specialization. Keep the order of
+        // concatenated selects and each arm's value, and leave user-dictionary order intact.
+        var builder = attrPb.toBuilder();
+        for (var selector : builder.getSelectorListBuilder().getElementsBuilderList()) {
+          var entries = new ArrayList<>(selector.getEntriesList());
+          entries.sort(Comparator.comparing(Build.Attribute.SelectorEntry::getLabel));
+          selector.clearEntries().addAllEntries(entries);
+        }
+        attrPb = builder.build();
+      }
       try {
         attrPb.writeTo(codedOut);
       } catch (IOException e) {

@@ -181,7 +181,8 @@ public class HashesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
             ct -> env.getFwdDeps(ImmutableList.of(ct)),
-            LabelPrinter.legacy());
+            LabelPrinter.legacy(),
+            /* keepGoing= */ false);
     env.evaluateQuery(expression, callback);
     Map<String, String> hashes = new LinkedHashMap<>();
     for (String line : output.toString().split("\n")) {

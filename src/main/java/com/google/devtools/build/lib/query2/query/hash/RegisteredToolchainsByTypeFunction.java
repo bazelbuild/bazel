@@ -160,7 +160,9 @@ public final class RegisteredToolchainsByTypeFunction implements SkyFunction {
         }
         Package pkg = packageValue.getPackage();
         Target target = pkg.getTarget(toolchain.getName());
-        if (target instanceof Rule rule) {
+        // An explicitly registered alias can point through select() or another alias. Keep the
+        // alias itself as a possible dependency of every type and let the hash walk its closure.
+        if (target instanceof Rule rule && rule.getRuleClass().equals("toolchain")) {
           toolchainType =
               NonconfigurableAttributeMapper.of(rule).get("toolchain_type", BuildType.LABEL);
         }

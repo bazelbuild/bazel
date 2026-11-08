@@ -283,14 +283,16 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
                                 error.getException() != null
                                     ? error.getException().getMessage()
                                     : error.toString()))));
-    if (result.errors().isEmpty()) {
+    int omitted = labels.size() - result.hashes().size();
+    if (omitted == 0 && result.errors().isEmpty()) {
       return null;
     }
     String message =
         String.format(
-            "failed to compute hashes: %d error(s); hashes of targets depending on them may be"
-                + " wrong",
-            result.errors().size());
+            "omitted %d of %d requested hashes because dependency information was incomplete"
+                + " (%d reported errors)",
+            omitted, labels.size(), result.errors().size());
+    env.getReporter().handle(Event.error(message));
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
