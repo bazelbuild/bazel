@@ -408,6 +408,8 @@ message ConfiguredRuleInput {
   // https://github.com/bazelbuild/bazel/blob/7278be3f9b0c26842ecb8225f0215c1e4aede5a9/src/main/protobuf/analysis_v2.proto#L189.
   // If this dep is a source file, this is unset.
   optional uint32 configuration_id = 3;
+  // If the prerequisite is an explicit cquery aspect, its ConfiguredAspect id.
+  optional uint32 aspect_id = 4;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent

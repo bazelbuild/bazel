@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResult;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Fragment;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.FragmentOptions;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Option;
@@ -460,6 +462,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     AnalysisProtosV2.CqueryResult cqueryResult =
         getProtoOutput("deps(//test:parent)", AnalysisProtosV2.CqueryResult.parser());
+    assertThat(cqueryResult.getAspectsList()).isEmpty();
+    assertThat(cqueryResult.getAspectResultsList()).isEmpty();
     List<Configuration> configurations = cqueryResult.getConfigurationsList();
     assertThat(configurations).hasSize(3); // Target config, exec config, host platform config.
 
@@ -508,6 +512,154 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .isEqualTo(aspectDepSameConfigProto.getConfigurationId());
     assertThat(parentRuleProto.getConfigurationId())
         .isNotEqualTo(aspectDepExecConfigProto.getConfigurationId());
+  }
+
+  private void writeExplicitAspectGraph() throws Exception {
+    options.setTransitions(Transitions.LITE);
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
+    writeFile(
+        "test/defs.bzl",
+        """
+        Color = provider()
+        paint = aspect(
+            implementation = lambda target, ctx: [Color()],
+            attrs = {
+                "color": attr.string(values = ["red", "blue"]),
+                "_driver": attr.label(default = "//test:driver"),
+                "_exec_driver": attr.label(default = "//test:driver", cfg = "exec"),
+            },
+            provides = [Color],
+        )
+        tint = aspect(
+            implementation = lambda target, ctx: [],
+            requires = [paint],
+            required_aspect_providers = [Color],
+        )
+        def _owner(aspects):
+            return rule(
+                implementation = lambda ctx: [],
+                attrs = {
+                    "dep": attr.label(aspects = aspects),
+                    "color": attr.string(values = ["red", "blue"]),
+                },
+            )
+        painted = _owner([paint])
+        tinted = _owner([tint])
+        """);
+    writeFile(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "painted", "tinted")
+        filegroup(name = "base")
+        filegroup(name = "driver")
+        tinted(name = "red", color = "red", dep = ":base")
+        tinted(name = "blue", color = "blue", dep = ":base")
+        painted(name = "red_paint", color = "red", dep = ":base")
+        """);
+  }
+
+  private static ConfiguredAspect getAspect(CqueryResult result, int id) {
+    return result.getAspectsList().stream().filter(a -> a.getId() == id).findFirst().orElseThrow();
+  }
+
+  @Test
+  public void streamedExplicitAspectsKeepParametersStackAndConfiguredInputs() throws Exception {
+    writeExplicitAspectGraph();
+    var output = CqueryResult.newBuilder();
+    for (var frame :
+        getStreamedProtoOutput(
+            "filter('^//test:', deps(set(//test:red //test:blue)))", CqueryResult.parser())) {
+      output.mergeFrom(frame);
+    }
+    var result = output.build();
+    assertThat(result.getAspectsCount()).isEqualTo(4);
+    assertThat(result.getAspectResultsCount()).isEqualTo(4);
+    for (String color : List.of("red", "blue")) {
+      var owner = getRuleProtoByName(result.getResultsList(), "//test:" + color);
+      var applications =
+          owner.getTarget().getRule().getConfiguredRuleInputList().stream()
+              .filter(ConfiguredRuleInput::hasAspectId)
+              .map(input -> getAspect(result, input.getAspectId()))
+              .toList();
+      assertThat(applications).hasSize(2);
+      var tint =
+          applications.stream()
+              .filter(a -> a.getAspectDescriptor().getName().endsWith("%tint"))
+              .findFirst()
+              .orElseThrow();
+      var paint = getAspect(result, Iterables.getOnlyElement(tint.getBaseAspectIdsList()));
+      assertThat(applications).contains(paint);
+      assertThat(paint.getAspectDescriptor().getName()).endsWith("%paint");
+      assertThat(paint.getBaseTarget().getLabel()).isEqualTo("//test:base");
+      assertThat(paint.getBaseTarget().getConfigurationId()).isEqualTo(owner.getConfigurationId());
+      assertThat(paint.getAspectDescriptor().getParametersList())
+          .containsExactly(
+              AnalysisProtosV2.KeyValuePair.newBuilder().setKey("color").setValue(color).build());
+      var paintResult =
+          result.getAspectResultsList().stream()
+              .filter(a -> a.getAspectId() == paint.getId())
+              .findFirst()
+              .orElseThrow();
+      var driverConfigs =
+          paintResult.getConfiguredRuleInputList().stream()
+              .filter(input -> input.getLabel().equals("//test:driver"))
+              .map(ConfiguredRuleInput::getConfigurationId)
+              .collect(toImmutableSet());
+      assertThat(driverConfigs).hasSize(2);
+      assertThat(driverConfigs).contains(owner.getConfigurationId());
+    }
+  }
+
+  @Test
+  public void partialExplicitAspectsIdentifyUnselectedPrerequisites() throws Exception {
+    writeExplicitAspectGraph();
+    var owner = getProtoOutput("//test:red", CqueryResult.parser());
+    assertThat(owner.getResultsCount()).isEqualTo(1);
+    assertThat(owner.getAspectResultsList()).isEmpty();
+    var references =
+        owner.getResults(0).getTarget().getRule().getConfiguredRuleInputList().stream()
+            .filter(ConfiguredRuleInput::hasAspectId)
+            .map(input -> getAspect(owner, input.getAspectId()).getAspectDescriptor().getName())
+            .toList();
+    assertThat(references).containsExactly("//test:defs.bzl%tint", "//test:defs.bzl%paint");
+
+    var partial =
+        getProtoOutput(
+            "deps(//test:red, 1) except (//test:red + deps(//test:red_paint, 1))",
+            CqueryResult.parser());
+    assertThat(partial.getResultsList()).isEmpty();
+    var selected = Iterables.getOnlyElement(partial.getAspectResultsList());
+    var tint = getAspect(partial, selected.getAspectId());
+    assertThat(tint.getAspectDescriptor().getName()).endsWith("%tint");
+    var predecessor = getAspect(partial, Iterables.getOnlyElement(tint.getBaseAspectIdsList()));
+    assertThat(predecessor.getAspectDescriptor().getName()).endsWith("%paint");
+    assertThat(
+            Iterables.getOnlyElement(predecessor.getAspectDescriptor().getParametersList())
+                .getValue())
+        .isEqualTo("red");
+  }
+
+  @Test
+  public void explicitPrivateToolsHaveForwardAndReverseEdges() throws Exception {
+    writeExplicitAspectGraph();
+    var forward = getProtoOutput("deps(//test:red, 2)", CqueryResult.parser());
+    var drivers =
+        forward.getResultsList().stream()
+            .filter(target -> target.getTarget().getRule().getName().equals("//test:driver"))
+            .toList();
+    assertThat(drivers).hasSize(2);
+    for (var driver : drivers) {
+      String checksum =
+          getConfigurationForId(forward.getConfigurationsList(), driver.getConfigurationId())
+              .getChecksum();
+      String instance = "config(//test:driver, " + checksum + ")";
+      var reverse =
+          getProtoOutput(
+              "//test:red intersect rdeps((//test:red + " + instance + "), " + instance + ", 2)",
+              CqueryResult.parser());
+      assertThat(Iterables.getOnlyElement(reverse.getResultsList()).getTarget().getRule().getName())
+          .isEqualTo("//test:red");
+    }
   }
 
   /** Tests an alias's output. */
