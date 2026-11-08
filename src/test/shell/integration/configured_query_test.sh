@@ -2000,6 +2000,63 @@ EOF
     || fail "expected changed hashes for exactly the mapping consumers"
 }
 
+function test_generate_hashes_tracks_inherited_action_and_test_environment() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/probe.bzl" <<'STARLARK'
+def _write(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.run_shell(
+        outputs = [out],
+        arguments = [out.path],
+        command = 'printf "%s" "${HASH_ACTION-absent}" > "$1"',
+        use_default_shell_env = True,
+    )
+    return [DefaultInfo(files = depset([out]))]
+write_env = rule(implementation = _write)
+
+def _test(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".sh")
+    ctx.actions.write(out, "#!/bin/sh\nexit 0\n", is_executable = True)
+    return [DefaultInfo(executable = out)]
+env_test = rule(implementation = _test, test = True)
+STARLARK
+  cat > "$pkg/BUILD" <<'EOF_BUILD'
+load(":probe.bzl", "env_test", "write_env")
+write_env(name = "action")
+env_test(name = "test")
+EOF_BUILD
+
+  local -a hash_args=(cquery --experimental_generate_hashes
+      --action_env=HASH_ACTION --test_env=HASH_TEST "//$pkg:all")
+  local label
+  (
+    unset HASH_ACTION HASH_TEST HASH_OTHER
+    bazel "${hash_args[@]}" > absent 2> "$TEST_log" || fail "cquery absent"
+    export HASH_ACTION=
+    bazel "${hash_args[@]}" > empty 2> "$TEST_log" || fail "cquery empty"
+    export HASH_ACTION=alpha
+    bazel "${hash_args[@]}" > before 2> "$TEST_log" || fail "cquery action"
+    bazel build --action_env=HASH_ACTION "//$pkg:action" > "$TEST_log" 2>&1 || fail "build"
+    assert_equals alpha "$(cat "bazel-bin/$pkg/action.txt")"
+    export HASH_OTHER=unrelated
+    bazel "${hash_args[@]}" > unrelated 2> "$TEST_log" || fail "cquery unrelated"
+    export HASH_TEST=beta
+    bazel "${hash_args[@]}" > after 2> "$TEST_log" || fail "cquery test"
+
+    for label in action test; do
+      local prefix="//$pkg:$label"
+      assert_equals "$(grep -F "$prefix (" before)" "$(grep -F "$prefix (" unrelated)"
+      assert_equals "$(grep -F "$prefix (" absent | cut -d' ' -f2)" \
+          "$(grep -F "$prefix (" after | cut -d' ' -f2)"
+    done
+    assert_not_equals "$(grep -F "//$pkg:action (" absent)" "$(grep -F "//$pkg:action (" empty)"
+    assert_not_equals "$(grep -F "//$pkg:action (" empty)" "$(grep -F "//$pkg:action (" before)"
+    assert_equals "$(grep -F "//$pkg:action (" before)" "$(grep -F "//$pkg:action (" after)"
+    assert_not_equals "$(grep -F "//$pkg:test (" before)" "$(grep -F "//$pkg:test (" after)"
+  ) || fail "inherited environments must contribute to the relevant hashes"
+}
+
 function test_parallel_generate_hashes_agrees_on_mutation_and_partial_analysis() {
   local -r pkg=$FUNCNAME
   mkdir -p "$pkg"

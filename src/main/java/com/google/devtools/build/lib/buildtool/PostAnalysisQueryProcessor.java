@@ -283,6 +283,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             env.getSkyframeExecutor(),
             runtime.getRuleClassProvider(),
             env.getPackageManager(),
+            env.getClientEnv(),
             env.getSkyframeExecutor()
                 .getEffectiveStarlarkSemantics(
                     env.getOptions().getOptions(BuildLanguageOptions.class)));
