@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -58,6 +59,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -138,12 +140,10 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             useAnalyzedRoots);
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env, options)) {
-      if (hashStreamReceipt
-          && (request.targetsAreLabels()
-              || !useAnalyzedRoots
-              || !options.getLineTerminator().equals("\n"))) {
+      if (hashStreamReceipt && (!useAnalyzedRoots || !options.getLineTerminator().equals("\n"))) {
         throw new OptionsParsingException(
-            "A hash stream receipt requires top-level hashes for //... with LF line endings");
+            "A hash stream receipt requires top-level hashes for //... or a canonical label file"
+                + " with LF line endings");
       }
       doPostAnalysisQuery(
           request,
@@ -327,6 +327,20 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                 + workerOptionsFingerprint(env)
                 + "\n";
         queryOutput.write(header.getBytes(UTF_8));
+        if (request.targetsAreLabels()) {
+          // Loading certified the complete scope. Preserve analysis failures and incompatible
+          // targets as explicit unknown hashes, alongside any failed digests from the formatter.
+          var analyzed = Objects.requireNonNull(topLevelConfigurations.getAnalyzedRoots());
+          var analyzedLabels = HashSet.<String>newHashSet(analyzed.size());
+          for (var target : analyzed) {
+            analyzedLabels.add(target.getOriginalLabel().getCanonicalForm());
+          }
+          for (String label : request.getTargets()) {
+            if (!analyzedLabels.contains(label)) {
+              queryOutput.write((internalToUnicode(label) + "\tnone\t\t\n").getBytes(UTF_8));
+            }
+          }
+        }
       }
       callback.start();
       callback.process(aggregateResultsCallback.getResult());

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -75,6 +76,24 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
       BuildRequest request, CommandEnvironment env, TargetPatternPhaseValue loadingResult)
       throws InterruptedException, ViewCreationFailedException {
     CqueryOptions options = request.getOptions(CqueryOptions.class);
+    if (request.targetsAreLabels() && options.getHashStreamReceipt()) {
+      var requested = ImmutableSet.copyOf(request.getTargets());
+      var loaded = loadingResult.getTargetLabels();
+      if (loadingResult.hasError()
+          || loadingResult.hasPostExpansionError()
+          || requested.size() != request.getTargets().size()
+          || requested.size() != loaded.size()
+          || loaded.stream()
+              .anyMatch(label -> !requested.contains(label.getCanonicalForm()))) {
+        String message = "A hash stream receipt requires successfully loaded, unique canonical labels";
+        throw new ViewCreationFailedException(
+            message,
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setQuery(Query.newBuilder().setCode(Query.Code.BUILD_FILE_ERROR))
+                .build());
+      }
+    }
     if (options.getRuleCatalogOutput().isEmpty()) {
       return;
     }

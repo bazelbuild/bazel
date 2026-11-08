@@ -2067,4 +2067,58 @@ EOF
   diff -u expected after || fail "Expected the surviving explicit root and its unchanged hash"
 }
 
+function test_exact_hash_stream_receipt_with_unknown_root() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<'EOF'
+def _fail_impl(ctx):
+    fail("intentional analysis failure")
+
+fails_analysis = rule(implementation = _fail_impl)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "fails_analysis")
+
+filegroup(name = "café")
+fails_analysis(name = "échec")
+EOF
+  cat > "$pkg/roots.txt" <<EOF
+//$pkg:café
+//$pkg:échec
+EOF
+  # The receipt includes the worker RC sources.
+  echo "common --color=no" >> .bazelrc
+  local -a args=(
+    --keep_going
+    --experimental_generate_hashes
+    --experimental_cquery_hash_top_level
+    --experimental_cquery_hash_stream_receipt
+    --noline_terminator_null
+    --invocation_id=11111111-1111-1111-1111-111111111111
+  )
+
+  if bazel cquery "${args[@]}" //... > full.tsv 2> "$TEST_log"; then
+    fail "Expected the analysis failure"
+  fi
+  expect_log "intentional analysis failure"
+  assert_contains "^# complete$" full.tsv
+
+  if bazel cquery "${args[@]}" --target_pattern_file="$pkg/roots.txt" > scoped.tsv 2> "$TEST_log"; then
+    fail "Expected the explicit root's analysis failure"
+  fi
+  expect_log "intentional analysis failure"
+  assert_contains "^# bazel-configured-root-hashes-v1" scoped.tsv
+  assert_contains "$(printf '^//%s:café\t' "$pkg")" scoped.tsv
+  assert_equals "$(grep -F "//$pkg:café" full.tsv)" "$(grep -F "//$pkg:café" scoped.tsv)"
+  assert_contains "$(printf '^//%s:échec\tnone\t\t$' "$pkg")" scoped.tsv
+  assert_equals "# complete" "$(tail -n 1 scoped.tsv)"
+
+  echo "//$pkg:missing" >> "$pkg/roots.txt"
+  if bazel cquery "${args[@]}" --target_pattern_file="$pkg/roots.txt" > missing.tsv 2> "$TEST_log"; then
+    fail "Expected the missing explicit root to fail loading"
+  fi
+  expect_log "target 'missing' not declared"
+  assert_not_contains "^# complete$" missing.tsv
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
