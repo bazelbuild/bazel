@@ -436,7 +436,17 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       throws InterruptedException {
     SkyKey key = getConfiguredTargetKey(target);
     List<SkyKey> unavailable = new ArrayList<>();
-    Iterable<SkyKey> direct = getDepsForTargetification(key, unavailable, aspectObserver);
+    SkyValue value = graph.getValue(key);
+    Iterable<SkyKey> direct;
+    if (value == null) {
+      unavailable.add(key);
+      direct = ImmutableList.of();
+    } else {
+      if (key instanceof AspectKey aspectKey) {
+        aspectObserver.accept(aspectKey, (AspectValue) value);
+      }
+      direct = graph.getDirectDeps(key);
+    }
     ImmutableList<T> rawDeps = null;
     ImmutableList<ClassifiedDependency<T>> classified = ImmutableList.of();
     if (rawEdges
@@ -466,20 +476,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return rawDeps != null ? rawDeps : filterFwdDeps(target, classified);
   }
 
-  private Iterable<SkyKey> getDepsForTargetification(
-      SkyKey key,
-      @Nullable List<SkyKey> unavailable,
-      @Nullable BiConsumer<AspectKey, AspectValue> aspectObserver)
+  private Iterable<SkyKey> getDepsForTargetification(SkyKey key, @Nullable List<SkyKey> unavailable)
       throws InterruptedException {
-    if (unavailable != null) {
-      SkyValue value = graph.getValue(key);
-      if (value == null) {
-        unavailable.add(key);
-        return ImmutableList.of();
-      }
-      if (aspectObserver != null && key instanceof AspectKey aspectKey) {
-        aspectObserver.accept(aspectKey, (AspectValue) value);
-      }
+    if (unavailable != null && graph.getValue(key) == null) {
+      unavailable.add(key);
+      return ImmutableList.of();
     }
     return graph.getDirectDeps(key);
   }
@@ -861,7 +862,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         }
         targetifyInto(
             null,
-            getDepsForTargetification(key, unavailable, /* aspectObserver= */ null),
+            getDepsForTargetification(key, unavailable),
             knownCtDeps,
             resolvedAspectClasses,
             unavailable,
@@ -870,7 +871,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         targetifyInto(
             null,
-            getDepsForTargetification(key, unavailable, /* aspectObserver= */ null),
+            getDepsForTargetification(key, unavailable),
             knownCtDeps,
             resolvedAspectClasses,
             unavailable,
