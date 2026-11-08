@@ -112,6 +112,11 @@ public final class DirectTargetHashFunction implements SkyFunction {
     return ConfiguredKey.interner.intern(new ConfiguredKey(label));
   }
 
+  /** An equality key for reading an existing value from the evaluator. */
+  public static SkyKey configuredLookupKey(Label label) {
+    return new ConfiguredKey(label);
+  }
+
   private static final class ConfiguredKey extends AbstractSkyKey<Label> {
     private static final SkyKeyInterner<ConfiguredKey> interner = SkyKey.newInterner();
 

@@ -555,12 +555,12 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   private static final int DIRECT_EVAL_BATCH = 16384;
 
   private static final class DirectDigest {
-    final SkyKey key;
+    final Label label;
     @Nullable byte[] bytes;
     @Nullable String error;
 
-    DirectDigest(SkyKey key) {
-      this.key = key;
+    DirectDigest(Label label) {
+      this.label = label;
     }
   }
 
@@ -590,7 +590,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
         var label = nodes.get(first + i).node.getOriginalLabel();
         var slot = cache.get(label);
         if (slot == null) {
-          slot = new DirectDigest(DirectTargetHashFunction.configuredKey(label));
+          slot = new DirectDigest(label);
           cache.put(label, slot);
           fresh.add(slot);
         }
@@ -606,7 +606,8 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
           (a, b) -> {
             for (int i = a; i < b; i++) {
               DirectDigest slot = fresh.get(i);
-              if (skyframeExecutor.getEvaluator().getExistingValue(slot.key)
+              var key = DirectTargetHashFunction.configuredLookupKey(slot.label);
+              if (skyframeExecutor.getEvaluator().getExistingValue(key)
                   instanceof DirectTargetHashFunction.Value value) {
                 slot.bytes = value.getDirectHash();
               }
@@ -621,17 +622,22 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       for (int left = 0; left < missing.size(); left += DIRECT_EVAL_BATCH) {
         List<DirectDigest> group =
             missing.subList(left, Math.min(missing.size(), left + DIRECT_EVAL_BATCH));
-        var keys = ImmutableSet.<SkyKey>builderWithExpectedSize(group.size());
+        var keysBuilder = ImmutableSet.<SkyKey>builderWithExpectedSize(group.size());
         for (DirectDigest slot : group) {
-          keys.add(slot.key);
+          keysBuilder.add(DirectTargetHashFunction.configuredKey(slot.label));
         }
-        EvaluationResult<SkyValue> result = skyframeExecutor.prepareAndGet(keys.build(), context);
-        for (DirectDigest slot : group) {
-          var value = (DirectTargetHashFunction.Value) result.get(slot.key);
+        var keys = keysBuilder.build();
+        EvaluationResult<SkyValue> result = skyframeExecutor.prepareAndGet(keys, context);
+        // The distinct labels in the group match the immutable set's insertion order.
+        var orderedKeys = keys.asList();
+        for (int i = 0; i < group.size(); i++) {
+          DirectDigest slot = group.get(i);
+          SkyKey key = orderedKeys.get(i);
+          var value = (DirectTargetHashFunction.Value) result.get(key);
           if (value != null) {
             slot.bytes = value.getDirectHash();
           } else {
-            ErrorInfo error = result.getError(slot.key);
+            ErrorInfo error = result.getError(key);
             slot.error =
                 error != null && error.getException() != null
                     ? String.valueOf(error.getException().getMessage())
