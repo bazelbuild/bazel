@@ -212,6 +212,7 @@ public class ActionGraphQueryEnvironment
           SkyframeExecutor skyframeExecutor,
           RuleClassProvider ruleClassProvider,
           PackageManager packageManager,
+          ImmutableMap<String, String> clientEnvironment,
           StarlarkSemantics starlarkSemantics) {
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(

@@ -183,7 +183,8 @@ public class HashesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest
             (ct, unusedAspectObserver) -> env.getFwdDeps(ImmutableList.of(ct)),
             /* topLevelConfigurations= */ null,
             LabelPrinter.legacy(),
-            /* keepGoing= */ false);
+            /* keepGoing= */ false,
+            /* clientEnvironment= */ ImmutableMap.of());
     env.evaluateQuery(expression, callback);
     Map<String, String> hashes = new LinkedHashMap<>();
     for (String line : output.toString().split("\n")) {

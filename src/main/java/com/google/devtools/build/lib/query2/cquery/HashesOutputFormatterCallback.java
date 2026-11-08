@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
@@ -24,13 +25,17 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.AnalysisTime
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AnalysisRepoMappingDigest;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
@@ -43,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -59,6 +65,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -76,7 +83,8 @@ import javax.annotation.Nullable;
  * graph: {@code select()}s are resolved, toolchains and execution platforms are the ones that were
  * actually chosen, and each node is hashed together with its configuration. A target's own hash is
  * the {@link DirectTargetHashFunction} hash of its unconfigured target (attribute values, rule
- * definition, or source file contents), combined with the checksum of its build options.
+ * definition, or source file contents), combined with its build options and the current values of
+ * explicitly inherited action and test environment variables.
  */
 class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
 
@@ -98,6 +106,10 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   @Nullable private final TopLevelConfigurations topLevelConfigurations;
   private final LabelPrinter labelPrinter;
   private final boolean keepGoing;
+  private final ImmutableMap<String, String> clientEnvironment;
+  // Scoped to this command. Configured target and action keys remain unchanged.
+  private final Map<BuildOptions, EnvironmentChecksums> environmentChecksums =
+      new ConcurrentHashMap<>();
 
   HashesOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -108,13 +120,15 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       DepsRetriever depsRetriever,
       @Nullable TopLevelConfigurations topLevelConfigurations,
       LabelPrinter labelPrinter,
-      boolean keepGoing) {
+      boolean keepGoing,
+      ImmutableMap<String, String> clientEnvironment) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.skyframeExecutor = skyframeExecutor;
     this.depsRetriever = depsRetriever;
     this.topLevelConfigurations = topLevelConfigurations;
     this.labelPrinter = labelPrinter;
     this.keepGoing = keepGoing;
+    this.clientEnvironment = clientEnvironment;
   }
 
   @Override
@@ -762,8 +776,22 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
     if (repoMappingDigest != null) {
       fp.addString("observed-analysis-repo-mapping-v1").addString(repoMappingDigest.digest());
     }
-    String checksum = node.getConfigurationChecksum();
-    fp.addString(checksum == null ? "<no configuration>" : checksum);
+    var config = node.getConfigurationKey();
+    if (config == null) {
+      fp.addString("<no configuration>");
+    } else {
+      var options = config.getOptions();
+      var checksums = environmentChecksums.get(options);
+      if (checksums == null) {
+        checksums = environmentChecksums.computeIfAbsent(options, this::checksumsFor);
+      }
+      fp.addString(
+          checksums.test() != null
+                  && node instanceof RuleConfiguredTarget rule
+                  && TargetUtils.isTestRuleName(rule.getRuleClassString())
+              ? checksums.test()
+              : checksums.action());
+    }
     if (node.getLookupKey() instanceof AspectKey
         || (node.getLookupKey() instanceof ConfiguredTargetKey configuredKey
             && (configuredKey.getExecutionPlatformLabel() != null
@@ -779,6 +807,46 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
     if (digest != null) {
       aspectMappings.put(key, digest);
     }
+  }
+
+  private record EnvironmentChecksums(String action, @Nullable String test) {}
+
+  private EnvironmentChecksums checksumsFor(BuildOptions options) {
+    String checksum = options.checksum();
+    var names = new TreeSet<String>();
+    if (options.contains(CoreOptions.class)) {
+      collectInheritedNames(options.get(CoreOptions.class).getActionEnvironment(), names);
+    }
+    String action = withInheritedEnvironment(checksum, names);
+    if (!options.contains(TestOptions.class)) {
+      return new EnvironmentChecksums(action, null);
+    }
+    var tests = new TreeSet<String>();
+    collectInheritedNames(options.get(TestOptions.class).getTestEnvironment(), tests);
+    // A test rule can also generate ordinary actions.
+    String test = names.addAll(tests) ? withInheritedEnvironment(checksum, names) : null;
+    return new EnvironmentChecksums(action, test);
+  }
+
+  private static void collectInheritedNames(List<EnvVar> options, Set<String> names) {
+    // BuildOptions normalizes each list using last occurrence wins.
+    for (EnvVar option : options) {
+      if (option instanceof EnvVar.Inherit(String name)) {
+        names.add(name);
+      }
+    }
+  }
+
+  private String withInheritedEnvironment(String checksum, Set<String> names) {
+    if (names.isEmpty()) {
+      return checksum;
+    }
+    Fingerprint fp = new Fingerprint();
+    fp.addString("cquery-explicit-client-environment-v1").addString(checksum).addInt(names.size());
+    for (String name : names) {
+      fp.addString(name).addNullableString(clientEnvironment.get(name));
+    }
+    return fp.hexDigestAndReset();
   }
 
   // Native genquery reads the unconfigured graph. A ConfiguredTarget's dependency edges
