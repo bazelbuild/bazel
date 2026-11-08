@@ -1639,7 +1639,7 @@ function test_generate_hashes() {
 
   bazel query --experimental_generate_hashes '//hashes:a + //hashes:b' > output \
     2> $TEST_log || fail "Expected success"
-  assert_equals 2 "$(wc -l < output)"
+  assert_equals 2 "$(awk 'END { print NR }' output)"
   grep -Eq '^//hashes:a [0-9a-f]{64}$' output || fail "Unexpected output: $(cat output)"
   grep -Eq '^//hashes:b [0-9a-f]{64}$' output || fail "Unexpected output: $(cat output)"
   cp output before
@@ -1681,7 +1681,7 @@ EOF
       esac
       bazel "$command" --experimental_generate_hashes "$expression" > "$stage" \
         2> "$TEST_log" || fail "Expected $command to hash the source directory"
-      assert_equals 2 "$(wc -l < "$stage")"
+      assert_equals 2 "$(awk 'END { print NR }' "$stage")"
     done
     diff <(sort before) <(sort same) || fail "Expected stable $command hashes"
     for target in directory files; do
@@ -1699,8 +1699,8 @@ function test_generate_hashes_line_terminator_null() {
 
   bazel query --experimental_generate_hashes --line_terminator_null '//hashes:a + //hashes:b' \
     > output 2> $TEST_log || fail "Expected success"
-  assert_equals 2 "$(tr -cd '\0' < output | wc -c)"
-  assert_equals 0 "$(tr -cd '\n' < output | wc -c)"
+  assert_equals 2 "$(tr -cd '\0' < output | wc -c | tr -d '[:space:]')"
+  assert_equals 0 "$(tr -cd '\n' < output | wc -c | tr -d '[:space:]')"
 }
 
 function test_generate_hashes_rejects_dependency_filters() {
