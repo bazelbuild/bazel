@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -57,6 +58,9 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -83,6 +87,8 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   public static final ImmutableList<QueryFunction> CQUERY_FUNCTIONS = getCqueryFunctions();
 
   private CqueryOptions cqueryOptions;
+  @Nullable private SkyframeExecutor indexSource;
+  @Nullable private Map<Label, List<ConfiguredTargetKey>> configuredKeysByLabel;
 
   private final TopLevelArtifactContext topLevelArtifactContext;
 
@@ -177,6 +183,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
           StarlarkSemantics starlarkSemantics)
           throws QueryException, InterruptedException {
     if (cqueryOptions.getGenerateHashes()) {
+      indexSource = skyframeExecutor;
       return ImmutableList.of(
           new HashesOutputFormatterCallback(
               eventHandler,
@@ -184,8 +191,9 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
               out,
               skyframeExecutor,
               accessor,
-              kct -> getFwdDeps(ImmutableList.of(kct)),
-              getLabelPrinter()));
+              target -> getCompleteFwdDeps(target, cqueryOptions.useParallelHashing()),
+              getLabelPrinter(),
+              keepGoing));
     }
     AspectResolver aspectResolver =
         cqueryOptions.getAspectDeps().createResolver(packageManager, eventHandler);
@@ -252,6 +260,58 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, starlarkSemantics),
         new FilesOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
+  }
+
+  @Override
+  public QueryEvalResult evaluateQuery(
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<CqueryNode> callback)
+      throws QueryException, InterruptedException, IOException {
+    // Most small cqueries are cheaper as individual lookups. Limit this index to hash queries
+    // whose universe and configuration count would make the Cartesian product substantial.
+    if (indexSource != null && transitiveConfigurations.size() >= 16
+        && (long) topLevelConfigurations.size() * transitiveConfigurations.size() >= 65536) {
+      configuredKeysByLabel = indexMainConfiguredKeys(indexSource);
+    }
+    try {
+      return super.evaluateQuery(expr, callback);
+    } finally {
+      // The hash formatter is replayed after query evaluation and allocates its own graph.
+      configuredKeysByLabel = null;
+      indexSource = null;
+    }
+  }
+
+  private Map<Label, List<ConfiguredTargetKey>> indexMainConfiguredKeys(SkyframeExecutor source) {
+    Map<Label, List<ConfiguredTargetKey>> index = new HashMap<>();
+    // The graph exposes a live collection of entries. Only index candidates for the same default
+    // key shape that getConfiguredTargetsForLabel would construct. Actual values are always read
+    // through that method's own WalkableGraph, including all its transition and alias checks.
+    for (var entry : source.getEvaluator().getInMemoryGraph().getAllNodeEntries()) {
+      if (!(entry.getKey() instanceof ConfiguredTargetKey key)
+          || !key.getLabel().getRepository().isMain()
+          || key.getExecutionPlatformLabel() != null
+          || !key.shouldApplyRuleTransition()
+          || key.getConfigurationKey() == null
+          || !transitiveConfigurations.containsKey(key.getConfigurationKey().getOptionsChecksum())
+          || !entry.isDone()) {
+        continue;
+      }
+      index.computeIfAbsent(key.getLabel(), unused -> new ArrayList<>(2)).add(key);
+    }
+    // PostAnalysisQueryProcessor iterates transitiveConfigurations in sorted checksum order.
+    for (List<ConfiguredTargetKey> keys : index.values()) {
+      keys.sort(Comparator.comparing(key -> key.getConfigurationKey().getOptionsChecksum()));
+    }
+    return index;
+  }
+
+  private Iterable<ConfiguredTargetKey> candidateKeys(Label label) {
+    if (configuredKeysByLabel != null && label.getRepository().isMain()) {
+      return configuredKeysByLabel.getOrDefault(label, ImmutableList.of());
+    }
+    return Iterables.transform(
+        transitiveConfigurations.values(),
+        config -> ConfiguredTargetKey.builder().setLabel(label).setConfigurationKey(config.getKey()).build());
   }
 
   @Override
@@ -358,14 +418,9 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       throws InterruptedException {
     var ans = ImmutableList.<CqueryNode>builder();
     HashSet<ConfiguredTargetKey> extraConfiguredTargetKeys = null;
-    for (var configurationValue : transitiveConfigurations.values()) {
-      var configurationKey = configurationValue.getKey();
-      var target =
-          getValueFromKey(
-              ConfiguredTargetKey.builder()
-                  .setLabel(label)
-                  .setConfigurationKey(configurationKey)
-                  .build());
+    for (ConfiguredTargetKey key : candidateKeys(label)) {
+      var configurationKey = key.getConfigurationKey();
+      var target = getValueFromKey(key);
       if (target == null) {
         continue;
       }
@@ -376,13 +431,22 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       // so we optimize for it not being hit.
       if (!Objects.equals(configurationKey, target.getConfigurationKey())) {
         var targetKey = ConfiguredTargetKey.fromConfiguredTarget(target);
-        if (targetKey.shouldApplyRuleTransition()
-            || getValueFromKey(
-                    ConfiguredTargetKey.builder()
-                        .setLabel(label)
-                        .setConfigurationKey(targetKey.getConfigurationKey())
-                        .build())
-                != null) {
+        if (targetKey.shouldApplyRuleTransition()) {
+          continue;
+        }
+        // Ordinary cquery considers an input configuration covered if its lookup succeeds.
+        // Hashing must distinguish two applications of a non-idempotent transition: success only
+        // covers this result when the lookup actually resolves to the same configured key.
+        var ordinaryTarget =
+            getValueFromKey(
+                ConfiguredTargetKey.builder()
+                    .setLabel(label)
+                    .setConfigurationKey(targetKey.getConfigurationKey())
+                    .build());
+        if (ordinaryTarget != null
+            && (cqueryOptions == null
+                || !cqueryOptions.getGenerateHashes()
+                || ConfiguredTargetKey.fromConfiguredTarget(ordinaryTarget).equals(targetKey))) {
           continue;
         }
         if (extraConfiguredTargetKeys == null) {

@@ -57,6 +57,17 @@ java_test(
 )
 
 java_test(
+    name = "CompactConfiguredHashesTest",
+    size = "small",
+    srcs = ["CompactConfiguredHashesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "HashesOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["HashesOutputFormatterCallbackTest.java"],

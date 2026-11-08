@@ -74,7 +74,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -189,6 +189,9 @@ public final class DirectTargetHashFunction implements SkyFunction {
       Object loaded = TargetLoadingUtil.loadTarget(env, label);
       if (!(loaded instanceof TargetAndErrorIfAny targetAndErrorIfAny)) {
         return null;
+      }
+      if (targetAndErrorIfAny.getErrorLoadingTarget() != null) {
+        throw targetAndErrorIfAny.getErrorLoadingTarget();
       }
       target = targetAndErrorIfAny.getTarget();
       pkg = targetAndErrorIfAny.getPackage();
@@ -331,7 +334,8 @@ public final class DirectTargetHashFunction implements SkyFunction {
               /* extraDataForAttrHash= */ "",
               Hashing.sha256(),
               /* includeAttributeSourceAspects= */ false,
-              /* includeStarlarkRuleEnv= */ true));
+              /* includeStarlarkRuleEnv= */ true,
+              /* canonicalizeLabelSelects= */ true));
     } else if (target instanceof PackageGroup packageGroup) {
       fp.addStrings(packageGroup.getContainedPackages(/* includeDoubleSlash= */ true));
     }
@@ -431,7 +435,7 @@ public final class DirectTargetHashFunction implements SkyFunction {
    * files that label attributes point to.
    */
   @Nullable
-  private static byte[] repoClosureDefinitionDigest(Environment env, RepositoryName repo)
+  private byte[] repoClosureDefinitionDigest(Environment env, RepositoryName repo)
       throws InterruptedException, IOException {
     if (repo.isMain()) {
       return null;
@@ -548,6 +552,7 @@ public final class DirectTargetHashFunction implements SkyFunction {
         env.getValuesAndExceptions(fileKeys.stream().filter(k -> k != null).toList());
 
     Fingerprint fp = new Fingerprint();
+    String externalPrefix = directories.getOutputBase().getRelative("external").getPathString() + "/";
     for (var entry : hashedDefinitions.entrySet()) {
       RepoRule repoRule = entry.getValue().repoRule();
       fp.addString(entry.getKey());
@@ -558,7 +563,10 @@ public final class DirectTargetHashFunction implements SkyFunction {
       fp.addInt(attributes.size());
       for (String attribute : new TreeSet<>(attributes.keySet())) {
         fp.addString(attribute);
-        fp.addString(Starlark.repr(attributes.get(attribute), StarlarkSemantics.DEFAULT));
+        fp.addString(
+            new ExternalPathPrinter(externalPrefix)
+                .repr(attributes.get(attribute), StarlarkSemantics.DEFAULT)
+                .toString());
       }
     }
     fp.addInt(files.size());
@@ -578,6 +586,37 @@ public final class DirectTargetHashFunction implements SkyFunction {
       fp.addBytes(digest.getDigest());
     }
     return fp.digestAndReset();
+  }
+
+  /** Normalizes path strings in repo definitions, including strings nested in lists and dicts. */
+  private static final class ExternalPathPrinter extends Printer {
+    private final String pathPrefix;
+    private final String fileUrlPrefix;
+
+    ExternalPathPrinter(String pathPrefix) {
+      this.pathPrefix = pathPrefix;
+      this.fileUrlPrefix = "file://" + pathPrefix;
+    }
+
+    @Override
+    public Printer repr(Object value, StarlarkSemantics semantics) {
+      if (value instanceof String path && !path.contains("/../") && !path.endsWith("/..")) {
+        // Emit a typed marker so that a literal string cannot collide with a normalized path.
+        if (path.startsWith(pathPrefix)) {
+          append("external_path(");
+          return quotedSuffix(path.substring(pathPrefix.length()), semantics);
+        }
+        if (path.startsWith(fileUrlPrefix)) {
+          append("external_file_url(");
+          return quotedSuffix(path.substring(fileUrlPrefix.length()), semantics);
+        }
+      }
+      return super.repr(value, semantics);
+    }
+
+    private Printer quotedSuffix(String suffix, StarlarkSemantics semantics) {
+      return super.repr(suffix, semantics).append(")");
+    }
   }
 
   /** Adds the labels in a repo rule attribute value, which may be a list or dict of them. */

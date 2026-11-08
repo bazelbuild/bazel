@@ -119,6 +119,16 @@ public class BzlLoadValue implements SkyValue {
     @Override
     public abstract Label getLabel();
 
+    /** Stable load context, the discriminator used alongside the label in this key's equality. */
+    public final String loadKindForFingerprint() {
+      return switch (this) {
+        case KeyForBuild k -> k.isBuildPrelude() ? "build-prelude" : "build";
+        case KeyForBuiltins k -> "builtins";
+        case KeyForBzlmodBootstrap k -> "bzlmod-bootstrap";
+        case KeyForBzlmod k -> "bzlmod";
+      };
+    }
+
     /** Returns true if this is a request for the special BUILD prelude file. */
     boolean isBuildPrelude() {
       return false;

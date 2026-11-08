@@ -20,7 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -86,7 +87,8 @@ public final class TransitiveHashes {
   public static Result compute(
       Collection<Label> roots, Evaluator evaluator, Consumer<String> progress)
       throws InterruptedException {
-    Map<Label, DirectTargetHashFunction.Value> graph = new HashMap<>();
+    Map<Label, Node<Label>> graph = new HashMap<>();
+    Set<Label> failed = new HashSet<>();
     Map<Label, ErrorInfo> errors = new TreeMap<>();
     ImmutableSet<Label> rootSet = ImmutableSet.copyOf(roots);
     Set<Label> visited = new HashSet<>(roots);
@@ -103,19 +105,25 @@ public final class TransitiveHashes {
         SkyKey key = DirectTargetHashFunction.key(label);
         DirectTargetHashFunction.Value value = (DirectTargetHashFunction.Value) result.get(key);
         if (value == null) {
-          // Deps that do not exist are hashed as missing leaves; see hashOf.
           ErrorInfo error = result.getError(key);
-          if (error != null
-              && (rootSet.contains(label)
-                  || !(error.getException() instanceof NoSuchThingException))) {
-            errors.put(label, error);
+          // Keep the PR's missing-leaf marker only for a proven absent dependency.
+          // Fetch failures, I/O errors, and partially loaded packages may still contain the label.
+          if (rootSet.contains(label) || !isKnownAbsent(error)) {
+            failed.add(label);
+            if (error != null) {
+              errors.put(label, error);
+            }
           }
           continue;
         }
         if (value.isToolchainType()) {
           value = registeredToolchains.addToolchains(label, value, errors);
+          if (value == null) {
+            failed.add(label);
+            continue;
+          }
         }
-        graph.put(label, value);
+        graph.put(label, new Node<>(value.getDirectHash(), value.getDeps()));
         for (Label dep : value.getDeps()) {
           if (visited.add(dep)) {
             next.add(dep);
@@ -130,7 +138,8 @@ public final class TransitiveHashes {
     }
 
     progress.accept(String.format("Hashing: combining hashes of %d targets", graph.size()));
-    Map<Label, byte[]> hashes = combine(graph);
+    Map<Label, byte[]> hashes =
+        combine(graph, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm, failed);
     ImmutableMap.Builder<Label, String> rootHashes = ImmutableMap.builder();
     for (Label root : rootSet) {
       byte[] hash = hashes.get(root);
@@ -139,6 +148,15 @@ public final class TransitiveHashes {
       }
     }
     return new Result(rootHashes.buildOrThrow(), ImmutableMap.copyOf(errors));
+  }
+
+  private static boolean isKnownAbsent(@Nullable ErrorInfo error) {
+    if (error == null || !(error.getException() instanceof BuildFileNotFoundException missing)) {
+      return false;
+    }
+    var detail = missing.getDetailedExitCode().getFailureDetail();
+    return detail != null
+        && detail.getPackageLoading().getCode() == PackageLoading.Code.BUILD_FILE_MISSING;
   }
 
   /** Lazily evaluates {@link RegisteredToolchainsByTypeFunction}, once per computation. */
@@ -153,6 +171,7 @@ public final class TransitiveHashes {
     }
 
     /** Returns {@code toolchainType}'s value with edges to the toolchains registered for it. */
+    @Nullable
     DirectTargetHashFunction.Value addToolchains(
         Label toolchainType, DirectTargetHashFunction.Value typeValue, Map<Label, ErrorInfo> errors)
         throws InterruptedException {
@@ -166,19 +185,10 @@ public final class TransitiveHashes {
         evaluated = true;
       }
       if (value == null) {
-        // The registered toolchains could not be determined (an invalid register_toolchains
-        // pattern, for instance). Report it, and hash that fact rather than silently dropping the
-        // edges.
         if (error != null) {
           errors.put(toolchainType, error);
         }
-        return new DirectTargetHashFunction.Value(
-            new Fingerprint()
-                .addBytes(typeValue.getDirectHash())
-                .addString("<registered toolchains unavailable>")
-                .digestAndReset(),
-            typeValue.getDeps(),
-            /* toolchainType= */ true);
+        return null;
       }
       TreeSet<Label> deps = new TreeSet<>(typeValue.getDeps());
       deps.addAll(value.getToolchains(toolchainType));
@@ -212,6 +222,16 @@ public final class TransitiveHashes {
    */
   public static <K> Map<K, byte[]> combine(
       Map<K, Node<K>> graph, Comparator<? super K> order, Function<? super K, String> name) {
+    return combine(graph, order, name, Set.of());
+  }
+
+  /** Omits any component that includes or transitively depends on a failed key. */
+  public static <K> Map<K, byte[]> combine(
+      Map<K, Node<K>> graph,
+      Comparator<? super K> order,
+      Function<? super K, String> name,
+      Set<K> failedKeys) {
+    Set<K> failed = new HashSet<>(failedKeys);
     Map<K, byte[]> hashes = new HashMap<>(graph.size());
     Map<K, Integer> index = new HashMap<>(graph.size());
     Map<K, Integer> lowLink = new HashMap<>(graph.size());
@@ -248,7 +268,12 @@ public final class TransitiveHashes {
             onStack.remove(member);
             component.add(member);
           } while (!member.equals(node));
-          hashComponent(component, graph, order, name, hashes);
+          // Tarjan emits dependencies first, so propagating failures here needs no reverse graph.
+          if (!failed.isEmpty() && hasFailedInput(component, graph, failed)) {
+            failed.addAll(component);
+          } else {
+            hashComponent(component, graph, order, name, hashes);
+          }
         }
         if (!work.isEmpty()) {
           lowLink.merge(work.peek().node(), lowLink.get(node), Math::min);
@@ -256,6 +281,21 @@ public final class TransitiveHashes {
       }
     }
     return hashes;
+  }
+
+  private static <K> boolean hasFailedInput(
+      List<K> component, Map<K, Node<K>> graph, Set<K> failed) {
+    for (K member : component) {
+      if (failed.contains(member)) {
+        return true;
+      }
+      for (K dep : graph.get(member).deps()) {
+        if (failed.contains(dep)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /** An explicit DFS frame, to avoid overflowing the Java stack on deep graphs. */
