@@ -92,18 +92,6 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       return;
     }
 
-    // This query will operate over the graph as constructed by analysis, but will also pick up
-    // any nodes that are in the graph from prior builds, including dirty nodes. While they can't be
-    // reached from the scope of the current build via deps, they can appear in rdeps, which results
-    // in the processor doing unnecessary work or even expecting stale keys to be present. Clean
-    // them up now, which requires ignoring the value of --version_window_for_dirty_node_gc.
-    // TODO: b/71905538 - Keeping state from previous builds around makes the results not
-    //  reproducible at the level of a single command. Either tolerate, or wipe the analysis graph
-    //  beforehand if this option is specified, or add another option to wipe if desired
-    //  (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
-    env.getSkyframeExecutor()
-        .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
-    env.getSkyframeExecutor().applyInvalidation(env.getReporter());
     if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
       throw new ExitException(
           DetailedExitCode.of(
@@ -133,6 +121,14 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                     && request.getTargets().equals(ImmutableList.of("//..."))))
             && !request.getLoadingOptions().getCompileOneDependency()
             && !request.getLoadingOptions().getBuildTestsOnly();
+    // Forward-only hashing starts from this analysis's roots. Keep unrelated dirty
+    // values available for change pruning. General queries still clean up old nodes
+    // because reverse traversals can see state left behind by earlier commands.
+    if (!hashing || !useAnalyzedRoots) {
+      env.getSkyframeExecutor()
+          .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
+    }
+    env.getSkyframeExecutor().applyInvalidation(env.getReporter());
     var topLevelConfigurations =
         new TopLevelConfigurations(
             useAnalyzedRoots ? ImmutableList.of() : analysisResult.getTopLevelTargetsWithConfigs(),
