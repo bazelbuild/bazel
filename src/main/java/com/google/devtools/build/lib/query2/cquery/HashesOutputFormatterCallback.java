@@ -17,21 +17,27 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.AnalysisTimeFileContents;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
-import com.google.devtools.build.lib.query2.cquery.GraphOutputFormatterCallback.DepsRetriever;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.query.hash.DirectTargetHashFunction;
-import com.google.devtools.build.lib.query2.query.hash.TransitiveHashes;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -41,12 +47,20 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * cquery output formatter for {@code --generate_hashes}. Prints each configured target in the
@@ -60,11 +74,18 @@ import java.util.Map;
  */
 class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
 
+  @FunctionalInterface
+  interface DepsRetriever {
+    @Nullable
+    Iterable<CqueryNode> getDirectDeps(CqueryNode target) throws InterruptedException;
+  }
+
   static final String NAME = "generate_hashes";
 
   private final SkyframeExecutor skyframeExecutor;
   private final DepsRetriever depsRetriever;
   private final LabelPrinter labelPrinter;
+  private final boolean keepGoing;
 
   HashesOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -73,11 +94,13 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<CqueryNode> accessor,
       DepsRetriever depsRetriever,
-      LabelPrinter labelPrinter) {
+      LabelPrinter labelPrinter,
+      boolean keepGoing) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.skyframeExecutor = skyframeExecutor;
     this.depsRetriever = depsRetriever;
     this.labelPrinter = labelPrinter;
+    this.keepGoing = keepGoing;
   }
 
   @Override
@@ -86,6 +109,45 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   private int failures = 0;
+
+  @FunctionalInterface
+  private interface RangeWork {
+    void run(int first, int limit) throws IOException, InterruptedException;
+  }
+
+  private static void ranges(ExecutorService pool, int first, int limit, int stride, RangeWork work)
+      throws IOException, InterruptedException {
+    var tasks = new ArrayList<Callable<Void>>();
+    for (int begin = first; begin < limit; begin += stride) {
+      int left = begin;
+      int right = Math.min(limit, begin + stride);
+      tasks.add(
+          () -> {
+            work.run(left, right);
+            return null;
+          });
+    }
+    for (var future : pool.invokeAll(tasks)) {
+      try {
+        future.get();
+      } catch (ExecutionException e) {
+        var cause = e.getCause();
+        if (cause instanceof IOException io) {
+          throw io;
+        }
+        if (cause instanceof InterruptedException interrupted) {
+          throw interrupted;
+        }
+        if (cause instanceof RuntimeException runtime) {
+          throw runtime;
+        }
+        if (cause instanceof Error error) {
+          throw error;
+        }
+        throw new IOException(cause);
+      }
+    }
+  }
 
   @Override
   public void process(Iterable<CqueryNode> partialResult)
@@ -101,43 +163,422 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   @Override
   public void processOutput(Iterable<CqueryNode> partialResult)
       throws IOException, InterruptedException {
-    Map<ActionLookupKey, CqueryNode> roots = new LinkedHashMap<>();
-    for (CqueryNode node : partialResult) {
-      roots.putIfAbsent(node.getLookupKey(), node);
-    }
-
-    // Walk the configured graph breadth-first, recording each node's deps.
-    Map<ActionLookupKey, CqueryNode> nodes = new HashMap<>(roots);
-    Map<ActionLookupKey, List<ActionLookupKey>> deps = new HashMap<>();
-    List<CqueryNode> frontier = new ArrayList<>(roots.values());
-    while (!frontier.isEmpty()) {
-      List<CqueryNode> next = new ArrayList<>();
-      for (CqueryNode node : frontier) {
-        List<ActionLookupKey> nodeDeps = new ArrayList<>();
-        for (CqueryNode dep : depsRetriever.getDirectDeps(node)) {
-          ActionLookupKey depKey = dep.getLookupKey();
-          if (depKey.equals(node.getLookupKey())) {
-            continue;
-          }
-          nodeDeps.add(depKey);
-          if (nodes.putIfAbsent(depKey, dep) == null) {
-            next.add(dep);
+    List<HashTarget> roots = new ArrayList<>();
+    Set<HashTarget> failed = new HashSet<>();
+    int available = Runtime.getRuntime().availableProcessors();
+    int requested = options.getHashWorkers();
+    int workers = requested == 0 ? available : Math.min(available, requested);
+    boolean parallel = options.useParallelHashing();
+    ExecutorService pool = workers > 1 ? Executors.newFixedThreadPool(workers) : null;
+    List<HashTarget> nodes;
+    try {
+      try (var ignored = Profiler.instance().profile("CQHASH walk")) {
+        nodes = collectGraph(partialResult, roots, failed, pool);
+      }
+      try (var ignored = Profiler.instance().profile("CQHASH direct")) {
+        if (parallel) {
+          computeDistinctDirectHashes(nodes, failed, workers, pool);
+        } else {
+          for (List<HashTarget> batch : Lists.partition(nodes, 16384)) {
+            computeDirectHashes(batch, failed);
           }
         }
-        deps.put(node.getLookupKey(), nodeDeps);
       }
-      frontier = next;
+    } finally {
+      if (pool != null) {
+        pool.shutdownNow();
+        pool.close();
+      }
+    }
+    failures += failed.size();
+    if (!keepGoing && failures > 0) {
+      return;
+    }
+    eventHandler.handle(
+        Event.progress(String.format("Hashing: combining hashes of %d targets", nodes.size())));
+    try (var ignored = Profiler.instance().profile("CQHASH combine")) {
+      if (parallel) {
+        CompactConfiguredHashes.combineParallel(nodes, failed, workers);
+      } else {
+        CompactConfiguredHashes.combine(nodes, failed);
+      }
+    } catch (UncheckedIOException collision) {
+      throw collision.getCause();
+    }
+    try (var ignored = Profiler.instance().profile("CQHASH emit")) {
+      for (HashTarget target : roots) {
+        CqueryNode root = target.node;
+        byte[] hash = target.hash;
+        if (hash == null) {
+          continue;
+        }
+        String description =
+            String.format(
+                "%s (%s)",
+                root.getDescription(labelPrinter),
+                shortId(getConfiguration(root.getConfigurationKey())));
+        printStream
+            .append(description)
+            .append(' ')
+            .append(BaseEncoding.base16().lowerCase().encode(hash))
+            .append(options.getLineTerminator());
+      }
+      printStream.flush();
+    }
+  }
+
+  private static final int PROJECTION_BATCH_SIZE = 4096;
+
+  // Intern by ActionLookupKey while walking. Later operations can use the identity of a single
+  // shared object per configured target and access its stable name without another map lookup.
+  private static final class HashTarget extends CompactConfiguredHashes.Node<HashTarget> {
+    final CqueryNode node;
+    int lastParentOrdinal = -1;
+
+    HashTarget(int ordinal, CqueryNode node, boolean deferName) throws IOException {
+      super(ordinal, deferName ? "" : stableName(node));
+      this.node = node;
+    }
+
+    private static String stableName(CqueryNode node) throws IOException {
+      String checksum = node.getConfigurationChecksum();
+      String identity =
+          node.getOriginalLabel().getUnambiguousCanonicalForm()
+              + " "
+              + (checksum == null ? "null" : checksum);
+      if (node.getLookupKey() instanceof ConfiguredTargetKey key) {
+        if (key.getExecutionPlatformLabel() == null
+            && key.shouldApplyRuleTransition()
+            && key.getLabel().equals(node.getOriginalLabel())) {
+          return identity;
+        }
+        Fingerprint fp = new Fingerprint();
+        addConfiguredKey(fp, key);
+        return identity + (char) 0 + BaseEncoding.base16().lowerCase().encode(fp.digestAndReset());
+      }
+      if (node.getLookupKey() instanceof AspectKey key) {
+        Fingerprint fp = new Fingerprint();
+        addAspectKey(fp, key);
+        return identity
+            + " "
+            + key.getAspectClass().getName()
+            + (char) 0
+            + BaseEncoding.base16().lowerCase().encode(fp.digestAndReset());
+      }
+      throw new IOException("Unsupported configured hash key: " + node.getLookupKey().getClass());
+    }
+
+    private static void addConfiguredKey(Fingerprint fp, ConfiguredTargetKey key) {
+      fp.addString(key.getLabel().getUnambiguousCanonicalForm())
+          .addNullableString(
+              key.getConfigurationKey() == null
+                  ? null
+                  : key.getConfigurationKey().getOptions().checksum())
+          .addNullableString(
+              key.getExecutionPlatformLabel() == null
+                  ? null
+                  : key.getExecutionPlatformLabel().getUnambiguousCanonicalForm())
+          .addBoolean(key.shouldApplyRuleTransition());
+    }
+
+    private static void addAspectKey(Fingerprint fp, AspectKey key) throws IOException {
+      addConfiguredKey(fp, key.getBaseConfiguredTargetKey());
+      switch (key.getAspectClass()) {
+        case StarlarkAspectClass starlark ->
+            fp.addString("starlark")
+                .addString(starlark.getExtensionLabel().getUnambiguousCanonicalForm())
+                .addString(starlark.getExtensionKey().loadKindForFingerprint())
+                .addString(starlark.getExportedName());
+        case NativeAspectClass nativeAspect ->
+            fp.addString("native").addString(nativeAspect.getClass().getName());
+        default ->
+            throw new IOException("Unsupported aspect class: " + key.getAspectClass().getClass());
+      }
+      var attributes = key.getParameters().getAttributes();
+      fp.addInt(attributes.keySet().size());
+      for (String name : ImmutableList.sortedCopyOf(attributes.keySet())) {
+        fp.addString(name).addStrings(attributes.get(name));
+      }
+      // Base aspects are canonicalized by Bazel on construction, but its presentation-based
+      // comparator can tie. Sort their structured digests instead of inheriting that tie order.
+      var bases = key.getBaseKeys();
+      fp.addInt(bases.size());
+      if (!bases.isEmpty()) {
+        var identities = new ArrayList<String>(bases.size());
+        for (AspectKey base : bases) {
+          Fingerprint child = new Fingerprint();
+          addAspectKey(child, base);
+          identities.add(BaseEncoding.base16().lowerCase().encode(child.digestAndReset()));
+        }
+        identities.sort(String::compareTo);
+        for (String identity : identities) {
+          fp.addString(identity);
+        }
+      }
+    }
+  }
+
+  private static final Comparator<HashTarget> BY_NAME = Comparator.comparing(target -> target.name);
+
+  private List<HashTarget> collectGraph(
+      Iterable<CqueryNode> partialResult,
+      List<HashTarget> roots,
+      Set<HashTarget> failed,
+      @Nullable ExecutorService pool)
+      throws IOException, InterruptedException {
+    Map<ActionLookupKey, HashTarget> seen = new HashMap<>();
+    for (CqueryNode node : partialResult) {
+      if (!seen.containsKey(node.getLookupKey())) {
+        HashTarget target = new HashTarget(roots.size(), node, pool != null);
+        seen.put(node.getLookupKey(), target);
+        roots.add(target);
+      }
+    }
+    List<HashTarget> nodes = new ArrayList<>(roots);
+    for (int i = 0; i < nodes.size(); ) {
+      int end = nodes.size();
+      while (i < end) {
+        int first = i;
+        int limit = pool == null ? end : Math.min(end, first + PROJECTION_BATCH_SIZE);
+        @SuppressWarnings("unchecked")
+        Iterable<CqueryNode>[] prefetched =
+            pool == null ? null : (Iterable<CqueryNode>[]) new Iterable<?>[limit - first];
+        if (pool != null) {
+          ranges(
+              pool,
+              first,
+              limit,
+              64,
+              (a, b) -> {
+                for (int j = a; j < b; j++) {
+                  prefetched[j - first] = depsRetriever.getDirectDeps(nodes.get(j).node);
+                }
+              });
+        }
+        while (i < limit) {
+          HashTarget target = nodes.get(i++);
+          ImmutableList.Builder<HashTarget> ordered = ImmutableList.builder();
+          Iterable<CqueryNode> directDeps =
+              prefetched == null
+                  ? depsRetriever.getDirectDeps(target.node)
+                  : prefetched[i - 1 - first];
+          if (directDeps == null) {
+            failed.add(target);
+            continue;
+          }
+          for (CqueryNode dep : directDeps) {
+            ActionLookupKey key = dep.getLookupKey();
+            if (key.equals(target.node.getLookupKey())) {
+              continue;
+            }
+            HashTarget candidate = seen.get(key);
+            if (candidate == null) {
+              candidate = new HashTarget(nodes.size(), dep, pool != null);
+              seen.put(key, candidate);
+              nodes.add(candidate);
+            }
+            if (candidate.lastParentOrdinal != target.ordinal) {
+              candidate.lastParentOrdinal = target.ordinal;
+              ordered.add(candidate);
+            }
+          }
+          target.deps = ordered.build();
+          if (pool == null) {
+            sortAndCheck(target);
+          }
+        }
+      }
       eventHandler.handle(
           Event.progress(
               String.format(
-                  "Hashing: visited %d configured targets (%d pending)",
-                  deps.size(), frontier.size())));
+                  "Hashing: visited %d configured targets (%d pending)", i, nodes.size() - i)));
     }
+    if (pool != null) {
+      ranges(
+          pool,
+          0,
+          nodes.size(),
+          1024,
+          (a, b) -> {
+            for (int i = a; i < b; i++) {
+              HashTarget target = nodes.get(i);
+              target.name = HashTarget.stableName(target.node);
+            }
+          });
+      ranges(
+          pool,
+          0,
+          nodes.size(),
+          512,
+          (a, b) -> {
+            for (int i = a; i < b; i++) {
+              sortAndCheck(nodes.get(i));
+            }
+          });
+    }
+    return nodes;
+  }
 
-    // The direct hashes of the unconfigured targets are computed, and memoized, by Skyframe.
+  private static void sortAndCheck(HashTarget target) throws IOException {
+    if (target.deps.size() <= 1) {
+      return;
+    }
+    target.deps = ImmutableList.sortedCopyOf(BY_NAME, target.deps);
+    for (int j = 1; j < target.deps.size(); j++) {
+      if (target.deps.get(j - 1).name.equals(target.deps.get(j).name)) {
+        throw new IOException(
+            "Distinct configured dependencies have the same hash identity under "
+                + target.node.getLookupKey());
+      }
+    }
+  }
+
+  // Reuse only values verified in this processOutput call. Cap the retained map and node-to-value
+  // references independently of closure size. Eviction changes lookup cost only.
+  private static final int DIRECT_WINDOW = 1 << 18;
+  private static final int DIRECT_CACHE_LIMIT = 1 << 20;
+  private static final int DIRECT_EVAL_BATCH = 16384;
+
+  private static final class DirectDigest {
+    final DirectTargetHashFunction.Key key;
+    @Nullable byte[] bytes;
+    @Nullable String error;
+
+    DirectDigest(DirectTargetHashFunction.Key key) {
+      this.key = key;
+    }
+  }
+
+  private void computeDistinctDirectHashes(
+      List<HashTarget> nodes, Set<HashTarget> failed, int workers, @Nullable ExecutorService pool)
+      throws IOException, InterruptedException {
+    var cache = new HashMap<Label, DirectDigest>();
+    var context =
+        EvaluationContext.newBuilder()
+            .setParallelism(workers)
+            .setEventHandler(eventHandler)
+            .build();
+    if (!nodes.isEmpty()) {
+      // Flush any pending Skyframe invalidation before consulting done values directly.
+      SkyKey barrierKey = DirectTargetHashFunction.key(nodes.get(0).node.getOriginalLabel());
+      skyframeExecutor.prepareAndGet(ImmutableSet.of(barrierKey), context);
+    }
+    for (int first = 0; first < nodes.size(); first += DIRECT_WINDOW) {
+      int count = Math.min(DIRECT_WINDOW, nodes.size() - first);
+      if (cache.size() + count > DIRECT_CACHE_LIMIT) {
+        cache.clear();
+      }
+      var slots = new DirectDigest[count];
+      var fresh = new ArrayList<DirectDigest>();
+      for (int i = 0; i < count; i++) {
+        var label = nodes.get(first + i).node.getOriginalLabel();
+        var slot = cache.get(label);
+        if (slot == null) {
+          slot = new DirectDigest(DirectTargetHashFunction.key(label));
+          cache.put(label, slot);
+          fresh.add(slot);
+        }
+        slots[i] = slot;
+      }
+      // A real evaluator call at the beginning flushes any pending invalidations. Subsequent
+      // getExistingValue calls accept only completed entries in the current graph. Missing,
+      // dirty and errored entries still go through normal keep-going evaluation.
+      runDirectRanges(
+          pool,
+          0,
+          fresh.size(),
+          (a, b) -> {
+            for (int i = a; i < b; i++) {
+              DirectDigest slot = fresh.get(i);
+              if (skyframeExecutor.getEvaluator().getExistingValue(slot.key)
+                  instanceof DirectTargetHashFunction.Value value) {
+                slot.bytes = value.getDirectHash();
+              }
+            }
+          });
+      var missing = new ArrayList<DirectDigest>();
+      for (DirectDigest slot : fresh) {
+        if (slot.bytes == null) {
+          missing.add(slot);
+        }
+      }
+      for (int left = 0; left < missing.size(); left += DIRECT_EVAL_BATCH) {
+        List<DirectDigest> group =
+            missing.subList(left, Math.min(missing.size(), left + DIRECT_EVAL_BATCH));
+        var keys = ImmutableSet.<SkyKey>builderWithExpectedSize(group.size());
+        for (DirectDigest slot : group) {
+          keys.add(slot.key);
+        }
+        EvaluationResult<SkyValue> result = skyframeExecutor.prepareAndGet(keys.build(), context);
+        for (DirectDigest slot : group) {
+          var value = (DirectTargetHashFunction.Value) result.get(slot.key);
+          if (value != null) {
+            slot.bytes = value.getDirectHash();
+          } else {
+            ErrorInfo error = result.getError(slot.key);
+            slot.error =
+                error != null && error.getException() != null
+                    ? String.valueOf(error.getException().getMessage())
+                    : "unknown error";
+          }
+        }
+      }
+      final int offset = first;
+      var errors = new ConcurrentLinkedQueue<HashTarget>();
+      runDirectRanges(
+          pool,
+          0,
+          count,
+          (a, b) -> {
+            Fingerprint fp = new Fingerprint();
+            for (int i = a; i < b; i++) {
+              HashTarget target = nodes.get(offset + i);
+              DirectDigest slot = slots[i];
+              if (slot.bytes == null) {
+                errors.add(target);
+                continue;
+              }
+              target.hash = configuredDirectDigest(target, slot.bytes, fp);
+              if (target.hash == null) {
+                errors.add(target);
+              }
+            }
+          });
+      // Preserve original diagnostic order without synchronizing happy-path work.
+      for (HashTarget target :
+          errors.stream().sorted(Comparator.comparingInt(t -> t.ordinal)).toList()) {
+        failed.add(target);
+        var slot = slots[target.ordinal - offset];
+        eventHandler.handle(
+            Event.error(
+                slot.bytes == null
+                    ? "failed to compute hash for "
+                        + target.node.getDescription(labelPrinter)
+                        + ": "
+                        + slot.error
+                    : "Missing genquery output for " + target.node.getOriginalLabel()));
+      }
+    }
+  }
+
+  private static void runDirectRanges(
+      @Nullable ExecutorService pool, int first, int limit, RangeWork work)
+      throws InterruptedException, IOException {
+    if (first >= limit) {
+      return;
+    }
+    if (pool == null) {
+      work.run(first, limit);
+    } else {
+      ranges(pool, first, limit, 1024, work);
+    }
+  }
+
+  private void computeDirectHashes(List<HashTarget> batch, Set<HashTarget> failed)
+      throws InterruptedException {
     ImmutableSet<SkyKey> keys =
-        nodes.values().stream()
-            .map(node -> DirectTargetHashFunction.key(node.getOriginalLabel()))
+        batch.stream()
+            .map(target -> DirectTargetHashFunction.key(target.node.getOriginalLabel()))
             .collect(toImmutableSet());
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(
@@ -146,77 +587,74 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .setParallelism(SkyQueryEnvironment.DEFAULT_THREAD_COUNT)
                 .setEventHandler(eventHandler)
                 .build());
-
-    Map<ActionLookupKey, String> names = new HashMap<>();
-    nodes.forEach((key, node) -> names.put(key, name(node)));
-    Comparator<ActionLookupKey> byName = Comparator.comparing(names::get);
-    Map<ActionLookupKey, TransitiveHashes.Node<ActionLookupKey>> graph = new HashMap<>();
-    for (Map.Entry<ActionLookupKey, CqueryNode> entry : nodes.entrySet()) {
-      CqueryNode node = entry.getValue();
-      var value =
-          (DirectTargetHashFunction.Value)
-              result.get(DirectTargetHashFunction.key(node.getOriginalLabel()));
+    for (HashTarget target : batch) {
+      CqueryNode node = target.node;
+      var key = DirectTargetHashFunction.key(node.getOriginalLabel());
+      var value = (DirectTargetHashFunction.Value) result.get(key);
       if (value == null) {
-        continue; // Hashed as a missing leaf by its dependents, reported below for roots.
-      }
-      Fingerprint fp = new Fingerprint().addBytes(value.getDirectHash());
-      String checksum = node.getConfigurationChecksum();
-      fp.addString(checksum == null ? "<no configuration>" : checksum);
-      if (node.getLookupKey() instanceof AspectKey aspectKey) {
-        fp.addString(aspectKey.getDescription());
-      }
-      graph.put(
-          entry.getKey(),
-          new TransitiveHashes.Node<>(
-              fp.digestAndReset(),
-              deps.get(entry.getKey()).stream()
-                  .distinct()
-                  .sorted(byName)
-                  .collect(ImmutableList.toImmutableList())));
-    }
-
-    eventHandler.handle(
-        Event.progress(String.format("Hashing: combining hashes of %d targets", graph.size())));
-    Map<ActionLookupKey, byte[]> hashes = TransitiveHashes.combine(graph, byName, names::get);
-    for (CqueryNode root : roots.values()) {
-      String description =
-          String.format(
-              "%s (%s)",
-              root.getDescription(labelPrinter),
-              shortId(getConfiguration(root.getConfigurationKey())));
-      byte[] hash = hashes.get(root.getLookupKey());
-      if (hash != null) {
-        // Written directly instead of through addResult, because a failure below skips close().
-        printStream
-            .append(description)
-            .append(' ')
-            .append(BaseEncoding.base16().lowerCase().encode(hash))
-            .append(options.getLineTerminator());
+        failed.add(target);
+        ErrorInfo error = result.getError(key);
+        eventHandler.handle(
+            Event.error(
+                String.format(
+                    "failed to compute hash for %s: %s",
+                    node.getDescription(labelPrinter),
+                    error != null && error.getException() != null
+                        ? error.getException().getMessage()
+                        : "unknown error")));
         continue;
       }
-      failures++;
-      ErrorInfo error = result.getError(DirectTargetHashFunction.key(root.getOriginalLabel()));
-      eventHandler.handle(
-          Event.error(
-              String.format(
-                  "failed to compute hash for %s: %s",
-                  description,
-                  error != null && error.getException() != null
-                      ? error.getException().getMessage()
-                      : "unknown error")));
+      target.hash = configuredDirectDigest(target, value.getDirectHash(), new Fingerprint());
+      if (target.hash == null) {
+        failed.add(target);
+        eventHandler.handle(Event.error("Missing genquery output for " + node.getOriginalLabel()));
+      }
     }
-    printStream.flush();
   }
 
-  /** A stable name of a configured node, identifying it among all nodes of the graph. */
-  private static String name(CqueryNode node) {
-    Label label = node.getOriginalLabel();
-    String checksum = node.getConfigurationChecksum();
-    String name =
-        label.getUnambiguousCanonicalForm() + " " + (checksum == null ? "null" : checksum);
-    if (node.getLookupKey() instanceof AspectKey aspectKey) {
-      name += " " + aspectKey.getDescription();
+  @Nullable
+  private byte[] configuredDirectDigest(HashTarget target, byte[] direct, Fingerprint fp)
+      throws InterruptedException {
+    var node = target.node;
+    fp.addBytes(direct);
+    if (node instanceof RuleConfiguredTarget rule
+        && rule.getRuleClassId().key().equals("genquery")
+        && !addGenQueryResult(node, fp)) {
+      fp.digestAndReset();
+      return null;
     }
-    return name;
+    String checksum = node.getConfigurationChecksum();
+    fp.addString(checksum == null ? "<no configuration>" : checksum);
+    if (node.getLookupKey() instanceof AspectKey
+        || (node.getLookupKey() instanceof ConfiguredTargetKey configuredKey
+            && (configuredKey.getExecutionPlatformLabel() != null
+                || !configuredKey.shouldApplyRuleTransition()
+                || !configuredKey.getLabel().equals(node.getOriginalLabel())))) {
+      fp.addString(target.name);
+    }
+    return fp.digestAndReset();
+  }
+
+  // Native genquery reads the unconfigured graph. A ConfiguredTarget's dependency edges
+  // therefore do not encode its result. Read the same result bytes as the actual generating action.
+  private boolean addGenQueryResult(CqueryNode node, Fingerprint fingerprint)
+      throws InterruptedException {
+    if (!(skyframeExecutor.getEvaluator().getExistingValue(node.getLookupKey())
+        instanceof RuleConfiguredTargetValue value)) {
+      return false;
+    }
+    var outputs =
+        value.getActions().stream()
+            .filter(AnalysisTimeFileContents.class::isInstance)
+            .map(AnalysisTimeFileContents.class::cast)
+            .toList();
+    if (outputs.size() != 1) {
+      return false;
+    }
+    fingerprint.addString("native-genquery-result-v1");
+    Fingerprint contents = new Fingerprint();
+    outputs.get(0).fingerprintFileContents(contents);
+    fingerprint.addBytes(contents.digestAndReset());
+    return true;
   }
 }

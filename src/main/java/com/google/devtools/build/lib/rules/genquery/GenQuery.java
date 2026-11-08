@@ -23,6 +23,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.AnalysisTimeFileContents;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -368,7 +369,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   }
 
   @Immutable // assuming no other reference to result
-  private static final class QueryResultAction extends AbstractFileWriteAction {
+  private static final class QueryResultAction extends AbstractFileWriteAction
+      implements AnalysisTimeFileContents {
     private final GenQueryResult result;
 
     private QueryResultAction(ActionOwner owner, Artifact output, GenQueryResult result) {
@@ -386,7 +388,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         ActionKeyContext actionKeyContext,
         @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
-      result.fingerprint(fp);
+      fingerprintFileContents(fp);
+    }
+
+    @Override
+    public void fingerprintFileContents(Fingerprint fingerprint) {
+      result.fingerprint(fingerprint);
     }
   }
 
