@@ -1890,7 +1890,7 @@ EOF
 
   bazel cquery --experimental_generate_hashes "//$pkg:a + //$pkg:b" > output \
     2> $TEST_log || fail "Expected success"
-  assert_equals 2 "$(wc -l < output)"
+  assert_equals 2 "$(awk 'END { print NR }' output)"
   grep -Eq "^//$pkg:a \([0-9a-f]+\) [0-9a-f]{64}$" output \
     || fail "Unexpected output: $(cat output)"
   cp output before
@@ -1924,7 +1924,8 @@ EOF
     # identity rather than assuming a single row per label.
     diff <(printf '%s\n' "//$pkg:indirect" "//$pkg:listing" "//$pkg:top") \
       <(cut -d' ' -f1 actual | LC_ALL=C sort -u) || fail "different requested labels"
-    assert_equals "$(wc -l < actual)" "$(cut -d' ' -f1,2 actual | LC_ALL=C sort -u | wc -l)"
+    assert_equals "$(awk 'END { print NR }' actual)" \
+      "$(cut -d' ' -f1,2 actual | LC_ALL=C sort -u | awk 'END { print NR }')"
     diff <(LC_ALL=C sort reference) <(LC_ALL=C sort actual) || fail "different root digests"
     grep "^//$pkg:top " actual > "top.$content" || fail "missing root"
   done
@@ -1937,7 +1938,7 @@ EOF
   if bazel cquery "${common[@]}" --experimental_cquery_hash_workers=4 --keep_going "$partial" > actual 2> "$TEST_log"; then
     fail "parallel hash accepted a missing dependency"
   fi
-  assert_equals 1 "$(wc -l < actual)"
+  assert_equals 1 "$(awk 'END { print NR }' actual)"
   grep "^//$pkg:top " actual || fail "independent healthy root is missing"
   diff reference actual || fail "different partial results"
 }
@@ -1981,14 +1982,14 @@ wrapper(name = "caller", dep = ":subject")
 EOF
   local -r expression="//$pkg:all intersect //$pkg:subject"
   bazel cquery --output=label "$expression" > normal 2> "$TEST_log" || fail "ordinary cquery"
-  assert_equals 1 "$(wc -l < normal)"
+  assert_equals 1 "$(awk 'END { print NR }' normal)"
   bazel cquery --experimental_generate_hashes "$expression" > reference 2> "$TEST_log" \
     || fail "serial hashes"
   bazel cquery --experimental_generate_hashes --experimental_cquery_hash_workers=4 \
     "$expression" > parallel 2> "$TEST_log" || fail "parallel hashes"
-  assert_equals 2 "$(wc -l < reference)"
-  assert_equals 2 "$(cut -d' ' -f2 reference | sort -u | wc -l)"
-  assert_equals 2 "$(cut -d' ' -f3 reference | sort -u | wc -l)"
+  assert_equals 2 "$(awk 'END { print NR }' reference)"
+  assert_equals 2 "$(cut -d' ' -f2 reference | sort -u | awk 'END { print NR }')"
+  assert_equals 2 "$(cut -d' ' -f3 reference | sort -u | awk 'END { print NR }')"
   diff <(LC_ALL=C sort reference) <(LC_ALL=C sort parallel) || fail "different root digests"
 }
 
@@ -2030,7 +2031,7 @@ function test_parallel_rule_catalog_preserves_rows_and_order() {
     bazel cquery "${common[@]}" --experimental_cquery_hash_workers="$workers" \
       --experimental_cquery_rule_catalog="$PWD/catalog-$workers.jsonl" '//...' \
       > "hashes-$workers" 2> "$TEST_log" || fail "catalog with $workers workers"
-    assert_equals 257 "$(wc -l < "catalog-$workers.jsonl")"
+    assert_equals 257 "$(awk 'END { print NR }' "catalog-$workers.jsonl")"
   done
   diff catalog-1.jsonl catalog-4.jsonl || fail "parallel catalog changed rows"
   diff hashes-1 hashes-4 || fail "parallel hashing changed rows"
