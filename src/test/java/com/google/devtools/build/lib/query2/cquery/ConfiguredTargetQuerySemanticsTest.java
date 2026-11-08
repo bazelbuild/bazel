@@ -918,6 +918,10 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             "//donut:test.bzl%_test_aspect of //donut:test_rule_dep",
             "//donut:test.bzl",
             "//donut:test_filegroup");
+
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
+    assertThat(evalToListOfStrings("rdeps(deps(//donut:test_rule), //donut:test_filegroup)"))
+        .contains("//donut:test_rule");
   }
 
   @Test

@@ -433,7 +433,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       targetsByKey.put(getConfiguredTargetKey(target), target);
     }
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> directDeps =
-        targetifyValues(targetsByKey, graph.getDirectDeps(targetsByKey.keySet()));
+        targetifyValues(
+            targetsByKey,
+            graph.getDirectDeps(targetsByKey.keySet()),
+            /* forward= */ true);
     if (targetsByKey.size() != directDeps.size()) {
       Iterable<ConfiguredTargetKey> missingTargets =
           Sets.difference(targetsByKey.keySet(), directDeps.keySet()).stream()
@@ -472,7 +475,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> reverseDepsByKey =
         targetifyValues(
             targetsByKey,
-            skipDelegatingAncestors(graph.getReverseDeps(targetsByKey.keySet())).asMap());
+            skipDelegatingAncestors(graph.getReverseDeps(targetsByKey.keySet())).asMap(),
+            /* forward= */ false);
     if (targetsByKey.size() != reverseDepsByKey.size()) {
       Iterable<ConfiguredTargetKey> missingTargets =
           Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet()).stream()
@@ -669,7 +673,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       @Nullable T parent,
       Iterable<SkyKey> dependencies,
       Set<SkyKey> knownCtDeps,
-      Set<AspectClass> resolvedAspectClasses)
+      Set<AspectClass> resolvedAspectClasses,
+      boolean forward)
       throws InterruptedException {
     Collection<ConfiguredTargetKey> implicitDeps = null;
     if (parent != null) {
@@ -771,23 +776,29 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           resolvedAspectClasses.add(aspectKey.getAspectClass());
         }
         Iterable<SkyKey> aspectDeps = graph.getDirectDeps(key);
-        if (graph.getValue(key) instanceof AspectValue value && value.baseIsOnlyAttachment()) {
+        if (forward
+            && graph.getValue(key) instanceof AspectValue value
+            && value.baseIsOnlyAttachment()) {
           // An explicit aspect has an edge to its base target. Flattening that attachment must
           // not add a direct input to whichever rule happens to discover the aspect first.
           var base = aspectKey.getBaseConfiguredTargetKey();
           aspectDeps = Iterables.filter(aspectDeps, dep -> !base.equals(dep));
         }
-        values.addAll(targetifyValues(null, aspectDeps, knownCtDeps, resolvedAspectClasses));
+        values.addAll(
+            targetifyValues(null, aspectDeps, knownCtDeps, resolvedAspectClasses, forward));
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         values.addAll(
-            targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
+            targetifyValues(
+                  null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses, forward));
       }
     }
     return values.build();
   }
 
   private Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> targetifyValues(
-      Map<SkyKey, T> fromTargetsByKey, Map<SkyKey, ? extends Iterable<SkyKey>> input)
+      Map<SkyKey, T> fromTargetsByKey,
+      Map<SkyKey, ? extends Iterable<SkyKey>> input,
+      boolean forward)
       throws InterruptedException {
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> result = new HashMap<>();
     for (Map.Entry<SkyKey, ? extends Iterable<SkyKey>> entry : input.entrySet()) {
@@ -798,7 +809,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
               fromTargetsByKey.get(fromKey),
               entry.getValue(),
               /* knownCtDeps= */ new HashSet<>(),
-              /* resolvedAspectClasses= */ new HashSet<>()));
+              /* resolvedAspectClasses= */ new HashSet<>(),
+              forward));
     }
     return result;
   }
