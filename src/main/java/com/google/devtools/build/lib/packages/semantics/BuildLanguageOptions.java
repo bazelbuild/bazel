@@ -179,6 +179,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract List<String> getExperimentalCcStarlarkApiEnabledPackages();
 
   @Option(
+      name = "experimental_disable_build_prelude",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Disable the implicit //tools/build_rules:prelude_bazel for BUILD files in every"
+              + " repository. Use explicit load() statements for symbols from the prelude.")
+  public abstract boolean getExperimentalDisableBuildPrelude();
+
+  @Option(
       name = "experimental_enable_first_class_macros",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -929,6 +940,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, getExperimentalBzlVisibility())
             .setBool(ALLOW_EXPERIMENTAL_LOADS, getAllowExperimentalLoads())
             .setBool(CHECK_BZL_VISIBILITY, getCheckBzlVisibility())
+            .setBool(EXPERIMENTAL_DISABLE_BUILD_PRELUDE, getExperimentalDisableBuildPrelude())
             .setBool(
                 EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
                 getExperimentalSinglePackageToolchainBinding())
@@ -1131,6 +1143,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
+  public static final String EXPERIMENTAL_DISABLE_BUILD_PRELUDE =
+      "-experimental_disable_build_prelude";
   public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
