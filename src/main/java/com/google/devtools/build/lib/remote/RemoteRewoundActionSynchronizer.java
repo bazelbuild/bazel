@@ -81,8 +81,8 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   // The set only holds consumers that are currently executing, discovering inputs or processing
   // top-level outputs. Its size thus scales with the number of concurrently running actions, which
   // is capped at BuildRequestOptions.MAX_JOBS (5000), even with async execution. An entry costs
-  // about 100 bytes and only references state that the consumer keeps alive anyway, until a
-  // rewound action caches its lock keys.
+  // about 100 bytes plus the lock keys a rewound action caches in it. Beyond that, it only
+  // references state that the consumer keeps alive anyway.
   private final Set<RegisteredConsumer> registeredConsumers = ConcurrentHashMap.newKeySet();
 
   // A fine-grained lock structure that is inflated when the first rewound action attempts to
@@ -396,15 +396,22 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   /** A consumer that started before the fine locks were inflated and thus holds no locks. */
   private final class RegisteredConsumer {
-    private final Supplier<Iterable<Artifact>> artifacts;
-    private final InputMetadataProvider metadataProvider;
+    // The following fields are cleared on unregistration, since a rewound action iterating over
+    // registeredConsumers may still reference this consumer after its removal.
+    @GuardedBy("this")
+    @Nullable
+    private Supplier<Iterable<Artifact>> artifacts;
 
     @GuardedBy("this")
-    private boolean registered = true;
+    @Nullable
+    private InputMetadataProvider metadataProvider;
 
     @GuardedBy("this")
     @Nullable
     private ImmutableSet<PathFragment> lockKeys;
+
+    @GuardedBy("this")
+    private boolean registered = true;
 
     RegisteredConsumer(
         Supplier<Iterable<Artifact>> artifacts, InputMetadataProvider metadataProvider) {
@@ -418,6 +425,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
       // its metadata provider once unregistered.
       synchronized (this) {
         registered = false;
+        artifacts = null;
+        metadataProvider = null;
+        lockKeys = null;
         notifyAll();
       }
     }

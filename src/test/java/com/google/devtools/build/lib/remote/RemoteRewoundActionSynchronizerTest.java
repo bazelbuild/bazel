@@ -126,6 +126,11 @@ public final class RemoteRewoundActionSynchronizerTest {
     order.verify(first, times(2)).awaitCompletion();
     order.verify(second).awaitCompletion();
     verify(actionInputFetcher, never()).handleRewoundActionOutputs(any());
+
+    var retry = new TestThread(() -> rewind(action));
+    retry.start();
+    retry.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    verify(actionInputFetcher).handleRewoundActionOutputs(any());
   }
 
   @Test
@@ -716,11 +721,9 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   @Test
-  public void enterActionExecution_interrupted_throws(@TestParameter boolean inflateFineLocksFirst)
-      throws Exception {
+  public void enterActionExecution_interrupted_throws() throws Exception {
     Action action = newAction();
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
-    maybeInflateFineLocks(inflateFineLocksFirst);
 
     try {
       Thread.currentThread().interrupt();
@@ -733,6 +736,48 @@ public final class RemoteRewoundActionSynchronizerTest {
       // Avoid leaking the interrupt into other tests if an assertion fails.
       Thread.interrupted();
     }
+  }
+
+  /**
+   * A consumer interrupted while waiting for the read lock of one input releases the read locks it
+   * has already acquired, so that the producers of its other inputs can still be rewound.
+   */
+  @Test
+  public void consumerInterruptedWhileAwaitingReadLock_releasesAcquiredReadLocks()
+      throws Exception {
+    var fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    var first = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "first");
+    first.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    var firstProducer = newAction(ImmutableList.of(first), ImmutableList.of());
+    var second = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "second");
+    second.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    var secondProducer = newAction(ImmutableList.of(second), ImmutableList.of());
+    var consumerOutput = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    var consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(first, second));
+    mockActions(owner, ImmutableList.of(firstProducer, secondProducer, consumer));
+
+    // The consumer acquires the read lock of the first input and then blocks on the second one.
+    var execution =
+        new TestThread(
+            () ->
+                assertThrows(
+                    InterruptedException.class,
+                    () ->
+                        synchronizer.enterActionExecution(
+                            consumer, /* wasRewound= */ false, mock(InputMetadataProvider.class))));
+    try (var _ = synchronizer.enterActionPreparation(secondProducer, /* wasRewound= */ true)) {
+      execution.start();
+      waitUntilState(execution, Thread.State.WAITING);
+      execution.interrupt();
+      execution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    }
+
+    var firstPreparation = new TestThread(() -> rewind(firstProducer));
+    firstPreparation.start();
+    firstPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
   }
 
   /**
@@ -808,7 +853,6 @@ public final class RemoteRewoundActionSynchronizerTest {
    * write lock. The race is only hit with some probability per round.
    */
   @Test
-  @SuppressWarnings("ThreadPriorityCheck")
   public void consumersRacingWithFirstRewinding_neverOverlapRewoundAction() throws Exception {
     var fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     var root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
@@ -833,32 +877,42 @@ public final class RemoteRewoundActionSynchronizerTest {
     var barrier = new CyclicBarrier(consumerCount + 1);
     var currentRound = new AtomicReference<RacingRound>();
     var overlapped = new AtomicBoolean();
+    // Set by the first thread that fails, which makes the other threads stop.
+    var aborted = new AtomicBoolean();
     var consumerExecutions = new ArrayList<TestThread>();
     for (int i = 0; i < consumerCount; i++) {
       int consumerIndex = i;
       var consumerExecution =
           new TestThread(
               () -> {
-                for (int j = 0; j < rounds; j++) {
-                  barrier.await(DEADLOCK_TIMEOUT_MILLIS, MILLISECONDS);
-                  var round = currentRound.get();
-                  round.awaitParticipants();
-                  round.delayArrival();
-                  try (var _ =
-                      round.synchronizer.enterActionExecution(
-                          consumer, /* wasRewound= */ false, metadataProvider)) {
-                    // Stay until the rewound action either waits, possibly for this consumer, holds
-                    // its write lock or has released it.
-                    while (!round.rewinding.get()
-                        && !round.rewound.get()
-                        && rewindingThread.getState() != Thread.State.WAITING) {
-                      Thread.yield();
+                try {
+                  for (int j = 0; j < rounds; j++) {
+                    barrier.await(DEADLOCK_TIMEOUT_MILLIS, MILLISECONDS);
+                    var round = currentRound.get();
+                    round.awaitParticipants();
+                    round.delayArrival();
+                    try (var _ =
+                        round.synchronizer.enterActionExecution(
+                            consumer, /* wasRewound= */ false, metadataProvider)) {
+                      // Stay until the rewound action either waits, possibly for this consumer,
+                      // holds its write lock or has released it.
+                      while (!round.rewinding.get()
+                          && !round.rewound.get()
+                          && rewindingThread.getState() != Thread.State.WAITING) {
+                        round.yieldUnlessAborted();
+                      }
+                      if (round.rewinding.get()) {
+                        overlapped.set(true);
+                      }
+                    } finally {
+                      round.finishedConsumers.set(consumerIndex, 1);
                     }
-                    if (round.rewinding.get()) {
-                      overlapped.set(true);
-                    }
-                  } finally {
-                    round.finishedConsumers.set(consumerIndex, 1);
+                  }
+                } catch (Throwable t) {
+                  // Only the first failure is reported, the others are caused by the abort.
+                  if (!aborted.getAndSet(true)) {
+                    barrier.reset();
+                    throw t;
                   }
                 }
               });
@@ -870,7 +924,9 @@ public final class RemoteRewoundActionSynchronizerTest {
       for (int i = 0; i < rounds; i++) {
         var round =
             new RacingRound(
-                new RemoteRewoundActionSynchronizer(actionInputFetcher, graph), consumerCount);
+                new RemoteRewoundActionSynchronizer(actionInputFetcher, graph),
+                consumerCount,
+                aborted);
         currentRound.set(round);
         barrier.await(DEADLOCK_TIMEOUT_MILLIS, MILLISECONDS);
         round.awaitParticipants();
@@ -882,17 +938,30 @@ public final class RemoteRewoundActionSynchronizerTest {
           for (int j = 0; j < consumerCount; j++) {
             while (round.finishedConsumers.get(j) == 0
                 && consumerExecutions.get(j).getState() != Thread.State.WAITING) {
-              Thread.yield();
+              round.yieldUnlessAborted();
             }
           }
           round.rewinding.set(false);
         }
         round.rewound.set(true);
       }
-    } finally {
-      for (TestThread consumerExecution : consumerExecutions) {
-        consumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    } catch (Throwable t) {
+      boolean firstFailure = !aborted.getAndSet(true);
+      consumerExecutions.forEach(Thread::interrupt);
+      if (firstFailure) {
+        for (TestThread consumerExecution : consumerExecutions) {
+          try {
+            consumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+          } catch (Throwable e) {
+            t.addSuppressed(e);
+          }
+        }
+        throw t;
       }
+    }
+    // If a consumer failed, joining it reports its failure.
+    for (TestThread consumerExecution : consumerExecutions) {
+      consumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
     }
     assertThat(overlapped.get()).isFalse();
   }
@@ -912,10 +981,14 @@ public final class RemoteRewoundActionSynchronizerTest {
     final AtomicBoolean rewound = new AtomicBoolean();
     final AtomicIntegerArray finishedConsumers;
     private final AtomicInteger arrivals = new AtomicInteger();
+    // Shared by all rounds.
+    private final AtomicBoolean aborted;
 
-    RacingRound(RemoteRewoundActionSynchronizer synchronizer, int consumerCount) {
+    RacingRound(
+        RemoteRewoundActionSynchronizer synchronizer, int consumerCount, AtomicBoolean aborted) {
       this.synchronizer = synchronizer;
       this.finishedConsumers = new AtomicIntegerArray(consumerCount);
+      this.aborted = aborted;
     }
 
     /**
@@ -924,12 +997,20 @@ public final class RemoteRewoundActionSynchronizerTest {
      * thread to arrive to run ahead of the others and thus rarely hits the race. This also ensures
      * that every thread has left the barrier before any thread inspects the state of another.
      */
-    @SuppressWarnings("ThreadPriorityCheck")
     void awaitParticipants() {
       arrivals.incrementAndGet();
       while (arrivals.get() <= finishedConsumers.length()) {
-        Thread.yield();
+        yieldUnlessAborted();
       }
+    }
+
+    /** Called in a spin loop, which a failure in another thread would otherwise never end. */
+    @SuppressWarnings("ThreadPriorityCheck")
+    void yieldUnlessAborted() {
+      if (aborted.get()) {
+        throw new IllegalStateException("Aborted after another thread failed");
+      }
+      Thread.yield();
     }
 
     void delayArrival() {
@@ -1031,9 +1112,14 @@ public final class RemoteRewoundActionSynchronizerTest {
 
   @SuppressWarnings("ThreadPriorityCheck")
   private static void waitUntilState(Thread thread, Thread.State expectedState) {
+    long deadline = System.nanoTime() + MILLISECONDS.toNanos(DEADLOCK_TIMEOUT_MILLIS);
     Thread.State state;
     while ((state = thread.getState()) != expectedState) {
       assertThat(state).isNotEqualTo(Thread.State.TERMINATED);
+      if (System.nanoTime() - deadline > 0) {
+        throw new AssertionError(
+            "%s is still %s instead of %s".formatted(thread.getName(), state, expectedState));
+      }
       Thread.yield();
     }
   }
