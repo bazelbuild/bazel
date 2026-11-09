@@ -57,14 +57,18 @@ public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefiniti
     public static final String DEFAULT = "default";
 
     public ScopeType {
-      if (!(scopeType.equals(DEFAULT)
+      if (!isValid(scopeType)) {
+        throw new IllegalArgumentException("Invalid scope type: " + scopeType);
+      }
+    }
+
+    /** Returns whether {@code scopeType} is a valid scope type. */
+    public static boolean isValid(String scopeType) {
+      return scopeType.equals(DEFAULT)
           || scopeType.equals(UNIVERSAL)
           || scopeType.equals(TARGET)
           || scopeType.equals(PROJECT)
-          || scopeType.startsWith("exec:"))) {
-        // TODO: don't let blaze crash for an invalid scope type.
-        throw new IllegalArgumentException("Invalid scope type: " + scopeType);
-      }
+          || scopeType.startsWith("exec:");
     }
 
     /** Which values can a rule's {@code scope} attribute have? */
