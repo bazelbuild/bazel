@@ -1110,6 +1110,36 @@ java_library(
 )
 
 java_library(
+    name = "directory_spelling_function",
+    srcs = ["DirectorySpellingFunction.java"],
+    deps = [
+        ":directory_listing_value",
+        ":directory_spelling_value",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "directory_spelling_value",
+    srcs = ["DirectorySpellingValue.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "directory_tree_digest_function",
     srcs = ["DirectoryTreeDigestFunction.java"],
     deps = [
@@ -1576,6 +1606,9 @@ java_library(
     srcs = ["PackageLookupFunction.java"],
     deps = [
         ":already_reported_exception",
+        ":directory_listing_value",
+        ":directory_spelling_function",
+        ":directory_spelling_value",
         ":ignored_subdirectories_value",
         ":package_lookup_value",
         ":precomputed_value",
@@ -3955,6 +3988,7 @@ java_library(
         ":directory_listing_function",
         ":directory_listing_state_function",
         ":directory_listing_state_value",
+        ":directory_spelling_function",
         ":directory_tree_digest_function",
         ":dirtiness_checker_utils",
         ":environment_variable_value",

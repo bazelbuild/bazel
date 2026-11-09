@@ -357,6 +357,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
     PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.set(injectable, lazyMacroExpansionPackages);
+    PrecomputedValue.STRICT_LABEL_CASING.set(injectable, false);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 

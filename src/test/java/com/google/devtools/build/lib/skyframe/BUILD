@@ -1570,6 +1570,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bazel_skyframe_executor_constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_spelling_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:external_files_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_state_function",
@@ -1591,6 +1593,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:AllTests",  # unuseddeps: keep buildcleaner: keep
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:testing",

@@ -471,6 +471,12 @@ public abstract class PackageFunction implements SkyFunction {
               .setMessage(packageLookupValue.getErrorMsg())
               .setPackageLoadingCode(PackageLoading.Code.INVALID_NAME)
               .build();
+        case NON_CANONICAL_SPELLING:
+          throw exceptionBuilder
+              .setType(PackageFunctionException.Type.BUILD_FILE_NOT_FOUND)
+              .setMessage(packageLookupValue.getErrorMsg())
+              .setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING)
+              .build();
       }
       // We should never get here.
       throw new IllegalStateException();

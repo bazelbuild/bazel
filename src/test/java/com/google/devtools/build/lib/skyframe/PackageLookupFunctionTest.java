@@ -46,11 +46,13 @@ import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.util.CaseInsensitiveFileSystem;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -79,6 +81,13 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
+
+  // Lets tests exercise --incompatible_strict_label_casing, which only applies to
+  // file systems that may be case-insensitive.
+  @Override
+  protected FileSystem createFileSystem() {
+    return new CaseInsensitiveFileSystem(super.createFileSystem());
+  }
 
   @Before
   public final void setUp() throws Exception {
@@ -119,6 +128,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
             externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
+    skyFunctions.put(SkyFunctions.DIRECTORY_SPELLING, new DirectorySpellingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
@@ -157,6 +167,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    PrecomputedValue.STRICT_LABEL_CASING.set(differencer, false);
     RepoDefinitionFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
     RepositoryDirectoryValue.FORCE_FETCH.set(
@@ -185,6 +196,10 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return evaluator.evaluate(ImmutableList.of(packageIdentifierSkyKey), evaluationContext);
+  }
+
+  private void enableStrictLabelCasing() {
+    PrecomputedValue.STRICT_LABEL_CASING.set(differencer, true);
   }
 
   @Test
@@ -361,6 +376,98 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void strictLabelCasing_exactSpelling_packageExists() throws Exception {
+    enableStrictLabelCasing();
+    scratch.file("Foo/Bar/BUILD");
+
+    PackageLookupValue packageLookupValue = lookupPackage("Foo/Bar");
+
+    assertThat(packageLookupValue.packageExists()).isTrue();
+    assertThat(packageLookupValue.getBuildFileName()).isEqualTo(BuildFileName.BUILD);
+  }
+
+  @Test
+  public void strictLabelCasing_misspelledDirectory_reportsCanonicalSpelling() throws Exception {
+    enableStrictLabelCasing();
+    scratch.file("Foo/Bar/BUILD");
+
+    PackageLookupValue packageLookupValue = lookupPackage("foo/Bar");
+
+    assertThat(packageLookupValue.packageExists()).isFalse();
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.NON_CANONICAL_SPELLING);
+    assertThat(packageLookupValue.getErrorMsg())
+        .isEqualTo(
+            "the package name doesn't match the spelling of its directory 'Foo/Bar' on disk (see"
+                + " --incompatible_strict_label_casing)");
+  }
+
+  @Test
+  public void strictLabelCasing_misspelledLastSegment_reportsCanonicalSpelling() throws Exception {
+    enableStrictLabelCasing();
+    scratch.file("Foo/Bar/BUILD");
+
+    PackageLookupValue packageLookupValue = lookupPackage("Foo/bar");
+
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.NON_CANONICAL_SPELLING);
+    assertThat(packageLookupValue.getErrorMsg()).contains("'Foo/Bar'");
+  }
+
+  @Test
+  public void strictLabelCasing_disabled_misspelledDirectoryIsPackage() throws Exception {
+    scratch.file("Foo/Bar/BUILD");
+
+    PackageLookupValue packageLookupValue = lookupPackage("foo/bar");
+
+    assertThat(packageLookupValue.packageExists()).isTrue();
+  }
+
+  @Test
+  public void strictLabelCasing_misspelledBuildFile_isNotPackage() throws Exception {
+    scratch.file("pkg/BuIlD");
+
+    assertThat(lookupPackage("pkg").packageExists()).isTrue();
+
+    enableStrictLabelCasing();
+    PackageLookupValue packageLookupValue = lookupPackage("pkg");
+
+    assertThat(packageLookupValue.packageExists()).isFalse();
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.NON_CANONICAL_SPELLING);
+    assertThat(packageLookupValue.getErrorMsg())
+        .isEqualTo(
+            "'BuIlD' is not a valid BUILD file name, use 'BUILD' instead (see"
+                + " --incompatible_strict_label_casing)");
+  }
+
+  @Test
+  public void strictLabelCasing_misspelledPreferredBuildFile_fallsBackToNextBuildFile()
+      throws Exception {
+    enableStrictLabelCasing();
+    scratch.file("pkg/build.bazel");
+    scratch.file("pkg/BUILD");
+
+    PackageLookupValue packageLookupValue = lookupPackage("pkg");
+
+    assertThat(packageLookupValue.packageExists()).isTrue();
+    assertThat(packageLookupValue.getBuildFileName()).isEqualTo(BuildFileName.BUILD);
+  }
+
+  @Test
+  public void strictLabelCasing_caseOnlyRename_isDetected() throws Exception {
+    enableStrictLabelCasing();
+    scratch.file("pkg/BUILD");
+    assertThat(lookupPackage("pkg").packageExists()).isTrue();
+
+    rootDirectory.getRelative("pkg").renameTo(rootDirectory.getRelative("Pkg"));
+    differencer.invalidate(
+        ImmutableSet.of(
+            DirectoryListingStateValue.key(
+                RootedPath.toRootedPath(root, PathFragment.EMPTY_FRAGMENT))));
+
+    assertThat(lookupPackage("pkg").getErrorReason()).isEqualTo(ErrorReason.NON_CANONICAL_SPELLING);
+    assertThat(lookupPackage("Pkg").packageExists()).isTrue();
+  }
+
+  @Test
   public void testPackageLookupValueHashCodeAndEqualsContract() {
     Root root1 = Root.fromPath(rootDirectory.getRelative("root1"));
     Root root2 = Root.fromPath(rootDirectory.getRelative("root2"));
@@ -384,6 +491,12 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
         .addEqualityGroup(
             PackageLookupValue.invalidPackageName("nope2"),
             PackageLookupValue.invalidPackageName("nope2"))
+        .addEqualityGroup(
+            PackageLookupValue.nonCanonicalDirectory("nope1"),
+            PackageLookupValue.nonCanonicalDirectory("nope1"))
+        .addEqualityGroup(
+            PackageLookupValue.nonCanonicalBuildFileName("nope1"),
+            PackageLookupValue.nonCanonicalBuildFileName("nope1"))
         .testEquals();
   }
 }

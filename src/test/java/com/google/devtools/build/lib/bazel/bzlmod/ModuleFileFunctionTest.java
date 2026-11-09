@@ -684,6 +684,65 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testRootModule_caseOnlyRepoNameCollisionAcrossExtensions() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "ext1 = use_extension('//:ext1.bzl', 'ext')",
+        "use_repo(ext1, 'MyRepo')",
+        "ext2 = use_extension('//:ext2.bzl', 'ext')",
+        "use_repo(ext2, 'myrepo')");
+    PrecomputedValue.STRICT_LABEL_CASING.set(differencer, false);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+
+    PrecomputedValue.STRICT_LABEL_CASING.set(differencer, true);
+    reporter.removeHandler(failFastHandler); // expect failures
+    result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .matches(
+            "The repo name 'myrepo' defined by a use_repo\\(\\) call at .*/MODULE.bazel:5:9"
+                + " only differs in case from the repo name 'MyRepo' defined by a use_repo\\(\\)"
+                + " call at .*/MODULE.bazel:3:9, which is not allowed with"
+                + " --incompatible_strict_label_casing");
+  }
+
+  @Test
+  public void testRootModule_caseOnlyRepoNameCollisionWithBazelDep() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "bazel_dep(name='bbb', version='1.0', repo_name='Bbb')",
+        "ext = use_extension('//:ext.bzl', 'ext')",
+        "use_repo(ext, 'bbb')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb',version='1.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    PrecomputedValue.STRICT_LABEL_CASING.set(differencer, true);
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("The repo name 'bbb' defined by a use_repo() call at");
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("only differs in case from the repo name 'Bbb' defined by a bazel_dep at");
+  }
+
+  @Test
   public void testRootModule_include_bad_tryingToLeakBindings() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
