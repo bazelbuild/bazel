@@ -1385,7 +1385,8 @@ project = project_pb2.Project.create(
           return ExecResult.delegate();
         });
 
-    addOptions("--build_event_binary_file=" + bepFile.getAbsolutePath());
+    addOptions(
+        "--spawn_strategy=standalone", "--build_event_binary_file=" + bepFile.getAbsolutePath());
     besModule = runtimeWrapper.getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
     buildTarget("//foo:slow");
 

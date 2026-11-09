@@ -519,20 +519,21 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 .setNameFormat("bep-outerr-flush-%d")
                 .setDaemon(true)
                 .build());
-    outErrFlushExecutor.scheduleWithFixedDelay(
-        () -> {
-          try {
-            // A no-op if nothing has been buffered since the last flush.
-            streamerToFlush.flush();
-          } catch (RuntimeException e) {
-            BugReport.sendNonFatalBugReport(e);
-            // Rethrow to cancel further periodic flushes.
-            throw e;
-          }
-        },
-        OUT_ERR_FLUSH_INTERVAL.toMillis(),
-        OUT_ERR_FLUSH_INTERVAL.toMillis(),
-        MILLISECONDS);
+    var unused =
+        outErrFlushExecutor.scheduleWithFixedDelay(
+            () -> {
+              try {
+                // A no-op if nothing has been buffered since the last flush.
+                streamerToFlush.flush();
+              } catch (RuntimeException e) {
+                BugReport.sendNonFatalBugReport(e);
+                // Rethrow to cancel further periodic flushes.
+                throw e;
+              }
+            },
+            OUT_ERR_FLUSH_INTERVAL.toMillis(),
+            OUT_ERR_FLUSH_INTERVAL.toMillis(),
+            MILLISECONDS);
   }
 
   private void stopPeriodicOutErrFlush() {
