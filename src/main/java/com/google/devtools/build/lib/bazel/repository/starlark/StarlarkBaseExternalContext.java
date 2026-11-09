@@ -1782,7 +1782,7 @@ Strip the given number of leading components from file paths on extraction. Only
       throws EvalException, InterruptedException {
     return switch (path) {
       case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
-      case Label label -> getPathFromLabel(label, /* materialize= */ true, thread);
+      case Label label -> getPathFromLabel(label, /* materialize= */ true);
       case StarlarkPath starlarkPath -> starlarkPath;
       // This can never happen because we check it in the Starlark interpreter.
       default -> throw new IllegalArgumentException("expected string or label for path");
@@ -1822,7 +1822,7 @@ Strip the given number of leading components from file paths on extraction. Only
     StarlarkPath p =
         path instanceof Label label
             // Only the file itself is read, which doesn't require the rest of its repo.
-            ? getPathFromLabel(label, /* materialize= */ false, thread)
+            ? getPathFromLabel(label, /* materialize= */ false)
             : getPath(path, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
@@ -2082,9 +2082,9 @@ Strip the given number of leading components from file paths on extraction. Only
 
   protected abstract ImmutableMap<String, String> getRemoteExecProperties() throws EvalException;
 
-  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label, StarlarkThread thread)
+  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label)
       throws EvalException, InterruptedException {
-    Path localPath = getPathFromLabel(label, /* materialize= */ true, thread).getPath();
+    Path localPath = getPathFromLabel(label, /* materialize= */ true).getPath();
     PathFragment remotePath =
         label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
     return Maps.immutableEntry(remotePath, localPath);
@@ -2095,8 +2095,7 @@ Strip the given number of leading components from file paths on extraction. Only
       int timeout,
       Map<String, String> environment,
       boolean quiet,
-      String workingDirectory,
-      StarlarkThread thread)
+      String workingDirectory)
       throws EvalException, InterruptedException {
     checkState(canExecuteRemote());
 
@@ -2105,7 +2104,7 @@ Strip the given number of leading components from file paths on extraction. Only
     ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
     for (Object argumentUnchecked : argumentsUnchecked) {
       if (argumentUnchecked instanceof Label label) {
-        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label, thread);
+        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label);
         argumentsBuilder.add(remotePath.getKey().toString());
         inputsBuilder.put(remotePath);
       } else {
@@ -2263,7 +2262,7 @@ Strip the given number of leading components from file paths on extraction. Only
       // Remote execution only sees the explicitly set environment variables, so removing env vars
       // isn't necessary.
       return executeRemote(
-          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory, thread);
+          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory);
     }
 
     // Execute on the local/host machine
@@ -2271,7 +2270,7 @@ Strip the given number of leading components from file paths on extraction. Only
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
       if (arg instanceof Label label) {
-        args.add(getPathFromLabel(label, /* materialize= */ true, thread).toString());
+        args.add(getPathFromLabel(label, /* materialize= */ true).toString());
       } else {
         // String or StarlarkPath expected
         args.add(arg.toString());
@@ -2619,7 +2618,7 @@ func(
    * @param materialize whether the repo containing the file has to be available on the native file
    *     system
    */
-  protected StarlarkPath getPathFromLabel(Label label, boolean materialize, StarlarkThread thread)
+  protected StarlarkPath getPathFromLabel(Label label, boolean materialize)
       throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
@@ -2630,11 +2629,7 @@ func(
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
       try {
-        lazyMaterializer.ensureMaterialized(
-            label.getRepository(),
-            identifyingStringForLogging,
-            thread.getCallerLocation(),
-            env.getListener());
+        lazyMaterializer.ensureMaterialized(label.getRepository(), identifyingStringForLogging);
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());

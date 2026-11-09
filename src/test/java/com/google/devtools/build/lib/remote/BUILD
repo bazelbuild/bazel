@@ -214,7 +214,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:bazel_output_service_java_grpc",
         "//src/main/protobuf:bazel_output_service_java_proto",
         "//src/main/protobuf:cache_salt_java_proto",

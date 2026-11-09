@@ -1675,21 +1675,12 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
     # Full materialization: my_repo is restored from the cache into the overlay
-    # and then fully materialized because other accesses it. Materialization is
-    # reported as a progress event, which is only shown with
-    # --experimental_ui_debug_all_events. That flag sends all events to stdout.
+    # and then fully materialized because other accesses it.
     self.RunBazel(['clean', '--expunge'])
-    _, stdout, stderr = self.RunBazel(
-        ['build', '--experimental_ui_debug_all_events', '@other//:haha']
-    )
-    output = '\n'.join(stdout + stderr)
-    self.assertNotIn('JUST FETCHED', output)
-    self.assertIn(
-        'other_repo.bzl:2:41: Materializing remote repo @@+repo+my_repo for'
-        ' repository @@+other_repo_rule+other',
-        output,
-    )
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     full_layout = snapshot()
+    self.assertEqual(full_layout['data.txt'], ('file', 'hello'))
 
     # Lazy action-input materialization: my_repo is restored from the cache into
     # the overlay and only the symlink consumed by the local action (and its
@@ -3242,6 +3233,8 @@ class RemoteRepoContentsCacheTest(
         ],
     )
 
+    data_file = os.path.join(self.RepoDir('my_repo'), 'data.txt')
+
     # Cold build: fetch my_repo and upload it to the remote repo contents cache.
     _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
@@ -3265,19 +3258,10 @@ class RemoteRepoContentsCacheTest(
     )
 
     # Fully materialize my_repo onto the local disk by fetching @other, which
-    # reads one of its files. Materialization is only reported with
-    # --experimental_ui_debug_all_events, which sends all events to stdout.
-    _, stdout, stderr = self.RunBazel([
-        'build',
-        '--nobuild',
-        '--experimental_ui_debug_all_events',
-        '@other//:haha',
-    ])
-    self.assertIn(
-        'other_repo.bzl:3:49: Materializing remote repo @@+repo+my_repo for'
-        ' repository @@+other_repo+other',
-        '\n'.join(stdout + stderr),
-    )
+    # reads one of its files.
+    self.assertFalse(os.path.exists(data_file))
+    self.RunBazel(['build', '--nobuild', '@other//:haha'])
+    self.assertTrue(os.path.isfile(data_file))
 
     # Nothing has changed for //main:use_data, so nothing is reloaded or
     # analyzed again.
