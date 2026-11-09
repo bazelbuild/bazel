@@ -14,13 +14,17 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static java.util.Comparator.comparing;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Structure;
@@ -43,6 +47,10 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure, C
 
   /** All <code>ConfiguredTarget</code>s have a "files" field. */
   String FILES_FIELD = "files";
+
+  /** Orders configured targets by their {@link ConfiguredTargetKey}. */
+  Comparator<ConfiguredTarget> ORDERING =
+      comparing(ConfiguredTargetKey::fromConfiguredTarget, ConfiguredTargetKey.ORDERING);
 
   /** Returns a key that may be used to lookup this {@link ConfiguredTarget}. */
   @Override

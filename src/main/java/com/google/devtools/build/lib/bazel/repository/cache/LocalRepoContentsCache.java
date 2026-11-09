@@ -190,6 +190,10 @@ public final class LocalRepoContentsCache {
     sharedLock = FileSystemLock.get(path.getRelative(LOCK_PATH), LockMode.SHARED);
   }
 
+  public boolean holdsSharedLock() {
+    return sharedLock != null;
+  }
+
   public void releaseSharedLock() throws IOException {
     Preconditions.checkState(sharedLock != null);
     sharedLock.close();

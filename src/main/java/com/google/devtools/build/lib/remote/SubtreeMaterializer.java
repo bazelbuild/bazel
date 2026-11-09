@@ -21,6 +21,9 @@ import java.io.IOException;
  * storage, and that supports materializing them to the local file system on demand.
  */
 public interface SubtreeMaterializer {
+  /** Returns the recorded file permissions, or the default for a path outside the overlay. */
+  int getMaterializationPermissions(PathFragment path, int defaultPermissions) throws IOException;
+
   /**
    * Materializes the subtree rooted at the given path to the local file system if its contents are
    * currently only available in memory, together with the targets of any symlinks below it.
