@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "nlohmann/json.hpp"
 #include "src/main/protobuf/desugar_deps.pb.h"
 #include "src/tools/singlejar/diag.h"
 
@@ -46,6 +47,12 @@ bool Java8DesugarDepsChecker::Merge(const CDH* cdh, const LH* lh) {
   uint8_t* buf = reinterpret_cast<uint8_t*>(malloc(data_size));
   buffer_->CopyOut(reinterpret_cast<uint8_t*>(buf), &checksum);
   buffer_.reset();  // release buffer eagerly
+
+  if (format_ == DesugarDepsFormat::kJson) {
+    bool ok = MergeJson(reinterpret_cast<const char*>(buf), data_size);
+    free(buf);
+    return ok;
+  }
 
   bazel::tools::desugar::DesugarDepsInfo deps_info;
   google::protobuf::io::CodedInputStream content(buf, data_size);
@@ -93,6 +100,49 @@ bool Java8DesugarDepsChecker::Merge(const CDH* cdh, const LH* lh) {
     // in HasDefaultMethods.
     if (companion.num_default_methods() > 0) {
       has_default_methods_[companion.origin().binary_name()] = true;
+    }
+  }
+  return true;
+}
+
+bool Java8DesugarDepsChecker::MergeJson(const char* buf, size_t data_size) {
+  nlohmann::json deps_info = nlohmann::json::parse(
+      buf, buf + data_size, /*cb=*/nullptr, /*allow_exceptions=*/false);
+  if (!deps_info.is_object()) {
+    if (fail_on_error_) {
+      diag_errx(2, "META-INF/desugar_deps: unable to parse JSON");
+    }
+    error_ = true;
+    return false;
+  }
+  if (deps_info.contains("assume_present")) {
+    for (const auto& assume_present : deps_info["assume_present"]) {
+      needed_deps_.emplace(
+          assume_present["target"].get<std::string>() + ".class",
+          assume_present["origin"].get<std::string>());
+    }
+  }
+  if (deps_info.contains("missing_interface")) {
+    for (const auto& missing : deps_info["missing_interface"]) {
+      missing_interfaces_.emplace(missing["target"].get<std::string>(),
+                                  missing["origin"].get<std::string>());
+    }
+  }
+  if (deps_info.contains("interface_with_supertypes")) {
+    for (const auto& extends : deps_info["interface_with_supertypes"]) {
+      auto extended =
+          extends.value("extended_interface", std::vector<std::string>());
+      if (!extended.empty()) {
+        extended_interfaces_.emplace(extends["origin"].get<std::string>(),
+                                     std::move(extended));
+      }
+    }
+  }
+  if (deps_info.contains("interface_with_companion")) {
+    for (const auto& companion : deps_info["interface_with_companion"]) {
+      if (companion.value("num_default_methods", 0) > 0) {
+        has_default_methods_[companion["origin"].get<std::string>()] = true;
+      }
     }
   }
   return true;
