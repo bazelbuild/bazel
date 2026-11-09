@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.RUNS_PER_TEST_LIMIT;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -107,6 +108,7 @@ import java.lang.Thread.UncaughtExceptionHandler;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -1339,6 +1341,55 @@ project = project_pb2.Project.create(
     assertThat(buildFinished).isNotNull();
     assertThat(buildFinished.getFailureDetail().getSpawn().getCode())
         .isEqualTo(Code.EXECUTION_FAILED);
+  }
+
+  @Test
+  public void outErrIsFlushedPeriodicallyWhileActionIsRunning() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".txt")
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = "touch " + out.path,
+                mnemonic = "SlowAction",
+            )
+            return [DefaultInfo(files = depset([out]))]
+
+        slow_rule = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "slow_rule")
+        slow_rule(name = "slow")
+        """);
+    File bepFile = tmpFolder.newFile();
+    String marker = "output written while an action is running";
+    AtomicBoolean markerReportedWhileRunning = new AtomicBoolean();
+    spawnController.addSpawnShim(
+        "SlowAction foo/slow.txt",
+        (spawn, context) -> {
+          // This is far less than --bes_outerr_buffer_size and no other build event is posted
+          // while the action is running, so only a time-based flush can report it.
+          besModule.getOutputListener().getErrorStream().write(marker.getBytes(ISO_8859_1));
+          Instant deadline = Instant.now().plus(Duration.ofSeconds(30));
+          while (Instant.now().isBefore(deadline)) {
+            if (new String(Files.readAllBytes(bepFile.toPath()), ISO_8859_1).contains(marker)) {
+              markerReportedWhileRunning.set(true);
+              break;
+            }
+            Thread.sleep(50);
+          }
+          return ExecResult.delegate();
+        });
+
+    addOptions("--build_event_binary_file=" + bepFile.getAbsolutePath());
+    besModule = runtimeWrapper.getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
+    buildTarget("//foo:slow");
+
+    assertThat(markerReportedWhileRunning.get()).isTrue();
   }
 
   private static BuildFinished findBuildFinishedEvent(File bep) throws IOException {
