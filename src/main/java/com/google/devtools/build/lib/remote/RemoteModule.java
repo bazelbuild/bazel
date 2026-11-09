@@ -848,8 +848,16 @@ public final class RemoteModule extends BlazeModule {
       RemoteRetrier execRetrier =
           new RemoteRetrier(
               remoteOptions, RemoteRetrier.GRPC_RESULT_CLASSIFIER, retryScheduler, circuitBreaker);
+      // Reading live output is best effort, so its failures must not trip the circuit breaker.
+      RemoteRetrier outputStreamRetrier =
+          new RemoteRetrier(
+              remoteOptions,
+              RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
       RemoteExecutionClient remoteExecutor =
-          new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
+          new GrpcRemoteExecutor(
+              execChannel.retain(), callCredentialsProvider, execRetrier, outputStreamRetrier);
       execChannel.release();
       RemoteExecutionCache remoteCache =
           new RemoteExecutionCache(
