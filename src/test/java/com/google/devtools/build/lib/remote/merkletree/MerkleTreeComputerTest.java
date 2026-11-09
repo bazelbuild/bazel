@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -453,28 +453,25 @@ public class MerkleTreeComputerTest {
     @Override
     public ListenableFuture<Void> uploadFile(
         RemoteActionExecutionContext context,
-        RemotePathResolver remotePathResolver,
         Digest digest,
         Path path,
+        PathFragment execPath,
         boolean force) {
       return immediateVoidFuture();
     }
 
     @Override
-    public ListenableFuture<Void> uploadVirtualActionInput(
+    public ListenableFuture<Void> uploadDeterministicWriter(
         RemoteActionExecutionContext context,
         Digest digest,
-        VirtualActionInput virtualActionInput,
+        DeterministicWriter deterministicWriter,
         boolean force) {
       return immediateVoidFuture();
     }
 
     @Override
     public void ensureInputsPresent(
-        RemoteActionExecutionContext context,
-        MerkleTree.Uploadable merkleTree,
-        boolean force,
-        RemotePathResolver remotePathResolver) {
+        RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force) {
       ensureInputsPresentCount.incrementAndGet();
     }
   }
