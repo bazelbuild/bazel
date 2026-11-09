@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventServiceUploadCom
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
+import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -349,12 +351,35 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
   }
 
+  /**
+   * Warns about build events that are unusually large once serialized. The warning is written to
+   * stderr, which the {@link BuildEventStreamer} also forwards into the stream as progress output.
+   *
+   * <p>Events are serialized asynchronously by the uploader, so this may run after the command has
+   * completed; in that case the warning is only logged.
+   */
+  @Subscribe
+  public void largeBuildEventSerialized(LargeBuildEventSerializedEvent event) {
+    String msg =
+        String.format(
+            "Build event %s is %d bytes when serialized; this may cause problems uploading to the"
+                + " Build Event Service.",
+            event.getBuildEventId(), event.getSerializedSizeInBytes());
+    Reporter currentReporter = reporter;
+    if (currentReporter != null) {
+      currentReporter.handle(Event.warn(msg));
+    } else {
+      logger.atWarning().log("%s", msg);
+    }
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment cmdEnv) throws AbruptExitException {
     this.prevInvocationId = this.invocationId;
     this.invocationId = cmdEnv.getCommandId().toString();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();
+    cmdEnv.getEventBus().register(this);
 
     this.connectivityProvider =
         Preconditions.checkNotNull(

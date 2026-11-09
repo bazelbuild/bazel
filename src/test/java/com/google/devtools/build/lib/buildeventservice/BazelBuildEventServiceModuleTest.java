@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
@@ -398,6 +400,24 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     events.assertContainsEventsInOrder(
         expectedMessage, "Found 0 targets", "Found 0 targets", expectedMessage, expectedMessage);
+  }
+
+  @Test
+  public void testLargeBuildEventSerializedEventReportsWarning() throws Exception {
+    addOptions("--bes_backend=inprocess");
+    runtimeWrapper.newCommand();
+    EventBus eventBus = runtimeWrapper.getCommandEnvironment().getEventBus();
+    eventBus.register(
+        new Object() {
+          @Subscribe
+          @SuppressWarnings("unused")
+          public void transportsAnnounced(AnnounceBuildEventTransportsEvent unused) {
+            eventBus.post(new LargeBuildEventSerializedEvent("some_event_id", 12345678));
+          }
+        });
+    buildTarget();
+
+    events.assertContainsWarning("Build event some_event_id is 12345678 bytes when serialized");
   }
 
   @Test
