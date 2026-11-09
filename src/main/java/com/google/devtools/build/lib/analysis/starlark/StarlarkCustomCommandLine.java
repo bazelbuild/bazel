@@ -1295,6 +1295,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     // Rehash the internal digest to keep its format out of the Starlark API.
     private static final HashFunction FILE_DIGEST_HASH =
         Hashing.hmacSha256("Bazel DirectoryExpander.digest v1".getBytes(UTF_8));
+    private static final HashFunction SOURCE_DIRECTORY_DIGEST_HASH =
+        Hashing.hmacSha256("Bazel DirectoryExpander.source_directory.digest v1".getBytes(UTF_8));
 
     @Nullable private final InputMetadataProvider inputMetadataProvider;
     private final MapEachMode mode;
@@ -1306,12 +1308,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public String digest(FileApi file) throws EvalException {
+    @Nullable
+    public String digest(FileApi file, boolean allowMissing) throws EvalException {
       if (mode != MapEachMode.DEFAULT) {
         throw new EvalException(new InputMetadataRequiredException());
       }
       if (inputMetadataProvider == null) {
-        return "<DIGEST>";
+        return allowMissing ? null : "<DIGEST>";
       }
       if (file instanceof Artifact artifact && !artifact.isConstantMetadata()) {
         FileArtifactValue metadata;
@@ -1322,15 +1325,23 @@ public class StarlarkCustomCommandLine extends CommandLine {
               "Could not read digest for " + artifact.getExecPathString() + ": " + e.getMessage(),
               e);
         }
-        if (metadata != null && metadata.getType().isFile()) {
+        if (metadata != null) {
           byte[] digest = metadata.getDigest();
           if (digest != null) {
-            return FILE_DIGEST_HASH.hashBytes(digest).toString();
+            if (metadata.getType().isFile()) {
+              return FILE_DIGEST_HASH.hashBytes(digest).toString();
+            }
+            if (artifact.isSourceArtifact() && metadata.getType().isDirectory()) {
+              return SOURCE_DIRECTORY_DIGEST_HASH.hashBytes(digest).toString();
+            }
           }
         }
       }
+      if (allowMissing) {
+        return null;
+      }
       throw Starlark.errorf(
-          "Only declared regular file inputs have a digest: %s",
+          "Only declared regular files and tracked source directories have a digest: %s",
           Starlark.repr(file, StarlarkSemantics.DEFAULT));
     }
 

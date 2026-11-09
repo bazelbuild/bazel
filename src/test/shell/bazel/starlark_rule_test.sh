@@ -250,6 +250,10 @@ def _digest(file, expander):
 def _bare_digest(file, expander):
     return expander.digest(file)
 
+def _nullable_digest(file, expander):
+    digest = expander.digest(file, allow_missing = True)
+    return "missing" if digest == None else _DIGEST_PREFIX + digest
+
 def _expand(file, expander):
     return [child.path for child in expander.expand(file)]
 
@@ -283,6 +287,8 @@ def _manifest_impl(ctx):
         args.set_param_file_format("multiline")
     elif mode == "prune_expand":
         args.add_all(srcs, map_each = _expand, expand_directories = False)
+    elif mode == "nullable":
+        args.add_all(srcs, map_each = _nullable_digest)
     else:
         args.add_all(srcs, map_each = _digest)
 
@@ -318,7 +324,7 @@ manifest = rule(
     attrs = {
         "srcs": attr.label_list(allow_files = True),
         "join_srcs": attr.label(),
-        "mode": attr.string(default = "digest", values = ["digest", "conflict", "prune", "prune_expand"]),
+        "mode": attr.string(default = "digest", values = ["digest", "conflict", "prune", "prune_expand", "nullable"]),
     },
 )
 
@@ -416,10 +422,51 @@ function test_map_each_file_digests() {
     "updated=${digest_b#digest=}" "updated=${digest_c#digest=}"
 }
 
+function test_map_each_source_directory_digest() {
+  setup_map_each_file_digests
+  mkdir -p digests/src_dir/nested
+  echo initial > digests/src_dir/nested/a.txt
+  cat >> digests/BUILD <<'EOF'
+manifest(name = "source_dir", srcs = ["src_dir"])
+manifest(name = "nullable_dir", srcs = ["src_dir"], mode = "nullable")
+EOF
+
+  local output_dir="${PRODUCT_NAME}-bin/digests"
+  bazel build //digests:source_dir &> "$TEST_log" || fail "build failed for source directory"
+  bazel build //digests:nullable_dir &> "$TEST_log" || fail "build failed in nullable mode"
+  local initial edited renamed deleted
+  initial=$(cat "$output_dir/source_dir.out")
+  [[ "$initial" =~ ^digest=[0-9a-f]{64}$ ]] || fail "expected a source directory digest"
+  assert_equals "$initial" "$(cat "$output_dir/nullable_dir.out")"
+
+  echo edited > digests/src_dir/nested/a.txt
+  bazel build //digests:source_dir &> "$TEST_log" || fail "build failed after editing child"
+  edited=$(cat "$output_dir/source_dir.out")
+  assert_not_equals "$initial" "$edited"
+
+  mv digests/src_dir/nested/{a,b}.txt
+  bazel build //digests:source_dir &> "$TEST_log" || fail "build failed after renaming child"
+  renamed=$(cat "$output_dir/source_dir.out")
+  assert_not_equals "$edited" "$renamed"
+
+  rm digests/src_dir/nested/b.txt
+  bazel build //digests:source_dir &> "$TEST_log" || fail "build failed after deleting child"
+  deleted=$(cat "$output_dir/source_dir.out")
+  assert_not_equals "$renamed" "$deleted"
+
+  echo initial > digests/src_dir/nested/a.txt
+  bazel build //digests:source_dir &> "$TEST_log" || fail "build failed after restoring child"
+  assert_equals "$initial" "$(cat "$output_dir/source_dir.out")"
+
+  bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=0 build //digests:nullable_dir \
+    &> "$TEST_log" || fail "build failed with source-directory tracking disabled"
+  assert_equals "missing" "$(cat "$output_dir/nullable_dir.out")"
+}
+
 function test_map_each_file_digests_rejects_undeclared_source() {
   setup_map_each_file_digests
   bazel build //digests:undeclared &> "$TEST_log" && fail "expected build failure"
-  expect_log 'Only declared regular file inputs have a digest: <source file digests/a\.txt>$'
+  expect_log 'Only declared regular files and tracked source directories have a digest: <source file digests/a\.txt>$'
 }
 
 function test_map_each_file_digests_reports_action_conflict() {

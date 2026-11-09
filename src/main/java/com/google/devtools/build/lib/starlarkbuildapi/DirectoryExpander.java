@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -35,9 +36,9 @@ public interface DirectoryExpander extends StarlarkValue {
   @StarlarkMethod(
       name = "expand",
       doc =
-          "If the given <code>File</code> is a directory, this returns a list of <code>File"
-              + "</code>s recursively underneath the directory. Otherwise, this returns a list "
-              + "containing just the given <code>File</code> itself.",
+          "If the given <code>File</code> is a declared directory output, this returns its"
+              + " descendant files recursively. Otherwise, this returns a list containing just"
+              + " the given <code>File</code>.",
       parameters = {
         @Param(
             name = "file",
@@ -49,15 +50,25 @@ public interface DirectoryExpander extends StarlarkValue {
 
   @StarlarkMethod(
       name = "digest",
+      allowReturnNones = true,
       doc =
           "Returns an opaque content digest for a declared regular file input of the action,"
               + " including a file in an expanded directory. Use the digest to compare file"
-              + " contents within the action. The digest's format and hash algorithm may change."
+              + " contents within the action. For a declared source directory, this returns"
+              + " a digest of the tracked paths and contents when source-directory tracking"
+              + " is enabled. The digest's format and hash algorithm may change."
               + " If input metadata is unavailable, for example in <code>aquery</code>, this"
-              + " returns <code>&lt;DIGEST&gt;</code>. Actions that discover inputs, including"
-              + " actions with <code>unused_inputs_list</code>, cannot read file digests.",
+              + " returns <code>&lt;DIGEST&gt;</code> by default. Actions that discover inputs,"
+              + " including actions with <code>unused_inputs_list</code>, cannot read digests.",
       parameters = {
-        @Param(name = "file", positional = true, named = false, doc = "The input file.")
+        @Param(name = "file", positional = true, named = false, doc = "The input file."),
+        @Param(
+            name = "allow_missing",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            doc = "Return <code>None</code> when no content digest is available."),
       })
-  String digest(FileApi file) throws EvalException;
+  @Nullable
+  String digest(FileApi file, boolean allowMissing) throws EvalException;
 }
