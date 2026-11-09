@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern.Sign;
@@ -75,11 +74,11 @@ public class TargetPatternUtil {
       }
     }
 
+    // Values can also go missing in the loop above: with --keep_going and during error bubbling,
+    // getOrThrow returns null if a pattern failed with an exception other than a
+    // TargetParsingException, for example because the IgnoredSubdirectoriesValue of its repo is in
+    // error.
     if (env.valuesMissing()) {
-      if (valuesMissing != env.valuesMissing()) {
-        BugReport.logUnexpected(
-            "Some value from '%s' was missing, this should never happen", targetPatternKeys);
-      }
       return null;
     }
 
