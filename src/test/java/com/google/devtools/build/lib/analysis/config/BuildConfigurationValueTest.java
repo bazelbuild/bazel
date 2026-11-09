@@ -810,7 +810,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void ruleDefinedDefaultScope(@TestParameter boolean propagateByDefault) throws Exception {
+  public void ruleDefinedDefaultScope(
+      @TestParameter boolean propagateByDefault, @TestParameter boolean parseFromCommandLine)
+      throws Exception {
     scratch.file("my_starlark_flag/BUILD");
     scratch.file(
         "my_starlark_flag/rule_defs.bzl",
@@ -825,6 +827,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             build_setting = config.string(flag = True),
             attrs = {"scope": attr.string(default = "universal")},
         )
+        project_scoped_by_rule_definition = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "project")},
+        )
         default_scoped_by_rule_definition = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
@@ -838,6 +845,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "//my_starlark_flag:rule_defs.bzl",
             "target_scoped_by_rule_definition",
             "universal_scoped_by_rule_definition",
+            "project_scoped_by_rule_definition",
             "default_scoped_by_rule_definition",
         )
         target_scoped_by_rule_definition(
@@ -848,6 +856,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             name = "universal_scope",
             build_setting_default = "default",
         )
+        project_scoped_by_rule_definition(
+            name = "project_scope",
+            build_setting_default = "default",
+        )
         default_scoped_by_rule_definition(
             name = "default_scope",
             build_setting_default = "default",
@@ -855,16 +867,31 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         """);
 
     BuildOptions targetOptions =
-        parseBuildOptions(
-            ImmutableMap.of(
-                "//test:target_scope",
-                "custom",
-                "//test:universal_scope",
-                "custom",
-                "//test:default_scope",
-                "custom"),
-            "--experimental_exclude_starlark_flags_from_exec_config="
-                + (propagateByDefault ? "false" : "true"));
+        parseFromCommandLine
+            ? skyframeExecutor.createBuildOptionsForTesting(
+                reporter,
+                ImmutableList.<String>builder()
+                    .addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS)
+                    .add(
+                        "--//test:target_scope=custom",
+                        "--//test:universal_scope=custom",
+                        "--//test:project_scope=custom",
+                        "--//test:default_scope=custom",
+                        "--experimental_exclude_starlark_flags_from_exec_config="
+                            + (propagateByDefault ? "false" : "true"))
+                    .build())
+            : parseBuildOptions(
+                ImmutableMap.of(
+                    "//test:target_scope",
+                    "custom",
+                    "//test:universal_scope",
+                    "custom",
+                    "//test:project_scope",
+                    "custom",
+                    "//test:default_scope",
+                    "custom"),
+                "--experimental_exclude_starlark_flags_from_exec_config="
+                    + (propagateByDefault ? "false" : "true"));
 
     BuildOptions execOptions =
         AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
@@ -875,10 +902,16 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
               Label.parseCanonicalUnchecked("//test:default_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:project_scope"),
               "custom");
     } else {
       assertThat(execOptions.getStarlarkOptions())
-          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:project_scope"),
+              "custom");
     }
   }
 

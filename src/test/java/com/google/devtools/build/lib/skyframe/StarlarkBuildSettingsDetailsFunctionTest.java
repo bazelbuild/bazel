@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -196,6 +197,188 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
     assertThat(details.buildSettingToScopeType()).containsExactly(foo, DEFAULT);
     assertThat(details.projectScopes()).isEmpty();
     assertThat(details.hasProjectScopedBuildSettings()).isFalse();
+  }
+
+  @Test
+  public void ruleDefinedDefaultScope_resolvesScopesAndProjectFiles() throws Exception {
+    scratch.file(
+        "test_flags/rule_defs.bzl",
+        """
+        universal_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+        target_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "target")},
+        )
+        project_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "project")},
+        )
+        default_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load(
+            "//test_flags:rule_defs.bzl",
+            "default_flag",
+            "project_flag",
+            "target_flag",
+            "universal_flag",
+        )
+        universal_flag(
+            name = "foo_universal",
+            build_setting_default = "default",
+        )
+        target_flag(
+            name = "foo_target",
+            build_setting_default = "default",
+        )
+        project_flag(
+            name = "foo_project",
+            build_setting_default = "default",
+        )
+        default_flag(
+            name = "foo_default",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test_flags/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
+        """);
+    Label fooUniversal = Label.parseCanonical("//test_flags:foo_universal");
+    Label fooTarget = Label.parseCanonical("//test_flags:foo_target");
+    Label fooProject = Label.parseCanonical("//test_flags:foo_project");
+    Label fooDefault = Label.parseCanonical("//test_flags:foo_default");
+
+    StarlarkBuildSettingsDetailsValue details =
+        executeFunction(
+            StarlarkBuildSettingsDetailsValue.Key.create(
+                ImmutableSet.of(fooUniversal, fooTarget, fooProject, fooDefault),
+                ImmutableSet.of()));
+
+    assertThat(details.buildSettingToScopeType())
+        .containsExactly(
+            fooUniversal,
+            UNIVERSAL,
+            fooTarget,
+            new Scope.ScopeType(Scope.ScopeType.TARGET),
+            fooProject,
+            PROJECT,
+            fooDefault,
+            DEFAULT);
+    assertThat(details.projectScopes())
+        .containsExactly(
+            fooProject,
+            new Scope(PROJECT, new Scope.ScopeDefinition(ImmutableSet.of("//my_project"))));
+    assertThat(details.hasProjectScopedBuildSettings()).isTrue();
+    assertThat(details.projectScopeOf(fooProject))
+        .isEqualTo(details.projectScopes().get(fooProject));
+    assertThat(details.projectScopeOf(fooUniversal)).isNull();
+    assertThat(details.covers(ImmutableSet.of(fooUniversal, fooTarget, fooProject, fooDefault)))
+        .isTrue();
+  }
+
+  @Test
+  public void ruleDefinedDefaultScope_customExecReferencedFlag() throws Exception {
+    scratch.file(
+        "test_flags/custom_exec.bzl",
+        """
+        my_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "exec:--//test_flags:host_foo")},
+        )
+        my_host_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:custom_exec.bzl", "my_flag", "my_host_flag")
+        my_flag(
+            name = "foo",
+            build_setting_default = "default",
+        )
+        my_host_flag(
+            name = "host_foo",
+            build_setting_default = "host_default",
+        )
+        """);
+    Label foo = Label.parseCanonical("//test_flags:foo");
+    Label hostFoo = Label.parseCanonical("//test_flags:host_foo");
+
+    StarlarkBuildSettingsDetailsValue detailsFromHostFlag =
+        executeFunction(
+            StarlarkBuildSettingsDetailsValue.Key.create(
+                ImmutableSet.of(), ImmutableSet.of(hostFoo)));
+
+    assertThat(detailsFromHostFlag.customExecScopeValues())
+        .containsExactly(
+            foo,
+            new StarlarkBuildSettingsDetailsValue.CustomExecScopeValue(
+                foo, "default", hostFoo, "host_default"));
+    assertThat(detailsFromHostFlag.buildSettingToScopeType())
+        .containsExactly(foo, new Scope.ScopeType("exec:--//test_flags:host_foo"));
+
+    StarlarkBuildSettingsDetailsValue detailsFromBuildSetting =
+        executeFunction(
+            StarlarkBuildSettingsDetailsValue.Key.create(ImmutableSet.of(foo), ImmutableSet.of()));
+
+    assertThat(detailsFromBuildSetting.customExecScopeValues())
+        .containsExactly(
+            foo,
+            new StarlarkBuildSettingsDetailsValue.CustomExecScopeValue(
+                foo, "default", hostFoo, "host_default"));
+    assertThat(detailsFromBuildSetting.buildSettingToScopeType())
+        .containsExactly(foo, new Scope.ScopeType("exec:--//test_flags:host_foo"));
+  }
+
+  @Test
+  public void ruleDefinedDefaultScope_missingHostTarget_throwsNoSuchTargetException()
+      throws Exception {
+    scratch.file(
+        "test_flags/custom_exec.bzl",
+        """
+        my_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "exec:--//test_flags:host_foo")},
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:custom_exec.bzl", "my_flag")
+        my_flag(
+            name = "foo",
+            build_setting_default = "default",
+        )
+        """);
+    Label hostFoo = Label.parseCanonical("//test_flags:host_foo");
+
+    assertThrows(
+        NoSuchTargetException.class,
+        () ->
+            executeFunction(
+                StarlarkBuildSettingsDetailsValue.Key.create(
+                    ImmutableSet.of(), ImmutableSet.of(hostFoo))));
   }
 
   private StarlarkBuildSettingsDetailsValue executeFunction(

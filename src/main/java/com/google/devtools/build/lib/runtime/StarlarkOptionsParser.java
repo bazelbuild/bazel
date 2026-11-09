@@ -273,10 +273,19 @@ public class StarlarkOptionsParser {
         }
       }
 
+      // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
       var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-      if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
+      if (attrMap.has("scope", Type.STRING)) {
         String scopeType = attrMap.get("scope", Type.STRING);
-        if (!Scope.ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
+        // Validate explicitly set values and non-empty rule-defined defaults, while allowing
+        // native rules (e.g. label_flag) whose un-overridden default is "default".
+        boolean shouldValidateScope =
+            attrMap.isAttributeValueExplicitlySpecified("scope")
+                || (!scopeType.equals(Type.STRING.getDefaultValue())
+                    && !scopeType.equals(Scope.ScopeType.DEFAULT));
+        if (shouldValidateScope
+            && !Scope.ScopeType.allowedAttributeValues()
+                .contains(scopeType.toLowerCase(Locale.ROOT))
             && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
           throw new OptionsParsingException(
               String.format(

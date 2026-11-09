@@ -103,29 +103,22 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
         if (flagTarget == null) {
           return null;
         }
-        var attrMap = RawAttributeMapper.of(flagTarget.getAssociatedRule());
-        if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-          String scopeType = attrMap.get("scope", Type.STRING);
-          if (scopeType.startsWith("exec:--")) {
-            // load the starlarkified host flag
-            Target starlarkifiedHostFlag;
-            try {
-              starlarkifiedHostFlag = getTarget(buildSettingPackage, hostFlag);
-            } catch (NoSuchTargetException e) {
-              throw new StarlarkBuildSettingsDetailsException(e);
-            }
-
-            if (starlarkifiedHostFlag == null) {
-              return null;
-            }
-            customExecScopeValuesBuilder.put(
-                flagTarget.getLabel(),
-                new CustomExecScopeValue(
-                    flagTarget.getLabel(),
-                    getDefault(flagTarget.getAssociatedRule()),
-                    hostFlag,
-                    getDefault(starlarkifiedHostFlag.getAssociatedRule())));
+        String scopeType = getScopeAttribute(flagTarget.getAssociatedRule());
+        if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+          // load the starlarkified host flag
+          Target starlarkifiedHostFlag;
+          try {
+            starlarkifiedHostFlag = getTarget(buildSettingPackage, hostFlag);
+          } catch (NoSuchTargetException e) {
+            throw new StarlarkBuildSettingsDetailsException(e);
           }
+          customExecScopeValuesBuilder.put(
+              flagTarget.getLabel(),
+              new CustomExecScopeValue(
+                  flagTarget.getLabel(),
+                  getDefault(flagTarget.getAssociatedRule()),
+                  hostFlag,
+                  getDefault(starlarkifiedHostFlag.getAssociatedRule())));
         }
       } catch (TransitionException e) {
         throw new StarlarkBuildSettingsDetailsException(e);
@@ -506,14 +499,17 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     return projectScopes.buildOrThrow();
   }
 
-  private static Scope.ScopeType getScopeType(Rule rule) {
+  private static String getScopeAttribute(Rule rule) {
     var attrs = RawAttributeMapper.of(rule);
     if (!attrs.has("scope", Type.STRING)) {
-      return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
+      return Scope.ScopeType.DEFAULT;
     }
     String scope = attrs.get("scope", Type.STRING);
-    return new Scope.ScopeType(
-        scope.equals(Type.STRING.getDefaultValue()) ? Scope.ScopeType.DEFAULT : scope);
+    return scope.equals(Type.STRING.getDefaultValue()) ? Scope.ScopeType.DEFAULT : scope;
+  }
+
+  private static Scope.ScopeType getScopeType(Rule rule) {
+    return new Scope.ScopeType(getScopeAttribute(rule));
   }
 
   private static Object getDefault(Rule rule) {

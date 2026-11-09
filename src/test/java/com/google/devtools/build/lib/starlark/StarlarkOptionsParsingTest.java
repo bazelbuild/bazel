@@ -863,4 +863,176 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
           .isEqualTo(ImmutableSet.copyOf(expectedValue));
     }
   }
+
+  @Test
+  public void testScopeAttributeFromRuleDefault() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        universal_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+        project_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "project")},
+        )
+        target_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "target")},
+        )
+        custom_exec_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "exec:--//test:no_scope_attr")},
+        )
+        default_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        no_scope_attr_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(
+            "//test:build_setting.bzl",
+            "custom_exec_flag",
+            "default_flag",
+            "no_scope_attr_flag",
+            "project_flag",
+            "target_flag",
+            "universal_flag",
+        )
+
+        universal_flag(
+            name = "universal_by_rule",
+            build_setting_default = "default",
+        )
+        universal_flag(
+            name = "overridden_to_target",
+            build_setting_default = "default",
+            scope = "target",
+        )
+        project_flag(
+            name = "project_by_rule",
+            build_setting_default = "default",
+        )
+        target_flag(
+            name = "target_by_rule",
+            build_setting_default = "default",
+        )
+        custom_exec_flag(
+            name = "custom_exec_by_rule",
+            build_setting_default = "default",
+        )
+        default_flag(
+            name = "default_by_rule",
+            build_setting_default = "default",
+        )
+        no_scope_attr_flag(
+            name = "no_scope_attr",
+            build_setting_default = "default",
+        )
+        label_flag(
+            name = "my_label_flag",
+            build_setting_default = ":no_scope_attr",
+        )
+        """);
+
+    OptionsParsingResult result =
+        parseStarlarkOptions(
+            "--//test:universal_by_rule=val "
+                + "--//test:overridden_to_target=val "
+                + "--//test:project_by_rule=val "
+                + "--//test:target_by_rule=val "
+                + "--//test:custom_exec_by_rule=val "
+                + "--//test:default_by_rule=val "
+                + "--//test:no_scope_attr=val "
+                + "--//test:my_label_flag=//test:universal_by_rule");
+
+    assertThat(result.getStarlarkOptions().keySet())
+        .containsExactly(
+            "//test:universal_by_rule",
+            "//test:overridden_to_target",
+            "//test:project_by_rule",
+            "//test:target_by_rule",
+            "//test:custom_exec_by_rule",
+            "//test:default_by_rule",
+            "//test:no_scope_attr",
+            "//test:my_label_flag");
+    assertThat(String.valueOf(result.getStarlarkOptions().get("//test:my_label_flag")))
+        .isEqualTo("//test:universal_by_rule");
+  }
+
+  @Test
+  public void testExplicitEmptyScopeAttributeFails() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        scope_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "scope_flag")
+
+        scope_flag(
+            name = "my_flag",
+            build_setting_default = "default",
+            scope = "",
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> parseStarlarkOptions("--//test:my_flag=val"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Can't load flag --//test:my_flag: Invalid \"scope\" attribute value");
+  }
+
+  @Test
+  public void testInvalidScopeAttributeFromRuleDefault() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        invalid_scope_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "invalid_scope")},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "invalid_scope_flag")
+
+        invalid_scope_flag(
+            name = "my_flag",
+            build_setting_default = "default",
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> parseStarlarkOptions("--//test:my_flag=val"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Can't load flag --//test:my_flag: Invalid \"scope\" attribute value");
+  }
 }
