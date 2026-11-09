@@ -160,6 +160,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
+    public FileArtifactValue getDeclaredInputMetadata(Artifact input) throws IOException {
+      return wrapped.getDeclaredInputMetadata(input);
+    }
+
+    @Nullable
+    @Override
     public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
       return wrapped.getTreeMetadata(actionInput);
     }

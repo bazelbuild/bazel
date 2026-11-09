@@ -46,6 +46,13 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
 
   @Nullable
   @Override
+  public FileArtifactValue getDeclaredInputMetadata(Artifact input) throws IOException {
+    FileArtifactValue metadata = primary.getDeclaredInputMetadata(input);
+    return metadata != null ? metadata : secondary.getDeclaredInputMetadata(input);
+  }
+
+  @Nullable
+  @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     TreeArtifactValue metadata = primary.getTreeMetadata(actionInput);
     return metadata != null ? metadata : secondary.getTreeMetadata(actionInput);

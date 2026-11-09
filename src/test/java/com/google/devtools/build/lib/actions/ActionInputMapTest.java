@@ -126,6 +126,8 @@ public final class ActionInputMapTest {
     assertContainsTree(tree, treeValue);
     assertContainsFile(child1, child1Metadata);
     assertContainsFile(child2, child2Metadata);
+    assertThat(map.getDeclaredInputMetadata(child1)).isSameInstanceAs(child1Metadata);
+    assertThat(map.getDeclaredInputMetadata(child2)).isSameInstanceAs(child2Metadata);
   }
 
   @Test
@@ -226,6 +228,44 @@ public final class ActionInputMapTest {
       put1.run();
       put2.run();
     }
+  }
+
+  @Test
+  public void getDeclaredInputMetadata_treeRecordedForChildInput_rejectsUndeclaredSibling() {
+    TreeArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+    TreeFileArtifact sibling = TreeFileArtifact.createTreeOutput(tree, "sibling");
+    FileArtifactValue childMetadata = TestMetadata.create(1);
+    FileArtifactValue siblingMetadata = TestMetadata.create(2);
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child, childMetadata)
+            .putChild(sibling, siblingMetadata)
+            .build();
+    map.putTreeArtifact(tree, treeValue, /* forChildInput= */ true);
+    map.put(child, childMetadata);
+
+    assertThat(map.getDeclaredInputMetadata(child)).isSameInstanceAs(childMetadata);
+    assertThat(map.getDeclaredInputMetadata(sibling)).isNull();
+    assertThat(map.getDeclaredInputMetadata(tree)).isNull();
+    assertThat(map.getInputMetadata(sibling)).isSameInstanceAs(siblingMetadata);
+  }
+
+  @Test
+  public void getDeclaredInputMetadata_treeAlsoDeclared_returnsChildren(
+      @TestParameter PutOrder putOrder) {
+    TreeArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+    FileArtifactValue childMetadata = TestMetadata.create(1);
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, childMetadata).build();
+
+    putOrder.runPuts(
+        () -> map.putTreeArtifact(tree, treeValue, /* forChildInput= */ true),
+        () -> map.putTreeArtifact(tree, treeValue));
+
+    assertThat(map.getDeclaredInputMetadata(child)).isSameInstanceAs(childMetadata);
+    assertThat(map.getDeclaredInputMetadata(tree)).isEqualTo(treeValue.getMetadata());
   }
 
   @Test

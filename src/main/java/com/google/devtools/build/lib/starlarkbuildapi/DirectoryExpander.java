@@ -46,4 +46,18 @@ public interface DirectoryExpander extends StarlarkValue {
             doc = "The directory or file to expand."),
       })
   ImmutableList<FileApi> list(FileApi artifact) throws EvalException;
+
+  @StarlarkMethod(
+      name = "digest",
+      doc =
+          "Returns an opaque content digest for a declared regular file input of the action,"
+              + " including a file in an expanded directory. Use the digest to compare file"
+              + " contents within the action. The digest's format and hash algorithm may change."
+              + " If input metadata is unavailable, for example in <code>aquery</code>, this"
+              + " returns <code>&lt;DIGEST&gt;</code>. Actions that discover inputs, including"
+              + " actions with <code>unused_inputs_list</code>, cannot read file digests.",
+      parameters = {
+        @Param(name = "file", positional = true, named = false, doc = "The input file.")
+      })
+  String digest(FileApi file) throws EvalException;
 }
