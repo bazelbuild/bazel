@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -70,6 +71,43 @@ public final class PatchUtilTest {
     assertThat(newFile.isReadable()).isTrue();
     assertThat(newFile.isWritable()).isFalse();
     assertThat(newFile.isExecutable()).isTrue();
+  }
+
+  @Test
+  public void testPatchKeepsCrlfLineEndings() throws IOException, PatchFailedException {
+    Path oldFile = scratch.file("/root/foo.txt");
+    FileSystemUtils.writeContent(oldFile, ISO_8859_1, "line1\r\nline2\r\nline3\r\n");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1,3 +1,3 @@",
+            " line1",
+            "-line2",
+            "+changed",
+            " line3");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readContent(oldFile, ISO_8859_1))
+        .isEqualTo("line1\r\nchanged\r\nline3\r\n");
+  }
+
+  @Test
+  public void testPatchKeepsLfLineEndings() throws IOException, PatchFailedException {
+    Path oldFile = scratch.file("/root/foo.txt", "line1", "line2", "line3");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1,3 +1,3 @@",
+            " line1",
+            "-line2",
+            "+changed",
+            " line3");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readContent(oldFile, ISO_8859_1))
+        .isEqualTo("line1\nchanged\nline3\n");
   }
 
   @Test
