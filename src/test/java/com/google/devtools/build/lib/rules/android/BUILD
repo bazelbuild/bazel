@@ -14,6 +14,22 @@ filegroup(
 )
 
 java_test(
+    name = "AndroidResourceSourceDirectoryTest",
+    srcs = ["AndroidResourceSourceDirectoryTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "AndroidConfigurationTest",
     srcs = ["AndroidConfigurationTest.java"],
     deps = [

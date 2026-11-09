@@ -65,7 +65,8 @@ public class AndroidStarlarkCommon implements StarlarkValue {
       })
   @Nullable
   public String getSourceDirectoryRelativePathFromResource(Artifact resource) {
-    return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource).toString();
+    var path = AndroidCommon.getSourceDirectoryRelativePathFromResource(resource);
+    return path != null ? path.toString() : null;
   }
 
   @StarlarkMethod(
