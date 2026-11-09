@@ -1515,16 +1515,24 @@ static string GetMsysBash() {
   return string();
 }
 
+// Lowercases `path` and uses backslashes as the only separator, so that paths
+// can be compared regardless of case and separator style.
+static string NormalizeForComparison(const string& path) {
+  string result = blaze_util::ToLower(path);
+  std::replace(result.begin(), result.end(), '/', '\\');
+  return result;
+}
+
 static bool IsUnderDirectory(const string& file, const string& dir) {
   if (dir.empty()) {
     return false;
   }
-  string prefix = blaze_util::ToLower(dir);
+  string prefix = NormalizeForComparison(dir);
   if (prefix.back() != '\\') {
     prefix += '\\';
   }
-  string lower_file = blaze_util::ToLower(file);
-  return lower_file.compare(0, prefix.size(), prefix) == 0;
+  string normalized_file = NormalizeForComparison(file);
+  return normalized_file.compare(0, prefix.size(), prefix) == 0;
 }
 
 // Returns the first `binary_name` on `path_list` that is not under

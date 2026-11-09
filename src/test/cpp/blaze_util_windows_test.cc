@@ -172,6 +172,13 @@ class FindBashInPathTest : public ::testing::Test {
     ASSERT_TRUE(blaze_util::MakeDirectories(git_, 0777));
   }
 
+  // Lowercases `path` and uses backslashes as the only separator.
+  static string Normalize(const string& path) {
+    string result = blaze_util::ToLower(path);
+    std::replace(result.begin(), result.end(), '/', '\\');
+    return result;
+  }
+
   void WriteBash(const string& dir) {
     ASSERT_TRUE(
         blaze_util::WriteFile("", blaze_util::JoinPath(dir, "bash.exe")));
@@ -187,8 +194,8 @@ TEST_F(FindBashInPathTest, SkipsBashUnderWindir) {
   WriteBash(system32_);
   WriteBash(git_);
   string result = FindBashInPath(system32_ + ";" + git_, windir_);
-  EXPECT_EQ(blaze_util::ToLower(result),
-            blaze_util::ToLower(blaze_util::JoinPath(git_, "bash.exe")));
+  EXPECT_EQ(Normalize(result),
+            Normalize(blaze_util::JoinPath(git_, "bash.exe")));
 }
 
 TEST_F(FindBashInPathTest, EmptyWhenOnlyBashIsUnderWindir) {
