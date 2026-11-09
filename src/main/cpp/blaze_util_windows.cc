@@ -1515,11 +1515,16 @@ static string GetMsysBash() {
   return string();
 }
 
-// Lowercases `path` and uses backslashes as the only separator, so that paths
-// can be compared regardless of case and separator style.
+// Lowercases `path`, uses backslashes as the only separator and collapses
+// repeated separators, so that paths can be compared regardless of case and
+// separator style.
 static string NormalizeForComparison(const string& path) {
   string result = blaze_util::ToLower(path);
   std::replace(result.begin(), result.end(), '/', '\\');
+  result.erase(
+      std::unique(result.begin(), result.end(),
+                  [](char a, char b) { return a == '\\' && b == '\\'; }),
+      result.end());
   return result;
 }
 
@@ -1535,11 +1540,11 @@ static bool IsUnderDirectory(const string& file, const string& dir) {
   return normalized_file.compare(0, prefix.size(), prefix) == 0;
 }
 
-// Returns the first `binary_name` on `path_list` that is not under
-// `skip_dir`.
+// Returns the first `binary_name` on `path_list` that is not under any of
+// `skip_dirs`.
 static string GetBinaryFromPath(const string& binary_name,
                                 const string& path_list,
-                                const string& skip_dir) {
+                                const std::vector<string>& skip_dirs) {
   char found[MAX_PATH];
 
   // We do not fully replicate all the quirks of search in PATH.
@@ -1562,7 +1567,10 @@ static string GetBinaryFromPath(const string& binary_name,
                     found,                // _Out_     LPTSTR  lpBuffer,
                     0                     // _Out_opt_ LPTSTR  *lpFilePart
                     )) {
-      if (IsUnderDirectory(found, skip_dir)) {
+      if (std::any_of(skip_dirs.begin(), skip_dirs.end(),
+                      [&found](const string& dir) {
+                        return IsUnderDirectory(found, dir);
+                      })) {
         BAZEL_LOG(INFO) << "Ignoring " << found;
       } else {
         BAZEL_LOG(INFO) << binary_name.c_str() << " found on PATH: " << found;
@@ -1578,29 +1586,54 @@ static string GetBinaryFromPath(const string& binary_name,
   return string();
 }
 
-string FindBashInPath(const string& path_list, const string& windir) {
-  return GetBinaryFromPath("bash.exe", path_list, windir);
+string FindBashInPath(const string& path_list, const string& windir,
+                      const string& local_app_data) {
+  // Skip the WSL launcher in %WINDIR% and its Microsoft Store alias, they
+  // cannot run Bazel's commands.
+  std::vector<string> skip_dirs = {windir};
+  if (!local_app_data.empty()) {
+    skip_dirs.push_back(local_app_data + "\\Microsoft\\WindowsApps");
+  }
+  return GetBinaryFromPath("bash.exe", path_list, skip_dirs);
 }
 
-static string GetGitForWindowsBash() {
+struct RegKeyCloser {
+  void operator()(HKEY key) const { RegCloseKey(key); }
+};
+using AutoRegKey = std::unique_ptr<std::remove_pointer_t<HKEY>, RegKeyCloser>;
+
+// Returns Git for Windows' bash.exe from the install path in `root`, or an
+// empty string.
+static string GetGitForWindowsBash(HKEY root) {
   HKEY h_key;
-  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\GitForWindows", 0,
-                   KEY_QUERY_VALUE | KEY_WOW64_64KEY, &h_key)) {
+  if (RegOpenKeyExW(root, L"Software\\GitForWindows", 0,
+                    KEY_QUERY_VALUE | KEY_WOW64_64KEY,
+                    &h_key) != ERROR_SUCCESS) {
     return string();
   }
-  AutoHandle auto_key(h_key);
+  AutoRegKey auto_key(h_key);
 
-  char path[REG_VALUE_BUFFER_SIZE];
-  DWORD path_length = sizeof(path);
-  DWORD path_type;
-  if (RegQueryValueEx(h_key, "InstallPath", 0, &path_type,
-                      reinterpret_cast<LPBYTE>(path), &path_length) ||
-      path_type != REG_SZ || path_length < 2) {
+  DWORD size = 0;
+  if (RegGetValueW(h_key, nullptr, L"InstallPath", RRF_RT_REG_SZ, nullptr,
+                   nullptr, &size) != ERROR_SUCCESS) {
+    return string();
+  }
+  std::wstring value(size / sizeof(WCHAR) + 1, L'\0');
+  size = static_cast<DWORD>(value.size() * sizeof(WCHAR));
+  if (RegGetValueW(h_key, nullptr, L"InstallPath", RRF_RT_REG_SZ, nullptr,
+                   &value[0], &size) != ERROR_SUCCESS) {
+    return string();
+  }
+  value.resize(wcslen(value.c_str()));
+  while (!value.empty() && (value.back() == L'\\' || value.back() == L'/')) {
+    value.pop_back();
+  }
+  if (value.empty()) {
     return string();
   }
 
   string bash_exe =
-      string(path, path + path_length - 1) + "\\usr\\bin\\bash.exe";
+      blaze_util::WstringToCstring(value) + "\\usr\\bin\\bash.exe";
   if (!blaze_util::PathExists(bash_exe)) {
     return string();
   }
@@ -1611,12 +1644,14 @@ static string GetGitForWindowsBash() {
 static string LocateBashMaybe() {
   string bash = GetMsysBash();
   if (bash.empty()) {
-    bash = GetGitForWindowsBash();
+    bash = FindBashInPath(blaze::GetPathEnv("PATH"), blaze::GetEnv("WINDIR"),
+                          blaze::GetEnv("LOCALAPPDATA"));
   }
   if (bash.empty()) {
-    // Skip the WSL launcher in %WINDIR%, it cannot run Bazel's commands.
-    bash = FindBashInPath(blaze::GetPathEnv("PATH"),
-                          blaze::GetPathEnv("WINDIR"));
+    bash = GetGitForWindowsBash(HKEY_LOCAL_MACHINE);
+  }
+  if (bash.empty()) {
+    bash = GetGitForWindowsBash(HKEY_CURRENT_USER);
   }
   return bash;
 }
