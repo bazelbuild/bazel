@@ -168,6 +168,50 @@ EOF
       || fail "Expected output 'Hello World'"
 }
 
+test_files_repository_directory() {
+  # Verify that source directories are overlaid and that changes to their contents are applied.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir remote
+  (cd remote && src_only_repo_with_local_include)
+  tar cvf remote.tar remote
+  rm -rf remote
+
+  mkdir main
+  cd main
+  build_def
+  mkdir consts
+  cat > consts/greeting.h <<'EOF'
+#define GREETING "Hello Directory"
+EOF
+  touch BUILD
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name = "remote",
+  strip_prefix = "remote",
+  urls = ["file://${WRKDIR}/remote.tar"],
+  files = {
+    "MODULE.bazel": "//:_.MODULE",
+    "src/BUILD.bazel": "//:_.BUILD",
+    "src/consts": "//:consts",
+  },
+)
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  bazel build @remote//src:hello || fail "Expected build to succeed"
+  bazel run @remote//src:hello | grep 'Hello Directory' \
+      || fail "Expected output 'Hello Directory'"
+  cat > consts/greeting.h <<'EOF'
+#define GREETING "Goodbye Directory"
+EOF
+  bazel build @remote//src:hello || fail "Expected build to succeed"
+  bazel run @remote//src:hello | grep 'Goodbye Directory' \
+      || fail "Expected output 'Goodbye Directory'"
+}
+
 test_files_repository_bad_label() {
   # Verify that labels for non-existant source files raise an error.
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")

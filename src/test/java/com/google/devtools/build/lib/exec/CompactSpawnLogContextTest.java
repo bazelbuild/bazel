@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -345,6 +347,45 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   }
 
   @Test
+  public void testExpandParamFiles(@TestParameter boolean expandParamFiles) throws Exception {
+    ParamFileActionInput paramFileInput =
+        new ParamFileActionInput(
+            PathFragment.create("foo.params"),
+            "@foo.params",
+            ImmutableList.of("a", "b", "c"),
+            ParameterFileType.UNQUOTED);
+
+    SpawnBuilder spawn =
+        new SpawnBuilder("cmd", "--opt", "@foo.params", "--last").withInputs(paramFileInput);
+
+    SpawnLogContext context =
+        createSpawnLogContext(
+            ImmutableMap.of(), /* logSpawnPredicate= */ s -> true, expandParamFiles);
+
+    context.logSpawn(
+        spawn.build(),
+        // ParamFileActionInputs appear in the input map but not in the metadata provider.
+        createInputMetadataProvider(),
+        createInputMap(paramFileInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    ImmutableList<String> expectedArgs =
+        expandParamFiles
+            ? ImmutableList.of("cmd", "--opt", "a", "b", "c", "--last")
+            : ImmutableList.of("cmd", "--opt", "@foo.params", "--last");
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .clearCommandArgs()
+            .addAllCommandArgs(expectedArgs)
+            // The param file is still logged as an input either way.
+            .addInputs(File.newBuilder().setPath("foo.params").setDigest(getDigest("a\nb\nc\n")))
+            .build());
+  }
+
+  @Test
   public void testStreaming() throws Exception {
     Artifact file = ActionsTestUtil.createArtifact(rootDir, "file");
     writeFile(file, "abc");
@@ -366,7 +407,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             new CompressionServiceImpl(),
             UUID.fromString("00000000-0000-0000-0000-000000000000"),
             storedEventHandler,
-            /* logSpawnPredicate= */ s -> true);
+            /* logSpawnPredicate= */ s -> true,
+            /* expandParamFiles= */ false);
 
     context.logSpawn(
         spawn.build(),
@@ -408,6 +450,15 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   SpawnLogContext createSpawnLogContext(
       ImmutableMap<String, String> platformProperties, Predicate<Spawn> logSpawnPredicate)
       throws IOException, InterruptedException {
+    return createSpawnLogContext(
+        platformProperties, logSpawnPredicate, /* expandParamFiles= */ false);
+  }
+
+  SpawnLogContext createSpawnLogContext(
+      ImmutableMap<String, String> platformProperties,
+      Predicate<Spawn> logSpawnPredicate,
+      boolean expandParamFiles)
+      throws IOException, InterruptedException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.setRemoteDefaultExecPropertiesField(platformProperties.entrySet().asList());
 
@@ -422,7 +473,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         new CompressionServiceImpl(),
         UUID.fromString("00000000-0000-0000-0000-000000000000"),
         storedEventHandler,
-        logSpawnPredicate);
+        logSpawnPredicate,
+        expandParamFiles);
   }
 
   @Override

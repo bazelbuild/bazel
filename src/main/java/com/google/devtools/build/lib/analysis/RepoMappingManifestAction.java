@@ -13,16 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.devtools.build.lib.actions.ActionKeyContext.describeNestedSetFingerprint;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.Comparator.comparing;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -47,6 +44,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map.Entry;
@@ -212,37 +210,37 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
       }
       var reposInRunfilesPaths = reposInRunfilesPathsBuilder.build();
 
-      ImmutableSortedMap<RepositoryName, RepositoryMapping> sortedRepoMappings =
-          transitivePackages.toList().stream()
-              .collect(
-                  toImmutableSortedMap(
-                      comparing(RepositoryName::getName),
-                      pkgMetadata -> pkgMetadata.packageIdentifier().getRepository(),
-                      Package.Metadata::repositoryMapping,
-                      // All packages in a given repository have the same repository mapping, so the
-                      // particular way of resolving duplicates does not matter.
-                      (first, second) -> first));
+      // All packages in a repository share its mapping. Sort only the distinct repository names.
+      var repoMappings = new HashMap<String, RepositoryMapping>();
+      var repoNames = new ArrayList<String>();
+      for (Package.Metadata pkgMetadata : transitivePackages.toList()) {
+        String repoName = pkgMetadata.packageIdentifier().getRepository().getName();
+        if (repoMappings.putIfAbsent(repoName, pkgMetadata.repositoryMapping()) == null) {
+          repoNames.add(repoName);
+        }
+      }
+      repoNames.sort(null);
       if (emitCompactRepoMapping) {
-        var repoAndMappings = Iterators.peekingIterator(sortedRepoMappings.entrySet().iterator());
-        while (repoAndMappings.hasNext()) {
+        var repoNamesIterator = Iterators.peekingIterator(repoNames.iterator());
+        while (repoNamesIterator.hasNext()) {
           // If multiple (consecutive in sort order) repositories have identical repo mappings, we
           // merge them into a single entry in the manifest, with the source repo name being the
           // common prefix of the individual names, followed by a wildcard '*'. This is meant to
           // reduce the size of the manifest entries for module extension repos from quadratic to
           // linear in the number of repos, so we limit ourselves to those repositories.
-          var firstRepoAndMapping = repoAndMappings.next();
+          var firstRepoName = repoNamesIterator.next();
+          var firstMappingEntries = repoMappings.get(firstRepoName).entries();
           int groupSize = 1;
-          while (repoAndMappings.hasNext()
-              && shouldMerge(firstRepoAndMapping, repoAndMappings.peek())) {
+          // Extension repositories share their entry maps. Avoid comparing all entries with equals.
+          while (repoNamesIterator.hasNext()
+              && firstMappingEntries == repoMappings.get(repoNamesIterator.peek()).entries()
+              && haveSamePrefix(firstRepoName, repoNamesIterator.peek())) {
             groupSize++;
-            repoAndMappings.next();
+            repoNamesIterator.next();
           }
-          var firstRepoName = firstRepoAndMapping.getKey().getName();
           String source =
               groupSize == 1 ? firstRepoName : replaceLastSegmentWithAsterisk(firstRepoName);
-          for (var entry :
-              computeRelevantEntries(
-                  reposInRunfilesPaths, firstRepoAndMapping.getValue().entries())) {
+          for (var entry : computeRelevantEntries(reposInRunfilesPaths, firstMappingEntries)) {
             writeEntry(writer, source, entry.getKey(), entry.getValue());
           }
         }
@@ -255,27 +253,17 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
         // per entry map instance.
         IdentityHashMap<ImmutableMap<String, RepositoryName>, List<Entry<String, RepositoryName>>>
             cachedRelevantEntries = new IdentityHashMap<>();
-        for (var repoAndMapping : sortedRepoMappings.entrySet()) {
+        for (String repoName : repoNames) {
           var relevantEntries =
               cachedRelevantEntries.computeIfAbsent(
-                  repoAndMapping.getValue().entries(),
+                  repoMappings.get(repoName).entries(),
                   entries -> computeRelevantEntries(reposInRunfilesPaths, entries));
           for (var entry : relevantEntries) {
-            writeEntry(writer, repoAndMapping.getKey().getName(), entry.getKey(), entry.getValue());
+            writeEntry(writer, repoName, entry.getKey(), entry.getValue());
           }
         }
       }
     };
-  }
-
-  private static boolean shouldMerge(
-      Entry<RepositoryName, RepositoryMapping> first,
-      Entry<RepositoryName, RepositoryMapping> second) {
-    // Mappings of repos generated by the same extension are reference equal due to
-    // ModuleExtensionRepoMappingEntriesFunction, so we can avoid the cost of equals. Similar
-    // but not identical repo mappings could otherwise result in quadratic runtime.
-    return first.getValue().entries() == second.getValue().entries()
-        && haveSamePrefix(first.getKey().getName(), second.getKey().getName());
   }
 
   /** Returns whether the two repository names agree up to the last segment of their names. */

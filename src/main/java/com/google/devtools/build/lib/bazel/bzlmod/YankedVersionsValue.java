@@ -41,17 +41,17 @@ public record YankedVersionsValue(Optional<ImmutableMap<Version, String>> yanked
 
   /** The key for {@link YankedVersionsFunction}. */
   @AutoCodec
-  record Key(String moduleName, String registryUrl) implements SkyKey {
+  record Key(ModuleKey moduleKey, String registryUrl) implements SkyKey {
     Key {
-      requireNonNull(moduleName, "moduleName");
+      requireNonNull(moduleKey, "moduleKey");
       requireNonNull(registryUrl, "registryUrl");
     }
 
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     @AutoCodec.Instantiator
-    static Key create(String moduleName, String registryUrl) {
-      return interner.intern(new Key(moduleName, registryUrl));
+    static Key create(ModuleKey moduleKey, String registryUrl) {
+      return interner.intern(new Key(moduleKey, registryUrl));
     }
 
     @Override

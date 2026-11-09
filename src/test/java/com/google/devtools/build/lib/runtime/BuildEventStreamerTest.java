@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -91,6 +92,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.protobuf.Any;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -131,7 +133,8 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
           /* stderr= */ null,
           ErrorTiming.NO_ERROR,
           /* startTime= */ null,
-          /* endTime= */ null);
+          /* endTime= */ null,
+          /* strategyDetails= */ ImmutableList.of());
 
   private static class GenericOrderEvent implements BuildEventWithOrderConstraint {
     private final BuildEventId id;
@@ -1623,7 +1626,8 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             /* stderr= */ null,
             ErrorTiming.BEFORE_EXECUTION,
             /* startTime= */ null,
-            /* endTime= */ null);
+            /* endTime= */ null,
+            /* strategyDetails= */ ImmutableList.of());
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1668,7 +1672,8 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             /* stderr= */ null,
             ErrorTiming.BEFORE_EXECUTION,
             /* startTime= */ null,
-            /* endTime= */ null);
+            /* endTime= */ null,
+            /* strategyDetails= */ ImmutableList.of());
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1677,6 +1682,31 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
 
     assertThat(transportedEvents).contains(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     assertThat(transportedEvents).contains(failedActionExecutedEvent);
+  }
+
+  @Test
+  public void testActionExecutedReportsStrategyDetails() throws Exception {
+    SpawnExec details =
+        SpawnExec.newBuilder().setRunner("disk cache hit").setCacheHit(true).build();
+    ActionExecutedEvent event =
+        new ActionExecutedEvent(
+            ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
+            new ActionsTestUtil.NullAction(),
+            /* exception= */ null,
+            ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
+            ActionsTestUtil.DUMMY_ARTIFACT,
+            FileArtifactValue.MISSING_FILE_MARKER,
+            /* stdout= */ null,
+            /* stderr= */ null,
+            ErrorTiming.NO_ERROR,
+            /* startTime= */ null,
+            /* endTime= */ null,
+            ImmutableList.of(details));
+
+    BuildEventStreamProtos.ActionExecuted action =
+        event.asStreamProto(getTestBuildEventContext(artifactGroupNamer)).getAction();
+
+    assertThat(action.getStrategyDetailsList()).containsExactly(Any.pack(details));
   }
 
   @Test
