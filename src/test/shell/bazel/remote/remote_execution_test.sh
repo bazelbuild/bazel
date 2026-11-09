@@ -532,6 +532,66 @@ EOF
       && fail "Expected failure" || true
 }
 
+function setup_path_mapped_tree_fallback() {
+  stop_worker
+  start_worker --unavailable
+
+  mkdir -p mapped_tree
+  cat > mapped_tree/defs.bzl <<'EOF'
+def _mapped_tree_impl(ctx):
+    output = ctx.actions.declare_directory("tree")
+    arguments = ctx.actions.args()
+    arguments.add_all([output], expand_directories = False)
+    ctx.actions.run_shell(
+        outputs = [output],
+        arguments = [arguments],
+        command = 'mkdir -p "$1"; echo contents > "$1/file"',
+        execution_requirements = {"supports-path-mapping": "1"},
+        mnemonic = "MappedTree",
+    )
+    return [DefaultInfo(files = depset([output]))]
+
+mapped_tree = rule(implementation = _mapped_tree_impl)
+EOF
+  cat > mapped_tree/BUILD <<'EOF'
+load(":defs.bzl", "mapped_tree")
+
+mapped_tree(name = "output")
+EOF
+}
+
+function test_path_mapped_tree_local_fallback_rejected() {
+  setup_path_mapped_tree_fallback
+
+  bazel build //mapped_tree:output \
+      --experimental_output_paths=strip \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_local_fallback \
+      --remote_local_fallback_strategy=local \
+      --remote_retries=0 \
+      --noremote_accept_cached \
+      --noremote_upload_local_results >& $TEST_log \
+      && fail "Unsupported fallback must not accept an empty tree as successful" || true
+  expect_log "fallback strategy 'local' cannot execute this MappedTree spawn"
+}
+
+function test_path_mapped_tree_sandboxed_fallback() {
+  setup_path_mapped_tree_fallback
+
+  bazel build //mapped_tree:output \
+      --experimental_output_paths=strip \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_local_fallback \
+      --remote_local_fallback_strategy=sandboxed \
+      --remote_retries=0 \
+      --noremote_accept_cached \
+      --noremote_upload_local_results >& $TEST_log \
+      || fail "Sandboxed fallback should support mapped tree outputs"
+  assert_equals "contents" "$(cat bazel-bin/mapped_tree/tree/file)"
+}
+
 function test_local_fallback_if_no_remote_executor() {
   # Test that when manually set --spawn_strategy that includes remote, but remote_executor isn't set, we ignore
   # the remote strategy rather than reporting an error. See https://github.com/bazelbuild/bazel/issues/13340.
