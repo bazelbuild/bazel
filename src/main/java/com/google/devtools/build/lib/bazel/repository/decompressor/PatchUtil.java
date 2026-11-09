@@ -170,12 +170,12 @@ public class PatchUtil {
 
   private static void writeFile(Path file, List<String> content, boolean crlf)
       throws IOException {
-    if (!crlf) {
+    if (crlf) {
+      file.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.asByteSink(file).asCharSink(ISO_8859_1).writeLines(content, "\r\n");
+    } else {
       FileSystemUtils.writeLinesAs(file, ISO_8859_1, content);
-      return;
     }
-    file.getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.asByteSink(file).asCharSink(ISO_8859_1).writeLines(content, "\r\n");
   }
 
   /** Returns whether the first line of the file ends in CRLF. */
