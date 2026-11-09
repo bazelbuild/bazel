@@ -24,6 +24,8 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
 #include "googletest/include/gtest/gtest.h"
 
@@ -157,6 +159,50 @@ TEST(BlazeUtilWindowsTest, TestUnsetEnv) {
   ASSERT_ENVVAR(long_key.c_str(), long_value.c_str());
   UnsetEnv(long_key);
   ASSERT_ENVVAR_UNSET(long_key.c_str());
+}
+
+class FindBashInPathTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    root_ = blaze_util::JoinPath(GetPathEnv("TEST_TMPDIR"), "find_bash");
+    windir_ = blaze_util::JoinPath(root_, "Windows");
+    system32_ = blaze_util::JoinPath(windir_, "System32");
+    git_ = blaze_util::JoinPath(root_, "Git\\usr\\bin");
+    ASSERT_TRUE(blaze_util::MakeDirectories(system32_, 0777));
+    ASSERT_TRUE(blaze_util::MakeDirectories(git_, 0777));
+  }
+
+  void WriteBash(const string& dir) {
+    ASSERT_TRUE(
+        blaze_util::WriteFile("", blaze_util::JoinPath(dir, "bash.exe")));
+  }
+
+  string root_;
+  string windir_;
+  string system32_;
+  string git_;
+};
+
+TEST_F(FindBashInPathTest, SkipsBashUnderWindir) {
+  WriteBash(system32_);
+  WriteBash(git_);
+  string result = FindBashInPath(system32_ + ";" + git_, windir_);
+  EXPECT_EQ(blaze_util::ToLower(result),
+            blaze_util::ToLower(blaze_util::JoinPath(git_, "bash.exe")));
+}
+
+TEST_F(FindBashInPathTest, EmptyWhenOnlyBashIsUnderWindir) {
+  string only = blaze_util::JoinPath(root_, "OnlyWsl");
+  string only_windir = blaze_util::JoinPath(only, "Windows");
+  string only_system32 = blaze_util::JoinPath(only_windir, "System32");
+  ASSERT_TRUE(blaze_util::MakeDirectories(only_system32, 0777));
+  WriteBash(only_system32);
+  EXPECT_EQ(FindBashInPath(only_system32, only_windir), "");
+}
+
+TEST_F(FindBashInPathTest, KeepsBashWhenWindirIsEmpty) {
+  WriteBash(system32_);
+  EXPECT_NE(FindBashInPath(system32_, ""), "");
 }
 
 }  // namespace blaze

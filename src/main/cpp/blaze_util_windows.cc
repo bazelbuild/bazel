@@ -1515,9 +1515,24 @@ static string GetMsysBash() {
   return string();
 }
 
-static string GetBinaryFromPath(const string& binary_name) {
+static bool IsUnderDirectory(const string& file, const string& dir) {
+  if (dir.empty()) {
+    return false;
+  }
+  string prefix = blaze_util::ToLower(dir);
+  if (prefix.back() != '\\') {
+    prefix += '\\';
+  }
+  string lower_file = blaze_util::ToLower(file);
+  return lower_file.compare(0, prefix.size(), prefix) == 0;
+}
+
+// Returns the first `binary_name` on `path_list` that is not under
+// `skip_dir`.
+static string GetBinaryFromPath(const string& binary_name,
+                                const string& path_list,
+                                const string& skip_dir) {
   char found[MAX_PATH];
-  string path_list = blaze::GetPathEnv("PATH");
 
   // We do not fully replicate all the quirks of search in PATH.
   // There is no system function to do so, and that way lies madness.
@@ -1539,8 +1554,12 @@ static string GetBinaryFromPath(const string& binary_name) {
                     found,                // _Out_     LPTSTR  lpBuffer,
                     0                     // _Out_opt_ LPTSTR  *lpFilePart
                     )) {
-      BAZEL_LOG(INFO) << binary_name.c_str() << " found on PATH: " << found;
-      return string(found);
+      if (IsUnderDirectory(found, skip_dir)) {
+        BAZEL_LOG(INFO) << "Ignoring " << found;
+      } else {
+        BAZEL_LOG(INFO) << binary_name.c_str() << " found on PATH: " << found;
+        return string(found);
+      }
     }
     if (end == string::npos) {
       break;
@@ -1551,9 +1570,47 @@ static string GetBinaryFromPath(const string& binary_name) {
   return string();
 }
 
+string FindBashInPath(const string& path_list, const string& windir) {
+  return GetBinaryFromPath("bash.exe", path_list, windir);
+}
+
+static string GetGitForWindowsBash() {
+  HKEY h_key;
+  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\GitForWindows", 0,
+                   KEY_QUERY_VALUE | KEY_WOW64_64KEY, &h_key)) {
+    return string();
+  }
+  AutoHandle auto_key(h_key);
+
+  char path[REG_VALUE_BUFFER_SIZE];
+  DWORD path_length = sizeof(path);
+  DWORD path_type;
+  if (RegQueryValueEx(h_key, "InstallPath", 0, &path_type,
+                      reinterpret_cast<LPBYTE>(path), &path_length) ||
+      path_type != REG_SZ || path_length < 2) {
+    return string();
+  }
+
+  string bash_exe =
+      string(path, path + path_length - 1) + "\\usr\\bin\\bash.exe";
+  if (!blaze_util::PathExists(bash_exe)) {
+    return string();
+  }
+  BAZEL_LOG(INFO) << "Detected Git for Windows Bash at " << bash_exe.c_str();
+  return bash_exe;
+}
+
 static string LocateBashMaybe() {
-  string msys_bash = GetMsysBash();
-  return msys_bash.empty() ? GetBinaryFromPath("bash.exe") : msys_bash;
+  string bash = GetMsysBash();
+  if (bash.empty()) {
+    bash = GetGitForWindowsBash();
+  }
+  if (bash.empty()) {
+    // Skip the WSL launcher in %WINDIR%, it cannot run Bazel's commands.
+    bash = FindBashInPath(blaze::GetPathEnv("PATH"),
+                          blaze::GetPathEnv("WINDIR"));
+  }
+  return bash;
 }
 
 string DetectBashAndExportBazelSh() {
