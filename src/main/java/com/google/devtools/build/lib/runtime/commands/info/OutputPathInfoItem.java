@@ -28,6 +28,11 @@ public final class OutputPathInfoItem extends InfoItem {
   }
 
   @Override
+  public boolean needsConfiguration() {
+    return true;
+  }
+
+  @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(env);
