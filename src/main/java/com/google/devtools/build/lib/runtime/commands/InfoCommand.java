@@ -80,8 +80,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import net.starlark.java.spelling.SpellChecker;
 
 /** Implementation of 'blaze info'. */
@@ -130,6 +132,23 @@ public class InfoCommand implements BlazeCommand {
     private DetailedExitCode getDetailedExitCode() {
       return detailedExitCode;
     }
+  }
+
+  @Override
+  public boolean needsMainRepoMapping(CommandEnvironment env, OptionsParsingResult options) {
+    if (!env.getDirectories().inWorkspace()) {
+      return false;
+    }
+    if (options.getOptions(Options.class).showMakeEnvironment) {
+      return true;
+    }
+    Map<String, InfoItem> items = getInfoItemMap(env, options);
+    List<String> residue = options.getResidue();
+    Stream<InfoItem> requestedItems =
+        residue.isEmpty()
+            ? items.values().stream().filter(infoItem -> !infoItem.isHidden())
+            : residue.stream().map(items::get).filter(Objects::nonNull);
+    return requestedItems.anyMatch(InfoItem::needsConfiguration);
   }
 
   @Override
@@ -193,7 +212,7 @@ public class InfoCommand implements BlazeCommand {
               if (infoItem.needsSyncPackageLoading()) {
                 ensureSyncPackageLoading(env, optionsParsingResult);
               }
-              value = infoItem.get(configurationSupplier, env);
+              value = infoItem.get(configurationSupplierFor(infoItem, configurationSupplier), env);
               if (residue.size() > 1) {
                 outErr.getOutputStream().write((key + ": ").getBytes(StandardCharsets.UTF_8));
               }
@@ -230,7 +249,9 @@ public class InfoCommand implements BlazeCommand {
           outErr.getOutputStream().write(
               (infoItem.getName() + ": ").getBytes(StandardCharsets.UTF_8));
           try (SilentCloseable c = Profiler.instance().profile(infoItem.getName() + ".infoItem")) {
-            outErr.getOutputStream().write(infoItem.get(configurationSupplier, env));
+            outErr
+                .getOutputStream()
+                .write(infoItem.get(configurationSupplierFor(infoItem, configurationSupplier), env));
           }
         }
       }
@@ -249,6 +270,22 @@ public class InfoCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode("info interrupted"));
     }
     return BlazeCommandResult.success();
+  }
+
+  /**
+   * Options are only parsed with the main repository mapping if a requested info item needs the
+   * configuration, so items that don't declare this must not access it.
+   */
+  private static Supplier<BuildConfigurationValue> configurationSupplierFor(
+      InfoItem infoItem, Supplier<BuildConfigurationValue> configurationSupplier) {
+    if (infoItem.needsConfiguration()) {
+      return configurationSupplier;
+    }
+    return () -> {
+      throw new IllegalStateException(
+          "info item '%s' accesses the configuration, but doesn't override needsConfiguration()"
+              .formatted(infoItem.getName()));
+    };
   }
 
   private static void ensureSyncPackageLoading(CommandEnvironment env, OptionsProvider options)
