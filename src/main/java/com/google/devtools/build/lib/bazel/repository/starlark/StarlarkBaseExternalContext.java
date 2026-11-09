@@ -1782,7 +1782,7 @@ Strip the given number of leading components from file paths on extraction. Only
       throws EvalException, InterruptedException {
     return switch (path) {
       case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
-      case Label label -> getPathFromLabel(label, /* materialize= */ true);
+      case Label label -> getPathFromLabel(label, /* materialize= */ true, thread);
       case StarlarkPath starlarkPath -> starlarkPath;
       // This can never happen because we check it in the Starlark interpreter.
       default -> throw new IllegalArgumentException("expected string or label for path");
@@ -1822,7 +1822,7 @@ Strip the given number of leading components from file paths on extraction. Only
     StarlarkPath p =
         path instanceof Label label
             // Only the file itself is read, which doesn't require the rest of its repo.
-            ? getPathFromLabel(label, /* materialize= */ false)
+            ? getPathFromLabel(label, /* materialize= */ false, thread)
             : getPath(path, thread);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
@@ -2082,9 +2082,9 @@ Strip the given number of leading components from file paths on extraction. Only
 
   protected abstract ImmutableMap<String, String> getRemoteExecProperties() throws EvalException;
 
-  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label)
+  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Path localPath = getPathFromLabel(label, /* materialize= */ true).getPath();
+    Path localPath = getPathFromLabel(label, /* materialize= */ true, thread).getPath();
     PathFragment remotePath =
         label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
     return Maps.immutableEntry(remotePath, localPath);
@@ -2095,7 +2095,8 @@ Strip the given number of leading components from file paths on extraction. Only
       int timeout,
       Map<String, String> environment,
       boolean quiet,
-      String workingDirectory)
+      String workingDirectory,
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     checkState(canExecuteRemote());
 
@@ -2104,7 +2105,7 @@ Strip the given number of leading components from file paths on extraction. Only
     ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
     for (Object argumentUnchecked : argumentsUnchecked) {
       if (argumentUnchecked instanceof Label label) {
-        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label);
+        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label, thread);
         argumentsBuilder.add(remotePath.getKey().toString());
         inputsBuilder.put(remotePath);
       } else {
@@ -2262,7 +2263,7 @@ Strip the given number of leading components from file paths on extraction. Only
       // Remote execution only sees the explicitly set environment variables, so removing env vars
       // isn't necessary.
       return executeRemote(
-          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory);
+          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory, thread);
     }
 
     // Execute on the local/host machine
@@ -2270,7 +2271,7 @@ Strip the given number of leading components from file paths on extraction. Only
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
       if (arg instanceof Label label) {
-        args.add(getPathFromLabel(label, /* materialize= */ true).toString());
+        args.add(getPathFromLabel(label, /* materialize= */ true, thread).toString());
       } else {
         // String or StarlarkPath expected
         args.add(arg.toString());
@@ -2618,7 +2619,7 @@ func(
    * @param materialize whether the repo containing the file has to be available on the native file
    *     system
    */
-  protected StarlarkPath getPathFromLabel(Label label, boolean materialize)
+  protected StarlarkPath getPathFromLabel(Label label, boolean materialize, StarlarkThread thread)
       throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
@@ -2628,13 +2629,39 @@ func(
         && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
+      Path workspace = directories.getWorkspace();
+      String requester =
+          "%s at %s"
+              .formatted(
+                  identifyingStringForLogging,
+                  shortenLocation(
+                      thread.getCallerLocation(),
+                      workspace != null ? workspace.asFragment() : null,
+                      directories.getOutputBase().asFragment()));
       try {
-        lazyMaterializer.ensureMaterialized(label.getRepository(), identifyingStringForLogging);
+        lazyMaterializer.ensureMaterialized(label.getRepository(), requester);
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
       }
     }
     return new StarlarkPath(this, rootedPath.asPath());
+  }
+
+  /**
+   * Formats the given location like the UI does, but with the file relative to the workspace or,
+   * failing that, the output base. This keeps it short enough for the progress bar even for files
+   * in external repos.
+   */
+  static String shortenLocation(
+      Location location, @Nullable PathFragment workspace, PathFragment outputBase) {
+    PathFragment file = PathFragment.create(location.file());
+    if (workspace != null && file.startsWith(workspace)) {
+      file = file.relativeTo(workspace);
+    } else if (file.startsWith(outputBase)) {
+      file = file.relativeTo(outputBase);
+    }
+    return Location.fromFileLineColumn(file.getPathString(), location.line(), location.column())
+        .toString();
   }
 }

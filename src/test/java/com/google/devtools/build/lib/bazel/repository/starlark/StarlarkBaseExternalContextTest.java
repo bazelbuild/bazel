@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
@@ -54,6 +55,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.SymbolGenerator;
+import net.starlark.java.syntax.Location;
 import org.apache.commons.lang3.text.WordUtils;
 import org.junit.Rule;
 import org.junit.Test;
@@ -553,5 +555,34 @@ public class StarlarkBaseExternalContextTest {
               """,
               expected, observed, copyPasteCode));
     }
+  }
+
+  @Test
+  public void shortenLocation_relativizesAgainstWorkspaceOrOutputBase() {
+    var workspace = PathFragment.create("/workspace");
+    var outputBase = PathFragment.create("/output_base");
+
+    assertThat(
+            StarlarkBaseExternalContext.shortenLocation(
+                Location.fromFileLineColumn("/workspace/pkg/defs.bzl", 2, 41),
+                workspace,
+                outputBase))
+        .isEqualTo("pkg/defs.bzl:2:41");
+    assertThat(
+            StarlarkBaseExternalContext.shortenLocation(
+                Location.fromFileLineColumn("/output_base/external/+ext+foo/repo.bzl", 12, 34),
+                workspace,
+                outputBase))
+        .isEqualTo("external/+ext+foo/repo.bzl:12:34");
+    assertThat(
+            StarlarkBaseExternalContext.shortenLocation(
+                Location.fromFileLineColumn("/elsewhere/defs.bzl", 1, 2), workspace, outputBase))
+        .isEqualTo("/elsewhere/defs.bzl:1:2");
+    assertThat(
+            StarlarkBaseExternalContext.shortenLocation(
+                Location.fromFileLineColumn("/workspace/defs.bzl", 1, 2),
+                /* workspace= */ null,
+                outputBase))
+        .isEqualTo("/workspace/defs.bzl:1:2");
   }
 }

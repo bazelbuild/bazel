@@ -32,9 +32,9 @@ public interface LazyMaterializer {
    *
    * <p>Does nothing if the repository is already backed by the local file system.
    *
-   * @param requester a human-readable description of the entity that requires the repository
-   *     (e.g. "repository @@foo"), which is shown in the progress bar while the repository is
-   *     being materialized
+   * @param requester a human-readable description of what requires the repository (e.g.
+   *     "repository @@foo at defs.bzl:1:2"), which is shown in the progress bar while the
+   *     repository is being materialized
    */
   void ensureMaterialized(RepositoryName repo, @Nullable String requester)
       throws IOException, InterruptedException;

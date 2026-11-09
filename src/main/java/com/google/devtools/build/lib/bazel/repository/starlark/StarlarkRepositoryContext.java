@@ -328,7 +328,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     StarlarkPath t =
         template instanceof Label label
             // Only the template itself is read, which doesn't require the rest of its repo.
-            ? getPathFromLabel(label, /* materialize= */ false)
+            ? getPathFromLabel(label, /* materialize= */ false, thread)
             : getPath(template, thread);
     Map<String, String> substitutionMap =
         Dict.cast(substitutions, String.class, String.class, "substitutions");
