@@ -281,13 +281,13 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/bar/2.0/patches/1.fix-this.patch", "sha256-lol",
                         server.getUrl() + "/modules/bar/2.0/patches/2.fix-that.patch",
                             "sha256-kek"))
-                .setRemotePatchStrip(3)
                 .setOverlay(ImmutableMap.of())
                 .setRemoteModuleFile(
                     new ArchiveRepoSpecBuilder.RemoteFile(
                         sha256("module(name = \"bar\", version = \"2.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/bar/2.0/MODULE.bazel")))
+                .setRemotePatchStrip(3)
                 .build());
     assertThat(
             registry.getRepoSpec(
@@ -302,6 +302,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         "https://example.com/archive.jar?with=query"))
                 .setIntegrity("sha256-bleh")
                 .setStripPrefix("")
+                .setRemotePatches(ImmutableMap.of())
                 .setOverlay(
                     ImmutableMap.of(
                         "BUILD.bazel",
@@ -315,7 +316,6 @@ public class IndexRegistryTest extends FoundationTestCase {
                         sha256("module(name = \"baz\", version = \"3.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/baz/3.0/MODULE.bazel")))
-                .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
   }
@@ -370,6 +370,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setCommit("4b6e647590213f253f2789ad9026df1d00f38c5d")
                 .setInitSubmodules(false)
                 .setVerbose(false)
+                .setAddPrefix("addedSubfolder")
                 .setRemoteModuleFile(
                     new ArchiveRepoSpecBuilder.RemoteFile(
                         sha256("module(name = \"foo\", version = \"1.0\")")
@@ -380,7 +381,6 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/foo/1.0/patches/foo.patch",
                         "sha256-totallyarealhash"))
                 .setRemotePatchStrip(1)
-                .setAddPrefix("addedSubfolder")
                 .build());
   }
 
@@ -562,9 +562,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setUrls(ImmutableList.of("https://mysite.com/thing?format=zip"))
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("")
-                .setArchiveType("zip")
                 .setRemotePatches(ImmutableMap.of())
-                .setRemotePatchStrip(0)
                 .setOverlay(ImmutableMap.of())
                 .setRemoteModuleFile(
                     new ArchiveRepoSpecBuilder.RemoteFile(
@@ -572,6 +570,8 @@ public class IndexRegistryTest extends FoundationTestCase {
                             .toSubresourceIntegrity(),
                         ImmutableList.of(
                             server.getUrl() + "/modules/archive_type/1.0/MODULE.bazel")))
+                .setRemotePatchStrip(0)
+                .setArchiveType("zip")
                 .build());
   }
 
