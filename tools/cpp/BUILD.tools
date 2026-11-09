@@ -18,13 +18,22 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 # The toolchain type used to distinguish cc toolchains.
-toolchain_type(name = "toolchain_type")
+alias(
+    name = "toolchain_type",
+    actual = "@rules_cc//cc:toolchain_type",
+)
 
-# The toolchain type used to for cc runtimes.
-toolchain_type(name = "cc_runtimes_toolchain_type")
+# The toolchain type used for cc runtimes.
+alias(
+    name = "cc_runtimes_toolchain_type",
+    actual = "@rules_cc//cc:cc_runtimes_toolchain_type",
+)
 
-# The toolchain_type used for cc test runners.
-toolchain_type(name = "test_runner_toolchain_type")
+# The toolchain type used for cc test runners.
+alias(
+    name = "test_runner_toolchain_type",
+    actual = "@rules_cc//cc:test_runner_toolchain_type",
+)
 
 # Aliases to @rules_cc
 [
