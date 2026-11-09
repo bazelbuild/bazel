@@ -607,11 +607,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         () -> {
           try (SilentCloseable c = Profiler.instance().profile("getDeserializedKeys")) {
             return getEvaluator().getInMemoryGraph().getAllNodeEntries().parallelStream()
-                .filter(
-                    e ->
-                        e.isDone()
-                            && e.getValue() instanceof DeserializedSkyValue
-                            && !isLocallyDelegated(e))
+                .filter(e -> e.toValue() instanceof DeserializedSkyValue && !isLocallyDelegated(e))
                 .map(InMemoryNodeEntry::getKey)
                 .collect(toImmutableSet());
           }
@@ -680,7 +676,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   private boolean isLocallyDelegated(InMemoryNodeEntry e) {
     if (!(e.getKey() instanceof ConfiguredTargetKey key)
-        || !(e.getValue() instanceof ConfiguredTargetValue value)) {
+        || !(e.toValue() instanceof ConfiguredTargetValue value)) {
       return false;
     }
     ConfiguredTarget ct = value.getConfiguredTarget();
@@ -688,7 +684,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return false; // Common case: the value belongs to this key.
     }
     InMemoryNodeEntry delegate = getEvaluator().getInMemoryGraph().getIfPresent(ct.getLookupKey());
-    return delegate != null && delegate.isDone() && delegate.getValue() == value;
+    return delegate != null && delegate.toValue() == value;
   }
 
   @VisibleForTesting
