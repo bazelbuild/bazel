@@ -2631,7 +2631,10 @@ func(
             instanceof LazyMaterializer lazyMaterializer) {
       try {
         lazyMaterializer.ensureMaterialized(
-            label.getRepository(), thread.getCallerLocation(), env.getListener());
+            label.getRepository(),
+            identifyingStringForLogging,
+            thread.getCallerLocation(),
+            env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());

@@ -417,7 +417,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    */
   @Override
   public void ensureMaterialized(
-      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
+      RepositoryName repo,
+      @Nullable String requester,
+      @Nullable Location location,
+      ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
       // The repo has not been injected into the in-memory file system, or has already been
@@ -427,7 +430,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       String repoName = repo.getName();
       if (!materializedRepos.contains(repoName)) {
         materializeSymlinkTargetReposBelow(
-            nativeFs.getPath(externalDirectory.getChild(repoName)), location, reporter);
+            nativeFs.getPath(externalDirectory.getChild(repoName)), requester, location, reporter);
       }
       return;
     }
@@ -444,7 +447,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                   }
                   return materializationExecutor.submit(
                       () -> {
-                        doMaterialize(repo, location, reporter);
+                        doMaterialize(repo, requester, location, reporter);
                         return null;
                       });
                 }));
@@ -455,7 +458,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * to, following chains of native symlinks on the way.
    */
   private void materializeSymlinkTargetReposBelow(
-      Path nativeDir, @Nullable Location location, ExtendedEventHandler reporter)
+      Path nativeDir,
+      @Nullable String requester,
+      @Nullable Location location,
+      ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (markerFileContents.isEmpty() || !nativeDir.isDirectory(Symlinks.NOFOLLOW)) {
       return;
@@ -466,12 +472,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       }
       Path child = nativeDir.getChild(dirent.getName());
       switch (dirent.getType()) {
-        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, location, reporter);
+        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, requester, location, reporter);
         case SYMLINK -> {
           PathFragment target = resolveNativeSymlinkIntoMemory(child);
           if (target != null) {
             ensureMaterialized(
                 RepositoryName.createUnvalidated(target.getSegment(externalDirectorySegmentCount)),
+                requester,
                 location,
                 reporter);
           }
@@ -505,9 +512,21 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   private void doMaterialize(
-      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
+      RepositoryName repo,
+      @Nullable String requester,
+      @Nullable Location location,
+      ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    reporter.handle(Event.debug(location, "Materializing remote repo %s".formatted(repo)));
+    // Materialization is an implementation detail of the remote repo contents cache that users
+    // usually don't need to see, so it is reported as a progress event that the UI only shows with
+    // --experimental_ui_debug_all_events. The requester and location identify the code that
+    // forced the repo to be materialized.
+    reporter.handle(
+        Event.progress(
+            location,
+            requester == null
+                ? "Materializing remote repo %s".formatted(repo)
+                : "Materializing remote repo %s for %s".formatted(repo, requester)));
     materializeSubtree(externalDirectory.getChild(repo.getName()));
     materializedRepos.add(repo.getName());
 

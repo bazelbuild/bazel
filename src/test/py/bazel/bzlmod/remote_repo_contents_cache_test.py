@@ -1675,14 +1675,19 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
     # Full materialization: my_repo is restored from the cache into the overlay
-    # and then fully materialized because other accesses it.
+    # and then fully materialized because other accesses it. Materialization is
+    # reported as a progress event, which is only shown with
+    # --experimental_ui_debug_all_events. That flag sends all events to stdout.
     self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
-    stderr = '\n'.join(stderr)
-    self.assertNotIn('JUST FETCHED', stderr)
+    _, stdout, stderr = self.RunBazel(
+        ['build', '--experimental_ui_debug_all_events', '@other//:haha']
+    )
+    output = '\n'.join(stdout + stderr)
+    self.assertNotIn('JUST FETCHED', output)
     self.assertIn(
-        'other_repo.bzl:2:41: Materializing remote repo @@+repo+my_repo',
-        stderr,
+        'other_repo.bzl:2:41: Materializing remote repo @@+repo+my_repo for'
+        ' repository @@+other_repo_rule+other',
+        output,
     )
     full_layout = snapshot()
 
@@ -3260,11 +3265,18 @@ class RemoteRepoContentsCacheTest(
     )
 
     # Fully materialize my_repo onto the local disk by fetching @other, which
-    # reads one of its files.
-    _, _, stderr = self.RunBazel(['build', '--nobuild', '@other//:haha'])
+    # reads one of its files. Materialization is only reported with
+    # --experimental_ui_debug_all_events, which sends all events to stdout.
+    _, stdout, stderr = self.RunBazel([
+        'build',
+        '--nobuild',
+        '--experimental_ui_debug_all_events',
+        '@other//:haha',
+    ])
     self.assertIn(
-        'other_repo.bzl:3:49: Materializing remote repo @@+repo+my_repo',
-        '\n'.join(stderr),
+        'other_repo.bzl:3:49: Materializing remote repo @@+repo+my_repo for'
+        ' repository @@+other_repo+other',
+        '\n'.join(stdout + stderr),
     )
 
     # Nothing has changed for //main:use_data, so nothing is reloaded or

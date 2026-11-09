@@ -34,11 +34,19 @@ public interface LazyMaterializer {
    *
    * <p>Does nothing if the repository is already backed by the local file system.
    *
+   * <p>The materialization is reported as a progress event, which the UI only shows with {@code
+   * --experimental_ui_debug_all_events}.
+   *
+   * @param requester a human-readable description of the entity that requires the repository
+   *     (e.g. "repository @@foo"), which is reported along with the materialization
    * @param location the location of the Starlark call that requires the repository, which is
    *     reported along with the materialization
    */
   void ensureMaterialized(
-      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
+      RepositoryName repo,
+      @Nullable String requester,
+      @Nullable Location location,
+      ExtendedEventHandler reporter)
       throws IOException, InterruptedException;
 
   /**

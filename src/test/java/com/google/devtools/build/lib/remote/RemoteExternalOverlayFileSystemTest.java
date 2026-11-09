@@ -29,6 +29,9 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -41,6 +44,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -247,17 +251,65 @@ public final class RemoteExternalOverlayFileSystemTest {
               unused -> {
                 // Finish another caller after the presence check but before task submission.
                 if (calls.incrementAndGet() == 2) {
-                  overlay.ensureMaterialized(repo, /* location= */ null, reporter);
+                  overlay.ensureMaterialized(
+                      repo, /* requester= */ null, /* location= */ null, reporter);
                 }
                 return repo.getName();
               });
 
-      overlay.ensureMaterialized(delayedRepo, /* location= */ null, reporter);
+      overlay.ensureMaterialized(
+          delayedRepo, /* requester= */ null, /* location= */ null, reporter);
 
       assertThat(
               FileSystemUtils.readContent(
                   nativeFs.getPath(externalRoot.getChild(repo.getMarkerFileName())), UTF_8))
           .isEqualTo("marker");
+    } finally {
+      overlay.afterCommand();
+    }
+  }
+
+  @Test
+  public void ensureMaterialized_reportsProgressEventWithRequesterAndLocation() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var externalRoot = PathFragment.create("/output/external");
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
+    var events = new EventCollector();
+    var reporter = new Reporter(events);
+    var prefetcher = mock(AbstractActionInputPrefetcher.class);
+    when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
+    overlay.beforeCommand(
+        new InMemoryCombinedCache(digestUtil),
+        prefetcher,
+        reporter,
+        "build-request",
+        "command",
+        () -> mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    try {
+      var repo = RepositoryName.create("repo");
+      assertThat(overlay.injectRemoteRepo(repo, Tree.getDefaultInstance(), "marker")).isTrue();
+      var otherRepo = RepositoryName.create("other_repo");
+      assertThat(overlay.injectRemoteRepo(otherRepo, Tree.getDefaultInstance(), "other_marker"))
+          .isTrue();
+      var location = Location.fromFileLineColumn("requester.bzl", 2, 41);
+
+      overlay.ensureMaterialized(repo, "repository @@requester", location, reporter);
+      overlay.ensureMaterialized(otherRepo, /* requester= */ null, /* location= */ null, reporter);
+      // An already materialized repo is not reported again.
+      overlay.ensureMaterialized(repo, "repository @@requester", location, reporter);
+
+      // Materialization is reported as a progress event, which the UI only shows with
+      // --experimental_ui_debug_all_events, rather than as a debug event, which it always shows.
+      assertThat(events.filtered(EventKind.DEBUG)).isEmpty();
+      assertThat(ImmutableList.copyOf(events.filtered(EventKind.PROGRESS)))
+          .containsExactly(
+              Event.progress(
+                  location, "Materializing remote repo @@repo for repository @@requester"),
+              Event.progress("Materializing remote repo @@other_repo"))
+          .inOrder();
     } finally {
       overlay.afterCommand();
     }
@@ -315,7 +367,10 @@ public final class RemoteExternalOverlayFileSystemTest {
 
       // Non-existent repo directory is ignored.
       overlay.ensureMaterialized(
-          RepositoryName.create("nonexistent_repo"), /* location= */ null, reporter);
+          RepositoryName.create("nonexistent_repo"),
+          /* requester= */ null,
+          /* location= */ null,
+          reporter);
 
       var nativeRepo = RepositoryName.create("native_repo");
       var nativeRepoDir = externalRoot.getChild(nativeRepo.getName());
@@ -341,7 +396,7 @@ public final class RemoteExternalOverlayFileSystemTest {
           .getPath(nativeRepoDir.getChild("python"))
           .createSymbolicLink(nativeRepoDir.getRelative("sub/python_target"));
 
-      overlay.ensureMaterialized(nativeRepo, /* location= */ null, reporter);
+      overlay.ensureMaterialized(nativeRepo, /* requester= */ null, /* location= */ null, reporter);
 
       assertThat(
               FileSystemUtils.readContent(
@@ -361,7 +416,7 @@ public final class RemoteExternalOverlayFileSystemTest {
       nativeFs
           .getPath(externalRoot.getChild(cachedRepo.getName()).getChild("extra_link"))
           .createSymbolicLink(PathFragment.create("../unrelated_cached_repo/bin/python3"));
-      overlay.ensureMaterialized(cachedRepo, /* location= */ null, reporter);
+      overlay.ensureMaterialized(cachedRepo, /* requester= */ null, /* location= */ null, reporter);
       assertThat(
               nativeFs
                   .getPath(externalRoot.getChild(unrelatedCachedRepo.getMarkerFileName()))
@@ -379,13 +434,15 @@ public final class RemoteExternalOverlayFileSystemTest {
       nativeFs
           .getPath(nativeRepo2Dir.getChild("z_link"))
           .createSymbolicLink(PathFragment.create("../unrelated_cached_repo/bin/python3"));
-      overlay.ensureMaterialized(nativeRepo2, /* location= */ null, reporter);
+      overlay.ensureMaterialized(
+          nativeRepo2, /* requester= */ null, /* location= */ null, reporter);
       assertThat(
               FileSystemUtils.readContent(
                   nativeFs.getPath(externalRoot.getChild(unrelatedCachedRepo.getMarkerFileName())),
                   UTF_8))
           .isEqualTo("unrelated_marker");
-      overlay.ensureMaterialized(nativeRepo2, /* location= */ null, reporter);
+      overlay.ensureMaterialized(
+          nativeRepo2, /* requester= */ null, /* location= */ null, reporter);
     } finally {
       overlay.afterCommand();
     }
