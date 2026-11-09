@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -416,6 +418,32 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     deep.getChild("link").createSymbolicLink(PathFragment.create("target"));
 
     assertThat(deep.getChild("link").getChild("file").stat().isFile()).isTrue();
+  }
+
+  @Test
+  public void testParentOfRootSymlink(@TestParameter({"/", "C:/"}) String rootStr)
+      throws Exception {
+    Path root =
+        testFS.getPath(
+            rootStr.equals("/")
+                ? PathFragment.create("/")
+                : PathFragment.createForOs(rootStr, OS.WINDOWS));
+    Path dir = root.getChild("dir");
+    dir.createDirectoryAndParents();
+    Path file = root.getChild("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    Path rootLink = root.getChild("link");
+    rootLink.createSymbolicLink(PathFragment.create(".."));
+    assertThat(rootLink.stat()).isEqualTo(root.stat());
+    assertThat(rootLink.getChild("file").exists()).isTrue();
+    assertThat(rootLink.resolveSymbolicLinks()).isEqualTo(root);
+
+    Path subdirLink = dir.getChild("link");
+    subdirLink.createSymbolicLink(PathFragment.create("../.."));
+    assertThat(subdirLink.stat()).isEqualTo(root.stat());
+    assertThat(subdirLink.getChild("file").exists()).isTrue();
+    assertThat(subdirLink.resolveSymbolicLinks()).isEqualTo(root);
   }
 
   @Test
