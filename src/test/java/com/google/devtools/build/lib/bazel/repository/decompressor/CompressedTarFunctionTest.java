@@ -24,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -379,5 +380,39 @@ public class CompressedTarFunctionTest {
                 java.nio.file.Paths.get(outputDir.getRelative("a_prefix/other_file").toString()),
                 java.nio.file.Paths.get(outputDir.getRelative("abs_symbolic_file").toString())))
         .isTrue();
+  }
+
+  @Test
+  public void testDecompressTarAfterHardLinkDeletesParentSymlink() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path archive = fs.getPath("/archive.tar.gz");
+    Path output = fs.getPath("/out");
+    output.getChild("empty").createDirectoryAndParents();
+    Path directory = output.getChild("d");
+    directory.createSymbolicLink(output);
+    byte[] contents = "data".getBytes(UTF_8);
+
+    try (GzipCompressorOutputStream gzip =
+            new GzipCompressorOutputStream(archive.getOutputStream());
+        TarArchiveOutputStream tar = new TarArchiveOutputStream(gzip)) {
+      // d/d names the preexisting symlink after resolving its parent.
+      TarArchiveEntry link = new TarArchiveEntry("d/d", TarArchiveEntry.LF_LINK);
+      link.setLinkName("empty");
+      tar.putArchiveEntry(link);
+      tar.closeArchiveEntry();
+
+      TarArchiveEntry file = new TarArchiveEntry("d/file");
+      file.setSize(contents.length);
+      tar.putArchiveEntry(file);
+      tar.write(contents);
+      tar.closeArchiveEntry();
+    }
+
+    decompress(
+        DecompressorDescriptor.builder()
+            .setArchivePath(archive)
+            .setDestinationPath(output)
+            .build());
+    assertThat(FileSystemUtils.readContent(directory.getChild("file"), UTF_8)).isEqualTo("data");
   }
 }

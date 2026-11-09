@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
@@ -87,6 +86,8 @@ public abstract class CompressedTarFunction implements Decompressor {
       // distinguish between the two.
       TarArchiveInputStream tarStream =
           new TarArchiveInputStream(decompressorStream, MarkedIso88591Charset.NAME);
+      byte[] copyBuffer = new byte[BUFFER_SIZE];
+      Path lastDirectory = null;
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
         String entryName = toRawBytesString(entry.getName());
@@ -119,10 +120,14 @@ public abstract class CompressedTarFunction implements Decompressor {
                   "Failed to extract %s, path is escaping the destination directory",
                   strippedRelativePath));
         }
-        filePath.getParentDirectory().createDirectoryAndParents();
-        if (entry.isDirectory()) {
-          filePath.createDirectoryAndParents();
-        } else {
+        boolean isDirectory = entry.isDirectory();
+        Path directory = isDirectory ? filePath : filePath.getParentDirectory();
+        // Symlinks are installed after the entries are extracted.
+        if (!directory.equals(lastDirectory)) {
+          directory.createDirectoryAndParents();
+          lastDirectory = directory;
+        }
+        if (!isDirectory) {
           if (entry.isSymbolicLink() || entry.isLink()) {
             PathFragment targetName =
                 maybeDeprefixSymlink(
@@ -134,9 +139,7 @@ public abstract class CompressedTarFunction implements Decompressor {
                     /* forceExtractRootRelative= */ entry.isLink());
 
             Path resolvedTargetPath =
-                (entry.isSymbolicLink()
-                        ? filePath.getParentDirectory()
-                        : descriptor.destinationPath())
+                (entry.isSymbolicLink() ? directory : descriptor.destinationPath())
                     .getRelative(targetName);
             if (!targetName.isAbsolute()
                 && !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
@@ -163,13 +166,18 @@ public abstract class CompressedTarFunction implements Decompressor {
               } else {
                 if (filePath.exists()) {
                   filePath.delete();
+                  // Deleting filePath can remove a symlink used to resolve lastDirectory.
+                  lastDirectory = null;
                 }
                 FileSystemUtils.createHardLink(filePath, resolvedTargetPath);
               }
             }
           } else {
             try (OutputStream out = filePath.getOutputStream()) {
-              ByteStreams.copy(tarStream, out);
+              int length;
+              while ((length = tarStream.read(copyBuffer)) != -1) {
+                out.write(copyBuffer, 0, length);
+              }
             }
             // Ensure that all files are at least user-readable. Some archives contain files that
             // are not, but many other tools are working around this and thus mask these issues.
