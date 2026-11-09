@@ -70,9 +70,12 @@ public class StandaloneModule extends BlazeModule {
     registryBuilder.register(
         TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
     registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
-    registryBuilder.register(FileWriteActionContext.class, new FileWriteStrategy(), "local");
+    var fileWriteStrategy = new FileWriteStrategy();
+    registryBuilder.register(FileWriteActionContext.class, fileWriteStrategy, "local");
     registryBuilder.register(
-        TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
+        TemplateExpansionContext.class,
+        new LocalTemplateExpansionStrategy(fileWriteStrategy),
+        "local");
   }
 
   @Override

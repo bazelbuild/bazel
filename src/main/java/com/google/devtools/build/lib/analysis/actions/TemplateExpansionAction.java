@@ -170,7 +170,7 @@ public final class TemplateExpansionAction extends AbstractAction {
 
   @VisibleForTesting
   public String getFileContents() throws IOException, EvalException, InterruptedException {
-    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(
+    return LocalTemplateExpansionStrategy.getExpandedTemplateUnsafe(
         template, substitutions, ArtifactPathResolver.IDENTITY);
   }
 

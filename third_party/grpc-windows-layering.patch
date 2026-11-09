@@ -1,0 +1,28 @@
+Adds dependencies that grpc's Windows-only sources include, which otherwise
+fail layering_check with toolchains that enforce it (such as the hermetic LLVM
+toolchains when cross-compiling to Windows). The grpc_credentials_util fix is
+included upstream as of grpc 1.84.0, the windows_event_engine fix was sent
+upstream as https://github.com/grpc/grpc/pull/43482.
+
+diff --git a/BUILD b/BUILD
+--- a/BUILD
++++ b/BUILD
+@@ -4274,6 +4274,7 @@ grpc_cc_library(
+         "//src/core:error",
+         "//src/core:json",
+         "//src/core:load_file",
++        "//src/core:slice",
+         "//src/core:useful",
+     ],
+ )
+diff --git a/src/core/BUILD b/src/core/BUILD
+--- a/src/core/BUILD
++++ b/src/core/BUILD
+@@ -2932,6 +2932,7 @@ grpc_cc_library(
+         "grpc_check",
+         "iomgr_port",
+         "posix_event_engine_timer_manager",
++        "resource_quota",
+         "sync",
+         "time",
+         "windows_endpoint",

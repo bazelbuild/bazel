@@ -188,6 +188,8 @@ java_library(
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:spawn_java_proto",
+        "//third_party/google/protobuf:any_java_proto",
         "//third_party/google/protobuf:timestamp_java_proto",
         "//third_party/java/auto:auto_value",
         "//third_party/java/flogger",
