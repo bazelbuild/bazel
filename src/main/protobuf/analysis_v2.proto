@@ -299,6 +299,10 @@ message CqueryResult {
   // Identities for both selected and referenced aspects.
   repeated ConfiguredAspect aspects = 3;
   repeated ConfiguredAspectResult aspect_results = 4;
+
+  // True when the formatter emitted explicit configured aspect inputs, even if
+  // no aspects were present. Streamed output sets this in the final frame.
+  bool explicit_aspect_inputs = 5;
 }
 
 // Content of a param file.

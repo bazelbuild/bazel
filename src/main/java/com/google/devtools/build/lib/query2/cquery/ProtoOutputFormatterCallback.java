@@ -212,6 +212,13 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
     }
 
+    if (options.getProtoIncludeConfigurations()
+        && options.getUseAspects()
+        && options.getExplicitAspects()
+        && !Transitions.NONE.equals(options.getTransitions())) {
+      cqueryResultBuilder.setExplicitAspectInputs(true);
+    }
+
     // There are a few cases that affect the shape of the output:
     //   1. --output=proto|textproto|jsonproto --proto:include_configurations =>
     //        Writes a single CqueryResult containing all the ConfiguredTarget(s) and
@@ -245,6 +252,9 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                 AnalysisProtosV2.CqueryResult.newBuilder()
                     .addConfigurations(configuration)
                     .build());
+          }
+          if (cqueryResultBuilder.getExplicitAspectInputs()) {
+            writeData(cqueryResultBuilder.build());
           }
         }
       }

@@ -570,6 +570,26 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   }
 
   @Test
+  public void distinguishesAnAspectFreeGraphFromAnOmittedAspectProjection() throws Exception {
+    writeFile("test/BUILD", "filegroup(name = 'leaf')");
+    String query = "deps(//test:leaf, 0)";
+    options.setTransitions(Transitions.LITE);
+    assertThat(getProtoOutput(query, CqueryResult.parser()).getExplicitAspectInputs()).isFalse();
+
+    options =
+        Options.parse(CqueryOptions.class, "--experimental_explicit_aspects", "--transitions=lite")
+            .getOptions();
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
+    var aggregate = getProtoOutput(query, CqueryResult.parser());
+    assertThat(aggregate.getAspectResultsList()).isEmpty();
+    assertThat(aggregate.getExplicitAspectInputs()).isTrue();
+    var frames = getStreamedProtoOutput(query, CqueryResult.parser());
+    assertThat(frames.getLast())
+        .isEqualTo(CqueryResult.newBuilder().setExplicitAspectInputs(true).build());
+    assertThat(frames.stream().filter(CqueryResult::getExplicitAspectInputs).count()).isEqualTo(1);
+  }
+
+  @Test
   public void streamedExplicitAspectsKeepParametersStackAndConfiguredInputs() throws Exception {
     writeExplicitAspectGraph();
     var output = CqueryResult.newBuilder();
