@@ -331,6 +331,7 @@ java_test(
     srcs = ["CppSysrootTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuration_make_variable_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:make_variable_supplier",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",

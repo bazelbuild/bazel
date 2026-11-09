@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsTest;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import org.junit.Test;
@@ -106,7 +106,7 @@ public final class ParsedFlagsValueTest {
   }
 
   private static final ImmutableSet<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
-      ImmutableSet.of(DummyTestOptions.class);
+      ImmutableSet.of(DummyTestOptions.class, CoreOptions.class);
 
   @Test
   public void parse() throws Exception {
@@ -329,120 +329,38 @@ public final class ParsedFlagsValueTest {
   }
 
   @Test
-  public void mergeWith_starlark_resetToDefault_removesScope() throws Exception {
-    // Regression test: when a starlark flag is reset to its default value, the scope entry
-    // should also be removed. Previously, addScopeTypeMap(source.getScopeTypeMap()) would
-    // re-introduce the scope even after removeStarlarkOption cleaned it up, causing two
-    // configs to have different checksums despite identical visible state.
-    Label flagLabel = Label.parseCanonicalUnchecked("//custom:flag");
-    BuildOptions original =
-        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
-            .addStarlarkOption(flagLabel, "non_default")
-            .addScopeType(flagLabel, new Scope.ScopeType("default"))
-            .build();
+  public void mergeWith_blocksFlagsInDisableTransitionsOn() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder().build();
 
     NativeAndStarlarkFlags flags =
         NativeAndStarlarkFlags.builder()
             .optionsClasses(BUILD_CONFIG_OPTIONS)
-            .starlarkFlags(ImmutableMap.of("//custom:flag", "default"))
-            .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
-            .scopesAttributes(ImmutableMap.of("//custom:flag", "project"))
+            .nativeFlags(ImmutableList.of("--str_option=bar"))
             .build();
-    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+    ParsedFlagsValue parsedFlags =
+        ParsedFlagsValue.parseAndCreate(flags, ImmutableSet.of("str_option"));
 
-    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
-
-    // The flag should be removed (at default).
-    assertThat(modified.getStarlarkOptions()).doesNotContainKey(flagLabel);
-    // The scope should also be removed - not leaked from the source.
-    assertThat(modified.getScopeTypeMap()).doesNotContainKey(flagLabel);
+    OptionsParsingException expected =
+        assertThrows(OptionsParsingException.class, () -> parsedFlags.mergeWith(original));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Cannot set --str_option in a platform or platform mapping.");
   }
 
   @Test
-  public void mergeWith_scopePreservedForRetainedFlag() throws Exception {
-    // Verifies that scopes already present in the source are preserved through mergeWith
-    // when the flag is not removed.
-    Label flagLabel = Label.parseCanonicalUnchecked("//custom:flag");
-    Scope.ScopeType scopeType = new Scope.ScopeType("target");
-    BuildOptions original =
-        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
-            .addStarlarkOption(flagLabel, "original_value")
-            .addScopeType(flagLabel, scopeType)
-            .build();
-
-    // mergeWith with no starlark flags - original flags should be untouched.
-    NativeAndStarlarkFlags flags =
-        NativeAndStarlarkFlags.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
-
-    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
-
-    assertThat(modified.getStarlarkOptions()).containsEntry(flagLabel, "original_value");
-    assertThat(modified.getScopeTypeMap()).containsEntry(flagLabel, scopeType);
-  }
-
-  @Test
-  public void mergeWith_scopePreservedForNewFlag() throws Exception {
-    // When mergeWith introduces a new starlark flag that already has a scope in the source,
-    // the scope should be preserved in the result.
-    Label existingFlag = Label.parseCanonicalUnchecked("//custom:existing");
-    Label newFlag = Label.parseCanonicalUnchecked("//custom:new_flag");
-    Scope.ScopeType existingScope = new Scope.ScopeType("target");
-    Scope.ScopeType newFlagScope = new Scope.ScopeType("universal");
-    BuildOptions original =
-        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
-            .addStarlarkOption(existingFlag, "val")
-            .addScopeType(existingFlag, existingScope)
-            .addStarlarkOption(newFlag, "source_val")
-            .addScopeType(newFlag, newFlagScope)
-            .build();
+  public void mergeWith_allowsFlagAliasOfDisabledFlag() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder().build();
 
     NativeAndStarlarkFlags flags =
         NativeAndStarlarkFlags.builder()
             .optionsClasses(BUILD_CONFIG_OPTIONS)
-            .starlarkFlags(ImmutableMap.of("//custom:new_flag", "new_val"))
-            .starlarkFlagDefaults(ImmutableMap.of("//custom:new_flag", "default"))
+            // Just alias the disabled flag, but do not set it. This should be allowed.
+            .nativeFlags(ImmutableList.of("--flag_alias=my_alias=//custom:flag"))
             .build();
-    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+    ParsedFlagsValue parsedFlags =
+        ParsedFlagsValue.parseAndCreate(flags, ImmutableSet.of("//custom:flag"));
 
-    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
-
-    assertThat(modified.getStarlarkOptions()).containsEntry(newFlag, "new_val");
-    // Both flags' scopes should be preserved.
-    assertThat(modified.getScopeTypeMap()).containsEntry(newFlag, newFlagScope);
-    assertThat(modified.getScopeTypeMap()).containsEntry(existingFlag, existingScope);
-  }
-
-  @Test
-  public void mergeWith_newFlagNotInSource() throws Exception {
-    // A flag not present in the source config is added by the merged flags, together with the
-    // scope from its parsed scope attribute.
-    Label existingFlag = Label.parseCanonicalUnchecked("//custom:existing");
-    Scope.ScopeType existingScope = new Scope.ScopeType("target");
-    BuildOptions original =
-        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
-            .addStarlarkOption(existingFlag, "val")
-            .addScopeType(existingFlag, existingScope)
-            .build();
-
-    Label newFlag = Label.parseCanonicalUnchecked("//custom:new_flag");
-    NativeAndStarlarkFlags flags =
-        NativeAndStarlarkFlags.builder()
-            .optionsClasses(BUILD_CONFIG_OPTIONS)
-            .starlarkFlags(ImmutableMap.of("//custom:new_flag", "new_val"))
-            .starlarkFlagDefaults(ImmutableMap.of("//custom:new_flag", "default"))
-            .scopesAttributes(ImmutableMap.of("//custom:new_flag", "project"))
-            .build();
-    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
-
-    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
-
-    // New flag should be present with the merged value and the scope from its parsed scope
-    // attribute.
-    assertThat(modified.getStarlarkOptions()).containsEntry(newFlag, "new_val");
-    assertThat(modified.getScopeTypeMap()).containsEntry(newFlag, new Scope.ScopeType("project"));
-    // Existing flag and its scope should be unaffected.
-    assertThat(modified.getStarlarkOptions()).containsEntry(existingFlag, "val");
-    assertThat(modified.getScopeTypeMap()).containsEntry(existingFlag, existingScope);
+    // Should not throw
+    var unused = parsedFlags.mergeWith(original);
   }
 }

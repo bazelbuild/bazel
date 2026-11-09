@@ -315,7 +315,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -471,8 +471,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
-  protected BuildOptions createBuildOptions(String... args)
-      throws OptionsParsingException, InvalidConfigurationException {
+  protected BuildOptions createBuildOptions(String... args) throws InvalidConfigurationException {
     ImmutableList<String> allArgs = ImmutableList.copyOf(args);
     return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs);
   }

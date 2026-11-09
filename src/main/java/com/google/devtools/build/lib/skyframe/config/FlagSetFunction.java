@@ -36,8 +36,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.ProjectValue.BuildableUnit;
 import com.google.devtools.build.lib.skyframe.ProjectValue.EnforcementPolicy;
@@ -60,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A SkyFunction that, given an scl file path and the name of scl configs, does the following:
@@ -123,7 +126,7 @@ public final class FlagSetFunction implements SkyFunction {
       ImmutableSet.Builder<Event> persistentMessages,
       Set<Label> targets,
       Environment env)
-      throws FlagSetFunctionException {
+      throws FlagSetFunctionException, InterruptedException {
     Label projectFile = key.projectFile();
     String sclConfigName = key.sclConfig();
     EnforcementPolicy enforcementPolicy = sclContent.getEnforcementPolicy();
@@ -187,9 +190,17 @@ public final class FlagSetFunction implements SkyFunction {
             .map(FlagSetFunction::canonicalizeSpaceSeparatedFlag)
             .collect(toImmutableList());
 
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    ImmutableSet<String> disabledOptions =
+        ImmutableSet.copyOf(
+            starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
+
     ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(key.targetOptions());
     FlagTypes directlySetFlags =
-        groupFlags(sclConfigValue, key.allOptionNames(), buildOptionsAsStrings);
+        groupFlags(sclConfigValue, key.allOptionNames(), buildOptionsAsStrings, disabledOptions);
 
     // Error on unrecognized native flags.
     String evalContext =
@@ -202,6 +213,20 @@ public final class FlagSetFunction implements SkyFunction {
                   evalContext,
                   directlySetFlags.unrecognizedFlags().size() == 1 ? "" : "s",
                   directlySetFlags.unrecognizedFlags().stream()
+                      .map(f -> "--" + f)
+                      .collect(joining(", ")))),
+          Transience.PERSISTENT);
+
+      // Error on options passed into --incompatible_disable_transitions_on.
+    } else if (!directlySetFlags.disabledFlags().isEmpty()) {
+      throw new FlagSetFunctionException(
+          new UnsupportedConfigException(
+              String.format(
+                  "%s: project flags can't set option%s listed in"
+                      + " --incompatible_disable_transitions_on: %s.",
+                  evalContext,
+                  directlySetFlags.disabledFlags().size() == 1 ? "" : "s",
+                  directlySetFlags.disabledFlags().stream()
                       .map(f -> "--" + f)
                       .collect(joining(", ")))),
           Transience.PERSISTENT);
@@ -231,7 +256,8 @@ public final class FlagSetFunction implements SkyFunction {
             sclConfigName, sclConfigValue, key.configFlagDefinitions(), key.allOptionNames());
     // TODO: b/388289978 - Fail on unrecognized options from --config and warn when ignoring
     //     recognized options that are filtered out here.
-    ImmutableSet<String> optionsToApply = filterOptions(sclConfigValue, buildOptionsAsStrings);
+    ImmutableSet<String> optionsToApply =
+        filterOptions(sclConfigValue, buildOptionsAsStrings, disabledOptions);
 
     if (optionsToApply.isEmpty()) {
       return ImmutableSet.of();
@@ -259,8 +285,8 @@ public final class FlagSetFunction implements SkyFunction {
   }
 
   /**
-   * Returns all default {@link BuildableUnit buildable units} that contain the specific target
-   * in the {@code targetPatterns} field. If there are multiple matching default buildable units, an
+   * Returns all default {@link BuildableUnit buildable units} that contain the specific target in
+   * the {@code targetPatterns} field. If there are multiple matching default buildable units, an
    * exception will be thrown.
    */
   private static ImmutableList<ProjectValue.BuildableUnit> filterProjects(
@@ -273,14 +299,14 @@ public final class FlagSetFunction implements SkyFunction {
         if (doesBuildableUnitMatchTarget(buildableUnit, target)
             && buildableUnit.isDefault()
             && targetsAndMatchingDefaultBuildableUnits.put(target, buildableUnit) != null) {
-              throw new FlagSetFunctionException(
-                  new UnsupportedConfigException(
-                      String.format(
-                          "Multiple matching default configs found for target %s. Please check your"
-                              + " project file and ensure that for target %s, there should be only"
-                              + " 1 matching default config.",
-                          target, target)),
-                  Transience.PERSISTENT);
+          throw new FlagSetFunctionException(
+              new UnsupportedConfigException(
+                  String.format(
+                      "Multiple matching default configs found for target %s. Please check your"
+                          + " project file and ensure that for target %s, there should be only"
+                          + " 1 matching default config.",
+                      target, target)),
+              Transience.PERSISTENT);
         }
       }
     }
@@ -347,17 +373,21 @@ public final class FlagSetFunction implements SkyFunction {
   // TODO: steinman - I don't think we need this anymore since we're already failing the build
   // if there are any unrecognized flags.
   private static ImmutableSet<String> filterOptions(
-      Collection<String> flagsFromSelectedConfig, ImmutableList<String> buildOptionsAsStrings) {
+      Collection<String> flagsFromSelectedConfig,
+      ImmutableList<String> buildOptionsAsStrings,
+      ImmutableSet<String> disabledOptions) {
     ImmutableSet.Builder<String> filteredFlags = ImmutableSet.builder();
     for (String flagSetting : flagsFromSelectedConfig) {
-      // Remove options that aren't part of BuildOptions from the selected config.
-      if (buildOptionsAsStrings.contains(
+      String flagName =
           Iterables.get(Splitter.on("=").split(flagSetting), 0)
               .replaceFirst("--", "")
               // Don't strip out negative boolean flags, e.g --nostamp, even though they aren't
               // part of BuildOptions in the negative form.
               .replaceFirst("no", "")
-              .replace("'", ""))) {
+              .replace("'", "");
+      // Remove options that aren't part of BuildOptions from the selected config, and options in
+      // --incompatible_disable_transitions_on (these can reach here through --config expansion).
+      if (buildOptionsAsStrings.contains(flagName) && !disabledOptions.contains(flagName)) {
         filteredFlags.add(flagSetting);
       } else if (STARLARK_SKIPPED_PREFIXES.stream().anyMatch(flagSetting::startsWith)) {
         // Because the BuildOptions might not already include Starlark flags that are set in the
@@ -373,12 +403,14 @@ public final class FlagSetFunction implements SkyFunction {
    *
    * @param supportedFlags flags that project files can legitimately set
    * @param unsupportedFlags valid Bazel flags that project files can't set
+   * @param disabledFlags valid Bazel flags listed in --incompatible_disable_transitions_on
    * @param unrecognizedFlags unrecognized native flags
    * @param starlarkFlags Starlark flags - not checked for actual existence
    */
   private static record FlagTypes(
       ImmutableSet<String> supportedFlags,
       ImmutableSet<String> unsupportedFlags,
+      ImmutableSet<String> disabledFlags,
       ImmutableSet<String> unrecognizedFlags,
       ImmutableSet<String> starlarkFlags) {}
 
@@ -389,13 +421,16 @@ public final class FlagSetFunction implements SkyFunction {
    * @param allOptionNames all recognizable native Bazel options in {@code "flag_name"} form
    * @param buildOptionsAsStrings all native Bazel options that are also in {@link BuildOptions}, in
    *     {@code "flag_name"} form
+   * @param disabledOptions native Bazel options listed in --incompatible_disable_transitions_on
    */
   private static FlagTypes groupFlags(
       ImmutableList<String> flagSettings,
       ImmutableSet<String> allOptionNames,
-      ImmutableList<String> buildOptionsAsStrings) {
+      ImmutableList<String> buildOptionsAsStrings,
+      ImmutableSet<String> disabledOptions) {
     ImmutableSet.Builder<String> supportedFlags = ImmutableSet.builder();
     ImmutableSet.Builder<String> unsupportedFlags = ImmutableSet.builder();
+    ImmutableSet.Builder<String> disabledFlags = ImmutableSet.builder();
     ImmutableSet.Builder<String> unrecognizedFlags = ImmutableSet.builder();
     ImmutableSet.Builder<String> starlarkFlags = ImmutableSet.builder();
     for (String flagSetting : flagSettings) {
@@ -406,6 +441,9 @@ public final class FlagSetFunction implements SkyFunction {
         starlarkFlags.add(flagName);
       } else if (!allOptionNames.contains(flagName)) {
         unrecognizedFlags.add(flagName);
+      } else if (disabledOptions.contains(flagName)
+          || disabledOptions.contains(flagName.replaceFirst("no", ""))) {
+        disabledFlags.add(flagName);
       } else if (!buildOptionsAsStrings.contains(flagName)
           // We really only want to check the option without its "no" prefix if the flag is a
           // boolean flag, but it's hard to know what type it is at this point in the build. Since
@@ -420,6 +458,7 @@ public final class FlagSetFunction implements SkyFunction {
     return new FlagTypes(
         supportedFlags.build(),
         unsupportedFlags.build(),
+        disabledFlags.build(),
         unrecognizedFlags.build(),
         starlarkFlags.build());
   }

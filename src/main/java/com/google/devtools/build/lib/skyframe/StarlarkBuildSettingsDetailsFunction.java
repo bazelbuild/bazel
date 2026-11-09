@@ -21,11 +21,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ProjectResolutionException;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue.CustomExecScopeValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -67,8 +70,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     }
 
     // for each --flag_alias to --host_{flag} alias, we load the starlarkified host flag and get its
-    // default value.
-    // and scopeType. These information are only needed for flags that declare a scope of
+    // default value. This information is only needed for flags that declare a scope of
     // exec:--{some_other_flag}. This is necessary because Bazel doesn't know how to find Starlark
     // host flags if they're not set at the command line, and we need to ensure the exec transition
     // correctly sets --foo=--host_foo even for builds that don't reference either flag
@@ -102,8 +104,6 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
           return null;
         }
         var attrMap = RawAttributeMapper.of(flagTarget.getAssociatedRule());
-        Object flagDefaultValue =
-            flagTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
         if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
           String scopeType = attrMap.get("scope", Type.STRING);
           if (scopeType.startsWith("exec:--")) {
@@ -118,42 +118,13 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
             if (starlarkifiedHostFlag == null) {
               return null;
             }
-            var hostAttrMap = RawAttributeMapper.of(starlarkifiedHostFlag.getAssociatedRule());
-            String hostScopeType =
-                attrMap.isAttributeValueExplicitlySpecified("scope")
-                    ? hostAttrMap.get("scope", Type.STRING)
-                    : "default";
-            Object hostFlagDefaultValue =
-                starlarkifiedHostFlag
-                    .getAssociatedRule()
-                    .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
-            if (starlarkifiedHostFlag
-                .getAssociatedRule()
-                .getRuleClassObject()
-                .getBuildSetting()
-                .allowsMultiple()) {
-              // allowed multiple
-              customExecScopeValuesBuilder.put(
-                  flagTarget.getLabel(),
-                  new CustomExecScopeValue(
-                      flagTarget.getLabel(),
-                      flagDefaultValue,
-                      hostFlag,
-                      ImmutableList.of(hostFlagDefaultValue),
-                      scopeType,
-                      hostScopeType));
-            } else {
-              // not allowed multiple
-              customExecScopeValuesBuilder.put(
-                  flagTarget.getLabel(),
-                  new CustomExecScopeValue(
-                      flagTarget.getLabel(),
-                      flagDefaultValue,
-                      hostFlag,
-                      hostFlagDefaultValue,
-                      scopeType,
-                      hostScopeType));
-            }
+            customExecScopeValuesBuilder.put(
+                flagTarget.getLabel(),
+                new CustomExecScopeValue(
+                    flagTarget.getLabel(),
+                    getDefault(flagTarget.getAssociatedRule()),
+                    hostFlag,
+                    getDefault(starlarkifiedHostFlag.getAssociatedRule())));
           }
         }
       } catch (TransitionException e) {
@@ -161,10 +132,12 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       }
     }
 
+    ImmutableMap<Label, CustomExecScopeValue> implicitCustomExecScopes =
+        customExecScopeValuesBuilder.buildOrThrow();
     ImmutableSet<Label> effectiveBuildSettings =
         ImmutableSet.<Label>builder()
             .addAll(key.buildSettings())
-            .addAll(customExecScopeValuesBuilder.buildOrThrow().keySet())
+            .addAll(implicitCustomExecScopes.keySet())
             .build();
 
     try {
@@ -188,15 +161,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       ImmutableMap<Label, Object> buildSettingToDefault =
           actualRules.stream()
               .collect(
-                  toImmutableMap(
-                      Rule::getLabel,
-                      rule -> {
-                        if (rule.getRuleClassObject().getBuildSetting().allowsMultiple()) {
-                          return ImmutableList.of(
-                              rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
-                        }
-                        return rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
-                      }));
+                  toImmutableMap(Rule::getLabel, StarlarkBuildSettingsDetailsFunction::getDefault));
       ImmutableMap<Label, Type<?>> buildSettingToType =
           actualRules.stream()
               .collect(
@@ -215,12 +180,66 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
               .filter(entry -> !entry.getKey().equals(entry.getValue().getLabel()))
               .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getLabel()));
 
+      // Calculate scope info based on the actual rules
+      ImmutableMap.Builder<Label, Scope.ScopeType> buildSettingToScopeType = ImmutableMap.builder();
+      ImmutableMap.Builder<Label, Object> buildSettingToOnLeaveScopeValue = ImmutableMap.builder();
+      ImmutableSet.Builder<Label> projectScopedBuildSettings = ImmutableSet.builder();
+      Map<Rule, Label> customExecReferences = new HashMap<>();
+      for (Rule rule : actualRules) {
+        Scope.ScopeType scopeType = getScopeType(rule);
+        buildSettingToScopeType.put(rule.getLabel(), scopeType);
+        if (scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
+          projectScopedBuildSettings.add(rule.getLabel());
+        } else if (scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)
+            && !implicitCustomExecScopes.containsKey(rule.getLabel())) {
+          customExecReferences.put(
+              rule,
+              Label.parseCanonicalUnchecked(
+                  scopeType.scopeType().substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length())));
+        }
+        Object onLeaveScopeValue = getOnLeaveScopeValue(rule);
+        if (onLeaveScopeValue != null) {
+          buildSettingToOnLeaveScopeValue.put(rule.getLabel(), onLeaveScopeValue);
+        }
+      }
+
+      // A flag introduced by a transition may refer to an unset flag with no host_ alias. Resolve
+      // those references in a batch.
+      if (!customExecReferences.isEmpty()) {
+        ImmutableMap<PackageIdentifier, PackageValue> referencedPackages =
+            getBuildSettingPackages(env, ImmutableSet.copyOf(customExecReferences.values()));
+        if (referencedPackages == null) {
+          return null;
+        }
+        for (Map.Entry<Rule, Label> entry : customExecReferences.entrySet()) {
+          Rule flag = entry.getKey();
+          Rule referencedFlag = getActual(referencedPackages, entry.getValue()).getAssociatedRule();
+          customExecScopeValuesBuilder.put(
+              flag.getLabel(),
+              new CustomExecScopeValue(
+                  flag.getLabel(),
+                  buildSettingToDefault.get(flag.getLabel()),
+                  referencedFlag.getLabel(),
+                  getDefault(referencedFlag)));
+        }
+      }
+
+      ImmutableMap<Label, Scope> projectScopes =
+          resolveProjectScopes(env, projectScopedBuildSettings.build());
+      if (projectScopes == null) {
+        return null;
+      }
+
       return StarlarkBuildSettingsDetailsValue.create(
+          key.buildSettings(),
           buildSettingToDefault,
           buildSettingToType,
           buildSettingIsAllowsMultiple,
           aliasToActual,
-          customExecScopeValuesBuilder.buildOrThrow());
+          customExecScopeValuesBuilder.buildOrThrow(),
+          buildSettingToScopeType.buildOrThrow(),
+          buildSettingToOnLeaveScopeValue.buildOrThrow(),
+          projectScopes);
 
     } catch (TransitionException e) {
       throw new StarlarkBuildSettingsDetailsException(e);
@@ -410,6 +429,109 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     Target target;
     target = buildSettingPackage.getTarget(setting.getName());
     return target;
+  }
+
+  /**
+   * Resolves the {@link Scope} of each project-scoped build setting, reading the {@link
+   * Scope.ScopeDefinition} from the PROJECT.scl file governing the setting's package.
+   *
+   * <p>A setting whose package isn't governed by any PROJECT.scl file, or whose PROJECT.scl file
+   * declares no project directories, gets a scope without a definition, which contains no target.
+   *
+   * @return null if Skyframe deps need loading.
+   */
+  @Nullable
+  private static ImmutableMap<Label, Scope> resolveProjectScopes(
+      Environment env, ImmutableSet<Label> projectScopedBuildSettings)
+      throws InterruptedException, TransitionException {
+    if (projectScopedBuildSettings.isEmpty()) {
+      return ImmutableMap.of();
+    }
+    Scope.ScopeType projectScopeType = new Scope.ScopeType(Scope.ScopeType.PROJECT);
+
+    // Find the PROJECT.scl file governing each setting's package, if any.
+    ImmutableMap<Label, ProjectFilesLookupValue.Key> projectFilesKeys =
+        projectScopedBuildSettings.stream()
+            .collect(
+                toImmutableMap(
+                    setting -> setting,
+                    setting -> ProjectFilesLookupValue.key(setting.getPackageIdentifier())));
+    SkyframeLookupResult projectFilesResult = env.getValuesAndExceptions(projectFilesKeys.values());
+    Map<Label, ProjectValue.Key> projectKeys = new HashMap<>();
+    for (Map.Entry<Label, ProjectFilesLookupValue.Key> entry : projectFilesKeys.entrySet()) {
+      ProjectFilesLookupValue projectFiles;
+      try {
+        projectFiles =
+            (ProjectFilesLookupValue)
+                projectFilesResult.getOrThrow(entry.getValue(), ProjectResolutionException.class);
+      } catch (ProjectResolutionException e) {
+        throw new TransitionException(e.getMessage(), e);
+      }
+      if (projectFiles == null) {
+        continue;
+      }
+      if (!projectFiles.getProjectFiles().isEmpty()) {
+        projectKeys.put(
+            entry.getKey(), new ProjectValue.Key(projectFiles.getProjectFiles().get(0)));
+      }
+    }
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    // Read the project directories out of those files.
+    SkyframeLookupResult projectsResult = env.getValuesAndExceptions(projectKeys.values());
+    ImmutableMap.Builder<Label, Scope> projectScopes = ImmutableMap.builder();
+    for (Label setting : projectScopedBuildSettings) {
+      ProjectValue.Key projectKey = projectKeys.get(setting);
+      if (projectKey == null) {
+        projectScopes.put(setting, new Scope(projectScopeType, /* scopeDefinition= */ null));
+        continue;
+      }
+      ProjectValue project = (ProjectValue) projectsResult.get(projectKey);
+      if (project == null) {
+        continue;
+      }
+      projectScopes.put(
+          setting,
+          new Scope(
+              projectScopeType,
+              project.getDefaultProjectDirectories().isEmpty()
+                  ? null
+                  : new Scope.ScopeDefinition(project.getDefaultProjectDirectories())));
+    }
+    if (env.valuesMissing()) {
+      return null;
+    }
+    return projectScopes.buildOrThrow();
+  }
+
+  private static Scope.ScopeType getScopeType(Rule rule) {
+    var attrs = RawAttributeMapper.of(rule);
+    if (!attrs.has("scope", Type.STRING)) {
+      return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
+    }
+    String scope = attrs.get("scope", Type.STRING);
+    return new Scope.ScopeType(
+        scope.equals(Type.STRING.getDefaultValue()) ? Scope.ScopeType.DEFAULT : scope);
+  }
+
+  private static Object getDefault(Rule rule) {
+    Object value = rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
+    return rule.getRuleClassObject().getBuildSetting().allowsMultiple()
+        ? ImmutableList.of(value)
+        : value;
+  }
+
+  @Nullable
+  private static Object getOnLeaveScopeValue(Rule rule) {
+    var attrs = RawAttributeMapper.of(rule);
+    if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
+      return null;
+    }
+    BuildSetting buildSetting = rule.getRuleClassObject().getBuildSetting();
+    Object value = attrs.get("on_leave_scope", buildSetting.getType());
+    return buildSetting.allowsMultiple() ? ImmutableList.of(value) : value;
   }
 
   private static final class StarlarkBuildSettingsDetailsException extends SkyFunctionException {
