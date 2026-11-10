@@ -87,20 +87,9 @@ public class RxFutures {
 
               @Override
               public void onFailure(Throwable throwable) {
-                /*
-                 * CancellationException can be thrown in two cases:
-                 *   1. The ListenableFuture itself is cancelled.
-                 *   2. Completable is disposed by downstream.
-                 *
-                 * In the second case, the CancellationException must not be propagated to
-                 * downstream.
-                 */
-                if (throwable instanceof CancellationException) {
-                  emitter.tryOnError(throwable);
-                  return;
-                }
-
-                emitter.onError(throwable);
+                // Downstream may have disposed the completable by cancelling the future or after
+                // the future failed, in which case the failure must be dropped.
+                emitter.tryOnError(throwable);
               }
             },
             executor);
@@ -158,20 +147,9 @@ public class RxFutures {
 
               @Override
               public void onFailure(Throwable throwable) {
-                /*
-                 * CancellationException can be thrown in two cases:
-                 *   1. The ListenableFuture itself is cancelled.
-                 *   2. Single is disposed by downstream.
-                 *
-                 * In the second case, the CancellationException must not be propagated to
-                 * downstream.
-                 */
-                if (throwable instanceof CancellationException) {
-                  emitter.tryOnError(throwable);
-                  return;
-                }
-
-                emitter.onError(throwable);
+                // Downstream may have disposed the single by cancelling the future or after
+                // the future failed, in which case the failure must be dropped.
+                emitter.tryOnError(throwable);
               }
             },
             executor);
