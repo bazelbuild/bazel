@@ -291,26 +291,27 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             tags = ["no-remote"],
         )
         tool(name = "tool", data = ":data")
+        # Builds :data in the same configuration as :consumer does, without running remotely.
+        genrule(
+            name = "fill_disk_cache",
+            outs = ["fill_disk_cache.out"],
+            tools = [":data"],
+            cmd = "touch $@",
+            tags = ["no-remote"],
+        )
         genrule(
             name = "consumer",
-            srcs = ["consumer.in"],
             outs = ["consumer.out"],
             tools = [":tool"],
-            cmd = "cat $(execpath :tool).runfiles/*/a/data.out $(location consumer.in) > $@",
+            cmd = "cat $(execpath :tool).runfiles/*/a/data.out > $@",
             tags = %s,
         )
         """
             .formatted(consumerMayBeCached ? "[]" : "[\"no-cache\"]"));
-    write("a/consumer.in", "1");
-    addOptions("--norewind_lost_inputs", "--experimental_remote_cache_eviction_retries=0");
-    setDownloadToplevel();
-    buildTarget("//a:consumer");
-    assertValidOutputFile("a/consumer.out", "data1\n");
-
-    // Empty the remote CAS, but keep the disk cache. :data is then a disk cache hit whose output
-    // only exists in the disk cache, and :consumer has to upload it from there as part of the
+    // Put the output of :data into the disk cache. Then make :data a disk cache hit whose output
+    // only exists in the disk cache, so :consumer has to upload it from there as part of the
     // runfiles tree of :tool.
-    worker.reset();
+    buildTarget("//a:fill_disk_cache");
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     var originalDiskCacheDir = diskCacheDir;
     restartServer();
@@ -319,10 +320,10 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--norewind_lost_inputs",
         "--experimental_remote_cache_eviction_retries=0");
     setDownloadToplevel();
-    write("a/consumer.in", "2");
+
     buildTarget("//a:consumer");
 
-    assertValidOutputFile("a/consumer.out", "data2\n");
+    assertValidOutputFile("a/consumer.out", "data");
   }
 
   @Override
