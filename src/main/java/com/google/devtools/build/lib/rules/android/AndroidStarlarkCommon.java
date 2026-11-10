@@ -132,10 +132,18 @@ public class AndroidStarlarkCommon implements StarlarkValue {
       StarlarkInt minSdkVersion,
       Object desugarGlobals)
       throws EvalException, RuleErrorException {
+    if (!(output instanceof TreeArtifact outputTree)) {
+      throw Starlark.errorf(
+          "Expected 'output' to be a directory artifact, but got %s", output.prettyPrint());
+    }
+    if (!(input instanceof TreeArtifact inputTree)) {
+      throw Starlark.errorf(
+          "Expected 'input' to be a directory artifact, but got %s", input.prettyPrint());
+    }
     createTemplatedMergerActions(
         starlarkRuleContext.getRuleContext(),
-        (TreeArtifact) output,
-        (TreeArtifact) input,
+        outputTree,
+        inputTree,
         Sequence.cast(dexopts, String.class, "dexopts"),
         dexmerger,
         minSdkVersion.toInt("min_sdk_version"),
