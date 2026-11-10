@@ -100,9 +100,6 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
         if (!(fs instanceof RemoteActionFileSystem remoteActionFileSystem)) {
           return immediateFuture(Optional.of(path));
         }
-        // Read the file from the host file system or the disk cache rather than through the action
-        // file system, which would download it into the output tree if it is only stored remotely.
-        // An upload thus never modifies the output tree, even if it outlives the spawn.
         try {
           var hostPath = remoteActionFileSystem.getHostFileSystem().getPath(path.asFragment());
           if (hostPath.exists()) {
