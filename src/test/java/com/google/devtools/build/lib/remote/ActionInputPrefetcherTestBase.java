@@ -1257,7 +1257,9 @@ public abstract class ActionInputPrefetcherTestBase {
             Priority.MEDIUM,
             Reason.INPUTS);
 
-    assertThrows(InterruptedException.class, () -> getFromFuture(future));
+    // Callers such as SpawnRunner#prefetchInputsAndWait expect a failure, not a cancellation.
+    var e = assertThrows(ExecutionException.class, future::get);
+    assertThat(e).hasCauseThat().isInstanceOf(InterruptedException.class);
   }
 
   @Test

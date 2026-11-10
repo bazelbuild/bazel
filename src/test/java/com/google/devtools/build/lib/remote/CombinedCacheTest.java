@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -639,6 +640,47 @@ public class CombinedCacheTest {
     var uploaded = new ByteArrayOutputStream();
     getFromFuture(cacheProtocol.downloadBlob(remoteActionExecutionContext, digest, uploaded));
     assertThat(uploaded.toString(UTF_8)).isEqualTo("bar");
+  }
+
+  @Test
+  public void uploadFile_uploadFromDiskCacheFails_propagatesFailure() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    InMemoryCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    var failure = new IOException("upload failed");
+    doReturn(Futures.immediateFailedFuture(failure))
+        .when(cacheProtocol)
+        .uploadBlobImpl(any(), any(), any());
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
+
+    var e =
+        assertThrows(
+            IOException.class,
+            () ->
+                getFromFuture(
+                    remoteCache.uploadFile(
+                        remoteActionExecutionContext,
+                        digest,
+                        actionFs.getPath(artifact.getPath().asFragment()),
+                        artifact.getExecPath(),
+                        /* force= */ false)));
+    assertThat(e).isSameInstanceAs(failure);
   }
 
   @Test
