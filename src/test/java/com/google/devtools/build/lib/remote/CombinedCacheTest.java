@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
@@ -382,7 +381,7 @@ public class CombinedCacheTest {
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     remoteCache.setRemotePathChecker(
-        (context, path) ->
+        (context, path, digest) ->
             immediateFuture(
                 path.relativeTo(execRoot).equals(PathFragment.create("foo"))
                     ? Optional.empty()
@@ -412,7 +411,7 @@ public class CombinedCacheTest {
       throws Exception {
     RemoteExecutionCache remoteCache = newRemoteExecutionCache(new InMemoryCacheClient());
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
-    remoteCache.setRemotePathChecker((context, path) -> immediateFuture(Optional.empty()));
+    remoteCache.setRemotePathChecker((context, path, digest) -> immediateFuture(Optional.empty()));
 
     // Source files in external repositories are located outside the exec root.
     Path path = fs.getPath("/outputbase/external/repo/foo");
@@ -442,31 +441,15 @@ public class CombinedCacheTest {
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
     Digest digest = digestUtil.computeAsUtf8("bar");
-    ActionInputMap inputs = new ActionInputMap(1);
-    inputs.put(
-        artifact,
-        FileArtifactValue.createForRemoteFileWithMaterializationData(
-            DigestUtil.toBinaryDigest(digest),
-            digest.getSizeBytes(),
-            /* locationIndex= */ 1,
-            /* expirationTime= */ null,
-            /* inMemoryOutput= */ false));
     artifact.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "bar");
-    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
-    when(inputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
-        .thenReturn(immediateVoidFuture());
+    RemoteActionInputFetcher inputFetcher = mockInputFetcher();
     RemoteActionFileSystem actionFs =
-        new RemoteActionFileSystem(
-            fs,
-            execRoot.asFragment(),
-            artifactRoot.getExecPathString(),
-            inputs,
-            inputFetcher);
+        createActionFileSystemWithRemoteInput(artifact, digest, inputFetcher);
 
     getFromFuture(
         remoteCache.uploadFile(
-            remoteActionExecutionContext.withReadCachePolicy(CachePolicy.NO_CACHE),
+            remoteActionExecutionContext,
             digest,
             actionFs.getPath(artifact.getPath().asFragment()),
             artifact.getExecPath(),
@@ -478,6 +461,70 @@ public class CombinedCacheTest {
                     remoteActionExecutionContext, ImmutableList.of(digest))))
         .isEmpty();
     verify(inputFetcher, never()).prefetchFiles(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void uploadFile_remoteInputOnlyInDiskCache_uploadsFromDiskCacheWithoutDownloading()
+      throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
+    RemoteActionInputFetcher inputFetcher = mockInputFetcher();
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithRemoteInput(artifact, digest, inputFetcher);
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext,
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    assertThat(
+            getFromFuture(
+                remoteCache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(digest))))
+        .isEmpty();
+    verify(inputFetcher, never()).prefetchFiles(any(), any(), any(), any(), any(), any());
+    assertThat(artifact.getPath().exists()).isFalse();
+  }
+
+  private static RemoteActionInputFetcher mockInputFetcher() {
+    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
+    when(inputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
+    return inputFetcher;
+  }
+
+  /** Returns an action file system on which {@code artifact} is an input stored remotely. */
+  private RemoteActionFileSystem createActionFileSystemWithRemoteInput(
+      Artifact artifact, Digest digest, RemoteActionInputFetcher inputFetcher) {
+    ActionInputMap inputs = new ActionInputMap(1);
+    inputs.put(
+        artifact,
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            DigestUtil.toBinaryDigest(digest),
+            digest.getSizeBytes(),
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false));
+    return new RemoteActionFileSystem(
+        fs, execRoot.asFragment(), artifactRoot.getExecPathString(), inputs, inputFetcher);
   }
 
   @Test
@@ -537,7 +584,7 @@ public class CombinedCacheTest {
     SettableFuture<Optional<Path>> missingInputAvailable = SettableFuture.create();
     CountDownLatch remotePathChecked = new CountDownLatch(1);
     remoteCache.setRemotePathChecker(
-        (context, path) -> {
+        (context, path, digest) -> {
           PathFragment execPath = path.relativeTo(execRoot);
           if (execPath.equals(PathFragment.create("outputs/foo"))
               || execPath.equals(PathFragment.create("outputs/bar"))) {
