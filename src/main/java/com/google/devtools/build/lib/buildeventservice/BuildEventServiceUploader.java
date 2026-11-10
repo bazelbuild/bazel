@@ -449,7 +449,9 @@ public final class BuildEventServiceUploader implements Runnable {
         > LargeBuildEventSerializedEvent.SIZE_OF_LARGE_BUILD_EVENTS_IN_BYTES) {
       eventBus.post(
           new LargeBuildEventSerializedEvent(
-              serializedBepEvent.getId().toString(), serializedBepEvent.getSerializedSize()));
+              serializedBepEvent.getPayloadCase().name(),
+              serializedBepEvent.getId().toString(),
+              serializedBepEvent.getSerializedSize()));
     }
 
     return serializedBepEvent;

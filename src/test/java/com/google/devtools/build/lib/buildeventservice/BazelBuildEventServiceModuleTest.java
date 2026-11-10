@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFil
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
@@ -412,12 +413,16 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
           @Subscribe
           @SuppressWarnings("unused")
           public void transportsAnnounced(AnnounceBuildEventTransportsEvent unused) {
-            eventBus.post(new LargeBuildEventSerializedEvent("some_event_id", 12345678));
+            eventBus.post(
+                new LargeBuildEventSerializedEvent(
+                    "COMPLETED", "line1\nline2\nline3\nline4\nline5\nline6\nline7\n", 12345678));
           }
         });
     buildTarget();
 
-    events.assertContainsWarning("Build event some_event_id is 12345678 bytes when serialized");
+    Event warning =
+        events.assertContainsWarning("COMPLETED build event is 12345678 bytes when serialized");
+    assertThat(warning.getMessage()).endsWith("Event ID:\nline1\nline2\nline3\nline4\nline5\n...");
   }
 
   @Test

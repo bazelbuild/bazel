@@ -18,6 +18,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -115,6 +116,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /** Number of lines of a large build event's ID to include when warning about it. */
+  private static final int MAX_LARGE_BUILD_EVENT_ID_LINES = 5;
 
   /**
    * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
@@ -362,15 +366,26 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   public void largeBuildEventSerialized(LargeBuildEventSerializedEvent event) {
     String msg =
         String.format(
-            "Build event %s is %d bytes when serialized; this may cause problems uploading to the"
-                + " Build Event Service.",
-            event.getBuildEventId(), event.getSerializedSizeInBytes());
+            "%s build event is %d bytes when serialized; this may cause problems uploading to the"
+                + " Build Event Service. Event ID:\n%s",
+            event.getBuildEventType(),
+            event.getSerializedSizeInBytes(),
+            truncateLines(event.getBuildEventId(), MAX_LARGE_BUILD_EVENT_ID_LINES));
     Reporter currentReporter = reporter;
     if (currentReporter != null) {
       currentReporter.handle(Event.warn(msg));
     } else {
       logger.atWarning().log("%s", msg);
     }
+  }
+
+  /** Returns the first {@code maxLines} lines of {@code text}, marking any truncation. */
+  private static String truncateLines(String text, int maxLines) {
+    List<String> lines = Splitter.on('\n').omitEmptyStrings().splitToList(text);
+    if (lines.size() <= maxLines) {
+      return String.join("\n", lines);
+    }
+    return String.join("\n", lines.subList(0, maxLines)) + "\n...";
   }
 
   @Override
