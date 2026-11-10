@@ -395,6 +395,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public Duration remoteRetryMaxDelay;
 
   @Option(
+      name = "experimental_disk_cache_deduplicate_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Deduplicate finalized local outputs against existing disk cache blobs using"
+              + " copy-on-write file copies. Requires a clone-capable filesystem for space"
+              + " savings.")
+  public boolean diskCacheDeduplicateOutputs;
+
+  @Option(
       name = "disk_cache",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

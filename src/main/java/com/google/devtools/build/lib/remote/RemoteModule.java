@@ -1294,6 +1294,12 @@ public final class RemoteModule extends BlazeModule {
       }
 
       if (outputService instanceof RemoteOutputService remoteOutputService) {
+        if (remoteOptions.diskCacheDeduplicateOutputs
+            && actionContextProvider.getCombinedCache().diskCacheClient != null) {
+          remoteOutputService.setOutputDeduplicator(
+              new DiskCacheOutputDeduplicator(
+                  actionContextProvider.getCombinedCache().diskCacheClient, env.getReporter()));
+        }
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
         remoteOutputService.setActionInputFetcher(
             actionInputFetcher,
