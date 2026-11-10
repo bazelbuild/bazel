@@ -591,15 +591,17 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return stat(path, followSymlinks).getLastModifiedTime();
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return stat(path, followSymlinks).getLastModifiedTimeNanos();
   }
 
   @Override
-  public synchronized void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public synchronized void setLastModifiedTimeNanos(PathFragment path, long newTime)
+      throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
-    status.setLastModifiedTime(
-        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime);
+    status.setLastModifiedTimeNanos(
+        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() * 1_000_000 : newTime);
   }
 
   @Override
