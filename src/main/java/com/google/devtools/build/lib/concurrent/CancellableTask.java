@@ -136,6 +136,19 @@ public final class CancellableTask<E extends Exception> {
    * @throws IllegalStateException if called from the task body or completion action
    */
   public void requestCancellation() {
+    requestCancellation(/* mayInterruptIfRunning= */ true);
+  }
+
+  /**
+   * Like {@link #requestCancellation()}, but only interrupts the thread executing the task body if
+   * {@code mayInterruptIfRunning} is true.
+   *
+   * <p>Pass false for a body that must run to completion once it has started, e.g. because it runs
+   * on a thread that must not observe an interrupt.
+   *
+   * @throws IllegalStateException if called from the task body or completion action
+   */
+  public void requestCancellation(boolean mayInterruptIfRunning) {
     boolean preventedStart;
     synchronized (this) {
       preventedStart =
@@ -149,9 +162,12 @@ public final class CancellableTask<E extends Exception> {
               if (executingThread == Thread.currentThread()) {
                 throw new IllegalStateException("task cannot cancel itself");
               }
-              // Interrupt while holding the state lock so that the task cannot enter its completion
-              // action between publishing the executing thread and receiving the interrupt.
-              Objects.requireNonNull(executingThread).interrupt();
+              if (mayInterruptIfRunning) {
+                // Interrupt while holding the state lock so that the task cannot enter its
+                // completion action between publishing the executing thread and receiving the
+                // interrupt.
+                Objects.requireNonNull(executingThread).interrupt();
+              }
               yield false;
             }
             case COMPLETING_AFTER_RUNNING, COMPLETING_WITHOUT_RUNNING -> {
