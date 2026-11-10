@@ -24,6 +24,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -74,11 +75,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -1077,6 +1080,51 @@ public abstract class ActionInputPrefetcherTestBase {
 
     completion.join();
     assertThat(FileSystemUtils.readContent(artifact.getPath(), UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
+  public void prefetchFiles_finalizationFailsAfterCancellation_noGlobalErrorAndCleansUp()
+      throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact artifact = createRemoteArtifact("file", "hello world", metadata, cas);
+    SettableFuture<Void> download = SettableFuture.create();
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    mockDownload(prefetcher, cas, () -> download);
+
+    Semaphore finalizationStarted = new Semaphore(0);
+    Semaphore finalizationMayContinue = new Semaphore(0);
+    // Fail the first step of the finalization, which sets the permissions of the downloaded file.
+    doAnswer(
+            invocation -> {
+              PathFragment path = invocation.getArgument(0);
+              if (path.startsWith(tempPathGenerator.getTempDir().asFragment())) {
+                finalizationStarted.release();
+                finalizationMayContinue.acquireUninterruptibly();
+                throw new IOException("chmod failed");
+              }
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .chmod(any(), anyInt());
+    var globalErrors = new ConcurrentLinkedQueue<Throwable>();
+    RxJavaPlugins.setErrorHandler(globalErrors::add);
+    try {
+      ListenableFuture<Void> prefetch =
+          prefetcher.prefetchFilesInterruptibly(
+              action, ImmutableList.of(artifact), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+      Thread completion = new Thread(() -> download.set(null));
+      completion.start();
+      assertThat(finalizationStarted.tryAcquire(10, SECONDS)).isTrue();
+
+      assertCancellationWaitsFor(prefetch, finalizationMayContinue);
+
+      completion.join();
+    } finally {
+      RxJavaPlugins.setErrorHandler(null);
+    }
+    assertThat(globalErrors).isEmpty();
+    assertThat(tempPathGenerator.getTempDir().getDirectoryEntries()).isEmpty();
   }
 
   @Test

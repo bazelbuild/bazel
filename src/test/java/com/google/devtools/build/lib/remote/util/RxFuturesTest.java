@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.CompletableEmitter;
 import io.reactivex.rxjava3.observers.TestObserver;
-import java.util.ArrayList;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -79,20 +78,6 @@ public class RxFuturesTest {
     future.setException(error);
 
     observer.assertError(error);
-  }
-
-  @Test
-  public void toCompletable_futureOnErrorAfterDisposal_noGlobalError() {
-    SettableFuture<Void> future = SettableFuture.create();
-    var pendingCallbacks = new ArrayList<Runnable>();
-    Completable completable = toCompletable(() -> future, pendingCallbacks::add);
-
-    TestObserver<Void> observer = completable.test();
-    future.setException(new IllegalStateException("error"));
-    observer.dispose();
-    pendingCallbacks.forEach(Runnable::run);
-
-    observer.assertEmpty();
   }
 
   @Test

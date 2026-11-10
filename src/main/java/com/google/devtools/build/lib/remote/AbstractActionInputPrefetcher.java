@@ -32,6 +32,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
@@ -428,27 +429,43 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       mergedTransfer = mergeBulkTransfer(transfers);
     }
 
-    return toListenableFuture(
-        toCompletable(() -> mergedTransfer, directExecutor())
-            .andThen(awaitableAction(() -> setTreeOutputPermissions(directoriesByTreeRoot))));
-  }
-
-  /**
-   * Matches the directory output permissions set by {@code SkyframeActionExecutor#checkOutputs}.
-   */
-  private void setTreeOutputPermissions(SetMultimap<Path, Path> directoriesByTreeRoot)
-      throws IOException {
-    for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
-      Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
-      lock.lock();
-      try {
-        for (Path dir : entry.getValue()) {
-          directoryTracker.setOutputPermissions(dir);
-        }
-      } finally {
-        lock.unlock();
-      }
-    }
+    var restorePermissions =
+        new CancellableTask<IOException>(
+            () -> {
+              // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
+              for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
+                Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
+                lock.lock();
+                try {
+                  for (Path dir : entry.getValue()) {
+                    directoryTracker.setOutputPermissions(dir);
+                  }
+                } finally {
+                  lock.unlock();
+                }
+              }
+            });
+    ListenableFuture<Void> result =
+        Futures.transformAsync(
+            mergedTransfer,
+            ignored -> {
+              try {
+                var unused = restorePermissions.runIfNotCancelled();
+              } catch (IOException e) {
+                return immediateFailedFuture(e);
+              }
+              return immediateVoidFuture();
+            },
+            directExecutor());
+    result.addListener(
+        () -> {
+          if (result.isCancelled()) {
+            restorePermissions.requestCancellation(/* mayInterruptIfRunning= */ false);
+            restorePermissions.awaitCompletionUninterruptibly();
+          }
+        },
+        directExecutor());
+    return result;
   }
 
   private ListenableFuture<Void> prefetchFile(
