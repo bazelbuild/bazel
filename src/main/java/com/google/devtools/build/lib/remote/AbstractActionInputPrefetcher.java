@@ -920,11 +920,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   /**
    * Returns a {@link Completable} that runs {@code action} on subscription and whose disposal
    * either prevents the action from starting or waits for it to finish.
-   *
-   * <p>This is used for writes to the output tree. Disposing an ordinary callback returns while it
-   * may still be running on another thread, so a caller that cancels a prefetch could otherwise go
-   * on to replace a path that is still being written to, e.g. when a rewound action deletes its
-   * outputs.
    */
   private static Completable awaitableAction(CancellableTask.Task<IOException> action) {
     return Completable.create(

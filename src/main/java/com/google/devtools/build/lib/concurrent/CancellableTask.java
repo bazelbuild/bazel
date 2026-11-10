@@ -129,22 +129,10 @@ public final class CancellableTask<E extends Exception> {
    * Requests cancellation without waiting for the task to quiesce.
    *
    * <p>If the task has not started, this prevents it from starting and runs the completion action
-   * on its behalf before returning. Otherwise, it interrupts the thread executing the task body,
-   * which may still be executing when this method returns. Call {@link #awaitCompletion} afterward
-   * if quiescence is required without requesting cancellation a second time.
-   *
-   * @throws IllegalStateException if called from the task body or completion action
-   */
-  public void requestCancellation() {
-    requestCancellation(/* mayInterruptIfRunning= */ true);
-  }
-
-  /**
-   * Like {@link #requestCancellation()}, but only interrupts the thread executing the task body if
-   * {@code mayInterruptIfRunning} is true.
-   *
-   * <p>Pass false for a body that must run to completion once it has started, e.g. because it runs
-   * on a thread that must not observe an interrupt.
+   * on its behalf before returning. Otherwise, it interrupts the thread executing the task body if
+   * {@code mayInterruptIfRunning} is true. The body may still be executing when this method
+   * returns. Call {@link #awaitCompletion} afterward if quiescence is required without requesting
+   * cancellation a second time.
    *
    * @throws IllegalStateException if called from the task body or completion action
    */
@@ -224,7 +212,7 @@ public final class CancellableTask<E extends Exception> {
    *     which can await the task
    */
   public void cancelAndAwait() throws InterruptedException {
-    requestCancellation();
+    requestCancellation(/* mayInterruptIfRunning= */ true);
     awaitCompletion();
   }
 

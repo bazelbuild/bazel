@@ -48,7 +48,7 @@ public final class CancellableTaskTest {
     REQUEST_THEN_AWAIT {
       @Override
       void cancel(CancellableTask<?> task) throws InterruptedException {
-        task.requestCancellation();
+        task.requestCancellation(/* mayInterruptIfRunning= */ true);
         task.awaitCompletion();
       }
     };
@@ -450,7 +450,7 @@ public final class CancellableTaskTest {
     var completionRuns = new AtomicInteger();
     var task = new CancellableTask<>(() -> ran.set(true), completionRuns::incrementAndGet);
 
-    task.requestCancellation();
+    task.requestCancellation(/* mayInterruptIfRunning= */ true);
 
     assertThat(completionRuns.get()).isEqualTo(1);
     assertThat(task.runIfNotCancelled()).isFalse();
@@ -479,7 +479,7 @@ public final class CancellableTaskTest {
     assertThat(taskStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
 
     // Returns while the body is still running: it only finishes after the release below.
-    task.requestCancellation();
+    task.requestCancellation(/* mayInterruptIfRunning= */ true);
 
     assertThat(taskInterrupted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
     taskMayFinish.release();
@@ -554,7 +554,7 @@ public final class CancellableTaskTest {
     runner.start();
     assertThat(taskStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
 
-    task.requestCancellation();
+    task.requestCancellation(/* mayInterruptIfRunning= */ true);
     assertThat(cleanupStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
     var waiter = new TestThread(task::awaitCompletion);
     waiter.start();

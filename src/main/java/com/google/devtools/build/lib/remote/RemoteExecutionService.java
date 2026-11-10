@@ -1981,7 +1981,7 @@ public class RemoteExecutionService {
         // effects are part of the upload's completion contract, so wait for it before propagating
         // the rejection.
         try {
-          upload.requestCancellation();
+          upload.requestCancellation(/* mayInterruptIfRunning= */ true);
           upload.awaitCompletionUninterruptibly();
         } finally {
           unregisterHandle.run();
@@ -2002,7 +2002,7 @@ public class RemoteExecutionService {
 
     @Override
     public void requestCancellation() {
-      upload.requestCancellation();
+      upload.requestCancellation(/* mayInterruptIfRunning= */ true);
     }
 
     @Override
