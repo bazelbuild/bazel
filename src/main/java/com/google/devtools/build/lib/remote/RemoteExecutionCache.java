@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
@@ -65,7 +66,6 @@ import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,6 +75,8 @@ import javax.annotation.Nullable;
 
 /** A {@link CombinedCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUploader {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * An interface used to find a copy of a given {@link Path} that is available without contacting
@@ -110,21 +112,24 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             return immediateFuture(hostPath.exists() ? Optional.of(hostPath) : Optional.empty());
           }
           if (diskCacheClient != null && context.getReadCachePolicy().allowDiskCache()) {
-            var diskCachePath = diskCacheClient.findBlob(digest);
-            if (diskCachePath != null) {
-              return immediateFuture(Optional.of(diskCachePath));
+            try {
+              var diskCachePath = diskCacheClient.findBlob(digest);
+              if (diskCachePath != null) {
+                return immediateFuture(Optional.of(diskCachePath));
+              }
+            } catch (IOException e) {
+              logger.atWarning().withCause(e).log(
+                  "Failed to look up %s in the disk cache", path.getPathString());
             }
           }
           // A local copy of a remote input may be stale.
-          var resolvedPath = status.getMetadata().getResolvedPath();
+          var metadata = status.getMetadata();
+          var resolvedPath = metadata.getResolvedPath();
           var hostPath = hostFs.getPath(resolvedPath != null ? resolvedPath : path.asFragment());
-          var hostStatus = hostPath.statIfFound();
           return immediateFuture(
-              hostStatus != null
-                      && hostStatus.getSize() == digest.getSizeBytes()
-                      && Arrays.equals(hostPath.getDigest(), DigestUtil.toBinaryDigest(digest))
-                  ? Optional.of(hostPath)
-                  : Optional.empty());
+              AbstractActionInputPrefetcher.shouldDownloadFile(hostPath, metadata)
+                  ? Optional.empty()
+                  : Optional.of(hostPath));
         } catch (IOException e) {
           return immediateFailedFuture(e);
         }

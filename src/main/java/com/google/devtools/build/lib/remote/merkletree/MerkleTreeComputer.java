@@ -546,9 +546,9 @@ public final class MerkleTreeComputer {
                 artifactPathResolver,
                 blobPolicy);
           } catch (IOException e) {
-            throw new WrappedIOException(e);
+            throw new WrappedException(e);
           } catch (InterruptedException e) {
-            throw new WrappedInterruptedException(e);
+            throw new WrappedException(e);
           }
         },
         subTreesFuture.isDone() ? directExecutor() : MERKLE_TREE_BUILD_POOL);
@@ -886,7 +886,7 @@ public final class MerkleTreeComputer {
       } catch (CancellationException e) {
         var interruptedException = new InterruptedException();
         interruptedException.initCause(e);
-        failures.add(new WrappedInterruptedException(interruptedException));
+        failures.add(new WrappedException(interruptedException));
       }
     }
     if (failures.isEmpty()) {
@@ -897,9 +897,10 @@ public final class MerkleTreeComputer {
     WrappedException otherFailure = null;
     for (Throwable failure : failures) {
       switch (failure) {
-        case WrappedIOException e
-            when BulkTransferException.allCausedByCacheNotFoundException(e.getCause()) ->
-            lostInputs.add(e.getCause());
+        case WrappedException e
+            when e.getCause() instanceof IOException ioException
+                && BulkTransferException.allCausedByCacheNotFoundException(ioException) ->
+            lostInputs.add(ioException);
         case WrappedException e -> {
           if (otherFailure == null) {
             otherFailure = e;
@@ -911,7 +912,7 @@ public final class MerkleTreeComputer {
         }
       }
     }
-    throw otherFailure != null ? otherFailure : new WrappedIOException(lostInputs);
+    throw otherFailure != null ? otherFailure : new WrappedException(lostInputs);
   }
 
   @Nullable
@@ -1129,9 +1130,9 @@ public final class MerkleTreeComputer {
                     remoteActionExecutionContext,
                     blobPolicy);
           } catch (IOException e) {
-            throw new WrappedIOException(e);
+            throw new WrappedException(e);
           } catch (InterruptedException e) {
-            throw new WrappedInterruptedException(e);
+            throw new WrappedException(e);
           }
           return transform(
               merkleTreeFuture,
@@ -1145,9 +1146,9 @@ public final class MerkleTreeComputer {
                           blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD);
                     }
                   } catch (IOException e) {
-                    throw new WrappedIOException(e);
+                    throw new WrappedException(e);
                   } catch (InterruptedException e) {
-                    throw new WrappedInterruptedException(e);
+                    throw new WrappedException(e);
                   }
                 }
                 // Move the computed root to the persistent cache so that it can be reused by later
@@ -1304,45 +1305,25 @@ public final class MerkleTreeComputer {
     }
   }
 
-  /** Carries a checked exception through a future. */
-  private abstract static sealed class WrappedException extends RuntimeException {
-    private WrappedException(Exception cause) {
+  private static final class WrappedException extends RuntimeException {
+    private WrappedException(IOException cause) {
       super(cause);
     }
 
-    abstract void unwrapAndThrow() throws IOException, InterruptedException;
+    private WrappedException(InterruptedException cause) {
+      super(cause);
+    }
+
+    void unwrapAndThrow() throws IOException, InterruptedException {
+      Throwables.throwIfInstanceOf(getCause(), IOException.class);
+      Throwables.throwIfInstanceOf(getCause(), InterruptedException.class);
+      throw new IllegalStateException(getCause());
+    }
 
     @Override
     public Throwable fillInStackTrace() {
       // Don't fill in the stack trace to avoid unnecessary overhead.
       return this;
-    }
-  }
-
-  private static final class WrappedIOException extends WrappedException {
-    private WrappedIOException(IOException cause) {
-      super(cause);
-    }
-
-    @Override
-    public synchronized IOException getCause() {
-      return (IOException) super.getCause();
-    }
-
-    @Override
-    void unwrapAndThrow() throws IOException {
-      throw getCause();
-    }
-  }
-
-  private static final class WrappedInterruptedException extends WrappedException {
-    private WrappedInterruptedException(InterruptedException cause) {
-      super(cause);
-    }
-
-    @Override
-    void unwrapAndThrow() throws InterruptedException {
-      throw (InterruptedException) getCause();
     }
   }
 }

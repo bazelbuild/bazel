@@ -264,8 +264,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.outputPermissions = outputPermissions;
   }
 
-  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
-      throws IOException {
+  static boolean shouldDownloadFile(Path path, FileArtifactValue metadata) throws IOException {
     var stat = path.statIfFound();
     if (stat == null) {
       return true;
@@ -932,8 +931,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 task.requestCancellation(/* mayInterruptIfRunning= */ false);
                 task.awaitCompletionUninterruptibly();
               });
-          if (task.runIfNotCancelled()) {
-            emitter.onComplete();
+          try {
+            if (task.runIfNotCancelled()) {
+              emitter.onComplete();
+            }
+          } catch (IOException e) {
+            emitter.tryOnError(e);
           }
         });
   }

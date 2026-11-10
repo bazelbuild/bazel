@@ -430,6 +430,7 @@ java_library(
         "//src/tools/remote:__subpackages__",
     ],
     deps = [
+        ":abstract_action_input_prefetcher",
         ":chunker",
         ":combined_cache",
         ":remote_action_file_system",
@@ -448,6 +449,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
