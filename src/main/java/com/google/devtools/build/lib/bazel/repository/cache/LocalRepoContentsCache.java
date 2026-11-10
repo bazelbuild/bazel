@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -226,10 +227,20 @@ public final class LocalRepoContentsCache {
         try {
           Preconditions.checkState(path != null);
           runGc(maxAge);
-          // Empty the trash dir outside the lock. No one is reading from these files, so it should
-          // be safe. At worst, multiple servers performing GC will try to delete the same files,
-          // but whatever.
-          path.getChild(TRASH_PATH).deleteTreesBelow();
+          // Another server may stage the marker file of a repo in the trash dir while moving the
+          // repo into the cache, which only requires the shared lock. Trash entries have unique
+          // names, so deleting only those listed under the exclusive lock leaves such a marker
+          // file alone.
+          Collection<Path> trashEntries;
+          try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
+            trashEntries = path.getChild(TRASH_PATH).getDirectoryEntries();
+          }
+          for (Path trashEntry : trashEntries) {
+            if (Thread.interrupted()) {
+              throw new InterruptedException();
+            }
+            trashEntry.deleteTree();
+          }
         } catch (IOException e) {
           throw new IdleTaskException(e);
         }
