@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -253,6 +254,75 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // A local consumer fetches the contents from the disk cache.
     buildTarget("//:bar");
     assertOnlyOutputContent("//:bar", "bar.txt", "hello");
+  }
+
+  @Test
+  public void remoteExecution_runfilesInputOnlyInDiskCache_uploadsFromDiskCache(
+      @TestParameter boolean consumerMayBeCached) throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/32549.
+    assumeTrue(useDiskCache);
+    write(
+        "a/rules.bzl",
+        """
+        def _tool_impl(ctx):
+            ctx.actions.write(ctx.outputs.executable, "#!/bin/sh\\n", is_executable = True)
+            return [DefaultInfo(
+                executable = ctx.outputs.executable,
+                runfiles = ctx.runfiles(files = [ctx.file.data]),
+            )]
+
+        tool = rule(
+            implementation = _tool_impl,
+            attrs = {"data": attr.label(allow_single_file = True)},
+            executable = True,
+        )
+        """);
+    // Spawns that can't be cached, such as tests with --nocache_test_results, still need to be able
+    // to read their inputs from the disk cache.
+    write(
+        "a/BUILD",
+        """
+        load(":rules.bzl", "tool")
+
+        genrule(
+            name = "data",
+            outs = ["data.out"],
+            cmd = "echo -n data > $@",
+            tags = ["no-remote"],
+        )
+        tool(name = "tool", data = ":data")
+        genrule(
+            name = "consumer",
+            srcs = ["consumer.in"],
+            outs = ["consumer.out"],
+            tools = [":tool"],
+            cmd = "cat $(execpath :tool).runfiles/*/a/data.out $(location consumer.in) > $@",
+            tags = %s,
+        )
+        """
+            .formatted(consumerMayBeCached ? "[]" : "[\"no-cache\"]"));
+    write("a/consumer.in", "1");
+    addOptions("--norewind_lost_inputs", "--experimental_remote_cache_eviction_retries=0");
+    setDownloadToplevel();
+    buildTarget("//a:consumer");
+    assertValidOutputFile("a/consumer.out", "data1\n");
+
+    // Empty the remote CAS, but keep the disk cache. :data is then a disk cache hit whose output
+    // only exists in the disk cache, and :consumer has to upload it from there as part of the
+    // runfiles tree of :tool.
+    worker.reset();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    var originalDiskCacheDir = diskCacheDir;
+    restartServer();
+    addOptions(
+        "--disk_cache=" + originalDiskCacheDir.getPathString(),
+        "--norewind_lost_inputs",
+        "--experimental_remote_cache_eviction_retries=0");
+    setDownloadToplevel();
+    write("a/consumer.in", "2");
+    buildTarget("//a:consumer");
+
+    assertValidOutputFile("a/consumer.out", "data2\n");
   }
 
   @Override
