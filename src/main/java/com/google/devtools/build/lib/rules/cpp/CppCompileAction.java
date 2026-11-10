@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -104,6 +105,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.TreeSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -1165,7 +1167,12 @@ public class CppCompileAction extends AbstractAction
       return;
     }
     IncludeProblems errors = new IncludeProblems();
-    Set<Artifact> allowedIncludes = new HashSet<>();
+    Set<Artifact> allowedIncludes = (OS.getCurrent() == OS.WINDOWS)
+        ? new TreeSet<>(
+            comparing(
+                artifact -> artifact.getExecPath().getPathString(),
+                String.CASE_INSENSITIVE_ORDER))
+        : new HashSet<>();
     allowedIncludes.addAll(mandatoryInputs.toList());
     allowedIncludes.addAll(ccCompilationContext.getDeclaredIncludeSrcs().toList());
     allowedIncludes.addAll(additionalPrunableHeaders.toList());
@@ -1197,6 +1204,7 @@ public class CppCompileAction extends AbstractAction
     List<PathFragment> cxxSystemIncludeDirs = getBuiltInIncludeDirectories();
     return Iterables.concat(
         cxxSystemIncludeDirs,
+        ccCompilationContext.getIncludeDirs(),
         ccCompilationContext.getSystemIncludeDirs(),
         ccCompilationContext.getExternalIncludeDirs());
   }
