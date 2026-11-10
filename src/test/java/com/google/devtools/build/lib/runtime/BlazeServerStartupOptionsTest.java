@@ -75,10 +75,10 @@ public class BlazeServerStartupOptionsTest {
   public void testRedactClientEnvIsRepeatable() throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
-    parser.parse("--redact_client_env=MY_INTERNAL_SIGNER", "--redact_client_env=GLYD_*");
+    parser.parse("--redact_client_env=MY_INTERNAL_SIGNER", "--redact_client_env=FOOBAR_*");
     BlazeServerStartupOptions result = parser.getOptions(BlazeServerStartupOptions.class);
     assertThat(result.getRedactClientEnv())
-        .containsExactly("MY_INTERNAL_SIGNER", "GLYD_*")
+        .containsExactly("MY_INTERNAL_SIGNER", "FOOBAR_*")
         .inOrder();
   }
 }

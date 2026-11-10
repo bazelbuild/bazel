@@ -106,23 +106,23 @@ function test_batch_mode_server_log_redacts_invocation_policy() {
 
 function test_server_log_redacts_client_env_named_by_flag() {
   local secret="my_internal_signer_value_12345"
-  local glob_secret="glyd_prefixed_value_67890"
+  local glob_secret="foobar_prefixed_value_67890"
   local visible="visible_value_24680"
-  local startup_flags=(--redact_client_env=MY_INTERNAL_SIGNER "--redact_client_env=GLYD_*")
+  local startup_flags=(--redact_client_env=MY_INTERNAL_SIGNER "--redact_client_env=FOOBAR_*")
 
   # Shut down any previous server so the new startup flags take effect.
   bazel shutdown >& "$TEST_log" || fail "bazel shutdown failed"
 
   # The server logs this command's own arguments, client env included.
   local server_log
-  server_log="$(MY_INTERNAL_SIGNER="${secret}" GLYD_DEPLOY_X="${glob_secret}" \
+  server_log="$(MY_INTERNAL_SIGNER="${secret}" FOOBAR_DEPLOY_X="${glob_secret}" \
     MY_VISIBLE_VAR="${visible}" bazel "${startup_flags[@]}" info server_log)" \
     || fail "bazel info server_log failed"
 
   assert_not_contains "${secret}" "${server_log}"
   assert_not_contains "${glob_secret}" "${server_log}"
   assert_contains "--client_env=MY_INTERNAL_SIGNER=__private_value_removed__" "${server_log}"
-  assert_contains "--client_env=GLYD_DEPLOY_X=__private_value_removed__" "${server_log}"
+  assert_contains "--client_env=FOOBAR_DEPLOY_X=__private_value_removed__" "${server_log}"
   assert_contains "--client_env=MY_VISIBLE_VAR=${visible}" "${server_log}"
 }
 

@@ -385,9 +385,9 @@ TEST_F(BazelStartupOptionsTest, RedactClientEnv) {
 
   EXPECT_EQ(blaze_exit_code::SUCCESS,
             parse_flags({"--redact_client_env=MY_INTERNAL_SIGNER",
-                         "--redact_client_env=GLYD_*"}))
+                         "--redact_client_env=FOOBAR_*"}))
       << error;
-  EXPECT_EQ((std::vector<std::string>{"MY_INTERNAL_SIGNER", "GLYD_*"}),
+  EXPECT_EQ((std::vector<std::string>{"MY_INTERNAL_SIGNER", "FOOBAR_*"}),
             startup_options_->redact_client_env);
 
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flags({"--redact_client_env="}));

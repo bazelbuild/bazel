@@ -223,21 +223,21 @@ public class SafeRequestLoggingTest {
 
   @Test
   public void setRedactedClientEnvNames_starMatchesAnyRunWithinName() {
-    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("GLYD_*", "*_SIGNING_*"));
+    SafeRequestLogging.setRedactedClientEnvNames(ImmutableList.of("FOOBAR_*", "*_SIGNING_*"));
     assertThat(
             SafeRequestLogging.getRequestLogString(
                 ImmutableList.of(
-                    "--client_env=GLYD_X=notprinted",
-                    "--client_env=GLYD_X=a=b",
+                    "--client_env=FOOBAR_X=notprinted",
+                    "--client_env=FOOBAR_X=a=b",
                     "--client_env=PGP_SIGNING_PWD=notprinted",
-                    "--client_env=XGLYD_X=isprinted",
-                    "--client_env=OTHER=GLYD_X")))
+                    "--client_env=XFOOBAR_X=isprinted",
+                    "--client_env=OTHER=FOOBAR_X")))
         .isEqualTo(
-            "[--client_env=GLYD_X=__private_value_removed__,"
-                + " --client_env=GLYD_X=__private_value_removed__,"
+            "[--client_env=FOOBAR_X=__private_value_removed__,"
+                + " --client_env=FOOBAR_X=__private_value_removed__,"
                 + " --client_env=PGP_SIGNING_PWD=__private_value_removed__,"
-                + " --client_env=XGLYD_X=isprinted,"
-                + " --client_env=OTHER=GLYD_X]");
+                + " --client_env=XFOOBAR_X=isprinted,"
+                + " --client_env=OTHER=FOOBAR_X]");
   }
 
   @Test
