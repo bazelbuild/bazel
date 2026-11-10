@@ -2637,14 +2637,39 @@ func(
         && !label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
             instanceof LazyMaterializer lazyMaterializer) {
+      Path workspace = directories.getWorkspace();
+      String requester =
+          "%s at %s"
+              .formatted(
+                  identifyingStringForLogging,
+                  shortenLocation(
+                      thread.getCallerLocation(),
+                      workspace != null ? workspace.asFragment() : null,
+                      directories.getOutputBase().asFragment()));
       try {
-        lazyMaterializer.ensureMaterialized(
-            label.getRepository(), thread.getCallerLocation(), env.getListener());
+        lazyMaterializer.ensureMaterialized(label.getRepository(), requester);
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
       }
     }
     return new StarlarkPath(this, rootedPath.asPath());
+  }
+
+  /**
+   * Formats the given location like the UI does, but with the file relative to the workspace or,
+   * failing that, the output base. This keeps it short enough for the progress bar even for files
+   * in external repos.
+   */
+  static String shortenLocation(
+      Location location, @Nullable PathFragment workspace, PathFragment outputBase) {
+    PathFragment file = PathFragment.create(location.file());
+    if (workspace != null && file.startsWith(workspace)) {
+      file = file.relativeTo(workspace);
+    } else if (file.startsWith(outputBase)) {
+      file = file.relativeTo(outputBase);
+    }
+    return Location.fromFileLineColumn(file.getPathString(), location.line(), location.column())
+        .toString();
   }
 }

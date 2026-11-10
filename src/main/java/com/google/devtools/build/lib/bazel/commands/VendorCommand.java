@@ -476,7 +476,7 @@ public final class VendorCommand implements BlazeCommand {
     if (externalPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
       // Repos that have been retrieved from the remote repo contents cache may not be on disk yet.
       for (RepositoryName repo : reposToVendor) {
-        lazyMaterializer.ensureMaterialized(repo, /* location= */ null, env.getReporter());
+        lazyMaterializer.ensureMaterialized(repo, /* requester= */ null);
       }
     }
     vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);

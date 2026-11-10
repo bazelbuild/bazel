@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /**
  * A file system that may keep the contents of certain directory trees in memory, backed by remote
@@ -34,11 +32,11 @@ public interface LazyMaterializer {
    *
    * <p>Does nothing if the repository is already backed by the local file system.
    *
-   * @param location the location of the Starlark call that requires the repository, which is
-   *     reported along with the materialization
+   * @param requester a human-readable description of what requires the repository (e.g.
+   *     "repository @@foo at defs.bzl:1:2"), which is shown in the progress bar while the
+   *     repository is being materialized
    */
-  void ensureMaterialized(
-      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
+  void ensureMaterialized(RepositoryName repo, @Nullable String requester)
       throws IOException, InterruptedException;
 
   /**

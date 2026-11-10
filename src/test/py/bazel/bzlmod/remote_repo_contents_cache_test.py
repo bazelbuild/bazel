@@ -1678,13 +1678,9 @@ class RemoteRepoContentsCacheTest(
     # and then fully materialized because other accesses it.
     self.RunBazel(['clean', '--expunge'])
     _, _, stderr = self.RunBazel(['build', '@other//:haha'])
-    stderr = '\n'.join(stderr)
-    self.assertNotIn('JUST FETCHED', stderr)
-    self.assertIn(
-        'other_repo.bzl:2:41: Materializing remote repo @@+repo+my_repo',
-        stderr,
-    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     full_layout = snapshot()
+    self.assertEqual(full_layout['data.txt'], ('file', 'hello'))
 
     # Lazy action-input materialization: my_repo is restored from the cache into
     # the overlay and only the symlink consumed by the local action (and its
@@ -3237,6 +3233,8 @@ class RemoteRepoContentsCacheTest(
         ],
     )
 
+    data_file = os.path.join(self.RepoDir('my_repo'), 'data.txt')
+
     # Cold build: fetch my_repo and upload it to the remote repo contents cache.
     _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
@@ -3261,11 +3259,9 @@ class RemoteRepoContentsCacheTest(
 
     # Fully materialize my_repo onto the local disk by fetching @other, which
     # reads one of its files.
-    _, _, stderr = self.RunBazel(['build', '--nobuild', '@other//:haha'])
-    self.assertIn(
-        'other_repo.bzl:3:49: Materializing remote repo @@+repo+my_repo',
-        '\n'.join(stderr),
-    )
+    self.assertFalse(os.path.exists(data_file))
+    self.RunBazel(['build', '--nobuild', '@other//:haha'])
+    self.assertTrue(os.path.isfile(data_file))
 
     # Nothing has changed for //main:use_data, so nothing is reloaded or
     # analyzed again.
