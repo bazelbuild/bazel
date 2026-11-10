@@ -221,11 +221,10 @@ public class BlazeJavacMain {
           // avoid warning spam when enabling processor options for an entire tree, only a subset
           // of which actually runs the processor
           "compiler.warn.proc.unmatched.processor.options",
-          // don't want about v54 class files when running javac9 on JDK 10
-          // TODO(cushon): remove after the next javac update
+          // don't warn about class files one major version newer than javac supports
           "compiler.warn.big.major.version",
-          // don't want about incompatible processor source versions when running javac9 on JDK 10
-          // TODO(cushon): remove after the next javac update
+          // don't warn about annotation processors whose supported source version is older than
+          // the source level, which javac emits unconditionally and is very common
           "compiler.warn.proc.processor.incompatible.source.version",
           // https://github.com/bazelbuild/bazel/issues/5985
           "compiler.warn.unknown.enum.constant",
