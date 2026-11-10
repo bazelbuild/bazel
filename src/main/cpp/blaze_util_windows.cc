@@ -1515,29 +1515,37 @@ static string GetMsysBash() {
   return string();
 }
 
-// Lowercases `path`, uses backslashes as the only separator and collapses
-// repeated separators, so that paths can be compared regardless of case and
-// separator style.
-static string NormalizeForComparison(const string& path) {
-  string result = blaze_util::ToLower(path);
-  std::replace(result.begin(), result.end(), '/', '\\');
-  result.erase(
-      std::unique(result.begin(), result.end(),
-                  [](char a, char b) { return a == '\\' && b == '\\'; }),
-      result.end());
+// Uses backslashes as the only separator and collapses repeated separators.
+static std::wstring NormalizeSeparators(const std::wstring& path) {
+  std::wstring result = path;
+  std::replace(result.begin(), result.end(), L'/', L'\\');
+  result.erase(std::unique(result.begin(), result.end(),
+                           [](wchar_t a, wchar_t b) {
+                             return a == L'\\' && b == L'\\';
+                           }),
+               result.end());
   return result;
 }
 
-static bool IsUnderDirectory(const string& file, const string& dir) {
+// Returns whether `file` is under `dir`, regardless of case and separator
+// style.
+static bool IsUnderDirectory(const std::wstring& file,
+                             const std::wstring& dir) {
   if (dir.empty()) {
     return false;
   }
-  string prefix = NormalizeForComparison(dir);
-  if (prefix.back() != '\\') {
-    prefix += '\\';
+  std::wstring prefix = NormalizeSeparators(dir);
+  if (prefix.back() != L'\\') {
+    prefix += L'\\';
   }
-  string normalized_file = NormalizeForComparison(file);
-  return normalized_file.compare(0, prefix.size(), prefix) == 0;
+  std::wstring normalized_file = NormalizeSeparators(file);
+  if (normalized_file.size() < prefix.size()) {
+    return false;
+  }
+  int prefix_size = static_cast<int>(prefix.size());
+  return CompareStringOrdinal(normalized_file.c_str(), prefix_size,
+                              prefix.c_str(), prefix_size,
+                              TRUE) == CSTR_EQUAL;
 }
 
 // Returns the first `binary_name` on `path_list` that is not under any of
@@ -1545,7 +1553,11 @@ static bool IsUnderDirectory(const string& file, const string& dir) {
 static string GetBinaryFromPath(const string& binary_name,
                                 const string& path_list,
                                 const std::vector<string>& skip_dirs) {
-  char found[MAX_PATH];
+  std::wstring wbinary_name = blaze_util::CstringToWstring(binary_name);
+  std::vector<std::wstring> wskip_dirs;
+  for (const string& dir : skip_dirs) {
+    wskip_dirs.push_back(blaze_util::CstringToWstring(dir));
+  }
 
   // We do not fully replicate all the quirks of search in PATH.
   // There is no system function to do so, and that way lies madness.
@@ -1560,21 +1572,28 @@ static string GetBinaryFromPath(const string& binary_name,
     if (path.size() > 1 && path[0] == '"' && path[path.size() - 1] == '"') {
       path = path.substr(1, path.size() - 2);
     }
-    if (SearchPathA(path.c_str(),         // _In_opt_  LPCTSTR lpPath,
-                    binary_name.c_str(),  // _In_      LPCTSTR lpFileName,
-                    0,                    // LPCTSTR lpExtension,
-                    sizeof(found),        // DWORD   nBufferLength,
-                    found,                // _Out_     LPTSTR  lpBuffer,
-                    0                     // _Out_opt_ LPTSTR  *lpFilePart
-                    )) {
-      if (std::any_of(skip_dirs.begin(), skip_dirs.end(),
-                      [&found](const string& dir) {
-                        return IsUnderDirectory(found, dir);
+    std::wstring wpath = blaze_util::CstringToWstring(path);
+    std::wstring wfound(MAX_PATH, L'\0');
+    DWORD size = SearchPathW(wpath.c_str(), wbinary_name.c_str(), nullptr,
+                             static_cast<DWORD>(wfound.size()), &wfound[0],
+                             nullptr);
+    if (size >= wfound.size()) {
+      wfound.resize(size);
+      size = SearchPathW(wpath.c_str(), wbinary_name.c_str(), nullptr,
+                         static_cast<DWORD>(wfound.size()), &wfound[0],
+                         nullptr);
+    }
+    if (size > 0 && size < wfound.size()) {
+      wfound.resize(size);
+      string found = blaze_util::WstringToCstring(wfound);
+      if (std::any_of(wskip_dirs.begin(), wskip_dirs.end(),
+                      [&wfound](const std::wstring& dir) {
+                        return IsUnderDirectory(wfound, dir);
                       })) {
         BAZEL_LOG(INFO) << "Ignoring " << found;
       } else {
         BAZEL_LOG(INFO) << binary_name.c_str() << " found on PATH: " << found;
-        return string(found);
+        return found;
       }
     }
     if (end == string::npos) {

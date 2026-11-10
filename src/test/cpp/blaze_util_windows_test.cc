@@ -234,6 +234,31 @@ TEST_F(FindBashInPathTest, SkipsWindowsAppsAliasWithTrailingSeparator) {
   EXPECT_EQ(FindBashInPath(windows_apps, windir_, local_app_data + "\\"), "");
 }
 
+TEST_F(FindBashInPathTest, SkipsWindowsAppsAliasUnderNonAsciiPath) {
+  // "Jörg" in the directory on disk and on PATH, "JÖRG" in LOCALAPPDATA.
+  string local_app_data =
+      blaze_util::JoinPath(root_, "J\xc3\xb6rg\\LocalAppData");
+  string upper_local_app_data =
+      blaze_util::JoinPath(root_, "J\xc3\x96RG\\LocalAppData");
+  string windows_apps =
+      blaze_util::JoinPath(local_app_data, "Microsoft\\WindowsApps");
+  ASSERT_TRUE(blaze_util::MakeDirectories(windows_apps, 0777));
+  WriteBash(windows_apps);
+  WriteBash(git_);
+  string result =
+      FindBashInPath(windows_apps + ";" + git_, windir_, upper_local_app_data);
+  EXPECT_EQ(Normalize(result),
+            Normalize(blaze_util::JoinPath(git_, "bash.exe")));
+}
+
+TEST_F(FindBashInPathTest, FindsBashUnderNonAsciiPath) {
+  string dir = blaze_util::JoinPath(root_, "J\xc3\xb6rg\\bin");
+  ASSERT_TRUE(blaze_util::MakeDirectories(dir, 0777));
+  WriteBash(dir);
+  EXPECT_EQ(Normalize(FindBashInPath(dir, windir_, "")),
+            Normalize(blaze_util::JoinPath(dir, "bash.exe")));
+}
+
 TEST_F(FindBashInPathTest, KeepsWindowsAppsBashWhenLocalAppDataIsEmpty) {
   string windows_apps = blaze_util::JoinPath(root_, "Microsoft\\WindowsApps");
   ASSERT_TRUE(blaze_util::MakeDirectories(windows_apps, 0777));
