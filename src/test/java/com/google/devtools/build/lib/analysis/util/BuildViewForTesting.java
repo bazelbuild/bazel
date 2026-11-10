@@ -240,6 +240,8 @@ public class BuildViewForTesting {
         explicitTargetPatterns,
         aspects,
         aspectsParameters,
+        /* hostExecTopLevelTargets= */ ImmutableSet.of(),
+        /* runOnHost= */ false,
         viewOptions,
         Options.getDefaults(BuildRequestOptions.class),
         keepGoing,
