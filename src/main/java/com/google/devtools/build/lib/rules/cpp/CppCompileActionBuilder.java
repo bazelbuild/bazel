@@ -83,13 +83,7 @@ public final class CppCompileActionBuilder {
       BuildConfigurationValue configuration,
       CppSemantics cppSemantics) {
 
-    ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext ruleContext
-        && ruleContext.useAutoExecGroups()) {
-      actionOwner = actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());
-    }
-
-    this.owner = actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
+    this.owner = getActionOwner(actionConstructionContext, cppSemantics.getCppToolchainType());
     this.shareable = false;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -131,6 +125,20 @@ public final class CppCompileActionBuilder {
     this.additionalOutputs = other.additionalOutputs;
   }
 
+  static ActionOwner getActionOwner(
+      ActionConstructionContext actionConstructionContext, String cppToolchainType) {
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.useAutoExecGroups()) {
+      String execGroup =
+          ruleContext.getAutomaticExecGroup(Label.parseCanonicalUnchecked(cppToolchainType));
+      if (execGroup != null) {
+        return ruleContext.getActionOwner(execGroup);
+      }
+    }
+    return actionConstructionContext.getActionOwner();
+  }
+
+  @CanIgnoreReturnValue
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
     Preconditions.checkState(
         this.sourceFile == null,
