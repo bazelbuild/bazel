@@ -17,8 +17,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleObserver;
+import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.observers.TestObserver;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -172,6 +178,70 @@ public class TokenBucketTest {
 
     observer1.assertValue(0).assertComplete();
     observer2.assertValue(1).assertComplete();
+  }
+
+  @Test
+  public void acquireToken_tokensAddedConcurrently_noneLost() throws Exception {
+    // Tokens are returned from the callbacks of concurrently closing connections.
+    TokenBucket<Integer> bucket = new TokenBucket<>();
+    int tokenCount = 64;
+    var acquired = new ConcurrentLinkedQueue<Integer>();
+    var observers = new ArrayList<TestObserver<Integer>>();
+    for (int i = 0; i < tokenCount; i++) {
+      observers.add(bucket.acquireToken().doOnSuccess(acquired::add).test());
+    }
+    var threads = new ArrayList<Thread>();
+    for (int i = 0; i < tokenCount; i++) {
+      int token = i;
+      threads.add(Thread.ofPlatform().start(() -> bucket.addToken(token)));
+    }
+    for (Thread thread : threads) {
+      thread.join();
+    }
+
+    for (TestObserver<Integer> observer : observers) {
+      observer.awaitDone(10, TimeUnit.SECONDS).assertComplete();
+    }
+    assertThat(acquired).hasSize(tokenCount);
+    assertThat(bucket.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void acquireToken_disposedWhileDelivering_tokenRemains() {
+    // A downstream that disposes its subscription when the token arrives keeps the token out of
+    // reach of the delivery: it must still be handed over, as the downstream's own operators take
+    // care of returning it.
+    TokenBucket<Integer> bucket = new TokenBucket<>();
+    var received = new AtomicReference<Integer>();
+    var disposable = new AtomicReference<Disposable>();
+    bucket
+        .acquireToken()
+        .subscribe(
+            new SingleObserver<Integer>() {
+              @Override
+              public void onSubscribe(Disposable d) {
+                disposable.set(d);
+              }
+
+              @Override
+              public void onSuccess(Integer token) {
+                disposable.get().dispose();
+                received.set(token);
+              }
+
+              @Override
+              public void onError(Throwable e) {
+                throw new AssertionError(e);
+              }
+            });
+    bucket.addToken(0);
+
+    assertThat(received.get()).isEqualTo(0);
+    assertThat(bucket.size()).isEqualTo(0);
+    // A token added later isn't delivered to the disposed acquisition.
+    bucket.addToken(1);
+    assertThat(received.get()).isEqualTo(0);
+    assertThat(bucket.size()).isEqualTo(1);
   }
 
   @Test

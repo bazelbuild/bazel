@@ -641,6 +641,41 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testRegistryModuleVersionOmitted() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(createModuleKey("foo", "1.0"), "module(name='foo')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("foo", "1.0"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    InterimModule module = result.get(skyKey).module();
+    assertThat(module.getVersion()).isEqualTo(Version.parse("1.0"));
+  }
+
+  @Test
+  public void testRegistryModuleVersionMismatch() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("foo", "1.0"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains("the MODULE.bazel file of foo@1.0 declares a different version (2.0)");
+  }
+
+  @Test
   public void testLocalPathOverride() throws Exception {
     // There is an override for B to use the local path "code_for_b", so we shouldn't even be
     // looking at the registry.

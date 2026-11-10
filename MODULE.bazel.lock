@@ -248,7 +248,7 @@
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
         "bzlTransitiveDigest": "6Wfad+bH4h61GGrIlsdDTm2NuuD9ZFw97sH5uB5AzwU=",
-        "usagesDigest": "6KWtZB+1zRQnZg6S4cfJ4EOlEZdQihKUqYBJZrZlMGw=",
+        "usagesDigest": "7E4ajPe57HNsFiWMvrwxZ2yZ9nKkcBub4hrKWAVZtoE=",
         "recordedInputs": [
           "REPO_MAPPING:,abseil-cpp abseil-cpp+",
           "REPO_MAPPING:,apple_support apple_support+",
@@ -332,7 +332,7 @@
     "@@bazel_ci_rules+//:rbe_config.bzl%rbe_config_extension": {
       "general": {
         "bzlTransitiveDigest": "YxbbJz9gYdazaj5RePCEcYS8g/C5QDL+HwwZOmeE6wM=",
-        "usagesDigest": "QOjIrMAnUkAa3D3nHnCkIKWjCxXGPNrExb4X50VzPDY=",
+        "usagesDigest": "UQt0c6TLgs5YWo2o9uGNpOBfYB+SRmaR9FPr5Lv5sZw=",
         "recordedInputs": [],
         "generatedRepoSpecs": {
           "rbe_ubuntu2404": {
@@ -347,7 +347,7 @@
     "@@googleapis+//:extensions.bzl%switched_rules": {
       "general": {
         "bzlTransitiveDigest": "vG6fuTzXD8MMvHWZEQud0MMH7eoC4GXY0va7VrFFh04=",
-        "usagesDigest": "tAN0ETCDnl1kDuw5ExvU/3q2+7NKvom55OfVzqyrdIM=",
+        "usagesDigest": "aBbyUakCtjzYgCdJepfGd3v0ZC1OHd3P205v9uIcSGs=",
         "recordedInputs": [],
         "generatedRepoSpecs": {
           "com_google_googleapis_imports": {
@@ -1148,7 +1148,7 @@
     "@@rules_graalvm+//:extensions.bzl%graalvm": {
       "general": {
         "bzlTransitiveDigest": "h5NoLe6qf+ziboLGAdcXrD+fgwCizx5PmMd0VH19SXY=",
-        "usagesDigest": "Gq82e9Jv9AqDz5YGdlN3tU3wWgjjSNqMNrodSNVVtvc=",
+        "usagesDigest": "fbtpMydzVfaYARwEFMkKU4EDebRo8i+AYqeBv1psb7A=",
         "recordedInputs": [
           "REPO_MAPPING:rules_graalvm+,bazel_skylib bazel_skylib+"
         ],
@@ -1177,7 +1177,7 @@
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "L7c5et47NQ74TA3qvxui1iWlulW7oMivzkcIoU7vwHU=",
-        "usagesDigest": "TsAYsrbXxsV/T0Qmhiow9deexDR6vZI8FzLZzo/mOEo=",
+        "usagesDigest": "TQxrDmjWHaWJFtmdYGnfXlzk/Rn1njTwK/ej2fGaiaA=",
         "recordedInputs": [
           "REPO_MAPPING:grpc-java+,com_google_protobuf protobuf+",
           "REPO_MAPPING:grpc-java+,io_grpc_grpc_java grpc-java+",
@@ -4829,7 +4829,7 @@
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "Bfog4/CZlLdGG8/+pZbgsnv4bZeyvmOli3UZIQq35+E=",
+        "bzlTransitiveDigest": "N0fPhJacazEDKNGD+osHhs+bQfazPtnJszXAijQSdV0=",
         "usagesDigest": "OLoIStnzNObNalKEMRq99FqenhPGLFZ5utVLV4sz7OI=",
         "recordedInputs": [
           "REPO_MAPPING:bazel_features+,bazel_features_globals bazel_features++version_extension+bazel_features_globals",

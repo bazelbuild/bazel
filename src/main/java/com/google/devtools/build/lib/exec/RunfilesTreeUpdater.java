@@ -21,9 +21,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,11 +59,6 @@ public class RunfilesTreeUpdater {
    */
   private final ConcurrentHashMap<PathFragment, CompletableFuture<Void>> updatedTrees =
       new ConcurrentHashMap<>();
-
-  public static RunfilesTreeUpdater forCommandEnvironment(CommandEnvironment env) {
-    return new RunfilesTreeUpdater(
-        env.getExecRoot(), env.getBlazeWorkspace().getBinTools(), env.getXattrProvider());
-  }
 
   public RunfilesTreeUpdater(Path execRoot, BinTools binTools, XattrProvider xattrProvider) {
     this.execRoot = execRoot;

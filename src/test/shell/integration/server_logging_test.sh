@@ -77,4 +77,46 @@ function test_log_file_uses_single_line_formatter() {
   fi
 }
 
+function test_server_log_redacts_credentials_and_tokens() {
+  local bes_token="mysupersecretbestoken12345"
+  local creds_token="MY_SECRET_CREDENTIALS_FILE.json"
+  local policy_secret="secret_token_from_policy"
+
+  # Shut down any previous server so server startup logging in BlazeRuntime is triggered.
+  bazel shutdown >& "$TEST_log" || fail "bazel shutdown failed"
+
+  bazel \
+    --invocation_policy="flag_policies:{flag_name:'bes_header' set_value:{behavior:FINAL_VALUE_IGNORE_OVERRIDES flag_value:'Authorization=Bearer ${policy_secret}'}}" \
+    info \
+    --bes_header="Authorization=Bearer ${bes_token}" \
+    --google_credentials="${creds_token}" \
+    >& "$TEST_log" || fail "bazel info failed"
+
+  local server_log
+  server_log="$(bazel info server_log)" || fail "bazel info server_log failed"
+
+  assert_not_contains "${bes_token}" "${server_log}"
+  assert_not_contains "${creds_token}" "${server_log}"
+  assert_not_contains "${policy_secret}" "${server_log}"
+
+  assert_contains "Setting value for option '--bes_header' from invocation policy to '<REDACTED>'" "${server_log}"
+  assert_contains "--google_credentials=<REDACTED>" "${server_log}"
+}
+
+function test_batch_mode_server_log_redacts_invocation_policy() {
+  local policy_secret="secret_token_from_batch_policy"
+
+  bazel shutdown >& "$TEST_log" || fail "bazel shutdown failed"
+
+  local server_log
+  server_log="$(bazel \
+    --batch \
+    --invocation_policy="flag_policies:{flag_name:'bes_header' set_value:{behavior:FINAL_VALUE_IGNORE_OVERRIDES flag_value:'Authorization=Bearer ${policy_secret}'}}" \
+    info server_log)" || fail "bazel info server_log failed"
+
+  assert_not_contains "${policy_secret}" "${server_log}"
+  assert_contains "Running Bazel in batch mode" "${server_log}"
+  assert_contains "--invocation_policy=<REDACTED>" "${server_log}"
+}
+
 run_suite "${PRODUCT_NAME} logging test"

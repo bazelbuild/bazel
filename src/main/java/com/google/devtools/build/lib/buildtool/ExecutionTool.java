@@ -252,6 +252,10 @@ public class ExecutionTool {
     return actionContextRegistry.getContext(TestActionContext.class);
   }
 
+  SpawnStrategyRegistry getSpawnStrategyRegistry() {
+    return spawnStrategyRegistry;
+  }
+
   /**
    * Sets up for execution.
    *

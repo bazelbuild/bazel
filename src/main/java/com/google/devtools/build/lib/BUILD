@@ -162,6 +162,7 @@ java_library(
 java_library(
     name = "runtime/safe_request_logging",
     srcs = ["runtime/SafeRequestLogging.java"],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -396,6 +397,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:executor_lifecycle_listener",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:remote_local_fallback_registry",
+        "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:single_build_file_cache",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
