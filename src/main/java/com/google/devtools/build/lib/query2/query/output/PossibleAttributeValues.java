@@ -72,7 +72,7 @@ public class PossibleAttributeValues {
     }
 
     Iterable<?> concatenatedSelectsValue =
-        attributeMap.getConcatenatedSelectorListsOfListType(attr.getName(), attr.getType());
+        attributeMap.getConcatenatedSelectorListsOfCollectionType(attr.getName(), attr.getType());
     if (concatenatedSelectsValue != null) {
       return Lists.newArrayList(concatenatedSelectsValue);
     }
