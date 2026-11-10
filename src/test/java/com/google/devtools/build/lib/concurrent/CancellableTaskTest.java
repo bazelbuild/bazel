@@ -518,6 +518,9 @@ public final class CancellableTaskTest {
     var waiter = new TestThread(task::awaitCompletion);
     waiter.start();
     try {
+      while (waiter.isAlive() && waiter.getState() != Thread.State.WAITING) {
+        Thread.onSpinWait();
+      }
       assertThat(waiter.isAlive()).isTrue();
     } finally {
       taskMayFinish.release();

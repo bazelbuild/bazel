@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -63,6 +65,7 @@ import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,19 +99,32 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   private RemotePathChecker remotePathChecker =
       (context, path, digest) -> {
-        var fs = path.getFileSystem();
-        if (!(fs instanceof RemoteActionFileSystem remoteActionFileSystem)) {
+        if (!(path.getFileSystem() instanceof RemoteActionFileSystem remoteActionFileSystem)) {
           return immediateFuture(Optional.of(path));
         }
         try {
-          var hostPath = remoteActionFileSystem.getHostFileSystem().getPath(path.asFragment());
-          if (hostPath.exists()) {
-            return immediateFuture(Optional.of(hostPath));
+          var hostFs = remoteActionFileSystem.getHostFileSystem();
+          if (!(path.statIfFound(Symlinks.FOLLOW) instanceof FileStatusWithMetadata status)
+              || !status.getMetadata().isRemote()) {
+            var hostPath = hostFs.getPath(path.asFragment());
+            return immediateFuture(hostPath.exists() ? Optional.of(hostPath) : Optional.empty());
           }
           if (diskCacheClient != null && context.getReadCachePolicy().allowDiskCache()) {
-            return immediateFuture(Optional.ofNullable(diskCacheClient.findBlob(digest)));
+            var diskCachePath = diskCacheClient.findBlob(digest);
+            if (diskCachePath != null) {
+              return immediateFuture(Optional.of(diskCachePath));
+            }
           }
-          return immediateFuture(Optional.empty());
+          // A local copy of a remote input may be stale.
+          var resolvedPath = status.getMetadata().getResolvedPath();
+          var hostPath = hostFs.getPath(resolvedPath != null ? resolvedPath : path.asFragment());
+          var hostStatus = hostPath.statIfFound();
+          return immediateFuture(
+              hostStatus != null
+                      && hostStatus.getSize() == digest.getSizeBytes()
+                      && Arrays.equals(hostPath.getDigest(), DigestUtil.toBinaryDigest(digest))
+                  ? Optional.of(hostPath)
+                  : Optional.empty());
         } catch (IOException e) {
           return immediateFailedFuture(e);
         }
@@ -216,11 +232,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // the interim.
             throw new CacheNotFoundException(digest, execPath);
           }
+          var upload = uploadOrChunkFile(context, digest, localPath.get(), force);
+          if (diskCacheClient == null
+              || !localPath.get().equals(diskCacheClient.toPath(digest, Store.CAS))) {
+            return upload;
+          }
           return Futures.catchingAsync(
-              uploadOrChunkFile(context, digest, localPath.get(), force),
+              upload,
               IOException.class,
               e -> {
-                // The file may have been deleted after it was found, e.g. by a concurrent garbage
+                // The entry may have been deleted after it was found, e.g. by a concurrent garbage
                 // collection of the disk cache. Report it as lost so that it can be regenerated.
                 if (!localPath.get().exists()) {
                   var cacheNotFoundException = new CacheNotFoundException(digest, execPath);

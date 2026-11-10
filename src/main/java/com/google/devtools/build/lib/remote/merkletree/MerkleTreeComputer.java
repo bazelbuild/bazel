@@ -44,7 +44,6 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -92,6 +91,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -546,9 +546,9 @@ public final class MerkleTreeComputer {
                 artifactPathResolver,
                 blobPolicy);
           } catch (IOException e) {
-            throw new WrappedException(e);
+            throw new WrappedIOException(e);
           } catch (InterruptedException e) {
-            throw new WrappedException(e);
+            throw new WrappedInterruptedException(e);
           }
         },
         subTreesFuture.isDone() ? directExecutor() : MERKLE_TREE_BUILD_POOL);
@@ -867,61 +867,51 @@ public final class MerkleTreeComputer {
   /**
    * Collects the results of the given completed subtree futures.
    *
-   * @throws WrappedException if at least one subtree failed with an {@link IOException} or {@link
-   *     InterruptedException}. If multiple subtrees failed with an {@link IOException}, the
-   *     failures are merged into a single {@link BulkTransferException}.
-   * @throws CancellationException if at least one subtree has been canceled
+   * <p>If all subtrees that failed did so due to lost inputs, the failures are merged into a single
+   * {@link BulkTransferException} that reports all lost inputs. Otherwise, an unexpected failure or
+   * the first other failure is rethrown unchanged.
    */
   private static <T> ImmutableMap<T, MerkleTree.RootOnly> collectSubTrees(
       List<ListenableFuture<Map.Entry<T, MerkleTree.RootOnly>>> subTreeFutures) {
     var subTrees = new LinkedHashMap<T, MerkleTree.RootOnly>();
     // Subtree computations are shared, so the same failure may be reported for multiple entries.
-    Set<Throwable> failures = null;
+    var failures = new LinkedHashSet<Throwable>();
     for (var future : subTreeFutures) {
       try {
-        // A canceled subtree cancels the combined future by propagating CancellationException.
         var entry = Futures.getDone(future);
         // The same entry may appear multiple times (see SpawnInputs#flatten()).
         subTrees.putIfAbsent(entry.getKey(), entry.getValue());
       } catch (ExecutionException e) {
-        if (failures == null) {
-          failures = Sets.newIdentityHashSet();
-        }
         failures.add(e.getCause());
+      } catch (CancellationException e) {
+        var interruptedException = new InterruptedException();
+        interruptedException.initCause(e);
+        failures.add(new WrappedInterruptedException(interruptedException));
       }
     }
-    if (failures == null) {
+    if (failures.isEmpty()) {
       return ImmutableMap.copyOf(subTrees);
     }
 
-    // An unexpected failure takes precedence over an interruption, which in turn takes precedence
-    // over I/O failures.
+    var lostInputs = new BulkTransferException();
+    WrappedException otherFailure = null;
     for (Throwable failure : failures) {
-      if (!(failure instanceof WrappedException)) {
-        Throwables.throwIfUnchecked(failure);
-        throw new IllegalStateException(failure);
-      }
-    }
-    IOException firstIoException = null;
-    BulkTransferException mergedIoExceptions = null;
-    for (Throwable failure : failures) {
-      if (!(failure.getCause() instanceof IOException ioException)) {
-        // The computation of a subtree has been interrupted.
-        throw (WrappedException) failure;
-      }
-      if (firstIoException == null) {
-        firstIoException = ioException;
-      } else {
-        // Merging preserves the property of BulkTransferException that inputs are only reported
-        // as lost if every single failure is due to a missing blob.
-        if (mergedIoExceptions == null) {
-          mergedIoExceptions = new BulkTransferException(firstIoException);
+      switch (failure) {
+        case WrappedIOException e
+            when BulkTransferException.allCausedByCacheNotFoundException(e.getCause()) ->
+            lostInputs.add(e.getCause());
+        case WrappedException e -> {
+          if (otherFailure == null) {
+            otherFailure = e;
+          }
         }
-        mergedIoExceptions.add(ioException);
+        default -> {
+          Throwables.throwIfUnchecked(failure);
+          throw new IllegalStateException(failure);
+        }
       }
     }
-    throw new WrappedException(
-        mergedIoExceptions != null ? mergedIoExceptions : checkNotNull(firstIoException));
+    throw otherFailure != null ? otherFailure : new WrappedIOException(lostInputs);
   }
 
   @Nullable
@@ -1139,9 +1129,9 @@ public final class MerkleTreeComputer {
                     remoteActionExecutionContext,
                     blobPolicy);
           } catch (IOException e) {
-            throw new WrappedException(e);
+            throw new WrappedIOException(e);
           } catch (InterruptedException e) {
-            throw new WrappedException(e);
+            throw new WrappedInterruptedException(e);
           }
           return transform(
               merkleTreeFuture,
@@ -1155,9 +1145,9 @@ public final class MerkleTreeComputer {
                           blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD);
                     }
                   } catch (IOException e) {
-                    throw new WrappedException(e);
+                    throw new WrappedIOException(e);
                   } catch (InterruptedException e) {
-                    throw new WrappedException(e);
+                    throw new WrappedInterruptedException(e);
                   }
                 }
                 // Move the computed root to the persistent cache so that it can be reused by later
@@ -1314,25 +1304,45 @@ public final class MerkleTreeComputer {
     }
   }
 
-  private static final class WrappedException extends RuntimeException {
-    private WrappedException(IOException cause) {
+  /** Carries a checked exception through a future. */
+  private abstract static sealed class WrappedException extends RuntimeException {
+    private WrappedException(Exception cause) {
       super(cause);
     }
 
-    private WrappedException(InterruptedException cause) {
-      super(cause);
-    }
-
-    void unwrapAndThrow() throws IOException, InterruptedException {
-      Throwables.throwIfInstanceOf(getCause(), IOException.class);
-      Throwables.throwIfInstanceOf(getCause(), InterruptedException.class);
-      throw new IllegalStateException(getCause());
-    }
+    abstract void unwrapAndThrow() throws IOException, InterruptedException;
 
     @Override
     public Throwable fillInStackTrace() {
       // Don't fill in the stack trace to avoid unnecessary overhead.
       return this;
+    }
+  }
+
+  private static final class WrappedIOException extends WrappedException {
+    private WrappedIOException(IOException cause) {
+      super(cause);
+    }
+
+    @Override
+    public synchronized IOException getCause() {
+      return (IOException) super.getCause();
+    }
+
+    @Override
+    void unwrapAndThrow() throws IOException {
+      throw getCause();
+    }
+  }
+
+  private static final class WrappedInterruptedException extends WrappedException {
+    private WrappedInterruptedException(InterruptedException cause) {
+      super(cause);
+    }
+
+    @Override
+    void unwrapAndThrow() throws InterruptedException {
+      throw (InterruptedException) getCause();
     }
   }
 }

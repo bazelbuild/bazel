@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -29,6 +28,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
@@ -443,7 +443,7 @@ public class CombinedCacheTest {
     Digest digest = digestUtil.computeAsUtf8("bar");
     artifact.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "bar");
-    RemoteActionInputFetcher inputFetcher = mockInputFetcher();
+    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
     RemoteActionFileSystem actionFs =
         createActionFileSystemWithRemoteInput(artifact, digest, inputFetcher);
 
@@ -460,7 +460,33 @@ public class CombinedCacheTest {
                 remoteCache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableList.of(digest))))
         .isEmpty();
-    verify(inputFetcher, never()).prefetchFiles(any(), any(), any(), any(), any(), any());
+    verifyNoInteractions(inputFetcher);
+  }
+
+  @Test
+  public void uploadFile_staleLocalCopyOfRemoteInput_reportsLostInput() throws Exception {
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(new InMemoryCacheClient());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "baz");
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithRemoteInput(
+            artifact, digest, mock(RemoteActionInputFetcher.class));
+
+    var e =
+        assertThrows(
+            CacheNotFoundException.class,
+            () ->
+                getFromFuture(
+                    remoteCache.uploadFile(
+                        remoteActionExecutionContext,
+                        digest,
+                        actionFs.getPath(artifact.getPath().asFragment()),
+                        artifact.getExecPath(),
+                        /* force= */ false)));
+    assertThat(e.getMissingDigest()).isEqualTo(digest);
   }
 
   @Test
@@ -483,7 +509,7 @@ public class CombinedCacheTest {
     Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
     Digest digest = digestUtil.computeAsUtf8("bar");
     diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
-    RemoteActionInputFetcher inputFetcher = mockInputFetcher();
+    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
     RemoteActionFileSystem actionFs =
         createActionFileSystemWithRemoteInput(artifact, digest, inputFetcher);
 
@@ -500,7 +526,7 @@ public class CombinedCacheTest {
                 remoteCache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableList.of(digest))))
         .isEmpty();
-    verify(inputFetcher, never()).prefetchFiles(any(), any(), any(), any(), any(), any());
+    verifyNoInteractions(inputFetcher);
     assertThat(artifact.getPath().exists()).isFalse();
   }
 
@@ -532,7 +558,8 @@ public class CombinedCacheTest {
     Digest digest = digestUtil.computeAsUtf8("bar");
     diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
     RemoteActionFileSystem actionFs =
-        createActionFileSystemWithRemoteInput(artifact, digest, mockInputFetcher());
+        createActionFileSystemWithRemoteInput(
+            artifact, digest, mock(RemoteActionInputFetcher.class));
 
     var e =
         assertThrows(
@@ -547,13 +574,6 @@ public class CombinedCacheTest {
                         /* force= */ false)));
     assertThat(e.getMissingDigest()).isEqualTo(digest);
     assertThat(e.getExecPath()).isEqualTo(artifact.getExecPath());
-  }
-
-  private static RemoteActionInputFetcher mockInputFetcher() {
-    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
-    when(inputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
-        .thenReturn(immediateVoidFuture());
-    return inputFetcher;
   }
 
   /** Returns an action file system on which {@code artifact} is an input stored remotely. */
