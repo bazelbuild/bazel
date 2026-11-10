@@ -303,7 +303,8 @@ final class AspectFunction implements SkyFunction {
               key,
               aspect,
               ConfiguredAspect.NonApplicableAspect.INSTANCE,
-              computeDependenciesState.transitivePackages());
+              computeDependenciesState.transitivePackages(),
+              /* baseIsOnlyAttachment= */ false);
       // TODO(lberki): Call tryUploadAsync() only in one place
       SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, key, result, env);
       return result;
@@ -340,7 +341,8 @@ final class AspectFunction implements SkyFunction {
               key,
               aspect,
               ConfiguredAspect.NonApplicableAspect.INSTANCE,
-              computeDependenciesState.transitivePackages());
+              computeDependenciesState.transitivePackages(),
+              /* baseIsOnlyAttachment= */ false);
       // TODO(lberki): Call tryUploadAsync() only in one place
       SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, key, result, env);
       return result;
@@ -1061,7 +1063,16 @@ final class AspectFunction implements SkyFunction {
     if (configuredAspect != NonApplicableAspect.INSTANCE) {
       analysisProgressReceiver.doneConfigureAspect();
     }
-    return AspectValue.create(key, aspect, configuredAspect, transitiveState.transitivePackages());
+    // A private attribute or a resolved toolchain can request the same target as the attachment.
+    // Check both the resolved and original label, conservatively retaining other configurations.
+    boolean baseIsOnlyAttachment =
+        directDeps.values().stream()
+            .noneMatch(
+                dep ->
+                    dep.getTargetLabel().equals(key.getLabel())
+                        || dep.getConfiguredTarget().getOriginalLabel().equals(key.getLabel()));
+    return AspectValue.create(
+        key, aspect, configuredAspect, transitiveState.transitivePackages(), baseIsOnlyAttachment);
   }
 
   private static boolean targetSatisfiesAspect(Target target, Aspect aspect) {

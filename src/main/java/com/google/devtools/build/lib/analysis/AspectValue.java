@@ -38,10 +38,12 @@ public class AspectValue extends BasicActionLookupValue
       AspectKey key,
       Aspect aspect,
       ConfiguredAspect configuredAspect,
-      @Nullable NestedSet<Package.Metadata> transitivePackages) {
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      boolean baseIsOnlyAttachment) {
     return transitivePackages == null
-        ? new AspectValue(aspect, configuredAspect)
-        : new AspectValueWithTransitivePackages(key, aspect, configuredAspect, transitivePackages);
+        ? new AspectValue(aspect, configuredAspect, baseIsOnlyAttachment)
+        : new AspectValueWithTransitivePackages(
+            key, aspect, configuredAspect, transitivePackages, baseIsOnlyAttachment);
   }
 
   public static AspectValue createForAlias(
@@ -64,12 +66,21 @@ public class AspectValue extends BasicActionLookupValue
   // save memory.
   private final boolean writesOutputToMasterLog;
 
-  private AspectValue(Aspect aspect, ConfiguredAspect configuredAspect) {
+  // True when the configured aspect has no separate prerequisite at its own base label.
+  private final boolean baseIsOnlyAttachment;
+
+  public final boolean baseIsOnlyAttachment() {
+    return baseIsOnlyAttachment;
+  }
+
+  private AspectValue(
+      Aspect aspect, ConfiguredAspect configuredAspect, boolean baseIsOnlyAttachment) {
     this(
         configuredAspect.getActions(),
         checkNotNull(aspect),
         configuredAspect.getProviders(),
-        aspect.getDefinition().getAttributes().containsKey("$print_to_master_log"));
+        aspect.getDefinition().getAttributes().containsKey("$print_to_master_log"),
+        baseIsOnlyAttachment);
   }
 
   @AutoCodec.Instantiator
@@ -77,11 +88,13 @@ public class AspectValue extends BasicActionLookupValue
       ImmutableList<ActionAnalysisMetadata> actions,
       Aspect aspect,
       TransitiveInfoProviderMap providers,
-      boolean writesOutputToMasterLog) {
+      boolean writesOutputToMasterLog,
+      boolean baseIsOnlyAttachment) {
     super(actions);
     this.aspect = aspect;
     this.providers = providers;
     this.writesOutputToMasterLog = writesOutputToMasterLog;
+    this.baseIsOnlyAttachment = baseIsOnlyAttachment;
   }
 
   public AspectKey getKeyForTransitivePackageTracking() {
@@ -150,8 +163,9 @@ public class AspectValue extends BasicActionLookupValue
         AspectKey key,
         Aspect aspect,
         ConfiguredAspect configuredAspect,
-        NestedSet<Package.Metadata> transitivePackages) {
-      super(aspect, configuredAspect);
+        NestedSet<Package.Metadata> transitivePackages,
+        boolean baseIsOnlyAttachment) {
+      super(aspect, configuredAspect, baseIsOnlyAttachment);
       this.transitivePackages = checkNotNull(transitivePackages);
       this.key = checkNotNull(key);
     }
@@ -183,7 +197,7 @@ public class AspectValue extends BasicActionLookupValue
   @VisibleForSerialization
   static class AspectValueForAlias extends AspectValue {
     private AspectValueForAlias(Aspect aspect, ConfiguredAspect configuredAspect) {
-      super(aspect, configuredAspect);
+      super(aspect, configuredAspect, /* baseIsOnlyAttachment= */ false);
     }
 
     @AutoCodec.Instantiator
@@ -192,7 +206,7 @@ public class AspectValue extends BasicActionLookupValue
         Aspect aspect,
         TransitiveInfoProviderMap providers,
         boolean writesOutputToMasterLog) {
-      super(actions, aspect, providers, writesOutputToMasterLog);
+      super(actions, aspect, providers, writesOutputToMasterLog, /* baseIsOnlyAttachment= */ false);
     }
   }
 
@@ -203,7 +217,7 @@ public class AspectValue extends BasicActionLookupValue
         Aspect aspect,
         ConfiguredAspect configuredAspect,
         NestedSet<Package.Metadata> transitivePackages) {
-      super(key, aspect, configuredAspect, transitivePackages);
+      super(key, aspect, configuredAspect, transitivePackages, /* baseIsOnlyAttachment= */ false);
     }
   }
 
