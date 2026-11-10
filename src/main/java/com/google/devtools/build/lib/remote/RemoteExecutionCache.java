@@ -67,6 +67,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -77,12 +78,13 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * An interface used to check whether a given {@link Path} is available without contacting the
-   * remote cache, i.e., it is present on the local disk, perhaps after being downloaded from the
+   * An interface used to find a copy of a given {@link Path} that is available without contacting
+   * the remote cache, i.e., is present on the local disk, perhaps after being downloaded from the
    * disk cache.
    */
   public interface RemotePathChecker {
-    ListenableFuture<Boolean> isAvailableLocally(RemoteActionExecutionContext context, Path path);
+    /** Returns the path to read the contents from, or empty if they aren't available locally. */
+    ListenableFuture<Optional<Path>> getLocalPath(RemoteActionExecutionContext context, Path path);
   }
 
   /**
@@ -96,11 +98,11 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private RemotePathChecker remotePathChecker =
       new RemotePathChecker() {
         @Override
-        public ListenableFuture<Boolean> isAvailableLocally(
+        public ListenableFuture<Optional<Path>> getLocalPath(
             RemoteActionExecutionContext context, Path path) {
           var fs = path.getFileSystem();
           if (!(fs instanceof RemoteActionFileSystem remoteActionFileSystem)) {
-            return immediateFuture(true);
+            return immediateFuture(Optional.of(path));
           }
           // If the file is available in the disk cache, we can attempt to download it from there.
           ListenableFuture<Void> downloadFromDiskCache = immediateVoidFuture();
@@ -119,9 +121,14 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
           return Futures.transformAsync(
               downloadFromDiskCache,
               _ -> {
+                // Return the path on the host file system since reading through the action file
+                // system would download the file again if it were deleted after this check.
+                var hostFs = remoteActionFileSystem.getHostFileSystem();
                 try {
                   return immediateFuture(
-                      remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()));
+                      hostFs.exists(path.asFragment())
+                          ? Optional.of(hostFs.getPath(path.asFragment()))
+                          : Optional.empty());
                 } catch (IOException e) {
                   return immediateFailedFuture(e);
                 }
@@ -223,16 +230,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       PathFragment execPath,
       boolean force) {
     return Futures.transformAsync(
-        remotePathChecker.isAvailableLocally(context, path),
-        isAvailableLocally -> {
-          if (!isAvailableLocally) {
+        remotePathChecker.getLocalPath(context, path),
+        localPath -> {
+          if (localPath.isEmpty()) {
             // If we get here, the remote input was determined to exist in the remote or disk
             // cache at some point before action execution, but reported to be missing when
             // querying the remote for missing action inputs; possibly because it was evicted in
             // the interim.
             throw new CacheNotFoundException(digest, execPath);
           }
-          return uploadOrChunkFile(context, digest, path, force);
+          return uploadOrChunkFile(context, digest, localPath.get(), force);
         },
         directExecutor());
   }

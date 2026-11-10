@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -48,9 +49,11 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -68,6 +71,7 @@ import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
@@ -101,6 +105,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -378,7 +383,10 @@ public class CombinedCacheTest {
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     remoteCache.setRemotePathChecker(
         (context, path) ->
-            immediateFuture(!path.relativeTo(execRoot).equals(PathFragment.create("foo"))));
+            immediateFuture(
+                path.relativeTo(execRoot).equals(PathFragment.create("foo"))
+                    ? Optional.empty()
+                    : Optional.of(path)));
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -404,7 +412,7 @@ public class CombinedCacheTest {
       throws Exception {
     RemoteExecutionCache remoteCache = newRemoteExecutionCache(new InMemoryCacheClient());
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
-    remoteCache.setRemotePathChecker((context, path) -> immediateFuture(false));
+    remoteCache.setRemotePathChecker((context, path) -> immediateFuture(Optional.empty()));
 
     // Source files in external repositories are located outside the exec root.
     Path path = fs.getPath("/outputbase/external/repo/foo");
@@ -424,6 +432,52 @@ public class CombinedCacheTest {
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("external/repo/foo"));
+  }
+
+  @Test
+  public void uploadFile_remoteInputOnActionFileSystem_readsLocalCopyWithoutDownloading()
+      throws Exception {
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    ActionInputMap inputs = new ActionInputMap(1);
+    inputs.put(
+        artifact,
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            DigestUtil.toBinaryDigest(digest),
+            digest.getSizeBytes(),
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false));
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "bar");
+    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
+    when(inputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))
+        .thenReturn(immediateVoidFuture());
+    RemoteActionFileSystem actionFs =
+        new RemoteActionFileSystem(
+            fs,
+            execRoot.asFragment(),
+            artifactRoot.getExecPathString(),
+            inputs,
+            inputFetcher);
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext.withReadCachePolicy(CachePolicy.NO_CACHE),
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    assertThat(
+            getFromFuture(
+                remoteCache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(digest))))
+        .isEmpty();
+    verify(inputFetcher, never()).prefetchFiles(any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -480,7 +534,7 @@ public class CombinedCacheTest {
         .when(cacheProtocol)
         .findMissingDigests(any(), any());
 
-    SettableFuture<Boolean> missingInputAvailable = SettableFuture.create();
+    SettableFuture<Optional<Path>> missingInputAvailable = SettableFuture.create();
     CountDownLatch remotePathChecked = new CountDownLatch(1);
     remoteCache.setRemotePathChecker(
         (context, path) -> {
@@ -490,7 +544,7 @@ public class CombinedCacheTest {
             remotePathChecked.countDown();
             return missingInputAvailable;
           }
-          return immediateFuture(true);
+          return immediateFuture(Optional.of(path));
         });
 
     Artifact foo = ActionsTestUtil.createArtifact(artifactRoot, "foo");
@@ -571,7 +625,7 @@ public class CombinedCacheTest {
     assertThat(findMissingDigestsCalls.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
         .isTrue();
 
-    missingInputAvailable.set(false);
+    missingInputAvailable.set(Optional.empty());
     fooThread.join();
     barThread.join();
 
