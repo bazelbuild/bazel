@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -1835,6 +1837,10 @@ Strip the given number of leading components from file paths on extraction. Only
     try {
       return FileSystemUtils.readContent(p.getPath(), ISO_8859_1);
     } catch (IOException e) {
+      if (path instanceof Label label
+          && RepoRewinding.findLostRepoFile(e) instanceof LostRemoteRepoFileException lostFile) {
+        e = lostFile.withLabel(label);
+      }
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
@@ -2641,8 +2647,12 @@ func(
         lazyMaterializer.ensureMaterialized(
             label.getRepository(), thread.getCallerLocation(), env.getListener());
       } catch (IOException e) {
-        throw Starlark.errorf(
-            "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
+        // Keep a lost repo file as the cause so that the failing node can recover it by rewinding.
+        LostRemoteRepoFileException lostFile = RepoRewinding.findLostRepoFile(e);
+        throw new EvalException(
+            "Failed to materialize remote repo %s: %s"
+                .formatted(label.getRepository(), e.getMessage()),
+            lostFile == null ? e : lostFile.withLabel(label));
       }
     }
     return new StarlarkPath(this, rootedPath.asPath());

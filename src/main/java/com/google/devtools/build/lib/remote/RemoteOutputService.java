@@ -17,11 +17,14 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
@@ -29,8 +32,10 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -171,7 +176,28 @@ public class RemoteOutputService implements OutputService {
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, LostInputsExecException, InterruptedException {
     if (actionInputFetcher != null) {
-      actionInputFetcher.finalizeAction(action, outputMetadataStore);
+      try {
+        actionInputFetcher.finalizeAction(action, outputMetadataStore);
+      } catch (LostInputsExecException e) {
+        SourceArtifact source = getSymlinkedSource(action);
+        if (source != null) {
+          var lostInputs = ImmutableSetMultimap.<String, ActionInput>builder();
+          e.getLostInputs().keySet().forEach(digest -> lostInputs.put(digest, source));
+          throw new LostInputsExecException(lostInputs.build(), e);
+        }
+        throw e;
+      } catch (BulkTransferException e) {
+        // The download may have been joined with that of another symlink to the same file, which
+        // records the path it was requested under, so every lost blob of it is the source's.
+        SourceArtifact source = getSymlinkedSource(action);
+        if (source != null) {
+          var lostInputs = e.getLostArtifacts(unusedPath -> source);
+          if (!lostInputs.isEmpty()) {
+            throw new LostInputsExecException(lostInputs.byDigest(), e);
+          }
+        }
+        throw e;
+      }
     }
 
     if (leaseService != null) {
@@ -187,6 +213,22 @@ public class RemoteOutputService implements OutputService {
   @Override
   public OutputChecker getOutputChecker() {
     return checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
+  }
+
+  /**
+   * Returns the source file that the output of the given action is a symlink to, if any.
+   *
+   * <p>A symlink action can finish without reading its input, so downloading its output when the
+   * action is finalized may be the first read of that input. The output has the contents of the
+   * input, so a lost blob of it is the input's. Rerunning the symlink action can't recreate the
+   * contents of a source file, which therefore has to be reported as the lost input.
+   */
+  @Nullable
+  private static SourceArtifact getSymlinkedSource(Action action) {
+    return action instanceof SymlinkAction
+            && action.getPrimaryInput() instanceof SourceArtifact source
+        ? source
+        : null;
   }
 
   @Nullable
