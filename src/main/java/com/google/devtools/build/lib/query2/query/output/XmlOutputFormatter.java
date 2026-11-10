@@ -40,9 +40,8 @@ import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCall
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import java.io.OutputStream;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
@@ -325,19 +324,21 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         }
       }
     } else if (type instanceof Type.DictType<?, ?> dictType) {
-      Set<Object> visitedValues = new HashSet<>();
-      elem = doc.createElement("dict");
+      // A later value replaces an earlier one for the same key, as a later select() overrides an
+      // earlier one in a concatenated dict (see
+      // AggregatingAttributeMapper#getConcatenatedSelectorListsOfCollectionType).
+      Map<Object, Object> mergedDict = new LinkedHashMap<>();
       for (Object value : values) {
-        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-          if (visitedValues.add(entry.getKey())) {
-            Element pairElem = doc.createElement("pair");
-            elem.appendChild(pairElem);
-            pairElem.appendChild(
-                createValueElement(doc, dictType.getKeyType(), entry.getKey(), labelPrinter));
-            pairElem.appendChild(
-                createValueElement(doc, dictType.getValueType(), entry.getValue(), labelPrinter));
-          }
-        }
+        mergedDict.putAll((Map<?, ?>) value);
+      }
+      elem = doc.createElement("dict");
+      for (Map.Entry<Object, Object> entry : mergedDict.entrySet()) {
+        Element pairElem = doc.createElement("pair");
+        elem.appendChild(pairElem);
+        pairElem.appendChild(
+            createValueElement(doc, dictType.getKeyType(), entry.getKey(), labelPrinter));
+        pairElem.appendChild(
+            createValueElement(doc, dictType.getValueType(), entry.getValue(), labelPrinter));
       }
     } else if (type == BuildType.LICENSE) {
       elem = createSingleValueElement(doc, "license", hasMultipleValues);

@@ -348,6 +348,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * <p>For dicts, an element is the {@link Type#concat} of the select's branches, so a later branch
    * replaces an earlier branch's entry for the same key. The union of the elements holds every key
    * of every possible value without enumerating the combinations {@link #visitAttribute} visits.
+   * Callers merging the elements must let later elements replace earlier ones' entries, as a later
+   * select overrides an earlier one.
    */
   @Nullable
   public <T> Iterable<T> getConcatenatedSelectorListsOfCollectionType(

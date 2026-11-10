@@ -100,6 +100,27 @@ public final class ProtoOutputFormatterTest extends PackageLoadingTestCase {
     assertThat(flattenedEntries("//pkg:t")).containsExactly("k", "b2", "only_a", "x");
   }
 
+  @Test
+  public void flattenedDictKeepsALaterSelectsOverride() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":defs.bzl", "dict_rule")
+
+        config_setting(name = "a", define_values = {"a": "1"})
+
+        dict_rule(
+            name = "t",
+            entries = select({
+                ":a": {"k": "A"},
+                "//conditions:default": {"k": "A"},
+            }) | {"k": "B"},
+        )
+        """);
+
+    assertThat(flattenedEntries("//pkg:t")).containsExactly("k", "B");
+  }
+
   private ImmutableMap<String, String> flattenedEntries(String label) throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(QueryOptions.class).build();
     parser.parse("--proto:flatten_selects");
