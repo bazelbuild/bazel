@@ -445,6 +445,45 @@ public class MerkleTreeComputerTest {
     assertThat(e.getLostInputs().values()).containsExactly(firstFile, secondFile);
   }
 
+  @Test
+  public void failedSubtrees_lostInputAndOtherFailure_rethrowsOtherFailure() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var lostFile = addTreeArtifactWithFile(fakeFileCache, "lost_tree", "lost content");
+    var failingFile = addTreeArtifactWithFile(fakeFileCache, "failing_tree", "failing content");
+    var spawn =
+        new SpawnBuilder().withInputs(lostFile.getParent(), failingFile.getParent()).build();
+    var otherFailure = new IOException("upload failed");
+    var uploader =
+        new CountingMerkleTreeUploader() {
+          @Override
+          public void ensureInputsPresent(
+              RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force)
+              throws IOException {
+            var blobs = merkleTree.blobs();
+            if (blobs.containsValue(lostFile)) {
+              throw lostInput(blobs, lostFile);
+            }
+            if (blobs.containsValue(failingFile)) {
+              throw otherFailure;
+            }
+          }
+        };
+
+    var e =
+        assertThrows(
+            IOException.class,
+            () ->
+                createMerkleTreeComputer(uploader)
+                    .buildForSpawn(
+                        spawn,
+                        ImmutableSet.of(),
+                        /* scrubber= */ null,
+                        createSpawnExecutionContext(spawn, fakeFileCache),
+                        MerkleTreeComputer.BlobPolicy.KEEP));
+
+    assertThat(e).isSameInstanceAs(otherFailure);
+  }
+
   private Artifact.TreeFileArtifact addTreeArtifactWithFile(
       FakeActionInputFileCache fakeFileCache, String treeName, String content) throws IOException {
     var treeArtifact =
