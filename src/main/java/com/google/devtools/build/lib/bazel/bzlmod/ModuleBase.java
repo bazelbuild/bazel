@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 
 /** Represents a node in the external dependency graph. */
 abstract class ModuleBase {
+  // New properties also need to be compared in InterimModule#equals.
 
   /**
    * The name of the module, as specified in this module's MODULE.bazel file. Can be empty if this

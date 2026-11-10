@@ -15,8 +15,8 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -131,9 +130,9 @@ public class BazelRepositoryModule extends BlazeModule {
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
   // Default list of registries.
-  public static final ImmutableSet<String> DEFAULT_REGISTRIES =
-      ImmutableSet.of("https://bcr.bazel.build/");
-  public static final ImmutableMap<String, ImmutableSet<String>> DEFAULT_MODULE_MIRRORS =
+  public static final ImmutableList<String> DEFAULT_REGISTRIES =
+      ImmutableList.of("https://bcr.bazel.build/");
+  public static final ImmutableMap<String, ImmutableList<String>> DEFAULT_MODULE_MIRRORS =
       ImmutableMap.of();
 
   private final RepositoryCache repositoryCache = new RepositoryCache();
@@ -147,8 +146,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private ImmutableMap<String, PathFragment> moduleInjections = ImmutableMap.of();
   private FileSystem filesystem;
-  private ImmutableSet<String> registries;
-  private ImmutableMap<String, ImmutableSet<String>> moduleMirrors;
+  private ImmutableList<String> registries;
+  private ImmutableMap<String, ImmutableList<String>> moduleMirrors;
   private ImmutableSet<String> watchedRegistries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
@@ -663,8 +662,10 @@ public class BazelRepositoryModule extends BlazeModule {
                         (a, b) -> b));
         // The key "" returned by the option conversion defines mirrors for all registries that
         // don't have their own explicitly defined.
-        var knownRegistries = Sets.union(registries, ImmutableSet.of(""));
-        var unknownRegistries = Sets.difference(registryToMirrors.keySet(), knownRegistries);
+        var unknownRegistries =
+            registryToMirrors.keySet().stream()
+                .filter(registry -> !registry.isEmpty() && !registries.contains(registry))
+                .collect(toImmutableList());
         if (!unknownRegistries.isEmpty()) {
           throw new AbruptExitException(
               detailedExitCode(
@@ -672,8 +673,8 @@ public class BazelRepositoryModule extends BlazeModule {
                       + String.join(", ", unknownRegistries),
                   Code.UNKNOWN_REGISTRY));
         }
-        var moduleMirrorsBuilder = ImmutableMap.<String, ImmutableSet<String>>builder();
-        var defaultMirrors = registryToMirrors.getOrDefault("", ImmutableSet.of());
+        var moduleMirrorsBuilder = ImmutableMap.<String, ImmutableList<String>>builder();
+        var defaultMirrors = registryToMirrors.getOrDefault("", ImmutableList.of());
         for (String registry : registries) {
           moduleMirrorsBuilder.put(
               registry, registryToMirrors.getOrDefault(registry, defaultMirrors));
@@ -718,7 +719,7 @@ public class BazelRepositoryModule extends BlazeModule {
    */
   private static ImmutableSet<String> parseWatchedRegistries(
       @Nullable List<String> watchedRegistryOptions,
-      ImmutableSet<String> registries,
+      ImmutableList<String> registries,
       @Nullable Path workspace)
       throws AbruptExitException {
     if (watchedRegistryOptions == null) {
@@ -756,8 +757,11 @@ public class BazelRepositoryModule extends BlazeModule {
     return CharMatcher.is('/').trimTrailingFrom(baseUrl);
   }
 
-  private static ImmutableSet<String> normalizeBaseUrls(List<String> baseUrls) {
-    return baseUrls.stream().map(BazelRepositoryModule::normalizeBaseUrl).collect(toImmutableSet());
+  private static ImmutableList<String> normalizeBaseUrls(List<String> baseUrls) {
+    return baseUrls.stream()
+        .map(BazelRepositoryModule::normalizeBaseUrl)
+        .distinct()
+        .collect(toImmutableList());
   }
 
   /**

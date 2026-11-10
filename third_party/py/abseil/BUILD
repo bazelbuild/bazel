@@ -1,5 +1,3 @@
-load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
-
 licenses(["notice"])
 
 filegroup(
@@ -10,6 +8,6 @@ filegroup(
 
 alias(
     name = "abseil",
-    actual = requirement("absl-py"),
+    actual = "@bazel_pip_dev_deps//absl_py",
     visibility = ["//visibility:public"],
 )
