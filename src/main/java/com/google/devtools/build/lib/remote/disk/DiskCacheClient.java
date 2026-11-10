@@ -38,8 +38,10 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileAccessException;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
 import java.io.BufferedOutputStream;
@@ -51,6 +53,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * An on-disk store for the remote action cache.
@@ -356,6 +359,63 @@ public class DiskCacheClient {
           saveFile(digest, Store.CAS, file);
           return null;
         });
+  }
+
+  /**
+   * Atomically replaces a validated local output with a copy of its existing CAS entry.
+   *
+   * <p>The caller owns the output and must replace its recorded contents proxy with the returned
+   * status before publishing action metadata. No digest is computed here. On clone-capable
+   * filesystems copyFile shares data blocks; later writes remain independent.
+   */
+  @Nullable
+  public FileStatus cloneOutputIfPresent(Digest digest, Path output) throws IOException {
+    Path cached = toPath(digest, Store.CAS);
+    if (digest.getSizeBytes() == 0 || output.equals(cached) || !refresh(cached)) {
+      return null;
+    }
+    FileStatus original = output.statIfFound(Symlinks.NOFOLLOW);
+    FileStatus cacheStat = cached.statIfFound(Symlinks.NOFOLLOW);
+    if (original == null
+        || !original.isFile()
+        || original.isSpecialFile()
+        || original.getPermissions() < 0
+        || original.getSize() != digest.getSizeBytes()
+        || cacheStat == null
+        || !cacheStat.isFile()
+        || cacheStat.isSpecialFile()
+        || cacheStat.getSize() != digest.getSizeBytes()
+        || original.getNodeId() == cacheStat.getNodeId()) {
+      return null;
+    }
+
+    Path parent = output.getParentDirectory();
+    int parentPermissions = parent.stat().getPermissions();
+    boolean makeWritable = parentPermissions >= 0 && (parentPermissions & 0200) == 0;
+    Path temp = parent.getChild("." + output.getBaseName() + ".clone-" + UUID.randomUUID());
+    if (makeWritable) {
+      parent.chmod(parentPermissions | 0200);
+    }
+    try {
+      try {
+        FileSystemUtils.copyFile(cached, temp);
+      } catch (FileNotFoundException e) {
+        // Another process can garbage collect a CAS entry after refresh succeeds.
+        return null;
+      }
+      temp.chmod(original.getPermissions());
+      temp.setLastModifiedTimeNanos(original.getLastModifiedTimeNanos());
+      temp.renameTo(output);
+      return output.stat(Symlinks.NOFOLLOW);
+    } finally {
+      try {
+        temp.delete();
+      } finally {
+        if (makeWritable) {
+          parent.chmod(parentPermissions);
+        }
+      }
+    }
   }
 
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {

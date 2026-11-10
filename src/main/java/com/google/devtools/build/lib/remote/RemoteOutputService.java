@@ -60,6 +60,7 @@ public class RemoteOutputService implements OutputService {
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
+  @Nullable private DiskCacheOutputDeduplicator outputDeduplicator;
 
   RemoteOutputService(BlazeDirectories directories, boolean rewindLostInputs) {
     this.directories = checkNotNull(directories);
@@ -76,6 +77,10 @@ public class RemoteOutputService implements OutputService {
       this.rewoundActionSynchronizer =
           new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
     }
+  }
+
+  void setOutputDeduplicator(DiskCacheOutputDeduplicator outputDeduplicator) {
+    this.outputDeduplicator = outputDeduplicator;
   }
 
   void setLeaseService(LeaseService leaseService) {
@@ -162,6 +167,9 @@ public class RemoteOutputService implements OutputService {
 
   @Subscribe
   public void onExecutionPhaseCompleteEvent(ExecutionPhaseCompleteEvent event) {
+    if (outputDeduplicator != null) {
+      outputDeduplicator.report();
+    }
     if (leaseService != null) {
       leaseService.finalizeExecution();
     }
@@ -172,6 +180,10 @@ public class RemoteOutputService implements OutputService {
       throws IOException, LostInputsExecException, InterruptedException {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, outputMetadataStore);
+    }
+
+    if (outputDeduplicator != null) {
+      outputDeduplicator.finalizeAction(action, outputMetadataStore);
     }
 
     if (leaseService != null) {
