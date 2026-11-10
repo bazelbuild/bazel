@@ -19,6 +19,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static org.junit.Assert.assertThrows;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
@@ -53,6 +55,8 @@ import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.Scrubber;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -74,6 +78,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -389,6 +394,82 @@ public class MerkleTreeComputerTest {
   }
 
   @Test
+  public void failedSubtree_remainingSubtreesAwaitedAndAllLostInputsReported() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var firstFile = addTreeArtifactWithFile(fakeFileCache, "first_tree", "first content");
+    var secondFile = addTreeArtifactWithFile(fakeFileCache, "second_tree", "second content");
+    var spawn =
+        new SpawnBuilder().withInputs(firstFile.getParent(), secondFile.getParent()).build();
+    var firstSubtreeFailed = new CountDownLatch(1);
+    var secondSubtreeFinished = new CountDownLatch(1);
+    var uploader =
+        new CountingMerkleTreeUploader() {
+          @Override
+          public void ensureInputsPresent(
+              RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force)
+              throws IOException, InterruptedException {
+            var blobs = merkleTree.blobs();
+            if (blobs.containsValue(firstFile)) {
+              firstSubtreeFailed.countDown();
+              throw lostInput(blobs, firstFile);
+            }
+            if (blobs.containsValue(secondFile)) {
+              // Only fail after the first subtree did so that a caller that doesn't wait for all
+              // subtrees would not learn about the second lost input.
+              firstSubtreeFailed.await();
+              try {
+                throw lostInput(blobs, secondFile);
+              } finally {
+                secondSubtreeFinished.countDown();
+              }
+            }
+          }
+        };
+
+    var e =
+        assertThrows(
+            LostInputsExecException.class,
+            () ->
+                createMerkleTreeComputer(uploader)
+                    .buildForSpawn(
+                        spawn,
+                        ImmutableSet.of(),
+                        /* scrubber= */ null,
+                        createSpawnExecutionContext(spawn, fakeFileCache),
+                        MerkleTreeComputer.BlobPolicy.KEEP));
+
+    // The uploads of all subtrees must have completed by the time the failure is reported as they
+    // access the inputs of the spawn, which are no longer protected from being modified after its
+    // execution has failed.
+    assertThat(secondSubtreeFinished.getCount()).isEqualTo(0);
+    assertThat(e.getLostInputs().values()).containsExactly(firstFile, secondFile);
+  }
+
+  private Artifact.TreeFileArtifact addTreeArtifactWithFile(
+      FakeActionInputFileCache fakeFileCache, String treeName, String content) throws IOException {
+    var treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "dir/" + treeName);
+    treeArtifact.getPath().createDirectoryAndParents();
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifact, "file");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), content);
+    fakeFileCache.putTreeArtifact(
+        treeArtifact,
+        TreeArtifactValue.newBuilder(treeArtifact)
+            .putChild(treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact))
+            .build());
+    return treeFileArtifact;
+  }
+
+  private static BulkTransferException lostInput(Map<Digest, Object> blobs, ActionInput input) {
+    var digest =
+        blobs.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(input))
+            .map(Map.Entry::getKey)
+            .collect(onlyElement());
+    return new BulkTransferException(new CacheNotFoundException(digest, input.getExecPath()));
+  }
+
+  @Test
   public void runfilesTreeSubtree_reusedByLaterBuild() throws Exception {
     var fakeFileCache = new FakeActionInputFileCache();
     var runfile = ActionsTestUtil.createArtifact(artifactRoot, "pkg/tool");
@@ -692,7 +773,7 @@ public class MerkleTreeComputerTest {
   }
 
   /** A {@link MerkleTreeUploader} that only counts calls to {@link #ensureInputsPresent}. */
-  private static final class CountingMerkleTreeUploader implements MerkleTreeUploader {
+  private static class CountingMerkleTreeUploader implements MerkleTreeUploader {
     final AtomicInteger ensureInputsPresentCount = new AtomicInteger();
 
     @Override
@@ -722,7 +803,8 @@ public class MerkleTreeComputerTest {
 
     @Override
     public void ensureInputsPresent(
-        RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force) {
+        RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force)
+        throws IOException, InterruptedException {
       ensureInputsPresentCount.incrementAndGet();
     }
   }

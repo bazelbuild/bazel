@@ -18,8 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -46,6 +44,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -92,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -855,15 +855,73 @@ public final class MerkleTreeComputer {
     if (subTreeFutures == null) {
       return immediateFuture(ImmutableMap.of());
     }
-    return transform(
-        allAsList(subTreeFutures),
+    // Wait for all subtrees to complete instead of failing as soon as the first one does. Subtree
+    // computations read the inputs of the spawn, which only stay unchanged while it is executing,
+    // so they must not outlive it. This also reports the lost inputs of all subtrees at once
+    // rather than one subtree per round of rewinding.
+    var allSubTreeFutures = subTreeFutures;
+    return Futures.whenAllComplete(allSubTreeFutures)
+        .call(() -> collectSubTrees(allSubTreeFutures), directExecutor());
+  }
+
+  /**
+   * Collects the results of the given completed subtree futures.
+   *
+   * @throws WrappedException if at least one subtree failed with an {@link IOException} or {@link
+   *     InterruptedException}. If multiple subtrees failed with an {@link IOException}, the
+   *     failures are merged into a single {@link BulkTransferException}.
+   * @throws CancellationException if at least one subtree has been canceled
+   */
+  private static <T> ImmutableMap<T, MerkleTree.RootOnly> collectSubTrees(
+      List<ListenableFuture<Map.Entry<T, MerkleTree.RootOnly>>> subTreeFutures) {
+    var subTrees = new LinkedHashMap<T, MerkleTree.RootOnly>();
+    // Subtree computations are shared, so the same failure may be reported for multiple entries.
+    Set<Throwable> failures = null;
+    for (var future : subTreeFutures) {
+      try {
+        // A canceled subtree cancels the combined future by propagating CancellationException.
+        var entry = Futures.getDone(future);
         // The same entry may appear multiple times (see SpawnInputs#flatten()).
-        entries ->
-            entries.stream()
-                .collect(
-                    toImmutableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (first, second) -> first)),
-        directExecutor());
+        subTrees.putIfAbsent(entry.getKey(), entry.getValue());
+      } catch (ExecutionException e) {
+        if (failures == null) {
+          failures = Sets.newIdentityHashSet();
+        }
+        failures.add(e.getCause());
+      }
+    }
+    if (failures == null) {
+      return ImmutableMap.copyOf(subTrees);
+    }
+
+    // An unexpected failure takes precedence over an interruption, which in turn takes precedence
+    // over I/O failures.
+    for (Throwable failure : failures) {
+      if (!(failure instanceof WrappedException)) {
+        Throwables.throwIfUnchecked(failure);
+        throw new IllegalStateException(failure);
+      }
+    }
+    IOException firstIoException = null;
+    BulkTransferException mergedIoExceptions = null;
+    for (Throwable failure : failures) {
+      if (!(failure.getCause() instanceof IOException ioException)) {
+        // The computation of a subtree has been interrupted.
+        throw (WrappedException) failure;
+      }
+      if (firstIoException == null) {
+        firstIoException = ioException;
+      } else {
+        // Merging preserves the property of BulkTransferException that inputs are only reported
+        // as lost if every single failure is due to a missing blob.
+        if (mergedIoExceptions == null) {
+          mergedIoExceptions = new BulkTransferException(firstIoException);
+        }
+        mergedIoExceptions.add(ioException);
+      }
+    }
+    throw new WrappedException(
+        mergedIoExceptions != null ? mergedIoExceptions : checkNotNull(firstIoException));
   }
 
   @Nullable
