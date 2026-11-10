@@ -117,8 +117,9 @@ public class RemoteExecutionCache extends CombinedCache {
       RemoteCacheClient remoteCacheClient,
       @Nullable DiskCacheClient diskCacheClient,
       RemoteOptions options,
-      DigestUtil digestUtil) {
-    super(checkNotNull(remoteCacheClient), diskCacheClient, options, digestUtil);
+      DigestUtil digestUtil,
+      ChunkLocationMap chunkLocationMap) {
+    super(checkNotNull(remoteCacheClient), diskCacheClient, options, digestUtil, chunkLocationMap);
   }
 
   @VisibleForTesting
