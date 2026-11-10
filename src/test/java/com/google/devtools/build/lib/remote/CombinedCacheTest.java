@@ -504,6 +504,51 @@ public class CombinedCacheTest {
     assertThat(artifact.getPath().exists()).isFalse();
   }
 
+  @Test
+  public void uploadFile_diskCacheEntryDeletedBeforeRead_reportsLostInput() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        spy(new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true));
+    // Simulate a concurrent garbage collection that deletes the entry right after it was found.
+    doAnswer(
+            invocation -> {
+              Path path = (Path) invocation.callRealMethod();
+              path.delete();
+              return path;
+            })
+        .when(diskCacheClient)
+        .findBlob(any());
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            new InMemoryCacheClient(),
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithRemoteInput(artifact, digest, mockInputFetcher());
+
+    var e =
+        assertThrows(
+            CacheNotFoundException.class,
+            () ->
+                getFromFuture(
+                    remoteCache.uploadFile(
+                        remoteActionExecutionContext,
+                        digest,
+                        actionFs.getPath(artifact.getPath().asFragment()),
+                        artifact.getExecPath(),
+                        /* force= */ false)));
+    assertThat(e.getMissingDigest()).isEqualTo(digest);
+    assertThat(e.getExecPath()).isEqualTo(artifact.getExecPath());
+  }
+
   private static RemoteActionInputFetcher mockInputFetcher() {
     RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
     when(inputFetcher.prefetchFiles(any(), any(), any(), any(), any(), any()))

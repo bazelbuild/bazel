@@ -219,7 +219,20 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // the interim.
             throw new CacheNotFoundException(digest, execPath);
           }
-          return uploadOrChunkFile(context, digest, localPath.get(), force);
+          return Futures.catchingAsync(
+              uploadOrChunkFile(context, digest, localPath.get(), force),
+              IOException.class,
+              e -> {
+                // The file may have been deleted after it was found, e.g. by a concurrent garbage
+                // collection of the disk cache. Report it as lost so that it can be regenerated.
+                if (!localPath.get().exists()) {
+                  var cacheNotFoundException = new CacheNotFoundException(digest, execPath);
+                  cacheNotFoundException.addSuppressed(e);
+                  throw cacheNotFoundException;
+                }
+                throw e;
+              },
+              directExecutor());
         },
         directExecutor());
   }
