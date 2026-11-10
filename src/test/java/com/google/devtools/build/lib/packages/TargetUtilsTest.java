@@ -403,6 +403,16 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
             tags = ["exclusive"],
         )
 
+        cc_test(
+            name = "exclusive_if_local_no_remote_exec",
+            size = "small",
+            srcs = ["a"],
+            tags = [
+                "exclusive-if-local",
+                "no-remote-exec",
+            ],
+        )
+
         test_suite(
             name = "ts",
             tests = ["z"],
@@ -484,9 +494,14 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     assertThat(TargetUtils.isExclusiveIfLocalTestRule(exclusiveIfRunLocally)).isTrue();
     assertThat(TargetUtils.isLocalTestRule(exclusiveIfRunLocally)).isFalse();
     assertThat(TargetUtils.isExclusiveTestRule(exclusiveIfRunLocally)).isFalse();
+    assertThat(TargetUtils.isNoRemoteExecTestRule(exclusiveIfRunLocally)).isFalse();
     Rule exclusive = (Rule) getTarget("//x:exclusive_only");
     assertThat(TargetUtils.isExclusiveTestRule(exclusive)).isTrue();
     assertThat(TargetUtils.isLocalTestRule(exclusive)).isFalse(); // LOCAL tag gets added later.
     assertThat(TargetUtils.isExclusiveIfLocalTestRule(exclusive)).isFalse();
+    Rule exclusiveIfLocalNoRemoteExec = (Rule) getTarget("//x:exclusive_if_local_no_remote_exec");
+    assertThat(TargetUtils.isExclusiveIfLocalTestRule(exclusiveIfLocalNoRemoteExec)).isTrue();
+    assertThat(TargetUtils.isLocalTestRule(exclusiveIfLocalNoRemoteExec)).isFalse();
+    assertThat(TargetUtils.isNoRemoteExecTestRule(exclusiveIfLocalNoRemoteExec)).isTrue();
   }
 }

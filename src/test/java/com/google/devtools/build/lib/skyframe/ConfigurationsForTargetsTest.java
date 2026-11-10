@@ -43,7 +43,10 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
@@ -616,5 +619,176 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     // Check that each dep ends up with a distinct compilation_mode value.
     assertThat(getConfiguration(child1).getCompilationMode()).isEqualTo(CompilationMode.DBG);
     assertThat(getConfiguration(child2).getCompilationMode()).isEqualTo(CompilationMode.OPT);
+  }
+
+  @Test
+  public void testDetermineTestTypeImpl() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "standard_test",
+            srcs = ["test.sh"],
+        )
+        foo_test(
+            name = "exclusive_test",
+            srcs = ["test.sh"],
+            tags = ["exclusive"],
+        )
+        foo_test(
+            name = "exclusive_if_local_test",
+            srcs = ["test.sh"],
+            tags = ["exclusive-if-local"],
+        )
+        foo_test(
+            name = "exclusive_if_local_local_test",
+            srcs = ["test.sh"],
+            tags = ["exclusive-if-local", "local"],
+        )
+        foo_test(
+            name = "exclusive_if_local_no_remote_test",
+            srcs = ["test.sh"],
+            tags = ["exclusive-if-local", "no-remote-exec"],
+        )
+        """);
+
+    update(
+        "//x:standard_test",
+        "//x:exclusive_test",
+        "//x:exclusive_if_local_test",
+        "//x:exclusive_if_local_local_test",
+        "//x:exclusive_if_local_no_remote_test");
+
+    Rule standardTest = (Rule) getTarget("//x:standard_test");
+    Rule exclusiveTest = (Rule) getTarget("//x:exclusive_test");
+    Rule exclusiveIfLocalTest = (Rule) getTarget("//x:exclusive_if_local_test");
+    Rule exclusiveIfLocalLocalTest = (Rule) getTarget("//x:exclusive_if_local_local_test");
+    Rule exclusiveIfLocalNoRemoteTest = (Rule) getTarget("//x:exclusive_if_local_no_remote_test");
+
+    // Case 1: testsToRun is null or does not contain standardTest target
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                /* testsToRun= */ null,
+                ImmutableMap.of(standardTest.getLabel(), standardTest),
+                standardTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", false, false),
+                reporter))
+        .isEqualTo(TestType.NOT_TEST);
+
+    // Case 2: standard parallel test rule
+    ImmutableSet<Label> testsToRun =
+        ImmutableSet.of(
+            standardTest.getLabel(),
+            exclusiveTest.getLabel(),
+            exclusiveIfLocalTest.getLabel(),
+            exclusiveIfLocalLocalTest.getLabel(),
+            exclusiveIfLocalNoRemoteTest.getLabel());
+    ImmutableMap<Label, Target> labelTargetMap =
+        ImmutableMap.of(
+            standardTest.getLabel(), standardTest,
+            exclusiveTest.getLabel(), exclusiveTest,
+            exclusiveIfLocalTest.getLabel(), exclusiveIfLocalTest,
+            exclusiveIfLocalLocalTest.getLabel(), exclusiveIfLocalLocalTest,
+            exclusiveIfLocalNoRemoteTest.getLabel(), exclusiveIfLocalNoRemoteTest);
+
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                standardTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", false, false),
+                reporter))
+        .isEqualTo(TestType.PARALLEL);
+
+    // Case 3: exclusive test rule (forceParallel = false)
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                exclusiveTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", false, false),
+                reporter))
+        .isEqualTo(TestType.EXCLUSIVE);
+
+    // Case 4: exclusive test rule (forceParallel = true -> PARALLEL)
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                exclusiveTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", true, false),
+                reporter))
+        .isEqualTo(TestType.PARALLEL);
+
+    // Case 5: exclusive-if-local test rule, not local (forceParallelIfLocal = false)
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                exclusiveIfLocalTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", false, false),
+                reporter))
+        .isEqualTo(TestType.EXCLUSIVE_IF_LOCAL);
+
+    // Case 6: exclusive-if-local test rule, not local (forceParallelIfLocal = true -> PARALLEL)
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                exclusiveIfLocalTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", false, true),
+                reporter))
+        .isEqualTo(TestType.PARALLEL);
+
+    // Case 7: exclusive-if-local test rule tagged local (forceParallel = false)
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                exclusiveIfLocalLocalTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", false, false),
+                reporter))
+        .isEqualTo(TestType.EXCLUSIVE);
+
+    // Case 8: exclusive-if-local test rule tagged no-remote-exec (forceParallel = false)
+    assertThat(
+            SkyframeBuildView.determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                exclusiveIfLocalNoRemoteTest.getLabel(),
+                new FakeBuildDriverKeyTestContext("parallel", false, false),
+                reporter))
+        .isEqualTo(TestType.EXCLUSIVE);
+  }
+
+  private static class FakeBuildDriverKeyTestContext implements BuildDriverKeyTestContext {
+    private final String testStrategy;
+    private final boolean forceExclusiveTestsInParallel;
+    private final boolean forceExclusiveIfLocalTestsInParallel;
+
+    FakeBuildDriverKeyTestContext(
+        String testStrategy,
+        boolean forceExclusiveTestsInParallel,
+        boolean forceExclusiveIfLocalTestsInParallel) {
+      this.testStrategy = testStrategy;
+      this.forceExclusiveTestsInParallel = forceExclusiveTestsInParallel;
+      this.forceExclusiveIfLocalTestsInParallel = forceExclusiveIfLocalTestsInParallel;
+    }
+
+    @Override
+    public String getTestStrategy() {
+      return testStrategy;
+    }
+
+    @Override
+    public boolean forceExclusiveTestsInParallel() {
+      return forceExclusiveTestsInParallel;
+    }
+
+    @Override
+    public boolean forceExclusiveIfLocalTestsInParallel() {
+      return forceExclusiveIfLocalTestsInParallel;
+    }
   }
 }
