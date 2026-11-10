@@ -1823,6 +1823,361 @@ class ModCommandTest(test_base.TestBase):
           module_file.read().split('\n'),
       )
 
+  def setUpRegistrations(self, extra_foo_registrations=()):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project")',
+            'bazel_dep(name = "foo")',
+            'local_path_override(module_name = "foo", path = "foo")',
+            'bazel_dep(name = "bar")',
+            'local_path_override(module_name = "bar", path = "bar")',
+            'register_toolchains("//:root_tc")',
+            'register_execution_platforms("//:root_platform")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'toolchain(',
+            '  name = "root_tc",',
+            '  toolchain_type = "@bar//:type",',
+            '  toolchain = ":impl",',
+            ')',
+            'filegroup(name = "impl")',
+            'platform(name = "root_platform")',
+        ],
+    )
+    self.ScratchFile(
+        'foo/MODULE.bazel',
+        [
+            'module(name = "foo")',
+            'bazel_dep(name = "bar")',
+            'ext = use_extension("//:ext.bzl", "ext")',
+            'use_repo(ext, "hub")',
+            'register_toolchains("//:all", "@hub//:all", "//:alias_tc")',
+            'register_toolchains("//dev:all", dev_dependency = True)',
+            'register_execution_platforms("//:platform")',
+        ]
+        + list(extra_foo_registrations),
+    )
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'toolchain_type(name = "type")',
+            'alias(name = "type_alias", actual = ":type")',
+            'toolchain(',
+            '  name = "own",',
+            '  toolchain_type = ":type_alias",',
+            '  toolchain = ":impl",',
+            ')',
+            'toolchain(',
+            '  name = "foreign",',
+            '  toolchain_type = "@bar//:type",',
+            '  toolchain = ":impl",',
+            ')',
+            'alias(name = "alias_tc", actual = ":foreign")',
+            'config_setting(name = "opt", values = {"compilation_mode": "opt"})',
+            'alias(',
+            '  name = "configurable_type",',
+            '  actual = select({":opt": ":type", "//conditions:default": ":type"}),',
+            ')',
+            'filegroup(name = "impl")',
+            'platform(name = "platform")',
+        ],
+    )
+    self.ScratchFile(
+        'foo/configurable/BUILD',
+        [
+            'toolchain(',
+            '  name = "configurable",',
+            '  toolchain_type = "//:configurable_type",',
+            '  toolchain = "//:impl",',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo/dev/BUILD',
+        [
+            'toolchain(',
+            '  name = "dev",',
+            '  toolchain_type = "@bar//:type",',
+            '  toolchain = "//:impl",',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo/ext.bzl',
+        [
+            'def _hub_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'toolchain(name = "own", toolchain_type = "@foo//:type", toolchain = ":impl")',
+            'toolchain(name = "foreign", toolchain_type = "@bar//:type", toolchain = ":impl")',
+            'filegroup(name = "impl")',
+            '""")',
+            'hub = repository_rule(_hub_impl)',
+            'ext = module_extension(lambda mctx: hub(name = "hub"))',
+        ],
+    )
+    self.ScratchFile(
+        'bar/MODULE.bazel',
+        ['module(name = "bar")', 'register_toolchains("//:all")'],
+    )
+    self.ScratchFile(
+        'bar/BUILD',
+        [
+            'package(default_visibility = ["//visibility:public"])',
+            'toolchain_type(name = "type")',
+            'toolchain(name = "bar_tc", toolchain_type = ":type", toolchain = ":impl")',
+            'filegroup(name = "impl")',
+        ],
+    )
+
+  def testShowToolchains(self):
+    self.setUpRegistrations()
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_toolchains', 'foo', 'bar'], rstrip=True
+    )
+    self.assertListEqual(
+        [
+            '## foo@_:',
+            '//:all',
+            '  @@foo+//:foreign (type @@bar+//:type from bar@_)',
+            '  @@foo+//:own (type @@foo+//:type)',
+            '@hub//:all',
+            '  @@foo++ext+hub//:foreign (type @@bar+//:type from bar@_)',
+            '  @@foo++ext+hub//:own (type @@foo+//:type)',
+            '//:alias_tc',
+            '  @@foo+//:alias_tc (type @@bar+//:type from bar@_)',
+            '',
+            '## bar@_:',
+            '//:all',
+            '  @@bar+//:bar_tc (type @@bar+//:type)',
+            '',
+        ],
+        stdout,
+    )
+
+  def testShowToolchainsJson(self):
+    self.setUpRegistrations()
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_toolchains', '<root>', 'foo', '--output=json']
+    )
+    self.assertListEqual(
+        [
+            {
+                'module': '<root>',
+                'registrations': [{
+                    'pattern': '//:root_tc',
+                    'targets': [{
+                        'label': '@@//:root_tc',
+                        'toolchain_type': '@@bar+//:type',
+                        'toolchain_type_owner': 'bar@_',
+                    }],
+                }],
+            },
+            {
+                'module': 'foo@_',
+                'registrations': [
+                    {
+                        'pattern': '//:all',
+                        'targets': [
+                            {
+                                'label': '@@foo+//:foreign',
+                                'toolchain_type': '@@bar+//:type',
+                                'toolchain_type_owner': 'bar@_',
+                            },
+                            {
+                                'label': '@@foo+//:own',
+                                'toolchain_type': '@@foo+//:type',
+                                'toolchain_type_owner': 'foo@_',
+                            },
+                        ],
+                    },
+                    {
+                        'pattern': '@hub//:all',
+                        'targets': [
+                            {
+                                'label': '@@foo++ext+hub//:foreign',
+                                'toolchain_type': '@@bar+//:type',
+                                'toolchain_type_owner': 'bar@_',
+                            },
+                            {
+                                'label': '@@foo++ext+hub//:own',
+                                'toolchain_type': '@@foo+//:type',
+                                'toolchain_type_owner': 'foo@_',
+                            },
+                        ],
+                    },
+                    {
+                        'pattern': '//:alias_tc',
+                        'targets': [{
+                            'label': '@@foo+//:alias_tc',
+                            'toolchain_type': '@@bar+//:type',
+                            'toolchain_type_owner': 'bar@_',
+                        }],
+                    },
+                ],
+            },
+        ],
+        [json.loads(line) for line in stdout],
+    )
+
+  def testShowToolchainsFilteredByType(self):
+    self.setUpRegistrations()
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_toolchains',
+            '--toolchain_type=@foo//:type_alias',
+        ],
+        rstrip=True,
+    )
+    self.assertListEqual(
+        [
+            '## foo@_:',
+            '//:all',
+            '  @@foo+//:own (type @@foo+//:type)',
+            '@hub//:all',
+            '  @@foo++ext+hub//:own (type @@foo+//:type)',
+            '',
+        ],
+        stdout,
+    )
+
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_toolchains',
+            'bar',
+            '--base_module=foo',
+            '--toolchain_type=//:type',
+        ],
+        rstrip=True,
+    )
+    self.assertListEqual(['## bar@_:', ''], stdout)
+
+  def testShowToolchainsInvalidType(self):
+    self.setUpRegistrations()
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'show_toolchains', '--toolchain_type=@foo//:own'],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        'ERROR: In --toolchain_type @foo//:own option: @@foo+//:own is a'
+        " toolchain rule, not a toolchain_type rule. Type 'bazel help mod' for"
+        ' syntax and help.',
+        stderr,
+    )
+
+  def testShowToolchainsUnicode(self):
+    self.ScratchFile('MODULE.bazel', ['register_toolchains("//:tc_äöü€🌱")'])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'toolchain_type(name = "type_äöü€🌱")',
+            'toolchain(',
+            '  name = "tc_äöü€🌱",',
+            '  toolchain_type = ":type_äöü€🌱",',
+            '  toolchain = ":impl",',
+            ')',
+            'filegroup(name = "impl")',
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_toolchains',
+            '<root>',
+            '--toolchain_type=//:type_äöü€🌱',
+        ],
+        rstrip=True,
+    )
+    self.assertListEqual(
+        [
+            '## <root>:',
+            '//:tc_äöü€🌱',
+            '  @@//:tc_äöü€🌱 (type @@//:type_äöü€🌱)',
+            '',
+        ],
+        stdout,
+    )
+
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_toolchains', '<root>', '--output=json']
+    )
+    self.assertListEqual(
+        [{
+            'module': '<root>',
+            'registrations': [{
+                'pattern': '//:tc_äöü€🌱',
+                'targets': [{
+                    'label': '@@//:tc_äöü€🌱',
+                    'toolchain_type': '@@//:type_äöü€🌱',
+                    'toolchain_type_owner': '<root>',
+                }],
+            }],
+        }],
+        [json.loads(line) for line in stdout],
+    )
+
+  def testShowToolchainsReportsErrors(self):
+    self.setUpRegistrations(
+        extra_foo_registrations=[
+            'register_toolchains("//:missing", "//configurable:all")'
+        ]
+    )
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_toolchains', 'foo', '--output=json'],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        'ERROR: Results are incomplete as 2 registered patterns or targets'
+        " couldn't be analyzed.",
+        stderr,
+    )
+    registrations = json.loads(stdout[0])['registrations']
+    self.assertEqual('//:missing', registrations[3]['pattern'])
+    self.assertNotIn('targets', registrations[3])
+    self.assertIn(
+        "no such target '@@foo+//:missing'", registrations[3]['error']
+    )
+    self.assertEqual(
+        {
+            'pattern': '//configurable:all',
+            'targets': [{
+                'label': '@@foo+//configurable:configurable',
+                'error': (
+                    '@@foo+//:configurable_type selects its actual target'
+                    ' based on the configuration'
+                ),
+            }],
+        },
+        registrations[4],
+    )
+
+  def testShowExecutionPlatforms(self):
+    self.setUpRegistrations()
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_execution_platforms'], rstrip=True
+    )
+    self.assertListEqual(
+        [
+            '## <root>:',
+            '//:root_platform',
+            '  @@//:root_platform',
+            '',
+            '## foo@_:',
+            '//:platform',
+            '  @@foo+//:platform',
+            '',
+        ],
+        stdout,
+    )
+
   def testModCommandWithCycleDoesNotCrash(self):
     self.ScratchFile(
         'MODULE.bazel',
