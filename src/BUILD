@@ -540,6 +540,7 @@ genrule(
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
         "//third_party/java/proguard:srcs",
+        "//tools/jdk:proguard_allowlister_srcs",
     ],
     outs = ["java_tools_dist.zip"],
     cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
@@ -592,6 +593,7 @@ release_archive(
         "//third_party/ijar:ijar_transitive_srcs_zip",
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
+        "//tools/jdk:proguard_allowlister_zip",
     ],
 )
 
@@ -613,6 +615,7 @@ release_archive(
         "//src/tools/one_version:one_version_deploy_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
+        "//tools/jdk:proguard_allowlister_deploy_zip",
     ] + select({
         "//src/conditions:darwin_x86_64": [],
         "//conditions:default": [":turbine_direct_graal_zip"],

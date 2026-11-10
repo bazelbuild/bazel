@@ -1,7 +1,16 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//src:release_archive.bzl", "release_archive")
 
 package(default_visibility = ["//visibility:public"])
+
+PROGUARD_ALLOWLISTER_SOURCES = [
+    # keep sorted
+    "proguard_allowlister.cc",
+    "proguard_allowlister_lib.cc",
+    "proguard_allowlister_lib.h",
+]
 
 filegroup(
     name = "srcs",
@@ -44,6 +53,36 @@ filegroup(
         "toolchain_utils.bzl",
     ],
     visibility = ["//tools:__pkg__"],
+)
+
+# The proguard allowlister is also shipped with java_tools, both as sources (to
+# build it from source on platforms without a prebuilt binary) and as a prebuilt
+# binary, so that the Java toolchain doesn't require a C++ toolchain for the
+# execution platform. Keep in sync with :proguard_allowlister in BUILD.tools.
+cc_binary(
+    name = "proguard_allowlister",
+    srcs = PROGUARD_ALLOWLISTER_SOURCES,
+    visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "proguard_allowlister_srcs",
+    srcs = PROGUARD_ALLOWLISTER_SOURCES,
+    visibility = ["//src:__pkg__"],
+)
+
+release_archive(
+    name = "proguard_allowlister_zip",
+    srcs = PROGUARD_ALLOWLISTER_SOURCES,
+    package_dir = "java_tools/tools/jdk",
+    visibility = ["//src:__pkg__"],
+)
+
+release_archive(
+    name = "proguard_allowlister_deploy_zip",
+    srcs = [":proguard_allowlister"],
+    package_dir = "java_tools/tools/jdk",
+    visibility = ["//src:__pkg__"],
 )
 
 cc_library(

@@ -118,4 +118,10 @@ function test_java_tools_has_proguard() {
   expect_path_in_java_tools "third_party/java/proguard/proguard6.2.2/src/proguard"
 }
 
+function test_java_tools_has_proguard_allowlister() {
+  expect_path_in_java_tools "tools/jdk/proguard_allowlister.cc"
+  expect_path_in_java_tools "tools/jdk/proguard_allowlister_lib.cc"
+  expect_path_in_java_tools "tools/jdk/proguard_allowlister_lib.h"
+}
+
 run_suite "Java tools archive tests"
