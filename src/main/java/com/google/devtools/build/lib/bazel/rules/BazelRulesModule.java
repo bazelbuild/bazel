@@ -1698,6 +1698,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getIncompatibleNoImplicitWatchLabel();
+
+    @Deprecated
+    @Option(
+        name = "experimental_enable_android_migration_apis",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalEnableAndroidMigrationApis();
   }
 
   @Override
