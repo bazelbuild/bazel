@@ -222,6 +222,77 @@ public class CompressedTarFunctionTest {
   }
 
   @Test
+  public void testDecompressTarWithHardLinkEscape() throws Exception {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File victimFile = new File(folder.newFolder("victim"), "precious.txt");
+    Files.writeString(victimFile.toPath(), "precious");
+    File tarGzFile = folder.newFile("malicious_hardlink.tar.gz");
+    try (FileOutputStream fos = new FileOutputStream(tarGzFile);
+        GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
+        TarArchiveOutputStream tos = new TarArchiveOutputStream(gzos)) {
+      // A hard link to a file outside of the destination directory...
+      TarArchiveEntry link = new TarArchiveEntry("pwn", TarArchiveEntry.LF_LINK);
+      link.setLinkName("../victim/precious.txt");
+      tos.putArchiveEntry(link);
+      tos.closeArchiveEntry();
+
+      // ...followed by a regular file of the same name, which would be written through the link.
+      TarArchiveEntry regularFile = new TarArchiveEntry("pwn");
+      byte[] regularFileContents = "overwritten".getBytes(UTF_8);
+      regularFile.setSize(regularFileContents.length);
+      tos.putArchiveEntry(regularFile);
+      tos.write(regularFileContents);
+      tos.closeArchiveEntry();
+    }
+    Path tarGzPath = fs.getPath(tarGzFile.getAbsolutePath());
+
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(tarGzPath)
+            .setDestinationPath(tarGzPath.getParentDirectory().getRelative("out"))
+            .build();
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Tar entries cannot refer to files outside of their directory");
+    assertThat(Files.readString(victimFile.toPath())).isEqualTo("precious");
+  }
+
+  @Test
+  public void testDecompressTarWithHardLinkWithUpLevelReferenceInsideDestination()
+      throws Exception {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File tarGzFile = folder.newFile("hardlink.tar.gz");
+    try (FileOutputStream fos = new FileOutputStream(tarGzFile);
+        GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
+        TarArchiveOutputStream tos = new TarArchiveOutputStream(gzos)) {
+      TarArchiveEntry regularFile = new TarArchiveEntry("file");
+      byte[] regularFileContents = "hello".getBytes(UTF_8);
+      regularFile.setSize(regularFileContents.length);
+      tos.putArchiveEntry(regularFile);
+      tos.write(regularFileContents);
+      tos.closeArchiveEntry();
+
+      // The link target contains an up-level reference, but doesn't escape the destination.
+      TarArchiveEntry link = new TarArchiveEntry("link", TarArchiveEntry.LF_LINK);
+      link.setLinkName("dir/../file");
+      tos.putArchiveEntry(link);
+      tos.closeArchiveEntry();
+    }
+    Path tarGzPath = fs.getPath(tarGzFile.getAbsolutePath());
+
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(tarGzPath)
+            .setDestinationPath(tarGzPath.getParentDirectory().getRelative("out"))
+            .build();
+    Path outputDir = decompress(descriptor);
+
+    assertThat(Files.readString(java.nio.file.Paths.get(outputDir.getRelative("link").toString())))
+        .isEqualTo("hello");
+  }
+
+  @Test
   public void testDecompressTarWithChainedSymlinkEscape() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path outDir = fs.getPath("/out");
