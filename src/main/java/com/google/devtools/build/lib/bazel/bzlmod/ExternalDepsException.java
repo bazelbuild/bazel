@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import javax.annotation.Nullable;
@@ -30,15 +32,29 @@ import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 public class ExternalDepsException extends Exception implements DetailedException {
 
   private final DetailedExitCode detailedExitCode;
+  private final Transience transience;
 
   private ExternalDepsException(String message, @Nullable Throwable cause, ExternalDeps.Code code) {
     super(message, cause);
-    detailedExitCode =
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setExternalDeps(ExternalDeps.newBuilder().setCode(code).build())
-                .build());
+    if (cause instanceof DetailedIOException detailedCause) {
+      // A DetailedIOException, e.g. due to a file that is no longer available in the remote
+      // cache, determines the exit code and transience of the failure, which is necessary so that
+      // lost remote files can trigger a retry of the build.
+      detailedExitCode =
+          DetailedExitCode.of(
+              detailedCause.getDetailedExitCode().getFailureDetail().toBuilder()
+                  .setMessage(message)
+                  .build());
+      transience = detailedCause.getTransience();
+    } else {
+      detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setExternalDeps(ExternalDeps.newBuilder().setCode(code).build())
+                  .build());
+      transience = Transience.PERSISTENT;
+    }
   }
 
   @FormatMethod
@@ -74,5 +90,10 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
   @Override
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
+  }
+
+  /** The transience with which this exception should be reported to Skyframe. */
+  public Transience getTransience() {
+    return transience;
   }
 }
