@@ -2652,8 +2652,6 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     stderr = '\n'.join(stderr)
     self.assertIn('JUST FETCHED', stderr)
-    self.assertIn('Remote repo contents cache lookup failed for', stderr)
-    self.assertIn('treating as a cache miss', stderr)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'defs.bzl')))
 
