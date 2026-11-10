@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -445,7 +446,7 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "bar");
     RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
     RemoteActionFileSystem actionFs =
-        createActionFileSystemWithRemoteInput(artifact, digest, inputFetcher);
+        createActionFileSystemWithInput(artifact, remoteMetadata(digest), inputFetcher);
 
     getFromFuture(
         remoteCache.uploadFile(
@@ -472,8 +473,8 @@ public class CombinedCacheTest {
     artifact.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "baz");
     RemoteActionFileSystem actionFs =
-        createActionFileSystemWithRemoteInput(
-            artifact, digest, mock(RemoteActionInputFetcher.class));
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
 
     var e =
         assertThrows(
@@ -511,7 +512,7 @@ public class CombinedCacheTest {
     diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
     RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
     RemoteActionFileSystem actionFs =
-        createActionFileSystemWithRemoteInput(artifact, digest, inputFetcher);
+        createActionFileSystemWithInput(artifact, remoteMetadata(digest), inputFetcher);
 
     getFromFuture(
         remoteCache.uploadFile(
@@ -553,8 +554,8 @@ public class CombinedCacheTest {
     artifact.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "baz");
     RemoteActionFileSystem actionFs =
-        createActionFileSystemWithRemoteInput(
-            artifact, digest, mock(RemoteActionInputFetcher.class));
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
 
     getFromFuture(
         remoteCache.uploadFile(
@@ -603,6 +604,44 @@ public class CombinedCacheTest {
   }
 
   @Test
+  public void uploadFile_diskCacheLookupFails_uploadsValidLocalCopy() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        spy(new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true));
+    doThrow(new IOException("lookup failed")).when(diskCacheClient).findBlob(any());
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "bar");
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext,
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    var uploaded = new ByteArrayOutputStream();
+    getFromFuture(cacheProtocol.downloadBlob(remoteActionExecutionContext, digest, uploaded));
+    assertThat(uploaded.toString(UTF_8)).isEqualTo("bar");
+  }
+
+  @Test
   public void uploadFile_diskCacheEntryDeletedBeforeRead_reportsLostInput() throws Exception {
     Path diskRoot = fs.getPath("/diskroot");
     diskRoot.createDirectoryAndParents();
@@ -630,8 +669,8 @@ public class CombinedCacheTest {
     Digest digest = digestUtil.computeAsUtf8("bar");
     diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
     RemoteActionFileSystem actionFs =
-        createActionFileSystemWithRemoteInput(
-            artifact, digest, mock(RemoteActionInputFetcher.class));
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
 
     var e =
         assertThrows(
@@ -646,12 +685,6 @@ public class CombinedCacheTest {
                         /* force= */ false)));
     assertThat(e.getMissingDigest()).isEqualTo(digest);
     assertThat(e.getExecPath()).isEqualTo(artifact.getExecPath());
-  }
-
-  /** Returns an action file system on which {@code artifact} is an input stored remotely. */
-  private RemoteActionFileSystem createActionFileSystemWithRemoteInput(
-      Artifact artifact, Digest digest, RemoteActionInputFetcher inputFetcher) {
-    return createActionFileSystemWithInput(artifact, remoteMetadata(digest), inputFetcher);
   }
 
   private RemoteActionFileSystem createActionFileSystemWithInput(
