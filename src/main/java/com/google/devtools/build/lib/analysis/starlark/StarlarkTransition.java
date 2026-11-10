@@ -67,6 +67,16 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   /** Returns true if the transition is an exec transition. */
   public abstract boolean isExecTransition();
 
+  /**
+   * Returns this transition with {@code scopeDetails} added to the details of the Starlark flags in
+   * its input that it was created with. Only the exec transition reads them, see {@link
+   * com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader}.
+   */
+  public StarlarkTransition withAdditionalScopeDetails(
+      StarlarkBuildSettingsDetailsValue scopeDetails) {
+    return this;
+  }
+
   // Get the inputs of the starlark transition as a set of canonicalized Labels.
   private ImmutableSet<Label> getInputs() {
     return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet();

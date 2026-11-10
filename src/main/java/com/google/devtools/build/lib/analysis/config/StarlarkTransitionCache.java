@@ -197,7 +197,16 @@ public final class StarlarkTransitionCache {
               fromOptions,
               (composedTransition, options) ->
                   applyAndValidate(
-                      composedTransition, options, flagsAliases, details, handlerWithErrorStatus));
+                      composedTransition == transition
+                          ? transition
+                          // The exec transition only has the details of the source configuration's
+                          // flags, but earlier transitions in the composition may set others.
+                          : ExecutionTransitionFactory.withAdditionalScopeDetails(
+                              composedTransition, details),
+                      options,
+                      flagsAliases,
+                      details,
+                      handlerWithErrorStatus));
     } finally {
       handlerWithErrorStatus.replayOn(eventHandler);
     }

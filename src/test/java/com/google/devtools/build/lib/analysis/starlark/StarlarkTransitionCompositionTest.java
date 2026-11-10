@@ -257,6 +257,48 @@ public final class StarlarkTransitionCompositionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void attributeTransition_starlarkThenExec_resetsTargetScopedFlagNotSetBySource()
+      throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition("target", "set_flag.and_then(config.exec())");
+    // Makes flags with the default scope propagate to the exec configuration, so that the flag is
+    // only reset if the exec transition knows its scope.
+    useConfiguration("--noincompatible_exclude_starlark_flags_from_exec_config");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions()).isEmpty();
+    assertThat(getConfiguration(dep).isExecConfiguration()).isTrue();
+  }
+
+  @Test
+  public void attributeTransition_starlarkThenExec_propagatesUniversalFlagNotSetBySource()
+      throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition(
+        "universal", "set_flag.and_then(config.exec())");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:flag"), "flag_set");
+    assertThat(getConfiguration(dep).isExecConfiguration()).isTrue();
+  }
+
+  @Test
+  public void attributeTransition_starlarkThenExec_customExecScopeFlagNotSetBySource()
+      throws Exception {
+    writeRuleWithStarlarkFlagAndAttributeTransition(
+        "exec:--//test:host_flag", "set_flag.and_then(config.exec())");
+    useConfiguration("--//test:host_flag=custom_host");
+
+    ConfiguredTarget dep = getDirectPrerequisite(getConfiguredTarget("//test:test"), "//test:dep");
+
+    // The exec transition sets the flag to the value of the host flag.
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions())
+        .containsEntry(Label.parseCanonicalUnchecked("//test:flag"), "custom_host");
+    assertThat(getConfiguration(dep).isExecConfiguration()).isTrue();
+  }
+
+  @Test
   public void attributeTransition_starlarkThenExec_customExecScopeReadsResetHostFlag()
       throws Exception {
     scratch.file(
@@ -453,11 +495,11 @@ public final class StarlarkTransitionCompositionTest extends BuildViewTestCase {
 
   /**
    * Writes a {@code //test:flag} string flag with the given scope, an alias {@code //test:alias}
-   * for it and a rule whose {@code dep} attribute uses {@code composedTransition}, which can refer
-   * to {@code set_flag} (sets the flag), {@code set_flag_via_alias} (sets the flag through the
-   * alias), {@code set_flag_to_int} (sets the flag to an invalid value), {@code flag_to_foo}
-   * (copies the flag to {@code --foo}) and {@code alias_to_foo} (copies the flag to {@code --foo}
-   * through the alias).
+   * for it, a {@code //test:host_flag} string flag that a custom exec scope can refer to and a rule
+   * whose {@code dep} attribute uses {@code composedTransition}, which can refer to {@code
+   * set_flag} (sets the flag), {@code set_flag_via_alias} (sets the flag through the alias), {@code
+   * set_flag_to_int} (sets the flag to an invalid value), {@code flag_to_foo} (copies the flag to
+   * {@code --foo}) and {@code alias_to_foo} (copies the flag to {@code --foo} through the alias).
    */
   private void writeRuleWithStarlarkFlagAndAttributeTransition(
       String flagScope, String composedTransition) throws Exception {
@@ -534,6 +576,11 @@ public final class StarlarkTransitionCompositionTest extends BuildViewTestCase {
                 name = "flag",
                 build_setting_default = "flag_default",
                 scope = "%s",
+            )
+
+            string_flag(
+                name = "host_flag",
+                build_setting_default = "host_default",
             )
 
             alias(name = "alias", actual = ":flag")
