@@ -517,18 +517,19 @@ public class Package extends Packageoid {
    * Returns the (innermost) symbolic macro instance that declared the given target, or null if the
    * target was not created in a symbolic macro.
    *
-   * <p>Throws {@link IllegalArgumentException} if the given name is not a target in this package.
+   * <p>Throws {@link IllegalArgumentException} if the given target does not belong to this package.
    *
    * <p>For packages produced by deserialization, this information is not available and {@code
    * IllegalStateException} is thrown.
    */
   @Nullable
-  public MacroInstance getDeclaringMacroForTarget(String target) {
+  public MacroInstance getDeclaringMacroForTarget(Target target) {
     Preconditions.checkState(
         targetsToDeclaringMacro != null,
         "Cannot retrieve MacroInstance information from deserialized packages");
-    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
-    return targetsToDeclaringMacro.get(target);
+    Preconditions.checkArgument(
+        this.equals(target.getPackageoid()), "Target must belong to this package");
+    return targetsToDeclaringMacro.get(target.getName());
   }
 
   /**
@@ -539,18 +540,19 @@ public class Package extends Packageoid {
    * <p>The caller should interpret a null result to mean that the declaration location of the
    * target is this package.
    *
-   * <p>Throws {@link IllegalArgumentException} if the given name is not a target in this package.
+   * <p>Throws {@link IllegalArgumentException} if the given target does not belong to this package.
    */
   @Nullable
-  public PackageIdentifier getDeclaringPackageForTargetIfInMacro(String target) {
-    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
+  public PackageIdentifier getDeclaringPackageForTargetIfInMacro(Target target) {
+    Preconditions.checkArgument(
+        this.equals(target.getPackageoid()), "Target must belong to this package");
     // Exactly one of targetsToDeclaringMacro and targetsToDeclaringPackage is non-null, depending
     // on whether this package was produced by deserialization.
     if (targetsToDeclaringMacro != null) {
-      MacroInstance macro = targetsToDeclaringMacro.get(target);
+      MacroInstance macro = targetsToDeclaringMacro.get(target.getName());
       return macro != null ? macro.getDefinitionPackage() : null;
     } else {
-      return targetsToDeclaringPackage.get(target);
+      return targetsToDeclaringPackage.get(target.getName());
     }
   }
 
