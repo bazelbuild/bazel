@@ -12,25 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <jni.h>
-
 #include <cstdint>
 
 #include "c/blake3.h"
+#include "src/main/native/export.h"
 
 // Exported C functions called from Java through the java.lang.foreign API by
-// Blake3MessageDigest, in addition to the blake3_hasher_* functions. They are
-// not JNI methods. JNIEXPORT only makes them visible (default visibility on
-// ELF/Mach-O, dllexport on Windows).
+// Blake3MessageDigest, in addition to the blake3_hasher_* functions.
 
 extern "C" {
 
-JNIEXPORT int32_t blaze_blake3_hasher_size() {
+BAZEL_EXPORT int32_t blaze_blake3_hasher_size() {
   return static_cast<int32_t>(sizeof(blake3_hasher));
 }
 
-JNIEXPORT void blaze_blake3_hash(const void *input, size_t input_len,
-                                 void *out) {
+BAZEL_EXPORT void blaze_blake3_hash(const void *input, size_t input_len,
+                                    void *out) {
   blake3_hasher hasher;
   blake3_hasher_init(&hasher);
   blake3_hasher_update(&hasher, input, input_len);

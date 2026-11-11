@@ -62,15 +62,17 @@ cc_library(
 )
 
 cc_library(
+    name = "export",
+    hdrs = ["export.h"],
+    visibility = ["//src/main/native:__subpackages__"],
+)
+
+cc_library(
     name = "blake3_jni",
-    srcs = [
-        "blake3_jni.cc",
-        ":jni.h",
-        ":jni_md.h",
-    ],
-    includes = ["."],  # For jni headers.
+    srcs = ["blake3_jni.cc"],
     visibility = ["//src/main/native:__subpackages__"],
     deps = [
+        ":export",
         "@blake3",
     ],
     alwayslink = 1,
