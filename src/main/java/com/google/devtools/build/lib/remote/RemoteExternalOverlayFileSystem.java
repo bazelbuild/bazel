@@ -80,6 +80,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * A file system that overlays the native file system with a {@link RemoteExternalFileSystem} for
@@ -393,10 +394,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * AbstractActionInputPrefetcher}.
    */
   @Override
-  public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  public void ensureMaterialized(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
-      // The repo has not been injected into the in-memory file system.
+      // The repo has not been injected into the in-memory file system, or has already been
+      // materialized. If it is a native repo, it may still contain symlinks into repos that are
+      // served from memory, which must be materialized before the native repo is accessed
+      // non-hermetically.
+      String repoName = repo.getName();
+      if (!materializedRepos.contains(repoName)) {
+        materializeSymlinkTargetReposBelow(
+            nativeFs.getPath(externalDirectory.getChild(repoName)), location, reporter);
+      }
       return;
     }
     var unused =
@@ -412,15 +422,70 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                   }
                   return materializationExecutor.submit(
                       () -> {
-                        doMaterialize(repo, reporter);
+                        doMaterialize(repo, location, reporter);
                         return null;
                       });
                 }));
   }
 
-  private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
+  /**
+   * Materializes the repos served from memory that symlinks below the given native directory point
+   * to, following chains of native symlinks on the way.
+   */
+  private void materializeSymlinkTargetReposBelow(
+      Path nativeDir, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
+    if (markerFileContents.isEmpty() || !nativeDir.isDirectory(Symlinks.NOFOLLOW)) {
+      return;
+    }
+    for (Dirent dirent : nativeDir.readdir(Symlinks.NOFOLLOW)) {
+      if (markerFileContents.isEmpty()) {
+        return;
+      }
+      Path child = nativeDir.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, location, reporter);
+        case SYMLINK -> {
+          PathFragment target = resolveNativeSymlinkIntoMemory(child);
+          if (target != null) {
+            ensureMaterialized(
+                RepositoryName.createUnvalidated(target.getSegment(externalDirectorySegmentCount)),
+                location,
+                reporter);
+          }
+        }
+        default -> {}
+      }
+    }
+  }
+
+  /**
+   * Returns the path served from memory that the given native symlink points to, possibly through
+   * further native symlinks, or null if it doesn't point into memory.
+   */
+  @Nullable
+  private PathFragment resolveNativeSymlinkIntoMemory(Path nativeSymlink) throws IOException {
+    PathFragment current = nativeSymlink.asFragment();
+    Set<PathFragment> visited = new HashSet<>();
+    while (visited.add(current)) {
+      if (fsForPath(current) == externalFs) {
+        return current;
+      }
+      Path path = nativeFs.getPath(current);
+      FileStatus status = path.statIfFound(Symlinks.NOFOLLOW);
+      if (status == null || !status.isSymbolicLink()) {
+        return null;
+      }
+      PathFragment target = path.readSymbolicLink();
+      current = target.isAbsolute() ? target : current.getParentDirectory().getRelative(target);
+    }
+    return null;
+  }
+
+  private void doMaterialize(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
+      throws IOException, InterruptedException {
+    reporter.handle(Event.debug(location, "Materializing remote repo %s".formatted(repo)));
     materializeSubtree(externalDirectory.getChild(repo.getName()));
     materializedRepos.add(repo.getName());
 
@@ -883,6 +948,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     }
 
     @Override
+    @SuppressWarnings("UnsynchronizedOverridesSynchronized")
     public InputStream getInputStream(PathFragment path) throws IOException {
       // Symlinks are never prefetched to the native file system themselves, only the regular file
       // they resolve to, so follow them before reading a prefetched file. Either end of the chain
