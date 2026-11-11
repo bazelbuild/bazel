@@ -15,6 +15,7 @@
 # pylint: disable=g-long-ternary
 # pylint: disable=g-bad-todo
 
+import hashlib
 import json
 import os
 import re
@@ -2568,6 +2569,104 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # via its contents proxy, so my_repo is neither invalidated nor refetched.
     _, _, stderr = self.RunBazel(['build', '//main:use_data'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+
+  def testLookupNotRepeatedWhileWorkerFetchIsRunning(self):
+    # Regression test for remote repo contents cache poisoning.
+    #
+    # A cache lookup deletes the repo directory and then prefetches the cached
+    # .bzl files. If the prefetch fails, the lookup reports a miss and the repo
+    # is fetched on a worker thread. The worker survives Skyframe restarts of
+    # RepositoryDelegatorFunction. A restart in the middle of the fetch (here:
+    # the first label from a package that has not been loaded yet) used to run
+    # the lookup again, which deleted the files the rule had already written.
+    # The rule finished in the deleted directory and the truncated result was
+    # uploaded under the same cache key, so every other client failed with
+    # "BUILD file not found in directory '' of external repository".
+    #
+    # The prefetch is made to fail by corrupting the .bzl blob in the CAS. The
+    # AC entry and the Tree stay valid, so the lookup finds the entry.
+    bzl_content = b'x = 1\n'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'other_repo = repository_rule(_other_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            # Written before the restart: lost if the lookup runs again.
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            # First label from a package Bazel has not loaded yet: Skyframe
+            # restarts RepositoryDelegatorFunction while the worker thread
+            # keeps running this function.
+            '  rctx.read(Label("@other//:data.txt"))',
+            # Written after the restart. A .bzl file, so the lookup prefetches
+            # it and the corrupted blob makes the prefetch fail.
+            '  rctx.file("defs.bzl", %r)' % bzl_content.decode(),
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached, uploaded.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # Corrupt the defs.bzl blob in place. The blob still exists, so the action
+    # result passes the worker's existence check, but its download fails the
+    # digest check.
+    digest = hashlib.sha256(bzl_content).hexdigest()
+    blob_path = os.path.join(self._cas_path, 'cas', digest[:2], digest)
+    self.assertTrue(os.path.exists(blob_path))
+    os.chmod(blob_path, 0o644)
+    with open(blob_path, 'wb') as f:
+      f.write(b'#' * len(bzl_content))
+
+    # After expunging: the lookup finds the entry but cannot prefetch defs.bzl.
+    # Bazel must report this, fetch the repo locally exactly once, and end up
+    # with a complete repo on disk. Before the fix, the restart inside the
+    # fetch ran the lookup again, deleted BUILD from under the worker, and
+    # this build failed with "BUILD file not found".
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'defs.bzl')))
+
+    # The local fetch uploaded the complete repo again under the same key. The
+    # corrupted blob itself stays, because the upload only sends blobs that
+    # the CAS reports as missing. Restore it, then check that a clean client
+    # is served the complete repo from the cache: before the fix, the entry
+    # pointed to a Tree without BUILD and this build failed.
+    with open(blob_path, 'wb') as f:
+      f.write(bzl_content)
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'defs.bzl')))
 
 
 if __name__ == '__main__':

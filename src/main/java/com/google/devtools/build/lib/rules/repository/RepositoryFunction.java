@@ -234,6 +234,19 @@ public abstract class RepositoryFunction {
   }
 
   /**
+   * Returns true if a fetch of the repo currently being computed has already started (and may still
+   * be running on a worker thread that survives Skyframe restarts) or has finished.
+   *
+   * <p>While this is true, {@link RepositoryDelegatorFunction} must not consult any repo contents
+   * cache for this repo: a cache lookup deletes and re-populates the repo directory, which races
+   * with the fetch that is writing into it. Handlers that fetch on a worker thread must override
+   * this; the default only knows about finished fetches.
+   */
+  public boolean isFetchInProgressOrDone(Environment env) {
+    return wasJustFetched(env);
+  }
+
+  /**
    * Returns the {@link RemoteRepoContentsCache.LookupState} to use for the remote repo contents
    * cache lookup of the repository currently being computed.
    *
