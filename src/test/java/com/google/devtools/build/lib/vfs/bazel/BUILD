@@ -28,17 +28,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+        "@rules_java//java/runfiles",
     ],
 )
 
 java_test(
     name = "BazelTests",
     size = "small",
+    data = ["@blake3_test_vectors//file"],
+    jvm_flags = ["-Dblake3.test_vectors=$(rlocationpath @blake3_test_vectors//file)"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":BazelTests_lib",

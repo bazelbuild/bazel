@@ -483,6 +483,14 @@ http_file(
     urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-win64.exe"],
 )
 
+# Keep the version in sync with the blake3 module.
+http_file(
+    name = "blake3_test_vectors",
+    downloaded_file_path = "test_vectors.json",
+    integrity = "sha256-3LkeqKzMd+bW5jKvfNwamanzrnjPZI2llcfQZNsy9iQ=",
+    urls = ["https://raw.githubusercontent.com/BLAKE3-team/BLAKE3/1.8.2/test_vectors/test_vectors.json"],
+)
+
 async_profiler_repos = use_extension("//:repositories.bzl", "async_profiler_repos")
 use_repo(
     async_profiler_repos,
