@@ -2533,6 +2533,33 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testConstantMetadataArtifactWithoutGeneratingActionReportsError() throws Exception {
+    scratch.file(
+        // py_internal is a context-guarded value; it's permitted in //tools/build_defs/python/...
+        "tools/build_defs/python/test/rule.bzl",
+        """
+        def _impl(ctx):
+           f = py_internal.declare_constant_metadata_file(
+               ctx = ctx, name = 'const.txt', root = ctx.bin_dir)
+           return [DefaultInfo(files = depset([f]))]
+        my_rule = rule(_impl)
+        """);
+    scratch.file("tools/build_defs/python/test/BUILD");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//tools/build_defs/python/test:rule.bzl", "my_rule")
+        my_rule(name = 'xxx')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:xxx");
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:8: in my_rule rule //test:xxx: ");
+    assertContainsEvent("The following files have no generating action:");
+    assertContainsEvent("test/const.txt");
+  }
+
+  @Test
   public void testCustomExecutableUsed() throws Exception {
     scratch.file(
         "test/rule.bzl",
