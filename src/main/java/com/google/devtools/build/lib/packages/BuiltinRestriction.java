@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -310,18 +309,27 @@ public final class BuiltinRestriction {
     return allowlist;
   }
 
-  private static BuiltinRestriction.Allowlist createAllowlist(Sequence<Tuple> seq) {
-    return BuiltinRestriction.Allowlist.create(
-        seq.stream()
-            // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
-            // Starlark, even though it is allowlisted.
-            .map(p -> {
-              String repo = (String) p.get(0);
-              String packagePrefix = (String) p.get(1);
-              return repo.isEmpty()
-                  ? BuiltinRestriction.mainRepoAllowlistEntry(packagePrefix)
-                  : BuiltinRestriction.externalRepoAllowlistEntry(repo, packagePrefix);
-            })
-            .collect(toImmutableList()));
+  private static BuiltinRestriction.Allowlist createAllowlist(Sequence<Tuple> seq)
+      throws EvalException {
+    ImmutableList.Builder<AllowlistEntry> listBuilder = ImmutableList.builder();
+    for (Tuple p : seq) {
+      if (p.size() != 2) {
+        throw Starlark.errorf(
+            "Expected '(string, string)' tuple for allowlist elements; got %s", p);
+      }
+      Object repoUnchecked = p.get(0);
+      Object packageUnchecked = p.get(1);
+      if (repoUnchecked instanceof String repo
+          && packageUnchecked instanceof String packagePrefix) {
+        listBuilder.add(
+            repo.isEmpty()
+                ? BuiltinRestriction.mainRepoAllowlistEntry(packagePrefix)
+                : BuiltinRestriction.externalRepoAllowlistEntry(repo, packagePrefix));
+      } else {
+        throw Starlark.errorf(
+            "Expected '(string, string)' tuple for allowlist elements; got %s", p);
+      }
+    }
+    return BuiltinRestriction.Allowlist.create(listBuilder.build());
   }
 }

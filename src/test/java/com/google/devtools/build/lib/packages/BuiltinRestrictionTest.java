@@ -16,11 +16,16 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.BuiltinRestriction.externalRepoAllowlistEntry;
 import static com.google.devtools.build.lib.packages.BuiltinRestriction.mainRepoAllowlistEntry;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -58,5 +63,62 @@ public final class BuiltinRestrictionTest {
     assertThat(
             BuiltinRestriction.isNotAllowed(Label.parseCanonical(label), moduleRepoName, ALLOWLIST))
         .isEqualTo(!allowed);
+  }
+
+  @Test
+  public void testAllowlistFromStarlark() throws Exception {
+    Sequence<Tuple> starlarkAllowlist =
+        StarlarkList.of(null, Tuple.of("repo", "package"), Tuple.of("_builtins", ""));
+    BuiltinRestriction.Allowlist allowlist =
+        BuiltinRestriction.allowlistFromStarlark(starlarkAllowlist);
+    assertThat(
+            BuiltinRestriction.isNotAllowed(
+                Label.parseCanonical("//package:defs.bzl"), "repo", allowlist))
+        .isFalse();
+    assertThat(
+            BuiltinRestriction.isNotAllowed(
+                Label.parseCanonical("//literally/anything:defs.bzl"), "_builtins", allowlist))
+        .isFalse();
+    assertThat(
+            BuiltinRestriction.isNotAllowed(
+                Label.parseCanonical("//some_other_package:defs.bzl"), "repo", allowlist))
+        .isTrue();
+    assertThat(
+            BuiltinRestriction.isNotAllowed(
+                Label.parseCanonical("//package:defs.bzl"), "other_repo", allowlist))
+        .isTrue();
+  }
+
+  @Test
+  public void testInvalidStarlarkAllowlistThrowsEvalException() throws Exception {
+    Object notSequence = new Object();
+    Object notTuples = StarlarkList.of(null, "repo", "package");
+    Object invalidTupleTypes = StarlarkList.of(null, Tuple.of("abc", 1234));
+    Object invalidTupleLength = StarlarkList.of(null, Tuple.of("repo", "package", "foo"));
+
+    assertThat(
+            assertThrows(
+                EvalException.class, () -> BuiltinRestriction.allowlistFromStarlark(notSequence)))
+        .hasMessageThat()
+        .contains("for allowlist, got unknown, want sequence");
+    assertThat(
+            assertThrows(
+                EvalException.class, () -> BuiltinRestriction.allowlistFromStarlark(notTuples)))
+        .hasMessageThat()
+        .contains("at index 0 of allowlist, got element of type string, want tuple");
+    assertThat(
+            assertThrows(
+                EvalException.class,
+                () -> BuiltinRestriction.allowlistFromStarlark(invalidTupleTypes)))
+        .hasMessageThat()
+        .contains("Expected '(string, string)' tuple for allowlist elements; got (\"abc\", 1234)");
+    assertThat(
+            assertThrows(
+                EvalException.class,
+                () -> BuiltinRestriction.allowlistFromStarlark(invalidTupleLength)))
+        .hasMessageThat()
+        .contains(
+            "Expected '(string, string)' tuple for allowlist elements; got (\"repo\", \"package\","
+                + " \"foo\")");
   }
 }
