@@ -462,6 +462,20 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     invalidateRepoDirectories(evaluator, reposToDiscard);
   }
 
+  @Override
+  public int getMaterializationPermissions(PathFragment path, int defaultPermissions)
+      throws IOException {
+    if (path.startsWith(externalDirectory)) {
+      // injectRemoteRepo prefetches before setting markerFileContents, so fsForPath would select
+      // nativeFs. Read externalFs directly so prefetched files preserve the cached executable bit.
+      var stat = externalFs.statIfFound(path, /* followSymlinks= */ true);
+      if (stat != null && stat.isFile()) {
+        return (stat.getPermissions() & 0100) != 0 ? 0555 : 0444;
+      }
+    }
+    return defaultPermissions;
+  }
+
   /**
    * Materializes the subtree rooted at the given path to the native file system if it lies in a
    * repo whose contents are currently only available in memory.
@@ -658,13 +672,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getLastModifiedTime(path, followSymlinks);
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return fsForPath(path).getLastModifiedTimeNanos(path, followSymlinks);
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    fsForPath(path).setLastModifiedTime(path, newTime);
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    fsForPath(path).setLastModifiedTimeNanos(path, newTime);
   }
 
   @Override

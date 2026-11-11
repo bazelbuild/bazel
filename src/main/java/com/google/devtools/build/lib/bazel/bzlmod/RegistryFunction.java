@@ -50,7 +50,7 @@ public class RegistryFunction implements SkyFunction {
   public static final Precomputed<Instant> LAST_INVALIDATION =
       new Precomputed<>("last_registry_invalidation");
 
-  public static final Precomputed<ImmutableMap<String, ImmutableSet<String>>> MODULE_MIRRORS =
+  public static final Precomputed<ImmutableMap<String, ImmutableList<String>>> MODULE_MIRRORS =
       new Precomputed<>("module_mirrors");
 
   /**
@@ -101,7 +101,7 @@ public class RegistryFunction implements SkyFunction {
           lockfile.getRegistryFileHashes(),
           lockfile.getSelectedYankedVersions(),
           vendorDir,
-          MODULE_MIRRORS.get(env).getOrDefault(key.url(), ImmutableSet.of()));
+          ImmutableSet.copyOf(MODULE_MIRRORS.get(env).getOrDefault(key.url(), ImmutableList.of())));
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(
