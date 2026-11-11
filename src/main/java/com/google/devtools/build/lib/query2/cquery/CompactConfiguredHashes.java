@@ -85,24 +85,7 @@ final class CompactConfiguredHashes {
       }
       return;
     }
-    for (int ordinal : order) {
-      N node = nodes.get(ordinal);
-      if (node.hash == null || failed.contains(node)) {
-        node.hash = null;
-        continue;
-      }
-      // Dependencies have already replaced their direct hash with the final result.
-      Fingerprint fp = new Fingerprint().addBytes(node.hash);
-      boolean complete = true;
-      for (N dep : node.deps) {
-        if (dep.hash == null) {
-          complete = false;
-          break;
-        }
-        fp.addString(dep.name).addString("").addBytes(dep.hash);
-      }
-      node.hash = complete ? fp.digestAndReset() : null;
-    }
+    combineRange(nodes, failed, order, 0, order.length, new Fingerprint());
   }
 
   /** Validation-first DAG combine. All tasks at one dependency height finish before the next. */
