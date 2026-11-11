@@ -180,7 +180,7 @@ public class HashesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest
             new PrintStream(output),
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            (ct, unusedAspectObserver) -> env.getFwdDeps(ImmutableList.of(ct)),
+            (ct, unusedAspectObserver, unusedEmitInternedDependency) -> env.getFwdDeps(ImmutableList.of(ct)),
             /* topLevelConfigurations= */ null,
             LabelPrinter.legacy(),
             /* keepGoing= */ false,
