@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.hash.Hasher;
 import com.google.devtools.build.runfiles.Runfiles;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -41,7 +40,7 @@ public class Blake3HasherTest {
    */
   private record TestVector(int inputLength, String hash) {
     byte[] input() {
-      byte[] input = new byte[inputLength];
+      var input = new byte[inputLength];
       for (int i = 0; i < inputLength; i++) {
         input[i] = (byte) (i % 251);
       }
@@ -57,9 +56,9 @@ public class Blake3HasherTest {
         Runfiles.preload().unmapped().rlocation(System.getProperty("blake3.test_vectors"));
     JsonObject json =
         JsonParser.parseString(Files.readString(Path.of(path), UTF_8)).getAsJsonObject();
-    ImmutableList.Builder<TestVector> builder = ImmutableList.builder();
+    var builder = ImmutableList.<TestVector>builder();
     for (JsonElement testCase : json.getAsJsonArray("cases")) {
-      JsonObject testCaseObject = testCase.getAsJsonObject();
+      var testCaseObject = testCase.getAsJsonObject();
       // The test vectors contain 131 bytes of extended output, which start with the 32-byte hash.
       builder.add(
           new TestVector(
@@ -83,7 +82,7 @@ public class Blake3HasherTest {
   public void testVectors_hashBytesWithOffset() {
     for (TestVector testVector : testVectors) {
       int length = testVector.inputLength();
-      byte[] input = new byte[length + 10];
+      var input = new byte[length + 10];
       System.arraycopy(testVector.input(), 0, input, 3, length);
 
       assertWithMessage("input length %s", length)
@@ -97,7 +96,7 @@ public class Blake3HasherTest {
     for (TestVector testVector : testVectors) {
       int length = testVector.inputLength();
       byte[] input = testVector.input();
-      Hasher hasher = Blake3HashFunction.INSTANCE.newHasher();
+      var hasher = Blake3HashFunction.INSTANCE.newHasher();
       for (int start = 0, step = 1; start < length; start += step, step = step * 3 + 1) {
         hasher.putBytes(input, start, Math.min(step, length - start));
       }

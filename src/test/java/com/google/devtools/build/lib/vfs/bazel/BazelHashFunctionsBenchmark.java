@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs.bazel;
 
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import java.security.SecureRandom;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -82,7 +81,7 @@ public class BazelHashFunctionsBenchmark {
   /** Streams the input in 8 KiB chunks, like {@code FileSystem#getDigest} does for files. */
   @Benchmark
   public HashCode hashBytesChunked() {
-    Hasher hasher = type.hashFunction.newHasher();
+    var hasher = type.hashFunction.newHasher();
     for (int off = 0; off < data.length; off += 8192) {
       hasher.putBytes(data, off, Math.min(8192, data.length - off));
     }

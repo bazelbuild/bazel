@@ -115,8 +115,8 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   /** Returns the BLAKE3 digest of the given range of bytes. */
   static byte[] hash(byte[] data, int offset, int length) {
-    MemorySegment input = MemorySegment.ofArray(data).asSlice(offset, length);
-    byte[] out = new byte[OUT_LEN];
+    var input = MemorySegment.ofArray(data).asSlice(offset, length);
+    var out = new byte[OUT_LEN];
     if (length <= MAX_CRITICAL_INPUT_LENGTH) {
       try {
         HASH.invokeExact(input, (long) length, MemorySegment.ofArray(out));
@@ -124,7 +124,7 @@ public final class Blake3MessageDigest extends MessageDigest {
         throw new AssertionError(t);
       }
     } else {
-      try (Arena arena = Arena.ofConfined()) {
+      try (var arena = Arena.ofConfined()) {
         MemorySegment state = arena.allocate(STATE_SIZE, 8);
         init(state);
         update(state, input);
