@@ -936,7 +936,7 @@ public final class StarlarkRepositoryContextTest {
             .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, false)
             .build());
     scratch.file(root.getRelative("foo").getPathString());
-    StarlarkPath unusedPath = context.getPath(fakeFileLabel);
+    StarlarkPath unusedPath = context.getPath(fakeFileLabel, thread);
     String unusedRead = context.readFile(fakeFileLabel, "no", thread);
     assertThat(
             context.getRecordedInputs().stream()
