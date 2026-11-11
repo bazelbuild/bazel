@@ -953,6 +953,18 @@ public class RemoteActionFileSystem extends FileSystem {
     protected void injectFile(PathFragment path, FileArtifactValue metadata) throws IOException {
       checkArgument(metadata.isRemote(), "metadata is not remote: %s", metadata);
       createDirectoryAndParents(path.getParentDirectory());
+      setRemoteMetadata(path, metadata);
+    }
+
+    /** Inserts a read-only repository file whose parent already exists. */
+    protected void injectFileInExistingDirectory(
+        PathFragment path, FileArtifactValue metadata, int permissions) throws IOException {
+      checkArgument(metadata.isRemote(), "metadata is not remote: %s", metadata);
+      chmod(setRemoteMetadata(path, metadata), permissions);
+    }
+
+    private RemoteInMemoryFileInfo setRemoteMetadata(PathFragment path, FileArtifactValue metadata)
+        throws IOException {
       InMemoryContentInfo node = getOrCreateWritableInode(path);
       // If a node already exists but is not a regular file, throw an error.
       if (!(node instanceof RemoteInMemoryFileInfo remoteInMemoryFileInfo)) {
@@ -960,6 +972,7 @@ public class RemoteActionFileSystem extends FileSystem {
       }
 
       remoteInMemoryFileInfo.set(metadata);
+      return remoteInMemoryFileInfo;
     }
   }
 
