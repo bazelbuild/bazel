@@ -122,6 +122,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
+      Path finalPath,
       PathFragment execPath,
       FileArtifactValue metadata,
       Priority priority,
@@ -145,6 +146,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
         execPath.getPathString(),
         execPath,
         tempPath,
+        finalPath,
         digest,
         new CombinedCache.DownloadProgressReporter(
             progress -> {
