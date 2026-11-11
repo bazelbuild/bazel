@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.vfs.bazel;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.hash.Funnel;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
@@ -59,7 +61,9 @@ public final class Blake3HashFunction implements HashFunction {
 
   @Override
   public HashCode hashString(CharSequence input, Charset charset) {
-    return hashBytes(input.toString().getBytes(charset));
+    // Bazel only hashes strings in its internal encoding, which match their Latin-1 bytes.
+    checkArgument(charset.equals(ISO_8859_1), "unsupported charset: %s", charset);
+    return hashBytes(StringUnsafe.getInternalStringBytes(input.toString()));
   }
 
   @Override
