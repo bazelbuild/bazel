@@ -598,8 +598,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void invalidateWithExternalService(ExtendedEventHandler eventHandler)
       throws InterruptedException {
     boolean remoteAnalysisCachingCurrentlyEnabled = isRemoteAnalysisCachingEnabled();
+    boolean remoteAnalysisCachingPreviouslyEnabled = remoteAnalysisCachingHasEverBeenEnabled;
     remoteAnalysisCachingHasEverBeenEnabled |= remoteAnalysisCachingCurrentlyEnabled;
-    if (!remoteAnalysisCachingHasEverBeenEnabled) {
+    if (!remoteAnalysisCachingPreviouslyEnabled) {
       return;
     }
 
@@ -1229,6 +1230,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Prevent stale Skycache configuration from persisting between cleans.
     remoteAnalysisCachingState = RemoteAnalysisCachingServerState.initializeEmpty();
     remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+    remoteAnalysisCachingHasEverBeenEnabled = false;
     // cleanupInterningPools must be called before init(), since init() initializes a new graph,
     // losing all references to the SkyKeyInterners that must be cleaned up.
     memoizingEvaluator.cleanupInterningPools();
