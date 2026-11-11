@@ -202,6 +202,9 @@ public final class DigestUtilsTest {
         () ->
             DigestUtils.manuallyComputeDigest(
                 PathFragment.create("/elsewhere/file.txt"), file, stat));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DigestUtils.manuallyComputeDigest(PathFragment.EMPTY_FRAGMENT, file, stat));
   }
 
   @Test

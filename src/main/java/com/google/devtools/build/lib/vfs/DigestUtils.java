@@ -211,7 +211,7 @@ public class DigestUtils {
     checkArgument(
         cacheKey.isAbsolute()
             ? cacheKey.equals(path.asFragment())
-            : path.asFragment().endsWith(cacheKey),
+            : !cacheKey.isEmpty() && path.asFragment().endsWith(cacheKey),
         "digest cache key %s does not identify %s",
         cacheKey,
         path);
