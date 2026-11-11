@@ -83,6 +83,19 @@ sh_test(
     },
 )
 
+sh_test(
+    name = "ci_build_test",
+    size = "small",
+    srcs = ["ci/build_test.sh"],
+    data = [
+        "ci/build.sh",
+        "//scripts/release:srcs",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
