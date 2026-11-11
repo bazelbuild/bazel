@@ -13,16 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.google;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.buildtool.InstrumentationFilterSupport.getInstrumentedPrefix;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.coverage.CoverageArgs;
 import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
+import java.io.ByteArrayOutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -163,5 +171,136 @@ public final class CoverageCommandUnitTest extends BuildViewTestCase {
             /* workspaceName= */ "workspace",
             dummyHelper,
             /* htmlReport= */ null);
+  }
+
+  @Test
+  public void testCoverageReportActionBuilder_baselineCoverageIsFiltered() throws Exception {
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//pkg[/:]");
+
+    // reported_to_actual_sources is restricted to allowlisted packages.
+    scratch.file("tools/build_defs/cc/coverage_test/BUILD");
+    scratch.file(
+        "tools/build_defs/cc/coverage_test/rules.bzl",
+        """
+        def _my_library_impl(ctx):
+            baseline_coverage_file = ctx.actions.declare_file(ctx.label.name + "_baseline.dat")
+            ctx.actions.write(baseline_coverage_file, "")
+            return [
+                coverage_common.instrumented_files_info(
+                    ctx = ctx,
+                    source_attributes = ["srcs"],
+                    dependency_attributes = ["deps"],
+                    reported_to_actual_sources = depset([
+                        ("virtual/" + f.path, f.path)
+                        for f in ctx.files.srcs
+                    ]),
+                    baseline_coverage_files = [baseline_coverage_file],
+                ),
+            ]
+
+        my_library = rule(
+            implementation = _my_library_impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(),
+            },
+        )
+
+        def _my_test_impl(ctx):
+            executable = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.write(executable, "", is_executable = True)
+            return [
+                DefaultInfo(executable = executable),
+                coverage_common.instrumented_files_info(
+                    ctx = ctx,
+                    dependency_attributes = ["deps"],
+                ),
+            ]
+
+        my_test = rule(
+            implementation = _my_test_impl,
+            test = True,
+            attrs = {
+                "deps": attr.label_list(),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//tools/build_defs/cc/coverage_test:rules.bzl", "my_library", "my_test")
+
+        my_library(
+            name = "lib",
+            srcs = ["lib.txt"],
+        )
+
+        my_test(
+            name = "test",
+            deps = [":lib"],
+        )
+        """);
+
+    ConfiguredTarget lib = getConfiguredTarget("//pkg:lib");
+    ConfiguredTarget test = getConfiguredTarget("//pkg:test");
+
+    Map<String, CoverageArgs> argsByReport = new HashMap<>();
+    CoverageReportActionBuilder.CoverageHelper recordingHelper =
+        new CoverageReportActionBuilder.CoverageHelper() {
+          @Override
+          public ImmutableList<String> getArgs(CoverageArgs args, Artifact lcovOutput) {
+            argsByReport.put(lcovOutput.getFilename(), args);
+            return ImmutableList.of();
+          }
+
+          @Override
+          public String getLocationMessage(CoverageArgs args, Artifact lcovOutput) {
+            return "";
+          }
+        };
+
+    CoverageReportActionsWrapper wrapper =
+        new CoverageReportActionBuilder()
+            .createCoverageActionsWrapper(
+                reporter,
+                directories,
+                /* configuredTargets= */ ImmutableList.of(lib, test),
+                /* targetsToTest= */ ImmutableList.of(test),
+                view.getArtifactFactory(),
+                actionKeyContext,
+                CoverageReportValue.COVERAGE_REPORT_KEY,
+                /* workspaceName= */ "workspace",
+                recordingHelper,
+                /* htmlReport= */ null);
+    assertThat(wrapper).isNotNull();
+
+    CoverageArgs baselineArgs = argsByReport.get("_baseline_report.dat");
+    assertThat(prettyArtifactNames(baselineArgs.coverageArtifacts()))
+        .containsExactly("pkg/lib_baseline.dat");
+    assertThat(fileContents(wrapper, baselineArgs.sourceFileManifest())).isEqualTo("pkg/lib.txt\n");
+    assertThat(fileContents(wrapper, baselineArgs.reportedToActualSourcesFile()))
+        .isEqualTo("virtual/pkg/lib.txt:pkg/lib.txt\n");
+
+    // The combined report merges the filtered baseline report instead of the raw baseline coverage
+    // files.
+    CoverageArgs coverageArgs = argsByReport.get("_coverage_report.dat");
+    assertThat(coverageArgs.coverageArtifacts().toList())
+        .contains(wrapper.getBaselineReportArtifact());
+    assertThat(prettyArtifactNames(coverageArgs.coverageArtifacts()))
+        .doesNotContain("pkg/lib_baseline.dat");
+    assertThat(coverageArgs.sourceFileManifest()).isNull();
+    assertThat(coverageArgs.reportedToActualSourcesFile()).isNull();
+  }
+
+  private static String fileContents(CoverageReportActionsWrapper wrapper, Artifact artifact)
+      throws Exception {
+    AbstractFileWriteAction action =
+        (AbstractFileWriteAction)
+            wrapper.getActions().stream()
+                .filter(a -> a.getPrimaryOutput().equals(artifact))
+                .collect(onlyElement());
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    action.newDeterministicWriter(/* ctx= */ null).writeTo(out);
+    return out.toString(UTF_8);
   }
 }

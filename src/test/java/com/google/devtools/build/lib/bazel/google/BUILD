@@ -19,9 +19,12 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report_action_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage",
         "//src/main/java/com/google/devtools/build/lib/buildtool",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
