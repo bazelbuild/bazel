@@ -162,8 +162,11 @@ public final class Runfiles implements RunfilesApi {
   /**
    * A nested set of all artifacts that this Runfiles entry contains symlinks to, including those at
    * their non-canonical locations which are in {@code symlinks} and {@code rootSymlinks}.
+   *
+   * <p>Computed on first access, possibly during the analysis of another target, so it is created
+   * without an owner and is not serialized (see {@link NestedSetBuilder#buildUnowned}).
    */
-  private NestedSet<Artifact> allArtifacts;
+  private transient NestedSet<Artifact> allArtifacts;
 
   /**
    * Interface used for adding empty files to the runfiles at the last minute. Mainly to support
@@ -452,12 +455,12 @@ public final class Runfiles implements RunfilesApi {
     }
 
     if (allArtifacts == null) {
-      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-      builder
-          .addTransitive(artifacts)
-          .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
-          .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact));
-      allArtifacts = builder.build();
+      allArtifacts =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(artifacts)
+              .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
+              .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact))
+              .buildUnowned();
     }
 
     return allArtifacts;

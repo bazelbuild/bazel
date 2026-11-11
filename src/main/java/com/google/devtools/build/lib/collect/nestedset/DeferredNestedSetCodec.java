@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A codec implementation that is asynchronous-compatible.
@@ -31,6 +32,8 @@ import java.io.IOException;
  * lookups using {@link AsyncDeserializationContext#getSkyValue}.
  */
 public final class DeferredNestedSetCodec extends DeferredObjectCodec<NestedSet<?>> {
+
+  public static final AtomicBoolean checkNestedSetOwner = new AtomicBoolean(true);
 
   @Override
   public boolean autoRegister() {
@@ -47,7 +50,12 @@ public final class DeferredNestedSetCodec extends DeferredObjectCodec<NestedSet<
   public void serialize(SerializationContext context, NestedSet<?> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     checkState(!obj.isEmpty(), "empty NestedSet should have been a serialization constant");
+    if (checkNestedSetOwner.get() && obj.getOwner() == null) {
+      throw new SerializationException("NestedSet without owner should not be serialized: " + obj);
+    }
     codedOut.writeInt32NoTag(obj.getDepthAndOrder());
+    context.serialize(obj.getOwner(), codedOut);
+    codedOut.writeInt32NoTag(obj.getIndex());
     if (obj.isSingleton()) {
       codedOut.writeBoolNoTag(true);
       context.serialize(obj.getChildren(), codedOut);
@@ -66,6 +74,8 @@ public final class DeferredNestedSetCodec extends DeferredObjectCodec<NestedSet<
     Order order = Order.values()[depthAndOrder & 3];
     int depth = depthAndOrder >> 2;
     var builder = new DeserializationBuilder(order, depth);
+    context.deserialize(codedIn, builder, DeserializationBuilder::setOwner);
+    builder.index = codedIn.readInt32();
     if (codedIn.readBool()) { // singleton
       context.deserialize(codedIn, builder, DeserializationBuilder::setChildren);
     } else {
@@ -82,6 +92,8 @@ public final class DeferredNestedSetCodec extends DeferredObjectCodec<NestedSet<
   private static class DeserializationBuilder implements DeferredValue<NestedSet<?>> {
     private final Order order;
     private final int approxDepth;
+    private Object owner;
+    private int index;
     private Object children;
 
     private DeserializationBuilder(Order order, int approxDepth) {
@@ -91,7 +103,11 @@ public final class DeferredNestedSetCodec extends DeferredObjectCodec<NestedSet<
 
     @Override
     public NestedSet<?> call() {
-      return NestedSet.forDeserialization(order, approxDepth, children);
+      return NestedSet.forDeserialization(order, approxDepth, children, owner, index);
+    }
+
+    private static void setOwner(DeserializationBuilder builder, Object owner) {
+      builder.owner = owner;
     }
 
     private static void setChildren(DeserializationBuilder builder, Object children) {

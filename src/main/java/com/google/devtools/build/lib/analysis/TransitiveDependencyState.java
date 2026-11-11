@@ -185,7 +185,10 @@ public final class TransitiveDependencyState {
         result.addTransitive(packageSet);
       }
 
-      return result.build();
+      // Built without an owner because transitivePackages is transient Skyframe bookkeeping that
+      // may be evaluated inside or outside NestedSetOwnerScope; RepoMappingManifestAction wraps it
+      // via NestedSetBuilder.owned when storing it in a serialized action field.
+      return result.buildUnowned();
     }
   }
 

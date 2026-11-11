@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationExc
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -67,7 +68,6 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -237,15 +237,11 @@ public final class ConfiguredTargetFactory {
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException {
+    // Nested sets created while analyzing the target, including building its RuleContext (e.g. the
+    // visibility set), are owned by the target.
     if (target instanceof Rule) {
-      try {
+      try (var _ = NestedSetOwnerScope.enter(configuredTargetKey)) {
         CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
-        if (analysisEnvironment
-                .getStarlarkSemantics()
-                .get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT)
-            > 0) {
-          NestedSet.beginTargetNestedSetCount();
-        }
         return createRule(
             analysisEnvironment,
             (Rule) target,
@@ -259,11 +255,32 @@ public final class ConfiguredTargetFactory {
             execGroupCollectionBuilder,
             starlarkExecTransition);
       } finally {
-        NestedSet.endTargetNestedSetCount();
         CurrentRuleTracker.endConfiguredTarget();
       }
     }
 
+    try (var _ = NestedSetOwnerScope.enter(configuredTargetKey)) {
+      return createNonRuleConfiguredTarget(
+          analysisEnvironment,
+          artifactFactory,
+          target,
+          config,
+          configuredTargetKey,
+          prerequisiteMap,
+          dependsOnFileKey);
+    }
+  }
+
+  @Nullable
+  private ConfiguredTarget createNonRuleConfiguredTarget(
+      AnalysisEnvironment analysisEnvironment,
+      ArtifactFactory artifactFactory,
+      Target target,
+      BuildConfigurationValue config,
+      ConfiguredTargetKey configuredTargetKey,
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      boolean dependsOnFileKey)
+      throws InterruptedException {
     // Enforce that targets whose names are outside their declaring macro's namespace cannot be
     // analyzed. (createRule() already enforces this above for rule targets, with optional error
     // interception through analysis_test.)

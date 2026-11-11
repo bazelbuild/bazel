@@ -174,4 +174,14 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
           "If true, Skycache console messages may include developer-focused guidance. If false,"
               + " they are written for an automated environment.")
   public abstract boolean getInteractiveMessages();
+
+  @Option(
+      name = "experimental_skycache_check_nested_set_owner",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, Skycache serialization fails when encountering a non-empty NestedSet without"
+              + " an owner.")
+  public abstract boolean getCheckNestedSetOwner();
 }

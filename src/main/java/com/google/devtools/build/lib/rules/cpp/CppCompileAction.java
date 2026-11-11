@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -651,7 +652,12 @@ public class CppCompileAction extends AbstractAction
 
     NestedSet<Artifact> topLevelModules = topLevelModulesBuilder.build();
     discoveredModulesBuilder.addTransitive(topLevelModules);
-    return new CppDiscoveredModules(discoveredModulesBuilder.buildInterruptibly(), topLevelModules);
+    NestedSet<Artifact> transitivelyUsed;
+    // TODO: b/542300922 - Remove once --experimental_skycache_analysis_only is the only mode.
+    try (var _ = NestedSetOwnerScope.enterWithoutIdentity()) {
+      transitivelyUsed = discoveredModulesBuilder.buildInterruptibly();
+    }
+    return new CppDiscoveredModules(transitivelyUsed, topLevelModules);
   }
 
   // TODO(b/213594908): Remove this method from Action interface once CppCompileAction is immutable.
@@ -1320,11 +1326,14 @@ public class CppCompileAction extends AbstractAction
     super.updateInputs(inputs);
     if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
         && !isCpp20ModuleCompilationAction(actionName)) {
-      discoveredModules =
-          NestedSetBuilder.wrap(
-              Order.STABLE_ORDER,
-              Iterables.filter(
-                  inputs.toList(), input -> input.isFileType(CppFileTypes.CPP_MODULE)));
+      // TODO: b/542300922 - Remove once --experimental_skycache_analysis_only is the only mode.
+      try (var _ = NestedSetOwnerScope.enterWithoutIdentity()) {
+        discoveredModules =
+            NestedSetBuilder.wrap(
+                Order.STABLE_ORDER,
+                Iterables.filter(
+                    inputs.toList(), input -> input.isFileType(CppFileTypes.CPP_MODULE)));
+      }
     }
   }
 

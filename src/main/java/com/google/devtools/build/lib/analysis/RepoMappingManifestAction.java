@@ -110,7 +110,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
       String workspaceName,
       boolean emitCompactRepoMapping) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
-    this.transitivePackages = checkNotNull(transitivePackages);
+    this.transitivePackages = NestedSetBuilder.owned(checkNotNull(transitivePackages));
     this.runfilesArtifacts = runfilesArtifacts;
     this.hasRunfilesSymlinks = !runfilesSymlinks.isEmpty();
     this.runfilesRootSymlinks = runfilesRootSymlinks;
