@@ -288,7 +288,11 @@ public class GrpcCacheClientTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     RemoteExecutionCache client =
         new RemoteExecutionCache(
-            newClient(options), /* diskCacheClient= */ null, options, DIGEST_UTIL);
+            newClient(options),
+            /* diskCacheClient= */ null,
+            options,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput =
         ActionsTestUtil.createVirtualActionInput(execPath, "hello");
@@ -480,7 +484,12 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
 
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
@@ -505,7 +514,12 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -574,7 +588,12 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
 
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
@@ -618,7 +637,12 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
 
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
@@ -783,7 +807,12 @@ public class GrpcCacheClientTest {
 
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
     var unused =
         combinedCache.downloadActionResult(
             context,
@@ -797,7 +826,12 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -874,7 +908,12 @@ public class GrpcCacheClientTest {
     remoteOptions.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -940,7 +979,12 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client,
+            /* diskCacheClient= */ null,
+            remoteOptions,
+            DIGEST_UTIL,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");

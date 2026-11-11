@@ -135,6 +135,7 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
+  private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;
 
   @Nullable private PathFragment outputBase;
@@ -283,7 +284,8 @@ public final class RemoteModule extends BlazeModule {
             combinedCacheClient.remoteCacheClient(),
             combinedCacheClient.diskCacheClient(),
             remoteOptions,
-            digestUtil);
+            digestUtil,
+            chunkLocationMap);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             env,
@@ -401,6 +403,7 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(outputService == null, "remoteOutputService must be null");
 
     if ("clean".equals(env.getCommandName())) {
+      chunkLocationMap.clear();
       knownMissingCasDigests.clear();
     }
 
@@ -795,7 +798,8 @@ public final class RemoteModule extends BlazeModule {
       }
       execChannel.release();
       RemoteExecutionCache remoteCache =
-          new RemoteExecutionCache(remoteCacheClient, diskCacheClient, remoteOptions, digestUtil);
+          new RemoteExecutionCache(
+              remoteCacheClient, diskCacheClient, remoteOptions, digestUtil, chunkLocationMap);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               env,
@@ -820,7 +824,8 @@ public final class RemoteModule extends BlazeModule {
       }
 
       CombinedCache combinedCache =
-          new CombinedCache(remoteCacheClient, diskCacheClient, remoteOptions, digestUtil);
+          new CombinedCache(
+              remoteCacheClient, diskCacheClient, remoteOptions, digestUtil, chunkLocationMap);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               env,

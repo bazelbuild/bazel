@@ -150,7 +150,8 @@ public class ChunkedTransferBenchmark {
               combinedCache,
               new FastCdcChunkingConfig(chunkSizeBytes, 2, 0),
               DIGEST_UTIL,
-              /* verifyDownloads= */ true);
+              /* verifyDownloads= */ true,
+              new ChunkLocationMap());
     }
 
     @TearDown(Level.Trial)

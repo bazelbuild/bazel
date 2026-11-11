@@ -27,6 +27,7 @@ import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.remote.ChunkLocationMap;
 import com.google.devtools.build.lib.remote.CombinedCache;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -58,7 +59,8 @@ class OnDiskBlobStoreCache extends CombinedCache {
         /* remoteCacheClient= */ null,
         new DiskCacheClient(cacheDir, digestUtil),
         remoteOptions,
-        digestUtil);
+        digestUtil,
+        new ChunkLocationMap());
     this.remoteWorkerOptions = remoteWorkerOptions;
   }
 

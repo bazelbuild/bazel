@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
@@ -23,10 +24,12 @@ import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
+import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -48,18 +51,21 @@ public class ChunkedBlobDownloader {
   private final DigestUtil digestUtil;
   private final ChunkingFunction.Value chunkingFunction;
   private final boolean verifyDownloads;
+  private final ChunkLocationMap chunkLocationMap;
 
   public ChunkedBlobDownloader(
       GrpcCacheClient grpcCacheClient,
       CombinedCache combinedCache,
       ChunkingConfig chunkingConfig,
       DigestUtil digestUtil,
-      boolean verifyDownloads) {
+      boolean verifyDownloads,
+      ChunkLocationMap chunkLocationMap) {
     this.grpcCacheClient = grpcCacheClient;
     this.combinedCache = combinedCache;
     this.digestUtil = digestUtil;
     this.chunkingFunction = chunkingConfig.chunkingFunction();
     this.verifyDownloads = verifyDownloads;
+    this.chunkLocationMap = chunkLocationMap;
   }
 
   /**
@@ -70,6 +76,14 @@ public class ChunkedBlobDownloader {
   public void downloadChunked(
       RemoteActionExecutionContext context, Digest blobDigest, OutputStream out)
       throws IOException, InterruptedException {
+    // The file being written to must not be used as a chunk source, while the final path (which
+    // differs when the caller stages the download in a temporary location) is recorded as one.
+    @Nullable Path destination = null;
+    @Nullable Path finalDestination = null;
+    if (out instanceof MaybePathBacked pathBacked) {
+      destination = pathBacked.maybeGetPath();
+      finalDestination = pathBacked.maybeGetFinalPath();
+    }
     @Nullable DigestOutputStream digestOut = null;
     if (verifyDownloads) {
       digestOut = digestUtil.newDigestOutputStream(out);
@@ -77,9 +91,15 @@ public class ChunkedBlobDownloader {
     }
 
     List<Digest> chunkDigests = getChunkDigests(context, blobDigest);
-    downloadAndReassembleChunks(context, chunkDigests, out);
+    new DownloadSession(context, chunkDigests, destination, out).run();
     if (digestOut != null) {
       Utils.verifyBlobContents(blobDigest, digestOut.digest());
+    }
+    if (finalDestination != null) {
+      // The content may not be at the final destination yet (out may not be flushed, and a staged
+      // download has yet to be moved into place), but locations are only hints: an early read is
+      // just a miss.
+      chunkLocationMap.addFile(finalDestination, chunkDigests);
     }
   }
 
@@ -134,12 +154,6 @@ public class ChunkedBlobDownloader {
     }
   }
 
-  private void downloadAndReassembleChunks(
-      RemoteActionExecutionContext context, List<Digest> chunkDigests, OutputStream out)
-      throws IOException, InterruptedException {
-    new DownloadSession(context, chunkDigests, out).run();
-  }
-
   private final class DownloadSession {
     private final LinkedBlockingQueue<PendingDownload> completedDownloads =
         new LinkedBlockingQueue<>();
@@ -148,14 +162,19 @@ public class ChunkedBlobDownloader {
     private final Map<Integer, byte[]> readyChunks = new HashMap<>(MAX_IN_FLIGHT_CHUNK_DOWNLOADS);
     private final RemoteActionExecutionContext context;
     private final List<Digest> chunkDigests;
+    @Nullable private final Path destination;
     private final OutputStream out;
     private int nextToStart = 0;
     private int nextToWrite = 0;
 
     DownloadSession(
-        RemoteActionExecutionContext context, List<Digest> chunkDigests, OutputStream out) {
+        RemoteActionExecutionContext context,
+        List<Digest> chunkDigests,
+        @Nullable Path destination,
+        OutputStream out) {
       this.context = context;
       this.chunkDigests = chunkDigests;
+      this.destination = destination;
       this.out = out;
     }
 
@@ -191,10 +210,17 @@ public class ChunkedBlobDownloader {
 
     private void startDownload(Digest chunkDigest, int chunkIndex) {
       PendingDownload download =
-          new PendingDownload(
-              chunkDigest, combinedCache.downloadBlob(context, chunkDigest), chunkIndex);
+          new PendingDownload(chunkDigest, fetchChunk(chunkDigest), chunkIndex);
       activeDownloads.put(chunkDigest, download);
       download.future().addListener(() -> completedDownloads.add(download), directExecutor());
+    }
+
+    /** Returns the contents of a chunk, preferring a copy already on local disk over a download. */
+    private ListenableFuture<byte[]> fetchChunk(Digest chunkDigest) {
+      byte[] local = chunkLocationMap.read(chunkDigest, destination, digestUtil);
+      return local != null
+          ? immediateFuture(local)
+          : combinedCache.downloadBlob(context, chunkDigest);
     }
 
     private void drainCompletedDownloads() throws IOException, InterruptedException {
