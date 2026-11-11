@@ -217,7 +217,6 @@ public abstract sealed class NestedSetBuilder<E> {
     return buildInternal(InterruptStrategy.PROPAGATE);
   }
 
-  @SuppressWarnings("ReferenceEquality") // Interned array identity check
   private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
       throws InterruptedException {
     if (isEmpty()) {
@@ -252,7 +251,7 @@ public abstract sealed class NestedSetBuilder<E> {
       Object c0 = s0.getChildrenInternal(interruptStrategy);
       Object c1 = s1.getChildrenInternal(interruptStrategy);
       if (c0 instanceof Object[] a0 && c1 instanceof Object[] a1) {
-        if (a0 == a1) {
+        if (NestedSetInterner.haveIdenticalChildren(a0, a1)) {
           if (s0.getOrder() == getOrder()) {
             return s0;
           }
