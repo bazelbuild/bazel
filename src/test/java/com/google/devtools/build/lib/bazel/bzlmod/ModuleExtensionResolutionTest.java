@@ -2968,6 +2968,143 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("ext3_data")).isEqualTo("ext3: True");
   }
 
+  private static final String DESCRIBE_ROOT_AND_DEFINING_MODULE =
+      """
+      def _describe(mod):
+        if mod == None:
+          return 'None'
+        return mod.name + '@' + mod.version + (' (root)' if mod.is_root else '')
+      def _describe_ctx(ctx):
+        return ('root=' + _describe(ctx.root_module)
+                + ' defining=' + _describe(ctx.defining_module))
+      """;
+
+  @Test
+  public void rootModuleAndDefiningModule() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root',version='1.0')",
+        // Use a different apparent name to check that the defining module is identified by its
+        // repository rather than by the name it's referenced under.
+        "bazel_dep(name='ext',version='1.0',repo_name='my_ext')",
+        "bazel_dep(name='foo',version='1.0')",
+        "ext = use_extension('@my_ext//:defs.bzl','ext')",
+        "use_repo(ext,'ext_repo')");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@ext_repo//:data.bzl', ext_data='data')", "data=ext_data");
+
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')");
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "ext = use_extension('//:defs.bzl','ext')");
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("ext+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        DESCRIBE_ROOT_AND_DEFINING_MODULE,
+        "def _ext_impl(ctx):",
+        "  data_str = _describe_ctx(ctx)",
+        "  data_str += ' root_is_first=' + str(ctx.root_module == ctx.modules[0])",
+        "  data_str += ' defining_in_modules=' + str(ctx.defining_module in ctx.modules)",
+        "  data_repo(name='ext_repo',data=data_str)",
+        "ext=module_extension(implementation=_ext_impl)");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo(
+            "root=root@1.0 (root) defining=ext@1.0 root_is_first=True defining_in_modules=True");
+  }
+
+  @Test
+  public void rootModuleAndDefiningModule_extensionDefinedInRootModule() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext_repo')");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@ext_repo//:data.bzl', ext_data='data')", "data=ext_data");
+    scratch.file(
+        "defs.bzl",
+        "load('@data_repo//:defs.bzl','data_repo')",
+        DESCRIBE_ROOT_AND_DEFINING_MODULE,
+        "def _ext_impl(ctx):",
+        "  data_repo(name='ext_repo',data=_describe_ctx(ctx))",
+        "ext=module_extension(implementation=_ext_impl)");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("root=root@1.0 (root) defining=root@1.0 (root)");
+  }
+
+  @Test
+  public void rootModuleAndDefiningModule_notUsingExtension() throws Exception {
+    // The root module only uses the extension as a dev dependency, which is ignored below, and the
+    // defining module doesn't use its own extension.
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root',version='1.0')",
+        "bazel_dep(name='ext',version='1.0')",
+        "bazel_dep(name='bar',version='2.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext',dev_dependency=True)",
+        "use_repo(ext,'ext_repo')");
+    scratch.overwriteFile("BUILD");
+
+    registry.addModule(
+        createModuleKey("bar", "2.0"),
+        "module(name='bar',version='2.0')",
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')");
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("ext+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        DESCRIBE_ROOT_AND_DEFINING_MODULE,
+        "def _ext_impl(ctx):",
+        "  data_str = _describe_ctx(ctx)",
+        "  data_str += ' modules=' + ','.join([mod.name for mod in ctx.modules])",
+        "  data_repo(name='ext_repo',data=data_str)",
+        "ext=module_extension(implementation=_ext_impl)");
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, true)));
+    invalidatePackages(false);
+
+    SkyKey skyKey =
+        BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext++ext+ext_repo//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("root=None defining=None modules=bar");
+  }
+
   @Test
   public void printAndFailOnTag() throws Exception {
     scratch.overwriteFile(
