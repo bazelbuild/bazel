@@ -1539,6 +1539,74 @@ EOF
   expect_log_once "\"actionKey\":"
 }
 
+function test_action_key_is_stable_after_depset_interner_clear() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+  cat > "$pkg/copy.bzl" <<'EOF'
+Inputs = provider(fields = ["files"])
+
+def _seed_impl(ctx):
+    return [Inputs(files = depset(ctx.files.srcs, order = "postorder"))]
+
+seed = rule(implementation = _seed_impl, attrs = {"srcs": attr.label_list(allow_files = True)})
+
+def _path(file):
+    return file.path
+
+def _copy_impl(ctx):
+    direct_inputs = depset(ctx.files.srcs, order = "postorder")
+    inputs = depset(transitive = [ctx.attr.seed[Inputs].files, direct_inputs], order = "postorder")
+    out = ctx.actions.declare_file("out.txt")
+    args = ctx.actions.args()
+    args.add(out)
+    args.add_all(inputs, map_each = _path)
+    ctx.actions.run_shell(
+        arguments = [args],
+        command = 'out="$1"; shift; cat "$@" > "$out"',
+        inputs = inputs,
+        outputs = [out],
+        progress_message = "Copying depset test files",
+        toolchain = None,
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+copy = rule(
+    implementation = _copy_impl,
+    attrs = {
+        "seed": attr.label(providers = [Inputs]),
+        "srcs": attr.label_list(allow_files = True),
+    },
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":copy.bzl", "copy", "seed")
+
+seed(name = "seed", srcs = ["a", "b", "c"])
+copy(name = "copy", seed = ":seed", srcs = ["a", "b", "c"])
+EOF
+  local file
+  for file in a b c; do
+    printf '%s\n' "$file" > "$pkg/$file"
+  done
+
+  bazel shutdown >> "$TEST_log" 2>&1
+  bazel aquery "//$pkg:copy" > "$pkg/together.txt" 2>> "$TEST_log" || fail "aquery failed"
+  bazel build "//$pkg:copy" >> "$TEST_log" 2>&1 || fail "build failed"
+
+  bazel shutdown >> "$TEST_log" 2>&1
+  # This command retains the seed's depset in Skyframe and clears the interner.
+  bazel cquery "//$pkg:seed" >> "$TEST_log" 2>&1 || fail "cquery failed"
+  bazel aquery "//$pkg:copy" > "$pkg/preloaded.txt" 2>> "$TEST_log" || fail "aquery failed"
+
+  assert_contains "ActionKey: " "$pkg/together.txt"
+  assert_equals "$(grep 'ActionKey: ' "$pkg/together.txt")" "$(grep 'ActionKey: ' "$pkg/preloaded.txt")"
+  bazel build --explain="$pkg/explain.txt" "//$pkg:copy" > "$pkg/build.txt" 2>&1 || fail "build failed"
+  cat "$pkg/build.txt" >> "$TEST_log"
+  assert_contains "1 action cache hit" "$pkg/build.txt"
+  assert_not_contains "Copying depset test files" "$pkg/explain.txt"
+  assert_equals $'a\nb\nc' "$(cat "bazel-bin/$pkg/out.txt")"
+}
+
 function test_aquery_json_skyframe_state_invalid_format() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
