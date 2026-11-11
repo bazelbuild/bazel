@@ -717,7 +717,12 @@ public class CombinedCacheTest {
         .spliceBlob(any(), any(), any());
 
     CombinedCache combinedCache =
-        new CombinedCache(grpcCacheClient, /* diskCacheClient= */ null, options, digestUtil);
+        new CombinedCache(
+            grpcCacheClient,
+            /* diskCacheClient= */ null,
+            options,
+            digestUtil,
+            new ChunkLocationMap());
     byte[] data = new byte[8192];
     Path file = execRoot.getRelative("chunked-output");
     try (var out = file.getOutputStream()) {
@@ -760,7 +765,8 @@ public class CombinedCacheTest {
         remoteCacheClient,
         /* diskCacheClient= */ null,
         Options.getDefaults(RemoteOptions.class),
-        digestUtil);
+        digestUtil,
+        new ChunkLocationMap());
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
@@ -768,7 +774,8 @@ public class CombinedCacheTest {
         remoteCacheClient,
         /* diskCacheClient= */ null,
         Options.getDefaults(RemoteOptions.class),
-        digestUtil);
+        digestUtil,
+        new ChunkLocationMap());
   }
 
   private static ServerCapabilities chunkingCapabilities() {

@@ -31,16 +31,31 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
 
   InMemoryCombinedCache(
       Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(casEntries), /* diskCacheClient= */ null, options, digestUtil);
+    super(
+        new InMemoryCacheClient(casEntries),
+        /* diskCacheClient= */ null,
+        options,
+        digestUtil,
+        new ChunkLocationMap());
   }
 
   InMemoryCombinedCache(RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(), /* diskCacheClient= */ null, options, digestUtil);
+    super(
+        new InMemoryCacheClient(),
+        /* diskCacheClient= */ null,
+        options,
+        digestUtil,
+        new ChunkLocationMap());
   }
 
   InMemoryCombinedCache(
       RemoteCacheClient remoteCacheClient, RemoteOptions options, DigestUtil digestUtil) {
-    super(remoteCacheClient, /* diskCacheClient= */ null, options, digestUtil);
+    super(
+        remoteCacheClient,
+        /* diskCacheClient= */ null,
+        options,
+        digestUtil,
+        new ChunkLocationMap());
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)
