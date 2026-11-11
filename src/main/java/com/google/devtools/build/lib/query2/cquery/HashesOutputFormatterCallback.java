@@ -582,6 +582,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
     final Label label;
     @Nullable byte[] bytes;
     @Nullable String error;
+    boolean queued;
 
     DirectDigest(Label label) {
       this.label = label;
@@ -591,7 +592,8 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   private void computeDistinctDirectHashes(
       List<HashTarget> nodes, Set<HashTarget> failed, int workers, @Nullable ExecutorService pool)
       throws IOException, InterruptedException {
-    var cache = new HashMap<Label, DirectDigest>();
+    var cache =
+        new ConcurrentHashMap<Label, DirectDigest>(Math.min(nodes.size(), DIRECT_CACHE_LIMIT));
     var context =
         EvaluationContext.newBuilder()
             .setParallelism(workers)
@@ -609,16 +611,24 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
         cache.clear();
       }
       var slots = new DirectDigest[count];
+      final int offset = first;
+      runDirectRanges(
+          pool,
+          0,
+          count,
+          (a, b) -> {
+            for (int i = a; i < b; i++) {
+              var label = nodes.get(offset + i).node.getOriginalLabel();
+              slots[i] = cache.computeIfAbsent(label, DirectDigest::new);
+            }
+          });
+      // Submit fresh labels in their original order.
       var fresh = new ArrayList<DirectDigest>();
-      for (int i = 0; i < count; i++) {
-        var label = nodes.get(first + i).node.getOriginalLabel();
-        var slot = cache.get(label);
-        if (slot == null) {
-          slot = new DirectDigest(label);
-          cache.put(label, slot);
+      for (DirectDigest slot : slots) {
+        if (!slot.queued) {
+          slot.queued = true;
           fresh.add(slot);
         }
-        slots[i] = slot;
       }
       // A real evaluator call at the beginning flushes any pending invalidations. Subsequent
       // getExistingValue calls accept only completed entries in the current graph. Missing,
@@ -669,7 +679,6 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
           }
         }
       }
-      final int offset = first;
       var errors = new ConcurrentLinkedQueue<HashTarget>();
       runDirectRanges(
           pool,
