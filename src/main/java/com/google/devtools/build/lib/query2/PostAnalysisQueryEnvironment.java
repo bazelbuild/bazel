@@ -30,6 +30,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -99,7 +100,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -172,6 +175,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           SkyframeExecutor skyframeExecutor,
           RuleClassProvider ruleClassProvider,
           PackageManager packageManager,
+          ImmutableMap<String, String> clientEnvironment,
           StarlarkSemantics starlarkSemantics)
           throws QueryException, InterruptedException;
 
@@ -427,6 +431,71 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return labelPrinter;
   }
 
+  /**
+   * Returns the configured edges for hashing, or null if analysis left an edge unavailable.
+   *
+   * <p>When using raw edges, the callback may consume already-interned dependencies directly.
+   * If the result is null, the caller must discard dependencies consumed by the callback.
+   */
+  @Nullable
+  protected final ImmutableList<T> getCompleteFwdDeps(
+      T target,
+      boolean rawEdges,
+      BiConsumer<AspectKey, AspectValue> aspectObserver,
+      @Nullable Predicate<SkyKey> tryEmitInternedDependency)
+      throws InterruptedException {
+    SkyKey key = getConfiguredTargetKey(target);
+    List<SkyKey> unavailable = new ArrayList<>();
+    SkyValue value = graph.getValue(key);
+    Iterable<SkyKey> direct;
+    if (value == null) {
+      unavailable.add(key);
+      direct = ImmutableList.of();
+    } else {
+      if (key instanceof AspectKey aspectKey) {
+        aspectObserver.accept(aspectKey, (AspectValue) value);
+      }
+      direct = graph.getDirectDeps(key);
+    }
+    ImmutableList<T> rawDeps = null;
+    ImmutableList<ClassifiedDependency<T>> classified = ImmutableList.of();
+    if (rawEdges
+        && !settings.contains(Setting.ONLY_TARGET_DEPS)
+        && !settings.contains(Setting.NO_IMPLICIT_DEPS)) {
+      // Neither filter consumes edge classification. Passing a null parent marks all edges
+      // implicit. The hash collector already deduplicates canonical configured dependency keys.
+      ImmutableList.Builder<T> raw = ImmutableList.builder();
+      targetifyInto(
+          null,
+          direct,
+          /* knownCtDeps= */ null,
+          new HashSet<>(),
+          unavailable,
+          tryEmitInternedDependency,
+          (node, implicit) -> node,
+          raw);
+      rawDeps = raw.build();
+    } else {
+      classified = targetifyValues(target, direct, new HashSet<>(), new HashSet<>(), unavailable);
+    }
+    if (!unavailable.isEmpty()) {
+      eventHandler.handle(
+          Event.warn(
+              "Incomplete configured dependencies of " + key + "; unavailable: " + unavailable));
+      return null;
+    }
+    return rawDeps != null ? rawDeps : filterFwdDeps(target, classified);
+  }
+
+  private Iterable<SkyKey> getDepsForTargetification(SkyKey key, @Nullable List<SkyKey> unavailable)
+      throws InterruptedException {
+    if (unavailable != null && graph.getValue(key) == null) {
+      unavailable.add(key);
+      return ImmutableList.of();
+    }
+    return graph.getDirectDeps(key);
+  }
+
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
@@ -664,12 +733,44 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    *     defines the aspect's deps, all of those aspect instances have the same deps, which makes
    *     examinining each of them down T's transitive deps very wasteful. This parameter lets us
    *     avoid that redundancy.
+   * @param unavailable when non-null, accumulate missing edges through aspect and toolchain
+   *     expansion
    */
   private ImmutableList<ClassifiedDependency<T>> targetifyValues(
       @Nullable T parent,
       Iterable<SkyKey> dependencies,
       Set<SkyKey> knownCtDeps,
-      Set<AspectClass> resolvedAspectClasses)
+      Set<AspectClass> resolvedAspectClasses,
+      @Nullable List<SkyKey> unavailable)
+      throws InterruptedException {
+    ImmutableList.Builder<ClassifiedDependency<T>> results = ImmutableList.builder();
+    targetifyInto(
+        parent,
+        dependencies,
+        knownCtDeps,
+        resolvedAspectClasses,
+        unavailable,
+        /* tryEmitInternedDependency= */ null,
+        ClassifiedDependency::new,
+        results);
+    return results.build();
+  }
+
+  @FunctionalInterface
+  private interface DependencyProjection<T, R> {
+    R apply(T node, boolean implicit);
+  }
+
+  // Share one builder across nested aspect, toolchain and analysis-query scopes.
+  private <R> void targetifyInto(
+      @Nullable T parent,
+      Iterable<? extends SkyKey> dependencies,
+      @Nullable Set<SkyKey> knownCtDeps,
+      Set<AspectClass> resolvedAspectClasses,
+      @Nullable List<SkyKey> unavailable,
+      @Nullable Predicate<SkyKey> tryEmitInternedDependency,
+      DependencyProjection<T, R> projection,
+      ImmutableList.Builder<R> values)
       throws InterruptedException {
     Collection<ConfiguredTargetKey> implicitDeps = null;
     if (parent != null) {
@@ -679,10 +780,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
 
-    boolean explicitAspects =
-        settings.containsAll(ImmutableSet.of(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS));
+    boolean includeAspects = settings.contains(Setting.INCLUDE_ASPECTS);
+    boolean explicitAspects = includeAspects && settings.contains(Setting.EXPLICIT_ASPECTS);
 
-    ImmutableList.Builder<ClassifiedDependency<T>> values = ImmutableList.builder();
     // TODO(bazel-team): The end-goal approach is to treat aspects and toolchains as
     // first-class query nodes just like targets. In other words, let query expressions reference
     // them (they also have identifying labels) and make the graph connections between targets,
@@ -692,13 +792,19 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     // implemented behind the --experimental_explicit_aspects flag.
     // See https://github.com/bazelbuild/bazel/issues/16310 for details.
     for (SkyKey key : dependencies) {
-      if (knownCtDeps.contains(key)) {
+      if (knownCtDeps != null && knownCtDeps.contains(key)) {
         continue;
       }
       if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)
           || (explicitAspects && key.functionName().equals(SkyFunctions.ASPECT))) {
+        if (tryEmitInternedDependency != null && tryEmitInternedDependency.test(key)) {
+          continue;
+        }
         T dependency = getValueFromKey(key);
         if (dependency == null && keepGoing) {
+          if (unavailable != null) {
+            unavailable.add(key);
+          }
           eventHandler.handle(
               Event.warn(
                   String.format(
@@ -719,7 +825,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
             key);
 
         boolean implicitDep;
-        if (!(key.argument() instanceof ConfiguredTargetKey)) {
+        if (parent == null || !(key.argument() instanceof ConfiguredTargetKey)) {
           // All non-configured target deps are implicit.
           implicitDep = true;
         } else if (parent != null && isAliasConfiguredTarget(parent)) {
@@ -744,10 +850,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                   || implicitDeps.contains(getConfiguredTargetKey(dependency));
         }
 
-        values.add(new ClassifiedDependency<>(dependency, implicitDep));
-        knownCtDeps.add(key);
-      } else if (settings.contains(Setting.INCLUDE_ASPECTS)
-          && key.functionName().equals(SkyFunctions.ASPECT)) {
+        values.add(projection.apply(dependency, implicitDep));
+        if (knownCtDeps != null) {
+          knownCtDeps.add(key);
+        }
+      } else if (includeAspects && key.functionName().equals(SkyFunctions.ASPECT)) {
         Preconditions.checkState(!settings.contains(Setting.EXPLICIT_ASPECTS));
         if (resolvedAspectClasses.contains(((AspectKey) key).getAspectClass())) {
           continue;
@@ -769,14 +876,27 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           // examined through the recursive call.
           resolvedAspectClasses.add(((AspectKey) key).getAspectClass());
         }
-        values.addAll(
-            targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
+        targetifyInto(
+            null,
+            getDepsForTargetification(key, unavailable),
+            knownCtDeps,
+            resolvedAspectClasses,
+            unavailable,
+            tryEmitInternedDependency,
+            projection,
+            values);
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
-        values.addAll(
-            targetifyValues(null, graph.getDirectDeps(key), knownCtDeps, resolvedAspectClasses));
+        targetifyInto(
+            null,
+            getDepsForTargetification(key, unavailable),
+            knownCtDeps,
+            resolvedAspectClasses,
+            unavailable,
+            tryEmitInternedDependency,
+            projection,
+            values);
       }
     }
-    return values.build();
   }
 
   private Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> targetifyValues(
@@ -791,7 +911,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
               fromTargetsByKey.get(fromKey),
               entry.getValue(),
               /* knownCtDeps= */ new HashSet<>(),
-              /* resolvedAspectClasses= */ new HashSet<>()));
+              /* resolvedAspectClasses= */ new HashSet<>(),
+              /* unavailable= */ null));
     }
     return result;
   }
@@ -908,8 +1029,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     /** A list of null configured top-level targets. */
     private final ImmutableList<Label> nulls;
 
+    private final ImmutableSet<ActionLookupKey> configuredTopLevelKeys;
+    @Nullable private final ImmutableSet<ConfiguredTarget> analyzedRoots;
+
     public TopLevelConfigurations(
         Collection<TargetAndConfiguration> topLevelTargetsAndConfigurations) {
+      this(topLevelTargetsAndConfigurations, Set.of(), /* useAnalyzedRoots= */ false);
+    }
+
+    public TopLevelConfigurations(
+        Collection<TargetAndConfiguration> topLevelTargetsAndConfigurations,
+        Set<ConfiguredTarget> configuredTopLevelTargets,
+        boolean useAnalyzedRoots) {
       ImmutableMap.Builder<Label, BuildConfigurationValue> nonNullsBuilder =
           ImmutableMap.builderWithExpectedSize(topLevelTargetsAndConfigurations.size());
       ImmutableList.Builder<Label> nullsBuilder = new ImmutableList.Builder<>();
@@ -926,6 +1057,28 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           ImmutableSortedSet.copyOf(
               Comparator.comparing(BuildConfigurationValue::checksum), nonNulls.values());
       nulls = nullsBuilder.build();
+      var keys =
+          ImmutableSet.<ActionLookupKey>builderWithExpectedSize(configuredTopLevelTargets.size());
+      for (ConfiguredTarget target : configuredTopLevelTargets) {
+        keys.add(target.getLookupKey());
+      }
+      configuredTopLevelKeys = keys.build();
+      analyzedRoots = useAnalyzedRoots ? ImmutableSet.copyOf(configuredTopLevelTargets) : null;
+    }
+
+    /** Returns the analyzed roots when the analysis scope exactly matches the hash query. */
+    @Nullable
+    public ImmutableSet<ConfiguredTarget> getAnalyzedRoots() {
+      return analyzedRoots;
+    }
+
+    /** Tests the exact key returned by top-level analysis, including any rule transition. */
+    public boolean containsConfiguredTargetKey(ActionLookupKey key) {
+      return configuredTopLevelKeys.contains(key);
+    }
+
+    public int size() {
+      return nonNulls.size() + nulls.size();
     }
 
     public boolean isTopLevelTarget(Label label) {

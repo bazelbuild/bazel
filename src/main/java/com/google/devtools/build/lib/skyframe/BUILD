@@ -381,6 +381,10 @@ java_library(
 java_library(
     name = "artifact_function",
     srcs = ["ArtifactFunction.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/hash:__pkg__",
+    ],
     deps = [
         ":action_execution_value",
         ":action_template_expansion_value",
@@ -1961,6 +1965,10 @@ java_library(
         "RecursiveFilesystemTraversalValue.java",
         "TraversalRequest.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/hash:__pkg__",
+    ],
     deps = [
         ":action_execution_value",
         ":detailed_exceptions",
@@ -2689,6 +2697,10 @@ java_library(
 java_library(
     name = "track_source_directories_flag",
     srcs = ["TrackSourceDirectoriesFlag.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/hash:__pkg__",
+    ],
 )
 
 java_library(
@@ -3755,6 +3767,8 @@ java_library(
     srcs = ["TargetPatternPhaseFunction.java"],
     deps = [
         ":environment_backed_recursive_package_provider",
+        ":ignored_subdirectories_value",
+        ":package_value",
         ":pattern_expanding_error",
         ":repository_mapping_value",
         ":target_pattern_error_function",
@@ -3766,6 +3780,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:no_such_package_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

@@ -1269,7 +1269,8 @@ public final class StarlarkRuleContext
           (String) input,
           Label.PackageContext.of(
               ruleContext.getLabel().getPackageIdentifier(),
-              ruleContext.getRule().getPackageMetadata().repositoryMapping()));
+              ruleContext.getRule().getPackageMetadata().repositoryMapping()),
+          ruleContext);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in ctx.package_relative_label: %s", e.getMessage());
     }

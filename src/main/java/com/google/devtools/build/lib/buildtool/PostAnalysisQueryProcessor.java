@@ -14,7 +14,10 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -28,13 +31,16 @@ import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallba
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback.IoExceptionInterruptedException;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
@@ -44,12 +50,16 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -58,6 +68,9 @@ import java.util.function.Function;
  * phase.
  */
 public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.AnalysisPostProcessor {
+
+  private static final Set<String> LAUNCHER_OPTIONS =
+      Set.of("config", "deleted_packages", "package_path", "override_repository", "override_module");
 
   private final QueryExpression queryExpression;
   protected final TargetPattern.Parser mainRepoTargetParser;
@@ -79,18 +92,6 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       return;
     }
 
-    // This query will operate over the graph as constructed by analysis, but will also pick up
-    // any nodes that are in the graph from prior builds, including dirty nodes. While they can't be
-    // reached from the scope of the current build via deps, they can appear in rdeps, which results
-    // in the processor doing unnecessary work or even expecting stale keys to be present. Clean
-    // them up now, which requires ignoring the value of --version_window_for_dirty_node_gc.
-    // TODO: b/71905538 - Keeping state from previous builds around makes the results not
-    //  reproducible at the level of a single command. Either tolerate, or wipe the analysis graph
-    //  beforehand if this option is specified, or add another option to wipe if desired
-    //  (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
-    env.getSkyframeExecutor()
-        .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
-    env.getSkyframeExecutor().applyInvalidation(env.getReporter());
     if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
       throw new ExitException(
           DetailedExitCode.of(
@@ -103,20 +104,59 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                   .build()));
     }
 
+    CommonQueryOptions options = getQueryOptions(env);
+    CqueryOptions cqueryOptions = options instanceof CqueryOptions configured ? configured : null;
+    boolean hashing = cqueryOptions != null && cqueryOptions.getGenerateHashes();
+    boolean topLevelHashOutput = cqueryOptions != null && cqueryOptions.useTopLevelHashOutput();
+    boolean hashStreamReceipt = cqueryOptions != null && cqueryOptions.getHashStreamReceipt();
+    // With the label file or literal //... as the entire query, analysis already found every
+    // top-level target the formatter could emit. Other expressions may select a subset.
+    boolean useAnalyzedRoots =
+        cqueryOptions != null
+            && topLevelHashOutput
+            && (request.targetsAreLabels()
+                || (cqueryOptions.getUniverseScope().isEmpty()
+                    && queryExpression instanceof TargetLiteral literal
+                    && literal.getPattern().equals("//...")
+                    && request.getTargets().equals(ImmutableList.of("//..."))))
+            && !request.getLoadingOptions().getCompileOneDependency()
+            && !request.getLoadingOptions().getBuildTestsOnly();
+    // Forward-only hashing starts from this analysis's roots. Keep unrelated dirty
+    // values available for change pruning. General queries still clean up old nodes
+    // because reverse traversals can see state left behind by earlier commands.
+    if (!useAnalyzedRoots) {
+      env.getSkyframeExecutor()
+          .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
+    }
+    env.getSkyframeExecutor().applyInvalidation(env.getReporter());
+    var topLevelConfigurations =
+        new TopLevelConfigurations(
+            useAnalyzedRoots ? ImmutableList.of() : analysisResult.getTopLevelTargetsWithConfigs(),
+            topLevelHashOutput ? analysisResult.getTargetsToBuild() : Set.of(),
+            useAnalyzedRoots);
     try (QueryRuntimeHelper queryRuntimeHelper =
-        env.getRuntime().getQueryRuntimeHelperFactory().create(env, getQueryOptions(env))) {
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env, options)) {
+      if (hashStreamReceipt && (!useAnalyzedRoots || !options.getLineTerminator().equals("\n"))) {
+        throw new OptionsParsingException(
+            "A hash stream receipt requires top-level hashes for //... or a canonical label file"
+                + " with LF line endings");
+      }
       doPostAnalysisQuery(
           request,
           env,
           runtime,
-          new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
+          topLevelConfigurations,
           analysisResult.getAspectsMap(),
-          env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
+          useAnalyzedRoots
+              ? ImmutableList.of()
+              : env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
           queryRuntimeHelper,
-          queryExpression);
+          queryExpression,
+          hashing,
+          hashStreamReceipt);
     } catch (QueryException e) {
       String errorMessage = "Error doing post analysis query";
-      if (!request.getKeepGoing()) {
+      if (!request.getKeepGoing() || hashing) {
         throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
       }
       env.getReporter().error(null, errorMessage + ": " + e.getFailureDetail().getMessage());
@@ -127,7 +167,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
               .setMessage(errorMessage + ": " + e.getMessage())
               .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
               .build();
-      if (!request.getKeepGoing()) {
+      if (!request.getKeepGoing() || hashing) {
         throw new ViewCreationFailedException(errorMessage, failureDetail, e);
       }
       env.getReporter().error(null, failureDetail.getMessage());
@@ -143,6 +183,40 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                       ActionQuery.newBuilder().setCode(ActionQuery.Code.INCORRECT_ARGUMENTS))
                   .build()));
     }
+  }
+
+  private static String workerOptionsFingerprint(CommandEnvironment env) throws IOException {
+    var options = env.getOptions();
+    var client = options.getOptions(ClientOptions.class);
+    var sources = client.getRcSource();
+    if (sources.isEmpty()) {
+      throw new IOException("Missing Bazel RC sources for configured hash stream");
+    }
+    var workspace = env.getWorkspace().resolveSymbolicLinks();
+    var external = new HashSet<Integer>();
+    for (int i = 0; i < sources.size(); i++) {
+      String source = sources.get(i);
+      if (!source.equals("client")
+          && !workspace.getRelative(source).resolveSymbolicLinks().startsWith(workspace)) {
+        external.add(i);
+      }
+    }
+    var defaults = ImmutableList.<String>builder();
+    for (var override : client.getOptionsOverrides()) {
+      if (external.contains(override.getRcIndex())) {
+        defaults.add(override.getCommand(), override.getOption());
+      }
+    }
+    // Workspace defaults are versioned. Compare worker RC defaults and launcher choices
+    // without exposing client environment or storing the option values in the receipt.
+    var explicit =
+        options.asListOfExplicitOptions().stream()
+            .filter(
+                option -> option.getPriority().getPriorityCategory() == PriorityCategory.COMMAND_LINE)
+            .filter(option -> LAUNCHER_OPTIONS.contains(option.getOptionDefinition().getOptionName()))
+            .map(option -> option.getCanonicalForm())
+            .toList();
+    return new Fingerprint().addStrings(defaults.build()).addStrings(explicit).hexDigestAndReset();
   }
 
   protected abstract CommonQueryOptions getQueryOptions(CommandEnvironment env);
@@ -175,7 +249,9 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects,
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
-      QueryExpression queryExpression)
+      QueryExpression queryExpression,
+      boolean hashing,
+      boolean hashStreamReceipt)
       throws InterruptedException,
           QueryException,
           IOException,
@@ -194,14 +270,16 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             topLevelAspects,
             walkableGraph);
 
+    var queryOutput = queryRuntimeHelper.getOutputStreamForQueryOutput();
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(
             postAnalysisQueryEnvironment.getAccessor(),
             env.getReporter(),
-            queryRuntimeHelper.getOutputStreamForQueryOutput(),
+            queryOutput,
             env.getSkyframeExecutor(),
             runtime.getRuleClassProvider(),
             env.getPackageManager(),
+            env.getClientEnv(),
             env.getSkyframeExecutor()
                 .getEffectiveStarlarkSemantics(
                     env.getOptions().getOptions(BuildLanguageOptions.class)));
@@ -238,6 +316,29 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       env.getReporter().handle(Event.info("Empty query results"));
     }
     try {
+      if (hashStreamReceipt) {
+        String header =
+            "# bazel-configured-root-hashes-v1\t"
+                + env.getCommandId()
+                + "\t"
+                + workerOptionsFingerprint(env)
+                + "\n";
+        queryOutput.write(header.getBytes(UTF_8));
+        if (request.targetsAreLabels()) {
+          // Loading certified the complete scope. Preserve analysis failures and incompatible
+          // targets as explicit unknown hashes, alongside any failed digests from the formatter.
+          var analyzed = Objects.requireNonNull(topLevelConfigurations.getAnalyzedRoots());
+          var analyzedLabels = HashSet.<String>newHashSet(analyzed.size());
+          for (var target : analyzed) {
+            analyzedLabels.add(target.getOriginalLabel().getCanonicalForm());
+          }
+          for (String label : request.getTargets()) {
+            if (!analyzedLabels.contains(label)) {
+              queryOutput.write((internalToUnicode(label) + "\tnone\t\t\n").getBytes(UTF_8));
+            }
+          }
+        }
+      }
       callback.start();
       callback.process(aggregateResultsCallback.getResult());
       // Under --keep_going, query evaluation completed and partial results were replayed above.
@@ -249,5 +350,11 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     }
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
+    if (hashing && !result.getSuccess()) {
+      throw new QueryException(
+          queryExpression,
+          "Errors encountered while evaluating the hash query",
+          result.getDetailedExitCode().getFailureDetail());
+    }
   }
 }

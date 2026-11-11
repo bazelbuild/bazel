@@ -196,6 +196,10 @@ public interface ConfiguredAspect extends ProviderCollection {
 
       maybeAddRequiredConfigFragmentsProvider();
 
+      var repoMappingDigest = ruleContext.getAnalysisRepoMappingDigest();
+      if (repoMappingDigest != null) {
+        addProvider(repoMappingDigest);
+      }
       TransitiveInfoProviderMap providerMap = providers.build();
       if (actions.isEmpty() && providerMap.getProviderCount() == 0) {
         return BasicConfiguredAspect.EMPTY;

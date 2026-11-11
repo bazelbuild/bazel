@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.CqueryProcessor;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.AllPathsFunction;
@@ -34,7 +36,9 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
+import com.google.devtools.build.lib.query2.engine.SetExpression;
 import com.google.devtools.build.lib.query2.engine.SomePathFunction;
+import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -42,6 +46,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.commands.TargetPatternsHelper.TargetPatternsHelperException;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -138,43 +143,106 @@ public final class CqueryCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
 
-    String query = null;
-    try {
-      query =
-          QueryOptionHelper.readQuery(
-              options.getOptions(CqueryOptions.class), options, env, /* allowEmptyQuery= */ false);
-    } catch (QueryException e) {
-      return BlazeCommandResult.failureDetail(e.getFailureDetail());
-    }
-
-    HashMap<String, QueryFunction> functions = new HashMap<>();
-    for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
-    for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
-    QueryExpression expr;
-    try {
-      expr = QueryParser.parse(query, functions);
-    } catch (QuerySyntaxException e) {
+    CqueryOptions cqueryOptions = options.getOptions(CqueryOptions.class);
+    BuildRequestOptions buildOptions = options.getOptions(BuildRequestOptions.class);
+    boolean targetsAreLabels = !buildOptions.getTargetPatternFile().isEmpty();
+    if (targetsAreLabels
+        && (!cqueryOptions.useTopLevelHashOutput()
+            || !options.getResidue().isEmpty()
+            || !cqueryOptions.getQueryFile().isEmpty()
+            || !cqueryOptions.getUniverseScope().isEmpty()
+            || !buildOptions.getTargetQuery().isEmpty()
+            || !buildOptions.getTargetQueryFile().isEmpty()
+            || options.getOptions(LoadingOptions.class).getCompileOneDependency())) {
       String message =
-          String.format(
-              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
+          "cquery --target_pattern_file requires --experimental_generate_hashes and"
+              + " --experimental_cquery_hash_top_level, and cannot be combined with a query"
+              + " expression, --query_file, --universe_scope, --target_query,"
+              + " --target_query_file, or --compile_one_dependency";
       env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
+      return createFailureResult(message, Code.FILTERS_NOT_SUPPORTED);
+    }
+    if (cqueryOptions.getGenerateHashes()
+        && (!cqueryOptions.getIncludeImplicitDeps() || !cqueryOptions.getIncludeToolDeps())) {
+      String message =
+          "--experimental_generate_hashes hashes all dependencies and can't be combined with"
+              + " --noimplicit_deps or --notool_deps";
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.FILTERS_NOT_SUPPORTED);
     }
 
-    List<String> topLevelTargets = options.getOptions(CqueryOptions.class).getUniverseScope();
-    LinkedHashSet<String> targetPatternSet = new LinkedHashSet<>();
+    QueryExpression expr;
+    List<String> topLevelTargets;
     ImmutableList<String> targetsForProjectResolution = null;
-    if (topLevelTargets.isEmpty()) {
-      expr.collectTargetPatterns(targetPatternSet);
-      topLevelTargets = new ArrayList<>(targetPatternSet);
-      if (expr instanceof FunctionExpression functionExpr
-          && (functionExpr.getFunction() instanceof SomePathFunction
-              || functionExpr.getFunction() instanceof AllPathsFunction)) {
-        targetsForProjectResolution = ImmutableList.of(targetPatternSet.getFirst());
+    if (targetsAreLabels) {
+      try {
+        topLevelTargets =
+            TargetPatternsHelper.readTargetPatternFile(env, buildOptions.getTargetPatternFile())
+                .stream()
+                .filter(line -> !line.isBlank() && !line.startsWith("#"))
+                .toList();
+      } catch (TargetPatternsHelperException e) {
+        env.getReporter().handle(Event.error(e.getMessage()));
+        return BlazeCommandResult.failureDetail(e.getFailureDetail());
+      }
+      // The analyzed roots supply all results. No query expression needs to resolve the labels.
+      expr = new SetExpression(ImmutableList.of());
+    } else {
+      String query;
+      try {
+        query =
+            QueryOptionHelper.readQuery(cqueryOptions, options, env, /* allowEmptyQuery= */ false);
+      } catch (QueryException e) {
+        return BlazeCommandResult.failureDetail(e.getFailureDetail());
+      }
+
+      HashMap<String, QueryFunction> functions = new HashMap<>();
+      for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
+        functions.put(queryFunction.getName(), queryFunction);
+      }
+      for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
+        functions.put(queryFunction.getName(), queryFunction);
+      }
+      try {
+        expr = QueryParser.parse(query, functions);
+      } catch (QuerySyntaxException e) {
+        String message =
+            String.format(
+                "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
+        env.getReporter().handle(Event.error(message));
+        return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
+      }
+
+      topLevelTargets = cqueryOptions.getUniverseScope();
+      if (topLevelTargets.isEmpty()) {
+        LinkedHashSet<String> targetPatternSet = new LinkedHashSet<>();
+        expr.collectTargetPatterns(targetPatternSet);
+        topLevelTargets = new ArrayList<>(targetPatternSet);
+        if (expr instanceof FunctionExpression functionExpr
+            && (functionExpr.getFunction() instanceof SomePathFunction
+                || functionExpr.getFunction() instanceof AllPathsFunction)) {
+          targetsForProjectResolution = ImmutableList.of(targetPatternSet.getFirst());
+        }
+      }
+    }
+    if (!cqueryOptions.getRuleCatalogOutput().isEmpty()) {
+      LoadingOptions loading = options.getOptions(LoadingOptions.class);
+      if (!cqueryOptions.useTopLevelHashOutput()
+          || !(expr instanceof TargetLiteral literal && literal.getPattern().equals("//..."))
+          || !cqueryOptions.getQueryFile().isEmpty()
+          || !cqueryOptions.getUniverseScope().isEmpty()
+          || !buildOptions.getTargetPatternFile().isEmpty()
+          || !buildOptions.getTargetQuery().isEmpty()
+          || !buildOptions.getTargetQueryFile().isEmpty()
+          || !loading.getBuildManualTests()
+          || !loading.getBuildTagFilterList().isEmpty()
+          || loading.getCompileOneDependency()
+          || loading.getBuildTestsOnly()) {
+        String message =
+            "--experimental_cquery_rule_catalog requires top-level hash output for the literal"
+                + " //... query with manual rules and without loading filters or a custom scope";
+        env.getReporter().handle(Event.error(message));
+        return createFailureResult(message, Code.FILTERS_NOT_SUPPORTED);
       }
     }
     BlazeRuntime runtime = env.getRuntime();
@@ -187,11 +255,12 @@ public final class CqueryCommand implements BlazeCommand {
             .setStartupOptions(runtime.getStartupOptionsProvider())
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(topLevelTargets)
+            .setTargetsAreLabels(targetsAreLabels)
             .setStartTimeMillis(env.getCommandStartTime())
             .setCheckforActionConflicts(false)
             .setReportIncompatibleTargets(false)
             .build();
-    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(env);
+    env.getSkyframeExecutor().resetDeserializedKeysForQuery();
     DetailedExitCode detailedExitCode =
         new BuildTool(env, new CqueryProcessor(expr, mainRepoTargetParser))
             .processRequest(

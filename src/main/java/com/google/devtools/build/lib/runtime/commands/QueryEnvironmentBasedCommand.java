@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
@@ -143,6 +144,19 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               "Invalid output format '%s'. Valid values are: %s",
               queryOptions.getOutputFormat(), OutputFormatters.formatterNames(formatters)),
           Query.Code.OUTPUT_FORMAT_INVALID);
+    }
+
+    if (queryOptions.getGenerateHashes()) {
+      ImmutableList<String> filters = getDependencyFilters(queryOptions);
+      if (!filters.isEmpty()) {
+        return reportAndCreateFailureResult(
+            env,
+            String.format(
+                "--experimental_generate_hashes hashes all dependencies and can't be combined with"
+                    + " %s",
+                String.join(", ", filters)),
+            Query.Code.ILLEGAL_FLAG_COMBINATION);
+      }
     }
 
     Set<Setting> settings = queryOptions.toSettings();
@@ -294,6 +308,20 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       CommandEnvironment env, String message) {
     env.getReporter().handle(Event.error(message));
     return BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message));
+  }
+
+  private static ImmutableList<String> getDependencyFilters(QueryOptions queryOptions) {
+    ImmutableList.Builder<String> filters = ImmutableList.builder();
+    if (!queryOptions.getIncludeImplicitDeps()) {
+      filters.add("--noimplicit_deps");
+    }
+    if (!queryOptions.getIncludeToolDeps()) {
+      filters.add("--notool_deps");
+    }
+    if (queryOptions.getAspectDeps() != AspectResolver.Mode.CONSERVATIVE) {
+      filters.add("--aspect_deps=" + queryOptions.getAspectDeps());
+    }
+    return filters.build();
   }
 
   private static BlazeCommandResult reportAndCreateFailureResult(

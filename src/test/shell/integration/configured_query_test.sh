@@ -1878,4 +1878,438 @@ EOF
   expect_log "//$pkg:valid"
 }
 
+function test_generate_hashes() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+filegroup(name = "a", srcs = ["a.txt", ":b"])
+filegroup(name = "b", srcs = ["b.txt"])
+EOF
+  echo a > $pkg/a.txt
+  echo b > $pkg/b.txt
+
+  bazel cquery --experimental_generate_hashes "//$pkg:a + //$pkg:b" > output \
+    2> $TEST_log || fail "Expected success"
+  assert_equals 2 "$(awk 'END { print NR }' output)"
+  grep -Eq "^//$pkg:a \([0-9a-f]+\) [0-9a-f]{64}$" output \
+    || fail "Unexpected output: $(cat output)"
+  cp output before
+
+  echo changed > $pkg/b.txt
+  bazel cquery --experimental_generate_hashes "//$pkg:a + //$pkg:b" > output \
+    2> $TEST_log || fail "Expected success"
+  [[ "$(grep //$pkg:a before)" != "$(grep //$pkg:a output)" ]] \
+    || fail "Expected the hash of //$pkg:a to change"
+}
+
+function test_generate_hashes_include_observed_analysis_repo_mappings() {
+  local workspace
+  workspace="$(mktemp -d "$TEST_TMPDIR/analysis_repo_mapping.XXXXXX")"
+  workspaces+=("$workspace")
+  cd "$workspace"
+  setup_module_dot_bazel >/dev/null
+
+  cat >> MODULE.bazel <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "stable")
+EOF
+  cp MODULE.bazel base.MODULE.bazel
+  cat > ext.bzl <<'EOF'
+def _repo_impl(ctx):
+    ctx.file("BUILD.bazel", "")
+    return ctx.repo_metadata(reproducible = True)
+
+_repo = repository_rule(implementation = _repo_impl)
+
+def _ext_impl(ctx):
+    for name in ["stable", "sibling", "other"]:
+        _repo(name = name)
+    return ctx.extension_metadata(reproducible = True)
+
+ext = module_extension(implementation = _ext_impl)
+EOF
+  cat > rules.bzl <<'EOF'
+RuleToken = provider()
+AspectToken = provider()
+
+def _plain(ctx):
+    return []
+
+def _value(ctx):
+    return [RuleToken(value = str(Label("@sibling//:input")))]
+
+def _aspect(target, ctx):
+    return [AspectToken(value = str(ctx.package_relative_label("@sibling//:input")))]
+
+def _write(ctx):
+    dep = ctx.attr.dep
+    tokens = [dep[p].value for p in [RuleToken, AspectToken] if p in dep]
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, "\n".join(tokens))
+    return [DefaultInfo(files = depset([out]))]
+
+plain = rule(implementation = _plain)
+value = rule(implementation = _value)
+token_aspect = aspect(implementation = _aspect)
+write = rule(
+    implementation = _write,
+    attrs = {"dep": attr.label(aspects = [token_aspect])},
+)
+EOF
+  cat > BUILD.bazel <<'EOF'
+load(":rules.bzl", "plain", "value", "write")
+
+plain(name = "plain")
+value(name = "value")
+write(name = "aspect_only", dep = ":plain")
+write(name = "both", dep = ":value")
+EOF
+
+  local -ar roots=(//:aspect_only //:both //:plain //:value)
+  local -ar flags=(--experimental_generate_hashes --experimental_explicit_aspects)
+  local -r query="set(${roots[*]})"
+  local stage
+  for stage in base changed unrelated restored; do
+    cp base.MODULE.bazel MODULE.bazel
+    case "$stage" in
+      changed) echo 'use_repo(ext, "sibling")' >> MODULE.bazel ;;
+      unrelated) echo 'use_repo(ext, "sibling", "other")' >> MODULE.bazel ;;
+    esac
+    # The rule and the aspect only return providers. Warm their configured values with an
+    # ordinary build before asking cquery for hashes.
+    bazel build "${roots[@]}" &> "$TEST_log" || fail "build failed at $stage"
+    cat bazel-bin/aspect_only.txt bazel-bin/both.txt > "outputs.$stage"
+    bazel cquery "${flags[@]}" "$query" > "serial.$stage" 2> "$TEST_log" \
+      || fail "serial hashing failed at $stage"
+    bazel cquery "${flags[@]}" --experimental_cquery_hash_workers=4 "$query" > "parallel.$stage" \
+      2> "$TEST_log" || fail "parallel hashing failed at $stage"
+    LC_ALL=C sort "serial.$stage" > "hashes.$stage"
+    diff "hashes.$stage" <(LC_ALL=C sort "parallel.$stage") || fail "hash workers differ at $stage"
+    diff <(printf '%s\n' "${roots[@]}") <(cut -d' ' -f1 "hashes.$stage") \
+      || fail "missing configured roots at $stage"
+  done
+
+  grep -q "unknown repo 'sibling'" outputs.base || fail "expected an invisible repository"
+  grep -q "+sibling//:input" outputs.changed || fail "expected a visible repository"
+  diff outputs.base outputs.restored || fail "restoring the mapping changed the build"
+  diff outputs.changed outputs.unrelated || fail "unused mapping changed the build"
+  diff hashes.base hashes.restored || fail "restoring the mapping changed hashes"
+  diff hashes.changed hashes.unrelated || fail "unused mapping changed hashes"
+  diff <(printf '%s\n' //:aspect_only //:both //:value) \
+    <(LC_ALL=C comm -23 hashes.base hashes.changed | cut -d' ' -f1) \
+    || fail "expected changed hashes for exactly the mapping consumers"
+}
+
+function test_generate_hashes_tracks_inherited_action_and_test_environment() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/probe.bzl" <<'STARLARK'
+def _write(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.run_shell(
+        outputs = [out],
+        arguments = [out.path],
+        command = 'printf "%s" "${HASH_ACTION-absent}" > "$1"',
+        use_default_shell_env = True,
+    )
+    return [DefaultInfo(files = depset([out]))]
+write_env = rule(implementation = _write)
+
+def _test(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".sh")
+    ctx.actions.write(out, "#!/bin/sh\nexit 0\n", is_executable = True)
+    return [DefaultInfo(executable = out)]
+env_test = rule(implementation = _test, test = True)
+STARLARK
+  cat > "$pkg/BUILD" <<'EOF_BUILD'
+load(":probe.bzl", "env_test", "write_env")
+write_env(name = "action")
+env_test(name = "test")
+EOF_BUILD
+
+  local -a hash_args=(cquery --experimental_generate_hashes
+      --action_env=HASH_ACTION --test_env=HASH_TEST "//$pkg:all")
+  local label
+  (
+    unset HASH_ACTION HASH_TEST HASH_OTHER
+    bazel "${hash_args[@]}" > absent 2> "$TEST_log" || fail "cquery absent"
+    export HASH_ACTION=
+    bazel "${hash_args[@]}" > empty 2> "$TEST_log" || fail "cquery empty"
+    export HASH_ACTION=alpha
+    bazel "${hash_args[@]}" > before 2> "$TEST_log" || fail "cquery action"
+    bazel build --action_env=HASH_ACTION "//$pkg:action" > "$TEST_log" 2>&1 || fail "build"
+    assert_equals alpha "$(cat "bazel-bin/$pkg/action.txt")"
+    export HASH_OTHER=unrelated
+    bazel "${hash_args[@]}" > unrelated 2> "$TEST_log" || fail "cquery unrelated"
+    export HASH_TEST=beta
+    bazel "${hash_args[@]}" > after 2> "$TEST_log" || fail "cquery test"
+
+    for label in action test; do
+      local prefix="//$pkg:$label"
+      assert_equals "$(grep -F "$prefix (" before)" "$(grep -F "$prefix (" unrelated)"
+      assert_equals "$(grep -F "$prefix (" absent | cut -d' ' -f2)" \
+          "$(grep -F "$prefix (" after | cut -d' ' -f2)"
+    done
+    assert_not_equals "$(grep -F "//$pkg:action (" absent)" "$(grep -F "//$pkg:action (" empty)"
+    assert_not_equals "$(grep -F "//$pkg:action (" empty)" "$(grep -F "//$pkg:action (" before)"
+    assert_equals "$(grep -F "//$pkg:action (" before)" "$(grep -F "//$pkg:action (" after)"
+    assert_not_equals "$(grep -F "//$pkg:test (" before)" "$(grep -F "//$pkg:test (" after)"
+  ) || fail "inherited environments must contribute to the relevant hashes"
+}
+
+function test_forward_hashes_retain_dirty_nodes_outside_requested_roots() {
+  local -r pkg=$FUNCNAME
+  local child
+  for child in a b; do
+    mkdir -p "$pkg/$child"
+    echo 'filegroup(name = "item", srcs = ["input.txt"])' > "$pkg/$child/BUILD"
+    echo before > "$pkg/$child/input.txt"
+  done
+  printf '//%s/a:item\n//%s/b:item\n' "$pkg" "$pkg" > labels
+  # Isolate the post-analysis cleanup from the normal end-of-command dirty-node GC.
+  local -a hash=(cquery --version_window_for_dirty_node_gc=-1 --experimental_generate_hashes
+      --experimental_cquery_hash_top_level --target_pattern_file=labels)
+  bazel "${hash[@]}" > both 2>"$TEST_log" || fail "could not hash both roots"
+  local initial_count
+  initial_count=$(bazel dump --skyframe=count 2>"$TEST_log" | awk '$1 == "QUERY_DIRECT_TARGET_HASH" {print $2}')
+  [[ "$initial_count" -gt 0 ]] || fail "no direct hash nodes in the graph"
+
+  echo after > "$pkg/b/input.txt"
+  printf '//%s/a:item\n' "$pkg" > labels
+  bazel "${hash[@]}" > narrow 2>"$TEST_log" || fail "could not hash the unchanged root"
+  assert_equals "$(grep -F "//$pkg/a:item" both)" "$(cat narrow)"
+  assert_equals "$initial_count" \
+      "$(bazel dump --skyframe=count 2>"$TEST_log" | awk '$1 == "QUERY_DIRECT_TARGET_HASH" {print $2}')"
+
+  printf '//%s/b:item\n' "$pkg" >> labels
+  bazel "${hash[@]}" > after 2>"$TEST_log" || fail "could not hash the changed root"
+  assert_equals "$(cat narrow)" "$(grep -F "//$pkg/a:item" after)"
+  local -r edited_target="//$pkg/b:item"
+  local before_hash after_hash
+  before_hash=$(awk -F '\t' -v label="$edited_target" '$1 == label {print $3}' both)
+  after_hash=$(awk -F '\t' -v label="$edited_target" '$1 == label {print $3}' after)
+  [[ "$before_hash" =~ ^[0-9a-f]{64}$ ]] || fail "invalid initial hash for $edited_target"
+  [[ "$after_hash" =~ ^[0-9a-f]{64}$ ]] || fail "invalid updated hash for $edited_target"
+  assert_not_equals "$before_hash" "$after_hash"
+}
+
+function test_parallel_generate_hashes_agrees_on_mutation_and_partial_analysis() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat >"$pkg/BUILD" <<EOF
+filegroup(name = "leaf", srcs = ["input"])
+alias(name = "indirect", actual = ":leaf")
+genquery(name = "listing", expression = "deps(//$pkg:leaf)", scope = [":leaf"])
+filegroup(name = "top", srcs = [":indirect", ":leaf", ":listing"])
+filegroup(name = "missing", srcs = ["//$pkg/missing_package:input"])
+EOF
+  local -ar common=(--experimental_generate_hashes --experimental_explicit_aspects)
+  local -r query="set(//$pkg:top //$pkg:indirect //$pkg:listing)"
+  local content
+  for content in first second; do
+    echo "$content" > "$pkg/input"
+    bazel cquery "${common[@]}" "$query" > reference 2> "$TEST_log" || fail "serial hash failed"
+    bazel cquery "${common[@]}" --experimental_cquery_hash_workers=4 "$query" > actual 2> "$TEST_log" \
+      || fail "parallel hash failed"
+    # An alias may have multiple configured instances. Check the requested labels and every
+    # identity rather than assuming a single row per label.
+    diff <(printf '%s\n' "//$pkg:indirect" "//$pkg:listing" "//$pkg:top") \
+      <(cut -d' ' -f1 actual | LC_ALL=C sort -u) || fail "different requested labels"
+    assert_equals "$(awk 'END { print NR }' actual)" \
+      "$(cut -d' ' -f1,2 actual | LC_ALL=C sort -u | awk 'END { print NR }')"
+    diff <(LC_ALL=C sort reference) <(LC_ALL=C sort actual) || fail "different root digests"
+    grep "^//$pkg:top " actual > "top.$content" || fail "missing root"
+  done
+  cmp -s top.first top.second && fail "source change did not reach top"
+
+  local -r partial="set(//$pkg:missing //$pkg:top)"
+  if bazel cquery "${common[@]}" --keep_going "$partial" > reference 2> "$TEST_log"; then
+    fail "serial hash accepted a missing dependency"
+  fi
+  if bazel cquery "${common[@]}" --experimental_cquery_hash_workers=4 --keep_going "$partial" > actual 2> "$TEST_log"; then
+    fail "parallel hash accepted a missing dependency"
+  fi
+  assert_equals 1 "$(awk 'END { print NR }' actual)"
+  grep "^//$pkg:top " actual || fail "independent healthy root is missing"
+  diff reference actual || fail "different partial results"
+}
+
+function test_hashes_include_distinct_non_idempotent_transition_instances() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/rules.bzl" <<EOF
+Value = provider(fields = ["value"])
+
+def _setting_impl(ctx):
+    return [Value(value = ctx.build_setting_value)]
+
+setting = rule(implementation = _setting_impl, build_setting = config.string())
+
+def _append_impl(settings, attr):
+    return {"//$pkg:s": settings["//$pkg:s"] + "-next"}
+
+append = transition(implementation = _append_impl, inputs = ["//$pkg:s"], outputs = ["//$pkg:s"])
+
+def _impl(ctx):
+    return []
+
+def _subject_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, ctx.attr._setting[Value].value)
+    return [DefaultInfo(files = depset([out]))]
+
+subject = rule(
+    implementation = _subject_impl,
+    cfg = append,
+    attrs = {"_setting": attr.label(default = "//$pkg:s")},
+)
+wrapper = rule(implementation = _impl, attrs = {"dep": attr.label(cfg = append)})
+EOF
+  cat > "$pkg/BUILD" <<EOF
+load(":rules.bzl", "setting", "subject", "wrapper")
+setting(name = "s", build_setting_default = "initial")
+subject(name = "subject")
+wrapper(name = "caller", dep = ":subject")
+EOF
+  local -r expression="//$pkg:all intersect //$pkg:subject"
+  bazel cquery --output=label "$expression" > normal 2> "$TEST_log" || fail "ordinary cquery"
+  assert_equals 1 "$(awk 'END { print NR }' normal)"
+  bazel cquery --experimental_generate_hashes "$expression" > reference 2> "$TEST_log" \
+    || fail "serial hashes"
+  bazel cquery --experimental_generate_hashes --experimental_cquery_hash_workers=4 \
+    "$expression" > parallel 2> "$TEST_log" || fail "parallel hashes"
+  assert_equals 2 "$(awk 'END { print NR }' reference)"
+  assert_equals 2 "$(cut -d' ' -f2 reference | sort -u | awk 'END { print NR }')"
+  assert_equals 2 "$(cut -d' ' -f3 reference | sort -u | awk 'END { print NR }')"
+  diff <(LC_ALL=C sort reference) <(LC_ALL=C sort parallel) || fail "different root digests"
+}
+
+function test_generate_hashes_rejects_dependency_filters() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  echo 'filegroup(name = "a")' > $pkg/BUILD
+
+  bazel cquery --experimental_generate_hashes --notool_deps "//$pkg:a" > output \
+    2> $TEST_log && fail "Expected failure"
+  expect_log "can't be combined with --noimplicit_deps or --notool_deps"
+}
+
+function test_parallel_rule_catalog_preserves_rows_and_order() {
+  local workspace
+  workspace=$(mktemp -d "$TEST_TMPDIR/catalog.XXXXXXXX")
+  workspaces+=("$workspace")
+  cd "$workspace"
+  setup_module_dot_bazel >/dev/null
+
+  local -r pkg=$FUNCNAME
+  local i workers
+  mkdir -p "$pkg"
+  echo 'fixture source' > "$pkg/source.txt"
+  {
+    # Force a spill even though each individual row fits in memory.
+    echo 'long_tag = "x" * 10000'
+    for (( i = 0; i < 257; i++ )); do
+      printf 'filegroup(name = "rule_%03d", srcs = ["source.txt"], tags = [long_tag])\n' "$i"
+    done
+  } > "$pkg/BUILD.bazel"
+
+  local -ar common=(
+    --experimental_generate_hashes --experimental_cquery_hash_top_level
+    --experimental_explicit_aspects --build_manual_tests
+    --noproto:rule_inputs_and_outputs --proto:output_rule_attrs=tags
+  )
+  for workers in 1 4; do
+    bazel cquery "${common[@]}" --experimental_cquery_hash_workers="$workers" \
+      --experimental_cquery_rule_catalog="catalog-$workers.jsonl" '//...' \
+      > "hashes-$workers" 2> "$TEST_log" || fail "catalog with $workers workers"
+    assert_equals 257 "$(awk 'END { print NR }' "catalog-$workers.jsonl")"
+  done
+  diff catalog-1.jsonl catalog-4.jsonl || fail "parallel catalog changed rows"
+  diff hashes-1 hashes-4 || fail "parallel hashing changed rows"
+}
+
+function test_exact_hash_roots_after_target_removal() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+filegroup(name = "keep", tags = ["manual"])
+filegroup(name = "remove")
+EOF
+  cat > "$pkg/roots.txt" <<EOF
+//$pkg:remove
+//$pkg:keep
+EOF
+  local -a args=(
+    --keep_going
+    --experimental_generate_hashes
+    --experimental_cquery_hash_top_level
+    --target_pattern_file="$pkg/roots.txt"
+  )
+  bazel cquery "${args[@]}" > before 2> "$TEST_log" || fail "Expected success"
+  assert_contains "^//$pkg:remove[[:space:]]" before
+  assert_contains "^//$pkg:keep[[:space:]]" before
+
+  echo 'filegroup(name = "keep", tags = ["manual"])' > "$pkg/BUILD"
+  if bazel cquery "${args[@]}" > after 2> "$TEST_log"; then
+    fail "Expected removed exact label to fail"
+  fi
+  expect_log "target 'remove' not declared in package '$pkg'"
+  grep -v "^//$pkg:remove[[:space:]]" before > expected
+  diff -u expected after || fail "Expected the surviving explicit root and its unchanged hash"
+}
+
+function test_exact_hash_stream_receipt_with_unknown_root() {
+  local -r pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<'EOF'
+def _fail_impl(ctx):
+    fail("intentional analysis failure")
+
+fails_analysis = rule(implementation = _fail_impl)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "fails_analysis")
+
+filegroup(name = "café")
+fails_analysis(name = "échec")
+EOF
+  cat > "$pkg/roots.txt" <<EOF
+//$pkg:café
+//$pkg:échec
+EOF
+  # The receipt includes the worker RC sources.
+  echo "common --color=no" >> .bazelrc
+  local -a args=(
+    --keep_going
+    --experimental_generate_hashes
+    --experimental_cquery_hash_top_level
+    --experimental_cquery_hash_stream_receipt
+    --noline_terminator_null
+    --invocation_id=11111111-1111-1111-1111-111111111111
+  )
+
+  if bazel cquery "${args[@]}" //... > full.tsv 2> "$TEST_log"; then
+    fail "Expected the analysis failure"
+  fi
+  expect_log "intentional analysis failure"
+  assert_contains "^# complete$" full.tsv
+
+  if bazel cquery "${args[@]}" --target_pattern_file="$pkg/roots.txt" > scoped.tsv 2> "$TEST_log"; then
+    fail "Expected the explicit root's analysis failure"
+  fi
+  expect_log "intentional analysis failure"
+  assert_contains "^# bazel-configured-root-hashes-v1" scoped.tsv
+  assert_contains "$(printf '^//%s:café\t' "$pkg")" scoped.tsv
+  assert_equals "$(grep -F "//$pkg:café" full.tsv)" "$(grep -F "//$pkg:café" scoped.tsv)"
+  assert_contains "$(printf '^//%s:échec\tnone\t\t$' "$pkg")" scoped.tsv
+  assert_equals "# complete" "$(tail -n 1 scoped.tsv)"
+
+  echo "//$pkg:missing" >> "$pkg/roots.txt"
+  if bazel cquery "${args[@]}" --target_pattern_file="$pkg/roots.txt" > missing.tsv 2> "$TEST_log"; then
+    fail "Expected the missing explicit root to fail loading"
+  fi
+  expect_log "target 'missing' not declared"
+  assert_not_contains "^# complete$" missing.tsv
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

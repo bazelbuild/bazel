@@ -589,6 +589,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     remoteAnalysisCachingState.setClientId(currentInvocationClientId);
   }
 
+  /** Discards remote values so configured queries can reevaluate them with local graph edges. */
+  public void resetDeserializedKeysForQuery() {
+    if (!remoteAnalysisCachingHasEverBeenEnabled) {
+      return;
+    }
+    var evaluator = getEvaluator();
+    evaluator.deleteKeys(
+        evaluator.getInMemoryGraph().getAllNodeEntries().parallelStream()
+            // A dirty node can still be marked clean and reuse its previous remote value.
+            .filter(entry -> entry.toValue() instanceof DeserializedSkyValue)
+            .map(InMemoryNodeEntry::getKey)
+            .collect(toImmutableList()));
+  }
+
   /**
    * Invalidates the given keys with an external remote analysis service.
    *
@@ -3302,6 +3316,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean keepGoing,
       boolean determineTests)
       throws TargetParsingException, InterruptedException {
+    return loadTargetPatternsWithFilters(
+        eventHandler,
+        targetPatterns,
+        relativeWorkingDirectory,
+        options,
+        threadCount,
+        keepGoing,
+        determineTests,
+        /* targetsAreLabels= */ false);
+  }
+
+  public TargetPatternPhaseValue loadTargetPatternsWithFilters(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      PathFragment relativeWorkingDirectory,
+      LoadingOptions options,
+      int threadCount,
+      boolean keepGoing,
+      boolean determineTests,
+      boolean targetsAreLabels)
+      throws TargetParsingException, InterruptedException {
     SkyKey key =
         TargetPatternPhaseValue.key(
             ImmutableList.copyOf(targetPatterns),
@@ -3313,7 +3348,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             options.getBuildManualTests(),
             options.getExpandTestSuites(),
             TestFilter.forOptions(options),
-            keepGoing);
+            keepGoing,
+            targetsAreLabels);
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 

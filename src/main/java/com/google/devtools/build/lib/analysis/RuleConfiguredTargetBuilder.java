@@ -260,6 +260,10 @@ public final class RuleConfiguredTargetBuilder {
           BuildSettingProvider.class,
           new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));
     }
+    var repoMappingDigest = ruleContext.getAnalysisRepoMappingDigest();
+    if (repoMappingDigest != null) {
+      addProvider(repoMappingDigest);
+    }
     TransitiveInfoProviderMap providers = providersBuilder.build();
 
     if (ruleContext.getRule().isAnalysisTest()) {
