@@ -64,7 +64,7 @@ cc_library(
 cc_library(
     name = "export",
     hdrs = ["export.h"],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/native:__subpackages__"],
 )
 
 cc_library(
