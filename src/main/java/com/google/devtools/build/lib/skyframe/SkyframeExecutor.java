@@ -589,6 +589,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     remoteAnalysisCachingState.setClientId(currentInvocationClientId);
   }
 
+  /** Discards remote values so configured queries can reevaluate them with local graph edges. */
+  public void resetDeserializedKeysForQuery() {
+    if (!remoteAnalysisCachingHasEverBeenEnabled) {
+      return;
+    }
+    var evaluator = getEvaluator();
+    evaluator.deleteKeys(
+        evaluator.getInMemoryGraph().getAllNodeEntries().parallelStream()
+            // A dirty node can still be marked clean and reuse its previous remote value.
+            .filter(entry -> entry.toValue() instanceof DeserializedSkyValue)
+            .map(InMemoryNodeEntry::getKey)
+            .collect(toImmutableList()));
+  }
+
   /**
    * Invalidates the given keys with an external remote analysis service.
    *
