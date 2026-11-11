@@ -17,11 +17,12 @@ import static java.lang.foreign.ValueLayout.ADDRESS;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
 
-import com.google.devtools.build.lib.jni.NativeFunctions;
+import com.google.devtools.build.lib.jni.JniLoader;
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SymbolLookup;
 import java.lang.invoke.MethodHandle;
 import java.nio.ByteBuffer;
 import java.security.DigestException;
@@ -35,6 +36,10 @@ public final class Blake3MessageDigest extends MessageDigest {
   public static final int KEY_LEN = 32;
   public static final int OUT_LEN = 32;
 
+  static {
+    JniLoader.loadJni();
+  }
+
   // All functions are bound with Linker.Option.critical, which avoids the
   // overhead of a full native call transition. This is safe as they neither
   // block nor call back into Java. Passing allowHeapAccess as true makes it
@@ -42,35 +47,48 @@ public final class Blake3MessageDigest extends MessageDigest {
   // without copying. A critical call delays safepoints until it returns, so
   // each call hashes at most MAX_CRITICAL_INPUT_LENGTH bytes. size_t is
   // JAVA_LONG on all platforms supported by Bazel.
+  private static final Linker LINKER = Linker.nativeLinker();
+  private static final SymbolLookup LOOKUP = SymbolLookup.loaderLookup();
   private static final MethodHandle HASHER_SIZE =
-      NativeFunctions.downcallHandle(
-          "blaze_blake3_hasher_size",
+      LINKER.downcallHandle(
+          findSymbol("blaze_blake3_hasher_size"),
           FunctionDescriptor.of(JAVA_INT),
           Linker.Option.critical(/* allowHeapAccess= */ false));
   private static final MethodHandle HASHER_INIT =
-      NativeFunctions.downcallHandle(
-          "blake3_hasher_init",
+      LINKER.downcallHandle(
+          findSymbol("blake3_hasher_init"),
           FunctionDescriptor.ofVoid(ADDRESS),
           Linker.Option.critical(/* allowHeapAccess= */ false));
   private static final MethodHandle HASHER_UPDATE =
-      NativeFunctions.downcallHandle(
-          "blake3_hasher_update",
+      LINKER.downcallHandle(
+          findSymbol("blake3_hasher_update"),
           FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_LONG),
           Linker.Option.critical(/* allowHeapAccess= */ true));
   private static final MethodHandle HASHER_FINALIZE =
-      NativeFunctions.downcallHandle(
-          "blake3_hasher_finalize",
+      LINKER.downcallHandle(
+          findSymbol("blake3_hasher_finalize"),
           FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_LONG),
           Linker.Option.critical(/* allowHeapAccess= */ true));
   private static final MethodHandle HASH =
-      NativeFunctions.downcallHandle(
-          "blaze_blake3_hash",
+      LINKER.downcallHandle(
+          findSymbol("blaze_blake3_hash"),
           FunctionDescriptor.ofVoid(ADDRESS, JAVA_LONG, ADDRESS),
           Linker.Option.critical(/* allowHeapAccess= */ true));
 
   // Hashing this many bytes takes tens of microseconds. It is a multiple of the
   // input size that the widest SIMD implementations process in parallel.
   private static final int MAX_CRITICAL_INPUT_LENGTH = 64 * 1024;
+
+  /**
+   * Looks up a native symbol, throwing {@link UnsatisfiedLinkError} just like a JNI method would
+   * if it is missing. {@link BazelHashFunctions} relies on this error to detect that the native
+   * library was built without the blake3 symbols when bootstrapping Bazel.
+   */
+  private static MemorySegment findSymbol(String name) {
+    return LOOKUP
+        .find(name)
+        .orElseThrow(() -> new UnsatisfiedLinkError("undefined symbol: " + name));
+  }
 
   private static final int STATE_SIZE;
 

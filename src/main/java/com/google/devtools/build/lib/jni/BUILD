@@ -14,10 +14,7 @@ filegroup(
 
 java_library(
     name = "jni",
-    srcs = [
-        "JniLoader.java",
-        "NativeFunctions.java",
-    ],
+    srcs = ["JniLoader.java"],
     resources = select({
         "//src/conditions:darwin": [
             "//src/main/native:libunix_jni.dylib",
