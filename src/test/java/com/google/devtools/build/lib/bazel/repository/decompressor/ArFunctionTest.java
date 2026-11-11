@@ -110,6 +110,45 @@ public class ArFunctionTest {
     assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
   }
 
+  /**
+   * Test decompressing a BSD ar archive (as created by the macOS ar and ranlib) with long names
+   * ("#1/len") that are padded with NUL bytes.
+   */
+  @Test
+  public void testDecompressBsdLongNamesWithNulPadding() throws Exception {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File arFile = folder.newFile("bsd.ar");
+    try (FileOutputStream out = new FileOutputStream(arFile)) {
+      out.write("!<arch>\n".getBytes(UTF_8));
+      writeBsdLongNameMember(out, "__.SYMDEF SORTED\0\0\0\0", new byte[8]);
+      writeBsdLongNameMember(out, "a_long_object_name.o\0\0\0\0", "content".getBytes(UTF_8));
+    }
+    Path arPath = fs.getPath(arFile.getAbsolutePath());
+    Path outDir = arPath.getParentDirectory().getRelative("out");
+
+    decompress(
+        DecompressorDescriptor.builder().setArchivePath(arPath).setDestinationPath(outDir).build());
+
+    assertThat(outDir.getRelative("__.SYMDEF SORTED").exists()).isTrue();
+    Path objectFile = outDir.getRelative("a_long_object_name.o");
+    assertThat(objectFile.exists()).isTrue();
+    assertThat(objectFile.getFileSize()).isEqualTo(7);
+  }
+
+  private static void writeBsdLongNameMember(FileOutputStream out, String name, byte[] data)
+      throws IOException {
+    int size = name.length() + data.length;
+    String header =
+        String.format(
+            "%-16s%-12s%-6s%-6s%-8s%-10s`\n", "#1/" + name.length(), "0", "0", "0", "644", size);
+    out.write(header.getBytes(UTF_8));
+    out.write(name.getBytes(UTF_8));
+    out.write(data);
+    if (size % 2 != 0) {
+      out.write('\n');
+    }
+  }
+
   private DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
     FileSystem testFS = FileSystems.getNativeFileSystem();
 
