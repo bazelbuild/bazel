@@ -110,6 +110,19 @@ public class RepositoryOptions extends OptionsBase {
   public List<String> registries;
 
   @Option(
+      name = "watch_registry",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Watches a local file:// registry for changes, so that edits to its files are picked up"
+              + " without a shutdown, at the cost of some overhead on every command. The registry"
+              + " must also be passed with --registry, e.g."
+              + " --registry=file:///path/to/registry --watch_registry=file:///path/to/registry.")
+  public List<String> watchedRegistries;
+
+  @Option(
       name = "module_mirrors",
       defaultValue = "null",
       converter = Converters.StringToStringListConverter.class,

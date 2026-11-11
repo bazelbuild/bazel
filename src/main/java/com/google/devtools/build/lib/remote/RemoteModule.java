@@ -132,7 +132,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -558,20 +557,21 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    ImmutableList.Builder<Predicate<String>> patternsToDownloadBuilder = ImmutableList.builder();
-    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
-      for (RegexPatternOption patternOption : remoteOptions.remoteDownloadRegex) {
-        patternsToDownloadBuilder.add(patternOption.matcher());
-      }
-    }
+    ImmutableList<RegexPatternOption> downloadRegexes =
+        remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL
+            ? ImmutableList.copyOf(remoteOptions.remoteDownloadRegex)
+            : ImmutableList.of();
 
+    boolean executes = env.getCommand().buildPhase().executes();
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
             remoteOptions.remoteOutputsMode,
-            patternsToDownloadBuilder.build(),
-            lastRemoteOutputChecker);
-    remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+            downloadRegexes,
+            executes ? lastRemoteOutputChecker : null);
+    if (executes) {
+      remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+    }
 
     env.getEventBus().register(this);
     String invocationId = env.getCommandId().toString();
@@ -1097,6 +1097,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void afterCommand() {
     Preconditions.checkNotNull(blockWaitingModule, "blockWaitingModule must not be null");
+    Preconditions.checkNotNull(env, "env must not be null");
 
     // Some cleanup tasks must wait until every other BlazeModule's afterCommand() has run, as
     // otherwise we might interfere with asynchronous remote downloads that are in progress.
@@ -1120,8 +1121,10 @@ public final class RemoteModule extends BlazeModule {
     if (remoteOutputChecker != null) {
       remoteOutputChecker.clearPreviousCommand();
     }
-    lastRemoteOutputChecker = remoteOutputChecker;
-    lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
+    if (env.getCommand().buildPhase().executes()) {
+      lastRemoteOutputChecker = remoteOutputChecker;
+    }
+    lastBuildId = env.getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteHelpersFactoryDelegate.reset();
@@ -1330,18 +1333,6 @@ public final class RemoteModule extends BlazeModule {
     // shouldn't be too bad, as we don't expect the defaults to change very often.
     fp.addStringMap(
         remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
-
-    // When switching cache endpoints/instances across invocations, cached remote actions reference
-    // blobs stored in the previous cache instance which cannot be downloaded from the new cache
-    // instance. See https://github.com/bazelbuild/bazel/issues/23780.
-    if (remoteOptions != null) {
-      fp.addNullableString(remoteOptions.remoteCache);
-      fp.addNullableString(remoteOptions.remoteExecutor);
-      fp.addNullableString(remoteOptions.remoteDownloader);
-      fp.addNullableString(remoteOptions.remoteInstanceName);
-      fp.addNullableString(remoteOptions.remoteBytestreamUriPrefix);
-      fp.addNullableString(remoteOptions.remoteProxy);
-    }
 
     return fp.hexDigestAndReset();
   }

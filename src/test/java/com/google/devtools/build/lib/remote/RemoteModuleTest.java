@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.Colle
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -193,6 +195,14 @@ public final class RemoteModuleTest {
 
   private static CommandEnvironment initCommand(
       BlazeWorkspace workspace, RemoteOptions remoteOptions) throws AbruptExitException {
+    return initCommand(workspace, remoteOptions, BuildCommand.class);
+  }
+
+  private static CommandEnvironment initCommand(
+      BlazeWorkspace workspace,
+      RemoteOptions remoteOptions,
+      Class<? extends BlazeCommand> commandClass)
+      throws AbruptExitException {
     CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
     CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
@@ -212,7 +222,7 @@ public final class RemoteModuleTest {
     when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
     when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
 
-    Command command = BuildCommand.class.getAnnotation(Command.class);
+    Command command = commandClass.getAnnotation(Command.class);
     return workspace.initCommand(
         command,
         options,
@@ -755,7 +765,14 @@ public final class RemoteModuleTest {
 
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand(BlazeWorkspace workspace) throws AbruptExitException {
-    CommandEnvironment env = initCommand(workspace, remoteOptions);
+    return beforeCommand(workspace, BuildCommand.class);
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(
+      BlazeWorkspace workspace, Class<? extends BlazeCommand> commandClass)
+      throws AbruptExitException {
+    CommandEnvironment env = initCommand(workspace, remoteOptions, commandClass);
     env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
@@ -808,6 +825,51 @@ public final class RemoteModuleTest {
       assertThat(thirdChecker.shouldTrustMetadata(secondOutput, metadata)).isFalse();
       assertThat(thirdChecker.shouldTrustMetadata(firstOutput, metadata)).isTrue();
       afterCommand(thirdEnv);
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void nonBuildingCommand_keepsOutputCheckerOfPreviousBuild() throws Exception {
+    // A command that executes no actions (e.g. info) neither completes targets nor downloads
+    // outputs, so it must not be compared against the previous build nor stand in for it when the
+    // next build runs. See https://github.com/bazelbuild/bazel/issues/32363.
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      BlazeWorkspace workspace = createTestWorkspace(remoteModule, scratch -> {});
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME, "--remote_download_outputs=toplevel");
+      var execRoot =
+          ArtifactRoot.asDerivedRoot(
+              new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
+              ArtifactRoot.RootType.OUTPUT,
+              "out");
+      var output = ActionsTestUtil.createArtifact(execRoot, "output");
+      var metadata =
+          FileArtifactValue.createForRemoteFile(
+              new byte[] {1, 2, 3}, /* size= */ 3, /* locationIndex= */ 1);
+
+      var buildEnv = beforeCommand(workspace, BuildCommand.class);
+      var buildChecker = remoteModule.getRemoteOutputChecker();
+      buildChecker.addOutputToDownload(output);
+      afterCommand(buildEnv);
+
+      var infoEnv = beforeCommand(workspace, InfoCommand.class);
+      var infoChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(infoChecker).isNotNull();
+      assertThat(infoChecker.getLastRemoteOutputChecker()).isNull();
+      afterCommand(infoEnv);
+
+      var nextBuildEnv = beforeCommand(workspace, BuildCommand.class);
+      var nextBuildChecker = remoteModule.getRemoteOutputChecker();
+      assertThat(nextBuildChecker.getLastRemoteOutputChecker()).isSameInstanceAs(buildChecker);
+      assertThat(nextBuildChecker.shouldTrustMetadata(output, metadata)).isFalse();
+      afterCommand(nextBuildEnv);
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
@@ -930,37 +992,44 @@ public final class RemoteModuleTest {
   }
 
   @Test
-  public void testComputeActionExecutionSalt_changesWhenCacheInstanceChanges() throws Exception {
+  public void computeActionExecutionSalt_remoteEndpointOrInstanceChanges_doesNotChange()
+      throws Exception {
     RemoteOptions baseOptions =
         parseRemoteOptions(
             "--remote_cache=grpc://cache1",
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance1");
     String baseSalt = RemoteModule.computeActionExecutionSalt(baseOptions);
-    assertThat(RemoteModule.computeActionExecutionSalt(null)).isNotNull();
-    assertThat(RemoteModule.computeActionExecutionSalt(baseOptions)).isEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(null)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(parseRemoteOptions()))
+        .isNotEqualTo(baseSalt);
+    assertThat(
+            RemoteModule.computeActionExecutionSalt(
+                parseRemoteOptions(
+                    "--remote_cache=grpc://cache1",
+                    "--remote_default_exec_properties=OSFamily=linux")))
+        .isNotEqualTo(baseSalt);
 
     RemoteOptions changedInstanceName =
         parseRemoteOptions(
             "--remote_cache=grpc://cache1",
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance2");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedInstanceName)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedInstanceName)).isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteCache =
         parseRemoteOptions(
             "--remote_cache=grpc://cache2",
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance1");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteCache)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteCache)).isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteExecutor =
         parseRemoteOptions(
             "--remote_cache=grpc://cache1",
             "--remote_executor=grpc://exec2",
             "--remote_instance_name=instance1");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteExecutor))
-        .isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteExecutor)).isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteDownloader =
         parseRemoteOptions(
@@ -969,7 +1038,7 @@ public final class RemoteModuleTest {
             "--remote_instance_name=instance1",
             "--experimental_remote_downloader=grpc://downloader1");
     assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteDownloader))
-        .isNotEqualTo(baseSalt);
+        .isEqualTo(baseSalt);
 
     RemoteOptions changedBytestreamPrefix =
         parseRemoteOptions(
@@ -978,7 +1047,7 @@ public final class RemoteModuleTest {
             "--remote_instance_name=instance1",
             "--remote_bytestream_uri_prefix=host/instance2");
     assertThat(RemoteModule.computeActionExecutionSalt(changedBytestreamPrefix))
-        .isNotEqualTo(baseSalt);
+        .isEqualTo(baseSalt);
 
     RemoteOptions changedRemoteProxy =
         parseRemoteOptions(
@@ -986,6 +1055,6 @@ public final class RemoteModuleTest {
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance1",
             "--remote_proxy=unix:/socket2");
-    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isNotEqualTo(baseSalt);
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isEqualTo(baseSalt);
   }
 }

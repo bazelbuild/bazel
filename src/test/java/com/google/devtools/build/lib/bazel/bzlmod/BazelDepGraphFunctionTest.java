@@ -151,6 +151,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     ModuleFileFunction.INJECTED_MODULES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
     RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
+    RegistryFunction.WATCHED_REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.OFF);

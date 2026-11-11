@@ -63,8 +63,12 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
 
 is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
-is_absolute "$HOME" || HOME="$TEST_TMPDIR"
-export HOME
+# Bazel sets HOME to the (possibly relative) value of TEST_TMPDIR by default.
+# Users can override it via --test_env=HOME=... or --test_env=HOME and unset it
+# via --test_env==HOME, in which case it is left alone.
+if [[ -n "${HOME:-}" ]] && ! is_absolute "$HOME"; then
+  HOME="$PWD/$HOME"
+fi
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
 
 # Set USER to the current user, unless passed by Bazel via --test_env.
