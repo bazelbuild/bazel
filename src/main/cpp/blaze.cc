@@ -93,6 +93,76 @@ using std::set;
 using std::string;
 using std::vector;
 
+struct ClientLocks {
+  std::optional<LockHandle> install_base_lock;
+  std::optional<LockHandle> output_base_lock;
+};
+
+// Acquires the install base (if configured) and output base client locks.
+std::pair<ClientLocks, DurationMillis> AcquireClientLocks(
+    const StartupOptions& startup_options);
+
+// Releases the client locks acquired by AcquireClientLocks().
+void ReleaseClientLocks(bool lock_install_base, ClientLocks* locks);
+
+// Returns the JVM command argument array.
+std::vector<std::string> GetServerExeArgs(
+    const blaze_util::Path& jvm_path, const std::string& server_jar_path,
+    const std::string& install_md5, const WorkspaceLayout& workspace_layout,
+    const std::string& workspace, const StartupOptions& startup_options);
+
+// Join the elements of the specified array with NUL's (\0's), akin to the
+// format of /proc/$PID/cmdline.
+std::string GetArgumentString(const std::vector<std::string>& argument_array);
+
+void EnsureServerDir(const blaze_util::Path& server_dir);
+
+// Do a chdir into the workspace, and die if it fails.
+void GoToWorkspace(const WorkspaceLayout& workspace_layout,
+                   const std::string& workspace);
+
+bool IsServerMode(const std::string& command);
+
+// Returns the path of the file that the server JVM reads its arguments from on
+// Windows.
+blaze_util::Path GetServerJvmArgFilePath(const blaze_util::Path& output_base);
+
+// Returns the server's PID from the pid file, or -1 if there was an error.
+int GetServerPid(const blaze_util::Path& server_dir);
+
+bool NeedsNewInstallationSymlink(const StartupOptions& startup_options);
+
+void UpdateInstallationSymlink(const StartupOptions& startup_options);
+
+std::string GetCanonicalCwd();
+
+void PrepareDirectories(StartupOptions* startup_options);
+
+// Prepares the environment to be suitable to start a JVM.
+// Changes made to the environment in this function *will not* be part
+// of '--client_env'.
+std::map<std::string, EnvVarValue> PrepareEnvironmentForJvm();
+
+// Replace this process with the blaze server. Does not exit.
+void RunServerMode(const std::string& install_md5,
+                   const WorkspaceLayout& workspace_layout,
+                   const std::string& workspace,
+                   const StartupOptions& startup_options);
+
+// Sets up resource limits, parses startup/command options, configures logging,
+// and validates workspace requirements.
+StartupOptions* SetupAndParseOptions(int argc, const char* const* argv,
+                                     const std::string& cwd,
+                                     const std::string& workspace,
+                                     WorkspaceLayout* workspace_layout,
+                                     OptionProcessor* option_processor);
+
+// Entry point for a standalone exec-server binary. Requires --install_base to
+// already be extracted on disk.
+int ExecServer(int argc, const char* const* argv,
+               WorkspaceLayout* workspace_layout,
+               OptionProcessor* option_processor);
+
 // Determines the maximum import depth for rc files based on the environment.
 static int SelectMaxImportDepth() {
   return ExistsEnv("BAZEL_UNLIMITED_IMPORT_DEPTH")
@@ -100,13 +170,8 @@ static int SelectMaxImportDepth() {
              : OptionProcessor::MaxImportDepth;
 }
 
-struct ClientLocks {
-  std::optional<LockHandle> install_base_lock;
-  std::optional<LockHandle> output_base_lock;
-};
-
-static std::pair<ClientLocks, DurationMillis> AcquireClientLocks(
-    const StartupOptions &startup_options) {
+std::pair<ClientLocks, DurationMillis> AcquireClientLocks(
+    const StartupOptions& startup_options) {
   ClientLocks locks;
   DurationMillis wait_time;
 
@@ -143,7 +208,7 @@ static std::pair<ClientLocks, DurationMillis> AcquireClientLocks(
   return std::make_pair(std::move(locks), wait_time);
 }
 
-static void ReleaseClientLocks(bool lock_install_base, ClientLocks *locks) {
+void ReleaseClientLocks(bool lock_install_base, ClientLocks* locks) {
   if (!locks->output_base_lock.has_value()) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "ReleaseLocks() called but the output base lock has already been "
@@ -173,12 +238,12 @@ static string EscapeForOptionSource(const string &input) {
 }
 
 // Returns the JVM command argument array.
-static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
-                                       const string &server_jar_path,
-                                       const string &install_md5,
-                                       const WorkspaceLayout &workspace_layout,
-                                       const string &workspace,
-                                       const StartupOptions &startup_options) {
+vector<string> GetServerExeArgs(const blaze_util::Path& jvm_path,
+                                const string& server_jar_path,
+                                const string& install_md5,
+                                const WorkspaceLayout& workspace_layout,
+                                const string& workspace,
+                                const StartupOptions& startup_options) {
   vector<string> result;
 
   // e.g. A Blaze server process running in ~/src/build_root (where there's a
@@ -472,13 +537,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
 // Join the elements of the specified array with NUL's (\0's), akin to the
 // format of /proc/$PID/cmdline.
-static string GetArgumentString(const vector<string> &argument_array) {
+string GetArgumentString(const vector<string>& argument_array) {
   string result;
   blaze_util::JoinStrings(argument_array, '\0', &result);
   return result;
 }
 
-static void EnsureServerDir(const blaze_util::Path &server_dir) {
+void EnsureServerDir(const blaze_util::Path& server_dir) {
   // The server dir has the connection info - don't allow access by other users.
   if (!blaze_util::MakeDirectories(server_dir, 0700)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -488,8 +553,8 @@ static void EnsureServerDir(const blaze_util::Path &server_dir) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static void GoToWorkspace(const WorkspaceLayout &workspace_layout,
-                          const string &workspace) {
+void GoToWorkspace(const WorkspaceLayout& workspace_layout,
+                   const string& workspace) {
   if (workspace_layout.InWorkspace(workspace) &&
       !blaze_util::ChangeDirectory(workspace)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
@@ -498,9 +563,7 @@ static void GoToWorkspace(const WorkspaceLayout &workspace_layout,
   }
 }
 
-static bool IsServerMode(const string &command) {
-  return "exec-server" == command;
-}
+bool IsServerMode(const string& command) { return "exec-server" == command; }
 
 // Keep this in sync with built-in commands annotated with
 // @Command(mustRunInWorkspace = false).
@@ -512,13 +575,12 @@ static bool CanRunOutsideWorkspace(const string& command) {
 
 // Returns the path of the file that the server JVM reads its arguments from on
 // Windows.
-static blaze_util::Path GetServerJvmArgFilePath(
-    const blaze_util::Path& output_base) {
+blaze_util::Path GetServerJvmArgFilePath(const blaze_util::Path& output_base) {
   return output_base.GetRelative("server_jvm.args");
 }
 
 // Returns the server's PID from the pid file, or -1 if there was an error.
-static int GetServerPid(const blaze_util::Path &server_dir) {
+int GetServerPid(const blaze_util::Path& server_dir) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
   blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
@@ -532,7 +594,7 @@ static int GetServerPid(const blaze_util::Path &server_dir) {
   return result;
 }
 
-static bool NeedsNewInstallationSymlink(const StartupOptions &startup_options) {
+bool NeedsNewInstallationSymlink(const StartupOptions& startup_options) {
   const blaze_util::Path install_base_symlink =
       startup_options.output_base.GetRelative("install");
   blaze_util::Path prev_install_base;
@@ -542,7 +604,7 @@ static bool NeedsNewInstallationSymlink(const StartupOptions &startup_options) {
                                          startup_options.install_base);
 }
 
-static void UpdateInstallationSymlink(const StartupOptions &startup_options) {
+void UpdateInstallationSymlink(const StartupOptions& startup_options) {
   const blaze_util::Path install_base_symlink =
       startup_options.output_base.GetRelative("install");
   blaze_util::UnlinkPath(install_base_symlink);
@@ -582,7 +644,7 @@ static void ParseOptionsOrDie(const string& cwd, const string& workspace,
   }
 }
 
-static string GetCanonicalCwd() {
+string GetCanonicalCwd() {
   string result = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
   if (result.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -592,7 +654,7 @@ static string GetCanonicalCwd() {
   return result;
 }
 
-static void PrepareDirectories(StartupOptions *startup_options) {
+void PrepareDirectories(StartupOptions* startup_options) {
   blaze::CreateSecureDirectory(
       blaze_util::Path(startup_options->output_user_root));
 
@@ -631,7 +693,7 @@ static void PrepareDirectories(StartupOptions *startup_options) {
 // Prepares the environment to be suitable to start a JVM.
 // Changes made to the environment in this function *will not* be part
 // of '--client_env'.
-static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
+map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   map<string, EnvVarValue> result;
 
   // Make sure all existing environment variables appear as part of the
@@ -709,14 +771,24 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
 }
 
 // Replace this process with the blaze server. Does not exit.
-static void RunServerMode(
-    const blaze_util::Path &server_exe, const vector<string> &server_exe_args,
-    const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
-    const string &workspace, const StartupOptions &startup_options) {
+void RunServerMode(const string& install_md5,
+                   const WorkspaceLayout& workspace_layout,
+                   const string& workspace,
+                   const StartupOptions& startup_options) {
   if (startup_options.batch) {
     BAZEL_DIE(blaze_exit_code::BAD_ARGV)
         << "exec-server command is not compatible with --batch";
   }
+
+  const blaze_util::Path jvm_path = startup_options.GetJvm();
+  const string server_jar_path = startup_options.GetServerJarFilename();
+  const blaze_util::Path server_exe =
+      startup_options.GetExe(jvm_path, server_jar_path);
+  vector<string> server_exe_args =
+      GetServerExeArgs(jvm_path, server_jar_path, install_md5, workspace_layout,
+                       workspace, startup_options);
+  const blaze_util::Path server_dir =
+      blaze_util::Path(startup_options.output_base).GetRelative("server");
 
   BAZEL_LOG(INFO) << "Running in server mode.";
 
@@ -761,11 +833,10 @@ static void RunServerMode(
   }
 }
 
-static StartupOptions* SetupAndParseOptions(int argc, const char* const* argv,
-                                            const string& cwd,
-                                            const string& workspace,
-                                            WorkspaceLayout* workspace_layout,
-                                            OptionProcessor* option_processor) {
+StartupOptions* SetupAndParseOptions(int argc, const char* const* argv,
+                                     const string& cwd, const string& workspace,
+                                     WorkspaceLayout* workspace_layout,
+                                     OptionProcessor* option_processor) {
   // Best-effort operation to raise the resource limits from soft to hard.  We
   // do this early during the main program instead of just before execing the
   // Blaze server binary, because it's easier (for testing purposes) and because
@@ -821,6 +892,59 @@ static StartupOptions* SetupAndParseOptions(int argc, const char* const* argv,
   }
 
   return startup_options;
+}
+
+int ExecServer(int argc, const char* const* argv,
+               WorkspaceLayout* workspace_layout,
+               OptionProcessor* option_processor) {
+  blaze_util::InitializeStdOutErrForUtf8();
+
+  // Logging must be set first to assure no log statements are missed.
+  std::unique_ptr<blaze_util::BazelLogHandler> default_handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(default_handler));
+
+  string cwd = GetCanonicalCwd();
+  blaze::SetupStdStreams();
+
+  const string workspace = workspace_layout->GetWorkspace(cwd);
+  StartupOptions* startup_options = SetupAndParseOptions(
+      argc, argv, cwd, workspace, workspace_layout, option_processor);
+
+  if (!IsServerMode(option_processor->GetCommand())) {
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "Expected 'exec-server' command, got '"
+        << option_processor->GetCommand() << "'";
+  }
+
+  startup_options->UpdateConfiguration("", workspace, /*server_mode=*/true);
+  PrepareDirectories(startup_options);
+
+  auto [client_locks, command_wait_duration] =
+      AcquireClientLocks(*startup_options);
+  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
+                  << command_wait_duration.millis << " milliseconds";
+
+  WarnFilesystemType(startup_options->output_base);
+
+  if (!blaze_util::IsDirectory(startup_options->install_base)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Install base directory '"
+        << startup_options->install_base.AsPrintablePath()
+        << "' does not exist or is not a directory.";
+  }
+
+  string install_md5;
+  blaze_util::Path install_base_key_path =
+      startup_options->install_base.GetRelative("install_base_key");
+  if (!blaze_util::ReadFile(install_base_key_path, &install_md5)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to read '" << install_base_key_path.AsPrintablePath()
+        << "': " << GetLastErrorString();
+  }
+
+  RunServerMode(install_md5, *workspace_layout, workspace, *startup_options);
+  return 0;
 }
 
 // The following is a treatise on how the interaction between the client and the
@@ -1665,20 +1789,13 @@ static void RunLauncher(const string& self_path,
   const std::optional<DurationMillis> extract_data_duration = ExtractData(
       self_path, archive_contents, install_md5, startup_options, logging_info);
 
-  const blaze_util::Path server_dir =
-      blaze_util::Path(startup_options.output_base).GetRelative("server");
   if (IsServerMode(option_processor.GetCommand())) {
-    const blaze_util::Path jvm_path = startup_options.GetJvm();
-    const string server_jar_path = startup_options.GetServerJarFilename();
-    const blaze_util::Path server_exe =
-        startup_options.GetExe(jvm_path, server_jar_path);
-    vector<string> server_exe_args = GetServerExeArgs(
-        jvm_path, server_jar_path, install_md5, workspace_layout, workspace,
-        startup_options);
-    RunServerMode(server_exe, server_exe_args, server_dir, workspace_layout,
-                  workspace, startup_options);
+    RunServerMode(install_md5, workspace_layout, workspace, startup_options);
     return;
   }
+
+  const blaze_util::Path server_dir =
+      blaze_util::Path(startup_options.output_base).GetRelative("server");
 
   blaze_server = new BlazeServer(startup_options, command_extension_adder,
                                  std::move(client_locks));
