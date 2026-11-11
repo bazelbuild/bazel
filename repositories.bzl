@@ -16,7 +16,6 @@
 """
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 ##################################################################################
 #
@@ -68,14 +67,29 @@ DIST_ARCHIVE_REPOS = [
     "xds+",
     "zlib+",
     "zstd-jni+",
-] + [get_canonical_repo_name(repo) for repo in [
-    # Module extension repos
-    "async_profiler",
-    "async_profiler_linux_arm64",
-    "async_profiler_linux_x64",
-    "async_profiler_macos",
-    "bats_core",
-]]
+]
+
+_ASYNC_PROFILER_URL = "https://github.com/async-profiler/async-profiler/releases/download/v4.5/"
+
+# Maps the files downloaded from _ASYNC_PROFILER_URL to their integrity.
+_ASYNC_PROFILER_FILES = {
+    "async-profiler.jar": "sha256-gdbK6ZcdQa8UCxxif0DVERguAEtJEwfcPH3jsZnry7s=",
+    "async-profiler-4.5-linux-arm64.tar.gz": "sha256-ZMQdFGXWAJdDnFDX6SS0lG8fYrHL0hzlsDT60JwNaXk=",
+    "async-profiler-4.5-linux-x64.tar.gz": "sha256-iVRvu57g/FSWx+3UCZsHCUibx4sNgFfMu0uAH2sDK2I=",
+    "async-profiler-4.5-macos.zip": "sha256-RtBO+B9TKgZaCzh35IiqcGr6FKouoUQzsyPbnm/adtw=",
+}
+
+# Archives required while bootstrapping Bazel offline that are fetched by
+# reproducible module extensions, as a map from URL to integrity. They are
+# listed here rather than in DIST_ARCHIVE_REPOS because reproducible extensions
+# are not recorded in the lockfile.
+DIST_ARCHIVE_ARTIFACTS = {
+    # bats-core is fetched by @bazel_lib's bats toolchain extension.
+    "https://github.com/bats-core/bats-core/archive/v1.10.0.tar.gz": "sha256-oan3h1qktqlIDKOE1YZfHM8bCx+urWtHqkfXlwmlxf0=",
+} | {
+    _ASYNC_PROFILER_URL + file: integrity
+    for file, integrity in _ASYNC_PROFILER_FILES.items()
+}
 
 ##################################################################################
 #
@@ -177,22 +191,12 @@ def embedded_jdk_repositories():
         url = "https://github.com/bell-sw/Liberica/releases/download/27%2B36/bellsoft-jdk27%2B36-windows-amd64.zip",
     )
 
-def bats_core_deps():
-    # These are a transitive dep of bazel_lib and marked `reproducible`, so
-    # not included in the module lockfile.
-    http_file(
-        name = "bats_core",
-        downloaded_file_path = "bats_core.tar.gz",
-        integrity = "sha256-oan3h1qktqlIDKOE1YZfHM8bCx+urWtHqkfXlwmlxf0=",
-        urls = ["https://github.com/bats-core/bats-core/archive/v1.10.0.tar.gz"],
-    )
-
 def _async_profiler_repos(ctx):
     http_file(
         name = "async_profiler",
         downloaded_file_path = "async-profiler.jar",
-        integrity = "sha256-gdbK6ZcdQa8UCxxif0DVERguAEtJEwfcPH3jsZnry7s=",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler.jar"],
+        integrity = _ASYNC_PROFILER_FILES["async-profiler.jar"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler.jar"],
     )
 
     _ASYNC_PROFILER_BUILD_TEMPLATE = """
@@ -212,9 +216,9 @@ copy_file(
             ext = "so",
             tag = "linux-arm64",
         ),
-        integrity = "sha256-ZMQdFGXWAJdDnFDX6SS0lG8fYrHL0hzlsDT60JwNaXk=",
+        integrity = _ASYNC_PROFILER_FILES["async-profiler-4.5-linux-arm64.tar.gz"],
         strip_prefix = "async-profiler-4.5-linux-arm64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-linux-arm64.tar.gz"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler-4.5-linux-arm64.tar.gz"],
     )
 
     http_archive(
@@ -223,9 +227,9 @@ copy_file(
             ext = "so",
             tag = "linux-x64",
         ),
-        integrity = "sha256-iVRvu57g/FSWx+3UCZsHCUibx4sNgFfMu0uAH2sDK2I=",
+        integrity = _ASYNC_PROFILER_FILES["async-profiler-4.5-linux-x64.tar.gz"],
         strip_prefix = "async-profiler-4.5-linux-x64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-linux-x64.tar.gz"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler-4.5-linux-x64.tar.gz"],
     )
 
     http_archive(
@@ -234,9 +238,9 @@ copy_file(
             ext = "dylib",
             tag = "macos",
         ),
-        integrity = "sha256-RtBO+B9TKgZaCzh35IiqcGr6FKouoUQzsyPbnm/adtw=",
+        integrity = _ASYNC_PROFILER_FILES["async-profiler-4.5-macos.zip"],
         strip_prefix = "async-profiler-4.5-macos/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-macos.zip"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler-4.5-macos.zip"],
     )
 
     # NOTE: This is reproducible but the distdir scripts want it in the lockfile
@@ -245,8 +249,3 @@ copy_file(
 # This is an extension (instead of use_repo_rule usages) only to create a
 # lockfile entry for the distribution repo module extension.
 async_profiler_repos = module_extension(_async_profiler_repos)
-
-def _dist_repos_impl(_ctx):
-    bats_core_deps()
-
-dist_repos = module_extension(_dist_repos_impl)
