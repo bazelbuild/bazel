@@ -99,8 +99,10 @@ java_test(
     deps = [
         ":PyExecutableTestBase",
         ":PythonTestUtils",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:repo_mapping_manifest_action",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/junit",
         "//third_party/java/truth",

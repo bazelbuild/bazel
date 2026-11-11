@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import static java.util.Objects.requireNonNullElse;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -208,7 +210,9 @@ public abstract class PyBuiltins implements StarlarkValue {
             new RepoMappingManifestAction(
                 ruleContext.getActionOwner(),
                 repoMappingManifest,
-                ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
+                requireNonNullElse(
+                    ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
+                    NestedSetBuilder.emptySet(Order.STABLE_ORDER)),
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
