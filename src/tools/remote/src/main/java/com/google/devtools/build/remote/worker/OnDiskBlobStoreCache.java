@@ -56,7 +56,7 @@ class OnDiskBlobStoreCache extends CombinedCache {
       throws IOException {
     super(
         /* remoteCacheClient= */ null,
-        new DiskCacheClient(cacheDir, digestUtil, /* verifyDownloads= */ true),
+        new DiskCacheClient(cacheDir, digestUtil),
         remoteOptions,
         digestUtil);
     this.remoteWorkerOptions = remoteWorkerOptions;
