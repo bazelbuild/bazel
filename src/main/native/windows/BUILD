@@ -84,6 +84,7 @@ cc_binary(
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/jni:__pkg__",
     ],
+    win_def_file = "windows_jni.def",
     deps = [
         ":lib-file",
         ":lib-process",

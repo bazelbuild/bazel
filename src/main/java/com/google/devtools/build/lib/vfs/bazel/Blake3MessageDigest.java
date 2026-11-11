@@ -45,7 +45,8 @@ public final class Blake3MessageDigest extends MessageDigest {
   // block nor call back into Java. Passing allowHeapAccess as true makes it
   // possible to pass heap byte arrays to the native functions directly,
   // without copying. A critical call delays safepoints until it returns, so
-  // each call hashes at most MAX_CRITICAL_INPUT_LENGTH bytes.
+  // each call hashes at most MAX_CRITICAL_INPUT_LENGTH bytes. size_t is
+  // JAVA_LONG on all platforms supported by Bazel.
   private static final Linker LINKER = Linker.nativeLinker();
   private static final SymbolLookup LOOKUP = SymbolLookup.loaderLookup();
   private static final MethodHandle HASHER_SIZE =
@@ -55,17 +56,17 @@ public final class Blake3MessageDigest extends MessageDigest {
           Linker.Option.critical(/* allowHeapAccess= */ false));
   private static final MethodHandle HASHER_INIT =
       LINKER.downcallHandle(
-          findSymbol("blaze_blake3_hasher_init"),
+          findSymbol("blake3_hasher_init"),
           FunctionDescriptor.ofVoid(ADDRESS),
           Linker.Option.critical(/* allowHeapAccess= */ false));
   private static final MethodHandle HASHER_UPDATE =
       LINKER.downcallHandle(
-          findSymbol("blaze_blake3_hasher_update"),
+          findSymbol("blake3_hasher_update"),
           FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_LONG),
           Linker.Option.critical(/* allowHeapAccess= */ true));
   private static final MethodHandle HASHER_FINALIZE =
       LINKER.downcallHandle(
-          findSymbol("blaze_blake3_hasher_finalize"),
+          findSymbol("blake3_hasher_finalize"),
           FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_LONG),
           Linker.Option.critical(/* allowHeapAccess= */ true));
   private static final MethodHandle HASH =
