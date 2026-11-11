@@ -136,6 +136,15 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
+  public boolean isFetchInProgressOrDone(Environment env) {
+    var state = env.getState(State::new);
+    // With a worker thread, the rule keeps running across Skyframe restarts of this SkyFunction.
+    // Any restart that happens after the worker has started must not run a repo contents cache
+    // lookup, because the lookup would delete the repo directory underneath the running rule.
+    return state.result != null || state.hasStartedWorker();
+  }
+
+  @Override
   public RemoteRepoContentsCache.LookupState getRemoteRepoContentsCacheLookupState(Environment env) {
     return env.getState(State::new).repoContentsCacheLookupState;
   }

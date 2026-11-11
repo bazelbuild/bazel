@@ -184,6 +184,14 @@ public class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
   }
 
   /**
+   * Returns true if a worker thread has been started for this state object and has not been
+   * {@linkplain #close closed} since. The worker may still be running or may have finished.
+   */
+  public synchronized boolean hasStartedWorker() {
+    return workerFuture != null;
+  }
+
+  /**
    * Closes the state object, and blocks until all pending async work is finished. The state object
    * will reset to a clean slate after this method finishes.
    */

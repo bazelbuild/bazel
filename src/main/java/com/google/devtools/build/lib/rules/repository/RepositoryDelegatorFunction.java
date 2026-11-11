@@ -267,7 +267,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           }
         }
 
-        if (remoteRepoContentsCache != null) {
+        // Do not run the remote lookup once a fetch of this repo has started. With a worker thread
+        // the rule keeps writing into the repo directory across Skyframe restarts of this function,
+        // and a lookup would delete that directory and re-inject the cached contents underneath it.
+        // If the injection then fails, the rule finishes in a directory that lost its earlier files
+        // and that incomplete directory is uploaded under the same cache key.
+        if (remoteRepoContentsCache != null && !handler.isFetchInProgressOrDone(env)) {
           try {
             boolean cacheHit =
                 remoteRepoContentsCache.lookupCache(
@@ -548,11 +553,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   /* Determines whether we should use the cached repositories */
   private boolean shouldUseCachedRepos(Environment env, RepositoryFunction handler, Rule rule)
       throws InterruptedException {
-    if (handler.wasJustFetched(env)) {
-      // If this SkyFunction has finished fetching once, then we should always use the cached
-      // result. This means that we _very_ recently (as in, in the same command invocation) fetched
-      // this repo (possibly with --force or --configure), and are only here again due to a Skyframe
-      // restart very late into RepositoryDelegatorFunction.
+    if (handler.isFetchInProgressOrDone(env)) {
+      // If this SkyFunction has started or finished fetching once, then we should always use the
+      // cached result. This means that we _very_ recently (as in, in the same command invocation)
+      // fetched this repo (possibly with --force or --configure), or are still fetching it on a
+      // worker thread, and are only here again due to a Skyframe restart.
       return true;
     }
 
