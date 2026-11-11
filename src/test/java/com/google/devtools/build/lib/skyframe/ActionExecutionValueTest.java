@@ -163,12 +163,20 @@ public final class ActionExecutionValueTest {
                         /* expirationTime= */ Instant.ofEpochMilli(123456789L),
                         /* inMemoryOutput= */ false))),
             // Fileset
+            createWithFilesetOutput(FilesetOutputTree.EMPTY),
             createWithFilesetOutput(
                 FilesetOutputTree.create(
                     ImmutableList.of(
                         new FilesetOutputSymlink(
                             PathFragment.create("name"), output("target"), VALUE_1_REMOTE)),
                     /* treeArtifacts= */ ImmutableMap.of())),
+            createWithFilesetOutput(
+                FilesetOutputTree.forward(
+                    FilesetOutputTree.create(
+                        ImmutableList.of(
+                            new FilesetOutputSymlink(
+                                PathFragment.create("name"), output("target"), VALUE_1_REMOTE)),
+                        /* treeArtifacts= */ ImmutableMap.of()))),
             // Module discovering
             createWithDiscoveredModules(discoveredModules),
             // Multiple output files
