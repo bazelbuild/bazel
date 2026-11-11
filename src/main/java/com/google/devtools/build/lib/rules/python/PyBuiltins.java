@@ -35,11 +35,13 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -47,12 +49,17 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
 /** Bridge to allow builtins bzl code to call Java code. */
 @StarlarkBuiltin(name = "py_builtins", documented = false)
@@ -425,5 +432,39 @@ public abstract class PyBuiltins implements StarlarkValue {
             "dependency_transitive_python_sources");
     PyCommon.registerPyExtraActionPseudoAction(
         starlarkCtx.getRuleContext(), dependencyTransitivePythonSources);
+  }
+
+  @StarlarkMethod(
+      name = "check_private_api_caller",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "allowlist",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Tuple.class),
+            }),
+        @Param(
+            name = "depth",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "1"),
+      })
+  public void checkPrivateApiCaller(Object allowlistObject, Object depth, StarlarkThread thread)
+      throws EvalException {
+    Module module =
+        Module.ofInnermostEnclosingStarlarkFunction(
+            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
+    if (module == null) {
+      return;
+    }
+    BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
+    BuiltinRestriction.Allowlist allowlist =
+        BuiltinRestriction.allowlistFromStarlark(allowlistObject);
+    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
   }
 }
