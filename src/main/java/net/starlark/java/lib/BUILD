@@ -6,6 +6,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
         "//src/main/java/net/starlark/java/lib/json:srcs",
+        "//src/main/java/net/starlark/java/lib/toml:srcs",
     ],
     visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )

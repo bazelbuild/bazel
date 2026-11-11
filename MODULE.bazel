@@ -216,8 +216,8 @@ maven.install(
         "io.netty:netty-codec-compression:4.2.19.Final",
         "io.netty:netty-codec-http:4.2.19.Final",
         "io.netty:netty-codec-http2:4.2.19.Final",
-        "io.netty:netty-common:4.2.19.Final",
         "io.netty:netty-codec-socks:4.2.19.Final",
+        "io.netty:netty-common:4.2.19.Final",
         "io.netty:netty-handler:4.2.19.Final",
         "io.netty:netty-handler-proxy:4.2.19.Final",
         "io.netty:netty-resolver:4.2.19.Final",
@@ -253,6 +253,7 @@ maven.install(
         "org.pcollections:pcollections:4.0.1",
         "org.roaringbitmap:RoaringBitmap:1.6.22",
         "org.threeten:threeten-extra:1.8.0",
+        "org.tomlj:tomlj:1.1.1",
         "org.tukaani:xz:1.9",
         "org.yaml:snakeyaml:2.0",
         # The following jars are for testing.
