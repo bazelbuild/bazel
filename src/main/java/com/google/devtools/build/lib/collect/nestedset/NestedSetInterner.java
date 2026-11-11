@@ -136,6 +136,15 @@ public final class NestedSetInterner {
     return interner.internImpl(children);
   }
 
+  /** Checks identity-interned children even when the backing array was evicted. */
+  @SuppressWarnings("ReferenceEquality")
+  static boolean haveIdenticalChildren(Object[] left, Object[] right) {
+    return left == right
+        || (enabled()
+            && identityInterner.equivalence.equivalent(left, right)
+            && getInterner(left) == identityInterner);
+  }
+
   public static void clear() {
     identityInterner.clearImpl();
     equalityInterner.clearImpl();
