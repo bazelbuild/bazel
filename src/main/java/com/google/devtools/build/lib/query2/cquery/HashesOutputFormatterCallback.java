@@ -73,6 +73,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -92,7 +93,9 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
   interface DepsRetriever {
     @Nullable
     Iterable<CqueryNode> getDirectDeps(
-        CqueryNode target, BiConsumer<AspectKey, AspectValue> aspectObserver)
+        CqueryNode target,
+        BiConsumer<AspectKey, AspectValue> aspectObserver,
+        @Nullable Predicate<SkyKey> tryEmitInternedDependency)
         throws InterruptedException;
   }
 
@@ -393,7 +396,7 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
       while (i < end) {
         HashTarget target = nodes.get(i++);
         Iterable<CqueryNode> directDeps =
-            depsRetriever.getDirectDeps(target.node, aspectObserver);
+            depsRetriever.getDirectDeps(target.node, aspectObserver, /* tryEmitInternedDependency= */ null);
         if (directDeps == null) {
           failed.add(target);
           continue;
@@ -462,16 +465,36 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
           128,
           (a, b) -> {
             var discovered = new ArrayList<HashTarget>();
+            class DependencyRow implements Predicate<SkyKey> {
+              final ArrayList<HashTarget> deps = new ArrayList<>();
+              @Nullable HashTarget parent;
+
+              // A canonical key already in this walk identifies an available configured node.
+              @Override
+              public boolean test(SkyKey key) {
+                HashTarget child = seen.get(key);
+                if (child == null) {
+                  return false;
+                }
+                if (child != parent) {
+                  deps.add(child);
+                }
+                return true;
+              }
+            }
+            var row = new DependencyRow();
             for (int i = a; i < b; i++) {
               HashTarget target = nodes.get(i);
+              row.parent = target;
+              row.deps.clear();
+              // Intern newly resolved nodes only after the entire row is available.
               Iterable<CqueryNode> directDeps =
-                  depsRetriever.getDirectDeps(target.node, aspectObserver);
+                  depsRetriever.getDirectDeps(target.node, aspectObserver, row);
               if (directDeps == null) {
                 failures.add(target);
                 continue;
               }
               ActionLookupKey parentKey = target.node.getLookupKey();
-              ImmutableList.Builder<HashTarget> deps = ImmutableList.builder();
               for (CqueryNode dep : directDeps) {
                 ActionLookupKey key = dep.getLookupKey();
                 if (key.equals(parentKey)) {
@@ -488,9 +511,9 @@ class HashesOutputFormatterCallback extends CqueryThreadsafeCallback {
                             return added;
                           });
                 }
-                deps.add(child);
+                row.deps.add(child);
               }
-              target.deps = deps.build();
+              target.deps = ImmutableList.copyOf(row.deps);
             }
             if (!discovered.isEmpty()) {
               additions.add(discovered);
