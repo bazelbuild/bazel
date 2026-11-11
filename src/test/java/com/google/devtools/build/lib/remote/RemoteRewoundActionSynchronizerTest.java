@@ -207,6 +207,51 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   /**
+   * The output of a symlink action may be materialized as a symlink to its target, so the producer
+   * of the target must not be rewound while a consumer of the output runs, even across a chain of
+   * symlink actions.
+   */
+  @Test
+  public void symlinkTargetProducerRewound_waitsForSymlinkConsumer() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    DerivedArtifact target = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "target");
+    target.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    Action targetProducer = newAction(ImmutableList.of(target), ImmutableList.of());
+    DerivedArtifact symlink = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "symlink");
+    symlink.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    Action symlinkAction = newAction(ImmutableList.of(symlink), ImmutableList.of(target));
+    when(symlinkAction.mayInsensitivelyPropagateInputs()).thenReturn(true);
+    DerivedArtifact symlinkToSymlink =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "symlink_to_symlink");
+    symlinkToSymlink.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    Action symlinkToSymlinkAction =
+        newAction(ImmutableList.of(symlinkToSymlink), ImmutableList.of(symlink));
+    when(symlinkToSymlinkAction.mayInsensitivelyPropagateInputs()).thenReturn(true);
+    DerivedArtifact consumerOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 3));
+    Action consumer =
+        newAction(ImmutableList.of(consumerOutput), ImmutableList.of(symlinkToSymlink));
+    mockActions(
+        owner, ImmutableList.of(targetProducer, symlinkAction, symlinkToSymlinkAction, consumer));
+
+    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
+    // exclude every rewound action regardless of which keys guard the consumed output.
+    rewind(newAction());
+
+    var targetProducerPreparation = new TestThread(() -> rewind(targetProducer));
+    try (SilentCloseable execution =
+        synchronizer.enterActionExecution(
+            consumer, /* wasRewound= */ false, mock(InputMetadataProvider.class))) {
+      targetProducerPreparation.start();
+      waitUntilBlocked(targetProducerPreparation);
+    }
+    targetProducerPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  /**
    * A runfiles tree is guarded by the keys of the actions generating the artifacts it contains,
    * which are taken from its metadata rather than from all runfiles trees known to the metadata
    * provider. The action generating the runfiles tree itself isn't excluded, as it doesn't write to
