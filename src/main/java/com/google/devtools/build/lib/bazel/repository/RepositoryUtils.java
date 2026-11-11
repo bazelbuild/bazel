@@ -21,19 +21,22 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -129,7 +132,8 @@ public class RepositoryUtils {
     boolean symlinkTargetsSpelledExactly = true;
     var directoryEntries = new HashMap<Path, ImmutableSet<String>>();
     try {
-      Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
+      List<Path> symlinks = new ArrayList<>();
+      collectSymlinks(repoDir, symlinks);
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
       if (replantSymlinksIntoMainRepo) {
         FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
@@ -292,5 +296,21 @@ public class RepositoryUtils {
       return false;
     }
     return true;
+  }
+
+  private static void collectSymlinks(Path directory, List<Path> symlinks) throws IOException {
+    for (Dirent entry : directory.readdir(Symlinks.NOFOLLOW)) {
+      switch (entry.getType()) {
+        case DIRECTORY -> collectSymlinks(directory.getChild(entry.getName()), symlinks);
+        case SYMLINK -> symlinks.add(directory.getChild(entry.getName()));
+        case UNKNOWN -> {
+          Path child = directory.getChild(entry.getName());
+          if (child.isSymbolicLink()) {
+            symlinks.add(child);
+          }
+        }
+        case FILE -> {}
+      }
+    }
   }
 }
