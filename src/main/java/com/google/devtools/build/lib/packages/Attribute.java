@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -59,7 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -1392,12 +1393,27 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>It is necessary to partition by rule class because a {@code
      * StarlarkComputedDefaultTemplate} may be shared among multiple rule classes with different
-     * default values for dependency attributes. Keyed by {@link RuleClassId} rather than {@link
-     * RuleClass} to avoid a {@code RuleClass -> Attribute -> StarlarkComputedDefaultTemplate ->
-     * RuleClass} reference cycle.
+     * default values for dependency attributes. Weak identity keys distinguish rule classes
+     * reloaded under the same name and let an unchanged shared template release obsolete rule
+     * classes. The derived cache is local to the process and can be recreated after deserialization.
      */
-    private final Map<RuleClassId, StarlarkComputedDefault> defaultInstances =
-        new ConcurrentHashMap<>(1);
+    @Nullable
+    private transient volatile ConcurrentMap<RuleClass, StarlarkComputedDefault> defaultInstances;
+
+    private ConcurrentMap<RuleClass, StarlarkComputedDefault> getDefaultInstances() {
+      var instances = defaultInstances;
+      if (instances != null) {
+        return instances;
+      }
+      synchronized (this) {
+        instances = defaultInstances;
+        if (instances == null) {
+          instances = new MapMaker().initialCapacity(1).weakKeys().makeMap();
+          defaultInstances = instances;
+        }
+        return instances;
+      }
+    }
 
     /**
      * Creates a new StarlarkComputedDefaultTemplate that allows the computation of attribute values
@@ -1446,11 +1462,12 @@ public final class Attribute implements Comparable<Attribute> {
       }
 
       // None of the dependency attributes were specified. Share a single instance.
-      RuleClassId ruleClassId = target.getRuleClassObject().getRuleClassId();
-      StarlarkComputedDefault result = defaultInstances.get(ruleClassId);
+      RuleClass ruleClass = target.getRuleClassObject();
+      var instances = getDefaultInstances();
+      StarlarkComputedDefault result = instances.get(ruleClass);
       if (result == null) {
         result = computePossibleValuesInternal(attr, rule, targetDefinitionContext);
-        result = firstNonNull(defaultInstances.putIfAbsent(ruleClassId, result), result);
+        result = firstNonNull(instances.putIfAbsent(ruleClass, result), result);
       }
       return result;
     }
