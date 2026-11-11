@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -102,7 +103,7 @@ abstract class ArtifactFunctionTestCase {
                 .put(
                     Artifact.ARTIFACT,
                     new ArtifactFunction(
-                        () -> true,
+                        () -> ActionFileSystemType.DISABLED,
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
                         /* actionExecutor= */ null, // only used by remote analysis caching

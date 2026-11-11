@@ -961,7 +961,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         Artifact.ARTIFACT,
         new ArtifactFunction(
-            () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
+            skyframeActionExecutor::actionFileSystemType,
             sourceArtifactsSeen,
             syscallCache,
             skyframeActionExecutor,
