@@ -14,89 +14,76 @@
 
 package com.google.devtools.build.lib.shell;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.OS;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
+import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.Executors;
+import jdk.jfr.Recording;
+import jdk.jfr.consumer.RecordedEvent;
+import jdk.jfr.consumer.RecordedThread;
+import jdk.jfr.consumer.RecordingFile;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentMatchers;
 
 @RunWith(JUnit4.class)
 public class JavaSubprocessFactoryTest {
 
+  @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+
   @Test
   public void createFromVirtualThreadForksOnPlatformThread() throws Exception {
-    ExecutorService mockExecutorService = mock(ExecutorService.class);
-    AtomicReference<Thread> forkThread = new AtomicReference<>();
+    Path recordingPath = tempFolder.newFile("process-start.jfr").toPath();
+    long pid;
+    try (Recording recording = new Recording();
+        ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
+      recording.enable("jdk.ProcessStart");
+      recording.start();
 
-    // Observe the thread executing the submit function, so we can tell if the fork happens from
-    // the correct thread. We still call the real submit function to actually run the callable.
-    doAnswer(
-            invocation -> {
-              Callable<?> original = invocation.getArgument(0);
-              return JavaSubprocessFactory.DEFAULT_FORK_EXECUTOR.submit(
-                  () -> {
-                    forkThread.set(Thread.currentThread());
-                    return original.call();
-                  });
-            })
-        .when(mockExecutorService)
-        .submit(ArgumentMatchers.<Callable<Process>>any());
-
-    JavaSubprocessFactory subprocessFactory =
-        JavaSubprocessFactory.createForTesting(mockExecutorService);
-
-    AtomicReference<Boolean> callerWasVirtual = new AtomicReference<>();
-    AtomicReference<Integer> exitCode = new AtomicReference<>();
-    AtomicReference<Throwable> error = new AtomicReference<>();
-    CountDownLatch done = new CountDownLatch(1);
-
-    // Create and execute a subprocess on a virtual thread
-    Thread.ofVirtual()
-        .name("test-virtual")
-        .start(
-            () -> {
-              try {
+      pid =
+          virtualExecutor
+              .submit(() -> {
+                assertThat(Thread.currentThread().isVirtual()).isTrue();
                 SubprocessBuilder subprocessBuilder =
-                    new SubprocessBuilder(ImmutableMap.of(), subprocessFactory);
+                    new SubprocessBuilder(ImmutableMap.of(), JavaSubprocessFactory.INSTANCE);
                 subprocessBuilder.setArgv(
                     ImmutableList.of(OS.getCurrent() == OS.DARWIN ? "/usr/bin/true" : "/bin/true"));
+                try (Subprocess subprocess = subprocessBuilder.start()) {
+                  subprocess.waitFor();
+                  assertThat(subprocess.exitValue()).isEqualTo(0);
+                  return subprocess.getProcessId();
+                }
+              })
+              .get();
 
-                Subprocess subprocess = subprocessBuilder.start();
-                callerWasVirtual.set(Thread.currentThread().isVirtual());
-                subprocess.waitFor();
-                exitCode.set(subprocess.exitValue());
-                subprocess.close();
-              } catch (Exception e) {
-                error.set(e);
-              } finally {
-                done.countDown();
-              }
-            });
-
-    done.await();
-    if (error.get() != null) {
-      throw new AssertionError("Error running subprocess from virtual thread", error.get());
+      recording.stop();
+      recording.dump(recordingPath);
     }
 
-    // The subprocess creation happened successfully on a virtual thread
-    assertThat(callerWasVirtual.get()).isTrue();
-    assertThat(exitCode.get()).isEqualTo(0);
+    ImmutableList<RecordedEvent> processStartEvents =
+        RecordingFile.readAllEvents(recordingPath).stream()
+            .filter(e -> e.getEventType().getName().equals("jdk.ProcessStart"))
+            .filter(e -> e.getLong("pid") == pid)
+            .collect(toImmutableList());
+    assertThat(processStartEvents).hasSize(1);
 
-    // The fork was routed through the correct executor and ran on the right thread
-    verify(mockExecutorService).submit(ArgumentMatchers.<Callable<Process>>any());
-    assertThat(forkThread.get().getName()).isEqualTo("subprocess-fork");
-    assertThat(forkThread.get().isVirtual()).isFalse();
-    assertThat(forkThread.get().isDaemon()).isTrue();
+    RecordedThread recordedForkThread = processStartEvents.get(0).getThread();
+    assertThat(recordedForkThread).isNotNull();
+    assertThat(recordedForkThread.getJavaName()).isEqualTo("subprocess-fork");
+    assertThat(recordedForkThread.isVirtual()).isFalse();
+
+    Thread forkThread =
+        Thread.getAllStackTraces().keySet().stream()
+            .filter(t -> t.threadId() == recordedForkThread.getJavaThreadId())
+            .collect(onlyElement());
+    assertThat(forkThread.isDaemon()).isTrue();
   }
 }
