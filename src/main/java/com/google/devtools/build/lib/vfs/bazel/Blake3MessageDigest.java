@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.jni.JniLoader;
 import java.nio.ByteBuffer;
 import java.security.DigestException;
 import java.security.MessageDigest;
+import java.util.Objects;
 
 /** A {@link MessageDigest} for BLAKE3. */
 public final class Blake3MessageDigest extends MessageDigest {
@@ -46,6 +47,7 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   @Override
   public void engineUpdate(byte[] data, int offset, int length) {
+    Objects.checkFromIndexSize(offset, length, data.length);
     blake3_hasher_update(hasher, data, offset, length);
   }
 
@@ -102,12 +104,12 @@ public final class Blake3MessageDigest extends MessageDigest {
     return digestBytes.length;
   }
 
-  public static final native int hasher_size();
+  private static native int hasher_size();
 
-  public static final native void initialize_hasher(byte[] hasher);
+  private static native void initialize_hasher(byte[] hasher);
 
-  public static final native void blake3_hasher_update(
+  private static native void blake3_hasher_update(
       byte[] hasher, byte[] input, int offset, int inputLen);
 
-  public static final native void blake3_hasher_finalize(byte[] hasher, byte[] out, int outLen);
+  private static native void blake3_hasher_finalize(byte[] hasher, byte[] out, int outLen);
 }

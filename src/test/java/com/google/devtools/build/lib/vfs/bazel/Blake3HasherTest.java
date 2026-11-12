@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.vfs.bazel;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import org.junit.Test;
@@ -44,5 +45,33 @@ public class Blake3HasherTest {
 
     assertEquals(
         "d74981efa70a0c880b8d8c1985d075dbcbf679b99a5f9914e5aaf96b831a9e24", h.hash().toString());
+  }
+
+  @Test
+  public void engineUpdate_outOfBounds_throws() {
+    Blake3MessageDigest digest = new Blake3MessageDigest();
+    byte[] data = "hello world".getBytes(StandardCharsets.US_ASCII);
+
+    assertThrows(IndexOutOfBoundsException.class, () -> digest.engineUpdate(data, -1, 1));
+    assertThrows(IndexOutOfBoundsException.class, () -> digest.engineUpdate(data, 0, -1));
+    assertThrows(
+        IndexOutOfBoundsException.class, () -> digest.engineUpdate(data, 0, data.length + 1));
+    assertThrows(IndexOutOfBoundsException.class, () -> digest.engineUpdate(data, data.length, 1));
+    assertThrows(
+        IndexOutOfBoundsException.class, () -> digest.engineUpdate(data, 1, Integer.MAX_VALUE));
+  }
+
+  @Test
+  public void engineUpdate_outOfBounds_leavesStateIntact() {
+    byte[] data = "hello world".getBytes(StandardCharsets.US_ASCII);
+    Blake3MessageDigest digest = new Blake3MessageDigest();
+
+    digest.engineUpdate(data, 0, 6);
+    assertThrows(IndexOutOfBoundsException.class, () -> digest.engineUpdate(data, 6, data.length));
+    digest.engineUpdate(data, 6, data.length - 6);
+
+    Blake3Hasher expected = new Blake3Hasher(new Blake3MessageDigest());
+    expected.putBytes(data);
+    assertEquals(expected.hash().toString(), new Blake3Hasher(digest).hash().toString());
   }
 }
