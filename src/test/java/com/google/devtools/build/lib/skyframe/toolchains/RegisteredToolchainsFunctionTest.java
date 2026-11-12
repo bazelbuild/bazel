@@ -453,6 +453,41 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void testRegisteredToolchains_reload_changedOrder() throws Exception {
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_1", "//toolchain:toolchain_2")
+        """);
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsAtLeast(
+            Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"),
+            Label.parseCanonicalUnchecked("//toolchain:toolchain_2_impl"))
+        .inOrder();
+
+    // Re-write the MODULE.bazel with the same toolchains in a different order. Keep the
+    // configurations so that the toolchains aren't analyzed again.
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        register_toolchains("//toolchain:toolchain_2", "//toolchain:toolchain_1")
+        """);
+    invalidatePackages(/* alsoConfigs= */ false);
+
+    result = requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsAtLeast(
+            Label.parseCanonicalUnchecked("//toolchain:toolchain_2_impl"),
+            Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"))
+        .inOrder();
+  }
+
+  @Test
   public void testRegisteredToolchains_bzlmod() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
