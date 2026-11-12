@@ -228,7 +228,8 @@ public final class RemoteWorker {
       DigestUtil digestUtil)
       throws IOException {
     this.workerOptions = workerOptions;
-    this.actionCacheServer = new ActionCacheServer(cache, digestUtil);
+    this.actionCacheServer =
+        new ActionCacheServer(cache, digestUtil, workerOptions.getInlineOutputFiles());
     Path workPath;
     if (workerOptions.getWorkPath() != null) {
       workPath = fs.getPath(workerOptions.getWorkPath());
