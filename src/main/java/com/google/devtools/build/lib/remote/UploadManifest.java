@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -319,6 +320,11 @@ public class UploadManifest {
   @VisibleForTesting
   public Map<Digest, Path> getDigestToFile() {
     return digestToFile;
+  }
+
+  /** Returns a directory tree already serialized for this upload. */
+  Tree getDirectoryTree(Digest digest) throws IOException {
+    return Tree.parseFrom(checkNotNull(digestToBlobs.get(digest)));
   }
 
   @Nullable
@@ -718,7 +724,7 @@ public class UploadManifest {
           new IOException("Upload requested for unknown digest: " + digest));
     }
 
-    return combinedCache.uploadBlob(context, digest, blob::newInput, force);
+    return combinedCache.uploadBlob(context, digest, (Blob) blob::newInput, force);
   }
 
   @CanIgnoreReturnValue
