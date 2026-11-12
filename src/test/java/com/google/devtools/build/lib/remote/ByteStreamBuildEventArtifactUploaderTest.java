@@ -877,6 +877,39 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new ChunkLocationMap());
   }
 
+  @Test
+  public void noFiles_convertsNothingWithoutSchedulingAnUpload() throws Exception {
+    // Most build events reference no files, and the uploader is asked about every one of them.
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        new ByteStreamBuildEventArtifactUploader(
+            command -> {
+              throw new AssertionError("there is nothing to upload, so nothing to schedule");
+            },
+            reporter,
+            /* verboseFailures= */ true,
+            combinedCache,
+            /* remoteInstanceName= */ "",
+            /* remoteBytestreamUriPrefix= */ "localhost/instance",
+            /* buildRequestId= */ "none",
+            /* commandId= */ "none",
+            SyscallCache.NO_CACHE,
+            RemoteBuildEventUploadMode.ALL,
+            /* maximumOpenFiles= */ -1);
+
+    ListenableFuture<PathConverter> conversion = artifactUploader.upload(ImmutableMap.of());
+
+    assertThat(conversion.isDone()).isTrue();
+    assertThat(conversion.get()).isSameInstanceAs(PathConverter.NO_CONVERSION);
+
+    artifactUploader.release();
+    assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {
     return newArtifactUploader(
         combinedCache, RemoteBuildEventUploadMode.ALL, /* maximumOpenFiles= */ -1);
