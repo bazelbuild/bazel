@@ -75,14 +75,11 @@ public class ChunkedBlobDownloaderTest {
 
   @Before
   public void setUp() throws Exception {
+    when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
+    when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(true);
     downloader =
         new ChunkedBlobDownloader(
-            grpcCacheClient,
-            combinedCache,
-            CHUNKING_CONFIG,
-            DIGEST_UTIL,
-            /* verifyDownloads= */ true,
-            new ChunkLocationMap());
+            grpcCacheClient, combinedCache, CHUNKING_CONFIG, new ChunkLocationMap());
     tmpDir = TestUtils.createUniqueTmpDir(null);
   }
 
@@ -475,14 +472,10 @@ public class ChunkedBlobDownloaderTest {
 
   @Test
   public void downloadChunked_blobDigestMismatchVerificationDisabled_succeeds() throws Exception {
+    when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(false);
     downloader =
         new ChunkedBlobDownloader(
-            grpcCacheClient,
-            combinedCache,
-            CHUNKING_CONFIG,
-            DIGEST_UTIL,
-            /* verifyDownloads= */ false,
-            new ChunkLocationMap());
+            grpcCacheClient, combinedCache, CHUNKING_CONFIG, new ChunkLocationMap());
     byte[] chunkData = new byte[] {1, 2, 3};
     Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
     Digest blobDigest = DIGEST_UTIL.compute(new byte[] {4, 5, 6});

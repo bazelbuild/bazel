@@ -214,7 +214,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
-                toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
+                toImmutableMap(cache.digestUtil()::compute, directory -> directory, (a, b) -> a));
     var filesToPrefetch = new ArrayList<PathFragment>();
     injectRecursively(
         externalFs,

@@ -110,6 +110,7 @@ public class ChunkedTransferBenchmark {
 
       GrpcCacheClient grpcCacheClient = mock(GrpcCacheClient.class);
       CombinedCache combinedCache = mock(CombinedCache.class);
+      when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(true);
 
       List<Digest> chunkDigests = new ArrayList<>(chunkCount);
       Map<Digest, byte[]> chunkDataByDigest = new HashMap<>(chunkCount);
@@ -123,6 +124,7 @@ public class ChunkedTransferBenchmark {
         totalBytes += chunkData.length;
       }
 
+      when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
       when(combinedCache.downloadBlob(any(), any(Digest.class)))
           .thenAnswer(
               invocation ->
@@ -149,8 +151,6 @@ public class ChunkedTransferBenchmark {
               grpcCacheClient,
               combinedCache,
               new FastCdcChunkingConfig(chunkSizeBytes, 2, 0),
-              DIGEST_UTIL,
-              /* verifyDownloads= */ true,
               new ChunkLocationMap());
     }
 
@@ -190,6 +190,7 @@ public class ChunkedTransferBenchmark {
 
       GrpcCacheClient grpcCacheClient = mock(GrpcCacheClient.class);
       CombinedCache combinedCache = mock(CombinedCache.class);
+      when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
 
       byte[] data = new byte[fileSizeBytes];
       new Random(42).nextBytes(data);
@@ -203,8 +204,7 @@ public class ChunkedTransferBenchmark {
       }
 
       FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(avgChunkSizeBytes, 2, 0);
-      uploader =
-          new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL);
+      uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig);
 
       List<Digest> chunkDigests;
       try (var input = file.getInputStream()) {
@@ -215,7 +215,7 @@ public class ChunkedTransferBenchmark {
           .thenReturn(Futures.immediateFuture(ImmutableSet.copyOf(chunkDigests)));
       when(grpcCacheClient.spliceBlob(any(), any(Digest.class), any(), any()))
           .thenReturn(Futures.immediateVoidFuture());
-      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), any(Boolean.class)))
           .thenAnswer(
               invocation ->
                   delayedFuture(null, delayMillis, jitterMillis, latencyJitter, scheduler));
