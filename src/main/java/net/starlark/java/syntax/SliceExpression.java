@@ -33,7 +33,7 @@ public final class SliceExpression extends Expression {
       Expression stop,
       Expression step,
       int rbracketOffset) {
-    super(locs, Kind.SLICE);
+    super(locs);
     this.object = object;
     this.lbracketOffset = lbracketOffset;
     this.start = start;

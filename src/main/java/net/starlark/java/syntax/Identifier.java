@@ -28,7 +28,7 @@ public final class Identifier extends Expression {
   @Nullable private Resolver.Binding binding;
 
   Identifier(FileLocations locs, String name, int nameOffset) {
-    super(locs, Kind.IDENTIFIER);
+    super(locs);
     this.name = name;
     this.nameOffset = nameOffset;
   }
