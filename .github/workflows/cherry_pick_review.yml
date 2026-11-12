@@ -1,0 +1,79 @@
+name: Cherry-Pick PR Review
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review, reopened, labeled]
+    branches:
+      - 'release-*'
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to review'
+        required: true
+        type: string
+      additional_context:
+        description: 'Optional focus or instructions for the review'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    if: |-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request_target' &&
+        startsWith(github.event.pull_request.base.ref, 'release-') &&
+        (
+          (github.event.action == 'labeled' && github.event.label.name == 'gemini-review') ||
+          (
+            contains(fromJSON('["opened", "ready_for_review", "reopened"]'), github.event.action) &&
+            github.event.pull_request.draft == false
+          )
+        )
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.sender.type == 'User' &&
+        (
+          startsWith(github.event.comment.body, '@bazel-io gemini-review') ||
+          startsWith(github.event.comment.body, '@gemini-cli /review')
+        ) &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"]'), github.event.comment.author_association)
+      )
+    concurrency:
+      group: '${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}'
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        # SECURITY: All triggers (`pull_request_target`, `issue_comment`, `workflow_dispatch`)
+        # check out a trusted repository branch (`release-*` or `master`), never the untrusted PR head.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Run Gemini Cherry-Pick PR Reviewer
+        uses: ./.github/actions/cherry-pick-review
+        with:
+          github_token: ${{ github.token }}
+          review_token: ${{ secrets.BAZEL_IO_TOKEN || github.token }}
+          pr_number: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
+          additional_context: ${{ inputs.additional_context }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-4-argon' }}
