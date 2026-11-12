@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -47,13 +50,14 @@ public abstract class RegexFilterExpression extends FilteringQueryFunction {
     String rawPattern = getPattern(args);
     final Pattern compiledPattern;
     try {
-      compiledPattern = Pattern.compile(rawPattern);
+      compiledPattern = Pattern.compile(internalToUnicode(rawPattern));
     } catch (PatternSyntaxException e) {
       return env.immediateFailedFuture(
           new QueryException(
               expression,
               String.format(
-                  "illegal '%s' pattern regexp '%s': %s", getName(), rawPattern, e.getMessage()),
+                  "illegal '%s' pattern regexp '%s': %s",
+                  getName(), rawPattern, unicodeToInternal(e.getMessage())),
               Query.Code.SYNTAX_ERROR));
     }
 
@@ -62,7 +66,7 @@ public abstract class RegexFilterExpression extends FilteringQueryFunction {
     final Predicate<T> matchFilter =
         target -> {
           for (String str : getFilterStrings(env, args, target)) {
-            if ((str != null) && compiledPattern.matcher(str).find()) {
+            if ((str != null) && compiledPattern.matcher(internalToUnicode(str)).find()) {
               return !invert;
             }
           }

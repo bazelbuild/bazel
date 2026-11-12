@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -225,9 +228,11 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
 
         String patternString = functionExpression.getArgs().get(0).getWord();
         try {
-          actionFiltersBuilder.put(actionFilterFunction.getName(), Pattern.compile(patternString));
+          actionFiltersBuilder.put(
+              actionFilterFunction.getName(), Pattern.compile(internalToUnicode(patternString)));
         } catch (PatternSyntaxException e) {
-          throw new AqueryActionFilterException("Wrong query syntax: " + e.getMessage());
+          throw new AqueryActionFilterException(
+              "Wrong query syntax: " + unicodeToInternal(e.getMessage()));
         }
       } else {
         nonAqueryFilterFunctionExpression = functionExpression;

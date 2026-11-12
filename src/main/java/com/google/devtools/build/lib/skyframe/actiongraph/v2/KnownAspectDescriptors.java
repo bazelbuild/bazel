@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.KeyValuePair;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -33,11 +35,13 @@ public class KnownAspectDescriptors
     AnalysisProtosV2.AspectDescriptor.Builder aspectDescriptorBuilder =
         AnalysisProtosV2.AspectDescriptor.newBuilder()
             .setId(id)
-            .setName(aspectDescriptor.getAspectClass().getName());
+            .setName(internalToUnicode(aspectDescriptor.getAspectClass().getName()));
     for (Map.Entry<String, String> parameter :
         aspectDescriptor.getParameters().getAttributes().entries()) {
       KeyValuePair.Builder keyValuePairBuilder = KeyValuePair.newBuilder();
-      keyValuePairBuilder.setKey(parameter.getKey()).setValue(parameter.getValue());
+      keyValuePairBuilder
+          .setKey(internalToUnicode(parameter.getKey()))
+          .setValue(internalToUnicode(parameter.getValue()));
       aspectDescriptorBuilder.addParameters(keyValuePairBuilder.build());
     }
     return aspectDescriptorBuilder.build();
