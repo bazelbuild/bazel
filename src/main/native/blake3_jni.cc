@@ -13,63 +13,47 @@
 // limitations under the License.
 
 #include <jni.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include <cstdint>
 
 #include "c/blake3.h"
 
-namespace blaze_jni {
+// Exported C functions called from Java through the java.lang.foreign API by
+// Blake3MessageDigest. They are not JNI methods. JNIEXPORT only makes them
+// visible (default visibility on ELF/Mach-O, dllexport on Windows).
+//
+// Sizes are passed as int64_t rather than size_t so that the Java-side
+// function descriptors are platform-independent.
 
-jbyte *get_byte_array(JNIEnv *env, jbyteArray java_array) {
-  return (jbyte *)env->GetPrimitiveArrayCritical(java_array, nullptr);
+extern "C" {
+
+JNIEXPORT int32_t blaze_blake3_hasher_size() {
+  return static_cast<int32_t>(sizeof(blake3_hasher));
 }
 
-void release_byte_array(JNIEnv *env, jbyteArray array, jbyte *addr) {
-  env->ReleasePrimitiveArrayCritical(array, addr, 0);
+JNIEXPORT void blaze_blake3_hasher_init(void *hasher) {
+  blake3_hasher_init(static_cast<blake3_hasher *>(hasher));
 }
 
-extern "C" JNIEXPORT int JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_hasher_1size(
-    JNIEnv *env, jobject obj) {
-  return (int)sizeof(blake3_hasher);
+JNIEXPORT void blaze_blake3_hasher_update(void *hasher, const void *input,
+                                          int64_t input_len) {
+  blake3_hasher_update(static_cast<blake3_hasher *>(hasher), input,
+                       static_cast<size_t>(input_len));
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_initialize_1hasher(
-    JNIEnv *env, jobject obj, jbyteArray jhasher) {
-  blake3_hasher *hasher = (blake3_hasher *)get_byte_array(env, jhasher);
-  if (hasher) {
-    blake3_hasher_init(hasher);
-    release_byte_array(env, jhasher, (jbyte *)hasher);
-  }
+JNIEXPORT void blaze_blake3_hasher_finalize(void *hasher, void *out,
+                                            int64_t out_len) {
+  blake3_hasher_finalize(static_cast<blake3_hasher *>(hasher),
+                         static_cast<uint8_t *>(out),
+                         static_cast<size_t>(out_len));
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_blake3_1hasher_1update(
-    JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray input, jint offset,
-    jint input_len) {
-  blake3_hasher *hasher = (blake3_hasher *)get_byte_array(env, jhasher);
-  if (hasher) {
-    jbyte *input_addr = get_byte_array(env, input);
-    blake3_hasher_update(hasher, input_addr + offset, input_len);
-    release_byte_array(env, input, input_addr);
-    release_byte_array(env, jhasher, (jbyte *)hasher);
-  }
+JNIEXPORT void blaze_blake3_hash(const void *input, int64_t input_len,
+                                 void *out) {
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  blake3_hasher_update(&hasher, input, static_cast<size_t>(input_len));
+  blake3_hasher_finalize(&hasher, static_cast<uint8_t *>(out), BLAKE3_OUT_LEN);
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_blake3_1hasher_1finalize(
-    JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray out,
-    jint out_len) {
-  blake3_hasher *hasher = (blake3_hasher *)get_byte_array(env, jhasher);
-  if (hasher) {
-    jbyte *out_addr = get_byte_array(env, out);
-    blake3_hasher_finalize(hasher, (uint8_t *)out_addr, out_len);
-    release_byte_array(env, out, out_addr);
-    release_byte_array(env, jhasher, (jbyte *)hasher);
-  }
-}
-
-}  // namespace blaze_jni
+}  // extern "C"

@@ -59,7 +59,7 @@ public final class Blake3HashFunction implements HashFunction {
 
   @Override
   public HashCode hashString(CharSequence input, Charset charset) {
-    return newHasher().putString(input, charset).hash();
+    return hashBytes(input.toString().getBytes(charset));
   }
 
   @Override
@@ -80,7 +80,7 @@ public final class Blake3HashFunction implements HashFunction {
   @Override
   public HashCode hashBytes(byte[] input, int off, int len) {
     checkPositionIndexes(off, off + len, input.length);
-    return newHasher(len).putBytes(input, off, len).hash();
+    return HashCode.fromBytes(Blake3MessageDigest.hash(input, off, len));
   }
 
   @Override
