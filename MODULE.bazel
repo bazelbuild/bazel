@@ -488,7 +488,7 @@ http_file(
     name = "blake3_test_vectors",
     downloaded_file_path = "test_vectors.json",
     integrity = "sha256-3LkeqKzMd+bW5jKvfNwamanzrnjPZI2llcfQZNsy9iQ=",
-    urls = ["https://raw.githubusercontent.com/BLAKE3-team/BLAKE3/1.8.2/test_vectors/test_vectors.json"],
+    urls = ["https://github.com/BLAKE3-team/BLAKE3/raw/1.8.2/test_vectors/test_vectors.json"],
 )
 
 async_profiler_repos = use_extension("//:repositories.bzl", "async_profiler_repos")
