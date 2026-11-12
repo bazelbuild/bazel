@@ -705,7 +705,9 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The relative priority of actions to be executed remotely. "
-              + "The semantics of the particular priority values are server-dependent.")
+              + "An action with a lower value will generally be executed before "
+              + "an action with a higher value, but the exact semantics of the "
+              + "particular priority values are server-dependent.")
   public abstract int getRemoteExecutionPriority();
 
   public abstract void setRemoteExecutionPriority(int value);
