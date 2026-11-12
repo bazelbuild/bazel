@@ -48,13 +48,13 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private BazelJavaSemantics() {}
 
-  private static final String JAVA_TOOLCHAIN_TYPE =
-      Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:toolchain_type").toString();
+  private static final Label JAVA_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:toolchain_type");
   private static final Label JAVA_RUNITME_TOOLCHAIN_TYPE =
       Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:runtime_toolchain_type");
 
   @Override
-  public String getJavaToolchainType() {
+  public Label getJavaToolchainType() {
     return JAVA_TOOLCHAIN_TYPE;
   }
 
