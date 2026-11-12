@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -108,44 +109,46 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final RemoteCacheClient remoteCacheClient;
   @Nullable protected final DiskCacheClient diskCacheClient;
   @Nullable protected final String symlinkTemplate;
-  protected final DigestUtil digestUtil;
-  @Nullable private final ChunkingFunctionValue chunkingFunction;
+  private final DigestUtil digestUtil;
 
-  // Delays the initialization of the chunking support logic until first use to avoid blocking on
-  // a server capabilities check at construction time.
-  private final class Chunking {
-    private ChunkingConfig config = null;
-    private ChunkedBlobDownloader downloader = null;
-    private ChunkedBlobUploader uploader = null;
-    private volatile boolean initialized = false;
+  static class Chunking {
+    @Nullable private final ChunkingConfig config;
+    @Nullable private final ChunkedBlobDownloader downloader;
+    @Nullable private final ChunkedBlobUploader uploader;
 
-    boolean supported() throws IOException {
-      if (chunkingFunction == null) {
-        return false;
+    Chunking() {
+      this.config = null;
+      this.downloader = null;
+      this.uploader = null;
+    }
+
+    Chunking(
+        ServerCapabilities serverCapabilities,
+        RemoteCacheClient remoteCacheClient,
+        ChunkingFunctionValue chunkingFunction,
+        ChunkLocationMap chunkLocationMap,
+        CombinedCache combinedCache) {
+      config =
+          switch (chunkingFunction) {
+            case AUTO -> ChunkingConfig.fromServerCapabilities(serverCapabilities);
+            case FAST_CDC_2020 ->
+                ChunkingConfig.fromServerCapabilities(
+                    serverCapabilities, ChunkingFunction.Value.FAST_CDC_2020);
+            case REP_MAX_CDC ->
+                ChunkingConfig.fromServerCapabilities(
+                    serverCapabilities, ChunkingFunction.Value.REP_MAX_CDC);
+          };
+      if (config != null) {
+        downloader =
+            new ChunkedBlobDownloader(remoteCacheClient, combinedCache, config, chunkLocationMap);
+        uploader = new ChunkedBlobUploader(remoteCacheClient, combinedCache, config);
+      } else {
+        downloader = null;
+        uploader = null;
       }
-      if (!(remoteCacheClient instanceof GrpcCacheClient grpcClient)) {
-        return false;
-      }
-      if (!initialized) {
-        synchronized (this) {
-          config =
-              switch (chunkingFunction) {
-                case AUTO -> ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
-                case FAST_CDC_2020 ->
-                    ChunkingConfig.fromServerCapabilities(
-                        getRemoteServerCapabilities(), ChunkingFunction.Value.FAST_CDC_2020);
-                case REP_MAX_CDC ->
-                    ChunkingConfig.fromServerCapabilities(
-                        getRemoteServerCapabilities(), ChunkingFunction.Value.REP_MAX_CDC);
-              };
-          if (config != null) {
-            downloader =
-                new ChunkedBlobDownloader(grpcClient, CombinedCache.this, config, digestUtil);
-            uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
-          }
-          initialized = true;
-        }
-      }
+    }
+
+    boolean supported() {
       return config != null;
     }
 
@@ -162,14 +165,35 @@ public class CombinedCache extends AbstractReferenceCounted {
     }
   }
 
-  private final Chunking chunking = new Chunking();
+  private final ListenableFuture<Chunking> chunking;
+
+  private static ListenableFuture<Chunking> createChunking(
+      @Nullable RemoteCacheClient remoteCacheClient,
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap,
+      CombinedCache combinedCache) {
+    if (remoteCacheClient == null || chunkingFunction == null) {
+      return immediateFuture(new Chunking());
+    }
+    return Futures.transform(
+        remoteCacheClient.serverCapabilities(),
+        serverCapabilities ->
+            new Chunking(
+                serverCapabilities,
+                remoteCacheClient,
+                chunkingFunction,
+                chunkLocationMap,
+                combinedCache),
+        directExecutor());
+  }
 
   public CombinedCache(
       @Nullable RemoteCacheClient remoteCacheClient,
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      @Nullable ChunkingFunctionValue chunkingFunction) {
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap) {
     checkArgument(
         remoteCacheClient != null || diskCacheClient != null,
         "remoteCacheClient and diskCacheClient cannot be null at the same time");
@@ -177,7 +201,27 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.diskCacheClient = diskCacheClient;
     this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
-    this.chunkingFunction = chunkingFunction;
+    this.chunking = createChunking(remoteCacheClient, chunkingFunction, chunkLocationMap, this);
+  }
+
+  public CombinedCache(
+      @Nullable RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      @Nullable String symlinkTemplate,
+      DigestUtil digestUtil,
+      ListenableFuture<Chunking> chunking) {
+    checkArgument(
+        remoteCacheClient != null || diskCacheClient != null,
+        "remoteCacheClient and diskCacheClient cannot be null at the same time");
+    this.remoteCacheClient = remoteCacheClient;
+    this.diskCacheClient = diskCacheClient;
+    this.symlinkTemplate = symlinkTemplate;
+    this.digestUtil = digestUtil;
+    this.chunking = chunking;
+  }
+
+  public DigestUtil digestUtil() {
+    return digestUtil;
   }
 
   public CacheCapabilities getRemoteCacheCapabilities() throws IOException {
@@ -357,6 +401,21 @@ public class CombinedCache extends AbstractReferenceCounted {
         .call(() -> null, directExecutor());
   }
 
+  /* must not interact with casUploadCache */
+  protected ListenableFuture<Void> uploadOrChunkFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
+    return Futures.transformAsync(
+        chunking,
+        chunking -> {
+          if (chunking.supported()
+              && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+            return uploadChunked(chunking, context, digest, file, force);
+          }
+          return remoteCacheClient.uploadFile(context, digest, file, force);
+        },
+        directExecutor());
+  }
+
   /** Upload a local file to the remote and/or disk cache. */
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
@@ -388,22 +447,20 @@ public class CombinedCache extends AbstractReferenceCounted {
       diskCacheFuture = diskCacheClient.uploadFile(digest, file);
     }
 
-    boolean chunkingSupported;
-    try {
-      chunkingSupported = chunking.supported();
-    } catch (IOException e) {
-      return immediateFailedFuture(e);
-    }
-
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
-        remoteCacheFuture =
-            remoteCacheClient.dedupUpload(
-                digest, () -> uploadChunked(context, digest, file, force), force);
-      } else {
-        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file, force);
-      }
+      remoteCacheFuture =
+          Futures.transformAsync(
+              chunking,
+              chunking -> {
+                if (chunking.supported()
+                    && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+                  return remoteCacheClient.dedupUpload(
+                      digest, () -> uploadChunked(chunking, context, digest, file, force), force);
+                }
+                return remoteCacheClient.uploadFile(context, digest, file, force);
+              },
+              directExecutor());
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
@@ -411,38 +468,16 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> uploadChunked(
-      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
+      Chunking chunking,
+      RemoteActionExecutionContext context,
+      Digest digest,
+      Path file,
+      boolean force) {
     return virtualThreadExecutor.submit(
         () -> {
           chunking.uploader().uploadChunked(context, digest, file, force);
           return null;
         });
-  }
-
-  /**
-   * Uploads a sequence of bytes to the cache.
-   *
-   * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
-   * performed.
-   *
-   * @param context the context for the action.
-   * @param digest the digest of the BLOB.
-   * @param data the BLOB to upload.
-   */
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, (Blob) data::newInput);
-  }
-
-  /**
-   * Uploads a blob to the cache from a repeatable stream supplier.
-   *
-   * <p>The supplier may be opened more than once, including concurrently when both disk and remote
-   * cache writes are enabled.
-   */
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, Blob blob) {
-    return uploadBlob(context, digest, blob, /* force= */ false);
   }
 
   /**
@@ -565,35 +600,36 @@ public class CombinedCache extends AbstractReferenceCounted {
 
   private ListenableFuture<Void> downloadBlobFromRemote(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
-    checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
+    return Futures.transformAsync(
+        chunking,
+        chunking -> {
+          if (chunking.supported()
+              && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+            ListenableFuture<Void> chunkedDownloadFuture =
+                virtualThreadExecutor.submit(
+                    () -> {
+                      chunking.downloader().downloadChunked(context, digest, out);
+                      return null;
+                    });
+            // Only a failure to split the blob is recoverable by downloading it as a whole. Once
+            // the
+            // server has described the blob as a sequence of chunks, the download is committed to
+            // that
+            // path: chunks are written to `out` as they arrive, so restarting would append the blob
+            // to
+            // the chunks already written. A missing chunk is reported as a missing blob instead,
+            // letting
+            // the usual lost input handling regenerate it.
+            return Futures.catchingAsync(
+                chunkedDownloadFuture,
+                BlobNotSplittableException.class,
+                (e) -> regularDownloadBlobFromRemote(context, digest, out),
+                directExecutor());
+          }
 
-    boolean chunkingSupported;
-    try {
-      chunkingSupported = chunking.supported();
-    } catch (IOException e) {
-      return immediateFailedFuture(e);
-    }
-
-    if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
-      ListenableFuture<Void> chunkedDownloadFuture =
-          virtualThreadExecutor.submit(
-              () -> {
-                chunking.downloader().downloadChunked(context, digest, out);
-                return null;
-              });
-      // Only a failure to split the blob is recoverable by downloading it as a whole. Once the
-      // server has described the blob as a sequence of chunks, the download is committed to that
-      // path: chunks are written to `out` as they arrive, so restarting would append the blob to
-      // the chunks already written. A missing chunk is reported as a missing blob instead, letting
-      // the usual lost input handling regenerate it.
-      return Futures.catchingAsync(
-          chunkedDownloadFuture,
-          BlobNotSplittableException.class,
-          (e) -> regularDownloadBlobFromRemote(context, digest, out),
-          directExecutor());
-    }
-
-    return regularDownloadBlobFromRemote(context, digest, out);
+          return regularDownloadBlobFromRemote(context, digest, out);
+        },
+        directExecutor());
   }
 
   private ListenableFuture<Void> regularDownloadBlobFromRemote(
@@ -709,15 +745,25 @@ public class CombinedCache extends AbstractReferenceCounted {
     }
   }
 
+  /**
+   * Downloads a file (that is not a directory) into {@code localPath}.
+   *
+   * @param localPath the path to write the file to
+   * @param finalPath the path the content will remain at after the command, e.g. when {@code
+   *     localPath} is a temporary staging path, or {@code null} if that is {@code localPath}
+   *     itself. Used to remember where chunks of the file can be found so that later chunked
+   *     downloads can read them from local disk instead of the remote cache.
+   */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       String outputPath,
       @Nullable PathFragment execPath,
       Path localPath,
+      @Nullable Path finalPath,
       Digest digest,
       DownloadProgressReporter reporter)
       throws IOException {
-    ListenableFuture<Void> f = downloadFile(context, localPath, digest, reporter);
+    ListenableFuture<Void> f = downloadFile(context, localPath, finalPath, digest, reporter);
     return Futures.catchingAsync(
         f,
         Throwable.class,
@@ -737,9 +783,9 @@ public class CombinedCache extends AbstractReferenceCounted {
   /**
    * Downloads a file (that is not a directory). The content is fetched from the digest.
    *
-   * <p>Use {@link #downloadFile(RemoteActionExecutionContext, String, PathFragment, Path, Digest,
-   * DownloadProgressReporter)} instead for build outputs as it provides progress information and
-   * correctly handles unexpected cache misses.
+   * <p>Use {@link #downloadFile(RemoteActionExecutionContext, String, PathFragment, Path, Path,
+   * Digest, DownloadProgressReporter)} instead for build outputs as it provides progress
+   * information and correctly handles unexpected cache misses.
    */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context, Path path, Digest digest) throws IOException {
@@ -748,6 +794,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         path.getPathString(),
         /* execPath= */ null,
         path,
+        /* finalPath= */ null,
         digest,
         new DownloadProgressReporter(NO_ACTION, "", 0));
   }
@@ -756,6 +803,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   private ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       Path path,
+      @Nullable Path finalPath,
       Digest digest,
       DownloadProgressReporter reporter)
       throws IOException {
@@ -779,7 +827,9 @@ public class CombinedCache extends AbstractReferenceCounted {
     }
 
     reporter.started();
-    OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
+    OutputStream out =
+        new ReportingOutputStream(
+            new LazyFileOutputStream(path), reporter, firstNonNull(finalPath, path));
 
     ListenableFuture<Void> f = downloadBlob(context, digest, out);
     f.addListener(
@@ -927,10 +977,12 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     private final OutputStream out;
     private final DownloadProgressReporter reporter;
+    private final Path finalPath;
 
-    ReportingOutputStream(OutputStream out, DownloadProgressReporter reporter) {
+    ReportingOutputStream(OutputStream out, DownloadProgressReporter reporter, Path finalPath) {
       this.out = out;
       this.reporter = reporter;
+      this.finalPath = finalPath;
     }
 
     @Override
@@ -965,6 +1017,11 @@ public class CombinedCache extends AbstractReferenceCounted {
     @Override
     public Path maybeGetPath() {
       return out instanceof MaybePathBacked maybePathBacked ? maybePathBacked.maybeGetPath() : null;
+    }
+
+    @Override
+    public Path maybeGetFinalPath() {
+      return finalPath;
     }
   }
 }
