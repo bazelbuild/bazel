@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +56,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
@@ -201,10 +203,18 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
         external.add(i);
       }
     }
+    // Workers attach per-invocation BES headers, including in inactive rc configs. A
+    // header-shaped token can still be the value of another option, such as --define.
+    var optionValues =
+        options.asCompleteListOfParsedOptions().stream()
+            .map(ParsedOptionDescription::getUnconvertedValue)
+            .collect(toSet());
     var defaults = ImmutableList.<String>builder();
     for (var override : client.getOptionsOverrides()) {
-      if (external.contains(override.getRcIndex())) {
-        defaults.add(override.getCommand(), override.getOption());
+      String arg = override.getOption();
+      if (external.contains(override.getRcIndex())
+          && (!arg.startsWith("--bes_header=") || optionValues.contains(arg))) {
+        defaults.add(override.getCommand(), arg);
       }
     }
     // Workspace defaults are versioned. Compare worker RC defaults and launcher choices

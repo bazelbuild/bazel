@@ -2312,4 +2312,38 @@ EOF
   assert_not_contains "^# complete$" missing.tsv
 }
 
+function test_hash_receipt_ignores_worker_bes_headers() {
+  local -r pkg=$FUNCNAME rc="$TEST_TMPDIR/$FUNCNAME.bazelrc"
+  mkdir -p "$pkg"
+  touch "$pkg"/{on,off}
+  cat > "$pkg/BUILD" <<'EOF'
+config_setting(name = "enabled", define_values = {"--bes_header": "on"})
+filegroup(name = "root", srcs = select({":enabled": ["on"], "//conditions:default": ["off"]}))
+EOF
+  echo "//$pkg:root" > "$pkg/roots.txt"
+  local -a cmd=(
+    bazel "--bazelrc=$rc" cquery "--target_pattern_file=$pkg/roots.txt"
+    --experimental_generate_hashes --experimental_cquery_hash_top_level
+    --experimental_cquery_hash_stream_receipt --noline_terminator_null
+    --invocation_id=11111111-1111-1111-1111-111111111111
+  )
+  cat > "$rc" <<'EOF'
+common:upload_bes --bes_header=x-ci-job-id=first
+build --define --bes_header=off
+EOF
+  "${cmd[@]}" > first.tsv 2> "$TEST_log" || fail "Expected successful cquery"
+  sed -i.bak 's/job-id=first/job-id=second/' "$rc"
+  "${cmd[@]}" > second.tsv 2> "$TEST_log" || fail "Expected successful cquery"
+  diff -u first.tsv second.tsv || fail "BES metadata changed the receipt or root"
+
+  sed -i.bak 's/--bes_header=off/--bes_header=on/' "$rc"
+  "${cmd[@]}" > enabled.tsv 2> "$TEST_log" || fail "Expected successful cquery"
+  if [[ "$(head -n 1 second.tsv)" == "$(head -n 1 enabled.tsv)" ]]; then
+    fail "The receipt omitted the effective --define value"
+  fi
+  if [[ "$(grep "^//$pkg:root" second.tsv)" == "$(grep "^//$pkg:root" enabled.tsv)" ]]; then
+    fail "Expected a different configured root"
+  fi
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
