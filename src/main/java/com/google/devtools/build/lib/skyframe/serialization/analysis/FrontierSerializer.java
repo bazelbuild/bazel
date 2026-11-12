@@ -153,13 +153,11 @@ public final class FrontierSerializer {
         // SelectedEntrySerializer.
         stopwatch.reset().start();
         // saves about 8% RAM b/418730298#comment26
-        var deletionStats =
-            deleteNodesAndRdeps(graph, serializationDependenciesProvider.getSkycacheAnalysisOnly());
+        long rdepsDeleted = deleteAllRdeps(graph);
         reporter.handle(
             Event.info(
                 String.format(
-                    "%s nodes and %s rdeps deleted to reclaim memory, took %s",
-                    deletionStats.nodes, deletionStats.rdeps, stopwatch)));
+                    "%s rdeps deleted to reclaim memory, took %s", rdepsDeleted, stopwatch)));
       }
     }
 
@@ -318,33 +316,32 @@ public final class FrontierSerializer {
   private static ImmutableSet<SkyKey> computeFullSelection(
       InMemoryGraph graph, boolean skycacheAnalysisOnly) {
     Set<SkyKey> selection = Sets.newConcurrentHashSet();
-    graph.parallelForEach(
-        node -> {
-          switch (node.getKey()) {
-            case ActionLookupKey key -> {
-              if (key.getLabel() != null) {
-                selection.add(key);
-              }
-            }
-            case ActionLookupSummaryKey summaryKey when skycacheAnalysisOnly -> {
-              if (summaryKey.argument().getLabel() != null) {
-                selection.add(summaryKey);
-              }
-            }
-            case ActionLookupData data when !skycacheAnalysisOnly -> {
-              if (data.getActionLookupKey().getLabel() != null && shouldUpload(data, node)) {
-                selection.add(data);
-              }
-            }
-            case Artifact artifact when !skycacheAnalysisOnly -> {
-              SkyKey artifactKey = selectArtifactKey(artifact);
-              if (artifactKey != null) {
-                selection.add(artifactKey);
-              }
-            }
-            default -> {}
+    graph.parallelForEach(node -> {
+      switch (node.getKey()) {
+        case ActionLookupKey key -> {
+          if (key.getLabel() != null) {
+            selection.add(key);
           }
-        });
+        }
+        case ActionLookupSummaryKey summaryKey -> {
+          if (summaryKey.argument().getLabel() != null) {
+            selection.add(summaryKey);
+          }
+        }
+        case ActionLookupData data when !skycacheAnalysisOnly -> {
+          if (data.getActionLookupKey().getLabel() != null && shouldUpload(data, node)) {
+            selection.add(data);
+          }
+        }
+        case Artifact artifact when !skycacheAnalysisOnly -> {
+          SkyKey artifactKey = selectArtifactKey(artifact);
+          if (artifactKey != null) {
+            selection.add(artifactKey);
+          }
+        }
+        default -> {}
+      }
+    });
     return ImmutableSet.copyOf(selection);
   }
 
@@ -401,35 +398,24 @@ public final class FrontierSerializer {
   }
 
   /**
-   * Deletes select nodes and all rdeps from the graph.
+   * Deletes all rdeps from the graph.
    *
    * <p>This is not safe to call if the Skyframe graph needs to be incrementally correct after this
    * point.
    *
-   * @return the number of nodes and rdeps deleted.
+   * @return the number of rdeps deleted.
    */
-  private static DeletionStats deleteNodesAndRdeps(
-      InMemoryGraph graph, boolean skycacheAnalysisOnly) {
-    AtomicLong deletedNodes = new AtomicLong();
+  private static long deleteAllRdeps(InMemoryGraph graph) {
     AtomicLong deletedRdeps = new AtomicLong();
-    graph.parallelForEach(
-        node -> {
-          IncrementalInMemoryNodeEntry incrementalInMemoryNodeEntry =
-              (IncrementalInMemoryNodeEntry) node;
-          if (!skycacheAnalysisOnly && node.getKey() instanceof ActionLookupSummaryKey) {
-            // skycacheAnalysisOnly mode requires ActionLookupSummaryKeys to remain in the graph.
-            graph.remove(node.getKey());
-            deletedNodes.incrementAndGet();
-          } else {
-            for (SkyKey rdep : incrementalInMemoryNodeEntry.getReverseDepsForDoneEntry()) {
-              incrementalInMemoryNodeEntry.removeReverseDep(rdep);
-              deletedRdeps.incrementAndGet();
-            }
-            incrementalInMemoryNodeEntry.consolidateReverseDeps();
-          }
-        });
-    return new DeletionStats(deletedNodes.get(), deletedRdeps.get());
+    graph.parallelForEach(node -> {
+      IncrementalInMemoryNodeEntry incrementalInMemoryNodeEntry =
+          (IncrementalInMemoryNodeEntry) node;
+      for (SkyKey rdep : incrementalInMemoryNodeEntry.getReverseDepsForDoneEntry()) {
+        incrementalInMemoryNodeEntry.removeReverseDep(rdep);
+        deletedRdeps.incrementAndGet();
+      }
+      incrementalInMemoryNodeEntry.consolidateReverseDeps();
+    });
+    return deletedRdeps.get();
   }
-
-  private record DeletionStats(long nodes, long rdeps) {}
 }
