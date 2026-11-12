@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr.FileRecordingOutputStrea
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,6 +45,24 @@ public class FileOutErrTest {
   private FileRecordingOutputStream newFileRecordingOutputStream(String path) {
     Path outputFile = fs.getPath(path);
     return new FileRecordingOutputStream(outputFile);
+  }
+
+  @Test
+  public void createParentDirectories_preservesKnownEmptyOutput() throws Exception {
+    FileSystem fs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+            throw new AssertionError("Unexpected output-size check: " + path);
+          }
+        };
+    FileOutErr outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/err/stderr"));
+
+    outErr.createParentDirectories();
+
+    assertThat(fs.getPath("/out").isDirectory()).isTrue();
+    assertThat(fs.getPath("/err").isDirectory()).isTrue();
+    assertThat(outErr.hasRecordedOutput()).isFalse();
   }
 
   @Test
