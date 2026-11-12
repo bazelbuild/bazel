@@ -47,8 +47,7 @@ bazel_dep(name = "apple_support", version = "2.8.4")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 
 # Hermetic LLVM toolchains used to cross-compile Bazel to all supported
-# platforms from any host. They are not registered by default; see the `llvm`
-# config in .bazelrc.
+# platforms from any host. Enabled by default in .bazelrc.
 bazel_dep(name = "llvm", version = "0.8.21")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
