@@ -30,7 +30,6 @@ import java.security.MessageDigest;
 import java.util.Objects;
 
 /** A {@link MessageDigest} for BLAKE3. */
-@SuppressWarnings("restricted") // Uses restricted java.lang.foreign methods.
 public final class Blake3MessageDigest extends MessageDigest {
   // These constants match the native definitions in:
   // https://github.com/BLAKE3-team/BLAKE3/blob/master/c/blake3.h
@@ -116,37 +115,57 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   /** Returns the BLAKE3 digest of the given range of bytes. */
   static byte[] hash(byte[] data, int offset, int length) {
-    if (length > MAX_CRITICAL_INPUT_LENGTH) {
-      Blake3MessageDigest messageDigest = new Blake3MessageDigest();
-      try {
-        messageDigest.engineUpdate(data, offset, length);
-        return messageDigest.engineDigest();
-      } finally {
-        messageDigest.close();
-      }
-    }
     MemorySegment input = MemorySegment.ofArray(data).asSlice(offset, length);
     byte[] out = new byte[OUT_LEN];
+    if (length <= MAX_CRITICAL_INPUT_LENGTH) {
+      try {
+        HASH.invokeExact(input, (long) length, MemorySegment.ofArray(out));
+      } catch (Throwable t) {
+        throw new AssertionError(t);
+      }
+    } else {
+      try (Arena arena = Arena.ofConfined()) {
+        MemorySegment state = arena.allocate(STATE_SIZE, 8);
+        init(state);
+        update(state, input);
+        writeOutput(state, out);
+      }
+    }
+    return out;
+  }
+
+  private static void init(MemorySegment state) {
     try {
-      HASH.invokeExact(input, (long) length, MemorySegment.ofArray(out));
+      HASHER_INIT.invokeExact(state);
     } catch (Throwable t) {
       throw new AssertionError(t);
     }
-    return out;
+  }
+
+  private static void update(MemorySegment state, MemorySegment input) {
+    long length = input.byteSize();
+    for (long start = 0; start < length; start += MAX_CRITICAL_INPUT_LENGTH) {
+      long sliceLength = Math.min(length - start, MAX_CRITICAL_INPUT_LENGTH);
+      try {
+        HASHER_UPDATE.invokeExact(state, input.asSlice(start, sliceLength), sliceLength);
+      } catch (Throwable t) {
+        throw new AssertionError(t);
+      }
+    }
+  }
+
+  private static void writeOutput(MemorySegment state, byte[] out) {
+    try {
+      HASHER_FINALIZE.invokeExact(state, MemorySegment.ofArray(out), (long) out.length);
+    } catch (Throwable t) {
+      throw new AssertionError(t);
+    }
   }
 
   @Override
   public void engineUpdate(byte[] data, int offset, int length) {
     Objects.checkFromIndexSize(offset, length, data.length);
-    MemorySegment input = MemorySegment.ofArray(data).asSlice(offset, length);
-    for (long start = 0; start < length; start += MAX_CRITICAL_INPUT_LENGTH) {
-      long sliceLength = Math.min(length - start, MAX_CRITICAL_INPUT_LENGTH);
-      try {
-        HASHER_UPDATE.invokeExact(hasher, input.asSlice(start, sliceLength), sliceLength);
-      } catch (Throwable t) {
-        throw new AssertionError(t);
-      }
-    }
+    update(hasher, MemorySegment.ofArray(data).asSlice(offset, length));
   }
 
   @Override
@@ -162,13 +181,7 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   private byte[] getOutput(int outputLength) {
     byte[] retByteArray = new byte[outputLength];
-    try {
-      HASHER_FINALIZE.invokeExact(
-          hasher, MemorySegment.ofArray(retByteArray), (long) outputLength);
-    } catch (Throwable t) {
-      throw new AssertionError(t);
-    }
-
+    writeOutput(hasher, retByteArray);
     engineReset();
     return retByteArray;
   }
@@ -188,11 +201,7 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   @Override
   public void engineReset() {
-    try {
-      HASHER_INIT.invokeExact(hasher);
-    } catch (Throwable t) {
-      throw new AssertionError(t);
-    }
+    init(hasher);
   }
 
   @Override
