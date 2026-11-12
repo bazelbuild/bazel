@@ -110,19 +110,6 @@ alias(
     actual = "@maven//:org_apache_velocity_velocity",
 )
 
-java_library(
-    name = "api_client",
-    exports = [
-        "@maven//:com_google_api_client_google_api_client",
-        "@maven//:com_google_api_client_google_api_client_gson",
-        "@maven//:com_google_http_client_google_http_client",
-        "@maven//:com_google_http_client_google_http_client_gson",
-    ],
-    runtime_deps = [
-        ":gson",
-    ],
-)
-
 exports_files(
     [
         # keep sorted
@@ -175,8 +162,9 @@ java_library(
         "@maven//:com_google_auth_google_auth_library_oauth2_http",
     ],
     runtime_deps = [
-        ":api_client",
         ":guava",
+        "@maven//:com_google_http_client_google_http_client",
+        "@maven//:com_google_http_client_google_http_client_gson",
     ],
 )
 
