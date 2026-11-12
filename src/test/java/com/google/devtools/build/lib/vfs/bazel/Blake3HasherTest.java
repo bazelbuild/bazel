@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs.bazel;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -122,6 +123,18 @@ public class Blake3HasherTest {
             .isEqualTo(testVector.hash());
       }
     }
+  }
+
+  @Test
+  public void hashString() {
+    assertThat(Blake3HashFunction.INSTANCE.hashString("abc\u00ff", ISO_8859_1))
+        .isEqualTo(Blake3HashFunction.INSTANCE.hashBytes(new byte[] {'a', 'b', 'c', (byte) 0xff}));
+    assertThat(Blake3HashFunction.INSTANCE.hashString("abc\u00ff", UTF_8))
+        .isEqualTo(
+            Blake3HashFunction.INSTANCE.hashBytes(
+                new byte[] {'a', 'b', 'c', (byte) 0xc3, (byte) 0xbf}));
+    assertThat(Blake3HashFunction.INSTANCE.hashString("abc\u0100", ISO_8859_1))
+        .isEqualTo(Blake3HashFunction.INSTANCE.hashBytes(new byte[] {'a', 'b', 'c', '?'}));
   }
 
   @Test
