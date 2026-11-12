@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.Hasher;
 import com.google.devtools.build.runfiles.Runfiles;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -27,6 +28,8 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.BeforeClass;
@@ -95,34 +98,32 @@ public class Blake3HasherTest {
   }
 
   @Test
-  public void testVectors_hasherWithUnevenUpdates() {
-    for (TestVector testVector : testVectors) {
-      int length = testVector.inputLength();
-      byte[] input = testVector.input();
-      var hasher = Blake3HashFunction.INSTANCE.newHasher();
-      for (int start = 0, step = 1; start < length; start += step, step = step * 3 + 1) {
-        hasher.putBytes(input, start, Math.min(step, length - start));
-      }
+  public void testVectors_hasherWithUnevenUpdatesOnRandomThreads() throws Exception {
+    // Hashers may be used on other threads than the one that created them, e.g. when verifying
+    // remote cache downloads. A fixed seed keeps the thread switches the same across runs.
+    var random = new Random(0);
+    try (ExecutorService thread1 = Executors.newSingleThreadExecutor();
+        ExecutorService thread2 = Executors.newSingleThreadExecutor()) {
+      var threads = ImmutableList.of(thread1, thread2);
+      for (TestVector testVector : testVectors) {
+        int length = testVector.inputLength();
+        byte[] input = testVector.input();
+        Hasher hasher = onRandomThread(random, threads, Blake3HashFunction.INSTANCE::newHasher);
+        for (int start = 0, step = 1; start < length; start += step, step = step * 3 + 1) {
+          int sliceStart = start;
+          int sliceLength = Math.min(step, length - start);
+          onRandomThread(random, threads, () -> hasher.putBytes(input, sliceStart, sliceLength));
+        }
+        String hash = onRandomThread(random, threads, () -> hasher.hash().toString());
 
-      assertWithMessage("input length %s", length)
-          .that(hasher.hash().toString())
-          .isEqualTo(testVector.hash());
+        assertWithMessage("input length %s", length).that(hash).isEqualTo(testVector.hash());
+      }
     }
   }
 
-  @Test
-  public void testVectors_hasherUsedOnAnotherThread() throws Exception {
-    try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
-      for (TestVector testVector : testVectors) {
-        var hasher = Blake3HashFunction.INSTANCE.newHasher();
-        String hash =
-            executor.submit(() -> hasher.putBytes(testVector.input()).hash()).get().toString();
-
-        assertWithMessage("input length %s", testVector.inputLength())
-            .that(hash)
-            .isEqualTo(testVector.hash());
-      }
-    }
+  private static <T> T onRandomThread(
+      Random random, ImmutableList<ExecutorService> threads, Callable<T> task) throws Exception {
+    return threads.get(random.nextInt(threads.size())).submit(task).get();
   }
 
   @Test
