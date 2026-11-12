@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
@@ -168,7 +169,9 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   //
   // As a workaround, we use a lock around the fork.
   private Process start(ProcessBuilder builder) throws IOException {
-    lock.lock();
+    try (var _ = Profiler.instance().profile("wait for subprocess factory lock")) {
+      lock.lock();
+    }
     try {
       return startOnPlatformThread(builder);
     } catch (IOException e) {
