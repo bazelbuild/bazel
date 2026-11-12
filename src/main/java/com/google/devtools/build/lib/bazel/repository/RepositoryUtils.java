@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,6 +33,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -117,6 +121,13 @@ public class RepositoryUtils {
     // TODO(#30160): Repos with symlinks pointing out of the repo are currently excluded from the
     // remote repo contents cache since cross-FS resolution of symlinks proved tricky to get right.
     boolean symlinksResolveWithinRepo = true;
+    // The contents of a repo retrieved from the remote repo contents cache are served from memory,
+    // where a name only matches a directory entry with the exact same spelling. On disk, a symlink
+    // can also resolve if its target is spelled differently, e.g. with different case on a
+    // case-insensitive file system or as a short name on Windows. Such a symlink would be dangling
+    // in a repo retrieved from the cache.
+    boolean symlinkTargetsSpelledExactly = true;
+    var directoryEntries = new HashMap<Path, ImmutableSet<String>>();
     try {
       Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
@@ -126,6 +137,9 @@ public class RepositoryUtils {
       for (Path symlink : symlinks) {
         PathFragment target = symlink.readSymbolicLink();
         PathFragment originalTarget = target;
+        if (!isSpelledExactly(repoDir, symlink, target, directoryEntries)) {
+          symlinkTargetsSpelledExactly = false;
+        }
         if (target.startsWith(workspace.asFragment())) {
           symlinksResolveWithinRepo = false;
           if (!replantSymlinksIntoMainRepo) {
@@ -210,6 +224,73 @@ public class RepositoryUtils {
       throw new IOException(
           String.format("Failed to rewrite symlinks under %s: %s", repoDir, e.getMessage()), e);
     }
-    return new ReplantSymlinksResult(portableSymlinksOnly, symlinksResolveWithinRepo);
+    return new ReplantSymlinksResult(
+        portableSymlinksOnly, symlinksResolveWithinRepo && symlinkTargetsSpelledExactly);
+  }
+
+  /**
+   * Returns whether the given symlink of the given repo, if it resolves within the repo, also does
+   * so if names only match directory entries with the exact same spelling.
+   *
+   * @param directoryEntries a cache of the names of the entries of the directories visited so far
+   */
+  private static boolean isSpelledExactly(
+      Path repoDir,
+      Path symlink,
+      PathFragment target,
+      Map<Path, ImmutableSet<String>> directoryEntries) {
+    // The segments of a relative target are checked as they are written in the symlink. Appending
+    // them to an absolute path would replace short names on Windows with the names they stand for.
+    Path current;
+    if (target.isAbsolute()) {
+      if (!target.startsWith(repoDir.asFragment())) {
+        return true;
+      }
+      current = repoDir;
+      target = target.relativeTo(repoDir.asFragment());
+    } else {
+      current = symlink.getParentDirectory();
+      if (!current.getRelative(target).startsWith(repoDir)) {
+        return true;
+      }
+    }
+    try {
+      if (!symlink.exists()) {
+        // Only symlinks that resolve on disk have to resolve in the same way in memory.
+        return true;
+      }
+    } catch (FileSymlinkLoopException e) {
+      return true;
+    } catch (IOException e) {
+      return false;
+    }
+    try {
+      for (String segment : target.segments()) {
+        if (segment.equals("..")) {
+          Path parent = current.getParentDirectory();
+          if (parent != null) {
+            current = parent;
+          }
+          continue;
+        }
+        ImmutableSet<String> entries = directoryEntries.get(current);
+        if (entries == null) {
+          entries =
+              current.getDirectoryEntries().stream()
+                  .map(Path::getBaseName)
+                  .collect(ImmutableSet.toImmutableSet());
+          directoryEntries.put(current, entries);
+        }
+        if (!entries.contains(segment)) {
+          return false;
+        }
+        current = current.getChild(segment);
+      }
+    } catch (IOException e) {
+      // The symlink resolves on disk, but not when its normalized target is followed one segment
+      // at a time.
+      return false;
+    }
+    return true;
   }
 }
