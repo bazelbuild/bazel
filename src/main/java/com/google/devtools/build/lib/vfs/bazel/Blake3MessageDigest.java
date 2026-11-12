@@ -48,16 +48,6 @@ public final class Blake3MessageDigest extends MessageDigest {
   private static final Linker LINKER = Linker.nativeLinker();
   private static final SymbolLookup LOOKUP = SymbolLookup.loaderLookup();
   private static final MemoryLayout SIZE_T = LINKER.canonicalLayouts().get("size_t");
-  private static final MethodHandle HASHER_SIZE =
-      LINKER.downcallHandle(
-          findSymbol("blaze_blake3_hasher_size"),
-          FunctionDescriptor.of(JAVA_INT),
-          Linker.Option.critical(/* allowHeapAccess= */ false));
-  private static final MethodHandle HASHER_INIT =
-      LINKER.downcallHandle(
-          findSymbol("blake3_hasher_init"),
-          FunctionDescriptor.ofVoid(ADDRESS),
-          Linker.Option.critical(/* allowHeapAccess= */ true));
   private static final MethodHandle HASHER_UPDATE =
       LINKER.downcallHandle(
           findSymbol("blake3_hasher_update"),
@@ -95,10 +85,20 @@ public final class Blake3MessageDigest extends MessageDigest {
   private static final long[] INITIAL_STATE;
 
   static {
+    MethodHandle hasherSize =
+        LINKER.downcallHandle(
+            findSymbol("blaze_blake3_hasher_size"),
+            FunctionDescriptor.of(JAVA_INT),
+            Linker.Option.critical(/* allowHeapAccess= */ false));
+    MethodHandle hasherInit =
+        LINKER.downcallHandle(
+            findSymbol("blake3_hasher_init"),
+            FunctionDescriptor.ofVoid(ADDRESS),
+            Linker.Option.critical(/* allowHeapAccess= */ true));
     try {
-      int stateSize = (int) HASHER_SIZE.invokeExact();
+      int stateSize = (int) hasherSize.invokeExact();
       INITIAL_STATE = new long[(stateSize + Long.BYTES - 1) / Long.BYTES];
-      HASHER_INIT.invokeExact(MemorySegment.ofArray(INITIAL_STATE));
+      hasherInit.invokeExact(MemorySegment.ofArray(INITIAL_STATE));
     } catch (Throwable t) {
       throw new ExceptionInInitializerError(t);
     }
