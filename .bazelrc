@@ -38,6 +38,15 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 common --extra_toolchains=@llvm//toolchain:all
 common --extra_toolchains=//src:llvm_rc_toolchain
 
+# Enables the `windows` config below on Windows hosts.
+common --enable_platform_specific_config
+
+# With the LLVM toolchains, layering_check reports false errors for generated
+# headers of grpc when the build runs on a Windows host.
+# TODO: Remove once this is fixed in the `llvm` module.
+common:windows --features=-layering_check
+common:windows --host_features=-layering_check
+
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
 

@@ -85,6 +85,16 @@ single_version_override(
     version = "1.76.0.bcr.1",
 )
 
+# Makes abseil link its Windows system libraries (dbghelp, bcrypt) with -l<lib>
+# when it is built with MinGW clang.
+# TODO: Remove once abseil includes
+# https://github.com/abseil/abseil-cpp/pull/2172.
+single_version_override(
+    module_name = "abseil-cpp",
+    patch_strip = 1,
+    patches = ["//third_party:abseil-cpp-mingw-clang.patch"],
+)
+
 # bazel_dep overrides
 single_version_override(
     module_name = "c-ares",
@@ -414,9 +424,13 @@ use_repo(
     "openjdk_win_vanilla",
 )
 
-# Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
+# `local_config_cc` is required only by
+# `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc.
+# `local_config_cc_toolchains` is required only to build the Turbine native
+# image with MSVC on Windows, see
+# //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl.
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
-use_repo(cc_configure, "local_config_cc")
+use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
 
 # The hermetic macOS SDK used by the LLVM toolchains only ships a minimal set
 # of frameworks by default. Bazel's native code additionally needs CoreServices

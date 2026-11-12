@@ -81,12 +81,6 @@ cc_library(
     name = "one_version",
     srcs = ["one_version.cc"],
     hdrs = ["one_version.h"],
-    linkopts = select({
-        # abseil-cpp's symbolize library uses dbghelp on Windows, but only
-        # passes -DEFAULTLIB:dbghelp.lib, which MinGW clang ignores.
-        "//src/conditions:windows_gcc_like": ["-ldbghelp"],
-        "//conditions:default": [],
-    }),
     deps = [
         ":allowlist",
         ":duplicate_class_collector",
