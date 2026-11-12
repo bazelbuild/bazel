@@ -105,6 +105,8 @@ public class RemoteAnalysisCachingEventListener {
 
   @Nullable private ClientId clientId;
 
+  @Nullable private String untrimmedConfigurationChecksum;
+
   @Subscribe
   @AllowConcurrentEvents
   @SuppressWarnings("unused")
@@ -266,6 +268,15 @@ public class RemoteAnalysisCachingEventListener {
 
   public ClientId getClientId() {
     return clientId;
+  }
+
+  public void setUntrimmedConfigurationChecksum(@Nullable String untrimmedConfigurationChecksum) {
+    this.untrimmedConfigurationChecksum = untrimmedConfigurationChecksum;
+  }
+
+  @Nullable
+  public String getUntrimmedConfigurationChecksum() {
+    return untrimmedConfigurationChecksum;
   }
 
   public void setInvalidationLookupMetrics(InvalidationLookupMetrics invalidationLookupMetrics) {

@@ -584,9 +584,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * invocation.
    */
   public void syncRemoteAnalysisCachingState(
-      FrontierNodeVersion currentInvocationVersion, ClientId currentInvocationClientId) {
+      FrontierNodeVersion currentInvocationVersion,
+      ClientId currentInvocationClientId,
+      @Nullable String currentInvocationUntrimmedConfigurationChecksum) {
     remoteAnalysisCachingState.setVersion(currentInvocationVersion);
     remoteAnalysisCachingState.setClientId(currentInvocationClientId);
+    remoteAnalysisCachingState.setUntrimmedConfigurationChecksum(
+        currentInvocationUntrimmedConfigurationChecksum);
   }
 
   /**
