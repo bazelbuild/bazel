@@ -34,6 +34,11 @@ public final class BlazeTestlogsInfoItem extends InfoItem {
   // corresponding paths contain the short name. Maybe we should recommend using the symlinks
   // or make them hidden by default?
   @Override
+  public boolean needsConfiguration() {
+    return true;
+  }
+
+  @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(configurationSupplier);

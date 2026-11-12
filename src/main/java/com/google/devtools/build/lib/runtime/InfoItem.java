@@ -58,6 +58,16 @@ public abstract class InfoItem {
   }
 
   /**
+   * Returns true if this info item calls the configuration supplier passed to {@link #get}.
+   *
+   * <p>Options are only parsed with the main repository mapping if a requested info item needs the
+   * configuration, see {@link BlazeCommand#needsMainRepoMapping}.
+   */
+  public boolean needsConfiguration() {
+    return false;
+  }
+
+  /**
    * Whether the key is printed when "blaze info" is invoked without arguments.
    *
    * <p>This is usually true for info keys that take multiple lines, thus, cannot really be included
