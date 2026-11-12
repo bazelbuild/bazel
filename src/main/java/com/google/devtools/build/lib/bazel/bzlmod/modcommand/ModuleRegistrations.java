@@ -32,7 +32,10 @@ public record ModuleRegistrations(ModuleKey module, ImmutableList<Registration> 
     record Failed(String pattern, String error) implements Registration {}
   }
 
-  /** A target that a registered pattern expands to. */
+  /**
+   * A target that a registered pattern expands to. {@code mod show_execution_platforms} only
+   * produces {@link Platform}s, {@code mod show_toolchains} produces all other kinds.
+   */
   public sealed interface RegisteredTarget {
     /** An execution platform. */
     record Platform(Label label) implements RegisteredTarget {}

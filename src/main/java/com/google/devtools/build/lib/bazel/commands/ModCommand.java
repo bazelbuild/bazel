@@ -54,8 +54,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleRegistrations;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -422,8 +420,6 @@ public final class ModCommand implements BlazeCommand {
     ImmutableSet<ModuleKey> argsAsModules = null;
     ImmutableSortedSet<ModuleExtensionId> argsAsExtensions = null;
     ImmutableMap<String, RepositoryName> argsAsRepos = null;
-    RegistrationCollector registrationCollector = null;
-    ImmutableSet<Label> toolchainTypes = ImmutableSet.of();
 
     AugmentedModule baseModule =
         Objects.requireNonNull(moduleInspector.depGraph().get(baseModuleKey));
@@ -437,11 +433,25 @@ public final class ModCommand implements BlazeCommand {
           }
         }
         case SHOW_REPO -> {
-          var baseModuleMapping =
-              getRepositoryMapping(
-                  env,
-                  threadsOption,
+          var mappingKey =
+              RepositoryMappingValue.key(
                   depGraphValue.getCanonicalRepoNameLookup().inverse().get(baseModuleKey));
+          EvaluationResult<RepositoryMappingValue> result =
+              skyframeExecutor.evaluate(
+                  ImmutableList.of(mappingKey),
+                  /* keepGoing= */ false,
+                  threadsOption.getThreads(),
+                  env.getReporter());
+          if (result.hasError()) {
+            Exception e = result.getError().getException();
+            return reportAndCreateFailureResult(
+                env,
+                e != null
+                    ? e.getMessage()
+                    : "Unexpected error during repository mapping evaluation.",
+                Code.INVALID_ARGUMENTS);
+          }
+          var baseModuleMapping = result.get(mappingKey).repositoryMapping();
           argsAsRepos =
               getReposToShow(modOptions, moduleInspector, depGraphValue, baseModuleMapping, args);
         }
@@ -491,45 +501,6 @@ public final class ModCommand implements BlazeCommand {
           }
           argsAsModules = keysBuilder.build();
         }
-      }
-      if (subcommand == ModSubcommand.SHOW_TOOLCHAINS
-          || subcommand == ModSubcommand.SHOW_EXECUTION_PLATFORMS) {
-        registrationCollector =
-            new RegistrationCollector(
-                skyframeExecutor,
-                threadsOption.getThreads(),
-                env.getReporter(),
-                depGraphValue,
-                subcommand == ModSubcommand.SHOW_TOOLCHAINS
-                    ? RegistrationCollector.Kind.TOOLCHAINS
-                    : RegistrationCollector.Kind.EXECUTION_PLATFORMS);
-      }
-      if (subcommand == ModSubcommand.SHOW_TOOLCHAINS) {
-        RepositoryName baseRepo =
-            depGraphValue.getCanonicalRepoNameLookup().inverse().get(baseModuleKey);
-        RepoContext repoContext =
-            RepoContext.of(baseRepo, getRepositoryMapping(env, threadsOption, baseRepo));
-        var typesBuilder = ImmutableSet.<Label>builder();
-        for (String type : modOptions.getToolchainTypes()) {
-          try {
-            Label label = Label.parseWithRepoContext(type, repoContext);
-            if (!label.getRepository().isVisible()) {
-              throw new InvalidArgumentException(
-                  String.format(
-                      "In --toolchain_type %s option: No repository visible as '@%s' from %s",
-                      type,
-                      label.getRepository().getName(),
-                      label.getRepository().getContextRepoDisplayString()),
-                  Code.INVALID_ARGUMENTS);
-            }
-            typesBuilder.add(registrationCollector.resolveToolchainType(label));
-          } catch (LabelSyntaxException | RegistrationCollector.ResolutionException e) {
-            throw new InvalidArgumentException(
-                String.format("In --toolchain_type %s option: %s", type, e.getMessage()),
-                Code.INVALID_ARGUMENTS);
-          }
-        }
-        toolchainTypes = typesBuilder.build();
       }
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
@@ -610,9 +581,26 @@ public final class ModCommand implements BlazeCommand {
     ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions = null;
     ImmutableList<ModuleRegistrations> registrations = null;
     try {
-      if (registrationCollector != null) {
-        registrations = registrationCollector.collect(argsAsModules, toolchainTypes);
-      }
+      registrations =
+          switch (subcommand) {
+            case SHOW_TOOLCHAINS ->
+                new ToolchainCollector(
+                        skyframeExecutor,
+                        threadsOption.getThreads(),
+                        env.getReporter(),
+                        depGraphValue,
+                        baseModuleKey,
+                        modOptions.getToolchainTypes())
+                    .collect(argsAsModules);
+            case SHOW_EXECUTION_PLATFORMS ->
+                new ExecutionPlatformCollector(
+                        skyframeExecutor,
+                        threadsOption.getThreads(),
+                        env.getReporter(),
+                        depGraphValue)
+                    .collect(argsAsModules);
+            default -> null;
+          };
       if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
             argsAsRepos.values().stream().map(RepoDefinitionValue::key).collect(toImmutableSet());
@@ -640,6 +628,8 @@ public final class ModCommand implements BlazeCommand {
         }
         targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
+    } catch (RegistrationCollector.ResolutionException e) {
+      return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
     } catch (InterruptedException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
@@ -711,26 +701,6 @@ public final class ModCommand implements BlazeCommand {
               moduleInspector.errors().size(), moduleInspector.errors().size() == 1 ? "" : "s"),
           Code.ERROR_DURING_GRAPH_INSPECTION);
     }
-  }
-
-  private static RepositoryMapping getRepositoryMapping(
-      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, RepositoryName repo)
-      throws InvalidArgumentException, InterruptedException {
-    var mappingKey = RepositoryMappingValue.key(repo);
-    EvaluationResult<RepositoryMappingValue> result =
-        env.getSkyframeExecutor()
-            .evaluate(
-                ImmutableList.of(mappingKey),
-                /* keepGoing= */ false,
-                threadsOption.getThreads(),
-                env.getReporter());
-    if (result.hasError()) {
-      Exception e = result.getError().getException();
-      throw new InvalidArgumentException(
-          e != null ? e.getMessage() : "Unexpected error during repository mapping evaluation.",
-          Code.INVALID_ARGUMENTS);
-    }
-    return result.get(mappingKey).repositoryMapping();
   }
 
   private ImmutableMap<String, RepositoryName> getReposToShow(

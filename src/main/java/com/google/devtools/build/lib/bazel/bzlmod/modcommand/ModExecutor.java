@@ -212,35 +212,40 @@ public class ModExecutor {
       }
     } else {
       for (ModuleRegistrations module : modules) {
-        printer.printf("## %s:\n", module.module());
-        for (var registration : module.registrations()) {
-          switch (registration) {
-            case Registration.Failed(String pattern, String error) ->
-                printer.printf("%s\n  error: %s\n", pattern, error);
-            case Registration.Expanded(String pattern, ImmutableList<RegisteredTarget> targets) -> {
-              printer.println(pattern);
-              for (var target : targets) {
-                printer.println(
-                    switch (target) {
-                      case RegisteredTarget.Platform(Label label) ->
-                          "  " + label.getUnambiguousCanonicalForm();
-                      case RegisteredTarget.Toolchain(Label label, Label type, ModuleKey owner) ->
-                          "  %s (type %s%s)"
-                              .formatted(
-                                  label.getUnambiguousCanonicalForm(),
-                                  type.getUnambiguousCanonicalForm(),
-                                  module.module().equals(owner) ? "" : " from " + owner);
-                      case RegisteredTarget.Unresolved(Label label, String error) ->
-                          "  %s (error: %s)".formatted(label.getUnambiguousCanonicalForm(), error);
-                    });
-              }
-            }
-          }
-        }
-        printer.println();
+        printer.println(registrationsToText(module));
       }
     }
     printer.flush();
+  }
+
+  private static String registrationsToText(ModuleRegistrations module) {
+    var text = new StringBuilder();
+    text.append("## %s:\n".formatted(module.module()));
+    for (var registration : module.registrations()) {
+      switch (registration) {
+        case Registration.Failed(String pattern, String error) ->
+            text.append("%s\n  error: %s\n".formatted(pattern, error));
+        case Registration.Expanded(String pattern, ImmutableList<RegisteredTarget> targets) -> {
+          text.append(pattern).append('\n');
+          for (var target : targets) {
+            text.append(
+                switch (target) {
+                  case RegisteredTarget.Platform(Label label) ->
+                      "  %s\n".formatted(label.getUnambiguousCanonicalForm());
+                  case RegisteredTarget.Toolchain(Label label, Label type, ModuleKey owner) ->
+                      "  %s (type %s%s)\n"
+                          .formatted(
+                              label.getUnambiguousCanonicalForm(),
+                              type.getUnambiguousCanonicalForm(),
+                              module.module().equals(owner) ? "" : " from " + owner);
+                  case RegisteredTarget.Unresolved(Label label, String error) ->
+                      "  %s (error: %s)\n".formatted(label.getUnambiguousCanonicalForm(), error);
+                });
+          }
+        }
+      }
+    }
+    return text.toString();
   }
 
   private static JsonObject registrationsToJson(ModuleRegistrations module) {
