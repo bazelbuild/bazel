@@ -54,7 +54,7 @@ public class FastCdcChunkerTest {
 
   @Test
   public void chunkToDigests_smallInput_returnsSingleChunk() throws IOException {
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker chunker = new FastCdcChunker(config, DIGEST_UTIL);
     byte[] data = new byte[100];
     new Random(42).nextBytes(data);
@@ -67,7 +67,7 @@ public class FastCdcChunkerTest {
 
   @Test
   public void chunkToDigests_dataAtMinSize_returnsSingleChunk() throws IOException {
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker chunker = new FastCdcChunker(config, DIGEST_UTIL);
     byte[] data = new byte[config.minChunkSize()];
     new Random(42).nextBytes(data);
@@ -80,7 +80,7 @@ public class FastCdcChunkerTest {
 
   @Test
   public void chunkToDigests_largeInput_producesMultipleChunks() throws IOException {
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker chunker = new FastCdcChunker(config, DIGEST_UTIL);
     byte[] data = new byte[config.maxChunkSize() * 3];
     new Random(42).nextBytes(data);
@@ -106,7 +106,7 @@ public class FastCdcChunkerTest {
 
   @Test
   public void chunkToDigests_chunkSizesWithinBounds() throws IOException {
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker chunker = new FastCdcChunker(config, DIGEST_UTIL);
     byte[] data = new byte[config.maxChunkSize() * 10];
     new Random(42).nextBytes(data);
@@ -122,7 +122,7 @@ public class FastCdcChunkerTest {
 
   @Test
   public void chunkToDigests_lastChunkCanBeSmallerThanMin() throws IOException {
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker chunker = new FastCdcChunker(config, DIGEST_UTIL);
     int dataSize = config.maxChunkSize() + config.minChunkSize() / 2;
     byte[] data = new byte[dataSize];
@@ -137,7 +137,7 @@ public class FastCdcChunkerTest {
 
   @Test
   public void chunkToDigests_digestsAreCorrect() throws IOException {
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker chunker = new FastCdcChunker(config, DIGEST_UTIL);
     byte[] data = new byte[500];
     new Random(42).nextBytes(data);

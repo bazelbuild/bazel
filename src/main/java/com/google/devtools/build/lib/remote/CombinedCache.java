@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableSet;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.MaybePathBacked;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
@@ -108,7 +111,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final DiskCacheClient diskCacheClient;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
-  private final boolean chunkingEnabled;
+  @Nullable private final ChunkingFunctionValue chunkingFunction;
   private final ChunkLocationMap chunkLocationMap;
 
   // Delays the initialization of the chunking support logic until first use to avoid blocking on
@@ -120,7 +123,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     private volatile boolean initialized = false;
 
     boolean supported() throws IOException {
-      if (!chunkingEnabled) {
+      if (chunkingFunction == null) {
         return false;
       }
       if (!(remoteCacheClient instanceof GrpcCacheClient grpcClient)) {
@@ -128,12 +131,22 @@ public class CombinedCache extends AbstractReferenceCounted {
       }
       if (!initialized) {
         synchronized (this) {
-          config = ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
+          config =
+              switch (chunkingFunction) {
+                case AUTO -> ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
+                case FAST_CDC_2020 ->
+                    ChunkingConfig.fromServerCapabilities(
+                        getRemoteServerCapabilities(), ChunkingFunction.Value.FAST_CDC_2020);
+                case REP_MAX_CDC ->
+                    ChunkingConfig.fromServerCapabilities(
+                        getRemoteServerCapabilities(), ChunkingFunction.Value.REP_MAX_CDC);
+              };
           if (config != null) {
             downloader =
                 new ChunkedBlobDownloader(
                     grpcClient,
                     CombinedCache.this,
+                    config,
                     digestUtil,
                     options.remoteVerifyDownloads,
                     chunkLocationMap);
@@ -173,7 +186,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.diskCacheClient = diskCacheClient;
     this.options = options;
     this.digestUtil = digestUtil;
-    this.chunkingEnabled = options.experimentalRemoteCacheChunking;
+    this.chunkingFunction = options.getEffectiveChunkingFunction();
     this.chunkLocationMap = chunkLocationMap;
   }
 
@@ -540,9 +553,14 @@ public class CombinedCache extends AbstractReferenceCounted {
                 chunking.downloader().downloadChunked(context, digest, out);
                 return null;
               });
+      // Only a failure to split the blob is recoverable by downloading it as a whole. Once the
+      // server has described the blob as a sequence of chunks, the download is committed to that
+      // path: chunks are written to `out` as they arrive, so restarting would append the blob to
+      // the chunks already written. A missing chunk is reported as a missing blob instead, letting
+      // the usual lost input handling regenerate it.
       return Futures.catchingAsync(
           chunkedDownloadFuture,
-          CacheNotFoundException.class,
+          BlobNotSplittableException.class,
           (e) -> regularDownloadBlobFromRemote(context, digest, out),
           directExecutor());
     }

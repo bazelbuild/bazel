@@ -26,6 +26,9 @@ import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
+import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -58,6 +61,7 @@ import org.mockito.junit.MockitoRule;
 public class ChunkedBlobDownloaderTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+  private static final ChunkingConfig CHUNKING_CONFIG = new FastCdcChunkingConfig(1024, 2, 0);
   private static final int MAX_IN_FLIGHT_CHUNK_DOWNLOADS = 16;
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
@@ -75,6 +79,7 @@ public class ChunkedBlobDownloaderTest {
         new ChunkedBlobDownloader(
             grpcCacheClient,
             combinedCache,
+            CHUNKING_CONFIG,
             DIGEST_UTIL,
             /* verifyDownloads= */ true,
             new ChunkLocationMap());
@@ -87,10 +92,47 @@ public class ChunkedBlobDownloaderTest {
   }
 
   @Test
-  public void downloadChunked_splitBlobReturnsNull_throwsCacheNotFound() {
+  public void downloadChunked_splitBlobReturnsNull_throwsBlobNotSplittable() {
     Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest))).thenReturn(null);
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any())).thenReturn(null);
 
+    assertThrows(
+        BlobNotSplittableException.class,
+        () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+  }
+
+  @Test
+  public void downloadChunked_serverReturnsNoChunks_throwsBlobNotSplittable() {
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(SplitBlobResponse.getDefaultInstance()));
+
+    assertThrows(
+        BlobNotSplittableException.class,
+        () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+  }
+
+  @Test
+  public void downloadChunked_chunkMissing_propagatesCacheNotFound() throws Exception {
+    byte[] chunk1Data = new byte[] {1, 2, 3};
+    byte[] chunk2Data = new byte[] {4, 5, 6};
+    Digest chunk1Digest = DIGEST_UTIL.compute(chunk1Data);
+    Digest chunk2Digest = DIGEST_UTIL.compute(chunk2Data);
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3, 4, 5, 6});
+
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(chunk1Digest)
+            .addChunkDigests(chunk2Digest)
+            .build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
+        .thenReturn(Futures.immediateFuture(chunk1Data));
+    when(combinedCache.downloadBlob(any(), eq(chunk2Digest)))
+        .thenReturn(Futures.immediateFailedFuture(new CacheNotFoundException(chunk2Digest)));
+
+    // A missing chunk is a missing blob, not an invitation to retry the download differently.
     assertThrows(
         CacheNotFoundException.class,
         () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
@@ -104,7 +146,7 @@ public class ChunkedBlobDownloaderTest {
 
     SplitBlobResponse splitResponse =
         SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
     when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
         .thenReturn(Futures.immediateFuture(chunkData));
@@ -131,7 +173,7 @@ public class ChunkedBlobDownloaderTest {
             .addChunkDigests(chunk2Digest)
             .addChunkDigests(chunk3Digest)
             .build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
     when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
         .thenReturn(Futures.immediateFuture(chunk1Data));
@@ -199,7 +241,7 @@ public class ChunkedBlobDownloaderTest {
     }
     Digest blobDigest = DIGEST_UTIL.compute(expectedData);
 
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse.build()));
 
     CountDownLatch firstWindowRequested = new CountDownLatch(MAX_IN_FLIGHT_CHUNK_DOWNLOADS);
@@ -260,7 +302,7 @@ public class ChunkedBlobDownloaderTest {
             .addChunkDigests(chunkDigest)
             .addChunkDigests(chunkDigest)
             .build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
 
     SettableFuture<byte[]> chunkFuture = SettableFuture.create();
@@ -310,7 +352,7 @@ public class ChunkedBlobDownloaderTest {
       splitResponse.addChunkDigests(duplicateChunkDigest);
     }
     splitResponse.addChunkDigests(finalChunkDigest);
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse.build()));
 
     SettableFuture<byte[]> firstChunkFuture = SettableFuture.create();
@@ -372,7 +414,7 @@ public class ChunkedBlobDownloaderTest {
     Digest blobDigest = DIGEST_UTIL.compute(new byte[0]);
 
     SplitBlobResponse splitResponse = SplitBlobResponse.getDefaultInstance();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -394,7 +436,7 @@ public class ChunkedBlobDownloaderTest {
             .addChunkDigests(chunk1Digest)
             .addChunkDigests(chunk2Digest)
             .build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
     when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
         .thenReturn(Futures.immediateFuture(chunk1Data));
@@ -403,6 +445,10 @@ public class ChunkedBlobDownloaderTest {
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     assertThrows(IOException.class, () -> downloader.downloadChunked(context, blobDigest, out));
+
+    // Chunks are written as they arrive, so a failed download leaves a prefix of the blob behind.
+    // Callers must not restart the download into the same stream.
+    assertThat(out.toByteArray()).isEqualTo(chunk1Data);
   }
 
   @Test
@@ -413,7 +459,7 @@ public class ChunkedBlobDownloaderTest {
 
     SplitBlobResponse splitResponse =
         SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
     when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
         .thenReturn(Futures.immediateFuture(chunkData));
@@ -433,6 +479,7 @@ public class ChunkedBlobDownloaderTest {
         new ChunkedBlobDownloader(
             grpcCacheClient,
             combinedCache,
+            CHUNKING_CONFIG,
             DIGEST_UTIL,
             /* verifyDownloads= */ false,
             new ChunkLocationMap());
@@ -442,7 +489,7 @@ public class ChunkedBlobDownloaderTest {
 
     SplitBlobResponse splitResponse =
         SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
     when(combinedCache.downloadBlob(any(), eq(chunkDigest)))
         .thenReturn(Futures.immediateFuture(chunkData));
@@ -461,7 +508,7 @@ public class ChunkedBlobDownloaderTest {
 
     SplitBlobResponse splitResponse =
         SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
 
     SettableFuture<byte[]> cancelledDownload = SettableFuture.create();
@@ -486,7 +533,7 @@ public class ChunkedBlobDownloaderTest {
             .addChunkDigests(chunk1Digest)
             .addChunkDigests(chunk2Digest)
             .build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
 
     SettableFuture<byte[]> failedDownload = SettableFuture.create();
@@ -548,14 +595,18 @@ public class ChunkedBlobDownloaderTest {
     Digest firstBlobDigest = DIGEST_UTIL.compute(firstContent);
     Digest secondBlobDigest = DIGEST_UTIL.compute(secondContent);
 
-    when(grpcCacheClient.splitBlob(any(), eq(firstBlobDigest)))
+    when(
+            grpcCacheClient.splitBlob(
+                any(), eq(firstBlobDigest), eq(CHUNKING_CONFIG.chunkingFunction())))
         .thenReturn(
             Futures.immediateFuture(
                 SplitBlobResponse.newBuilder()
                     .addChunkDigests(sharedDigest)
                     .addChunkDigests(firstTailDigest)
                     .build()));
-    when(grpcCacheClient.splitBlob(any(), eq(secondBlobDigest)))
+    when(
+            grpcCacheClient.splitBlob(
+                any(), eq(secondBlobDigest), eq(CHUNKING_CONFIG.chunkingFunction())))
         .thenReturn(
             Futures.immediateFuture(
                 SplitBlobResponse.newBuilder()

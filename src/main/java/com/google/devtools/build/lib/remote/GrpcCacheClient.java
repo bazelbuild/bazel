@@ -54,6 +54,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -171,8 +172,8 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   }
 
   /**
-   * Registers a blob as the concatenation of previously uploaded chunks via the SpliceBlob RPC.
-   * All chunks must already be present in the CAS.
+   * Registers a blob as the concatenation of previously uploaded chunks via the SpliceBlob RPC. All
+   * chunks must already be present in the CAS.
    *
    * @return a future that completes when the splice is acknowledged, or null if chunking is not
    *     enabled
@@ -181,7 +182,8 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   public ListenableFuture<Void> spliceBlob(
       RemoteActionExecutionContext context,
       Digest blobDigest,
-      List<Digest> chunkDigests) {
+      List<Digest> chunkDigests,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.experimentalRemoteCacheChunking) {
       return null;
     }
@@ -191,7 +193,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setBlobDigest(blobDigest)
             .addAllChunkDigests(chunkDigests)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Futures.transform(
@@ -212,11 +214,16 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   /**
    * Queries the server for chunk information about a blob using the SplitBlob RPC.
    *
+   * <p>The returned future fails with a {@link BlobNotSplittableException} if the server does not
+   * implement the RPC or has no chunks for this blob.
+   *
    * @return a future with the split blob response, or null if chunking is not enabled
    */
   @Nullable
   public ListenableFuture<SplitBlobResponse> splitBlob(
-      RemoteActionExecutionContext context, Digest digest) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.experimentalRemoteCacheChunking) {
       return null;
     }
@@ -225,7 +232,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setInstanceName(options.remoteInstanceName)
             .setBlobDigest(digest)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Utils.refreshIfUnauthenticatedAsync(
@@ -237,9 +244,14 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             callCredentialsProvider),
         StatusRuntimeException.class,
         (e) ->
-            e.getStatus().getCode() == Code.NOT_FOUND
-                ? Futures.immediateFailedFuture(new CacheNotFoundException(digest))
-                : Futures.immediateFailedFuture(new IOException(e)),
+            switch (e.getStatus().getCode()) {
+              // NOT_FOUND: the server knows how to split blobs, but has no chunks for this one.
+              // UNIMPLEMENTED: the server advertised the parameters of a chunking function in its
+              // capabilities, but does not actually implement SplitBlob.
+              case NOT_FOUND, UNIMPLEMENTED ->
+                  Futures.immediateFailedFuture(new BlobNotSplittableException(digest));
+              default -> Futures.immediateFailedFuture(new IOException(e));
+            },
         directExecutor());
   }
 
