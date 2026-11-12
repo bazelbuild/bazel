@@ -263,6 +263,17 @@ maven.install(
         # Bazel uses the JDK's TLS implementation. grpc-java requests these.
         "io.netty:netty-tcnative-boringssl-static",
         "io.netty:netty-tcnative-classes",
+        # grpc-java requests these for optional features (xDS, ALTS/S2A, OkHttp,
+        # gRPC metrics) that Bazel does not use.
+        "com.google.re2j:re2j",
+        "com.google.s2a.proto.v2:s2a-proto",
+        "com.squareup.okhttp:okhttp",
+        "com.squareup.okio:okio",
+        "dev.cel:common",
+        "dev.cel:protobuf",
+        "dev.cel:runtime",
+        "io.opencensus:opencensus-contrib-grpc-metrics",
+        "org.jetbrains.kotlin:kotlin-stdlib-common",
     ],
     fail_if_repin_required = True,
     lock_file = "//:maven_install.json",
