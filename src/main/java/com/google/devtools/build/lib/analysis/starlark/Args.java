@@ -58,6 +58,31 @@ public abstract class Args implements CommandLineArgsApi {
     // Ensure Args subclasses are defined only in this file.
   }
 
+  /**
+   * Returns the instance of a map_each function to store, failing if the function holds values from
+   * the call of an enclosing function and {@code allowClosure} is false.
+   */
+  static StarlarkCallable checkMapEach(StarlarkCallable fn, boolean allowClosure)
+      throws EvalException {
+    if (!(fn instanceof StarlarkFunction sfn) || sfn.isGlobal()) {
+      return fn;
+    }
+    if (!sfn.dependsOnEnclosingCall()) {
+      // A single instance per definition is retained like a global function.
+      return sfn.canonicalize();
+    }
+    // Closures may cause large analysis-phase data structures to remain live into the execution
+    // phase.
+    if (!allowClosure) {
+      throw Starlark.errorf(
+          "to avoid unintended retention of analysis data structures, the map_each function"
+              + " (declared at %s) must not use local variables of an enclosing function or have"
+              + " default values unless it is declared by a top-level def statement",
+          sfn.getLocation());
+    }
+    return sfn;
+  }
+
   @Override
   public void checkHashable() throws EvalException {
     // Even a frozen Args is not hashable.
@@ -375,23 +400,7 @@ public abstract class Args implements CommandLineArgsApi {
       if (fn == Starlark.NONE) {
         return null;
       }
-      if (fn instanceof StarlarkFunction sfn) {
-        // Reject non-global functions, because arbitrary closures may cause large
-        // analysis-phase data structures to remain live into the execution phase.
-        // We require that the function is "global" as opposed to "not a closure"
-        // because a global function may be closure if it refers to load bindings.
-        // This unfortunately disallows such trivially safe non-global
-        // functions as "lambda x: x".
-        // See https://github.com/bazelbuild/bazel/issues/12701.
-        if (!(sfn.isGlobal() || allowClosure)) {
-          throw Starlark.errorf(
-              "to avoid unintended retention of analysis data structures, "
-                  + "the map_each function (declared at %s) must be declared "
-                  + "by a top-level def statement",
-              sfn.getLocation());
-        }
-      }
-      return (StarlarkCallable) fn;
+      return checkMapEach((StarlarkCallable) fn, allowClosure);
     }
 
     @CanIgnoreReturnValue

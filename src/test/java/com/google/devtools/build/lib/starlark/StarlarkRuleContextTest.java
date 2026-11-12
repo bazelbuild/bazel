@@ -3319,13 +3319,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testArgsMapEachFunctionMustBeGlobal() throws Exception {
-    // lambda
+  public void testArgsMapEachFunctionMustNotCapture() throws Exception {
+    // lambda using a local variable
     scratch.file(
         "p/inc.bzl",
         """
         def _impl(ctx):
-          ctx.actions.args().add_all([], map_each=lambda x: x)  # error
+          name = ctx.label.name
+          ctx.actions.args().add_all([], map_each=lambda x: name)  # error
         r = rule(implementation=_impl)
         """);
     scratch.file(
@@ -3338,15 +3339,16 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .contains(
-            "map_each function (declared at /workspace/p/inc.bzl:2:43) must be "
-                + "declared by a top-level def statement");
+            "map_each function (declared at /workspace/p/inc.bzl:3:43) must not use local"
+                + " variables of an enclosing function or have default values unless it is"
+                + " declared by a top-level def statement");
 
-    // non-global def
+    // nested def with a default value
     scratch.file(
         "q/inc.bzl",
         """
         def _impl(ctx):
-          def id(x): return x
+          def id(x, y = None): return x
           ctx.actions.args().add_all([], map_each=id)  # error
         r = rule(implementation=_impl)
         """);
@@ -3360,8 +3362,34 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .contains(
-            "map_each function (declared at /workspace/q/inc.bzl:2:7) must be "
-                + "declared by a top-level def statement");
+            "map_each function (declared at /workspace/q/inc.bzl:2:7) must not use local"
+                + " variables of an enclosing function or have default values unless it is"
+                + " declared by a top-level def statement");
+  }
+
+  @Test
+  public void testArgsMapEachNonCapturingFunctions() throws Exception {
+    scratch.file("test/helpers.bzl", "def loaded_fn(x): return 'loaded:%s' % x");
+    scratch.file(
+        "test/rules.bzl",
+        "load(':helpers.bzl', 'loaded_fn')",
+        getSimpleUnderTestDefinition(
+            "def local_fn(x): return 'local:%s' % x",
+            "args = ctx.actions.args()",
+            "args.add_all(['a', 'b'], map_each=lambda x: 'lambda:%s' % x)",
+            "args.add_all(['c'], map_each=lambda x: loaded_fn(x))",
+            "args.add_joined(['d', 'e'], join_with=';', map_each=local_fn)",
+            "args.set_param_file_format('multiline')",
+            "ctx.actions.write(output=out, content=args)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("action.content"))
+        .isEqualTo("lambda:a\nlambda:b\nloaded:c\nlocal:d;local:e\n");
   }
 
   @Test
@@ -3370,9 +3398,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/rules.bzl",
         getSimpleUnderTestDefinition(
-            "def local_fn(x): return 'local:%s' % x",
+            "lambda_prefix = 'lambda:'",
+            "local_prefix = 'local:'",
+            "def local_fn(x): return local_prefix + x",
             "args = ctx.actions.args()",
-            "args.add_all(['a', 'b'], allow_closure=True, map_each=lambda x: 'lambda:%s' % x)",
+            "args.add_all(['a', 'b'], allow_closure=True, map_each=lambda x: lambda_prefix + x)",
             "args.add_joined(['c', 'd'], join_with=';', allow_closure=True, map_each=local_fn)",
             "args.set_param_file_format('multiline')",
             "ctx.actions.write(output=out, content=args)"),
@@ -4818,13 +4848,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTemplateExpansionComputedSubstitutionMapEachMustBeTopLevel() throws Exception {
+  public void testTemplateExpansionComputedSubstitutionMapEachMustNotCapture() throws Exception {
     scratch.file(
         "test/rules.bzl",
         "def _undertest_impl(ctx):",
         "",
+        "  prefix = ctx.label.name",
         "  def file_to_shortpath(file):",
-        "    return file.short_path",
+        "    return prefix + file.short_path",
         "",
         "  template_dict = ctx.actions.template_dict()",
         "  template_dict.add_joined('%files%', depset(ctx.files.template),",
@@ -4856,7 +4887,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         )
         """);
 
-    checkError("//test:testing", "must be declared by a top-level def statement");
+    checkError("//test:testing", "must not use local variables of an enclosing function");
   }
 
   @Test
