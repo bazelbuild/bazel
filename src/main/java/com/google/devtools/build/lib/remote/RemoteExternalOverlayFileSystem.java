@@ -595,9 +595,36 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   public void ensureSubtreeMaterialized(PathFragment path)
       throws IOException, InterruptedException {
     if (fsForPath(path) != externalFs) {
+      // A native directory can contain symlinks into repos that are served from memory, which a
+      // local action reads through the symlinks.
+      materializeSymlinkTargetsBelow(nativeFs.getPath(path));
       return;
     }
     materializeSubtree(path);
+  }
+
+  /**
+   * Materializes the files and subtrees of repos served from memory that symlinks below the given
+   * native directory point to, following chains of native symlinks on the way.
+   */
+  private void materializeSymlinkTargetsBelow(Path nativeDir)
+      throws IOException, InterruptedException {
+    if (!nativeDir.isDirectory(Symlinks.NOFOLLOW)) {
+      return;
+    }
+    for (Dirent dirent : nativeDir.readdir(Symlinks.NOFOLLOW)) {
+      Path child = nativeDir.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case DIRECTORY -> materializeSymlinkTargetsBelow(child);
+        case SYMLINK -> {
+          PathFragment target = resolveNativeSymlinkIntoMemory(child);
+          if (target != null && externalFs.getPath(target).exists()) {
+            materializeSubtree(target);
+          }
+        }
+        default -> {}
+      }
+    }
   }
 
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
@@ -614,7 +641,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
         root = root.resolveSymbolicLinks();
       }
     }
-    collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
+    if (root.isFile()) {
+      // A symlink below a native directory may point to a single file.
+      files.add(root.asFragment());
+    } else {
+      collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
+    }
     prefetch(files);
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
     // target.
