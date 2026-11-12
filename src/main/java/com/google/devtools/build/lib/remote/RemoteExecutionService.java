@@ -2062,8 +2062,7 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force,
-          action.getRemotePathResolver());
+          force);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }
