@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -143,6 +144,7 @@ public final class StarlarkRuleContext
   // `close()` when the object becomes featureless (analogous to freezing).
   private StarlarkActionFactory actionFactory;
   private RuleContext ruleContext;
+  @Nullable private LocationExpansion locationExpansion;
   private FragmentCollection fragments;
   @Nullable private AspectDescriptor aspectDescriptor;
 
@@ -486,6 +488,7 @@ public final class StarlarkRuleContext
 
     actionFactory = null;
     ruleContext = null;
+    locationExpansion = null;
     fragments = null;
     aspectDescriptor = null;
     cachedMakeVariables = null;
@@ -1074,12 +1077,29 @@ public final class StarlarkRuleContext
       throws EvalException {
     checkMutable("expand_location");
     try {
+      boolean preferExecutable =
+          thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE);
+      boolean literal = !input.contains("$(");
+      if (locationExpansion != null
+          && locationExpansion.matches(targets, shortPaths, preferExecutable)) {
+        if (shortPaths) {
+          checkPrivateAccess(thread);
+        }
+        return literal ? input : locationExpansion.expander().expand(input);
+      }
+
+      var locationTargets = Sequence.cast(targets, TransitiveInfoCollection.class, "targets");
+      if (literal) {
+        validateUniqueLocationTargets(locationTargets);
+        if (shortPaths) {
+          checkPrivateAccess(thread);
+        }
+        return input;
+      }
       ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap =
-          makeLabelMap(
-              Sequence.cast(targets, TransitiveInfoCollection.class, "targets"),
-              thread
-                  .getSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE));
+          makeLabelMap(locationTargets, preferExecutable);
       LocationExpander expander;
       if (!shortPaths) {
         expander = LocationExpander.withExecPaths(ruleContext, labelMap);
@@ -1087,14 +1107,53 @@ public final class StarlarkRuleContext
         checkPrivateAccess(thread);
         expander = LocationExpander.withRunfilesPaths(ruleContext, labelMap);
       }
+      locationExpansion =
+          new LocationExpansion(
+              locationTargets.getImmutableList(), shortPaths, preferExecutable, expander);
       return expander.expand(input);
     } catch (IllegalStateException ise) {
       throw new EvalException(ise);
     }
   }
 
+  private record LocationExpansion(
+      ImmutableList<TransitiveInfoCollection> targets,
+      boolean shortPaths,
+      boolean preferExecutable,
+      LocationExpander expander) {
+    boolean matches(Sequence<?> current, boolean shortPaths, boolean preferExecutable) {
+      if (this.shortPaths != shortPaths
+          || this.preferExecutable != preferExecutable
+          || targets.size() != current.size()) {
+        return false;
+      }
+      // Starlark lists can change in place. Compare the current targets to the snapshot,
+      // and use identity because configured targets can share labels with different artifacts.
+      for (int i = 0; i < targets.size(); ++i) {
+        if (targets.get(i) != current.get(i)) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
+
   private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+  }
+
+  private static void validateUniqueLocationTargets(Sequence<TransitiveInfoCollection> targets)
+      throws EvalException {
+    if (targets.size() < 2) {
+      return;
+    }
+    var labels = HashSet.<Label>newHashSet(targets.size());
+    for (TransitiveInfoCollection target : targets) {
+      Label label = AliasProvider.getDependencyLabel(target);
+      if (!labels.add(label)) {
+        throw duplicateLocationTarget(label);
+      }
+    }
   }
 
   @Override
@@ -1332,9 +1391,7 @@ public final class StarlarkRuleContext
     for (TransitiveInfoCollection current : knownLabels) {
       Label label = AliasProvider.getDependencyLabel(current);
       if (targetsMap.containsKey(label)) {
-        throw Starlark.errorf(
-            "Label %s is found more than once in 'targets' list.",
-            Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
+        throw duplicateLocationTarget(label);
       }
 
       var filesToRunProvider = current.getProvider(FilesToRunProvider.class);
@@ -1356,5 +1413,11 @@ public final class StarlarkRuleContext
     }
 
     return ImmutableMap.copyOf(targetsMap);
+  }
+
+  private static EvalException duplicateLocationTarget(Label label) {
+    return Starlark.errorf(
+        "Label %s is found more than once in 'targets' list.",
+        Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
   }
 }

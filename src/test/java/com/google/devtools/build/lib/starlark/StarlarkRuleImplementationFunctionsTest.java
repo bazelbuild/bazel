@@ -822,6 +822,42 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testExpandLocationWithMutatedTargets() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            targets = [ctx.attr.left]
+            left = ctx.expand_location("$(execpath :left)", targets = targets)
+            targets[0] = ctx.attr.right
+            right = ctx.expand_location("$(execpath :right)", targets = targets)
+            out = ctx.actions.declare_file(ctx.label.name + ".txt")
+            ctx.actions.write(out, left + "," + right)
+            return [DefaultInfo(files = depset([out]))]
+
+        expand = rule(
+            implementation = _impl,
+            attrs = {"left": attr.label(), "right": attr.label()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "expand")
+
+        filegroup(name = "left", srcs = ["left.txt"])
+        filegroup(name = "right", srcs = ["right.txt"])
+        expand(name = "expanded", left = ":left", right = ":right")
+        """);
+
+    var target = getConfiguredTarget("//test:expanded");
+    var output =
+        Iterables.getOnlyElement(target.getProvider(FileProvider.class).getFilesToBuild().toList());
+    var action = (FileWriteAction) getGeneratingAction(output);
+    assertThat(action.getFileContents()).isEqualTo("test/left.txt,test/right.txt");
+  }
+
+  @Test
   public void testExpandLocationWithShortPathsIsPrivateAPI() throws Exception {
     scratch.file(
         "abc/rule.bzl",
