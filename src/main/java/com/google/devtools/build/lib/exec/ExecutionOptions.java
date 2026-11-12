@@ -367,12 +367,13 @@ public abstract class ExecutionOptions extends OptionsBase {
       help =
           """
           Specifies the desired format of the test summary. Valid values are;
-          - `short` to list all tests that ran to completion.
-          - `short_uncached` to list tests that ran to completion, omitting cached tests.
+          - `short` to list all tests that ran to completion, omitting skipped tests.
+          - `short_uncached` to list tests that ran to completion, omitting cached and skipped
+            tests.
           - `terse` to list only failed and flaky tests.
           - `detailed` to list tests that ran to completion and their test cases.
           - `detailed_uncached` to list tests that ran to completion and their test cases,
-            omitting cached tests.
+            omitting cached and skipped tests.
           - `testcase` to print summary in test case resolution without detailed information about
             failed test cases.
           - `none` to omit the summary.
