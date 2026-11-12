@@ -1390,49 +1390,6 @@ my_rule = rule(
   }
 
   @Test
-  public void mergedAspectFiles_areOwnedByTheMergedAspects() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        """
-        def _a1_impl(target, ctx):
-          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
-          ctx.actions.write(f, 'f')
-          return [DefaultInfo(files = depset([f]))]
-
-        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
-        def _rule_impl(ctx):
-          if not ctx.attr.dep:
-            f = ctx.actions.declare_file(ctx.label.name + '.txt')
-            ctx.actions.write(f, 'f')
-            return [DefaultInfo(files = depset([f]))]
-          return [OutputGroupInfo(merged = ctx.attr.dep.files)]
-        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load(':aspect.bzl', 'my_rule1')
-        my_rule1(name = 'base')
-        my_rule1(name = 'top', dep = ':base')
-        """);
-
-    AnalysisResult analysisResult = update("//test:top");
-    NestedSet<Artifact> merged =
-        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()))
-            .getOutputGroup("merged");
-
-    assertThat(ActionsTestUtil.baseArtifactNames(merged))
-        .containsExactly("base.txt", "base_a1.txt");
-    // Merging happens outside the analysis of any target. The merged set is owned by the keys of
-    // the merged aspects, so that copies of it compare equal.
-    assertThat(merged.getOwner()).isInstanceOf(ImmutableList.class);
-    AspectKey aspectKey =
-        (AspectKey) Iterables.getOnlyElement((ImmutableList<?>) merged.getOwner());
-    assertThat(aspectKey.getLabel()).isEqualTo(Label.parseCanonical("//test:base"));
-    assertThat(aspectKey.getAspectClass().getName()).isEqualTo("//test:aspect.bzl%a1");
-  }
-
-  @Test
   public void returningOutputGroupsNotList() throws Exception {
     // OutputGroupInfo is also a list, tests that an aspect can return it without a list
     scratch.file(

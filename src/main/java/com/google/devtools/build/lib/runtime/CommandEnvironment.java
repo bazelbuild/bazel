@@ -101,7 +101,9 @@ import javax.annotation.concurrent.GuardedBy;
  */
 public class CommandEnvironment {
   private static final ImmutableSet<String> ALWAYS_INHERITED_REPO_ENV =
-      OS.getCurrent() == OS.WINDOWS ? ImmutableSet.of("PATH", "PATHEXT") : ImmutableSet.of("PATH");
+      OS.getCurrent() == OS.WINDOWS
+          ? ImmutableSet.of("PATH", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT")
+          : ImmutableSet.of("PATH");
 
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
@@ -269,12 +271,6 @@ public class CommandEnvironment {
     this.attemptNumber = attemptNumber;
     this.configFlagDefinitions = configFlagDefinitions;
     this.resourceManager = resourceManager;
-
-    // Record the command's starting time again, for use by
-    // TimestampGranularityMonitor.waitForTimestampGranularity().
-    // This should be done as close as possible to the start of
-    // the command's execution.
-    timestampGranularityMonitor.setCommandStartTime();
 
     CommonCommandOptions commandOptions =
         checkNotNull(
@@ -965,7 +961,7 @@ public class CommandEnvironment {
    * <ul>
    *   <li>the client environment as the base;
    *   <li>if {@code --experimental_strict_repo_env} is set, only the variables {@code PATH} and, on
-   *       Windows only, {@code PATHEXT} are kept;
+   *       Windows only, {@code PATHEXT}, {@code SYSTEMDRIVE} and {@code SYSTEMROOT} are kept;
    *   <li>finally, {@code --repo_env} is applied on top of that.
    * </ul>
    */

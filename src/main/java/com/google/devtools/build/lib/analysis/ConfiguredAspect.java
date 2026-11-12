@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -198,15 +197,6 @@ public interface ConfiguredAspect extends ProviderCollection {
       maybeAddRequiredConfigFragmentsProvider();
 
       TransitiveInfoProviderMap providerMap = providers.build();
-
-      // Initialize every StarlarkApiProvider
-      for (int i = 0; i < providerMap.getProviderCount(); i++) {
-        Object obj = providerMap.getProviderInstanceAt(i);
-        if (obj instanceof StarlarkApiProvider starlarkApiProvider) {
-          starlarkApiProvider.init(providerMap);
-        }
-      }
-
       if (actions.isEmpty() && providerMap.getProviderCount() == 0) {
         return BasicConfiguredAspect.EMPTY;
       }

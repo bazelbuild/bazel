@@ -20,13 +20,18 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * Context object holding sufficient information for {@link SkyFunctionEnvironment} to perform its
@@ -52,6 +57,8 @@ class ParallelEvaluatorContext {
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
   private final QuiescingExecutor executor;
   private final Cache<SkyKey, SkyKeyComputeState> stateCache;
+  private final boolean dfsScheduling;
+  @Nullable private final ConcurrentHashMap<SkyKey, Integer> nodeDepths;
 
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -63,7 +70,7 @@ class ParallelEvaluatorContext {
 
   /** * Returns a {@link Runnable} given a {@code key} to evaluate. */
   interface RunnableMaker {
-    Runnable make(SkyKey key);
+    Runnable make(SkyKey key, boolean alreadyStarted);
   }
 
   public ParallelEvaluatorContext(
@@ -98,6 +105,48 @@ class ParallelEvaluatorContext {
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
     this.stateCache = stateCache;
     this.keepGoing = keepGoing;
+    this.dfsScheduling =
+        executor instanceof AbstractQueueVisitor queueVisitor
+            && queueVisitor.ordersTasksByPriority();
+    this.nodeDepths = this.dfsScheduling ? new ConcurrentHashMap<>() : null;
+  }
+
+  /**
+   * Returns whether {@code key} is scheduled on a priority-ordered thread pool.
+   *
+   * <p>{@link #dfsScheduling} indicates whether the analysis pool orders tasks by priority, but a
+   * {@link MultiThreadPoolsQuiescingExecutor} also routes execution-phase keys to a separate
+   * non-priority pool ({@link ThreadPoolType#EXECUTION_PHASE}). Checking the target pool for {@code
+   * key} avoids tracking graph depths and computing priority tiers for keys whose pool ignores task
+   * priority.
+   */
+  boolean isDfsScheduled(SkyKey key) {
+    if (!dfsScheduling) {
+      return false;
+    }
+    if (executor instanceof MultiThreadPoolsQuiescingExecutor multiPoolExecutor) {
+      return NodeEntryVisitor.selectThreadPoolType(multiPoolExecutor, key)
+          != ThreadPoolType.EXECUTION_PHASE;
+    }
+    return true;
+  }
+
+  int getNodeDepth(SkyKey key) {
+    return nodeDepths != null ? nodeDepths.getOrDefault(key, /* defaultValue= */ 0) : 0;
+  }
+
+  void recordChildDepth(SkyKey child, int candidateDepth) {
+    if (nodeDepths != null
+        && isDfsScheduled(child)
+        && nodeDepths.getOrDefault(child, /* defaultValue= */ -1) < candidateDepth) {
+      nodeDepths.merge(child, candidateDepth, Math::max);
+    }
+  }
+
+  void clearNodeDepth(SkyKey key) {
+    if (nodeDepths != null && isDfsScheduled(key)) {
+      nodeDepths.remove(key);
+    }
   }
 
   /**
@@ -125,7 +174,7 @@ class ParallelEvaluatorContext {
       NodeEntry entry = checkNotNull(batch.get(parent), parent);
       boolean evaluationRequired = entry.signalDep(version, skyKey);
       if (evaluationRequired || parent.supportsPartialReevaluation()) {
-        getVisitor().enqueueEvaluation(parent, skyKey);
+        getVisitor().enqueueEvaluation(parent, skyKey, /* alreadyStarted= */ true);
       }
     }
   }

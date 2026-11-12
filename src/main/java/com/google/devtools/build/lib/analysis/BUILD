@@ -133,7 +133,6 @@ java_library(
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/composed_transition_materializer",
-        ":starlark/starlark_api_provider",
         ":starlark/starlark_attribute_transition_provider",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
@@ -1291,7 +1290,6 @@ java_library(
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party/java/guava:collect",
     ],
 )
@@ -1334,15 +1332,18 @@ java_library(
         "starlark/StarlarkBuildSettingsDetailsValue.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/config:feature_flag_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/auto:auto_value",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -1452,6 +1453,7 @@ java_library(
     name = "starlark/function_transition_util",
     srcs = ["starlark/FunctionTransitionUtil.java"],
     deps = [
+        ":starlark/starlark_build_settings_details_value",
         ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
@@ -1469,15 +1471,6 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "starlark/starlark_api_provider",
-    srcs = ["starlark/StarlarkApiProvider.java"],
-    deps = [
-        ":provider_collection",
-        "//third_party/java/guava:base",
     ],
 )
 
@@ -2049,6 +2042,7 @@ java_library(
     srcs = ["starlark/StarlarkAttributeTransitionProvider.java"],
     deps = [
         ":starlark/function_transition_util",
+        ":starlark/starlark_build_settings_details_value",
         ":starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
@@ -2059,6 +2053,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
@@ -2071,6 +2066,7 @@ java_library(
     srcs = ["starlark/StarlarkRuleTransitionProvider.java"],
     deps = [
         ":starlark/function_transition_util",
+        ":starlark/starlark_build_settings_details_value",
         ":starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
@@ -2531,6 +2527,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",

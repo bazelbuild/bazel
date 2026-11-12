@@ -25,6 +25,7 @@ java_library(
     srcs = ["SerializationRegistrySetupHelpers.java"],
     runtime_deps = [
         ":builtin_manager_codec",
+        ":starlark_collection_codecs",
     ],
     deps = [
         ":module_codec",
@@ -109,7 +110,6 @@ java_library(
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
             "BuiltinManagerCodec.java",
-            "CacheMissReason.java",
             "CodecScanningConstants.java",
             "DependOnFutureShim.java",
             "DeserializedSkyValue.java",
@@ -124,6 +124,8 @@ java_library(
             "SkycacheMetadataParams.java",
             "SkyValueRetriever.java",
             "DictCodec.java",
+            "StarlarkListCodec.java",
+            "StarlarkSetCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
@@ -253,12 +255,15 @@ java_library(
     name = "starlark_collection_codecs",
     srcs = [
         "DictCodec.java",
+        "StarlarkListCodec.java",
+        "StarlarkSetCodec.java",
     ],
     deps = [
         ":serialization",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )

@@ -133,7 +133,7 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
    * fresh copy that the caller may freely modify.
    */
   @SuppressWarnings("NonApiType") // type communicates fixed ordering
-  public static <T> LinkedHashMap<Field, FieldHandler> getFieldHandlerMap(Class<T> type) {
+  private static <T> LinkedHashMap<Field, FieldHandler> getFieldHandlerMap(Class<T> type) {
     LinkedHashMap<Field, FieldHandler> handlers = new LinkedHashMap<>();
     for (Field field : getSerializableFields(type)) {
       handlers.put(field, getHandlerForField(field));

@@ -34,6 +34,7 @@ TEST(OptionsTest, Flags1) {
   EXPECT_FALSE(options.verbose);
   EXPECT_FALSE(options.warn_duplicate_resources);
   EXPECT_FALSE(options.check_desugar_deps);
+  EXPECT_EQ("proto", options.desugar_deps_format);
   EXPECT_FALSE(options.multi_release);
   EXPECT_EQ("output_jar", options.output_jar);
   EXPECT_EQ("hermetic_java_home", options.hermetic_java_home);
@@ -182,4 +183,30 @@ TEST(OptionTest, DefaultCreatedBy) {
   Options options;
   options.ParseCommandLine(std::size(args), args);
   EXPECT_EQ("singlejar", options.output_jar_creator);
+}
+
+TEST(OptionsTest, DesugarDepsFormat) {
+  {
+    const char* args[] = {"--output", "output_file", "--desugar_deps_format",
+                          "json"};
+    Options options;
+    options.ParseCommandLine(std::size(args), args);
+    EXPECT_EQ("json", options.desugar_deps_format);
+  }
+  {
+    const char* args[] = {"--output", "output_file", "--desugar_deps_format",
+                          "proto"};
+    Options options;
+    options.ParseCommandLine(std::size(args), args);
+    EXPECT_EQ("proto", options.desugar_deps_format);
+  }
+  {
+    const char* args[] = {"--output", "output_file", "--desugar_deps_format",
+                          "invalid"};
+    Options options;
+    EXPECT_EXIT(options.ParseCommandLine(std::size(args), args),
+                testing::ExitedWithCode(1),
+                "Invalid --desugar_deps_format 'invalid' \\(expected 'proto' "
+                "or 'json'\\)");
+  }
 }

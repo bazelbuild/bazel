@@ -52,7 +52,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/net/starlark/java/eval",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

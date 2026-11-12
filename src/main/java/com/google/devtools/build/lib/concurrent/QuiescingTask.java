@@ -26,7 +26,8 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
  * {@link ForkJoinTask#adapt} by integrating lifecycle management (remaining task counting, error
  * handling, fail-fast gating, and worker thread tracking) directly into the task itself.
  */
-public abstract class QuiescingTask extends ForkJoinTask<Void> implements Runnable {
+public abstract class QuiescingTask extends ForkJoinTask<Void>
+    implements Runnable, Comparable<QuiescingTask> {
   private static final AtomicIntegerFieldUpdater<QuiescingTask> DECREMENTED_UPDATER =
       AtomicIntegerFieldUpdater.newUpdater(QuiescingTask.class, "decremented");
 
@@ -93,6 +94,50 @@ public abstract class QuiescingTask extends ForkJoinTask<Void> implements Runnab
   @Override
   public final void run() {
     exec();
+  }
+
+  /**
+   * Scheduling priority tier when queued in a {@link java.util.concurrent.PriorityBlockingQueue}
+   * (earlier enum constants run first).
+   */
+  public enum PriorityTier {
+    /**
+     * Tasks resuming or assisting work already in progress (including raw {@link Runnable}s without
+     * a graph depth) so they can finish and release held state.
+     */
+    IN_PROGRESS,
+    /** Default tier for unstarted tasks, ordered deepest-first via {@link #priorityDepth()}. */
+    DEPTH_ORDERED,
+  }
+
+  /**
+   * Priority tier when scheduled in a priority queue.
+   *
+   * <p>Defaults to {@link PriorityTier#DEPTH_ORDERED} so tasks that do not specify a tier are
+   * treated as unstarted work and do not preempt {@link PriorityTier#IN_PROGRESS} tasks.
+   */
+  public PriorityTier priorityTier() {
+    return PriorityTier.DEPTH_ORDERED;
+  }
+
+  /**
+   * Graph depth (deeper/larger runs first within the same priority tier).
+   *
+   * <p>Defaults to {@code 0} (shallowest root depth) so tasks without a recorded graph depth do not
+   * preempt deeper descendants in {@link PriorityTier#DEPTH_ORDERED}, and tasks in {@link
+   * PriorityTier#IN_PROGRESS} share equal depth.
+   */
+  public int priorityDepth() {
+    return 0;
+  }
+
+  @Override
+  public final int compareTo(QuiescingTask other) {
+    int tierCmp = this.priorityTier().compareTo(other.priorityTier());
+    if (tierCmp != 0) {
+      return tierCmp;
+    }
+    return Integer.compare(other.priorityDepth(), this.priorityDepth());
   }
 
   /** The core work of this task. */

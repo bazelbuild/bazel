@@ -138,11 +138,7 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
     if (contents instanceof ListenableFuture) {
       result = NestedSet.withFuture(order, depth, (ListenableFuture<Object[]>) contents);
     } else {
-      // Sets deserialized by this codec get no owner (though the interner may return an existing
-      // set that has one): they are only used during execution, where NestedSet equality doesn't
-      // matter.
-      result =
-          NestedSet.forDeserialization(order, depth, contents, /* owner= */ null, /* index= */ 0);
+      result = NestedSet.forDeserialization(order, depth, contents);
     }
     return interner.get(new EqualsWrapper(result), unused -> result);
   }

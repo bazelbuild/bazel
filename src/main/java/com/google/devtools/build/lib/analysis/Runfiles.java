@@ -162,11 +162,8 @@ public final class Runfiles implements RunfilesApi {
   /**
    * A nested set of all artifacts that this Runfiles entry contains symlinks to, including those at
    * their non-canonical locations which are in {@code symlinks} and {@code rootSymlinks}.
-   *
-   * <p>Computed on first access, possibly during the analysis of another target, so it is created
-   * without an owner and is not serialized (see {@link NestedSetBuilder#buildUnowned}).
    */
-  private transient NestedSet<Artifact> allArtifacts;
+  private NestedSet<Artifact> allArtifacts;
 
   /**
    * Interface used for adding empty files to the runfiles at the last minute. Mainly to support
@@ -278,10 +275,10 @@ public final class Runfiles implements RunfilesApi {
       PathFragment source = entry.getKey();
       Artifact symlink = entry.getValue();
       // drop nested entries; warn if this changes anything
-      int n = source.segmentCount();
       parents.clear();
-      for (int j = 1; j < n; ++j) {
-        PathFragment prefix = source.subFragment(0, n - j);
+      PathFragment prefix = source;
+      while (prefix.isMultiSegment()) {
+        prefix = prefix.getParentDirectory();
         if (noFurtherObstructions.contains(prefix)) {
           break;
         }
@@ -292,7 +289,7 @@ public final class Runfiles implements RunfilesApi {
           if (receiver == RunfilesConflictReceiver.NO_OP) {
             continue outer;
           }
-          PathFragment suffix = source.subFragment(n - j, n);
+          PathFragment suffix = source.relativeTo(prefix);
           PathFragment viaAncestor = ancestor.getExecPath().getRelative(suffix);
           PathFragment expected = symlink.getExecPath();
           if (!viaAncestor.equals(expected)) {
@@ -455,12 +452,12 @@ public final class Runfiles implements RunfilesApi {
     }
 
     if (allArtifacts == null) {
-      allArtifacts =
-          NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(artifacts)
-              .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
-              .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact))
-              .buildUnowned();
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      builder
+          .addTransitive(artifacts)
+          .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
+          .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact));
+      allArtifacts = builder.build();
     }
 
     return allArtifacts;

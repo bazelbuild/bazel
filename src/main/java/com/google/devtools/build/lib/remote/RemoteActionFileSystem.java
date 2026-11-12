@@ -164,12 +164,12 @@ public class RemoteActionFileSystem extends FileSystem {
         }
 
         @Override
-        public long getLastModifiedTime() {
+        public long getLastModifiedTimeNanos() {
           throw new UnsupportedOperationException();
         }
 
         @Override
-        public long getLastChangeTime() {
+        public long getLastChangeTimeNanos() {
           throw new UnsupportedOperationException();
         }
 
@@ -741,11 +741,6 @@ public class RemoteActionFileSystem extends FileSystem {
       }
 
       @Override
-      public long getLastModifiedTime() {
-        return Math.floorDiv(getLastModifiedTimeNanos(), 1_000_000);
-      }
-
-      @Override
       public long getLastModifiedTimeNanos() {
         try {
           return m.getModifiedTime();
@@ -753,11 +748,6 @@ public class RemoteActionFileSystem extends FileSystem {
           // Not every FileArtifactValue supports getModifiedTime.
           return 0;
         }
-      }
-
-      @Override
-      public long getLastChangeTime() {
-        return getLastModifiedTime();
       }
 
       @Override

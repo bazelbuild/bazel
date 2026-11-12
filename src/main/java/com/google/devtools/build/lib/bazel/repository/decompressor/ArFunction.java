@@ -79,8 +79,8 @@ public class ArFunction implements Decompressor {
           // are not, but many other tools are working around this and thus mask these issues.
           filePath.chmod(entry.getMode() | 0400);
           // entry.getLastModified() appears to be in seconds, so we need to convert
-          // it into milliseconds for setLastModifiedTime
-          filePath.setLastModifiedTime(entry.getLastModified() * 1000L);
+          // it into nanoseconds for setLastModifiedTimeNanos
+          filePath.setLastModifiedTimeNanos(entry.getLastModified() * 1_000_000_000L);
         }
         if (Thread.interrupted()) {
           throw new InterruptedException();

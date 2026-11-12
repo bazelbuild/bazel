@@ -615,19 +615,7 @@ blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
     }
     return BadServerJavabaseError(javabase_type, option_sources);
   }
-  if (  // If the full JDK is installed
-      blaze_util::CanReadFile(javabase.GetRelative("jre/lib/rt.jar")) ||
-      // If just the JRE is installed
-      blaze_util::CanReadFile(javabase.GetRelative("lib/rt.jar")) ||
-      // rt.jar does not exist in java 9+ so check for java instead
-      blaze_util::CanReadFile(javabase.GetRelative("bin/java")) ||
-      blaze_util::CanReadFile(javabase.GetRelative("bin/java.exe"))) {
-    return blaze_exit_code::SUCCESS;
-  }
-  BAZEL_LOG(ERROR) << "Problem with java installation: couldn't find/access "
-                      "rt.jar or java in "
-                   << javabase.AsPrintablePath();
-  return BadServerJavabaseError(javabase_type, option_sources);
+  return blaze_exit_code::SUCCESS;
 }
 
 blaze_util::Path StartupOptions::GetExe(const blaze_util::Path& jvm,

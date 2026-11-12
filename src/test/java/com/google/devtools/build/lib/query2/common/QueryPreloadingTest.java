@@ -133,7 +133,7 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
         foo_library(name = 'x', deps = ['z'])
         foo_library(name = 'z')
         """);
-    buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
+    buildFile.setLastModifiedTimeNanos(buildFile.getLastModifiedTimeNanos() + 1);
     syncPackages();
     assertLabelsVisited(
         ImmutableSet.of("//pkg:x", "//pkg:z"),
@@ -170,7 +170,7 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
         foo_library(name = 'x', deps = ['z', 'z'])
         foo_library(name = 'z')
         """);
-    buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
+    buildFile.setLastModifiedTimeNanos(buildFile.getLastModifiedTimeNanos() + 1);
     syncPackages();
     // We expect an error on "//pkg:x". However, we can still finish the evaluation and also return
     // "//pkg:z" even without keep_going.
@@ -221,7 +221,7 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
         foo_library(name = 'x', deps = ['z'])
         foo_library(name = 'z', deps = [ '//pkg2:q'])
         """);
-    buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
+    buildFile.setLastModifiedTimeNanos(buildFile.getLastModifiedTimeNanos() + 1);
     syncPackages();
 
     assertLabelsVisited(
@@ -260,7 +260,7 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
         foo_library(name = 'x', deps = ['z', '//pkg2:q'])
         foo_library(name = 'z')
         """);
-    buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
+    buildFile.setLastModifiedTimeNanos(buildFile.getLastModifiedTimeNanos() + 1);
     syncPackages();
 
     assertLabelsVisited(

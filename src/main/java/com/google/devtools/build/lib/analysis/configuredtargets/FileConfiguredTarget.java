@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -39,24 +37,12 @@ import net.starlark.java.eval.Dict;
 public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarget
     implements FileType.HasFileType permits InputFileConfiguredTarget, OutputFileConfiguredTarget {
 
-  /**
-   * The singleton set of the file. It is serialized rather than recreated on deserialization, so
-   * that the deserialized set keeps the owner and index of the original (see {@link
-   * NestedSet#equals}).
-   */
   private final NestedSet<Artifact> singleFile;
 
   FileConfiguredTarget(
-      ActionLookupKey lookupKey,
-      NestedSet<PackageGroupContents> visibility,
-      NestedSet<Artifact> singleFile) {
+      ActionLookupKey lookupKey, NestedSet<PackageGroupContents> visibility, Artifact artifact) {
     super(lookupKey, visibility);
-    checkArgument(singleFile.isSingleton(), singleFile);
-    this.singleFile = singleFile;
-  }
-
-  static NestedSet<Artifact> singleFile(Artifact artifact) {
-    return NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
+    this.singleFile = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
   }
 
   public Artifact getArtifact() {

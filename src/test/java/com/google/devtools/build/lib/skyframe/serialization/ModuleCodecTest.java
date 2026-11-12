@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -132,6 +131,10 @@ public class ModuleCodecTest extends BuildViewTestCase {
 
   private static void verifyDeserialization(Module subject, Module deserialized) {
     // Module doesn't implement proper equality.
-    TestUtils.assertModulesEqual(subject, deserialized);
+    assertThat(subject.getClientData()).isEqualTo(deserialized.getClientData());
+    assertThat(subject.getGlobals()).containsExactlyEntriesIn(deserialized.getGlobals()).inOrder();
+    assertThat(subject.getPredeclaredBindings())
+        .containsExactlyEntriesIn(deserialized.getPredeclaredBindings())
+        .inOrder();
   }
 }

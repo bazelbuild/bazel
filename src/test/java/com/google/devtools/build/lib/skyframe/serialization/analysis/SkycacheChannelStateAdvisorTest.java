@@ -29,19 +29,23 @@ import org.junit.runners.JUnit4;
 public final class SkycacheChannelStateAdvisorTest {
 
   @Test
-  public void disabledAdvisor_isNeverSaturated() {
+  public void disabledAdvisor_isImmutableNoOp() {
     SkycacheChannelStateAdvisor advisor = SkycacheChannelStateAdvisor.DISABLED;
     assertThat(advisor.isSaturated()).isFalse();
+    assertThat(advisor.getInFlightRequests()).isEqualTo(0);
+    assertThat(advisor.isSchedulingHashesExhausted()).isFalse();
 
     for (int i = 0; i < 100_000; i++) {
       advisor.incrementInFlightRequests();
     }
-    assertThat(advisor.getInFlightRequests()).isEqualTo(100_000);
+    assertThat(advisor.getInFlightRequests()).isEqualTo(0);
     assertThat(advisor.isSaturated()).isFalse();
 
-    // Restore counter to zero
     advisor.decrementInFlightRequests(100_000);
     assertThat(advisor.getInFlightRequests()).isEqualTo(0);
+
+    advisor.markSchedulingHashesExhausted();
+    assertThat(advisor.isSchedulingHashesExhausted()).isFalse();
   }
 
   @Test
@@ -139,5 +143,14 @@ public final class SkycacheChannelStateAdvisorTest {
     } finally {
       executor.shutdown();
     }
+  }
+
+  @Test
+  public void markSchedulingHashesExhausted_transitionsActiveAdvisorToExhausted() {
+    SkycacheChannelStateAdvisor advisor = new SkycacheChannelStateAdvisor(100);
+    assertThat(advisor.isSchedulingHashesExhausted()).isFalse();
+
+    advisor.markSchedulingHashesExhausted();
+    assertThat(advisor.isSchedulingHashesExhausted()).isTrue();
   }
 }

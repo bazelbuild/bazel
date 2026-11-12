@@ -76,6 +76,13 @@ java_library(
 java_library(
     name = "grpc_command_server_impl",
     srcs = ["GrpcCommandServerImpl.java"],
+    runtime_deps = select({
+        # Makes gRPC use the epoll transport on Linux.
+        "@platforms//os:linux": [
+            "//third_party/java/netty4:transport_native_epoll",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         ":grpc_command_server",
         "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
@@ -91,8 +98,6 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
-        "//third_party/java/netty4:transport_native_epoll",
-        "//third_party/java/netty4:transport_native_unix_common",
         "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
     ],

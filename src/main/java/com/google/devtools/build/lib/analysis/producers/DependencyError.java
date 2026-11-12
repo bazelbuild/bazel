@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.MaterializerException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -49,8 +48,6 @@ public abstract class DependencyError {
     INVALID_PLATFORM,
     /** An error occurred while creating a transition. */
     TRANSITION_CREATION,
-    /** An error occurred during evaluation of build options scopes. */
-    BUILD_OPTIONS_SCOPE,
   }
 
   public abstract Kind kind();
@@ -73,8 +70,6 @@ public abstract class DependencyError {
 
   public abstract TransitionCreationException transitionCreation();
 
-  public abstract BuildOptionsScopeFunctionException buildOptionsScope();
-
   public static boolean isSecondErrorMoreImportant(DependencyError first, DependencyError second) {
     // There isn't a good way to prioritize when the type matches, so we just keep the first.
     return first.kind().compareTo(second.kind()) > 0;
@@ -91,7 +86,6 @@ public abstract class DependencyError {
       case PLATFORM_MAPPING -> platformMapping();
       case INVALID_PLATFORM -> invalidPlatform();
       case TRANSITION_CREATION -> transitionCreation();
-      case BUILD_OPTIONS_SCOPE -> buildOptionsScope();
     };
   }
 
@@ -129,9 +123,5 @@ public abstract class DependencyError {
 
   static DependencyError of(TransitionCreationException e) {
     return AutoOneOf_DependencyError.transitionCreation(e);
-  }
-
-  static DependencyError of(BuildOptionsScopeFunctionException e) {
-    return AutoOneOf_DependencyError.buildOptionsScope(e);
   }
 }

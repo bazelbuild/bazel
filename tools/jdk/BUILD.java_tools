@@ -467,6 +467,7 @@ cc_library(
     deps = [
         ":combiners",
         ":desugar_deps_cc_proto",
+        "@nlohmann_json//:json",
     ],
 )
 

@@ -20,8 +20,6 @@ import static java.util.Objects.requireNonNull;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
@@ -91,7 +89,6 @@ public final class FragmentFactory {
    *
    * @param buildOptions These BuildOptions should be already-trimmed to maximize cache efficacy
    */
-  @AutoCodec
   record FragmentKey(BuildOptions buildOptions, Class<? extends Fragment> fragmentClass) {
     FragmentKey {
       requireNonNull(buildOptions, "buildOptions");
@@ -109,7 +106,7 @@ public final class FragmentFactory {
     BuildOptions buildOptions = fragmentKey.buildOptions();
     Class<? extends Fragment> fragmentClass = fragmentKey.fragmentClass();
     String noConstructorPattern = "%s lacks constructor(BuildOptions)";
-    try (var _ = NestedSetOwnerScope.enter(fragmentKey)) {
+    try {
       Fragment fragment =
           fragmentClass.getConstructor(BuildOptions.class).newInstance(buildOptions);
       return fragment.shouldInclude() ? fragment : NULL_MARKER;

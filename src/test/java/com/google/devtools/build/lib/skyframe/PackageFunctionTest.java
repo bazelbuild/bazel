@@ -529,12 +529,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
           }
 
           @Override
-          public long getLastModifiedTime() {
+          public long getLastModifiedTimeNanos() {
             return 0;
           }
 
           @Override
-          public long getLastChangeTime() {
+          public long getLastChangeTimeNanos() {
             return 0;
           }
 

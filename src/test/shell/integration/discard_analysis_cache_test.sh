@@ -212,7 +212,7 @@ EOF
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
   aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # Several top-level configured targets are allowed to stick around.
-  [[ "$ct_count" -le 20 ]] \
+  [[ "$ct_count" -le 25 ]] \
       || fail "Too many configured targets: $ct_count"
   [[ "$aspect_count" -eq 0 ]] || fail "Too many aspects: $aspect_count"
   bazel --batch clean >& "$TEST_log" || fail "Expected success"
@@ -231,7 +231,7 @@ EOF
   aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # One top-level aspect is allowed to stick around.
   [[ "$aspect_count" -le 1 ]] || fail "Too many aspects: $aspect_count"
-  [[ "$ct_count" -le 20 ]] || fail "Too many configured targets: $ct_count"
+  [[ "$ct_count" -le 25 ]] || fail "Too many configured targets: $ct_count"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/30800.

@@ -481,6 +481,7 @@ message SourceFile {
   repeated string feature = 6;
 
   // License attribute for the file.
+  // Deprecated: Bazel and Blaze never populate this field.
   optional License license = 8;
 
   // True if the package contains an error. Only present if the SourceFile

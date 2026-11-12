@@ -40,6 +40,7 @@ class Options {
         verbose(false),
         warn_duplicate_resources(false),
         check_desugar_deps(false),
+        desugar_deps_format("proto"),
         multi_release(false),
         no_strip_module_info(false),
         exclude_pattern("") {}
@@ -80,6 +81,7 @@ class Options {
   bool verbose;
   bool warn_duplicate_resources;
   bool check_desugar_deps;
+  std::string desugar_deps_format;
   bool multi_release;
   bool no_strip_module_info;
   std::string hermetic_java_home;

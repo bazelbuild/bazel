@@ -684,7 +684,10 @@ public final class PackageFactory {
         new StarlarkFile.ParseProfiler() {
           @Override
           public long start() {
-            return Profiler.instance().nanoTimeMaybe();
+            Profiler profiler = Profiler.instance();
+            return profiler.isProfiling(ProfilerTask.STARLARK_PARSER)
+                ? profiler.nanoTimeMaybe()
+                : -1L;
           }
 
           @Override
@@ -699,7 +702,12 @@ public final class PackageFactory {
         new StarlarkThread.CallProfiler() {
           @Override
           public long start() {
-            return Profiler.instance().nanoTimeMaybe();
+            Profiler profiler = Profiler.instance();
+            return profiler.isProfiling(ProfilerTask.STARLARK_USER_FN)
+                    || profiler.isProfiling(ProfilerTask.STARLARK_BUILTIN_FN)
+                    || profiler.isProfiling(ProfilerTask.STARLARK_THREAD_CONTEXT)
+                ? profiler.nanoTimeMaybe()
+                : -1L;
           }
 
           @Override

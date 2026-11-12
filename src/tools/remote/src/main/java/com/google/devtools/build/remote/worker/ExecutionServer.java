@@ -23,9 +23,11 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Command.EnvironmentVariable;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
+import build.bazel.remote.execution.v2.ExecutionStage;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -54,9 +56,12 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
+import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.remote.worker.LiveOutputStreams.ActionOutputs;
 import com.google.devtools.build.runfiles.Runfiles;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
@@ -113,6 +118,7 @@ final class ExecutionServer extends ExecutionImplBase {
   private final DigestUtil digestUtil;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
+  @Nullable private final LiveOutputStreams liveOutputStreams;
 
   public ExecutionServer(
       Path workPath,
@@ -120,13 +126,15 @@ final class ExecutionServer extends ExecutionImplBase {
       RemoteWorkerOptions workerOptions,
       OnDiskBlobStoreCache cache,
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      @Nullable LiveOutputStreams liveOutputStreams) {
     this.workPath = workPath;
     this.sandboxPath = sandboxPath;
     this.workerOptions = workerOptions;
     this.cache = cache;
     this.operationsCache = operationsCache;
     this.digestUtil = digestUtil;
+    this.liveOutputStreams = liveOutputStreams;
     ThreadPoolExecutor realExecutor =
         new ThreadPoolExecutor(
             // This is actually the max number of concurrent jobs.
@@ -235,20 +243,38 @@ final class ExecutionServer extends ExecutionImplBase {
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
     final String opName = UUID.randomUUID().toString();
+    Operation.Builder firstOperation = Operation.newBuilder().setName(opName);
+    final ActionOutputs liveOutputs;
+    if (liveOutputStreams != null) {
+      liveOutputs = liveOutputStreams.create(opName);
+      firstOperation.setMetadata(
+          Any.pack(
+              ExecuteOperationMetadata.newBuilder()
+                  .setStage(ExecutionStage.Value.EXECUTING)
+                  .setActionDigest(request.getActionDigest())
+                  .setStdoutStreamName(liveOutputs.stdout().resourceName())
+                  .setStderrStreamName(liveOutputs.stderr().resourceName())
+                  .build()));
+    } else {
+      liveOutputs = null;
+    }
     ListenableFuture<ActionResult> future =
-        executorService.submit(() -> execute(context, request, opName));
+        executorService.submit(() -> execute(context, request, opName, liveOutputs));
     operationsCache.put(opName, future);
     ((ServerCallStreamObserver<Operation>) responseObserver)
         .setOnCancelHandler(() -> operationsCache.remove(opName));
     // Send the first operation.
-    responseObserver.onNext(Operation.newBuilder().setName(opName).build());
+    responseObserver.onNext(firstOperation.build());
     // When the operation completes, send the result.
     waitExecution(opName, future, responseObserver);
   }
 
   @SuppressWarnings("LogAndThrow")
   private ActionResult execute(
-      RemoteActionExecutionContext context, ExecuteRequest request, String id)
+      RemoteActionExecutionContext context,
+      ExecuteRequest request,
+      String id,
+      @Nullable ActionOutputs liveOutputs)
       throws IOException, InterruptedException, StatusException {
     Path tempRoot = workPath.getRelative("build-" + id);
     String workDetails = "";
@@ -265,13 +291,17 @@ final class ExecutionServer extends ExecutionImplBase {
               context,
               request.getActionDigest(),
               ImmutableSet.copyOf(request.getInlineOutputFilesList()),
-              tempRoot);
+              tempRoot,
+              liveOutputs);
       logger.atFine().log("Completed %s", workDetails);
       return result;
     } catch (Exception e) {
       logger.atSevere().withCause(e).log("Work failed: %s", workDetails);
       throw e;
     } finally {
+      if (liveOutputs != null) {
+        liveOutputs.close();
+      }
       if (workerOptions.getDebug()) {
         logger.atInfo().log("Preserving work directory %s", tempRoot);
       } else {
@@ -288,7 +318,8 @@ final class ExecutionServer extends ExecutionImplBase {
       RemoteActionExecutionContext context,
       Digest actionDigest,
       Set<String> inlineOutputFiles,
-      Path execRoot)
+      Path execRoot,
+      @Nullable ActionOutputs liveOutputs)
       throws IOException, InterruptedException, StatusException {
     Command command;
     Action action;
@@ -361,10 +392,18 @@ final class ExecutionServer extends ExecutionImplBase {
     Path stdout = execRoot.getChild("stdout-" + uuid);
     Path stderr = execRoot.getChild("stderr-" + uuid);
     try (FileOutErr outErr = new FileOutErr(stdout, stderr)) {
+      OutErr commandOutErr = outErr;
+      if (liveOutputs != null) {
+        DelegatingOutErr delegatingOutErr = new DelegatingOutErr();
+        delegatingOutErr.addSink(outErr);
+        delegatingOutErr.addSink(OutErr.create(liveOutputs.stdout(), liveOutputs.stderr()));
+        commandOutErr = delegatingOutErr;
+      }
 
       FutureCommandResult futureCmdResult = null;
       try {
-        futureCmdResult = cmd.executeAsync(outErr.getOutputStream(), outErr.getErrorStream());
+        futureCmdResult =
+            cmd.executeAsync(commandOutErr.getOutputStream(), commandOutErr.getErrorStream());
       } catch (CommandException e) {
         Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
       }

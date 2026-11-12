@@ -107,7 +107,7 @@ public final class LocalRepoContentsCache {
     /** Updates the mtime of the recorded inputs file, to delay GC for this entry. */
     public void touch() {
       try {
-        recordedInputsFile.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+        recordedInputsFile.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
       } catch (IOException e) {
         // swallow the exception. it's not a huge deal.
       }
@@ -238,11 +238,11 @@ public final class LocalRepoContentsCache {
   }
 
   private void runGc(Duration maxAge) throws InterruptedException, IOException {
-    path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    path.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     Instant cutoff =
         maxAge.isZero()
             ? Instant.MIN
-            : Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
+            : Instant.ofEpochSecond(0, path.getLastModifiedTimeNanos()).minus(maxAge);
     Path trashDir = ensureTrashDir();
     HashFunction sha256 = DigestHashFunction.SHA256.getHashFunction();
 
@@ -273,7 +273,8 @@ public final class LocalRepoContentsCache {
           // created
           // when multiple Bazel servers fetch the same repo at the same time. The servers that have
           // their referenced entry deleted will roll over to the next entry on the next build.
-          if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)
+          if (Instant.ofEpochSecond(0, recordedInputsFile.getLastModifiedTimeNanos())
+                  .isBefore(cutoff)
               || !seen.add(sha256.hashBytes(FileSystemUtils.readContent(recordedInputsFile)))) {
             recordedInputsFile.delete();
             var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
@@ -287,7 +288,7 @@ public final class LocalRepoContentsCache {
 
   private static long getLastModifiedTimeOrZero(Path path) {
     try {
-      return path.getLastModifiedTime();
+      return path.getLastModifiedTimeNanos();
     } catch (IOException e) {
       // If we can't read the mtime from the entry, it's broken and treated as outdated.
       return 0L;

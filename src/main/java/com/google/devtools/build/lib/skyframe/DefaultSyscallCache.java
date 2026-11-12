@@ -272,7 +272,7 @@ public final class DefaultSyscallCache implements SyscallCache {
   // This is used because the cache implementations don't allow null.
   private static final class FakeFileStatus implements FileStatus {
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException();
     }
 
@@ -282,7 +282,7 @@ public final class DefaultSyscallCache implements SyscallCache {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException();
     }
 

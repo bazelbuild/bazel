@@ -136,7 +136,7 @@ public final class InstallBaseGarbageCollectorTest {
   }
 
   private void setAge(Path path, Duration age) throws IOException {
-    path.setLastModifiedTime(Instant.now().minus(age).toEpochMilli());
+    path.setLastModifiedTimeNanos(Instant.now().minus(age).toEpochMilli() * 1_000_000);
   }
 
   private void run(Duration maxAge) throws Exception {

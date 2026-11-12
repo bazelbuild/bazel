@@ -78,7 +78,7 @@ public final class RemoteExternalOverlayFileSystemTest {
       for (var name : ImmutableList.of("defs.bzl", "data")) {
         var file = nativeFs.getPath(repoDir.getChild(name));
         FileSystemUtils.writeContent(file, UTF_8, "contents");
-        file.setLastModifiedTime(123000L);
+        file.setLastModifiedTimeNanos(123000L);
         root.addFiles(FileNode.newBuilder().setName(name).setDigest(digest));
       }
       overlay.injectUploadedRepo(repo, Tree.newBuilder().setRoot(root).build(), "marker");
@@ -89,7 +89,7 @@ public final class RemoteExternalOverlayFileSystemTest {
         assertThat(overlay.getPath(path).getFastDigest())
             .isEqualTo(DigestUtil.toBinaryDigest(digest));
         assertThat(FileSystemUtils.readContent(overlay.getPath(path), UTF_8)).isEqualTo("contents");
-        assertThat(nativeFs.getPath(path).getLastModifiedTime()).isEqualTo(123000L);
+        assertThat(nativeFs.getPath(path).getLastModifiedTimeNanos()).isEqualTo(123000L);
       }
 
       var invalid =

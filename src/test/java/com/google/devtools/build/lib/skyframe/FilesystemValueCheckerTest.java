@@ -656,14 +656,14 @@ public final class FilesystemValueCheckerTest {
     // Wait for the timestamp granularity to elapse, so updating the files will observably advance
     // their ctime.
     TimestampGranularityUtils.waitForTimestampGranularity(
-        System.currentTimeMillis(), OutErr.SYSTEM_OUT_ERR);
+        System.currentTimeMillis() * 1_000_000, OutErr.SYSTEM_OUT_ERR);
     // Update path1's contents. This will update the file's ctime with current time indicated by the
     // clock.
     fs.advanceClockMillis(1);
     FileSystemUtils.writeContentAsLatin1(path1, "hello1");
     // Update path2's mtime but not its contents. We expect that an mtime change suffices to update
     // the ctime.
-    path2.setLastModifiedTime(42);
+    path2.setLastModifiedTimeNanos(42);
     // Assert that both files changed. The change detection relies, among other things, on ctime
     // change.
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), key1, key2);
@@ -763,7 +763,6 @@ public final class FilesystemValueCheckerTest {
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
 
-    tsgm.setCommandStartTime();
     differencer.inject(
         ImmutableMap.of(
             actionKey1,
@@ -2027,13 +2026,13 @@ public final class FilesystemValueCheckerTest {
       }
 
       @Override
-      public long getLastModifiedTime() throws IOException {
-        return stat.getLastModifiedTime();
+      public long getLastModifiedTimeNanos() throws IOException {
+        return stat.getLastModifiedTimeNanos();
       }
 
       @Override
-      public long getLastChangeTime() throws IOException {
-        return stat.getLastChangeTime();
+      public long getLastChangeTimeNanos() throws IOException {
+        return stat.getLastChangeTimeNanos();
       }
 
       @Override

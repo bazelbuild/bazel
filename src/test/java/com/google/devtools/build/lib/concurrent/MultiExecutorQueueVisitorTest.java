@@ -154,4 +154,76 @@ public class MultiExecutorQueueVisitorTest {
 
     verify(executionPhase, times(2)).execute(any(Runnable.class));
   }
+
+  @Test
+  public void testOrdersTasksByPriority() {
+    ExecutorService regularPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "regular-priority");
+    ExecutorService cpuHeavyPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "cpu-priority");
+    ExecutorService executionDefault =
+        AbstractQueueVisitor.createExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "execution-default");
+
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regularPriority,
+            cpuHeavyPriority,
+            executionDefault,
+            ExceptionHandlingMode.KEEP_GOING,
+            ErrorClassifier.DEFAULT);
+    try {
+      assertThat(queueVisitor.ordersTasksByPriority()).isTrue();
+    } finally {
+      queueVisitor.shutdownExecutorService(/* catastrophe= */ null);
+    }
+  }
+
+  @Test
+  public void testOrdersTasksByPriority_invalidPoolCombinations_throws() {
+    ExecutorService regularPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "regular-priority");
+    ExecutorService cpuHeavyPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "cpu-priority");
+    ExecutorService executionPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "execution-priority");
+    ExecutorService nonPriority = mock(ExecutorService.class);
+
+    try {
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  regularPriority,
+                  nonPriority,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  nonPriority,
+                  cpuHeavyPriority,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  regularPriority,
+                  cpuHeavyPriority,
+                  executionPriority,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+    } finally {
+      regularPriority.shutdown();
+      cpuHeavyPriority.shutdown();
+      executionPriority.shutdown();
+    }
+  }
 }

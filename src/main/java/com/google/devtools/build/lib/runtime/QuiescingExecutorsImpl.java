@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.concurrent.WorkStealingThreadPoolExecutor;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.skyframe.ParallelEvaluatorErrorClassifier;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Encapsulates thread pool options used by parallel evaluation.
@@ -48,6 +49,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   private int globbingParallelism;
   private boolean useAsyncExecution;
   private int asyncExecutionMaxConcurrentActions;
+  private boolean loadingAndAnalysisDfsScheduling;
 
   /**
    * The size of the thread pool for CPU-heavy tasks set by
@@ -107,6 +109,9 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
                 ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
                 : 0,
             this.executionParallelism);
+    this.loadingAndAnalysisDfsScheduling =
+        buildRequestOptions != null
+            && buildRequestOptions.getSkyframeLoadingAndAnalysisDfsScheduling();
     var packageOptions = options.getOptions(PackageOptions.class);
     this.globbingParallelism = packageOptions != null ? packageOptions.getGlobbingThreads() : 0;
     var analysisOptions = options.getOptions(AnalysisOptions.class);
@@ -129,14 +134,35 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     return globbingParallelism;
   }
 
+  private ExecutorService newRegularPool() {
+    return loadingAndAnalysisDfsScheduling
+        ? AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ analysisParallelism, SKYFRAME_EVALUATOR)
+        : newNamedPool(SKYFRAME_EVALUATOR, analysisParallelism);
+  }
+
+  private ExecutorService newCpuHeavyPool() {
+    return loadingAndAnalysisDfsScheduling
+        ? AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY)
+        : AbstractQueueVisitor.createExecutorService(
+            /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY);
+  }
+
   @Override
   public QuiescingExecutor getAnalysisExecutor() {
     checkState(analysisParallelism > 0, "expected analysisParallelism > 0 : %s", this);
     if (cpuHeavySkyKeysThreadPoolSize > 0) {
       return MultiExecutorQueueVisitor.createWithExecutorServices(
-          newNamedPool(SKYFRAME_EVALUATOR, analysisParallelism),
-          AbstractQueueVisitor.createExecutorService(
-              /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
+          newRegularPool(),
+          newCpuHeavyPool(),
+          ExceptionHandlingMode.FAIL_FAST,
+          ParallelEvaluatorErrorClassifier.instance());
+    }
+    if (loadingAndAnalysisDfsScheduling) {
+      return AbstractQueueVisitor.createWithExecutorService(
+          AbstractQueueVisitor.createPriorityExecutorService(
+              /* parallelism= */ analysisParallelism(), SKYFRAME_EVALUATOR),
           ExceptionHandlingMode.FAIL_FAST,
           ParallelEvaluatorErrorClassifier.instance());
     }
@@ -151,9 +177,8 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     checkState(
         cpuHeavySkyKeysThreadPoolSize > 0, "expected cpuHeavySkyKeysThreadPoolSize > 0 : %s", this);
     return MultiExecutorQueueVisitor.createWithExecutorServices(
-        newNamedPool(SKYFRAME_EVALUATOR, analysisParallelism),
-        AbstractQueueVisitor.createExecutorService(
-            /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
+        newRegularPool(),
+        newCpuHeavyPool(),
         useAsyncExecution
             ? new WorkStealingThreadPoolExecutor(
                 asyncExecutionMaxConcurrentActions,

@@ -155,7 +155,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    * @param blob A supplier for the blob to upload. May be called multiple times, but is closed by
    *     the implementation after the upload is complete.
    */
-  public final ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
     return RxFutures.toListenableFuture(
         casUploadCache.execute(

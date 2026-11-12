@@ -240,7 +240,7 @@ public final class DiskCacheGarbageCollectorTest {
     try (OutputStream out = path.getOutputStream()) {
       out.write(new byte[(int) size]);
     }
-    path.setLastModifiedTime(mtime.toEpochMilli());
+    path.setLastModifiedTimeNanos(mtime.toEpochMilli() * 1_000_000);
   }
 
   private static Instant daysAgo(int days) {

@@ -38,7 +38,6 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.spi.CharsetProvider;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -46,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
@@ -177,8 +177,7 @@ public abstract class CompressedTarFunction implements Decompressor {
 
             // This can only be done on real files, not links, or it will skip the reader to
             // the next "real" file to try to find the mod time info.
-            Date lastModified = entry.getLastModifiedDate();
-            filePath.setLastModifiedTime(lastModified.getTime());
+            filePath.setLastModifiedTimeNanos(entry.getLastModifiedTime().to(TimeUnit.NANOSECONDS));
           }
         }
         if (Thread.interrupted()) {

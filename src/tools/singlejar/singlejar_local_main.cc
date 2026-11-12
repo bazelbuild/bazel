@@ -38,7 +38,10 @@ int main(int argc, char* argv[]) {
                 [&output_jar](const std::string& filename) {
                   return !output_jar.NewEntry(filename);
                 },
-                options.verbose)
+                options.verbose,
+                options.desugar_deps_format == "json"
+                    ? DesugarDepsFormat::kJson
+                    : DesugarDepsFormat::kProto)
           : static_cast<Combiner*>(new NullCombiner());
   output_jar.ExtraCombiner("META-INF/desugar_deps", desugar_checker);
   output_jar.ExtraCombiner("reference.conf",
