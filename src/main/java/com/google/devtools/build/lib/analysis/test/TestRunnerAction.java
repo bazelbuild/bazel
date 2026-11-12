@@ -114,7 +114,7 @@ public class TestRunnerAction extends AbstractAction
 
   private final Artifact runfilesTree;
   private final Artifact testSetupScript;
-  private final Artifact testXmlGeneratorScript;
+  private final FilesToRunProvider testXmlGenerator;
   private final FilesToRunProvider collectCoverageScript;
   private final BuildConfigurationValue configuration;
   private final TestConfiguration testConfiguration;
@@ -201,7 +201,7 @@ public class TestRunnerAction extends AbstractAction
       NestedSet<Artifact> inputs,
       Artifact runfilesTree,
       Artifact testSetupScript, // Must be in inputs
-      Artifact testXmlGeneratorScript, // Must be in inputs
+      FilesToRunProvider testXmlGenerator, // filesToRun must be in inputs
       @Nullable
           FilesToRunProvider collectCoverageScript, // filesToRun must be in input, if not null
       Artifact testLog,
@@ -237,7 +237,7 @@ public class TestRunnerAction extends AbstractAction
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.runfilesTree = runfilesTree;
     this.testSetupScript = testSetupScript;
-    this.testXmlGeneratorScript = testXmlGeneratorScript;
+    this.testXmlGenerator = checkNotNull(testXmlGenerator);
     this.collectCoverageScript = collectCoverageScript;
     this.configuration = checkNotNull(configuration);
     this.testConfiguration = checkNotNull(configuration.getFragment(TestConfiguration.class));
@@ -1119,8 +1119,9 @@ public class TestRunnerAction extends AbstractAction
     return testSetupScript;
   }
 
-  public Artifact getTestXmlGeneratorScript() {
-    return testXmlGeneratorScript;
+  /** Returns the tool that generates test.xml from the test log and the files needed to run it. */
+  public FilesToRunProvider getTestXmlGenerator() {
+    return testXmlGenerator;
   }
 
   @Nullable

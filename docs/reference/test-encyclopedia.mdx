@@ -704,8 +704,20 @@ like for any other action. Each test rule has an implicitly defined [`test` exec
 unless overridden, has an optional toolchain requirement on
 `@bazel_tools//tools/test:default_test_toolchain_type`.
 
-Toolchains of this type do not carry any data in the form of providers, but can
-be used to influence the execution platform of the test action.
+Toolchains of this type mainly influence the execution platform of the test
+action. Their `ToolchainInfo` may optionally set the following fields, each to
+a `File` or the `FilesToRunProvider` of an executable target, to replace the
+tools that Bazel uses to run the test on the selected execution platform:
+
+* `bazel_test_wrapper`: the test wrapper that sets up the test environment and
+  runs the test (by default, `@bazel_tools//tools/test:test_wrapper` on Windows
+  and `@bazel_tools//tools/test:test_setup` elsewhere).
+* `bazel_xml_writer`: the tool that generates `test.xml` from the test log if
+  the test doesn't write it (by default, `@bazel_tools//tools/test:xml_writer`
+  on Windows and `@bazel_tools//tools/test:test_xml_generator` elsewhere).
+
+Fields that are unset or `None` fall back to the defaults. All other fields
+are ignored.
 
 Bazel registers two such toolchains, which take effect if users don't explicitly
 define their own::
