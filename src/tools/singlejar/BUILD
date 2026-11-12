@@ -88,6 +88,11 @@ cc_binary(
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
         "//src/conditions:openbsd": ["-lm"],
+        # MinGW requires -municode when using wmain, and -ldbghelp for abseil-cpp.
+        "//src/conditions:windows_gcc_like": [
+            "-municode",
+            "-ldbghelp",
+        ],
         "//conditions:default": [],
     }),
     linkstatic = 1,
@@ -109,6 +114,11 @@ cc_binary(
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
         "//src/conditions:openbsd": ["-lm"],
+        # MinGW requires -municode when using wmain, and -ldbghelp for abseil-cpp.
+        "//src/conditions:windows_gcc_like": [
+            "-municode",
+            "-ldbghelp",
+        ],
         "//conditions:default": [],
     }),
     linkstatic = 1,
