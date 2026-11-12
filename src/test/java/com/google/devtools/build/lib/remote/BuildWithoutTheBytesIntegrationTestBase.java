@@ -655,6 +655,75 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void localAction_inputSymlink_parentDirectoryMissing() throws Exception {
+    write(
+        "sym/defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.symlink(output = out, target_file = ctx.file.src)
+            return DefaultInfo(files = depset([out]))
+
+        my_symlink = rule(
+            implementation = _impl,
+            attrs = {"src": attr.label(allow_single_file = True)},
+        )
+        """);
+
+    write(
+        "sym/BUILD",
+        """
+        load(":defs.bzl", "my_symlink")
+
+        my_symlink(
+            name = "link.txt",
+            src = "//a:gen",
+            visibility = ["//visibility:public"],
+        )
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "gen",
+            outs = ["gen.txt"],
+            cmd = "echo -n hello > $@",
+            visibility = ["//visibility:public"],
+        )
+
+        genrule(
+            name = "consumer",
+            srcs = ["//sym:link.txt"],
+            outs = ["consumer.txt"],
+            cmd = "cat $< > $@",
+            # Run locally even with a disk cache, which "no-remote" alone doesn't prevent.
+            tags = [
+                "no-cache",
+                "no-remote",
+            ],
+        )
+        """);
+
+    setDownloadMinimal();
+    buildTarget("//a:consumer");
+
+    // The action cache outlives the output directories, so the symlink action is a cache hit that
+    // doesn't recreate its own, which no other action in this build creates.
+    getOutputPath("sym").deleteTree();
+    getOutputPath("a").deleteTree();
+    restartServer();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+
+    buildTarget("//a:consumer");
+
+    assertThat(actionEventCollector.getCachedOutputNames()).contains("link.txt");
+    assertThat(actionEventCollector.getExecutedOutputNames()).contains("consumer.txt");
+    assertOutputEquals(getOutputPath("a/consumer.txt"), "hello");
+  }
+
+  @Test
   public void localAction_inputSymlinkToGeneratedFile() throws Exception {
     injectFile("hello".getBytes(UTF_8));
     write(
@@ -696,6 +765,67 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         """);
 
     buildTarget("//a:my");
+  }
+
+  @Test
+  public void symlinkAction_parentDirectoryOfRemoteTargetMissing(
+      @TestParameter boolean isExecutable) throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            file = ctx.actions.declare_file(ctx.label.name + "_dir/file")
+
+            # Use ctx.actions.run_shell instead of ctx.actions.write, so that it runs remotely.
+            ctx.actions.run_shell(
+                outputs = [file],
+                command = "echo -n hello > $1",
+                arguments = [file.path],
+            )
+
+            sym = ctx.actions.declare_file(ctx.label.name + ".sym")
+            ctx.actions.symlink(output = sym, target_file = file, is_executable = %s)
+
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run_shell(
+                inputs = [sym],
+                outputs = [out],
+                command = "[[ hello == $(cat $1) ]] && touch $2",
+                arguments = [sym.path, out.path],
+                execution_requirements = {"no-remote": ""},
+            )
+
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(_impl)
+        """
+            .formatted(isExecutable ? "True" : "False"));
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "my")
+        """);
+
+    setDownloadMinimal();
+    buildTarget("//a:my");
+
+    // The action cache outlives the output directory, so the file's generating action is a cache
+    // hit that doesn't recreate the directory.
+    getOutputPath("a/my_dir").deleteTree();
+    restartServer();
+    // Only the symlink's metadata stops being trusted, which forces just that action to rerun.
+    addOptions("--remote_download_regex=.*/my\\.sym$");
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+
+    buildTarget("//a:my");
+
+    assertThat(actionEventCollector.getCachedOutputNames()).contains("file");
+    assertThat(actionEventCollector.getExecutedOutputNames()).contains("my.sym");
+    assertOutputEquals(getOutputPath("a/my.sym"), "hello");
   }
 
   @Test
@@ -2938,6 +3068,18 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     public List<CachedActionEvent> getCachedActionEvents() {
       return cachedActionEvents;
+    }
+
+    public ImmutableSet<String> getExecutedOutputNames() {
+      return actionExecutedEvents.stream()
+          .map(e -> e.getAction().getPrimaryOutput().getFilename())
+          .collect(toImmutableSet());
+    }
+
+    public ImmutableSet<String> getCachedOutputNames() {
+      return cachedActionEvents.stream()
+          .map(e -> e.getAction().getPrimaryOutput().getFilename())
+          .collect(toImmutableSet());
     }
   }
 

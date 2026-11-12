@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +51,8 @@ public final class PathCanonicalizerTest {
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
+  private final Set<PathFragment> pathsExistingDespiteMissingAncestor = new HashSet<>();
+
   private final PathCanonicalizer canonicalizer =
       new PathCanonicalizer(
           new PathCanonicalizer.Resolver() {
@@ -61,6 +65,11 @@ public final class PathCanonicalizerTest {
             @Override
             public PathFragment readSymbolicLink(PathFragment path) throws IOException {
               return fs.getPath(path).readSymbolicLink();
+            }
+
+            @Override
+            public boolean existsDespiteMissingAncestor(PathFragment path) {
+              return pathsExistingDespiteMissingAncestor.contains(path);
             }
           });
 
@@ -280,6 +289,51 @@ public final class PathCanonicalizerTest {
     deleteTree("/a/file");
     createNonSymlink("/a/file/child");
     assertSuccess("/a/file/child", "/a/file/child");
+  }
+
+  @Test
+  public void testPathExistingDespiteMissingAncestor() throws Exception {
+    pathsExistingDespiteMissingAncestor.add(pathFragment("/a/b/c"));
+    assertSuccess("/a/b/c", "/a/b/c");
+    assertFailure(FileNotFoundException.class, "/a/b");
+    assertFailure(FileNotFoundException.class, "/a/b/d");
+  }
+
+  @Test
+  public void testPathExistingDespiteMissingAncestor_belowExistingDirectory() throws Exception {
+    createNonSymlink("/a/f");
+    pathsExistingDespiteMissingAncestor.add(pathFragment("/a/b/c"));
+    assertSuccess("/a/b/c", "/a/b/c");
+    assertSuccess("/a/f", "/a/f");
+  }
+
+  @Test
+  public void testPathExistingDespiteMissingAncestor_throughAbsoluteSymlink() throws Exception {
+    createSymlink("/d", "/a/b/c");
+    pathsExistingDespiteMissingAncestor.add(pathFragment("/a/b/c"));
+    assertSuccess("/d", "/a/b/c");
+  }
+
+  @Test
+  public void testPathExistingDespiteMissingAncestor_throughRelativeSymlink() throws Exception {
+    createSymlink("/a/d", "b/c");
+    pathsExistingDespiteMissingAncestor.add(pathFragment("/a/b/c"));
+    assertSuccess("/a/d", "/a/b/c");
+  }
+
+  @Test
+  public void testPathExistingDespiteMissingAncestor_belowSymlink() throws Exception {
+    createNonSymlink("/a/f");
+    createSymlink("/d", "/a");
+    pathsExistingDespiteMissingAncestor.add(pathFragment("/a/b/c"));
+    assertSuccess("/d/b/c", "/a/b/c");
+  }
+
+  @Test
+  public void testDanglingSymlinkNextToPathExistingDespiteMissingAncestor() throws Exception {
+    createSymlink("/d", "/a/b/other");
+    pathsExistingDespiteMissingAncestor.add(pathFragment("/a/b/c"));
+    assertFailure(FileNotFoundException.class, "/d");
   }
 
   @Test

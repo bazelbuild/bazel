@@ -1704,7 +1704,12 @@ public final class SkyframeActionExecutor {
         "Error creating %s%s%s: %s",
         isSymlink ? "symlink " : "", prefix, genrule ? " by genrule" : "", exception.getMessage());
     if (isSymlink) {
-      String msg = prefix + "is a dangling symbolic link";
+      // Only a missing path makes a symlink dangling, other failures (e.g. a cycle) don't.
+      String problem =
+          exception instanceof FileNotFoundException
+              ? "is a dangling symbolic link"
+              : "is a symbolic link that could not be resolved";
+      String msg = prefix + problem + ": " + exception.getMessage();
       reporter.handle(Event.error(action.getOwner().getLocation(), msg));
     } else {
       String suffix =
