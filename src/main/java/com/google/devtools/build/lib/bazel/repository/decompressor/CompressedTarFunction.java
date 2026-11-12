@@ -138,7 +138,9 @@ public abstract class CompressedTarFunction implements Decompressor {
                         ? filePath.getParentDirectory()
                         : descriptor.destinationPath())
                     .getRelative(targetName);
-            if (!targetName.isAbsolute()
+            // Hard link targets are always made absolute (relative to the extraction root), so
+            // they have to be checked unconditionally.
+            if ((entry.isLink() || !targetName.isAbsolute())
                 && !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
               throw new IOException(
                   String.format(
