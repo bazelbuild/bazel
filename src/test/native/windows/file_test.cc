@@ -78,6 +78,28 @@ TEST_F(WindowsFileOperationsTest, TestIsAbsoluteWindowsStylePath) {
   EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\.\\bar"));
   EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\..\\bar"));
   EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\..\\bar"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"\\\\server\\share\\foo\\bar"));
+  EXPECT_TRUE(
+      IsAbsoluteNormalizedWindowsPath(L"\\\\?\\UNC\\server\\share\\foo\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\server\\share/foo/bar"));
+}
+
+TEST_F(WindowsFileOperationsTest, TestAddAndRemoveUncPrefix) {
+  EXPECT_EQ(AddUncPrefixMaybe(L"c:\\foo\\bar"), L"\\\\?\\c:\\foo\\bar");
+  EXPECT_EQ(AddUncPrefixMaybe(L"\\\\?\\c:\\foo\\bar"), L"\\\\?\\c:\\foo\\bar");
+  EXPECT_EQ(AddUncPrefixMaybe(L"\\\\server\\share\\foo"),
+            L"\\\\?\\UNC\\server\\share\\foo");
+  EXPECT_EQ(AddUncPrefixMaybe(L"\\\\?\\UNC\\server\\share\\foo"),
+            L"\\\\?\\UNC\\server\\share\\foo");
+
+  EXPECT_EQ(RemoveUncPrefixMaybe(L"c:\\foo\\bar"), L"c:\\foo\\bar");
+  EXPECT_EQ(RemoveUncPrefixMaybe(L"\\\\?\\c:\\foo\\bar"), L"c:\\foo\\bar");
+  EXPECT_EQ(RemoveUncPrefixMaybe(L"\\\\server\\share\\foo"),
+            L"\\\\server\\share\\foo");
+  EXPECT_EQ(RemoveUncPrefixMaybe(L"\\\\?\\UNC\\server\\share\\foo"),
+            L"\\\\server\\share\\foo");
+  EXPECT_EQ(RemoveUncPrefixMaybe(L"\\\\?\\unc\\server\\share\\foo"),
+            L"\\\\server\\share\\foo");
 }
 
 TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
