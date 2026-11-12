@@ -153,7 +153,11 @@ single_version_override(
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
-    patches = ["//third_party:protobuf.patch"],
+    patches = [
+        "//third_party:protobuf.patch",
+        # Fixes the build of a protobuf tool with MinGW clang.
+        "//third_party:protobuf-mingw-setmode.patch",
+    ],
     version = "36.2",
 )
 
@@ -520,6 +524,14 @@ use_repo(
 bazel_dep(name = "bazel_ci_rules", version = "2.1.2")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
+
+# MinGW already defines ssize_t, but wabt's generated config.h defines it again
+# on Windows.
+single_version_override(
+    module_name = "wabt",
+    patch_strip = 1,
+    patches = ["//third_party:wabt-mingw-ssize_t.patch"],
+)
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(

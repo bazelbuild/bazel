@@ -1,0 +1,13 @@
+--- a/build/wabt_build.bzl
++++ b/build/wabt_build.bzl
+@@ -36,7 +36,9 @@
+ """
+ 
+ _HAVE_SSIZE_T = """
+-#if defined(_WIN32)
++#if defined(__MINGW32__)
++#  define HAVE_SSIZE_T 1
++#elif defined(_WIN32)
+ #  define HAVE_SSIZE_T 0
+ #else
+ #  define HAVE_STRCASECMP 1

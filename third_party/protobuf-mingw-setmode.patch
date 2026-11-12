@@ -1,0 +1,14 @@
+--- a/editions/internal_defaults_escape.cc
++++ b/editions/internal_defaults_escape.cc
+@@ -23,8 +23,11 @@
+ 
+ // DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and
+ // import them like we do below.
++// MinGW declares setmode in the global namespace.
++#if !defined(__MINGW32__)
+ using google::protobuf::io::win32::setmode;
+ #endif
++#endif
+ 
+ ABSL_FLAG(std::string, encoding, "octal",
+           "The encoding to use for the output.");
