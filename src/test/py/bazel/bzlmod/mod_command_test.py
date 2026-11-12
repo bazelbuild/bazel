@@ -2126,8 +2126,20 @@ class ModCommandTest(test_base.TestBase):
   def testShowToolchainsReportsErrors(self):
     self.setUpRegistrations(
         extra_foo_registrations=[
-            'register_toolchains("//:missing", "//configurable:all")'
+            'register_toolchains("//:missing", "//configurable:all",'
+            ' "//broken:all")'
         ]
+    )
+    self.ScratchFile(
+        'foo/broken/BUILD',
+        [
+            'toolchain(',
+            '  name = "present",',
+            '  toolchain_type = "@bar//:type",',
+            '  toolchain = "//:impl",',
+            ')',
+            'fail("incomplete toolchain package")',
+        ],
     )
     exit_code, stdout, stderr = self.RunBazel(
         ['mod', 'show_toolchains', 'foo', '--output=json'],
@@ -2135,7 +2147,7 @@ class ModCommandTest(test_base.TestBase):
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
     self.assertIn(
-        'ERROR: Results are incomplete as 2 registered patterns or targets'
+        'ERROR: Results are incomplete as 3 registered patterns or targets'
         " couldn't be analyzed.",
         stderr,
     )
@@ -2157,6 +2169,13 @@ class ModCommandTest(test_base.TestBase):
             }],
         },
         registrations[4],
+    )
+    self.assertEqual(
+        {
+            'pattern': '//broken:all',
+            'error': 'target pattern matched a package containing errors',
+        },
+        registrations[5],
     )
 
   def testShowExecutionPlatforms(self):

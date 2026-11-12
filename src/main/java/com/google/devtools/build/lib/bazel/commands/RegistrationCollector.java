@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleRegistrations
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -161,8 +162,15 @@ final class RegistrationCollector {
           registrations.add(new Registration.Failed(pattern, error));
           continue;
         }
+        ResolvedTargets<Label> resolved = ((TargetPatternValue) expansions.get(key)).getTargets();
+        if (resolved.hasError()) {
+          registrations.add(
+              new Registration.Failed(
+                  pattern, "target pattern matched a package containing errors"));
+          continue;
+        }
         var targets = ImmutableList.<RegisteredTarget>builder();
-        for (var label : ((TargetPatternValue) expansions.get(key)).getTargets().getTargets()) {
+        for (var label : resolved.getTargets()) {
           var target = registeredTarget(label);
           if (toolchainTypes.isEmpty()
               || !(target instanceof RegisteredTarget.Toolchain toolchain)
