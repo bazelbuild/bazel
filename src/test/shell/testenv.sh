@@ -359,6 +359,20 @@ EOF
     echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
     echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
   fi
+
+  # Use the prebuilt tools built at this commit instead of the released ones.
+  local prebuilt_tools_zip
+  prebuilt_tools_zip="$(rlocation io_bazel/src/prebuilt_tools/prebuilt_tools.zip || true)"
+  if [[ -f "$prebuilt_tools_zip" ]]; then
+    local -r prebuilt_tools_dir="$TEST_TMPDIR/_prebuilt_tools"
+    local prebuilt_tools_platform
+    prebuilt_tools_platform="$(cat "$(rlocation io_bazel/src/prebuilt_tools/platform.txt)")"
+    if [[ ! -d "$prebuilt_tools_dir" ]]; then
+      unzip -q "$prebuilt_tools_zip" -d "$prebuilt_tools_dir"
+      touch "$prebuilt_tools_dir/REPO.bazel"
+    fi
+    echo "common --override_repository=bazel_tools+prebuilt_tools_extension+prebuilt_tools_${prebuilt_tools_platform}=${prebuilt_tools_dir}" >> $TEST_TMPDIR/bazelrc
+  fi
 }
 
 # Returns 0 on macOS if an IPv6 default route is present according to netstat.

@@ -112,6 +112,9 @@ class TestBase(absltest.TestCase):
       # cache, which is shared with other tests and test attempts on CI. Tests
       # that exercise the repo contents cache opt in explicitly.
       f.write('common --repo_contents_cache=\n')
+      prebuilt_tools_override = self._PrebuiltToolsOverride()
+      if prebuilt_tools_override:
+        f.write('common {}\n'.format(prebuilt_tools_override))
       if TestBase.IsDarwin() and _HasIpv6DefaultRoute():
         # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
@@ -137,6 +140,39 @@ class TestBase(absltest.TestCase):
         'MODULE.bazel.lock',
     )
     os.chdir(self._test_cwd)
+
+  def _PrebuiltToolsOverride(self):
+    """Returns the flag to use the prebuilt tools built at this commit.
+
+    Returns:
+      An --override_repository flag for the @bazel_tools repository with the
+      prebuilt tools for the host platform, or None if the test doesn't depend
+      on the prebuilt tools.
+    """
+    prebuilt_tools_zip = self.Rlocation(
+        'io_bazel/src/prebuilt_tools/prebuilt_tools.zip'
+    )
+    if not prebuilt_tools_zip or not os.path.exists(prebuilt_tools_zip):
+      return None
+    with open(
+        self.Rlocation('io_bazel/src/prebuilt_tools/platform.txt'), 'r'
+    ) as f:
+      platform = f.read().strip()
+    prebuilt_tools_dir = os.path.join(self._temp, 'prebuilt_tools')
+    if not os.path.exists(prebuilt_tools_dir):
+      with zipfile.ZipFile(prebuilt_tools_zip) as z:
+        for info in z.infolist():
+          path = z.extract(info, prebuilt_tools_dir)
+          mode = info.external_attr >> 16
+          if mode:
+            os.chmod(path, mode)
+      open(os.path.join(prebuilt_tools_dir, 'REPO.bazel'), 'w').close()
+    return (
+        '--override_repository=bazel_tools+prebuilt_tools_extension+'
+        'prebuilt_tools_{}={}'.format(
+            platform, prebuilt_tools_dir.replace('\\', '/')
+        )
+    )
 
   def GetModuleVersionFromDefaultLockFile(self, module):
     """Extracts the version of a module from the default MODULE.bazel.lock file.

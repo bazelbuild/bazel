@@ -19,7 +19,7 @@ win_cc_binary(
     name = "launcher",
     srcs = ["launcher_main.cc"],
     visibility = [
-        "//src:__pkg__",
+        "//src/prebuilt_tools:__pkg__",
         "//tools/launcher:__pkg__",
     ],
     deps = [
@@ -77,7 +77,7 @@ cc_binary(
     name = "launcher_maker",
     srcs = ["launcher_maker.cc"],
     visibility = [
-        "//src:__pkg__",
+        "//src/prebuilt_tools:__pkg__",
         "//tools/launcher:__pkg__",
     ],
     deps = ["//src/main/cpp/util:filesystem"],

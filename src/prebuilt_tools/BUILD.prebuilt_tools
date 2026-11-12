@@ -1,0 +1,9 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files(glob(
+    [
+        "*.exe",
+        "launcher_maker*",
+    ],
+    allow_empty = True,
+))
