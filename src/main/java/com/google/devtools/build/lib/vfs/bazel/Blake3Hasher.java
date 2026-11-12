@@ -66,7 +66,7 @@ public final class Blake3Hasher implements Hasher {
     checkState(!isDone);
     isDone = true;
 
-    return HashCode.fromBytes(messageDigest.engineDigest());
+    return HashCode.fromBytes(messageDigest.digestWithoutReset());
   }
 
   @Override

@@ -77,4 +77,14 @@ public class BazelHashFunctionsBenchmark {
   public HashCode hashBytesOneShot() {
     return type.hashFunction.hashBytes(data);
   }
+
+  /** Streams the input in 8 KiB chunks, like {@code FileSystem#getDigest} does for files. */
+  @Benchmark
+  public HashCode hashBytesChunked() {
+    var hasher = type.hashFunction.newHasher();
+    for (int off = 0; off < data.length; off += 8192) {
+      hasher.putBytes(data, off, Math.min(8192, data.length - off));
+    }
+    return hasher.hash();
+  }
 }

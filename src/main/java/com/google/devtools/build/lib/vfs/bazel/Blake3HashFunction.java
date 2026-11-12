@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.vfs.bazel;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.hash.Funnel;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
@@ -59,7 +61,12 @@ public final class Blake3HashFunction implements HashFunction {
 
   @Override
   public HashCode hashString(CharSequence input, Charset charset) {
-    return newHasher().putString(input, charset).hash();
+    String string = input.toString();
+    // The internal bytes of a Latin-1 coded string are its ISO-8859-1 encoding.
+    if (charset.equals(ISO_8859_1) && StringUnsafe.getCoder(string) == StringUnsafe.LATIN1) {
+      return hashBytes(StringUnsafe.getByteArray(string));
+    }
+    return hashBytes(string.getBytes(charset));
   }
 
   @Override
@@ -80,7 +87,7 @@ public final class Blake3HashFunction implements HashFunction {
   @Override
   public HashCode hashBytes(byte[] input, int off, int len) {
     checkPositionIndexes(off, off + len, input.length);
-    return newHasher(len).putBytes(input, off, len).hash();
+    return HashCode.fromBytes(Blake3MessageDigest.hash(input, off, len));
   }
 
   @Override
