@@ -32,6 +32,9 @@ public class RunUnderConverter implements Converter<RunUnder> {
   @Override
   public RunUnder convert(final String input, Object conversionContext)
       throws OptionsParsingException {
+    if (input.isEmpty()) {
+      return null;
+    }
     final List<String> runUnderList = new ArrayList<>();
     try {
       ShellUtils.tokenize(runUnderList, input);

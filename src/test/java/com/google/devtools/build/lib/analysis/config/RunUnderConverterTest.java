@@ -40,7 +40,8 @@ public class RunUnderConverterTest {
     assertEqualsRunUnder("//run:under -c --out=all", "//run:under", null,
         ImmutableList.of("-c", "--out=all"));
 
-    assertRunUnderFails("", "Empty command");
+    assertThat(new RunUnderConverter().convert("", /*conversionContext=*/ null)).isNull();
+    assertRunUnderFails(" ", "Empty command");
   }
 
   private void assertEqualsRunUnder(
