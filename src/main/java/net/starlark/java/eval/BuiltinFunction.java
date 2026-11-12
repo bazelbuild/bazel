@@ -546,9 +546,8 @@ public sealed class BuiltinFunction implements StarlarkCallable
    * <p>For the Starlark type system, it means that a {@link BuiltinTypeFunction} symbol is both a
    * {@code Callable} and a {@code Type}.
    */
-  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
-  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
-  static final class BuiltinTypeFunction extends BuiltinFunction implements TypeConstructor {
+  private static final class BuiltinTypeFunction extends BuiltinFunction
+      implements TypeConstructor {
     private final BuiltinTypeFunctionType type;
 
     private BuiltinTypeFunction(Object obj, MethodDescriptor desc) {

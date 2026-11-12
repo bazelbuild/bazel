@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict.MapBackedDict;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
@@ -112,7 +111,7 @@ public abstract sealed class Dict<K, V>
         Mutability.Freezable,
         StarlarkIndexable,
         StarlarkIterable<K>
-    permits MapBackedDict, CompactImmutableDict {
+    permits Dict.MapBackedDict, CompactImmutableDict {
   public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.DICT_CONSTRUCTOR;
   }
@@ -652,9 +651,7 @@ public abstract sealed class Dict<K, V>
   }
 
   /** Implementation backed by a (non-dict) {@link Map}. */
-  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
-  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
-  abstract static sealed class MapBackedDict<K, V> extends Dict<K, V> {
+  private abstract static sealed class MapBackedDict<K, V> extends Dict<K, V> {
     private Map<K, V> contents;
 
     private MapBackedDict(Map<K, V> contents) {
