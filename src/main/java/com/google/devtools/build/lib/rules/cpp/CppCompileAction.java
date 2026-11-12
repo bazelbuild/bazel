@@ -1661,7 +1661,7 @@ public class CppCompileAction extends AbstractAction
               .getExecPath()
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
-      String paramFileArg = "@" + paramFilePath.getSafePathString();
+      String paramFileArg = "@" + pathMapper.map(paramFilePath).getSafePathString();
       paramFileActionInput =
           new ParamFileActionInput(
               paramFilePath,
