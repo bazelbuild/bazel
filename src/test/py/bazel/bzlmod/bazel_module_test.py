@@ -1278,6 +1278,14 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('https://default-mirror1.example.com', stdout)
     self.assertIn('https://default-mirror2.example.com', stdout)
 
+  def testModuleMirrorForImplicitBcr(self):
+    self.RunBazel([
+        '--noworkspace_rc',
+        'info',
+        'release',
+        '--module_mirrors=https://bcr.bazel.build/=https://mirror.example.com',
+    ])
+
   def testPerRegistryModuleMirrors(self):
     """Tests that per-registry module mirrors are applied only to the specified registry."""
     second_registry = BazelRegistry(
