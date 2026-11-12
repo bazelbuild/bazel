@@ -234,12 +234,15 @@ public class JavaSubprocessFactory implements SubprocessFactory {
     builder.redirectErrorStream(params.redirectErrorStream());
     builder.directory(params.getWorkingDirectory());
 
-    // Deadline is now + given timeout.
+    Process process = start(builder);
+
+    // Compute the deadline after starting the process so that time spent waiting for the subprocess
+    // factory lock doesn't count towards the timeout.
     long deadlineMillis =
         params.getTimeoutMillis() > 0
             ? Math.addExact(System.currentTimeMillis(), params.getTimeoutMillis())
             : 0;
-    return new JavaSubprocess(start(builder), deadlineMillis);
+    return new JavaSubprocess(process, deadlineMillis);
   }
 
   /**
