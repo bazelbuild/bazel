@@ -286,9 +286,10 @@ public final class JavaCompileActionBuilder {
 
   @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCompileTimeDependencyArtifacts(
-      NestedSet<Artifact> dependencyArtifacts) {
-    checkNotNull(compileTimeDependencyArtifacts, "dependencyArtifacts must not be null");
-    this.compileTimeDependencyArtifacts = dependencyArtifacts;
+      NestedSet<Artifact> compileTimeDependencyArtifacts) {
+    this.compileTimeDependencyArtifacts =
+        checkNotNull(
+            compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
     return this;
   }
 
