@@ -412,7 +412,7 @@ public final class VendorCommand implements BlazeCommand {
     if (externalPath.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs) {
       // Repos that have been retrieved from the remote repo contents cache may not be on disk yet.
       for (RepositoryName repo : reposToVendor) {
-        remoteFs.ensureMaterialized(repo, env.getReporter());
+        remoteFs.ensureMaterialized(repo, /* location= */ null, env.getReporter());
       }
     }
     vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
