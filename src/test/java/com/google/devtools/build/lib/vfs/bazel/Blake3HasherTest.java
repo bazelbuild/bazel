@@ -26,6 +26,8 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -104,6 +106,21 @@ public class Blake3HasherTest {
       assertWithMessage("input length %s", length)
           .that(hasher.hash().toString())
           .isEqualTo(testVector.hash());
+    }
+  }
+
+  @Test
+  public void testVectors_hasherUsedOnAnotherThread() throws Exception {
+    try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+      for (TestVector testVector : testVectors) {
+        var hasher = Blake3HashFunction.INSTANCE.newHasher();
+        String hash =
+            executor.submit(() -> hasher.putBytes(testVector.input()).hash()).get().toString();
+
+        assertWithMessage("input length %s", testVector.inputLength())
+            .that(hash)
+            .isEqualTo(testVector.hash());
+      }
     }
   }
 
