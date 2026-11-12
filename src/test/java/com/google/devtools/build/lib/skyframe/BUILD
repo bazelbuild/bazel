@@ -599,6 +599,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/build/skyframe:version",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
