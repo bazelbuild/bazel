@@ -34,6 +34,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -864,7 +865,9 @@ public class HttpDownloaderTest {
                       Optional.of(
                           Checksum.fromString(
                               DownloadCache.KeyType.SHA256,
-                              Hashing.sha256().hashString("hello", UTF_8).toString())),
+                              Hashing.sha256()
+                                  .hashBytes(StringUnsafe.getInternalStringBytes("hello"))
+                                  .toString())),
                       eventHandler,
                       ImmutableMap.of()),
                   UTF_8))

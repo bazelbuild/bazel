@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.Actio
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -601,12 +601,12 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     TreeArtifact out = createTreeArtifact("output");
     FileArtifactValue remoteFile1 =
         FileArtifactValue.createForRemoteFile(
-            Hashing.sha256().hashString("one", UTF_8).asBytes(),
+            Hashing.sha256().hashBytes(StringUnsafe.getInternalStringBytes("one")).asBytes(),
             /* size= */ 3,
             /* locationIndex= */ 1);
     FileArtifactValue remoteFile2 =
         FileArtifactValue.createForRemoteFile(
-            Hashing.sha256().hashString("two", UTF_8).asBytes(),
+            Hashing.sha256().hashBytes(StringUnsafe.getInternalStringBytes("two")).asBytes(),
             /* size= */ 3,
             /* locationIndex= */ 2);
 

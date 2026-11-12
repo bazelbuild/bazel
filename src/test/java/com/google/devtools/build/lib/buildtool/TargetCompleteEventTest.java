@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -400,7 +400,11 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
 
   private void assertDigest(String contents, byte[] bepDigest) {
     assertThat(
-            fileSystem.getDigestFunction().getHashFunction().hashString(contents, UTF_8).asBytes())
+            fileSystem
+                .getDigestFunction()
+                .getHashFunction()
+                .hashBytes(StringUnsafe.getInternalStringBytes(contents))
+                .asBytes())
         .isEqualTo(bepDigest);
   }
 
