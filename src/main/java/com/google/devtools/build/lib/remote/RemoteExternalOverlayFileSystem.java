@@ -78,6 +78,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -107,7 +108,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   @Nullable private Reporter reporter;
   @Nullable private String buildRequestId;
   @Nullable private String commandId;
-  @Nullable private MemoizingEvaluator evaluator;
+  @Nullable private Supplier<MemoizingEvaluator> evaluator;
   @Nullable private Duration remoteCacheTtl;
   @Nullable private ListeningExecutorService materializationExecutor;
 
@@ -126,7 +127,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       Reporter reporter,
       String buildRequestId,
       String commandId,
-      MemoizingEvaluator evaluator,
+      Supplier<MemoizingEvaluator> evaluator,
       Duration remoteCacheTtl) {
     checkState(
         this.cache == null
@@ -175,7 +176,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // refetching is not atomic.
     materializedRepos.forEach(this::evictInMemoryRepo);
     reposWithLostFiles.forEach(this::evictInMemoryRepo);
-    invalidateRepoDirectories(evaluator, reposWithLostFiles);
+    // The evaluator may have been replaced during the command.
+    invalidateRepoDirectories(evaluator.get(), reposWithLostFiles);
     reposWithLostFiles.clear();
     this.evaluator = null;
   }
