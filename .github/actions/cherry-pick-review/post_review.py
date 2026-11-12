@@ -450,12 +450,20 @@ def main():
     # Deterministic safety guardrails: never APPROVE when no mainline commit was found
     # or when a critical finding (🔴) was reported in inline comments.
     if decision == "APPROVE":
-        if context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT" or has_critical_comment:
-            print(
-                "Safety guardrail: downgrading APPROVE to REQUEST_CHANGES because a critical issue or "
-                "missing mainline commit was detected."
+        no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
+        if no_mainline or has_critical_comment:
+            reason = (
+                "no verified mainline commit on `master` was matched"
+                if no_mainline
+                else "a critical (`🔴`) inline comment was included"
             )
+            print(f"Safety guardrail: downgrading APPROVE to REQUEST_CHANGES because {reason}.")
             decision = "REQUEST_CHANGES"
+            body = re.sub(r"\*\*Verdict:\*\*\s*✅\s*Approved", "**Verdict:** ❌ Changes Requested", body)
+            guardrail_note = (
+                f"> ⚠️ **Automated Guardrail:** Review decision downgraded to `REQUEST_CHANGES` because {reason}."
+            )
+            body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
 
     final_body = append_fallback_comments(body, fallback_comments)
     if not final_body:
