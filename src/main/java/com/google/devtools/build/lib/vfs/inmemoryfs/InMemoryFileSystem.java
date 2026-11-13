@@ -436,8 +436,12 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   public void chmod(PathFragment path, int permissions) throws IOException {
-    InMemoryContentInfo status = inodeStat(path, true);
-    status.chmod(permissions);
+    chmod(inodeStat(path, true), permissions);
+  }
+
+  /** Changes permissions on an already resolved inode. */
+  protected final void chmod(InMemoryContentInfo inode, int permissions) {
+    inode.chmod(permissions);
   }
 
   @Override

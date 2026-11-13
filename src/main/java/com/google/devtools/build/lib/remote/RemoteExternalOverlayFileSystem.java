@@ -334,7 +334,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       if (shouldPrefetch(filePath)) {
         filesToPrefetch.accept(filePath);
       }
-      fs.injectFile(
+      // Cached files are readable but cannot be modified by other repo rules.
+      fs.injectFileInExistingDirectory(
           filePath,
           // Using the *WithMaterializationData variant ensures that the file benefits from the
           // FileContentsProxy optimization to avoid widespread invalidation when it is
@@ -345,11 +346,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
               file.getDigest().getSizeBytes(),
               /* locationIndex= */ 1,
               expirationTime,
-              /* inMemoryOutput= */ false));
-      // The RE API does not track whether a file is readable or writable. We choose to make all
-      // files readable and not writable to ensure that other repo rules can't accidentally modify
-      // the cached repo.
-      fs.chmod(filePath, file.getIsExecutable() ? 0555 : 0444);
+              /* inMemoryOutput= */ false),
+          file.getIsExecutable() ? 0555 : 0444);
     }
     for (var symlink : dir.getSymlinksList()) {
       String name = unicodeToInternal(symlink.getName());
