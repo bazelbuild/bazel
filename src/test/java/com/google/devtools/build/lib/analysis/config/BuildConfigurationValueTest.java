@@ -528,6 +528,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             scope = "project",
         )
         string_flag(
+            name = "platform_scope",
+            build_setting_default = "default",
+            scope = "platform",
+        )
+        string_flag(
             name = "another_flag",
             build_setting_default = "default",
         )
@@ -548,6 +553,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 "//test:universal_scope",
                 "custom",
                 "//test:project_scope",
+                "custom",
+                "//test:platform_scope",
                 "custom",
                 "//test:flag_in_exec_config_set_to_another_value",
                 "target_value",
@@ -733,7 +740,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         string_flag = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
-            attrs = {"scope": attr.string(values = ["target", "universal"])},
+            attrs = {"scope": attr.string(values = ["target", "universal", "platform"])},
         )
         """);
     scratch.file(
@@ -749,13 +756,25 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             build_setting_default = "default",
             scope = "target",
         )
+        string_flag(
+            name = "platform_scope",
+            build_setting_default = "default",
+            scope = "platform",
+        )
         """);
 
     BuildConfigurationValue execConfig =
         createExec(
-            ImmutableMap.of("//test:default_scope", "custom", "//test:target_scope", "custom"),
+            ImmutableMap.of(
+                "//test:default_scope",
+                "custom",
+                "//test:target_scope",
+                "custom",
+                "//test:platform_scope",
+                "custom"),
             "--experimental_exclude_starlark_flags_from_exec_config=true",
             "--experimental_propagate_custom_flag=//test:target_scope",
+            "--experimental_propagate_custom_flag=//test:platform_scope",
             "--experimental_propagate_custom_flag=//test:default_scope");
 
     assertThat(execConfig.getOptions().getStarlarkOptions())
