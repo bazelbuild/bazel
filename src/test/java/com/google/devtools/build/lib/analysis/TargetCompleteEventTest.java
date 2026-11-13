@@ -34,12 +34,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.common.options.OptionsParser;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,6 +72,63 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, metadata));
+  }
+
+  @Test
+  public void testReferencedLocalFiles_noneWhenTheProtoNamesFilesThroughNamedSets()
+      throws Exception {
+    TargetCompleteEvent event = eventForOneSourceFile();
+
+    assertThat(event.referencedLocalFiles(bepOptions())).isEmpty();
+  }
+
+  @Test
+  public void testReferencedLocalFiles_allWithLegacyImportantOutputs() throws Exception {
+    TargetCompleteEvent event = eventForOneSourceFile();
+
+    assertThat(event.referencedLocalFiles(bepOptions("--legacy_important_outputs")))
+        .containsExactlyElementsIn(event.referencedLocalFiles());
+    assertThat(event.referencedLocalFiles()).hasSize(1);
+  }
+
+  @Test
+  public void testReferencedLocalFiles_thoseOfOutputGroupsReportedInline() throws Exception {
+    TargetCompleteEvent event = eventForOneSourceFile();
+
+    assertThat(
+            event.referencedLocalFiles(
+                bepOptions("--experimental_build_event_output_group_mode=default=inline_only")))
+        .containsExactlyElementsIn(event.referencedLocalFiles());
+    assertThat(
+            event.referencedLocalFiles(
+                bepOptions("--experimental_build_event_output_group_mode=default=both")))
+        .containsExactlyElementsIn(event.referencedLocalFiles());
+    assertThat(
+            event.referencedLocalFiles(
+                bepOptions("--experimental_build_event_output_group_mode=other=inline_only")))
+        .isEmpty();
+  }
+
+  private TargetCompleteEvent eventForOneSourceFile() throws Exception {
+    scratch.file("BUILD", "filegroup(name = 'files', srcs = ['file'])");
+    scratch.file("file", "content does not matter");
+    ConfiguredTargetAndData ctAndData = getCtAndData("//:files");
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    Artifact artifact = Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    FileArtifactValue metadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
+    return TargetCompleteEvent.successfulBuild(
+        ctAndData,
+        getCompletionContext(ImmutableMap.of(artifact, metadata), ImmutableMap.of()),
+        artifactsToBuild.getAllArtifactsByOutputGroup(),
+        /* announceTargetSummary= */ false);
+  }
+
+  private static BuildEventProtocolOptions bepOptions(String... args) throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildEventProtocolOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(BuildEventProtocolOptions.class);
   }
 
   @Test

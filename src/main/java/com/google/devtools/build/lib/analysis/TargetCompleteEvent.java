@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext.OutputGroupFileMode;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -68,7 +69,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.util.Durations;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -393,9 +396,37 @@ public final class TargetCompleteEvent
 
   @Override
   public ImmutableList<LocalFile> referencedLocalFiles() {
+    return localFilesOfImportantGroups(outputGroup -> true);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The representation of this event names the files of an output group itself only where the
+   * group is reported inline, or where the legacy field for important outputs is filled in.
+   * Otherwise it refers to named sets of files, whose own events declare the files, and listing
+   * them here as well would have every transport look at each output of each target a second
+   * time: for a build of several hundred thousand targets that is minutes of work, done one event
+   * at a time because the events are posted under a lock.
+   */
+  @Override
+  public ImmutableList<LocalFile> referencedLocalFiles(BuildEventProtocolOptions options) {
+    if (options.getLegacyImportantOutputs()) {
+      return referencedLocalFiles();
+    }
+    OutputGroupFileModes modes = options.getOutputGroupFileModesMapping();
+    return localFilesOfImportantGroups(
+        outputGroup -> {
+          OutputGroupFileMode mode = modes.getMode(outputGroup);
+          return mode == OutputGroupFileMode.INLINE_ONLY || mode == OutputGroupFileMode.BOTH;
+        });
+  }
+
+  private ImmutableList<LocalFile> localFilesOfImportantGroups(Predicate<String> outputGroups) {
     ImmutableList.Builder<LocalFile> builder = ImmutableList.builder();
-    for (ArtifactsInOutputGroup group : outputs.values()) {
-      if (group.areImportant()) {
+    for (Map.Entry<String, ArtifactsInOutputGroup> entry : outputs.entrySet()) {
+      ArtifactsInOutputGroup group = entry.getValue();
+      if (group.areImportant() && outputGroups.test(entry.getKey())) {
         completionContext.visitArtifacts(
             filterFilesets(group.getArtifacts().toList()),
             new ArtifactReceiver() {
