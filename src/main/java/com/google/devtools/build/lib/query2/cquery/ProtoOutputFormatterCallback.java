@@ -284,7 +284,9 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       Target target = accessor.getTarget(keyedConfiguredTarget);
       Build.Target.Builder targetBuilder =
           formatter.toTargetProtoBuffer(target, labelPrinter).toBuilder();
-      if (target instanceof Rule && !Transitions.NONE.equals(options.getTransitions())) {
+      if (target instanceof Rule
+          && (options.getProtoIncludeConfigurations()
+              || !options.getTransitions().equals(Transitions.NONE))) {
         // To set configured_rule_input dependencies, use ConfiguredTargetAccessor.getPrerequisites.
         // Note that both that and CqueryTransitionResolver can get a target's direct deps. We use
         // the former because it implements cquery's "canonical" view of the dependency graph, which
@@ -300,10 +302,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
               Build.ConfiguredRuleInput.newBuilder()
                   .setLabel(internalToUnicode(labelPrinter.toString(dep.getOriginalLabel())));
           if (dep.getConfigurationChecksum() != null) {
-            configuredRuleInput
-                .setConfigurationChecksum(dep.getConfigurationChecksum())
-                .setConfigurationId(
-                    configurationCache.getId(dep.getConfigurationKey().getOptions()));
+            configuredRuleInput.setConfigurationChecksum(dep.getConfigurationChecksum());
+            if (options.getProtoIncludeConfigurations()) {
+              configuredRuleInput.setConfigurationId(
+                  configurationCache.getId(dep.getConfigurationKey().getOptions()));
+            }
           }
           targetBuilder.getRuleBuilder().addConfiguredRuleInput(configuredRuleInput);
         }

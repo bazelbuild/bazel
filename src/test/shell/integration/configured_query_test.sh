@@ -1910,4 +1910,53 @@ EOF
   expect_log "//$pkg:valid"
 }
 
+function test_configured_rule_inputs_toolchains() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat >$pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_toolchain", "rule_using_toolchain")
+
+toolchain_type(
+    name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+my_toolchain(
+    name = "my_toolchain",
+)
+
+toolchain(
+    name = "toolchain",
+    toolchain = ":my_toolchain",
+    toolchain_type = ":toolchain_type",
+)
+
+rule_using_toolchain(
+    name = "rule",
+)
+EOF
+
+  cat >$pkg/rules.bzl <<EOF
+def _rule_using_toolchain_impl(ctx):
+    pass
+
+rule_using_toolchain = rule(
+    implementation = _rule_using_toolchain_impl,
+    toolchains = ["//$pkg:toolchain_type"],
+)
+
+def _toolchain_impl(ctx):
+    return [platform_common.ToolchainInfo()]
+
+my_toolchain = rule(
+    implementation = _toolchain_impl,
+)
+EOF
+
+  bazel cquery --output=textproto --extra_toolchains=//$pkg:toolchain //$pkg:rule > output 2>"$TEST_log" || fail "Unexpected failure"
+  assert_contains "label: \"//$pkg:my_toolchain\"" output
+  assert_not_contains "rule_input: \"//$pkg:my_toolchain\"" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

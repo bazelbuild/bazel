@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
@@ -809,6 +810,164 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(combinedStreamedProtoBuilder.build())
         .ignoringRepeatedFieldOrder()
         .isEqualTo(protoOutput);
+  }
+
+  @Test
+  public void testConfiguredRuleInputs_defaultWithoutTransitionsFlag() throws Exception {
+    MockRule parentRuleClass =
+        () ->
+            MockRule.define(
+                "parent_rule",
+                (builder, env) ->
+                    builder
+                        .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
+
+    ConfiguredRuleClassProvider ruleClassProvider =
+        setRuleClassProviders(parentRuleClass, getSimpleRule()).build();
+    helper.useRuleClassProvider(ruleClassProvider);
+
+    writeFile(
+        "test/BUILD",
+        """
+        parent_rule(
+            name = "parent_rule",
+            srcs = ["parent.source"],
+            deps = [":dep"],
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    // Keep --transitions=none (the default) and --proto:include_configurations=true (the default).
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getProtoOutput("deps(//test:parent_rule)", AnalysisProtosV2.CqueryResult.parser());
+
+    AnalysisProtosV2.ConfiguredTarget parentRuleProto =
+        getRuleProtoByName(cqueryResult.getResultsList(), "//test:parent_rule");
+    AnalysisProtosV2.ConfiguredTarget depRuleProto =
+        getRuleProtoByName(cqueryResult.getResultsList(), "//test:dep");
+
+    assertThat(parentRuleProto.getTarget().getRule().getConfiguredRuleInputList())
+        .containsExactly(
+            ConfiguredRuleInput.newBuilder()
+                .setLabel("//test:dep")
+                .setConfigurationChecksum(
+                    getConfigurationForId(
+                            cqueryResult.getConfigurationsList(), depRuleProto.getConfigurationId())
+                        .getChecksum())
+                .setConfigurationId(depRuleProto.getConfigurationId())
+                .build(),
+            ConfiguredRuleInput.newBuilder().setLabel("//test:parent.source").build());
+  }
+
+  @Test
+  public void testConfiguredRuleInputs_noProtoIncludeConfigurations() throws Exception {
+    MockRule parentRuleClass =
+        () ->
+            MockRule.define(
+                "parent_rule",
+                (builder, env) ->
+                    builder
+                        .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
+
+    ConfiguredRuleClassProvider ruleClassProvider =
+        setRuleClassProviders(parentRuleClass, getSimpleRule()).build();
+    helper.useRuleClassProvider(ruleClassProvider);
+
+    writeFile(
+        "test/BUILD",
+        """
+        parent_rule(
+            name = "parent_rule",
+            srcs = ["parent.source"],
+            deps = [":dep"],
+        )
+
+        simple_rule(name = "dep")
+        """);
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    options.setTransitions(Transitions.LITE);
+    options.setProtoIncludeConfigurations(false);
+
+    Build.QueryResult protoOutput =
+        getProtoOutput("deps(//test:parent_rule)", Build.QueryResult.parser());
+    Build.Target parentRuleTarget =
+        protoOutput.getTargetList().stream()
+            .filter(t -> t.getRule().getName().equals("//test:parent_rule"))
+            .findFirst()
+            .get();
+
+    Build.ConfiguredRuleInput depInput =
+        parentRuleTarget.getRule().getConfiguredRuleInputList().stream()
+            .filter(input -> input.getLabel().equals("//test:dep"))
+            .findFirst()
+            .get();
+
+    assertThat(depInput.hasConfigurationChecksum()).isTrue();
+    assertThat(depInput.hasConfigurationId()).isFalse();
+  }
+
+  @Test
+  public void testConfiguredRuleInputs_includesResolvedToolchains() throws Exception {
+    writeFile(
+        "toolchain/toolchain.bzl",
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        my_toolchain = rule(implementation = _impl)
+        """);
+    writeFile(
+        "toolchain/BUILD",
+        """
+        load(":toolchain.bzl", "my_toolchain")
+
+        toolchain_type(name = "toolchain_type")
+
+        my_toolchain(name = "toolchain_impl")
+
+        toolchain(
+            name = "toolchain",
+            toolchain = ":toolchain_impl",
+            toolchain_type = ":toolchain_type",
+        )
+        """);
+    writeFile(
+        "pkg/rules.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        rule_with_toolchain = rule(
+            _impl,
+            toolchains = ["//toolchain:toolchain_type"],
+        )
+        """);
+    writeFile(
+        "pkg/BUILD",
+        """
+        load(":rules.bzl", "rule_with_toolchain")
+
+        rule_with_toolchain(name = "target")
+        """);
+
+    getHelper().useConfiguration("--extra_toolchains=//toolchain:toolchain");
+    // Notice: no options.setTransitions(...) is called.
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getProtoOutput("//pkg:target", AnalysisProtosV2.CqueryResult.parser());
+
+    AnalysisProtosV2.ConfiguredTarget targetProto =
+        getRuleProtoByName(cqueryResult.getResultsList(), "//pkg:target");
+
+    assertThat(
+            targetProto.getTarget().getRule().getConfiguredRuleInputList().stream()
+                .map(ConfiguredRuleInput::getLabel)
+                .collect(toImmutableList()))
+        .contains("//toolchain:toolchain_impl");
   }
 
   private MockRule getSimpleRule() {
