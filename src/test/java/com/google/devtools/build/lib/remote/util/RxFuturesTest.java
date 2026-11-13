@@ -18,6 +18,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
+import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -26,7 +27,9 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.CompletableEmitter;
+import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
+import java.util.ArrayList;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -78,6 +81,34 @@ public class RxFuturesTest {
     future.setException(error);
 
     observer.assertError(error);
+  }
+
+  @Test
+  public void toCompletable_futureOnErrorAfterDisposal_noGlobalError() {
+    SettableFuture<Void> future = SettableFuture.create();
+    var pendingCallbacks = new ArrayList<Runnable>();
+    Completable completable = toCompletable(() -> future, pendingCallbacks::add);
+
+    TestObserver<Void> observer = completable.test();
+    future.setException(new IllegalStateException("error"));
+    observer.dispose();
+    pendingCallbacks.forEach(Runnable::run);
+
+    observer.assertEmpty();
+  }
+
+  @Test
+  public void toSingle_futureOnErrorAfterDisposal_noGlobalError() {
+    SettableFuture<String> future = SettableFuture.create();
+    var pendingCallbacks = new ArrayList<Runnable>();
+    Single<String> single = toSingle(() -> future, pendingCallbacks::add);
+
+    TestObserver<String> observer = single.test();
+    future.setException(new IllegalStateException("error"));
+    observer.dispose();
+    pendingCallbacks.forEach(Runnable::run);
+
+    observer.assertEmpty();
   }
 
   @Test
