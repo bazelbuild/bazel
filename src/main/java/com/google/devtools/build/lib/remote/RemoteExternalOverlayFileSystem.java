@@ -155,11 +155,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                 Thread.ofVirtual().name("remote-repo-materialization-", 0).factory()));
   }
 
-  public void afterCommand() {
+  /** Cleans up the command and reports whether it lost any repository files. */
+  public boolean afterCommand() {
     if (cache == null) {
       // Not all commands cause beforeCommand to be called, but afterCommand is called
       // unconditionally.
-      return;
+      return false;
     }
 
     // Uninterruptibly await the termination of all ongoing materializations to prevent cleanup
@@ -183,8 +184,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     // The evaluator may have been replaced during the command.
     invalidateRepoDirectories(evaluator.get(), reposWithLostFiles);
     reposToRefetch.addAll(reposWithLostFiles);
+    boolean hadLostRepoFiles = !reposWithLostFiles.isEmpty();
     reposWithLostFiles.clear();
     this.evaluator = null;
+    return hadLostRepoFiles;
   }
 
   /** Uses the uploaded digests while retaining the repository's files on disk. */

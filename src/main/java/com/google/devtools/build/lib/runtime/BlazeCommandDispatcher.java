@@ -851,7 +851,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
       needToCallAfterCommand = false;
       var newResult = runtime.afterCommand(/* forceKeepStateForTesting= */ false, env, result);
-      if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
+      // A hash-stream caller owns each attempt's output files and invocation ID.
+      if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)
+          && !env.usesCqueryHashStreamReceipt()) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
         if (attemptedCommandIds.size() < executionOptions.getRemoteRetryOnTransientCacheError()) {
