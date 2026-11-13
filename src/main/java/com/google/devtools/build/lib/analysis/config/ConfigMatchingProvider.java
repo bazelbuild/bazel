@@ -20,8 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
@@ -37,6 +39,9 @@ import java.util.Map;
 @Immutable
 @AutoValue
 public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
+  // Configurations that differ in unrelated options often produce identical match results.
+  private static final Interner<ConfigMatchingProvider> interner = BlazeInterners.newWeakInterner();
+
   /**
    * Potential values for result field.
    *
@@ -182,8 +187,9 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       ImmutableMap<Label, String> flagSettingsMap,
       ImmutableSet<Label> constraintValueSettings,
       MatchResult result) {
-    return new AutoValue_ConfigMatchingProvider(
-        label, settingsMap, flagSettingsMap, constraintValueSettings, result);
+    return interner.intern(
+        new AutoValue_ConfigMatchingProvider(
+            label, settingsMap, flagSettingsMap, constraintValueSettings, result));
   }
 
   /** The target's label. */
