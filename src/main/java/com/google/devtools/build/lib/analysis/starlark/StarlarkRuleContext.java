@@ -885,7 +885,7 @@ public final class StarlarkRuleContext
 
       // When tracking required fragments, use a key-tracking dict to support lookedUpVariables().
       cachedMakeVariables =
-          ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+          ruleContext.shouldIncludeMakeVariablesInRequiredConfigFragments()
               ? vars.buildImmutableWithKeyTracking()
               : vars.buildImmutable();
     }
@@ -894,7 +894,8 @@ public final class StarlarkRuleContext
 
   /** Returns the set of variables accessed through {@code ctx.var}. */
   public ImmutableSet<String> lookedUpVariables() {
-    Preconditions.checkState(ruleContext.shouldIncludeRequiredConfigFragmentsProvider(), this);
+    Preconditions.checkState(
+        ruleContext.shouldIncludeMakeVariablesInRequiredConfigFragments(), this);
     return cachedMakeVariables == null
         ? ImmutableSet.of()
         : ((ImmutableKeyTrackingDict<String, String>) cachedMakeVariables).getAccessedKeys();

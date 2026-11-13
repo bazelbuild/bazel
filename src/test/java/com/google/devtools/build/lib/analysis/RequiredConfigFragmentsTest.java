@@ -768,4 +768,53 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
     assertThat(requiredFragments.defines()).containsExactly("x");
   }
+
+  @Test
+  public void provideTransitiveStarlarkOnlyMode() throws Exception {
+    useConfiguration(
+        "--include_config_fragments_provider=transitive_starlark_only", "--define=my_var=1");
+    scratch.file(
+        "a/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+        )
+        def _impl(ctx):
+            ctx.var.get("my_var") # forces dep on the --define
+        my_rule = rule(
+            implementation = _impl,
+            fragments = ["java"], # forces dep on the Java fragment
+            attrs = {"deps": attr.label_list()},
+        )
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//a:defs.bzl", "my_rule", "string_flag")
+
+        string_flag(
+            name = "my_flag",
+            build_setting_default = "default",
+        )
+
+        my_rule(
+            name = "b",
+            deps = [":my_flag"],
+        )
+
+        my_rule(
+            name = "a",
+            deps = [":b"],
+        )
+        """);
+
+    RequiredConfigFragmentsProvider aFragments =
+        getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(aFragments.starlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//a:my_flag"));
+    assertThat(aFragments.fragmentClasses()).isEmpty();
+    assertThat(aFragments.optionsClasses()).isEmpty();
+    assertThat(aFragments.defines()).isEmpty();
+  }
 }

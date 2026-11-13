@@ -85,7 +85,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
           .getPackageIdentifier()
           .equals(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)) {
         requiredFragments.addStarlarkOption(option);
-      } else {
+      } else if (!requiredFragments.isStarlarkOnly()) {
         String optionNativeName = option.getName();
         // A null optionsClass means the flag is invalid. Starlark transitions independently catch
         // and report that (search the code for "do not correspond to valid settings").

@@ -62,8 +62,10 @@ public final class RequiredFragmentsUtil {
    * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
    * result includes only the config state considered to be directly required by this target. If
    * it's {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config state
-   * needed by transitive dependencies. If it's {@link CoreOptions.IncludeConfigFragmentsEnum#OFF},
-   * this method returns {@code null}.
+   * needed by transitive dependencies. If it's {@link
+   * CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE_STARLARK_ONLY}, it includes only the Starlark
+   * options needed by this target and its transitive dependencies. If it's {@link
+   * CoreOptions.IncludeConfigFragmentsEnum#OFF}, this method returns {@code null}.
    *
    * <p>{@code select()}s and toolchain dependencies are considered when looking at what config
    * state is required.
@@ -162,7 +164,9 @@ public final class RequiredFragmentsUtil {
             aspect.getDefinition().getConfigurationFragmentPolicy(),
             configConditions,
             prerequisites);
-    aspectFactory.addAspectImplSpecificRequiredConfigFragments(requiredFragments);
+    if (mode != IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY) {
+      aspectFactory.addAspectImplSpecificRequiredConfigFragments(requiredFragments);
+    }
     addRequiredFragmentsFromAspectTransitions(
         requiredFragments,
         aspect,
@@ -182,9 +186,11 @@ public final class RequiredFragmentsUtil {
       ConfigConditions configConditions,
       Iterable<ConfiguredTarget> prerequisites) {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
-        RequiredConfigFragmentsProvider.builder();
+        RequiredConfigFragmentsProvider.builder(
+            mode == IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY);
 
-    if (mode == IncludeConfigFragmentsEnum.TRANSITIVE) {
+    if (mode == IncludeConfigFragmentsEnum.TRANSITIVE
+        || mode == IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY) {
       // Add transitive requirements first, which results in better performance. See explanation on
       // RequiredConfigFragmentsProvider.Builder.
       addTransitivelyRequiredFragments(requiredFragments, prerequisites);
@@ -192,20 +198,22 @@ public final class RequiredFragmentsUtil {
       addStarlarkBuildSettings(requiredFragments, prerequisites);
     }
 
-    // Add directly required fragments:
-    requiredFragments
-        // Fragments explicitly required by the native target/aspect definition API:
-        .addFragmentClasses(configurationFragmentPolicy.getRequiredConfigurationFragments())
-        // Fragments explicitly required by the Starlark target/aspect definition API (nulls are
-        // filtered because the rule definition may reference non-existent fragments):
-        .addFragmentClasses(
-            Collections2.filter(
-                Collections2.transform(
-                    configurationFragmentPolicy.getRequiredStarlarkFragments(),
-                    configuration::getStarlarkFragmentByName),
-                Objects::nonNull))
-        // Fragments universally required by everything:
-        .addFragmentClasses(universallyRequiredFragments);
+    if (mode != IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY) {
+      // Add directly required fragments:
+      requiredFragments
+          // Fragments explicitly required by the native target/aspect definition API:
+          .addFragmentClasses(configurationFragmentPolicy.getRequiredConfigurationFragments())
+          // Fragments explicitly required by the Starlark target/aspect definition API (nulls are
+          // filtered because the rule definition may reference non-existent fragments):
+          .addFragmentClasses(
+              Collections2.filter(
+                  Collections2.transform(
+                      configurationFragmentPolicy.getRequiredStarlarkFragments(),
+                      configuration::getStarlarkFragmentByName),
+                  Objects::nonNull))
+          // Fragments universally required by everything:
+          .addFragmentClasses(universallyRequiredFragments);
+    }
     // Fragments required by attached select()s. Propagating fragments from the config conditions as
     // configured targets (rather than as providers) is necessary in case of a dependency on an
     // alias that resolves to a config setting. Providers only reflect the resolved settings, which
