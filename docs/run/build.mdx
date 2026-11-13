@@ -123,91 +123,35 @@ target.
 All target patterns starting with `//` are resolved relative to the current
 workspace.
 
-<table>
-<tr>
-  <td><code>//foo/bar:wiz</code></td>
-  <td>Just the single target <code>//foo/bar:wiz</code>.</td>
-</tr>
-<tr>
-  <td><code>//foo/bar</code></td>
-  <td>Equivalent to <code>//foo/bar:bar</code>.</td>
-</tr>
-<tr>
-  <td><code>//foo/bar:all</code></td>
-  <td>All rule targets in the package <code>foo/bar</code>.</td>
-</tr>
-<tr>
-  <td><code>//foo/...</code></td>
-  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
-</tr>
-<tr>
-  <td><code>//foo/...:all</code></td>
-  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
-</tr>
-<tr>
-  <td><code>//foo/...:*</code></td>
-  <td>All targets (rules and files) in all packages beneath the directory <code>foo</code>.</td>
-</tr>
-<tr>
-  <td><code>//foo/...:all-targets</code></td>
-  <td>All targets (rules and files) in all packages beneath the directory <code>foo</code>.</td>
-</tr>
-<tr>
-  <td><code>//...</code></td>
-  <td>All rule targets in packages in the main repository. Does not include targets
-  from <a href="/docs/external">external repositories</a>.</td>
-</tr>
-<tr>
-  <td><code>//:all</code></td>
-  <td>All rule targets in the top-level package, if there is a `BUILD` file at the
-  root of the workspace.</td>
-</tr>
-</table>
+
+|  |  |
+| --- | --- |
+| `//foo/bar:wiz` | Just the single target `//foo/bar:wiz`. |
+| `//foo/bar` | Equivalent to `//foo/bar:bar`. |
+| `//foo/bar:all` | All rule targets in the package `foo/bar`. |
+| `//foo/...` | All rule targets in all packages beneath the directory `foo`. |
+| `//foo/...:all` | All rule targets in all packages beneath the directory `foo`. |
+| `//foo/...:*` | All targets (rules and files) in all packages beneath the directory `foo`. |
+| `//foo/...:all-targets` | All targets (rules and files) in all packages beneath the directory `foo`. |
+| `//...` | All rule targets in packages in the main repository. Does not include targets from [external repositories](/docs/external). |
+| `//:all` | All rule targets in the top-level package, if there is a `BUILD` file at the root of the workspace. |
+
 
 Target patterns that do not begin with `//` are resolved relative to the
 current _working directory_. These examples assume a working directory of `foo`:
 
-<table>
-<tr>
-  <td><code>:foo</code></td>
-  <td>Equivalent to  <code>//foo:foo</code>.</td>
-</tr>
-<tr>
-  <td><code>bar:wiz</code></td>
-  <td>Equivalent to <code>//foo/bar:wiz</code>.</td>
-</tr>
-<tr>
-  <td><code>bar/wiz</code></td>
-  <td>
-    Equivalent to:
-    <ul>
-      <li><code>//foo/bar/wiz:wiz</code> if <code>foo/bar/wiz</code> is a package</li>
-      <li><code>//foo/bar:wiz</code> if <code>foo/bar</code> is a package</li>
-      <li><code>//foo:bar/wiz</code> otherwise</li>
-    </ul>
-  </td>
-</tr>
-<tr>
-  <td><code>bar:all</code></td>
-  <td>Equivalent to  <code>//foo/bar:all</code>.</td>
-</tr>
-<tr>
-  <td><code>:all</code></td>
-  <td>Equivalent to  <code>//foo:all</code>.</td>
-</tr>
-<tr>
-  <td><code>...:all</code></td>
-  <td>Equivalent to  <code>//foo/...:all</code>.</td>
-</tr>
-<tr>
-  <td><code>...</code></td>
-  <td>Equivalent to  <code>//foo/...:all</code>.</td>
-</tr>
-<tr>
-  <td><code>bar/...:all</code></td>
-  <td>Equivalent to  <code>//foo/bar/...:all</code>.</td>
-</tr>
-</table>
+
+|  |  |
+| --- | --- |
+| `:foo` | Equivalent to `//foo:foo`. |
+| `bar:wiz` | Equivalent to `//foo/bar:wiz`. |
+| `bar/wiz` | Equivalent to: <br/>• `//foo/bar/wiz:wiz` if `foo/bar/wiz` is a package <br/>• `//foo/bar:wiz` if `foo/bar` is a package <br/>• `//foo:bar/wiz` otherwise |
+| `bar:all` | Equivalent to `//foo/bar:all`. |
+| `:all` | Equivalent to `//foo:all`. |
+| `...:all` | Equivalent to `//foo/...:all`. |
+| `...` | Equivalent to `//foo/...:all`. |
+| `bar/...:all` | Equivalent to `//foo/bar/...:all`. |
+
 
 By default, directory symlinks are followed for recursive target patterns,
 except those that point to under the output base, such as the convenience
