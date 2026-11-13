@@ -10,7 +10,7 @@ Release branches only accept safe, backwards-compatible backports (cherry-picks)
 1. **Valid Mainline Provenance:**
    - Every change in the PR must originate from one or more commits already merged into `master` (typically referenced via `(cherry picked from commit <sha>)`, `Commit https://github.com/bazelbuild/bazel/commit/<sha>`, or `PiperOrigin-RevId: <id>`).
    - A cherry-pick PR may legitimately contain **multiple cherry-picked commits** from `master` (for example, a primary fix plus a follow-up regression fix, or multiple related fixes), as well as release-branch-specific lockfile updates or CI/conflict fixup commits.
-   - If the author omitted the `(cherry picked from commit <sha>)` trailer so the mainline commit(s) had to be matched via commit subject, PR number, or `PiperOrigin-RevId`, treat the missing trailer as a non-blocking `🟢` nit in the summary — do **not** downgrade `"APPROVE"` solely for a missing trailer when the mainline commit on `master` is verified.
+   - As long as the mainline commit SHA(s) are mentioned somewhere in the PR description or commit messages, no nit is needed. If the commit SHA(s) were not mentioned anywhere in the PR description or commit messages and had to be inferred via commit subject or PR title, treat the missing commit SHA reference as a non-blocking `🟢` nit in the summary — do **not** downgrade `"APPROVE"` when the mainline commit on `master` is verified.
    - Do **not** allow standalone changes that were never merged to `master` (except release-branch-specific lockfile regeneration or documented `.bazelci/presubmit.yml` target exclusions needed to unblock release CI).
 
 2. **No Breaking Changes, and No Large Features/Refactorings on Patch Releases (`🔴` Critical: Block / `REQUEST_CHANGES`):**

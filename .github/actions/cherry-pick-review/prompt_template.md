@@ -76,7 +76,7 @@ Complete **Step 1 (Inspect Diffs & Verify Criteria)**, **Step 2 (Choose Review D
 2. **Check Criterion 1: Mainline Provenance:**
    - Verify `mainline_commits` is non-empty and `is_on_master` is `true`. Note that a cherry-pick PR may legitimately bundle multiple cherry-picked commits from `master`.
    - If `mainline_commits` is empty (`overall_cherry_pick_classification == "NO_MAINLINE_COMMIT"`), flag as `🔴` Critical (`REQUEST_CHANGES`).
-   - If `mainline_commits` is verified on `master` via subject/PR/RevId match because the author omitted `(cherry picked from commit <sha>)`, treat the missing trailer only as a non-blocking `🟢` nit in the summary (do not block `APPROVE`).
+   - As long as the mainline commit SHA(s) are mentioned somewhere in the PR description or commit messages, no nit is needed. Only if no commit SHA was mentioned anywhere in the PR description or commit messages (so the mainline commit had to be inferred from the commit subject or PR title) should you mention the missing commit reference as a non-blocking `🟢` nit in the summary (do not block `APPROVE`).
 3. **Check Criterion 2: No Breaking Changes & Patch-Release Scope:**
    - Inspect `breaking_change_signals`, the mainline commit message (`RELNOTES`, `Build API Changes`), and the code diff in `pr_diff_path`.
    - Does the change introduce a backwards-incompatible change (e.g., `RELNOTES[INC]:`, flipping an `--incompatible_*` flag default, removing/breaking an existing flag, provider, rule attribute, or Starlark API, or breaking existing user builds)?
@@ -111,7 +111,7 @@ Assign each specific issue a severity:
 - `🟡` **Medium (Informational / Minor Suggestion):**
   - Non-blocking observation about a non-obvious adaptation that wasn't explained in the PR description/comments. (Does not block `"APPROVE"`.)
 - `🟢` **Nit (Mention briefly in top-level `body` only, never as an inline comment, does not block `"APPROVE"`):**
-  - E.g., the author omitted the `(cherry picked from commit <sha>)` trailer on one or more commits even though the mainline commit on `master` was verified.
+  - E.g., the mainline commit SHA(s) were not mentioned anywhere in the PR description or commit messages and had to be inferred by subject/title (even though the mainline commit on `master` was verified). Do not nitpick if the commit SHA(s) are already mentioned in the PR description or commit messages.
 
 Select `"decision"`:
 - **`"APPROVE"`**: Zero `🔴` and zero `🟠` issues. Use `"APPROVE"` both for **100% clean cherry-picks** of non-breaking mainline commits AND for **non-breaking cherry-picks with reasonably minimal, faithful merge-conflict resolutions / release-branch adaptations**.
