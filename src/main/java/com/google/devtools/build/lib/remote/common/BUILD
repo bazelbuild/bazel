@@ -45,15 +45,6 @@ java_library(
 )
 
 java_library(
-    name = "lost_inputs_event",
-    srcs = ["LostInputsEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
     name = "common",
     srcs = glob(
         ["*.java"],
@@ -61,7 +52,6 @@ java_library(
             "ActionKey.java",
             "BulkTransferException.java",
             "CacheNotFoundException.java",
-            "LostInputsEvent.java",
         ],
     ),
     visibility = [

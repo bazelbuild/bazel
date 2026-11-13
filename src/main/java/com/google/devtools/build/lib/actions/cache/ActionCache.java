@@ -44,7 +44,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -75,9 +74,6 @@ public interface ActionCache {
 
   /** Removes entry from cache */
   void remove(String key);
-
-  /** Removes entry from cache that matches the predicate. */
-  void removeIf(Predicate<ActionCache.Entry> predicate);
 
   /** An action cache entry. */
   final class Entry {
