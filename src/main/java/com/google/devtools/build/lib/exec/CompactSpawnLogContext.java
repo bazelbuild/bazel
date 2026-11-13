@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CheckReturnValue;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -72,6 +71,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
@@ -161,17 +162,32 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final ExtendedEventHandler reporter;
   private final AtomicBoolean outputLoggingFailed = new AtomicBoolean(false);
 
-  // Maps a key identifying an entry into its ID.
+  /** Stands in for the ID of an entry in {@link #entryMap} while the entry is being computed. */
+  private static final class PendingEntry {
+    // Counted down once the entry has been written to the log or has failed to be computed.
+    private final CountDownLatch done = new CountDownLatch(1);
+    // The entry ID, or 0 if the entry failed to be computed. Must only be read after waiting for
+    // the latch.
+    private int id;
+  }
+
+  // Maps a key identifying an entry into its ID, as an Integer.
   // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
   // runfiles tree.
   // Only entries that are likely to be referenced by future entries are stored.
-  // Use a specialized map for minimal memory footprint.
-  @GuardedBy("this")
-  private final Object2IntOpenHashMap<Object> entryMap = new Object2IntOpenHashMap<>();
+  // While an entry is being computed, its key is instead mapped to a PendingEntry, which lets
+  // other threads that need the same entry wait for it. The ID is only stored after the entry has
+  // been handed to the output stream, so that an ID obtained from this map always identifies an
+  // entry that precedes every entry written afterwards.
+  // Lookups vastly outnumber insertions and are made by every thread that logs a spawn, so they
+  // must not require a lock.
+  private final ConcurrentHashMap<Object, Object> entryMap = new ConcurrentHashMap<>();
 
   // The next available entry ID.
+  // Guarded by the lock that is held while an entry with an ID is handed to the output stream, so
+  // that IDs are consecutive in the order in which entries appear in the log.
   @GuardedBy("this")
-  int nextEntryId = 1;
+  private int nextEntryId = 1;
 
   // Output stream to write to.
   private final MessageOutputStream<ExecLogEntry> outputStream;
@@ -740,19 +756,15 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   /**
    * Ensures an entry is written to the log without an ID.
    *
+   * <p>No lock is required: every entry referenced by the entry was handed to the output stream
+   * before its ID was returned to the supplier, and the output stream preserves the order of
+   * writes.
+   *
    * @param supplier called to compute the entry; may cause other entries to be logged
    */
   private void logEntryWithoutId(ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntryWithoutId")) {
-      logEntryWithoutIdSynchronized(supplier);
-    }
-  }
-
-  private synchronized void logEntryWithoutIdSynchronized(ExecLogEntrySupplier supplier)
-      throws IOException, InterruptedException {
-    try (SilentCloseable c =
-        Profiler.instance().profile(SPAWN_LOG, "logEntryWithoutId/synchronized")) {
       outputStream.write(supplier.get().build());
     }
   }
@@ -763,6 +775,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * <p>If an entry with the same non-null key was previously added to the log, its recorded ID is
    * returned. Otherwise, the entry is computed, assigned an ID, and written to the log.
    *
+   * <p>May be called concurrently. An entry is computed without holding a lock, so that threads
+   * logging unrelated entries don't wait for each other. If a thread requests an entry with the
+   * same non-null key as an entry that another thread is computing, it waits for that entry to be
+   * written instead of computing it again.
+   *
    * @param key the key, or null if the ID shouldn't be recorded
    * @param supplier called to compute the entry; may cause other entries to be logged
    * @return the entry ID
@@ -771,38 +788,77 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntry")) {
-      return logEntrySynchronized(key, supplier);
-    }
-  }
-
-  private synchronized int logEntrySynchronized(@Nullable Object key, ExecLogEntrySupplier supplier)
-      throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntry/synchronized")) {
       if (key == null) {
         // No need to check for a previously added entry.
-        ExecLogEntry.Builder entry = supplier.get();
-        int id = nextEntryId++;
-        outputStream.write(entry.setId(id).build());
-        return id;
+        return writeEntryWithNewId(supplier.get());
       }
 
       checkState(key instanceof NestedSet.Node || key instanceof String);
 
-      // Check for a previously added entry.
-      int id = entryMap.getOrDefault(key, 0);
-      if (id != 0) {
-        return id;
-      }
+      while (true) {
+        // Check for a previously added entry.
+        Object existing = entryMap.get(key);
+        if (existing == null) {
+          PendingEntry pending = new PendingEntry();
+          existing = entryMap.putIfAbsent(key, pending);
+          if (existing == null) {
+            // This thread is the first to request the entry and thus has to log it.
+            return computeAndWriteEntry(key, pending, supplier);
+          }
+        }
+        if (existing instanceof Integer id) {
+          return id;
+        }
 
-      // Compute a fresh entry and log it.
-      // The following order of operations is crucial to ensure that this entry is preceded by any
-      // entries it references, which in turn ensures the log can be parsed in a single pass.
-      ExecLogEntry.Builder entry = supplier.get();
-      id = nextEntryId++;
-      entryMap.put(key, id);
-      outputStream.write(entry.setId(id).build());
-      return id;
+        // Another thread is computing the entry: wait until it has been written.
+        // This can't deadlock: a thread only waits for entries referenced by the entry it is
+        // computing, and an entry never transitively references itself.
+        PendingEntry pending = (PendingEntry) existing;
+        pending.done.await();
+        if (pending.id != 0) {
+          return pending.id;
+        }
+        // The other thread failed to compute the entry, so it is up to this thread to try.
+      }
     }
+  }
+
+  /**
+   * Computes a fresh entry, writes it to the log and replaces the {@link PendingEntry} for its key
+   * with its ID.
+   */
+  private int computeAndWriteEntry(Object key, PendingEntry pending, ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    int id = 0;
+    try {
+      // The following order of operations is crucial to ensure that this entry is preceded by any
+      // entries it references, which in turn ensures the log can be parsed in a single pass: the
+      // entry is written after the supplier has obtained an ID for every entry it references, and
+      // its own ID is made available to other threads after it has been written.
+      id = writeEntryWithNewId(supplier.get());
+      entryMap.put(key, id);
+      return id;
+    } finally {
+      if (id == 0) {
+        // Let the threads waiting for the entry, if any, attempt to compute it themselves.
+        entryMap.remove(key, pending);
+      }
+      pending.id = id;
+      pending.done.countDown();
+    }
+  }
+
+  /**
+   * Assigns the next ID to a fully computed entry and writes it to the log.
+   *
+   * <p>This is the only part of logging an entry that is mutually exclusive between threads, and it
+   * must not do more than is required to keep IDs consecutive in the order in which entries appear
+   * in the log.
+   */
+  private synchronized int writeEntryWithNewId(ExecLogEntry.Builder entry) throws IOException {
+    int id = nextEntryId++;
+    outputStream.write(entry.setId(id).build());
+    return id;
   }
 
   @Override
