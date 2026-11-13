@@ -311,7 +311,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party/google/protobuf:duration_java_proto",
-        "//third_party/java/fastutil:object-to-int-open-hash-map",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
