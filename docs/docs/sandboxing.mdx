@@ -15,11 +15,18 @@ Bazel's file system sandbox runs processes in a working directory that only
 contains known inputs, such that compilers and other tools don't see source
 files they should not access, unless they know the absolute paths to them.
 
-Sandboxing doesn't hide the host environment in any way. Processes can freely
-access all files on the file system. However, on platforms that support user
-namespaces, processes can't modify any files outside their working directory.
-This ensures that the build graph doesn't have hidden dependencies that could
-affect the reproducibility of the build.
+The degree of isolation depends on the sandbox strategy. In particular,
+`processwrapper-sandbox` gives actions a separate working directory, but does
+not prevent them from reading files elsewhere on the host when they know an
+absolute path. The `linux-sandbox` and `darwin-sandbox` strategies add
+OS-level filesystem isolation; for example, `linux-sandbox` makes the host
+filesystem read-only except for the sandbox directory. Network access is not
+blocked by default; `linux-sandbox` can block it when configured to do so.
+
+Sandboxing helps expose undeclared file dependencies and prevents actions from
+writing unexpected outputs into the execroot. For hermetic execution, make sure
+the selected strategy and its configuration restrict the resources your actions
+must not use.
 
 More specifically, Bazel constructs an `execroot/` directory for each action,
 which acts as the action's work directory at execution time. `execroot/`
