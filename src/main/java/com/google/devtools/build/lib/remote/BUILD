@@ -137,6 +137,7 @@ java_library(
         ":channel_factory",
         ":combined_cache",
         ":combined_cache_client_factory",
+        ":disk_cache_output_deduplicator",
         ":google_channel_connection_factory",
         ":grpc_cache_client",
         ":grpc_remote_executor",
@@ -765,6 +766,7 @@ java_library(
         "//src/tools/remote:__subpackages__",
     ],
     deps = [
+        ":disk_cache_output_deduplicator",
         ":lease_service",
         ":remote_action_file_system",
         ":remote_action_input_fetcher",
@@ -1357,6 +1359,28 @@ java_library(
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "disk_cache_output_deduplicator",
+    srcs = ["DiskCacheOutputDeduplicator.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/test/java/com/google/devtools/build/lib/remote:__pkg__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:output_metadata_store",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/remote/disk",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/guava:collect",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
