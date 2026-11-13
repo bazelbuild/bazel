@@ -268,6 +268,9 @@ public class ModuleFileFunction implements SkyFunction {
       env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
+    if (!checkStrictLabelCasing(moduleThreadContext, env)) {
+      return null;
+    }
     if (!module.getName().equals(moduleKey.name())) {
       throw errorf(
           Code.BAD_MODULE,
@@ -345,11 +348,40 @@ public class ModuleFileFunction implements SkyFunction {
     if (moduleThreadContext == null) {
       return null;
     }
-    return buildRootModuleFileValue(
-        moduleThreadContext,
-        ImmutableMap.copyOf(state.includeLabelToCompiledModuleFile),
-        MODULE_OVERRIDES.get(env),
-        env.getListener());
+    RootModuleFileValue rootModuleFileValue =
+        buildRootModuleFileValue(
+            moduleThreadContext,
+            ImmutableMap.copyOf(state.includeLabelToCompiledModuleFile),
+            MODULE_OVERRIDES.get(env),
+            env.getListener());
+    if (!checkStrictLabelCasing(moduleThreadContext, env)) {
+      return null;
+    }
+    return rootModuleFileValue;
+  }
+
+  /**
+   * Fails if two repo names of the module only differ in case and {@code
+   * --incompatible_strict_label_casing} is enabled. Returns false if a Skyframe restart is needed.
+   */
+  private static boolean checkStrictLabelCasing(ModuleThreadContext context, Environment env)
+      throws ModuleFileFunctionException, InterruptedException {
+    Optional<String> collision = context.getCaseOnlyRepoNameCollision();
+    if (collision.isEmpty()) {
+      return true;
+    }
+    // Only depend on the flag if it can affect the result.
+    Boolean strictLabelCasing = PrecomputedValue.STRICT_LABEL_CASING.get(env);
+    if (strictLabelCasing == null) {
+      return false;
+    }
+    if (strictLabelCasing) {
+      throw errorf(
+          Code.BAD_MODULE,
+          "%s, which is not allowed with --incompatible_strict_label_casing",
+          collision.get());
+    }
+    return true;
   }
 
   /** env.getState(State::new).compiledModuleFile must be set before calling this method. */

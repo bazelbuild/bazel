@@ -75,6 +75,9 @@ public abstract class PackageLookupValue implements SkyValue {
 
     /** The repository was not found. */
     REPOSITORY_NOT_FOUND,
+
+    /** The package name isn't spelled like the package directory on disk. */
+    NON_CANONICAL_SPELLING,
   }
 
   protected PackageLookupValue() {}
@@ -85,6 +88,14 @@ public abstract class PackageLookupValue implements SkyValue {
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
     return new InvalidNamePackageLookupValue(errorMsg);
+  }
+
+  static PackageLookupValue nonCanonicalDirectory(String errorMsg) {
+    return new NonCanonicalSpellingPackageLookupValue(errorMsg, /* isBuildFileName= */ false);
+  }
+
+  static PackageLookupValue nonCanonicalBuildFileName(String errorMsg) {
+    return new NonCanonicalSpellingPackageLookupValue(errorMsg, /* isBuildFileName= */ true);
   }
 
   /**
@@ -286,6 +297,53 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public int hashCode() {
       return errorMsg.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return String.format("%s: %s", this.getClass().getSimpleName(), this.errorMsg);
+    }
+  }
+
+  /**
+   * Value indicating that the package name isn't spelled like the package directory on disk or that
+   * the only build file is spelled differently from a valid build file name.
+   */
+  public static final class NonCanonicalSpellingPackageLookupValue
+      extends UnsuccessfulPackageLookupValue {
+    private final String errorMsg;
+    private final boolean isBuildFileName;
+
+    private NonCanonicalSpellingPackageLookupValue(String errorMsg, boolean isBuildFileName) {
+      this.errorMsg = errorMsg;
+      this.isBuildFileName = isBuildFileName;
+    }
+
+    /** Whether the build file name rather than the package directory is misspelled. */
+    public boolean isBuildFileName() {
+      return isBuildFileName;
+    }
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.NON_CANONICAL_SPELLING;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return errorMsg;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof NonCanonicalSpellingPackageLookupValue other
+          && errorMsg.equals(other.errorMsg)
+          && isBuildFileName == other.isBuildFileName;
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * errorMsg.hashCode() + Boolean.hashCode(isBuildFileName);
     }
 
     @Override

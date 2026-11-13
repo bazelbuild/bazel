@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateFunction;
+import com.google.devtools.build.lib.skyframe.DirectorySpellingFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -192,6 +193,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE,
                   new RepoEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
+              .put(SkyFunctions.DIRECTORY_SPELLING, new DirectorySpellingFunction())
               .put(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)
               .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
               .put(

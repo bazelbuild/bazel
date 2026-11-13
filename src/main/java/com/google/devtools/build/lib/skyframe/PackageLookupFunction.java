@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.S
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.skyframe.DirectorySpellingValue.NonCanonical;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.NoRepositoryPackageLookupValue;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.NonCanonicalSpellingPackageLookupValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -66,6 +69,7 @@ public class PackageLookupFunction implements SkyFunction {
   private static class State implements SkyKeyComputeState {
     private int packagePathEntryPos = 0;
     private int buildFileNamePos = 0;
+    @Nullable private PackageLookupValue nonCanonicalSpelling;
   }
 
   @Nullable
@@ -160,6 +164,17 @@ public class PackageLookupFunction implements SkyFunction {
         if (result == null) {
           return null;
         }
+        if (result instanceof NonCanonicalSpellingPackageLookupValue nonCanonical) {
+          if (state.nonCanonicalSpelling == null) {
+            state.nonCanonicalSpelling = result;
+          }
+          if (!nonCanonical.isBuildFileName()) {
+            // Other build file names can't help since the package directory itself is misspelled.
+            break;
+          }
+          state.buildFileNamePos++;
+          continue;
+        }
         if (result != PackageLookupValue.NO_BUILD_FILE_VALUE) {
           return result;
         }
@@ -168,7 +183,9 @@ public class PackageLookupFunction implements SkyFunction {
       state.buildFileNamePos = 0;
       state.packagePathEntryPos++;
     }
-    return PackageLookupValue.NO_BUILD_FILE_VALUE;
+    return state.nonCanonicalSpelling != null
+        ? state.nonCanonicalSpelling
+        : PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   @Nullable
@@ -262,10 +279,90 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (fileValue.isFile()) {
-      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+      return checkSpelling(env, packageDirectory, buildFileName, packageIdentifier);
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
+  }
+
+  /**
+   * Returns the lookup value for a package whose build file {@code buildFileName} exists in {@code
+   * packageDirectory}, taking {@code --incompatible_strict_label_casing} into account.
+   */
+  @Nullable
+  private static PackageLookupValue checkSpelling(
+      Environment env,
+      RootedPath packageDirectory,
+      BuildFileName buildFileName,
+      PackageIdentifier packageIdentifier)
+      throws PackageLookupFunctionException, InterruptedException {
+    Root root = packageDirectory.getRoot();
+    // File systems that compare names exactly only find the build file via its canonical spelling.
+    if (!root.getFileSystem().mayBeCaseOrNormalizationInsensitive()) {
+      return PackageLookupValue.success(root, buildFileName);
+    }
+    Boolean strictLabelCasing = PrecomputedValue.STRICT_LABEL_CASING.get(env);
+    if (strictLabelCasing == null) {
+      return null;
+    }
+    if (!strictLabelCasing) {
+      return PackageLookupValue.success(root, buildFileName);
+    }
+
+    SkyKey spellingKey = DirectorySpellingValue.key(packageDirectory);
+    SkyKey listingKey = DirectoryListingValue.key(packageDirectory);
+    SkyframeLookupResult deps =
+        env.getValuesAndExceptions(ImmutableList.of(spellingKey, listingKey));
+    DirectorySpellingValue spelling;
+    DirectoryListingValue listing;
+    try {
+      spelling = (DirectorySpellingValue) deps.getOrThrow(spellingKey, IOException.class);
+      listing = (DirectoryListingValue) deps.getOrThrow(listingKey, IOException.class);
+    } catch (InconsistentFilesystemException e) {
+      throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
+    } catch (IOException e) {
+      String message =
+          "IO errors while checking the spelling of "
+              + packageDirectory.asPath()
+              + ": "
+              + e.getMessage();
+      throw new PackageLookupFunctionException(
+          new BuildFileNotFoundException(
+              packageIdentifier,
+              message,
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setPackageLoading(
+                          PackageLoading.newBuilder().setCode(Code.OTHER_IO_EXCEPTION))
+                      .build())),
+          Transience.PERSISTENT);
+    }
+    if (spelling == null || listing == null) {
+      return null;
+    }
+
+    if (spelling instanceof NonCanonical(PathFragment canonicalPath)) {
+      return PackageLookupValue.nonCanonicalDirectory(
+          String.format(
+              "the package name doesn't match the spelling of its directory%s on disk (see"
+                  + " --incompatible_strict_label_casing)",
+              canonicalPath != null ? " '" + canonicalPath.getPathString() + "'" : ""));
+    }
+    String buildFileBaseName = buildFileName.getFilenameFragment().getPathString();
+    if (listing.getDirents().maybeGetDirent(buildFileBaseName) == null) {
+      String spellingOnDisk =
+          DirectorySpellingFunction.findUniqueLooseMatch(listing.getDirents(), buildFileBaseName);
+      if (spellingOnDisk == null) {
+        return PackageLookupValue.NO_BUILD_FILE_VALUE;
+      }
+      return PackageLookupValue.nonCanonicalBuildFileName(
+          String.format(
+              "'%s' is not a valid BUILD file name, use '%s' instead (see"
+                  + " --incompatible_strict_label_casing)",
+              spellingOnDisk, buildFileBaseName));
+    }
+    return PackageLookupValue.success(root, buildFileName);
   }
 
   /**
@@ -325,6 +422,7 @@ public class PackageLookupFunction implements SkyFunction {
 
     // This checks for the build file names in the correct precedence order.
     RootedPath packageDirectory = RootedPath.toRootedPath(root, id.getPackageFragment());
+    PackageLookupValue misspelledBuildFileName = null;
     for (BuildFileName buildFileName : buildFilesByPriority) {
       RootedPath buildFileRootedPath =
           packageDirectory.getChild(buildFileName.getFilenameFragment().getPathString());
@@ -334,11 +432,22 @@ public class PackageLookupFunction implements SkyFunction {
       }
 
       if (fileValue.isFile()) {
-        return PackageLookupValue.success(root, buildFileName);
+        PackageLookupValue result =
+            checkSpelling(env, packageDirectory, buildFileName, packageIdentifier);
+        if (result instanceof NonCanonicalSpellingPackageLookupValue nonCanonical
+            && nonCanonical.isBuildFileName()) {
+          if (misspelledBuildFileName == null) {
+            misspelledBuildFileName = result;
+          }
+        } else if (result != PackageLookupValue.NO_BUILD_FILE_VALUE) {
+          return result;
+        }
       }
     }
 
-    return PackageLookupValue.NO_BUILD_FILE_VALUE;
+    return misspelledBuildFileName != null
+        ? misspelledBuildFileName
+        : PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   /**

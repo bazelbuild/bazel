@@ -699,4 +699,121 @@ EOF
   expect_log "dir/BUILD/file"
 }
 
+# Returns success if the file system of the current directory is case-insensitive.
+function is_case_insensitive_fs() {
+  local -r probe="case_probe_$$"
+  touch "$probe" || fail "Couldn't touch $probe"
+  local -r upper_probe=$(echo "$probe" | tr '[:lower:]' '[:upper:]')
+  local result=1
+  [[ -e "$upper_probe" ]] && result=0
+  rm -f "$probe"
+  return $result
+}
+
+# Renames $1 to $2 even if they only differ in case.
+function rename_case() {
+  mv "$1" "$1.tmp" || fail "Couldn't move $1"
+  mv "$1.tmp" "$2" || fail "Couldn't move $1.tmp to $2"
+}
+
+function test_strict_label_casing_package_names() {
+  local -r pkg1="${FUNCNAME[0]}"
+  local -r pkg2="MyPackage"
+  mkdir -p "$pkg1/$pkg2" || fail "Could not mkdir $pkg1/$pkg2"
+  echo "filegroup(name = 'MyTarget')" > "$pkg1/$pkg2/BUILD"
+
+  local -r pkg1_upper=$(echo "$pkg1" | tr '[:lower:]' '[:upper:]')
+  local -r pkg2_upper=$(echo "$pkg2" | tr '[:lower:]' '[:upper:]')
+
+  for wrong in "$pkg1_upper/$pkg2_upper" "$pkg1/$pkg2_upper" "$pkg1_upper/$pkg2"; do
+    bazel query --incompatible_strict_label_casing "//$wrong:all" >&"$TEST_log" \
+        && fail "Expected failure for //$wrong"
+    if is_case_insensitive_fs; then
+      expect_log "ERROR: no such package '$wrong': the package name doesn't match the spelling of its directory '$pkg1/$pkg2' on disk"
+    else
+      expect_log "ERROR: no such package '$wrong': BUILD file not found"
+    fi
+  done
+
+  bazel query --incompatible_strict_label_casing "//$pkg1/$pkg2:all" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log "//$pkg1/$pkg2:MyTarget"
+
+  if is_case_insensitive_fs; then
+    # Without the flag, the misspelled package is loaded as a separate package.
+    bazel query "//$pkg1_upper/$pkg2_upper:all" >&"$TEST_log" || fail "Expected success"
+    expect_log "//$pkg1_upper/$pkg2_upper:MyTarget"
+  fi
+}
+
+function test_strict_label_casing_package_names_incrementality() {
+  if ! is_case_insensitive_fs; then
+    return 0
+  fi
+
+  local -r pkg1="${FUNCNAME[0]}"
+  local -r pkg2="MyPackage"
+  mkdir -p "$pkg1/$pkg2" || fail "Could not mkdir $pkg1/$pkg2"
+  echo "filegroup(name = 'MyTarget')" > "$pkg1/$pkg2/BUILD"
+
+  local -r pkg1_upper=$(echo "$pkg1" | tr '[:lower:]' '[:upper:]')
+  local -r pkg2_upper=$(echo "$pkg2" | tr '[:lower:]' '[:upper:]')
+
+  bazel query --incompatible_strict_label_casing "//$pkg1/$pkg2:all" >&"$TEST_log" \
+      || fail "Expected success"
+
+  rename_case "$pkg1" "$pkg1_upper"
+  bazel query --incompatible_strict_label_casing "//$pkg1/$pkg2:all" >&"$TEST_log" \
+      && fail "Expected failure"
+  expect_log "ERROR: no such package '$pkg1/$pkg2': the package name doesn't match the spelling of its directory '$pkg1_upper/$pkg2' on disk"
+
+  rename_case "$pkg1_upper/$pkg2" "$pkg1_upper/$pkg2_upper"
+  bazel query --incompatible_strict_label_casing "//$pkg1/$pkg2:all" >&"$TEST_log" \
+      && fail "Expected failure"
+  expect_log "ERROR: no such package '$pkg1/$pkg2': the package name doesn't match the spelling of its directory '$pkg1_upper/$pkg2_upper' on disk"
+
+  rename_case "$pkg1_upper" "$pkg1"
+  rename_case "$pkg1/$pkg2_upper" "$pkg1/$pkg2"
+  bazel query --incompatible_strict_label_casing "//$pkg1/$pkg2:all" >&"$TEST_log" \
+      || fail "Expected success"
+}
+
+function test_strict_label_casing_build_file_names() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "Could not mkdir $pkg"
+  echo "filegroup(name = 'my_target')" > "$pkg/BuIlD"
+
+  bazel query --incompatible_strict_label_casing "//$pkg:all" >&"$TEST_log" \
+      && fail "Expected failure"
+  if is_case_insensitive_fs; then
+    expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid BUILD file name, use 'BUILD' instead"
+  else
+    expect_log "ERROR: no such package '$pkg': BUILD file not found"
+  fi
+}
+
+function test_strict_label_casing_build_file_names_incrementality() {
+  if ! is_case_insensitive_fs; then
+    return 0
+  fi
+
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "Could not mkdir $pkg"
+  echo "filegroup(name = 'my_target')" > "$pkg/BuIlD"
+
+  bazel query --incompatible_strict_label_casing "//$pkg:all" >&"$TEST_log" \
+      && fail "Expected failure"
+  expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid BUILD file name, use 'BUILD' instead"
+
+  rename_case "$pkg/BuIlD" "$pkg/BUILD"
+  bazel query --incompatible_strict_label_casing "//$pkg:all" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log "//$pkg:my_target"
+
+  rename_case "$pkg/BUILD" "$pkg/BuIlD"
+  bazel query --incompatible_strict_label_casing "//$pkg:all" >&"$TEST_log" \
+      && fail "Expected failure"
+  expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid BUILD file name, use 'BUILD' instead"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
