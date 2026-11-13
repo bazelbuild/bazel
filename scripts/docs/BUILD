@@ -3,9 +3,8 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 BUILD_SCM_REV_CMD = "\"$$(sed -n 's/^BUILD_SCM_REVISION //p' bazel-out/volatile-status.txt 2>/dev/null | grep . || echo UNSET)\""
 
 # Requires --config=docs
-# TODO: Rename to gen_release_docs once the docs migration is done.
 genrule(
-    name = "gen_mdx_release_docs",
+    name = "gen_release_docs",
     srcs = [
         "//docs",
         "//src/main/java/com/google/devtools/build/lib:mdx-reference-docs.zip",
