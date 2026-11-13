@@ -42,10 +42,19 @@ import java.time.Duration;
 @ScOnly
 public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
 
+  @VisibleForTesting public static final int MAX_CPU_CONCURRENCY = 1024;
+
   /** A converter for integers that must be at least 1. */
   public static final class PositiveIntegerConverter extends RangeConverter {
     public PositiveIntegerConverter() {
       super(1, Integer.MAX_VALUE);
+    }
+  }
+
+  /** A converter for CPU concurrency bounded to {@code [0, MAX_CPU_CONCURRENCY]}. */
+  public static final class CpuConcurrencyConverter extends RangeConverter {
+    public CpuConcurrencyConverter() {
+      super(0, MAX_CPU_CONCURRENCY);
     }
   }
 
@@ -92,10 +101,11 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "0",
-      converter = NonNegativeIntegerConverter.class,
+      converter = CpuConcurrencyConverter.class,
       help =
-          "Parallelism for CPU-bound remote analysis cache tasks. 0 auto-detects based on available"
-              + " processors.")
+          "Parallelism for CPU-bound remote analysis cache tasks (0 to "
+              + MAX_CPU_CONCURRENCY
+              + "). 0 auto-detects based on available processors.")
   public abstract int getCpuConcurrency();
 
   @Option(
