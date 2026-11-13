@@ -158,12 +158,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
   }
 
   @Test
-  public void markChangedIfCheckingDependencies() throws InterruptedException {
+  public void tryPromoteDirtyToChanged() throws InterruptedException {
     InMemoryNodeEntry entry = createEntry();
     // NOT_YET_EVALUATING state: should not mark changed.
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NOT_YET_EVALUATING);
-    assertThat(entry.markChangedIfCheckingDependencies())
-        .isEqualTo(LifecycleState.NOT_YET_EVALUATING);
+    assertThat(entry.tryPromoteDirtyToChanged()).isEqualTo(LifecycleState.NOT_YET_EVALUATING);
     assertThat(entry.isChanged()).isFalse();
 
     // Set value and make done.
@@ -177,25 +176,49 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     assertThat(entry.isDone()).isTrue();
 
     // DONE state: should return DONE and not mark dirty.
-    assertThat(entry.markChangedIfCheckingDependencies()).isEqualTo(LifecycleState.DONE);
+    assertThat(entry.tryPromoteDirtyToChanged()).isEqualTo(LifecycleState.DONE);
     assertThat(entry.isDone()).isTrue();
 
-    // Mark dirty with DIRTY and move into CHECK_DEPENDENCIES state.
+    // Mark dirty with DIRTY to move into CHECK_DEPENDENCIES state, without scheduling the node.
     entry.markDirty(DirtyType.DIRTY);
-    entry.addReverseDepAndCheckIfDone(null);
-    entry.addReverseDepAndCheckIfDone(key("parent"));
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.isChanged()).isFalse();
 
-    // In CHECK_DEPENDENCIES state: should return CHECK_DEPENDENCIES and mark changed.
-    assertThat(entry.markChangedIfCheckingDependencies())
-        .isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
+    // In CHECK_DEPENDENCIES state and not yet scheduled: should return CHECK_DEPENDENCIES and mark
+    // changed.
+    assertThat(entry.tryPromoteDirtyToChanged()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
 
     // Subsequent call in NEEDS_REBUILDING state returns NEEDS_REBUILDING.
-    assertThat(entry.markChangedIfCheckingDependencies())
-        .isEqualTo(LifecycleState.NEEDS_REBUILDING);
+    assertThat(entry.tryPromoteDirtyToChanged()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
+  }
+
+  @Test
+  public void tryPromoteDirtyToChanged_alreadyScheduled_doesNothing() throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+    SkyKey dep = key("dep");
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+    setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion);
+    entry.markDirty(DirtyType.DIRTY);
+
+    // Scheduled, but the first dep group has not been requested yet.
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(null)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    assertThat(entry.tryPromoteDirtyToChanged()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
+    assertThat(entry.isChanged()).isFalse();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
+
+    // Past the first dep group and waiting on a dep.
+    assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
+    entry.addSingletonTemporaryDirectDep(dep);
+    assertThat(entry.tryPromoteDirtyToChanged()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
+    assertThat(entry.isChanged()).isFalse();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
   }
 
   @Test
