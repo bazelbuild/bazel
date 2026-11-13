@@ -109,13 +109,15 @@ public class CcStarlarkInternal implements StarlarkValue {
             named = true,
             defaultValue = "1"),
       })
-  public void checkPrivateApi(Object allowlistObject, Object depth, StarlarkThread thread)
+  public void checkPrivateApi(Object allowlistObject, StarlarkInt depth, StarlarkThread thread)
       throws EvalException {
     // This method may be called anywhere from builtins, but not outside (because it's not exposed
     // in cc_common.bzl
-    Module module =
-        Module.ofInnermostEnclosingStarlarkFunction(
-            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
+    int depthInt = depth.toInt("depth");
+    if (depthInt < 0) {
+      throw Starlark.errorf("depth must be non-negative, got %d", depthInt);
+    }
+    Module module = Module.ofInnermostEnclosingStarlarkFunction(thread, depthInt);
     if (module == null) {
       // The module is null when the call is coming from one of the callbacks passed to execution
       // phase

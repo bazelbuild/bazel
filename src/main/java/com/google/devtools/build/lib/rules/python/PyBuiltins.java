@@ -454,11 +454,13 @@ public abstract class PyBuiltins implements StarlarkValue {
             named = true,
             defaultValue = "1"),
       })
-  public void checkPrivateApiCaller(Object allowlistObject, Object depth, StarlarkThread thread)
-      throws EvalException {
-    Module module =
-        Module.ofInnermostEnclosingStarlarkFunction(
-            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
+  public void checkPrivateApiCaller(
+      Object allowlistObject, StarlarkInt depth, StarlarkThread thread) throws EvalException {
+    int depthInt = depth.toInt("depth");
+    if (depthInt < 0) {
+      throw Starlark.errorf("depth must be non-negative, got %d", depthInt);
+    }
+    Module module = Module.ofInnermostEnclosingStarlarkFunction(thread, depthInt);
     if (module == null) {
       return;
     }
