@@ -11,10 +11,34 @@ filegroup(
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
+QUERY_PARSER_SRCS = [
+    "Lexer.java",
+    "QueryAst.java",
+    "QueryParser.java",
+    "QuerySyntaxException.java",
+]
+
+java_library(
+    name = "query_parser",
+    srcs = QUERY_PARSER_SRCS,
+    deps = [
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
 java_library(
     name = "engine",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = QUERY_PARSER_SRCS,
+    ),
+    exports = [
+        ":query_parser",
+    ],
     deps = [
+        ":query_parser",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/cmdline:batch_callback",
         "//src/main/java/com/google/devtools/build/lib/cmdline:query_exception_marker_interface",
