@@ -566,21 +566,32 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
   }
 
+  /**
+   * Blocks until the given transports have closed.
+   *
+   * <p>A failure or timeout of a transport in {@code transportFutures} fails the invocation. A
+   * failure or timeout of a transport in {@code warnOnlyTransportFutures} is reported as a warning
+   * and does not affect the exit code of the invocation.
+   */
   private void waitForBuildEventTransportsToClose(
-      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures)
+      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures,
+      Map<BuildEventTransport, ListenableFuture<Void>> warnOnlyTransportFutures)
       throws AbruptExitException {
     final ScheduledExecutorService executor =
         Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder().setNameFormat("bes-notify-ui-%d").build());
     try {
       // Notify the UI handler when a transport finished closing.
-      transportFutures.forEach(
-          (bepTransport, closeFuture) ->
-              closeFuture.addListener(
-                  () -> {
-                    reporter.post(new BuildEventTransportClosedEvent(bepTransport));
-                  },
-                  executor));
+      for (Map<BuildEventTransport, ListenableFuture<Void>> futures :
+          ImmutableList.of(transportFutures, warnOnlyTransportFutures)) {
+        futures.forEach(
+            (bepTransport, closeFuture) ->
+                closeFuture.addListener(
+                    () -> {
+                      reporter.post(new BuildEventTransportClosedEvent(bepTransport));
+                    },
+                    executor));
+      }
 
       String invocationId = this.invocationId;
       try (AutoProfiler p =
@@ -591,8 +602,32 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                   reporter.post(
                       new BuildEventServiceUploadCompleteEvent(
                           Duration.ofNanos(elapsedTimeNanos))))) {
-        Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
+        waitForClose(transportFutures);
+        try {
+          waitForClose(warnOnlyTransportFutures);
+        } catch (AbruptExitException e) {
+          reporter.handle(Event.warn(e.getMessage()));
+        }
       }
+    } finally {
+      removeFromPendingUploads(transportFutures);
+      removeFromPendingUploads(warnOnlyTransportFutures);
+      executor.shutdown();
+    }
+  }
+
+  /**
+   * Blocks until all of the given close futures are done, translating a failure or timeout of any
+   * of them into an {@link AbruptExitException}.
+   */
+  private static void waitForClose(
+      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures)
+      throws AbruptExitException {
+    if (transportFutures.isEmpty()) {
+      return;
+    }
+    try {
+      Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
     } catch (CancellationException e) {
       // This is expected if the upload needs to be cancelled for some reason, e.g. an error
       // interrupting the build.
@@ -612,9 +647,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
               "Unexpected Exception '%s' when closing BEP transports, this is a bug.",
               e.getCause().getMessage()),
           e);
-    } finally {
-      removeFromPendingUploads(transportFutures);
-      executor.shutdown();
     }
   }
 
@@ -676,21 +708,24 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     halfCloseFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getHalfClosedMap());
     Map<BuildEventTransport, ListenableFuture<Void>> blockingTransportFutures = new HashMap<>();
+    Map<BuildEventTransport, ListenableFuture<Void>> warnOnlyTransportFutures = new HashMap<>();
     for (Map.Entry<BuildEventTransport, ListenableFuture<Void>> entry :
         closeFuturesWithTimeoutsMap.entrySet()) {
       BuildEventTransport bepTransport = entry.getKey();
-      boolean besUploadModeIsSynchronous =
-          bepTransport.getBesUploadMode() == BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
-      if (!bepTransport.mayBeSlow() || besUploadModeIsSynchronous) {
+      BesUploadMode besUploadMode = bepTransport.getBesUploadMode();
+      if (!bepTransport.mayBeSlow() || besUploadMode == BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE) {
         blockingTransportFutures.put(bepTransport, entry.getValue());
+      } else if (besUploadMode == BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE_WARN) {
+        // Block on the upload as for WAIT_FOR_UPLOAD_COMPLETE, but only warn if it fails.
+        warnOnlyTransportFutures.put(bepTransport, entry.getValue());
       } else {
         // When running asynchronously notify the UI immediately since we won't wait for the
         // uploads to close.
         reporter.post(new BuildEventTransportClosedEvent(bepTransport));
       }
     }
-    if (!blockingTransportFutures.isEmpty()) {
-      waitForBuildEventTransportsToClose(blockingTransportFutures);
+    if (!blockingTransportFutures.isEmpty() || !warnOnlyTransportFutures.isEmpty()) {
+      waitForBuildEventTransportsToClose(blockingTransportFutures, warnOnlyTransportFutures);
     }
   }
 
