@@ -76,8 +76,12 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -2892,6 +2896,77 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.setActive(true);
 
     syncSkyframeExecutor(); // Permitted.
+  }
+
+  @Test
+  public void resolveTopLevelPlatform_explicitPlatformsSkipsPlatformMappings() throws Exception {
+    BuildOptions buildOptions =
+        createBuildOptions(
+            "--platforms=//plat:explicit", "--platform_mappings=nonexistent/platform_mappings");
+
+    assertThat(skyframeExecutor.resolveTopLevelPlatform(reporter, buildOptions))
+        .isEqualTo(Label.parseCanonicalUnchecked("//plat:explicit"));
+  }
+
+  @Test
+  public void resolveTopLevelPlatform_emptyPlatformsUsesPlatformMappings() throws Exception {
+    scratch.file("plat/BUILD", "platform(name = 'mapped')");
+    scratch.file(
+        "plat/platform_mappings",
+        """
+        flags:
+          --compilation_mode=opt
+            //plat:mapped
+        """);
+    BuildOptions buildOptions =
+        createBuildOptions("--platform_mappings=plat/platform_mappings", "--compilation_mode=opt");
+
+    Label resolvedPlatform = skyframeExecutor.resolveTopLevelPlatform(reporter, buildOptions);
+    assertThat(resolvedPlatform).isEqualTo(Label.parseCanonicalUnchecked("//plat:mapped"));
+    BuildConfigurationValue config =
+        skyframeExecutor.createConfiguration(reporter, buildOptions, /* keepGoing= */ false);
+    assertThat(config.getOptions().get(PlatformOptions.class).computeTargetPlatform())
+        .isEqualTo(resolvedPlatform);
+  }
+
+  @Test
+  public void resolveTopLevelPlatform_invalidPlatformMappings_throwsInvalidConfigurationException()
+      throws Exception {
+    BuildOptions buildOptions =
+        createBuildOptions("--platform_mappings=nonexistent/platform_mappings");
+
+    assertThrows(
+        InvalidConfigurationException.class,
+        () -> skyframeExecutor.resolveTopLevelPlatform(reporter, buildOptions));
+  }
+
+  @Test
+  public void createConfiguration_invalidPlatformMappings_throwsInvalidConfigurationException()
+      throws Exception {
+    BuildOptions buildOptions =
+        createBuildOptions("--platform_mappings=nonexistent/platform_mappings");
+
+    assertThrows(
+        InvalidConfigurationException.class,
+        () -> skyframeExecutor.createConfiguration(reporter, buildOptions, /* keepGoing= */ false));
+  }
+
+  @Test
+  public void createConfiguration_invalidPlatformFlag_throwsInvalidConfigurationException()
+      throws Exception {
+    scratch.file(
+        "plat/BUILD",
+        """
+        platform(
+            name = "bad_flags",
+            flags = ["--not_a_real_flag"],
+        )
+        """);
+    BuildOptions buildOptions = createBuildOptions("--platforms=//plat:bad_flags");
+
+    assertThrows(
+        InvalidConfigurationException.class,
+        () -> skyframeExecutor.createConfiguration(reporter, buildOptions, /* keepGoing= */ false));
   }
 
   private void syncSkyframeExecutor() throws InterruptedException, AbruptExitException {

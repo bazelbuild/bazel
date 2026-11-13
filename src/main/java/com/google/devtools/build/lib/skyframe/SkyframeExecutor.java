@@ -284,6 +284,7 @@ import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
@@ -2314,6 +2315,40 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         .orElse(null);
   }
 
+  /**
+   * Resolves the top-level target platform label from {@code buildOptions} without analyzing any
+   * platform targets.
+   *
+   * <p>When {@code --platforms} is empty, evaluates {@code --platform_mappings} so the top-level
+   * platform label matches the mapped configuration. This is not needed for cache key correctness,
+   * but preserves cross-configuration storage savings from cl/990365172 for builds whose platform
+   * comes from {@code --platform_mappings}.
+   */
+  public Label resolveTopLevelPlatform(ExtendedEventHandler eventHandler, BuildOptions buildOptions)
+      throws InvalidConfigurationException {
+    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+    if (!platformOptions.getPlatforms().isEmpty()) {
+      return platformOptions.computeTargetPlatform();
+    }
+    PlatformMappingKey platformMappingKey = platformOptions.getPlatformMappingKey();
+    EvaluationResult<SkyValue> evaluationResult =
+        evaluateSkyKeys(eventHandler, ImmutableSet.of(platformMappingKey));
+    if (evaluationResult.hasError()) {
+      throwInvalidConfigurationException(eventHandler, evaluationResult);
+    }
+    PlatformMappingValue platformMappingValue =
+        (PlatformMappingValue) evaluationResult.get(platformMappingKey);
+    try {
+      return platformMappingValue
+          .map(buildOptions)
+          .getOptions()
+          .get(PlatformOptions.class)
+          .computeTargetPlatform();
+    } catch (OptionsParsingException e) {
+      throw new InvalidConfigurationException(Code.PLATFORM_MAPPING_EVALUATION_FAILURE, e);
+    }
+  }
+
   private BuildConfigurationKey createBuildConfigurationKey(
       ExtendedEventHandler eventHandler, BuildOptions buildOptions)
       throws InvalidConfigurationException {
@@ -2323,38 +2358,43 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluateSkyKeys(eventHandler, ImmutableSet.of(key));
     // Handle all possible errors by reporting them to the user.
     if (evaluationResult.hasError()) {
-      Map.Entry<SkyKey, ErrorInfo> firstError =
-          Iterables.get(evaluationResult.errorMap().entrySet(), 0);
-      SkyKey errorKey = firstError.getKey();
-      ErrorInfo error = firstError.getValue();
-      Throwable e = error.getException();
-
-      if (e != null) {
-        // Wrap exceptions related to loading
-        if (e instanceof DetailedException detailedException) {
-          throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
-        }
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-        // If we get here, e is non-null but not an InvalidConfigurationException, so wrap it and
-        // throw.
-        throw new InvalidConfigurationException(Code.PLATFORM_MAPPING_EVALUATION_FAILURE, e);
-      } else if (!error.getCycleInfo().isEmpty()) {
-        // This should not ever happen: there should not be a way for BuildConfigurationKeyValue.Key
-        // to produce a skyframe cycle. Produce a basic error message for developers
-        // to use to track down and fix the problem.
-        // Unfortunately, there's no way to express this as an invariant, so manual inspection of
-        // skyfunctions is the only way to prevent this.
-        cyclesReporter.reportCycles(error.getCycleInfo(), errorKey, eventHandler);
-        throw new InvalidConfigurationException(
-            "cannot load build configuration key because of this cycle", Code.CYCLE);
-      }
-
-      // Unclear what could have happened if the exception is null and there isn't a cycle.
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
+      throwInvalidConfigurationException(eventHandler, evaluationResult);
     }
     BuildConfigurationKeyValue buildConfigurationKeyValue =
         (BuildConfigurationKeyValue) evaluationResult.get(key);
     return buildConfigurationKeyValue.buildConfigurationKey();
+  }
+
+  private void throwInvalidConfigurationException(
+      ExtendedEventHandler eventHandler, EvaluationResult<SkyValue> evaluationResult)
+      throws InvalidConfigurationException {
+    Map.Entry<SkyKey, ErrorInfo> firstError =
+        Iterables.get(evaluationResult.errorMap().entrySet(), 0);
+    SkyKey errorKey = firstError.getKey();
+    ErrorInfo error = firstError.getValue();
+    Throwable e = error.getException();
+
+    if (e != null) {
+      // Wrap exceptions related to loading (including InvalidConfigurationException, which
+      // implements DetailedException).
+      if (e instanceof DetailedException detailedException) {
+        throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
+      }
+      // If we get here, e is non-null and not a DetailedException, so wrap it and throw.
+      throw new InvalidConfigurationException(Code.PLATFORM_MAPPING_EVALUATION_FAILURE, e);
+    } else if (!error.getCycleInfo().isEmpty()) {
+      // This should not ever happen: there should not be a way for BuildConfigurationKeyValue.Key
+      // to produce a skyframe cycle. Produce a basic error message for developers
+      // to use to track down and fix the problem.
+      // Unfortunately, there's no way to express this as an invariant, so manual inspection of
+      // skyfunctions is the only way to prevent this.
+      cyclesReporter.reportCycles(error.getCycleInfo(), errorKey, eventHandler);
+      throw new InvalidConfigurationException(
+          "cannot load build configuration key because of this cycle", Code.CYCLE);
+    }
+
+    // Unclear what could have happened if the exception is null and there isn't a cycle.
+    throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
   }
 
   /**

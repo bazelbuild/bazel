@@ -277,6 +277,19 @@ public class BuildView {
                           .build())
                   .build()));
     }
+    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
+      try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
+        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
+      }
+      if (remoteAnalysisCachingDependenciesProvider.mode() != RemoteAnalysisCacheMode.OFF
+          && remoteAnalysisCachingDependenciesProvider.bailedOut()) {
+        remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+        remoteAnalysisCacheReaderDeps = RemoteAnalysisCacheDeps.createDisabled();
+      } else {
+        eventBus.post(new RemoteAnalysisCachingEnabledEvent());
+      }
+    }
+
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
@@ -290,31 +303,24 @@ public class BuildView {
               additionalConfigurationChangeEvent);
       BaselineConfigurations baselines =
           skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
-      topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
-
-      Label topLevelPlatform =
-          topLevelConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
 
       SettablePlatformConfigurationProvider platformConfigProvider =
           remoteAnalysisCachingDependenciesProvider.getPlatformConfigurationProvider();
       if (platformConfigProvider != null) {
+        Label topLevelPlatform =
+            skyframeExecutor.resolveTopLevelPlatform(eventHandler, targetOptions);
         platformConfigProvider.setOnce(
             new DefaultPlatformConfigurationProvider(
                 topLevelPlatform, baselines.targetBaseline(), baselines.execBaseline()));
       }
-    }
 
-    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
-      try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
-        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
-      }
-      if (remoteAnalysisCachingDependenciesProvider.mode() != RemoteAnalysisCacheMode.OFF
-          && remoteAnalysisCachingDependenciesProvider.bailedOut()) {
-        remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
-        remoteAnalysisCacheReaderDeps = RemoteAnalysisCacheDeps.createDisabled();
-      } else {
-        eventBus.post(new RemoteAnalysisCachingEnabledEvent());
-      }
+      // Set up remote analysis caching and invalidate stale deserialized nodes before creating the
+      // top-level configuration, because configuration creation can read cached platform targets.
+      skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
+          remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
+      skyframeExecutor.invalidateWithExternalService(eventHandler);
+
+      topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
 
     topLevelConfigurationTrimmedOfTestOptions =
@@ -355,10 +361,6 @@ public class BuildView {
     ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
             aspects, aspectsParameters, labelToTargetMap, topLevelConfig, eventHandler);
-
-    skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
-        remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
-    skyframeExecutor.invalidateWithExternalService(eventHandler);
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;
