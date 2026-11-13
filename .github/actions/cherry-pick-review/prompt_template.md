@@ -24,7 +24,7 @@ The workflow has analyzed the PR against the target `release-X.Y.Z` branch and `
 ```
 
 Key fields in this context:
-- `base_ref`, `release_version`, `base_sha`: The target release branch (e.g. `release-8.9.0`) and its commit SHA.
+- `base_ref`, `release_version`, `is_patch_release`, `base_sha`: The target release branch (e.g. `release-8.9.0`), whether it is a maintenance patch release (`Z > 0` in `X.Y.Z`), and its commit SHA.
 - `pull_request_number`, `pr_title`, `pr_body`, `pr_author`: PR metadata.
 - `trigger_type`: `"automatic"` (triggered on PR open/synchronize/reopen/ready) or `"manual"` (triggered via `@bazel-io gemini-review`, `@gemini-cli /review`, `gemini-review` label, or `workflow_dispatch`).
 - `has_existing_gemini_review`, `last_gemini_review`: Whether a Gemini review was already posted on this PR, and the most recent Gemini review (`state`, `commit_id`, `submitted_at`, `body`).
@@ -74,22 +74,25 @@ Complete **Step 1 (Inspect Diffs & Verify Criteria)**, **Step 2 (Choose Review D
    - If `vs_mainline_diff_path` is non-null (i.e. `overall_cherry_pick_classification != "CLEAN"`), **always** use `read_file` on `vs_mainline_diff_path` to inspect every non-identical file, its conflict markers on `base_sha`, the exact deviation from the mainline commit, and the `master` commit history for that file.
    - If `since_last_review_diff_path` is non-null (`has_existing_gemini_review == true`), use `read_file` on `since_last_review_diff_path` to see what changed in the PR since the previous Gemini review.
 2. **Check Criterion 1: Mainline Provenance:**
-   - Verify `mainline_commits` is non-empty and `is_on_master` is `true`.
+   - Verify `mainline_commits` is non-empty and `is_on_master` is `true`. Note that a cherry-pick PR may legitimately bundle multiple cherry-picked commits from `master`.
    - If `mainline_commits` is empty (`overall_cherry_pick_classification == "NO_MAINLINE_COMMIT"`), flag as `🔴` Critical (`REQUEST_CHANGES`).
-3. **Check Criterion 2: No Breaking / Backwards-Incompatible Changes:**
+   - If `mainline_commits` is verified on `master` via subject/PR/RevId match because the author omitted `(cherry picked from commit <sha>)`, treat the missing trailer only as a non-blocking `🟢` nit in the summary (do not block `APPROVE`).
+3. **Check Criterion 2: No Breaking Changes & Patch-Release Scope:**
    - Inspect `breaking_change_signals`, the mainline commit message (`RELNOTES`, `Build API Changes`), and the code diff in `pr_diff_path`.
-   - Does the change introduce a backwards-incompatible change (e.g., `RELNOTES[INC]:`, flipping an `--incompatible_*` flag default, removing/breaking a flag, provider, rule attribute, or Starlark API, or breaking existing user builds)?
-   - If yes: flag as `🔴` Critical (`REQUEST_CHANGES`) and add an inline comment on the offending diff line(s) explaining why the change is backwards-incompatible and unsuitable for `release-X.Y.Z`.
-   - If the change is a bug fix, crash fix, race condition fix, performance improvement, or backwards-compatible fix, confirm it is safe for `release-X.Y.Z`.
+   - Does the change introduce a backwards-incompatible change (e.g., `RELNOTES[INC]:`, flipping an `--incompatible_*` flag default, removing/breaking an existing flag, provider, rule attribute, or Starlark API, or breaking existing user builds)?
+   - Note that **adding a new command-line flag** (including a new `--incompatible_*` or `--experimental_*` flag that defaults to `false` / preserves existing behavior) is **not** a breaking change and is completely fine.
+   - If `is_patch_release == true` (`Z > 0` in `release-X.Y.Z`), also check whether the PR cherry-picks a large new feature or a large standalone refactoring rather than a bug fix, regression fix, security fix, docs fix, or CI/release-script fix.
+   - If the change is breaking or is a large feature/refactoring on a patch release: flag as `🔴` Critical (`REQUEST_CHANGES`) and add an inline comment on the offending diff line(s) explaining why it is unsuitable for `release-X.Y.Z`.
+   - If the change is a bug fix, crash fix, race condition fix, performance fix, or safe backwards-compatible fix (including adding a flag), confirm it is safe for `release-X.Y.Z`.
 4. **Check Criterion 3 & 4: Cleanliness, Conflict Resolution Minimality, and No Unrelated Changes:**
    - **If `overall_cherry_pick_classification == "CLEAN"`:**
      - Confirm that all files are `"identical"` (or `"lockfile_regenerated"`).
    - **If any files are `"adapted_with_conflict"`, `"adapted_without_conflict"`, `"omitted_from_pr"`, or `"extra_in_pr"`:**
      - Inspect `vs_mainline_diff_path` and (if needed) `head_file_path` / `base_file_path`.
      - Also check `pr_comments` and `pr_body` to see if the author explained the adaptations.
-     - For **each** non-identical file, determine:
-       - **Legitimate minimal adaptation:** Was the change necessary to resolve a git merge conflict on `release-X.Y.Z`, adapt to an older method/constructor signature on `release-X.Y.Z`, adjust a split/consolidated `BUILD` target on `release-X.Y.Z`, update a caller that still exists on `release-X.Y.Z`, drop a newer-release-only test assertion, or apply a documented release-branch CI fix? Are the diffs reasonably minimal and faithful to the mainline fix?
-       - **Unrelated change sneaked in (`🔴` Critical):** Does the PR modify an extra file (`extra_in_pr`) or change code/flags/targets (`adapted_without_conflict` or extra hunks in `adapted_with_conflict`) that have nothing to do with the mainline commit or resolving conflicts on `release-X.Y.Z`? If so, flag as `🔴` Critical (`REQUEST_CHANGES`) with an inline comment on the unrelated diff lines!
+     - Exercise good engineering judgment for **each** non-identical file:
+       - **Legitimate minimal adaptation (qualifies for `APPROVE`):** Was the change necessary to resolve a git merge conflict on `release-X.Y.Z`, adapt to an older method/constructor signature on `release-X.Y.Z`, translate a newer JDK/language helper (e.g. Java 21 `List.getFirst()` to `List.get(0)`), adjust a split/consolidated `BUILD` target or relocated file on `release-X.Y.Z`, update a caller that still exists on `release-X.Y.Z`, drop a newer-release-only test assertion, or apply a clean release-branch CI/presubmit fix? Are the diffs reasonably minimal and faithful to the mainline fix?
+       - **Unrelated change sneaked in (`🔴` Critical):** Does the PR modify an extra file (`extra_in_pr`) or change code/flags/targets (`adapted_without_conflict` or extra hunks in `adapted_with_conflict`) that have nothing to do with the mainline commit or resolving conflicts/CI on `release-X.Y.Z`? If so, flag as `🔴` Critical (`REQUEST_CHANGES`) with an inline comment on the unrelated diff lines!
        - **Buggy or overly intrusive conflict resolution (`🔴` Critical):** Did the conflict resolution accidentally drop part of the fix, introduce a bug/syntax error, leave a caller broken on `release-X.Y.Z`, or require a massive unsafe refactor? If so, flag as `🔴` Critical (`REQUEST_CHANGES`) with an inline comment!
 
 ---
@@ -99,13 +102,16 @@ Complete **Step 1 (Inspect Diffs & Verify Criteria)**, **Step 2 (Choose Review D
 Assign each specific issue a severity:
 - `🔴` **Critical (Blocker, requires `"decision": "REQUEST_CHANGES"`):**
   - Backwards-incompatible / breaking change cherry-picked into `release-X.Y.Z`.
+  - Large new feature or large standalone refactoring cherry-picked into a patch release (`is_patch_release == true`).
   - Unrelated file or code changes sneaked into the PR.
   - No matching mainline commit on `master`.
   - Broken, buggy, or unsafe conflict resolution.
 - `🟠` **High (Needs Human Verification, requires `"decision": "COMMENT"` if no `🔴`):**
-  - Non-trivial adaptations beyond straightforward conflict resolution (e.g., disabling test targets in `.bazelci/presubmit.yml`, complex logic adaptations where a human maintainer should verify semantics, or unmerged prerequisite concerns).
+  - Ambiguous or unusually broad release-branch adaptations where a human release manager should verify semantics or scope before merging.
 - `🟡` **Medium (Informational / Minor Suggestion):**
-  - E.g., the cherry-pick is valid and conflict resolution is minimal, but the author didn't include the `(cherry picked from commit <sha>)` trailer or a brief comment summarizing a non-obvious adaptation. (Does not block `"APPROVE"` if the cherry-pick and conflict resolution are verified to be clean/minimal and correct.)
+  - Non-blocking observation about a non-obvious adaptation that wasn't explained in the PR description/comments. (Does not block `"APPROVE"`.)
+- `🟢` **Nit (Mention briefly in top-level `body` only, never as an inline comment, does not block `"APPROVE"`):**
+  - E.g., the author omitted the `(cherry picked from commit <sha>)` trailer on one or more commits even though the mainline commit on `master` was verified.
 
 Select `"decision"`:
 - **`"APPROVE"`**: Zero `🔴` and zero `🟠` issues. Use `"APPROVE"` both for **100% clean cherry-picks** of non-breaking mainline commits AND for **non-breaking cherry-picks with reasonably minimal, faithful merge-conflict resolutions / release-branch adaptations**.

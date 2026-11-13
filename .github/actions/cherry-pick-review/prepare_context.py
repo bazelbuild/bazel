@@ -87,6 +87,16 @@ def is_valid_release_branch(base_ref):
     return ver
 
 
+def is_patch_release_version(release_version):
+    """Returns True if release_version is a maintenance patch release (X.Y.Z with Z > 0)."""
+    if not isinstance(release_version, str):
+        return False
+    m = re.match(r"^(\d+)\.(\d+)\.(\d+)", release_version)
+    if not m:
+        return False
+    return int(m.group(3)) > 0
+
+
 def is_safe_repo_rel_path(path):
     """Returns True if path is a safe, normalized repository-relative file path.
 
@@ -300,11 +310,74 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
     def add_candidate(raw_sha, reason):
         full = resolve_commit_sha(raw_sha)
         if not full or full in seen or full in pr_commit_shas:
-            return
+            return False
         if base_sha and is_ancestor(full, base_sha):
-            return
+            return False
         seen.add(full)
         candidates.append((full, reason))
+        return True
+
+    def extract_explicit_from_text(text, allow_rev_id=True):
+        found = False
+        for m in CHERRY_PICK_TRAILER_RE.finditer(text):
+            if add_candidate(m.group(1), f"cherry-pick trailer ({m.group(1)[:10]})"):
+                found = True
+        for m in GITHUB_COMMIT_URL_RE.finditer(text):
+            if add_candidate(m.group(1), f"GitHub commit URL ({m.group(1)[:10]})"):
+                found = True
+        if allow_rev_id:
+            for m in PIPER_REV_ID_RE.finditer(text):
+                rev_id = m.group(1)
+                res = run_git(["log", mainline_ref, f"--grep=PiperOrigin-RevId: {rev_id}", "--format=%H", "-n", "5"])
+                if res.returncode == 0:
+                    for line in res.stdout.splitlines():
+                        if add_candidate(line.strip(), f"PiperOrigin-RevId: {rev_id}"):
+                            found = True
+        return found
+
+    def extract_fallback_from_text(text, subject_line=""):
+        found = False
+        for m in CHANGE_ID_RE.finditer(text):
+            change_id = m.group(1)
+            res = run_git(["log", mainline_ref, f"--grep=Change-Id: {change_id}", "--format=%H", "-n", "5"])
+            if res.returncode == 0:
+                for line in res.stdout.splitlines():
+                    if add_candidate(line.strip(), f"Change-Id: {change_id[:16]}..."):
+                        found = True
+        if found:
+            return True
+
+        pr_nums = []
+        m_title = TITLE_PR_RE.search(subject_line or "")
+        if m_title:
+            pr_nums.append(m_title.group(1))
+        for m in COPYBARA_PR_RE.finditer(text):
+            pr_nums.append(m.group(1))
+        for m in FORKED_FROM_RE.finditer(text):
+            pr_nums.append(m.group(1))
+        for num in pr_nums:
+            for pattern in (f"Closes #{num}", f"(#{num})"):
+                res = run_git(["log", mainline_ref, "--fixed-strings", f"--grep={pattern}", "--format=%H", "-n", "5"])
+                if res.returncode == 0:
+                    for line in res.stdout.splitlines():
+                        if add_candidate(line.strip(), f"mainline PR #{num}"):
+                            found = True
+        if found:
+            return True
+
+        cleaned_subj = re.sub(r"[\x00-\x1f]+", " ", subject_line or "")
+        cleaned_subj = RELEASE_PREFIX_RE.sub("", cleaned_subj)
+        cleaned_subj = TITLE_PR_RE.sub("", cleaned_subj).strip()
+        if len(cleaned_subj) >= 12 and cleaned_subj.lower() != "update lockfile(s)":
+            res = run_git(["log", mainline_ref, "--fixed-strings", f"--grep={cleaned_subj}", "--format=%H", "-n", "5"])
+            if res.returncode == 0:
+                for line in res.stdout.splitlines():
+                    subj_check = run_git(["show", "-s", "--format=%s", line.strip()])
+                    actual_subj = TITLE_PR_RE.sub("", subj_check.stdout.strip()).strip()
+                    if actual_subj == cleaned_subj or cleaned_subj in actual_subj:
+                        if add_candidate(line.strip(), "commit subject match on master"):
+                            found = True
+        return found
 
     commit_messages = [str((c.get("commit") or {}).get("message") or "") for c in pr_commits]
     author_comment_bodies = [
@@ -312,78 +385,21 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
         for c in pr_comments
         if str((c.get("user") or {}).get("login") or "").lower() == pr_author.lower()
     ]
-    all_texts = commit_messages + [pr_body or ""] + author_comment_bodies
 
-    # 1. Explicit `(cherry picked from commit <sha>)` trailers
-    for text in all_texts:
-        for m in CHERRY_PICK_TRAILER_RE.finditer(text):
-            add_candidate(m.group(1), f"cherry-pick trailer ({m.group(1)[:10]})")
+    # 1. Inspect each PR commit individually so multi-commit PRs resolve every commit
+    for msg in commit_messages:
+        first_line = msg.splitlines()[0].strip() if msg.strip() else ""
+        if not extract_explicit_from_text(msg, allow_rev_id=True):
+            extract_fallback_from_text(msg, subject_line=first_line)
 
-    # 2. Explicit `https://github.com/.../commit/<sha>` URLs
-    for text in all_texts:
-        for m in GITHUB_COMMIT_URL_RE.finditer(text):
-            add_candidate(m.group(1), f"GitHub commit URL ({m.group(1)[:10]})")
+    # 2. Inspect PR body and author comments for explicit references
+    body_matched = extract_explicit_from_text(pr_body or "", allow_rev_id=True)
+    for comment_text in author_comment_bodies:
+        extract_explicit_from_text(comment_text, allow_rev_id=False)
 
-    # 3. `PiperOrigin-RevId: <id>` trailers
-    for text in commit_messages + [pr_body or ""]:
-        for m in PIPER_REV_ID_RE.finditer(text):
-            rev_id = m.group(1)
-            res = run_git(["log", mainline_ref, f"--grep=PiperOrigin-RevId: {rev_id}", "--format=%H", "-n", "5"])
-            if res.returncode == 0:
-                for line in res.stdout.splitlines():
-                    add_candidate(line.strip(), f"PiperOrigin-RevId: {rev_id}")
-
-    # 4. `Change-Id: I...` trailers
-    if not candidates:
-        for text in commit_messages + [pr_body or ""]:
-            for m in CHANGE_ID_RE.finditer(text):
-                change_id = m.group(1)
-                res = run_git(["log", mainline_ref, f"--grep=Change-Id: {change_id}", "--format=%H", "-n", "5"])
-                if res.returncode == 0:
-                    for line in res.stdout.splitlines():
-                        add_candidate(line.strip(), f"Change-Id: {change_id[:16]}...")
-
-    # 5. Mainline PR number in title `(#12345)`, `COPYBARA_INTEGRATE_REVIEW`, or `Forked from #12345`
-    if not candidates:
-        pr_nums = []
-        m_title = TITLE_PR_RE.search(pr_title or "")
-        if m_title:
-            pr_nums.append(m_title.group(1))
-        for text in commit_messages + [pr_body or ""]:
-            for m in COPYBARA_PR_RE.finditer(text):
-                pr_nums.append(m.group(1))
-            for m in FORKED_FROM_RE.finditer(text):
-                pr_nums.append(m.group(1))
-        for num in pr_nums:
-            for pattern in (f"Closes #{num}", f"(#{num})"):
-                res = run_git(["log", mainline_ref, "--fixed-strings", f"--grep={pattern}", "--format=%H", "-n", "5"])
-                if res.returncode == 0:
-                    for line in res.stdout.splitlines():
-                        add_candidate(line.strip(), f"mainline PR #{num}")
-
-    # 6. Fallback: Commit subject match on master
-    if not candidates:
-        subjects = []
-        cleaned_title = re.sub(r"[\x00-\x1f]+", " ", pr_title or "")
-        cleaned_title = RELEASE_PREFIX_RE.sub("", cleaned_title)
-        cleaned_title = TITLE_PR_RE.sub("", cleaned_title).strip()
-        if len(cleaned_title) >= 12:
-            subjects.append(cleaned_title)
-        for msg in commit_messages:
-            first_line = msg.splitlines()[0].strip() if msg.strip() else ""
-            first_line = re.sub(r"[\x00-\x1f]+", " ", first_line)
-            first_line = RELEASE_PREFIX_RE.sub("", first_line)
-            first_line = TITLE_PR_RE.sub("", first_line).strip()
-            if len(first_line) >= 12 and first_line.lower() != "update lockfile(s)" and first_line not in subjects:
-                subjects.append(first_line)
-        for subj in subjects:
-            res = run_git(["log", mainline_ref, "--fixed-strings", f"--grep={subj}", "--format=%H", "-n", "5"])
-            if res.returncode == 0:
-                for line in res.stdout.splitlines():
-                    subj_check = run_git(["show", "-s", "--format=%s", line.strip()])
-                    actual_subj = TITLE_PR_RE.sub("", subj_check.stdout.strip()).strip()
-                    if actual_subj == subj or subj in actual_subj:
-                        add_candidate(line.strip(), "commit subject match on master")
+    # 3. If still no candidates (or PR body/title wasn't matched via commit messages), try PR title/body fallback
+    if not candidates and not body_matched:
+        extract_fallback_from_text(pr_body or "", subject_line=pr_title or "")
 
     return candidates
 
@@ -428,9 +444,16 @@ def extract_breaking_change_signals(mainline_commits_info, pr_title, pr_body, pr
             continue
         if path.endswith(".java"):
             if "OptionMetadataTag.INCOMPATIBLE_CHANGE" in patch_text or 'name = "incompatible_' in patch_text:
-                if re.search(r"^[+-]\s*defaultValue\s*=", patch_text, re.MULTILINE):
+                has_removed_default = bool(re.search(r"^-\s*defaultValue\s*=", patch_text, re.MULTILINE))
+                has_added_default = bool(re.search(r"^\+\s*defaultValue\s*=", patch_text, re.MULTILINE))
+                has_added_true_default = bool(
+                    re.search(r'^\+\s*defaultValue\s*=\s*"true"', patch_text, re.MULTILINE)
+                )
+                if (has_removed_default and has_added_default) or (
+                    not has_removed_default and has_added_true_default
+                ):
                     add_signal(
-                        f"Modifies `defaultValue` near an incompatible flag definition in `{sanitize_untrusted_str(path, 150)}`."
+                        f"Flips or sets `defaultValue` on an incompatible flag in `{sanitize_untrusted_str(path, 150)}`."
                     )
             if re.search(r"^-\s*@StarlarkMethod", patch_text, re.MULTILINE) and not re.search(
                 r"^\+\s*@StarlarkMethod", patch_text, re.MULTILINE
@@ -1130,6 +1153,7 @@ def main():
         "pull_request_number": int(pr_number),
         "base_ref": base_ref,
         "release_version": release_version,
+        "is_patch_release": is_patch_release_version(release_version),
         "base_sha": base_sha,
         "head_sha": head_sha,
         "pr_title": pr_title,

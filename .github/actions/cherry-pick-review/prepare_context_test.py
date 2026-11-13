@@ -363,6 +363,92 @@ class PrepareContextTest(unittest.TestCase):
         self.assertFalse(unchanged2)
         self.assertIn("return 20;", pathlib.Path(since_path2).read_text(encoding="utf-8"))
 
+    def test_multi_commit_discovery_patch_release_and_flag_addition_vs_flip(self):
+        self.assertFalse(prepare_context.is_patch_release_version("8.9.0"))
+        self.assertTrue(prepare_context.is_patch_release_version("8.5.1"))
+        self.assertTrue(prepare_context.is_patch_release_version("7.7.2"))
+
+        # Create two commits on master
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 11; }\n  int b() { return 2; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", "src/Foo.java")
+        self._git("commit", "-m", "First mainline fix for Foo.a (#601)")
+        sha1 = self._git_out("rev-parse", "HEAD")
+
+        (self.root / "src" / "Bar.java").write_text("class Bar { int x() { return 7; } }\n", encoding="utf-8")
+        self._git("add", "src/Bar.java")
+        self._git("commit", "-m", "Second mainline fix for Bar.x (#602)")
+        sha2 = self._git_out("rev-parse", "HEAD")
+
+        # Create PR branch with two commits: first has trailer, second omits trailer (subject only)
+        pr_commits = [
+            {
+                "sha": "1111111111111111111111111111111111111111",
+                "commit": {
+                    "message": f"First mainline fix for Foo.a (#601)\n\n(cherry picked from commit {sha1})"
+                },
+            },
+            {
+                "sha": "2222222222222222222222222222222222222222",
+                "commit": {
+                    "message": "[8.9.0] Second mainline fix for Bar.x"
+                },
+            },
+        ]
+        found = prepare_context.find_mainline_commits(
+            pr_title="[8.9.0] Two cherry-picks",
+            pr_body="",
+            pr_commits=pr_commits,
+            pr_comments=[],
+            pr_author="wyv",
+            mainline_ref="master",
+            base_sha=self.base_sha,
+        )
+        self.assertEqual([sha for sha, _ in found], [sha1, sha2])
+
+        # Adding a new default-off incompatible flag should NOT trigger a breaking signal
+        signals_add_flag = prepare_context.extract_breaking_change_signals(
+            mainline_commits_info=[],
+            pr_title="[8.9.0] Add stub incompatible flag",
+            pr_body="",
+            pr_files=[
+                {
+                    "filename": "src/Options.java",
+                    "patch": (
+                        '@@ -10,0 +11,5 @@\n'
+                        '+  @Option(\n'
+                        '+      name = "incompatible_new_stub",\n'
+                        '+      defaultValue = "false",\n'
+                        '+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE})\n'
+                    ),
+                }
+            ],
+        )
+        self.assertEqual(signals_add_flag, [])
+
+        # Flipping an existing incompatible flag's defaultValue SHOULD trigger a breaking signal
+        signals_flip_flag = prepare_context.extract_breaking_change_signals(
+            mainline_commits_info=[],
+            pr_title="[8.9.0] Flip incompatible flag",
+            pr_body="",
+            pr_files=[
+                {
+                    "filename": "src/Options.java",
+                    "patch": (
+                        '@@ -10,5 +10,5 @@\n'
+                        '   @Option(\n'
+                        '       name = "incompatible_existing_flag",\n'
+                        '-      defaultValue = "false",\n'
+                        '+      defaultValue = "true",\n'
+                        '       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE})\n'
+                    ),
+                }
+            ],
+        )
+        self.assertEqual(len(signals_flip_flag), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
