@@ -60,6 +60,18 @@ The available subcommands and their respective required arguments are:
     extension in each of the modules where it is used, containing the specified
     tags and the `use_repo` calls (see [example](#mod-example8)).
 
+*   `show_toolchains [<arg>...]`: Displays the toolchains that the specified
+    modules register, or those of all modules that register any. For each
+    target pattern passed to `register_toolchains`, it lists the toolchains the
+    pattern expands to, their toolchain types and the modules that own these
+    types. A module owns the types in its own repo and in the repos generated
+    by the module extensions it defines. Use `--output=json` to get one JSON
+    object per module.
+
+*   `show_execution_platforms [<arg>...]`: Displays the execution platforms
+    that the specified modules register, or those of all modules that register
+    any.
+
 `<arg>` refers to one or more modules or repos. It can be one of:
 
 *   The literal string `<root>`: The root module representing your current
@@ -186,6 +198,10 @@ Other options include:
 
 *   `--extension_usages <arg>[,<arg>[,...]]`: Filters `show_extension` to only
     display extension usages from the specified modules.
+
+*   `--toolchain_type <label>`: Filters `show_toolchains` to only display
+    toolchains of the given toolchain type, which is interpreted relative to
+    the `--base_module`. Can be specified multiple times.
 
 ## Examples {#examples}
 
