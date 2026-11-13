@@ -1693,10 +1693,51 @@ EOF
   grep -F '"hash":null' snapshot | grep -F '"name":"//hashed_catalog:unknown"' > /dev/null \
     || fail "Missing metadata for unresolved rule"
 
+  # Binary snapshots use the normal delimited Target records and append field 7 only
+  # when a hash exists. Check that the metadata is byte-for-byte unchanged in both cases.
+  for rule in known unknown; do
+    bazel query --output=streamed_proto "//hashed_catalog:$rule" > "${rule}.pb" 2> "$TEST_log" \
+      || fail "Expected metadata for $rule"
+  done
+  status=0
+  bazel query "${flags[@]}" --output=streamed_proto "$expr" > snapshot.pb 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  expect_log "Streamed 2 query hash records (1 unknown, $(wc -c < snapshot.pb | tr -d ' ') bytes)"
+  python3 - "$digest" <<'PYTHON' || fail "Incorrect binary snapshot"
+import sys
+
+def records(path):
+    with open(path, "rb") as src:
+        while True:
+            byte = src.read(1)
+            if not byte:
+                break
+            size = byte[0] & 127
+            shift = 7
+            while byte[0] & 128:
+                byte = src.read(1)
+                size |= (byte[0] & 127) << shift
+                shift += 7
+            record = src.read(size)
+            assert len(record) == size
+            yield record
+
+known, = records("known.pb")
+unknown, = records("unknown.pb")
+assert sorted(records("snapshot.pb")) == sorted([known + b"\x3a\x20" + bytes.fromhex(sys.argv[1]), unknown])
+PYTHON
+
   # An incomplete target enumeration cannot serve as a snapshot of the requested scope.
   bazel query "${flags[@]}" '//hashed_catalog:known + //no_such_catalog_package:target' \
     > snapshot 2> "$TEST_log" && fail "Expected enumeration failure"
   [[ ! -s snapshot ]] || fail "Wrote a partial catalog"
+  bazel query "${flags[@]}" --output=streamed_proto '//hashed_catalog:known + //no_such_catalog_package:target' \
+    > snapshot.pb 2> "$TEST_log" && fail "Expected enumeration failure"
+  [[ ! -s snapshot.pb ]] || fail "Wrote an incomplete target set"
+  expect_not_log "Streamed .* query hash records"
+  bazel query "${flags[@]}" --output=streamed_proto //hashed_catalog:known > snapshot.pb 2> "$TEST_log" \
+    || fail "Expected a complete binary snapshot"
+  expect_log "Streamed 1 query hash records (0 unknown, $(wc -c < snapshot.pb | tr -d ' ') bytes)"
 }
 
 function test_generate_hashes_source_directory_children() {
