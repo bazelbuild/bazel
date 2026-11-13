@@ -61,6 +61,7 @@ public final class Crosstool {
     private final ImmutableList<Pair<String, String>> makeVariables;
     private final ImmutableList<String> toolchainExecConstraints;
     private final ImmutableList<String> toolchainTargetConstraints;
+    private final String generatedTool;
 
     private CcToolchainConfig(
         String cpu,
@@ -80,7 +81,8 @@ public final class Crosstool {
         ImmutableList<String> cxxBuiltinIncludeDirectories,
         ImmutableList<Pair<String, String>> makeVariables,
         ImmutableList<String> toolchainExecConstraints,
-        ImmutableList<String> toolchainTargetConstraints) {
+        ImmutableList<String> toolchainTargetConstraints,
+        String generatedTool) {
       this.cpu = cpu;
       this.compiler = compiler;
       this.toolchainIdentifier = toolchainIdentifier;
@@ -99,6 +101,7 @@ public final class Crosstool {
       this.ccTargetOs = ccTargetOs;
       this.toolchainExecConstraints = toolchainExecConstraints;
       this.toolchainTargetConstraints = toolchainTargetConstraints;
+      this.generatedTool = generatedTool;
     }
 
     public static Builder builder() {
@@ -131,6 +134,7 @@ public final class Crosstool {
           ImmutableList.of(
               TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
               TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+      private String generatedTool = "";
 
       @CanIgnoreReturnValue
       public Builder withCpu(String cpu) {
@@ -177,6 +181,16 @@ public final class Crosstool {
       @CanIgnoreReturnValue
       public Builder withAbiLibcVersion(String abiLibcVersion) {
         this.abiLibcVersion = abiLibcVersion;
+        return this;
+      }
+
+      /**
+       * Configures the tool of the C++ compile action to be the given generated file, which results
+       * in a tool path that is subject to path mapping.
+       */
+      @CanIgnoreReturnValue
+      public Builder withGeneratedTool(String generatedTool) {
+        this.generatedTool = generatedTool;
         return this;
       }
 
@@ -265,7 +279,8 @@ public final class Crosstool {
             cxxBuiltinIncludeDirectories,
             makeVariables,
             toolchainExecConstraints,
-            toolchainTargetConstraints);
+            toolchainTargetConstraints,
+            generatedTool);
       }
     }
 
@@ -345,7 +360,8 @@ public final class Crosstool {
           /* cxxBuiltinIncludeDirectories= */ ImmutableList.of(),
           /* makeVariables= */ ImmutableList.of(),
           /* toolchainExecConstraints= */ ImmutableList.of(),
-          /* toolchainTargetConstraints= */ ImmutableList.of());
+          /* toolchainTargetConstraints= */ ImmutableList.of(),
+          /* generatedTool= */ "");
     }
 
     public static CcToolchainConfig getDefaultCcToolchainConfig() {
@@ -406,6 +422,7 @@ public final class Crosstool {
                   Joiner.on(",\n    ").join(directoriesList)),
               String.format(
                   "  make_variables = {%s},", Joiner.on(",\n    ").join(makeVariablesList)),
+              generatedTool.isEmpty() ? "" : "  generated_tool = '" + generatedTool + "',",
               "  )");
     }
   }

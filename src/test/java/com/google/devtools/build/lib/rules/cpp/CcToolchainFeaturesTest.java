@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Sequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.TreeArtifactExpander;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
@@ -500,7 +500,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 ")]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
     return configuration.getCommandLine(
-        CppActionNames.CPP_COMPILE, variables, /* inputMetadataProvider= */ null, pathMapper);
+        CppActionNames.CPP_COMPILE, variables, /* treeArtifactExpander= */ null, pathMapper);
   }
 
   private List<String> getCommandLineForFlag(
@@ -595,7 +595,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     public VariableValue getFieldValue(
         String variableName,
         String field,
-        @Nullable InputMetadataProvider inputMetadataProvider,
+        @Nullable TreeArtifactExpander treeArtifactExpander,
         PathMapper pathMapper,
         boolean throwOnMissingVariable) {
       return value.getOrDefault(field, null);
