@@ -33,13 +33,17 @@ import build.bazel.remote.execution.v2.SpliceBlobResponse;
 import build.bazel.remote.execution.v2.SplitBlobRequest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -207,13 +211,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
         }
       }
 
-      DigestOutputStream digestOut =
-          cache.getDigestUtil().newDigestOutputStream(OutputStream.nullOutputStream());
-      for (Digest chunkDigest : chunkDigests) {
-        byte[] chunkData = getFromFuture(cache.downloadBlob(context, chunkDigest));
-        digestOut.write(chunkData);
-      }
-      Digest computedDigest = digestOut.digest();
+      Digest computedDigest = spliceIntoCas(context, chunkDigests, blobDigest);
       if (!computedDigest.equals(blobDigest)) {
         String err =
             "Splice digest " + blobDigest + " did not match computed digest: " + computedDigest;
@@ -235,6 +233,44 @@ final class CasServer extends ContentAddressableStorageImplBase {
     } catch (Exception e) {
       logger.atWarning().withCause(e).log("SpliceBlob request failed");
       responseObserver.onError(StatusUtils.internalError(e));
+    }
+  }
+
+  /**
+   * Concatenates the chunks into the full blob and, if it matches {@code blobDigest}, stores it in
+   * the CAS. Chunks remain the primary read path; the full blob is stored so that action results
+   * referencing it pass existence checks and plain (non-SplitBlob) reads work.
+   *
+   * @return the digest of the concatenated chunks
+   */
+  private Digest spliceIntoCas(
+      RemoteActionExecutionContext context, List<Digest> chunkDigests, Digest blobDigest)
+      throws IOException, InterruptedException {
+    DiskCacheClient diskCacheClient = cache.getDiskCacheClient();
+    Path tempPath = diskCacheClient.getTempPath();
+    try {
+      Digest computedDigest;
+      OutputStream rawOut = tempPath.getOutputStream();
+      try (DigestOutputStream digestOut = cache.getDigestUtil().newDigestOutputStream(rawOut)) {
+        for (Digest chunkDigest : chunkDigests) {
+          digestOut.write(getFromFuture(cache.downloadBlob(context, chunkDigest)));
+        }
+        computedDigest = digestOut.digest();
+        // Fsync so a machine crash cannot publish a CAS entry whose data never reached disk.
+        if (rawOut instanceof FileOutputStream fos) {
+          fos.getFD().sync();
+        }
+      }
+      if (computedDigest.equals(blobDigest)) {
+        diskCacheClient.captureFile(tempPath, blobDigest, Store.CAS);
+      }
+      return computedDigest;
+    } finally {
+      try {
+        tempPath.delete();
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Failed to delete temporary file %s", tempPath);
+      }
     }
   }
 }

@@ -147,7 +147,11 @@ public class ChunkedTransferBenchmark {
 
       downloader =
           new ChunkedBlobDownloader(
-              grpcCacheClient, combinedCache, FastCdcChunkingConfig.defaults(), DIGEST_UTIL);
+              grpcCacheClient,
+              combinedCache,
+              FastCdcChunkingConfig.defaults(),
+              DIGEST_UTIL,
+              new ChunkLocationMap());
     }
 
     @TearDown(Level.Trial)
