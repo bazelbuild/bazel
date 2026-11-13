@@ -161,6 +161,12 @@ if [ ! -f jmods/java.base.jmod ]; then
   fi
 fi
 
+if [[ "$modules" == "ALL-MODULE-PATH" ]]; then
+  # Link all modules except for incubator modules, which Bazel doesn't use and
+  # which cause jlink to emit a warning.
+  modules=$(ls jmods | sed -n 's/\.jmod$//p' | grep -v '^jdk\.incubator\.' | paste -sd "," -)
+fi
+
 if [[ "$target_windows" == true ]]; then
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore

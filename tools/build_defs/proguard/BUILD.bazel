@@ -16,6 +16,7 @@ exports_files(
 py_binary(
     name = "wrapper_private",
     srcs = ["wrapper.py"],
+    legacy_create_init = 0,
     main = "wrapper.py",
     visibility = ["//visibility:private"],
 )
