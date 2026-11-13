@@ -790,6 +790,55 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
+  public void isBuildOrTestLog_testLogsAndActionOutErr() {
+    String execRoot = "/home/user/.cache/bazel/_bazel_user/0123abcd/execroot/_main";
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.log"))
+        .isTrue();
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.xml"))
+        .isTrue();
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/_tmp/actions/stdout-12"))
+        .isTrue();
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/_tmp/actions/stderr-12"))
+        .isTrue();
+  }
+
+  @Test
+  public void isBuildOrTestLog_otherFiles() {
+    String execRoot = "/home/user/.cache/bazel/_bazel_user/0123abcd/execroot/_main";
+    // A source file, and an output that is neither kind of log.
+    assertThat(ByteStreamBuildEventArtifactUploader.isBuildOrTestLog("/workspace/pkg/a.cc"))
+        .isFalse();
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/k8-fastbuild/bin/pkg/liba.a"))
+        .isFalse();
+    // The literal parts are there, but not where the patterns want them.
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog("/workspace/testlogs/a.log"))
+        .isFalse();
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/k8-fastbuild/bin/testlogs/a.log"))
+        .isFalse();
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/_tmp/actions/stdin-12"))
+        .isFalse();
+    assertThat(
+            ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(
+                execRoot + "/bazel-out/_tmp/actions/std"))
+        .isFalse();
+  }
+
+  @Test
   public void fileWithDirectoryMetadata_notUploaded() throws Exception {
     Path dir = fs.getPath("/dir");
     FileArtifactValue metadata = FileArtifactValue.createForDirectoryWithMtime(0);

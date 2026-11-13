@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMess
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -68,6 +69,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
   private static final Pattern BUILD_LOG_PATTERN =
       Pattern.compile(".*/bazel-out/_tmp/actions/std(err|out)-.*");
+  private static final String TEST_LOG_LITERAL = "/testlogs/";
+  private static final String BUILD_LOG_LITERAL = "/bazel-out/_tmp/actions/std";
 
   private final Executor executor;
   private final ExtendedEventHandler reporter;
@@ -318,9 +321,14 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     return result;
   }
 
-  private boolean isBuildOrTestLog(PathMetadata path) {
-    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
-        || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
+  private static boolean isBuildOrTestLog(PathMetadata path) {
+    return isBuildOrTestLog(path.getPath().getPathString());
+  }
+
+  @VisibleForTesting
+  static boolean isBuildOrTestLog(String path) {
+    return (path.contains(TEST_LOG_LITERAL) && TEST_LOG_PATTERN.matcher(path).matches())
+        || (path.contains(BUILD_LOG_LITERAL) && BUILD_LOG_PATTERN.matcher(path).matches());
   }
 
   private Single<List<PathMetadata>> queryCombinedCache(
