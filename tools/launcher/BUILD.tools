@@ -51,8 +51,16 @@ single_binary_toolchain(
     for platform, constraints in PREBUILT_TOOLS_PLATFORMS.items()
 ]
 
+# Requires a POSIX shell on the execution platform.
 single_binary_toolchain(
-    name = "2_no_launcher_maker_toolchain",
+    name = "2_sh_launcher_maker",
+    exec_binary = "launcher_maker.sh",
+    target_compatible_with = ["@platforms//os:windows"],
+    toolchain_type = ":launcher_maker_toolchain_type",
+)
+
+single_binary_toolchain(
+    name = "3_no_launcher_maker_toolchain",
     exec_binary = "empty.sh",
     toolchain_type = ":launcher_maker_toolchain_type",
 )
