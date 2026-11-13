@@ -39,4 +39,13 @@ function test_jar_with_plus_in_the_filename() {
   expect_log "Coverage run success!"
 }
 
+function test_custom_system_class_loader() {
+  export JACOCO_MAIN_CLASS="com.google.testing.coverage.TestClass"
+  ${JACOCO_CMD} --main_advice_classpath="${JAR_WITH_PLUS}" \
+    --jvm_flag=-Djava.system.class.loader=com.google.testing.coverage.DelegatingClassLoader \
+    >& $TEST_log || fail "expected success"
+  expect_not_log "Failed to determine the runtime classpath"
+  expect_log "Coverage run success!"
+}
+
 run_suite "deploy_jar"
