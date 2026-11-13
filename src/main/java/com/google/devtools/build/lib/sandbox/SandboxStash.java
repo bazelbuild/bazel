@@ -273,21 +273,16 @@ public class SandboxStash {
       // Sandbox creation was aborted before completion; do not stash an incomplete sandbox.
       return;
     }
+    Path sandboxExecroot = path.getChild("execroot");
     Path stashPath = sandboxes.getChild(stashName);
     Path stashPathExecroot = stashPath.getChild("execroot");
     try {
-      stashPath.createDirectory();
-      path.getChild("execroot").renameTo(stashPathExecroot);
-    } catch (IOException e) {
-      cleanDir(stashPath, treeDeleter);
-      turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
-      return;
-    }
-    try {
       if (stashContents != null) {
-        SandboxHelpers.updateContentMap(stashPathExecroot, lastModified, stashContents);
+        SandboxHelpers.updateContentMap(sandboxExecroot, lastModified, stashContents);
         setPathContents(stashPath, stashContents);
       }
+      stashPath.createDirectory();
+      sandboxExecroot.renameTo(stashPathExecroot);
       if (isTestAction(mnemonic)) {
         if (environment.get("TEST_TMPDIR") != null
             && environment.get("TEST_TMPDIR").startsWith("_tmp")) {

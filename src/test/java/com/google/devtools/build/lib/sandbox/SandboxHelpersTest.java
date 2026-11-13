@@ -59,6 +59,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1566,6 +1567,112 @@ public class SandboxHelpersTest {
           null);
       assertThat(stash.pathToContents).doesNotContainKey(abortedSandbox);
       assertThat(stash.getReadyStashesForTesting().get("Mnemonic")).isNull();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_renameUpdatingDirectoryCtime_updatesContentMapBeforeRename()
+      throws Exception {
+    ManualClock manualClock = new ManualClock();
+    AtomicInteger wsReaddirCount = new AtomicInteger(0);
+    InMemoryFileSystem ctimeUpdatingRenameFs =
+        new InMemoryFileSystem(manualClock, DigestHashFunction.SHA256) {
+          @Override
+          public synchronized void setLastModifiedTimeNanos(PathFragment path, long newTime)
+              throws IOException {
+            if (newTime == Path.NOW_SENTINEL_TIME) {
+              manualClock.advanceMillis(1);
+            }
+            super.setLastModifiedTimeNanos(path, newTime);
+          }
+
+          @Override
+          public void renameTo(PathFragment sourcePath, PathFragment targetPath)
+              throws IOException {
+            super.renameTo(sourcePath, targetPath);
+            // Simulate filesystems (such as macOS APFS) where renaming execroot updates ctime on
+            // moved directory entries after takeContentMapTimestamp was recorded.
+            bumpCtimeRecursively(getPath(targetPath));
+          }
+
+          private void bumpCtimeRecursively(Path currentPath) throws IOException {
+            currentPath.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
+            if (currentPath.isDirectory(Symlinks.NOFOLLOW)) {
+              for (Dirent dirent : currentPath.readdir(Symlinks.NOFOLLOW)) {
+                bumpCtimeRecursively(currentPath.getChild(dirent.getName()));
+              }
+            }
+          }
+
+          @Override
+          public synchronized Collection<String> getDirectoryEntries(PathFragment path)
+              throws IOException {
+            if (path.getBaseName().equals("ws")) {
+              wsReaddirCount.incrementAndGet();
+            }
+            return super.getDirectoryEntries(path);
+          }
+        };
+    Scratch apfsScratch = new Scratch(ctimeUpdatingRenameFs);
+    Path sandboxBase = apfsScratch.dir("/sandbox_stash_apfs_ctime");
+    Path sourceFile = apfsScratch.file("/workspace/a.txt", "hello");
+    Path execRoot = sourceFile.getParentDirectory();
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+
+      Path sandbox1 = apfsScratch.dir("/sandbox_stash_apfs_ctime/1");
+      Path sandboxExecRoot1 = sandbox1.getRelative("execroot/ws");
+      Map<PathFragment, Path> inputFiles = new HashMap<>();
+      inputFiles.put(PathFragment.create("dir/a.txt"), sourceFile);
+      inputFiles.put(PathFragment.create("empty.txt"), null);
+      SandboxInputs inputs1 = new SandboxInputs(inputFiles, ImmutableMap.of(), ImmutableMap.of());
+      SymlinkedSandboxedSpawn spawn1 =
+          new SymlinkedSandboxedSpawn(
+              sandbox1,
+              sandboxExecRoot1,
+              execRoot,
+              ImmutableList.of("/bin/true"),
+              ImmutableMap.of(),
+              inputs1,
+              SandboxOutputs.getEmptyInstance(),
+              ImmutableSet.of(),
+              new SynchronousTreeDeleter(),
+              /* sandboxDebugPath= */ null,
+              /* statisticsPath= */ null,
+              /* interactiveDebugArguments= */ null,
+              "ObjcCompile",
+              Label.parseCanonicalUnchecked("//pkg:target"));
+      spawn1.createFileSystem();
+      manualClock.advanceMillis(1);
+
+      wsReaddirCount.set(0);
+      spawn1.delete();
+
+      // Running updateContentMap before renameTo avoids ctime-induced directory scans and prevents
+      // updateContentMap from deleting empty input files whose ctime changed during renameTo.
+      Set<Path> readyStashes = stash.getReadyStashesForTesting().get("ObjcCompile");
+      assertThat(readyStashes).hasSize(1);
+      Path stashedDir = readyStashes.iterator().next();
+      assertThat(stashedDir.getRelative("execroot/ws/empty.txt").exists(Symlinks.NOFOLLOW))
+          .isTrue();
+      assertThat(stashedDir.getRelative("execroot/ws/dir/a.txt").isSymbolicLink()).isTrue();
+      // Only bumpCtimeRecursively inside renameTo (after updateContentMap) reads `ws`.
+      assertThat(wsReaddirCount.get()).isEqualTo(1);
     } finally {
       SandboxStash.initialize(
           "ws",
