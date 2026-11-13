@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -1074,9 +1075,17 @@ public final class StarlarkRuleContext
       throws EvalException {
     checkMutable("expand_location");
     try {
+      var locationTargets = Sequence.cast(targets, TransitiveInfoCollection.class, "targets");
+      if (!input.contains("$(")) {
+        validateUniqueLocationTargets(locationTargets);
+        if (shortPaths) {
+          checkPrivateAccess(thread);
+        }
+        return input;
+      }
       ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap =
           makeLabelMap(
-              Sequence.cast(targets, TransitiveInfoCollection.class, "targets"),
+              locationTargets,
               thread
                   .getSemantics()
                   .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE));
@@ -1095,6 +1104,20 @@ public final class StarlarkRuleContext
 
   private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+  }
+
+  private static void validateUniqueLocationTargets(Sequence<TransitiveInfoCollection> targets)
+      throws EvalException {
+    if (targets.size() < 2) {
+      return;
+    }
+    var labels = HashSet.<Label>newHashSet(targets.size());
+    for (TransitiveInfoCollection target : targets) {
+      Label label = AliasProvider.getDependencyLabel(target);
+      if (!labels.add(label)) {
+        throw duplicateLocationTarget(label);
+      }
+    }
   }
 
   @Override
@@ -1332,9 +1355,7 @@ public final class StarlarkRuleContext
     for (TransitiveInfoCollection current : knownLabels) {
       Label label = AliasProvider.getDependencyLabel(current);
       if (targetsMap.containsKey(label)) {
-        throw Starlark.errorf(
-            "Label %s is found more than once in 'targets' list.",
-            Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
+        throw duplicateLocationTarget(label);
       }
 
       var filesToRunProvider = current.getProvider(FilesToRunProvider.class);
@@ -1356,5 +1377,11 @@ public final class StarlarkRuleContext
     }
 
     return ImmutableMap.copyOf(targetsMap);
+  }
+
+  private static EvalException duplicateLocationTarget(Label label) {
+    return Starlark.errorf(
+        "Label %s is found more than once in 'targets' list.",
+        Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
   }
 }
