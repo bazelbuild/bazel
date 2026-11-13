@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -397,17 +398,19 @@ public class Package extends Packageoid {
             + getRepoRelativeBuildFilePathString(metadata)
             + "?)";
       } else {
-        Iterable<Rule> rules = Iterables.filter(otherTargets, Rule.class);
-        ImmutableList<String> consumingRules =
+        // First try rules consuming a matching source stem (plus 1-hop tests depending on matched
+        // libraries); if none match, fall back to fuzzy name matching on rules, then all targets.
+        ImmutableList<Rule> rules =
+            ImmutableList.copyOf(Iterables.filter(otherTargets, Rule.class));
+        ImmutableList<Rule> consumingRules =
             findRulesConsumingSourceStem(
                 metadata.packageIdentifier(), targetName, otherTargets, rules);
         if (!consumingRules.isEmpty()) {
-          return TargetSuggester.prettyPrintTargets(consumingRules);
+          return TargetSuggester.prettyPrintTargets(formatRulesWithClass(consumingRules));
         }
-        String ruleSuggestion =
-            TargetSuggester.suggestTargets(targetName, Iterables.transform(rules, Target::getName));
-        if (!ruleSuggestion.isEmpty()) {
-          return ruleSuggestion;
+        ImmutableList<Rule> suggestedRules = findSuggestedRules(targetName, rules);
+        if (!suggestedRules.isEmpty()) {
+          return TargetSuggester.prettyPrintTargets(formatRulesWithClass(suggestedRules));
         }
         return TargetSuggester.suggestTargets(
             targetName, Lists.transform(otherTargets, Target::getName));
@@ -420,20 +423,46 @@ public class Package extends Packageoid {
 
   private static final int MAX_CONSUMING_RULE_SUGGESTIONS = 10;
 
+  /** Formats each rule as {@code "<name>" (<rule_class>)} so callers see rule types. */
+  private static ImmutableList<String> formatRulesWithClass(Iterable<Rule> rules) {
+    ImmutableList.Builder<String> formatted = ImmutableList.builder();
+    for (Rule rule : rules) {
+      formatted.add("\"" + rule.getName() + "\" (" + rule.getRuleClass() + ")");
+    }
+    return formatted.build();
+  }
+
+  /**
+   * Returns up to 10 package rules whose names are closest in edit distance to {@code targetName}.
+   */
+  private static ImmutableList<Rule> findSuggestedRules(
+      String targetName, ImmutableList<Rule> rules) {
+    ImmutableList<String> suggestedRuleNames =
+        TargetSuggester.suggestedTargets(targetName, Lists.transform(rules, Target::getName));
+    if (suggestedRuleNames.isEmpty()) {
+      return ImmutableList.of();
+    }
+    Map<String, Rule> rulesByName = Maps.uniqueIndex(rules, Target::getName);
+    return ImmutableList.copyOf(Lists.transform(suggestedRuleNames, rulesByName::get));
+  }
+
   /**
    * Returns up to {@value #MAX_CONSUMING_RULE_SUGGESTIONS} rule targets in {@code packageId} that
-   * consume a source file matching {@code targetName} (by relative path, basename, or stem).
+   * consume a source file matching {@code targetName} (by relative path, basename, or stem),
+   * followed by same-package test or {@code test_suite} rules that depend 1 hop on a matched
+   * non-test rule.
    *
    * <p>For example, if a developer tries to build {@code //pkg:foo_bar} or {@code
    * //pkg:HelperUtil}, and {@code pkg/BUILD} defines {@code cc_library(name = "core_lib", srcs =
    * ["foo_bar.cc", "sub/HelperUtil.cc"])}, this finds the matching source files ({@code foo_bar.cc}
-   * and {@code sub/HelperUtil.cc}) and suggests the rule that compiles them ({@code "core_lib"}).
+   * and {@code sub/HelperUtil.cc}) and suggests {@code core_lib} along with any same-package test
+   * rules that depend on {@code :core_lib}.
    */
-  private static ImmutableList<String> findRulesConsumingSourceStem(
+  private static ImmutableList<Rule> findRulesConsumingSourceStem(
       PackageIdentifier packageId,
       String targetName,
       ImmutableList<Target> otherTargets,
-      Iterable<Rule> rules) {
+      ImmutableList<Rule> rules) {
     Set<String> matchingSourceFiles = new LinkedHashSet<>();
     for (InputFile inputFile : Iterables.filter(otherTargets, InputFile.class)) {
       if (matchesSourceFileStem(inputFile.getName(), targetName)) {
@@ -443,20 +472,50 @@ public class Package extends Packageoid {
     if (matchingSourceFiles.isEmpty()) {
       return ImmutableList.of();
     }
-    Set<String> matchingRules = new LinkedHashSet<>();
+    Set<Rule> matchingRules = new LinkedHashSet<>();
+    Set<String> directNonTestRuleNames = new HashSet<>();
     for (Rule rule : rules) {
-      for (Label label : rule.getLabels()) {
-        if (label.getPackageIdentifier().equals(packageId)
-            && matchingSourceFiles.contains(label.getName())) {
-          matchingRules.add(rule.getName());
-          break;
+      if (referencesSamePackageTarget(rule, packageId, matchingSourceFiles)) {
+        matchingRules.add(rule);
+        if (!TargetUtils.isTestOrTestSuiteRule(rule)) {
+          directNonTestRuleNames.add(rule.getName());
+        }
+        if (matchingRules.size() >= MAX_CONSUMING_RULE_SUGGESTIONS) {
+          return ImmutableList.copyOf(matchingRules);
         }
       }
-      if (matchingRules.size() >= MAX_CONSUMING_RULE_SUGGESTIONS) {
-        break;
+    }
+    if (matchingRules.isEmpty()) {
+      return ImmutableList.of();
+    }
+    // Bridge 1 hop from matched non-test libraries to same-package test rules that depend on them.
+    if (!directNonTestRuleNames.isEmpty()) {
+      for (Rule rule : rules) {
+        if (!matchingRules.contains(rule)
+            && TargetUtils.isTestOrTestSuiteRule(rule)
+            && referencesSamePackageTarget(rule, packageId, directNonTestRuleNames)) {
+          matchingRules.add(rule);
+          if (matchingRules.size() >= MAX_CONSUMING_RULE_SUGGESTIONS) {
+            break;
+          }
+        }
       }
     }
     return ImmutableList.copyOf(matchingRules);
+  }
+
+  /**
+   * Returns whether {@code rule} references any target in {@code targetNames} within {@code
+   * packageId}.
+   */
+  private static boolean referencesSamePackageTarget(
+      Rule rule, PackageIdentifier packageId, Set<String> targetNames) {
+    for (Label label : rule.getLabels()) {
+      if (label.getPackageIdentifier().equals(packageId) && targetNames.contains(label.getName())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
