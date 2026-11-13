@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.devtools.build.lib.windows.WindowsFileOperations.SymlinkOrJunctionTarget;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -103,8 +104,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         // symlink.
         WindowsFileOperations.createSymlink(link.toString(), target.toString());
       } else {
-        // Otherwise, create a junction.
-        WindowsFileOperations.createJunction(link.toString(), target.toString());
+        // Otherwise, create a junction. Junctions can only point to absolute paths, so record a
+        // relative target as the junction's display name, which readSymbolicLink returns instead
+        // of the absolute target. This keeps the symlink's metadata, which is computed from its
+        // target, independent of the location of the output base.
+        WindowsFileOperations.createJunction(
+            link.toString(),
+            target.toString(),
+            isPlainRelative(targetFragment) ? targetFragment.getPathString() : null);
       }
     } catch (IOException e) {
       throw translateNioToIoException(linkPath, e);
@@ -115,16 +122,48 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public PathFragment readSymbolicLink(PathFragment path) throws IOException {
+    SymlinkOrJunctionTarget linkTarget;
     try {
       Path nioPath = getNioPath(path);
-      return PathFragment.create(
-          StringEncoding.platformToInternal(
-              WindowsFileOperations.readSymlinkOrJunction(nioPath.toString())));
+      linkTarget = WindowsFileOperations.readSymlinkOrJunctionTarget(nioPath.toString());
     } catch (InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);
       throw fnfe;
     }
+    PathFragment target =
+        PathFragment.create(StringEncoding.platformToInternal(linkTarget.target()));
+    if (linkTarget.junctionDisplayName() != null) {
+      PathFragment relativeTarget =
+          PathFragment.create(StringEncoding.platformToInternal(linkTarget.junctionDisplayName()));
+      if (isRelativeJunctionTarget(path, relativeTarget, target)) {
+        return relativeTarget;
+      }
+    }
+    return target;
+  }
+
+  /** Whether {@code target} is a relative path without a drive letter or leading separator. */
+  private static boolean isPlainRelative(PathFragment target) {
+    return !target.isEmpty() && !target.isAbsolute() && target.getDriveStrLength() == 0;
+  }
+
+  /**
+   * Whether the display name of a junction is the relative target it was created from by {@link
+   * #createSymbolicLink}, that is, it resolves to the junction's absolute target relative to the
+   * junction's parent directory.
+   *
+   * <p>This is not the case for junctions created by other tools, whose display name is usually
+   * the absolute target, or for junctions that have been moved or copied elsewhere, which keep
+   * pointing to the original absolute target. For those, the absolute target is reported.
+   */
+  private static boolean isRelativeJunctionTarget(
+      PathFragment link, PathFragment displayName, PathFragment target) {
+    PathFragment parent = link.getParentDirectory();
+    return parent != null
+        && isPlainRelative(displayName)
+        // Paths are case-insensitive on Windows.
+        && parent.getRelative(displayName).getPathString().equalsIgnoreCase(target.getPathString());
   }
 
   @Override
