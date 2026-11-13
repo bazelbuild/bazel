@@ -149,7 +149,8 @@ public final class QueryParserTest {
     checkParseFails("rdeps(a, b, ", "premature end of input");
     checkParseFails("rdeps(a, b, )", "syntax error at ')'");
     checkParseFails("rdeps(a, b, 3", "premature end of input");
-    checkParseFails("rdeps(a, b, 3, ", "too many arguments to function 'rdeps' at ','");
+    checkParseFails("rdeps(a, b, 3, ", "premature end of input");
+    checkParseFails("rdeps(a, b, 3, 4)", "too many arguments to function 'rdeps' at ', 4 )'");
     checkParseFails("rdeps(a, b, c, d)", "expected an integer literal: 'c'");
     checkParseFails("set(", "premature end of input");
     checkParseFails("set(a", "premature end of input");
@@ -283,7 +284,7 @@ public final class QueryParserTest {
         "\"set(\"//foo\" + \"bar\")\"",
         "unexpected token '//foo' after query expression '\"set(\"'");
     checkParseFails(
-        "'set('//foo' + 'bar')'", "unexpected token '//foo' after query expression '\"set(\"'");
+        "'set('//foo' + 'bar')'", "unexpected token '//foo' after query expression ''set(''");
   }
 
   @Test
@@ -343,5 +344,96 @@ public final class QueryParserTest {
         "(let x = //foo in //bar) union filter($x, //baz)");
     // Variable is not yet in scope in varExpr.
     checkPrettyPrint("let x = filter('$x', //bar) in //baz", "let x = filter($x, //bar) in //baz");
+  }
+
+  @Test
+  public void testAstParsesUnresolvedFunctions() throws Exception {
+    QueryAst ast = QueryParser.parse("custom_func('*pattern', //foo + //bar, 3)");
+    assertThat(ast).isInstanceOf(QueryAst.FunctionCall.class);
+    QueryAst.FunctionCall call = (QueryAst.FunctionCall) ast;
+    assertThat(call.functionName()).isEqualTo("custom_func");
+    assertThat(call.arguments()).hasSize(3);
+    assertThat(call.arguments().get(0).expr()).isEqualTo(new QueryAst.Word("*pattern"));
+    assertThat(call.arguments().get(1).expr())
+        .isEqualTo(
+            new QueryAst.BinaryOperator(
+                Lexer.TokenKind.PLUS,
+                ImmutableList.of(new QueryAst.Word("//foo"), new QueryAst.Word("//bar"))));
+    assertThat(call.arguments().get(2).expr()).isEqualTo(new QueryAst.Word("3"));
+  }
+
+  @Test
+  public void testAstStructureForLetSetAndParenthesized() throws Exception {
+    QueryAst ast = QueryParser.parse("let x = set(//a //b) in ($x intersect //c)");
+    assertThat(ast)
+        .isEqualTo(
+            new QueryAst.Let(
+                "x",
+                new QueryAst.Set(
+                    ImmutableList.of(new QueryAst.Word("//a"), new QueryAst.Word("//b"))),
+                new QueryAst.Parenthesized(
+                    new QueryAst.BinaryOperator(
+                        Lexer.TokenKind.INTERSECT,
+                        ImmutableList.of(new QueryAst.Word("$x"), new QueryAst.Word("//c"))))));
+  }
+
+  @Test
+  public void testFunctionAstRecordsExcludeErrorMessageFields() throws Exception {
+    QueryAst.FunctionArgument arg1 =
+        new QueryAst.FunctionArgument(new QueryAst.Word("//foo"), "( //foo )", "//foo )");
+    QueryAst.FunctionArgument arg2 =
+        new QueryAst.FunctionArgument(new QueryAst.Word("//foo"), ", //foo ,", "//foo , //bar");
+    QueryAst.FunctionArgument differentArg =
+        new QueryAst.FunctionArgument(new QueryAst.Word("//bar"), "( //foo )", "//foo )");
+
+    assertThat(arg1).isEqualTo(arg2);
+    assertThat(arg1.hashCode()).isEqualTo(arg2.hashCode());
+    assertThat(arg1.toString()).isEqualTo("FunctionArgument[expr=Word[value=//foo]]");
+    assertThat(arg2.toString()).isEqualTo("FunctionArgument[expr=Word[value=//foo]]");
+    assertThat(arg1).isNotEqualTo(differentArg);
+
+    QueryAst.FunctionCall call1 =
+        new QueryAst.FunctionCall("deps", ImmutableList.of(arg1), "deps ( //foo", ")");
+    QueryAst.FunctionCall call2 =
+        new QueryAst.FunctionCall(
+            "deps", ImmutableList.of(arg2), "other function context", ") union //bar");
+    QueryAst.FunctionCall differentFunc =
+        new QueryAst.FunctionCall("somepath", ImmutableList.of(arg1), "deps ( //foo", ")");
+    QueryAst.FunctionCall differentCallArgs =
+        new QueryAst.FunctionCall("deps", ImmutableList.of(differentArg), "deps ( //foo", ")");
+
+    assertThat(call1).isEqualTo(call2);
+    assertThat(call1.hashCode()).isEqualTo(call2.hashCode());
+    assertThat(call1.toString())
+        .isEqualTo(
+            "FunctionCall[functionName=deps,"
+                + " arguments=[FunctionArgument[expr=Word[value=//foo]]]]");
+    assertThat(call2.toString()).isEqualTo(call1.toString());
+    assertThat(call1).isNotEqualTo(differentFunc);
+    assertThat(call1).isNotEqualTo(differentCallArgs);
+
+    // Parsed FunctionCall nodes with different surrounding tokens remain equal.
+    QueryAst.FunctionCall standalone = (QueryAst.FunctionCall) QueryParser.parse("deps(//foo)");
+    QueryAst.FunctionCall inUnion =
+        (QueryAst.FunctionCall)
+            ((QueryAst.BinaryOperator) QueryParser.parse("deps(//foo) union //bar"))
+                .operands()
+                .get(0);
+    assertThat(standalone.closeParenContextForErrorMessages())
+        .isNotEqualTo(inUnion.closeParenContextForErrorMessages());
+    assertThat(standalone).isEqualTo(inUnion);
+    assertThat(standalone.hashCode()).isEqualTo(inUnion.hashCode());
+    assertThat(standalone.toString()).isEqualTo(inUnion.toString());
+  }
+
+  @Test
+  public void testResolverValidatesWordAndIntegerArguments() throws Exception {
+    QueryAst resolvedWord = QueryParser.parse("filter('*_test', //foo)");
+    assertThat(QueryExpressionResolver.resolve(resolvedWord, mockEnvironment()).toString())
+        .isEqualTo("filter('*_test', //foo)");
+
+    checkParseFails("deps('*_test')", "target literal must not begin with (*): *_test");
+    checkParseFails("kind(('rule'), //foo)", "syntax error at '( rule )'");
+    checkParseFails("deps(//foo, (1))", "syntax error at '( 1 )'");
   }
 }
