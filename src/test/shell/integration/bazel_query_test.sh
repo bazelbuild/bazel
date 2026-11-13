@@ -1661,6 +1661,44 @@ function test_generate_hashes() {
     || fail "Expected the hash of //hashes:b to change"
 }
 
+function test_generate_hashes_with_target_metadata() {
+  mkdir -p hashed_catalog
+  cat > hashed_catalog/repo.bzl <<'EOF'
+def _impl(rctx):
+    fail("unavailable repository")
+
+broken_repo = repository_rule(implementation = _impl)
+EOF
+  cat >> MODULE.bazel <<'EOF'
+broken_repo = use_repo_rule("//hashed_catalog:repo.bzl", "broken_repo")
+broken_repo(name = "unavailable_catalog_repo")
+EOF
+  cat > hashed_catalog/BUILD <<'EOF'
+filegroup(name = "known", tags = ["catalog-tag"])
+filegroup(name = "unknown", srcs = ["@unavailable_catalog_repo//:target"])
+EOF
+  local -a flags=(--experimental_generate_hashes --output=streamed_jsonproto --keep_going)
+  local expr='//hashed_catalog:known + //hashed_catalog:unknown'
+  bazel query --experimental_generate_hashes //hashed_catalog:known > known 2> "$TEST_log" \
+    || fail "Expected a known hash"
+  local digest
+  digest="$(awk '{print $2}' known)"
+  [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || fail "Invalid digest"
+  local status=0
+  bazel query "${flags[@]}" "$expr" > snapshot 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  assert_equals 2 "$(awk 'END { print NR }' snapshot)"
+  grep -F "\"hash\":\"$digest\"" snapshot | grep -F 'catalog-tag' > /dev/null \
+    || fail "Missing hash or tags for known rule"
+  grep -F '"hash":null' snapshot | grep -F '"name":"//hashed_catalog:unknown"' > /dev/null \
+    || fail "Missing metadata for unresolved rule"
+
+  # An incomplete target enumeration cannot serve as a snapshot of the requested scope.
+  bazel query "${flags[@]}" '//hashed_catalog:known + //no_such_catalog_package:target' \
+    > snapshot 2> "$TEST_log" && fail "Expected enumeration failure"
+  [[ ! -s snapshot ]] || fail "Wrote a partial catalog"
+}
+
 function test_generate_hashes_source_directory_children() {
   mkdir -p directory_hashes/tree
   cat > directory_hashes/BUILD.bazel <<'EOF'

@@ -55,8 +55,11 @@ public abstract class QueryOptions extends CommonQueryOptions {
       help =
           "If set, prints each target in the query result followed by a hash of the target and"
               + " its transitive dependencies (attribute values, rule definitions, source file"
-              + " contents and the toolchains registered for the toolchain types it uses),"
-              + " instead of using --output. Two targets with equal hashes are expected to build"
+              + " contents and the toolchains registered for the toolchain types it uses)."
+              + " With --output=streamed_jsonproto, each JSON record contains the usual target"
+              + " metadata in the target field and its digest in the hash field (null when"
+              + " unresolved). Other output formats print only label and hash pairs."
+              + " Two targets with equal hashes are expected to build"
               + " the same, given the same Bazel version, build options and host. Edits inside"
               + " fetched external repos that don't cause a refetch, --extra_toolchains and"
               + " build options are not taken into account; use cquery"
