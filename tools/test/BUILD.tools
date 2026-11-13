@@ -6,9 +6,14 @@ package(default_visibility = ["//visibility:public"])
 # The mandatory toolchain requirement of the default "test" exec group defined
 # on every test rule.
 # Register a toolchain for this type to influence the selection of the
-# execution platform based on the target platform. ToolchainInfo provided by
-# toolchain implementations is generally ignored, but test rules are free to
+# execution platform based on the target platform. Test rules are free to
 # define their own test toolchain types and specify different behavior.
+# The ToolchainInfo provided by toolchain implementations may optionally set
+# the following fields to a File or an executable's FilesToRunProvider, which
+# are then used by the test action instead of the default tools:
+#   bazel_test_wrapper: replaces :test_wrapper (Windows) or :test_setup.
+#   bazel_xml_writer: replaces :xml_writer (Windows) or :test_xml_generator.
+# Unset or None fields fall back to the defaults. All other fields are ignored.
 toolchain_type(
     name = "default_test_toolchain_type",
     no_match_error = """By default, tests are executed on the first execution platform that \
