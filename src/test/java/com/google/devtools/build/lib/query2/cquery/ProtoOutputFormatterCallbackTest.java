@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRuleInput;
@@ -1013,7 +1014,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   private InputStream queryAndGetInputStream(String queryExpression, OutputType outputType)
       throws Exception {
-    QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
+    QueryExpression expression =
+        QueryExpressionResolver.resolve(QueryParser.parse(queryExpression), getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     PostAnalysisQueryEnvironment<CqueryNode> env =

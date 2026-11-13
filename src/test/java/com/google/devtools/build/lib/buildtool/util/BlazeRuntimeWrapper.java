@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -504,7 +505,7 @@ public class BlazeRuntimeWrapper {
     for (QueryFunction queryFunction : getRuntime().getQueryFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);
     }
-    return QueryParser.parse(cqueryExpr, functions);
+    return QueryExpressionResolver.resolve(QueryParser.parse(cqueryExpr), functions);
   }
 
   void executeBuild(List<String> targets) throws Exception {

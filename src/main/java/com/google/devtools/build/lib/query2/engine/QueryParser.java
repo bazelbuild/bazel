@@ -19,11 +19,9 @@ import static java.lang.Math.min;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * LL(1) recursive descent parser for the Blaze query language, revision 2.
@@ -70,18 +68,6 @@ public final class QueryParser {
               "unexpected token '%s' after query expression '%s'", parser.token, parsedPrefix));
     }
     return ast;
-  }
-
-  /** Scan, parse, and resolve the specified query expression. */
-  public static QueryExpression parse(String query, QueryEnvironment<?> env)
-      throws QuerySyntaxException {
-    return QueryExpressionResolver.resolve(parse(query), env);
-  }
-
-  /** Scan, parse, and resolve the specified query expression. */
-  public static QueryExpression parse(String query, Map<String, QueryFunction> functions)
-      throws QuerySyntaxException {
-    return QueryExpressionResolver.resolve(parse(query), functions);
   }
 
   QueryParser(List<Lexer.Token> tokens) {

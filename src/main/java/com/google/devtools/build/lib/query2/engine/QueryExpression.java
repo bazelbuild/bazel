@@ -53,7 +53,7 @@ public abstract class QueryExpression {
   /** Scan and parse the specified query expression. */
   public static QueryExpression parse(String query, QueryEnvironment<?> env)
       throws QuerySyntaxException {
-    return QueryParser.parse(query, env);
+    return QueryExpressionResolver.resolve(QueryParser.parse(query), env);
   }
 
   protected QueryExpression() {}

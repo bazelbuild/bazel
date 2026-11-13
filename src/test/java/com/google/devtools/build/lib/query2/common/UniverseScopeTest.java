@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.RdepsFunction;
@@ -52,6 +53,7 @@ public class UniverseScopeTest {
   }
 
   private static QueryExpression parse(String exprString) throws QuerySyntaxException {
-    return QueryParser.parse(exprString, ImmutableMap.of("rdeps", new RdepsFunction()));
+    return QueryExpressionResolver.resolve(
+        QueryParser.parse(exprString), ImmutableMap.of("rdeps", new RdepsFunction()));
   }
 }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -76,7 +77,8 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   }
 
   private List<String> getOutput(String queryExpression) throws Exception {
-    QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
+    QueryExpression expression =
+        QueryExpressionResolver.resolve(QueryParser.parse(queryExpression), getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);

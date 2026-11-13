@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -51,6 +50,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
@@ -270,7 +270,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     QueryEvalResult queryEvalResult;
     try {
       queryEvalResult =
-          env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(query, env)), callback);
+          env.evaluateQuery(
+              env.transformParsedQuery(
+                  QueryExpressionResolver.resolve(QueryParser.parse(query), env)),
+              callback);
     } catch (IOException e) {
       // Should be impossible since AggregateAllOutputFormatterCallback doesn't throw IOException.
       throw new IllegalStateException(e);
@@ -294,7 +297,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         };
     try (AbstractBlazeQueryEnvironment<Target> env = getQueryEnvironment()) {
       try {
-        env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(query, env)), callback);
+        env.evaluateQuery(
+            env.transformParsedQuery(
+                QueryExpressionResolver.resolve(QueryParser.parse(query), env)),
+            callback);
       } catch (IOException e) {
         // Should be impossible since the callback we passed in above doesn't throw IOException.
         throw new IllegalStateException(e);
