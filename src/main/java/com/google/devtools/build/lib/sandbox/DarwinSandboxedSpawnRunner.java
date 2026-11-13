@@ -229,6 +229,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return new SymlinkedSandboxedSpawn(
         sandboxPath,
         sandboxExecRoot,
+        execRoot,
         commandLine,
         environment,
         inputs,
