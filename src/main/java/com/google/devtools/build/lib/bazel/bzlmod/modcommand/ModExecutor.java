@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -112,6 +113,15 @@ public class ModExecutor {
   }
 
   public void graph(ImmutableSet<ModuleKey> from) {
+    graph(from, OutputFormatters.getFormatter(options.getOutputFormat()));
+  }
+
+  public void graphWithToolchainRegistrations(
+      ImmutableSet<ModuleKey> from, ImmutableList<String> registrations) {
+    graph(from, new JsonOutputFormatter(registrations));
+  }
+
+  private void graph(ImmutableSet<ModuleKey> from, OutputFormatters.OutputFormatter formatter) {
     ImmutableMap<ModuleKey, ResultNode> result;
     ImmutableSet<ModuleKey> targets = computeExtensionFilterTargets();
     if (targets.isEmpty()) {
@@ -119,8 +129,7 @@ public class ModExecutor {
     } else {
       result = expandPathsToTargets(from, targets, false);
     }
-    OutputFormatters.getFormatter(options.getOutputFormat())
-        .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
+    formatter.output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
   public void path(ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> to) {

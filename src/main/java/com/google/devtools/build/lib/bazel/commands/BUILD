@@ -63,6 +63,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

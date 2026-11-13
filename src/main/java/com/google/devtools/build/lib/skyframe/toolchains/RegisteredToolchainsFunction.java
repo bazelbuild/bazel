@@ -100,18 +100,10 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodToolchains));
 
-    // Expand target patterns.
-    ImmutableSet<Label> toolchainLabels;
-    try {
-      toolchainLabels =
-          TargetPatternUtil.expandTargetPatterns(
-              env, targetPatternBuilder.build(), FilteringPolicies.ruleTypeExplicit("toolchain"));
-      if (env.valuesMissing()) {
-        return null;
-      }
-    } catch (TargetPatternUtil.InvalidTargetPatternException e) {
-      throw new RegisteredToolchainsFunctionException(
-          new InvalidToolchainLabelException(e), Transience.PERSISTENT);
+    ImmutableSet<Label> toolchainLabels =
+        expandToolchainPatterns(env, targetPatternBuilder.build(), /* allowPartialResults= */ true);
+    if (toolchainLabels == null) {
+      return null;
     }
 
     // Load the configured target for each, and get the declared toolchain providers.
@@ -149,6 +141,33 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return RegisteredToolchainsValue.create(
         validToolchains.build(),
         rejectedToolchains != null ? ImmutableTable.copyOf(rejectedToolchains) : null);
+  }
+
+  /** Computes the module registration labels without loading a build configuration. */
+  @Nullable
+  public static SkyValue computeModuleLabels(SkyKey unused, Environment env)
+      throws RegisteredToolchainsFunctionException, InterruptedException {
+    ImmutableList<TargetPattern> patterns = getBzlmodToolchains(env);
+    if (patterns == null) {
+      return null;
+    }
+    ImmutableSet<Label> labels =
+        expandToolchainPatterns(
+            env, TargetPatternUtil.toSigned(patterns), /* allowPartialResults= */ false);
+    return labels == null ? null : new RegisteredToolchainsValue.ModuleLabels(labels.asList());
+  }
+
+  @Nullable
+  private static ImmutableSet<Label> expandToolchainPatterns(
+      Environment env, ImmutableList<SignedTargetPattern> patterns, boolean allowPartialResults)
+      throws RegisteredToolchainsFunctionException, InterruptedException {
+    try {
+      return TargetPatternUtil.expandTargetPatterns(
+          env, patterns, FilteringPolicies.ruleTypeExplicit("toolchain"), allowPartialResults);
+    } catch (InvalidTargetPatternException e) {
+      throw new RegisteredToolchainsFunctionException(
+          new InvalidToolchainLabelException(e), Transience.PERSISTENT);
+    }
   }
 
   @Nullable

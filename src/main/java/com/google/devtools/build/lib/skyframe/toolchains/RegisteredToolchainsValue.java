@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -45,6 +46,12 @@ public record RegisteredToolchainsValue(
     implements SkyValue {
   public RegisteredToolchainsValue {
     requireNonNull(registeredToolchains, "registeredToolchains");
+  }
+
+  /** Loading-phase labels from MODULE registrations, before configuration-specific filtering. */
+  public record ModuleLabels(ImmutableList<Label> labels) implements SkyValue {
+    @SerializationConstant
+    public static final SkyKey KEY = () -> SkyFunctions.MODULE_TOOLCHAIN_LABELS;
   }
 
   /** Returns the {@link SkyKey} for {@link RegisteredToolchainsValue}s. */
