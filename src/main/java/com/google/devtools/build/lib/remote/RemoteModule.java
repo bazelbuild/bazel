@@ -1101,7 +1101,7 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void afterCommand() {
+  public void afterCommand() throws AbruptExitException {
     Preconditions.checkNotNull(blockWaitingModule, "blockWaitingModule must not be null");
     Preconditions.checkNotNull(env, "env must not be null");
 
@@ -1134,10 +1134,11 @@ public final class RemoteModule extends BlazeModule {
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteHelpersFactoryDelegate.reset();
-    if (env.getDirectories().getOutputBase().getFileSystem()
-        instanceof RemoteExternalOverlayFileSystem remoteFs) {
-      remoteFs.afterCommand();
-    }
+    boolean retryHashStream =
+        env.getDirectories().getOutputBase().getFileSystem()
+                instanceof RemoteExternalOverlayFileSystem remoteFs
+            && remoteFs.afterCommand()
+            && env.usesCqueryHashStreamReceipt();
     remoteDownloader = null;
     actionContextProvider = null;
     actionInputFetcher = null;
@@ -1147,6 +1148,17 @@ public final class RemoteModule extends BlazeModule {
     tempPathGenerator = null;
     rpcLogFile = null;
     remoteOutputChecker = null;
+    if (retryHashStream) {
+      // Wildcard loading may have reduced the original filesystem exception to a package error.
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage("Remote repository files were evicted during cquery")
+                  .setFilesystem(
+                      FailureDetails.Filesystem.newBuilder()
+                          .setCode(FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED))
+                  .build()));
+    }
   }
 
   private static void afterCommandTask(
