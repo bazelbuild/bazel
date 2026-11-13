@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -2198,6 +2199,134 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_inlinedContents_matchingDigest_servedFromMemory() throws Exception {
+    // Inlined contents that match their digest pass verification and are served directly as the
+    // in-memory output, without a digest-keyed download.
+    Digest d1 = digestUtil.computeAsUtf8("content1");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(
+                OutputFile.newBuilder()
+                    .setPath("outputs/file1")
+                    .setDigest(d1)
+                    .setContents(ByteString.copyFromUtf8("content1")))
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, PathFragment.create("outputs/file1"));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
+
+    assertThat(inMemoryOutput).isNotNull();
+    assertThat(inMemoryOutput.getContents()).isEqualTo(ByteString.copyFromUtf8("content1"));
+  }
+
+  @Test
+  public void downloadOutputs_inlinedContents_mismatchingDigest_throws() throws Exception {
+    // Inlined contents that do not match the accompanying digest are rejected at parse time.
+    Digest digestOfContent1 = digestUtil.computeAsUtf8("content1");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(
+                OutputFile.newBuilder()
+                    .setPath("outputs/file1")
+                    .setDigest(digestOfContent1)
+                    .setContents(ByteString.copyFromUtf8("tampered")))
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, PathFragment.create("outputs/file1"));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    assertThrows(OutputDigestMismatchException.class, () -> service.downloadOutputs(action, result));
+  }
+
+  @Test
+  public void downloadOutputs_inlinedContents_nonEmptyContentsWithEmptyDigest_throws()
+      throws Exception {
+    // The contents field has no presence information, so emptiness is judged by the digest size
+    // (see the inline serving path). Non-empty inline contents paired with the empty-blob digest
+    // must be rejected rather than served as if the file were empty.
+    Digest emptyDigest = digestUtil.compute(new byte[0]);
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(
+                OutputFile.newBuilder()
+                    .setPath("outputs/file1")
+                    .setDigest(emptyDigest)
+                    .setContents(ByteString.copyFromUtf8("not empty")))
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, PathFragment.create("outputs/file1"));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    assertThrows(OutputDigestMismatchException.class, () -> service.downloadOutputs(action, result));
+  }
+
+  @Test
+  public void downloadOutputs_emptyContents_notTreatedAsInlined() throws Exception {
+    // Empty contents are not an inlined output and skip the new verification. A genuinely empty
+    // file (empty-blob digest) is still served correctly, so the check does not misfire on it.
+    Digest emptyDigest = digestUtil.compute(new byte[0]);
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file1").setDigest(emptyDigest))
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, PathFragment.create("outputs/file1"));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
+
+    assertThat(inMemoryOutput).isNotNull();
+    assertThat(inMemoryOutput.getContents()).isEqualTo(ByteString.EMPTY);
+  }
+
+  @Test
+  public void downloadOutputs_inlinedContents_mismatchingDigest_notVerifiedWhenDisabled()
+      throws Exception {
+    // With --noremote_verify_downloads the inline path skips verification, matching the other
+    // blob download paths, and the unverified contents are served as-is.
+    remoteOptions.setRemoteVerifyDownloads(false);
+    Digest digestOfContent1 = digestUtil.computeAsUtf8("content1");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(
+                OutputFile.newBuilder()
+                    .setPath("outputs/file1")
+                    .setDigest(digestOfContent1)
+                    .setContents(ByteString.copyFromUtf8("tampered")))
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, PathFragment.create("outputs/file1"));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
+
+    assertThat(inMemoryOutput).isNotNull();
+    assertThat(inMemoryOutput.getContents()).isEqualTo(ByteString.copyFromUtf8("tampered"));
+  }
+
+  @Test
   public void downloadOutputs_missingInMemoryOutput_returnsNull() throws Exception {
     // Test that downloadOutputs returns null if a declared in-memory output is missing from action
     // result.
@@ -3685,7 +3814,12 @@ public class RemoteExecutionServiceTest {
             IOException.class,
             () ->
                 RemoteExecutionService.parseActionResultMetadata(
-                    cache, digestUtil, remoteActionExecutionContext, ar, remotePathResolver));
+                    cache,
+                    digestUtil,
+                    remoteActionExecutionContext,
+                    ar,
+                    remotePathResolver,
+                    /* verifyDownloads= */ true));
     assertThat(e).hasMessageThat().contains("Malformed path component: " + expectedName);
   }
 }
