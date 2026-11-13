@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -157,8 +158,33 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
       assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
       assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
       assertThat(getDigestCounter.get()).isEqualTo(1);
-      // The cache key is derived from the FileValue's contents proxy.
-      assertThat(statCounter.get()).isEqualTo(0);
+      // The cache entry is validated against the current metadata of the file rather than that of
+      // the FileValue, which is stale if the fetch modified the file.
+      assertThat(statCounter.get()).isEqualTo(2);
+    } finally {
+      DigestUtils.configureCache(/* maximumSize= */ 0);
+    }
+  }
+
+  @Test
+  public void testFileValueToMarkerValue_fileModifiedAfterFileValue() throws Exception {
+    var clock = new ManualClock();
+    var fs = new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
+    var file = fs.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+    var path = RootedPath.toRootedPath(Root.absoluteRoot(fs), file);
+    var fv = FileStateValue.create(path, SyscallCache.NO_CACHE, /* tsgm= */ null);
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+    try {
+      RepoRecordedInput.File.fileValueToMarkerValue(path, fv);
+      // The file is modified with the same size after its FileValue was created, e.g. by the fetch
+      // that requested the FileValue.
+      clock.advanceMillis(1);
+      FileSystemUtils.writeContentAsLatin1(file, "SOME CONTENTS");
+
+      assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv))
+          .isEqualTo(BaseEncoding.base16().lowerCase().encode(file.getDigest()));
     } finally {
       DigestUtils.configureCache(/* maximumSize= */ 0);
     }

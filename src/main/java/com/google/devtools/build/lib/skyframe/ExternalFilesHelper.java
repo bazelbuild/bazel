@@ -17,6 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -207,8 +209,8 @@ public class ExternalFilesHelper {
      * None of the above. We encounter these paths when outputs, source files or external repos
      * symlink to files outside aforementioned Bazel-managed directories. For example, C compilation
      * by the host compiler may depend on /usr/bin/gcc. Bazel makes a best-effort attempt to detect
-     * changes in such files. This type also includes files in repo contents cache entries, which
-     * are created by Bazel but never modified after creation.
+     * changes in such files. This type also includes the directories of repo contents cache
+     * entries, which are created by Bazel but never modified after creation.
      */
     EXTERNAL_OTHER,
   }
@@ -373,6 +375,46 @@ public class ExternalFilesHelper {
   }
 
   /**
+   * Returns the state that Skyframe should use for a path of type {@link FileType#EXTERNAL_REPO}.
+   *
+   * <p>A repo root that links into the repo contents cache is presented as a directory so that the
+   * real paths of the repo's files don't depend on which cached repo it links to.
+   */
+  FileStateValue presentRepoFileState(RootedPath rootedPath, FileStateValue state) {
+    return state.getType() == FileStateType.SYMLINK
+            && getExternalDirectory().equals(rootedPath.asPath().getParentDirectory())
+            && isInRepoContentsCache(rootedPath.asPath(), state.getSymlinkTarget())
+        ? FileStateValue.DIRECTORY_FILE_STATE_NODE
+        : state;
+  }
+
+  /**
+   * Returns whether a changed file in the given repo is explained by the repo contents cache rather
+   * than by an external modification, such as its entry having been garbage collected.
+   *
+   * <p>A repo that links into the cache has no marker file. A change to the link itself still is an
+   * external modification, unless the link wasn't a symlink for Skyframe due to {@link
+   * #presentRepoFileState}.
+   */
+  boolean isChangeInLinkedRepo(
+      RepositoryName repositoryName, RootedPath rootedPath, FileStateValue oldState) {
+    Path repoRoot = getExternalDirectory().getChild(repositoryName.getName());
+    try {
+      return repoRoot.isSymbolicLink()
+          && !getExternalDirectory().getRelative(repositoryName.getMarkerFileName()).exists()
+          && (!rootedPath.asPath().equals(repoRoot) || oldState.getType() != FileStateType.SYMLINK);
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  private boolean isInRepoContentsCache(Path link, PathFragment target) {
+    Path repoContentsCachePath = repoContentsCachePathSupplier.get();
+    return repoContentsCachePath != null
+        && link.getParentDirectory().getRelative(target).startsWith(repoContentsCachePath);
+  }
+
+  /**
    * For a file of type {@link FileType#EXTERNAL_REPO}, returns the name of the external repository
    * it is in or null if the path is not in a valid external repository.
    */
@@ -393,7 +435,9 @@ public class ExternalFilesHelper {
   }
 
   Iterable<SkyKey> getExtraKeysToInvalidate(
-      Map<RepositoryName, RootedPath> dirtyExternalRepos, ExtendedEventHandler eventHandler) {
+      Map<RepositoryName, RootedPath> dirtyExternalRepos,
+      Set<RepositoryName> dirtyLinkedRepos,
+      ExtendedEventHandler eventHandler) {
     dirtyExternalRepos.forEach(
         (repoName, file) -> {
           eventHandler.handle(
@@ -412,7 +456,9 @@ public class ExternalFilesHelper {
             // our goal of forcing a re-fetch of the repository.
           }
         });
-    return Iterables.transform(dirtyExternalRepos.keySet(), RepositoryDirectoryValue::key);
+    return Iterables.transform(
+        Iterables.concat(dirtyExternalRepos.keySet(), dirtyLinkedRepos),
+        RepositoryDirectoryValue::key);
   }
 
   private Path getExternalDirectory() {

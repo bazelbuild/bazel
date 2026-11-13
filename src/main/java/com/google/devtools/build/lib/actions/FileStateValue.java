@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -102,13 +103,41 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
           throw new InconsistentFilesystemException(
               "File " + rootedPath + " found in directory, but stat failed");
         }
-        yield createWithStatNoFollow(
-            path,
-            checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
-            syscallCache,
-            tsgm);
+        FileStateValue value =
+            createWithStatNoFollow(
+                path,
+                checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
+                syscallCache,
+                tsgm);
+        if (value instanceof RegularFileStateValueWithContentsProxy && shouldComputeDigest(path)) {
+          try {
+            // A cached digest is validated against the file's metadata, so the dependence on its
+            // ctime that createWithStatNoFollow registered with the tsgm remains.
+            yield new RegularFileStateValueWithDigest(
+                stat.getSize(), DigestUtils.manuallyComputeDigest(path, stat));
+          } catch (IOException _) {
+            // Whoever consumes the file reads it again and reports the error.
+          }
+        }
+        yield value;
       }
     };
+  }
+
+  /**
+   * Returns whether to compute a digest for the given regular file even if the filesystem doesn't
+   * provide one, so that touching the file without changing its contents doesn't change its {@link
+   * FileStateValue}.
+   */
+  private static boolean shouldComputeDigest(Path path) {
+    // Packages, compiled .bzl files and configured targets are never compared for equality, so the
+    // FileStateValue of these files is the only place where a touch can be pruned. Checking an
+    // unchanged file is a lookup in the digest cache rather than a read.
+    String pathString = path.getPathString();
+    return pathString.endsWith("/BUILD")
+        || pathString.endsWith("/BUILD.bazel")
+        || pathString.endsWith(".bzl")
+        || pathString.endsWith(".scl");
   }
 
   public static FileStateValue createWithStatNoFollow(

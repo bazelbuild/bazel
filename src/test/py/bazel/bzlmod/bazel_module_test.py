@@ -1538,6 +1538,112 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
     self.RunBazel(['build', repo_contents_cache, '@foo//:output.txt'])
 
+  def testRefetchedRepoOnlyReloadsChangedPackages(self):
+    self.ScratchFile('BUILD', ['filegroup(name = "all", srcs = ["@my_repo//:all"])'])
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _impl(ctx):',
+            '    print("JUST FETCHED")',
+            '    ctx.file("REPO.bazel", "repo(default_visibility = [\'//visibility:public\'])")',
+            '    ctx.file("defs.bzl", "NAME = \'lib\'")',
+            '    ctx.file("BUILD", "filegroup(name = \'all\', srcs = [\'//a:lib\', \'//b:lib\'])")',
+            '    content = "load(\'//:defs.bzl\', \'NAME\')\\nfilegroup(name = NAME)\\n"',
+            '    ctx.file("a/BUILD", "# " + ctx.attr.comment + "\\n" + content)',
+            '    ctx.file("b/BUILD", content)',
+            'my_repo = repository_rule(',
+            '    _impl,',
+            '    attrs = {"unused": attr.string(), "comment": attr.string()},',
+            ')',
+        ],
+    )
+
+    def write_module_file(unused, comment):
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'my_repo = use_repo_rule("//:repo.bzl", "my_repo")',
+              'my_repo(name = "my_repo", unused = "%s", comment = "%s")'
+              % (unused, comment),
+          ],
+      )
+
+    write_module_file(unused='1', comment='1')
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # The repo is fetched again, but its files have the same contents.
+    write_module_file(unused='2', comment='1')
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'Analyzed target //:all (0 packages loaded, 0 targets configured).',
+        stderr,
+    )
+
+    # The repo is fetched again and a single BUILD file has new contents.
+    write_module_file(unused='2', comment='2')
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'Analyzed target //:all (1 packages loaded, 3 targets configured).',
+        stderr,
+    )
+
+  def testReevaluatedModuleExtensionOnlyReloadsChangedPackages(self):
+    self.ScratchFile('BUILD', ['filegroup(name = "all", srcs = ["@hub//a", "@hub//b"])'])
+    ext_bzl = [
+        'def _hub_impl(ctx):',
+        '    print("JUST FETCHED")',
+        '    ctx.file("REPO.bazel", "repo(default_visibility = [\'//visibility:public\'])")',
+        '    ctx.file("BUILD")',
+        '    for package in ctx.attr.packages:',
+        '        ctx.file(package + "/BUILD", "filegroup(name = \'%s\')" % package)',
+        '_hub = repository_rule(_hub_impl, attrs = {"packages": attr.string_list()})',
+        'def _ext_impl(ctx):',
+        '    print("JUST EVALUATED")',
+        '    _hub(',
+        '        name = "hub",',
+        '        packages = [t.name for m in ctx.modules for t in m.tags.package],',
+        '    )',
+        'ext = module_extension(',
+        '    _ext_impl,',
+        '    tag_classes = {"package": tag_class(attrs = {"name": attr.string()})},',
+        ')',
+    ]
+    self.ScratchFile('ext.bzl', ext_bzl)
+    module_file = [
+        'ext = use_extension("//:ext.bzl", "ext")',
+        'use_repo(ext, "hub")',
+        'ext.package(name = "a")',
+        'ext.package(name = "b")',
+    ]
+    self.ScratchFile('MODULE.bazel', module_file)
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # The hub repo gains a package, which leaves the existing ones untouched.
+    self.ScratchFile('MODULE.bazel', module_file + ['ext.package(name = "c")'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST EVALUATED', stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'Analyzed target //:all (0 packages loaded, 0 targets configured).',
+        stderr,
+    )
+
+    # An update of the extension doesn't change what the hub repo contains.
+    self.ScratchFile('ext.bzl', ['# A comment.'] + ext_bzl)
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST EVALUATED', stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'Analyzed target //:all (0 packages loaded, 0 targets configured).',
+        stderr,
+    )
+
 
 if __name__ == '__main__':
   absltest.main()
