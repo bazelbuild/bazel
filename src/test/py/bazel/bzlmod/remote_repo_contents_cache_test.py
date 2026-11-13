@@ -16,6 +16,7 @@
 # pylint: disable=g-bad-todo
 
 import os
+import re
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
