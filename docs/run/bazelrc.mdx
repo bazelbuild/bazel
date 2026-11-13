@@ -261,8 +261,8 @@ This syntax does not extend to the use of `startup` to set
 
 #### `--enable_platform_specific_config` {#enable_platform_specific_config}
 
-Platform specific configs in the `.bazelrc` can be automatically enabled using
-`--enable_platform_specific_config`. For example, if the host OS is Linux and
+Platform specific configs in the `.bazelrc` are enabled by default (controlled
+by `--[no]enable_platform_specific_config`). For example, if the host OS is Linux and
 the `build` command is run, the `build:linux` configuration will be
 automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
 `freebsd`, and `openbsd`. Enabling this flag is equivalent to using
