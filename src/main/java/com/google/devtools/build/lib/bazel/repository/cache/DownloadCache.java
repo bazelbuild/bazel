@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.repository.cache;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -117,9 +117,16 @@ public class DownloadCache {
     return keyType.getCachePath(path).getChild(cacheKey).getChild(DEFAULT_CACHE_FILENAME).exists();
   }
 
+  private static String hashCanonicalId(KeyType keyType, String canonicalId) {
+    return keyType
+        .getHashFunction()
+        .hashBytes(StringUnsafe.getInternalStringBytes(canonicalId))
+        .toString();
+  }
+
   boolean hasCanonicalId(String cacheKey, KeyType keyType, String canonicalId) throws IOException {
     Preconditions.checkState(isEnabled());
-    String idHash = keyType.newHasher().putString(canonicalId, UTF_8).hash().toString();
+    String idHash = hashCanonicalId(keyType, canonicalId);
     return keyType.getCachePath(path).getChild(cacheKey).getChild(ID_PREFIX + idHash).exists();
   }
 
@@ -244,7 +251,7 @@ public class DownloadCache {
     FileSystemUtils.renameToleratingConcurrentCreation(tmpName, cacheValue);
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
-      String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();
+      String idHash = hashCanonicalId(keyType, canonicalId);
       FileSystemUtils.touchFile(cacheEntry.getRelative(ID_PREFIX + idHash));
     }
   }

@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -69,7 +70,12 @@ public class VirtualActionInputTest {
         .containsExactly(new Dirent("file", Dirent.Type.FILE));
     assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
     assertThat(outputFile.isExecutable()).isTrue();
-    assertThat(digest).isEqualTo(SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
+    assertThat(digest)
+        .isEqualTo(
+            SHA256
+                .getHashFunction()
+                .hashBytes(StringUnsafe.getInternalStringBytes("hello"))
+                .asBytes());
   }
 
   @Test
@@ -95,7 +101,12 @@ public class VirtualActionInputTest {
         .containsExactly(new Dirent("file", Dirent.Type.FILE));
     assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
     assertThat(outputFile.isExecutable()).isTrue();
-    assertThat(digest).isEqualTo(SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
+    assertThat(digest)
+        .isEqualTo(
+            SHA256
+                .getHashFunction()
+                .hashBytes(StringUnsafe.getInternalStringBytes("hello"))
+                .asBytes());
     assertThat(bytes).isEqualTo("hello".getBytes(UTF_8));
   }
 }

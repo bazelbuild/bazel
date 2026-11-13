@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -1296,6 +1297,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   private byte[] getDigest(String content) {
-    return fs.getDigestFunction().getHashFunction().hashString(content, UTF_8).asBytes();
+    return fs.getDigestFunction()
+        .getHashFunction()
+        .hashBytes(StringUnsafe.getInternalStringBytes(content))
+        .asBytes();
   }
 }

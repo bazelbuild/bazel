@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.worker;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -94,7 +94,7 @@ class SandboxHelper {
             .getFileSystem()
             .getDigestFunction()
             .getHashFunction()
-            .hashString(contents, UTF_8)
+            .hashBytes(StringUnsafe.getInternalStringBytes(contents))
             .asBytes();
     virtualInputs.put(input, digest);
     return this;

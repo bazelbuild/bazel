@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -106,7 +106,9 @@ public class BazelOutputService implements OutputService {
       RemoteRetrier retrier,
       ReferenceCountedChannel channel,
       @Nullable String lastBuildId) {
-    this.outputBaseId = DigestUtil.hashCodeToString(md5().hashString(outputBase.toString(), UTF_8));
+    this.outputBaseId =
+        DigestUtil.hashCodeToString(
+            md5().hashBytes(StringUnsafe.getInternalStringBytes(outputBase.getPathString())));
     this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
     this.digestFunction = digestUtil.getDigestFunction();
