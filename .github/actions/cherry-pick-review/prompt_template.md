@@ -161,7 +161,8 @@ End your response with a single fenced ` ```json ` block matching the schema bel
 
 - **Inline comments (`comments` array, at most 6 items, only `🔴`, `🟠`, or `🟡`):**
   - Place inline comments on the specific diff lines (`+` or `-` lines in `pr_diff_path` only) whenever you find a breaking change (`🔴`), an unrelated change sneaked in (`🔴`), a bug in conflict resolution (`🔴`), or a notable adaptation worth highlighting (`🟠`/`🟡`).
-  - On a follow-up review (`has_existing_gemini_review == true`), **do not** emit inline comments for issues that already have an existing inline comment in `existing_inline_comments`.
+  - When a single-line or small multi-line change on the `+` side (`"side": "RIGHT"`) has an obvious in-place fix or line-level revert (e.g., reverting an unintended constant modification within a file or fixing a conflict resolution error), include a GitHub ```` ```suggestion ```` block inside the comment `"body"`.
+  - On an **automatic** follow-up review (`has_existing_gemini_review == true` and `trigger_type == "automatic"`), **do not** emit inline comments for issues that already have an existing inline comment in `existing_inline_comments`. (On an initial review or when `trigger_type == "manual"`, always include all relevant inline comments.)
   - For a clean or straightforwardly approved cherry-pick with no issues (or when `"should_post": false`), set `"comments": []`.
   - Each item must have:
     - `"path"`: repository-relative file path in the PR diff (e.g. `"src/main/java/com/google/devtools/build/lib/..."`, never the staged `head_file_path` or a `file://` URL).
@@ -171,24 +172,35 @@ End your response with a single fenced ` ```json ` block matching the schema bel
     - `"body"`: markdown comment text starting with the severity emoji (`🔴`, `🟠`, or `🟡`).
 
 - **Top-level review summary (`body` string when `"should_post": true`):**
-  - For an **initial review** (or full manual review), format `"body"` using this markdown template (use plain human English, no Unicode em-dashes, and plain backticks for file paths rather than `file://` links):
+  - Keep the visible part of the review concise and scannable: surface **only** the `**Verdict:**` line and (when applicable) 1 to 3 short bullet points for the most salient findings (blockers, conflict adaptations, or a missing-SHA nit) by default.
+  - Hide the routine 4-criterion verification checklist table and detailed file-by-file breakdown inside a collapsed `<details>` block (always leave a blank line after `<summary>...</summary>` and before `</details>` so GitHub renders the Markdown table properly).
+  - For an **initial review** (or full manual review when `trigger_type == "manual"`), format `"body"` using this markdown template (use plain human English, no Unicode em-dashes, and plain backticks for file paths rather than `file://` links):
 
 ```markdown
 ## 📋 Gemini Cherry-Pick Review Summary
 
-**Verdict:** [e.g., "✅ Approved: Clean cherry-pick of a non-breaking fix from `master`." or "✅ Approved: Faithful cherry-pick with minimal merge-conflict adaptations for `release-X.Y.Z`." or "❌ Changes Requested: This PR cherry-picks a backwards-incompatible change." or "❌ Changes Requested: This PR includes unrelated changes not present in the mainline commit."]
+**Verdict:** [e.g., "✅ Approved: Clean cherry-pick of `184d012436` from `master`." or "✅ Approved: Faithful cherry-pick of `daefb1601f` with minimal conflict resolution for `release-8.9.0`." or "❌ Changes Requested: Cherry-picks a backwards-incompatible change (`RELNOTES[INC]`) into `release-8.9.0`." or "❌ Changes Requested: Includes unrelated changes in `SolibSymlinkAction.java` not present in mainline commit `269b988091`."]
+
+[Salient highlights (ONLY include if there are blockers `🔴`/`🟠`, conflict/release-branch adaptations, or a `🟢` nit; OMIT completely for a 100% clean cherry-pick so only the Verdict line appears above `<details>`):
+- For blockers (`REQUEST_CHANGES` / `COMMENT`): 1-3 concise bullets stating what is wrong and what to fix.
+- For approved adaptations (`APPROVE` with conflict resolution or release-branch adaptations): 1-3 concise bullets summarizing what was adapted relative to `master` and why it is safe.]
+
+<details>
+<summary>Review checklist & details</summary>
 
 | Criterion | Status | Details |
 | :--- | :--- | :--- |
 | **Mainline Provenance** | [✅ / ⚠️ / ❌] | [Mainline commit SHA(s) and how they were matched] |
-| **Backwards Compatibility** | [✅ / ❌] | [Confirm non-breaking fix, or explain why the change is breaking (`RELNOTES[INC]`, `--incompatible_*` flag, API break)] |
+| **Backwards Compatibility** | [✅ / ❌] | [Confirm non-breaking fix, or explain why the change is breaking] |
 | **Cherry-Pick Cleanliness** | [✅ Clean / ✅ Minimal conflict resolution / ⚠️ Adapted / ❌ Unrelated or excessive changes] | [Summary of file comparison against mainline commit(s)] |
 | **Unrelated Changes** | [✅ None / ❌ Found] | [Confirm no unrelated changes, or list unrelated files/hunks] |
 
-[If the PR had merge conflicts, release-branch adaptations, or extra/diverged files, include a concise `### 🔍 Differences from Mainline Commit` section bulleting each adapted/extra file and explaining what changed relative to `master` and why (or why it is flagged). Omit this section if the cherry-pick is 100% clean.]
+[Optional: additional per-file diff details if helpful]
+
+</details>
 ```
 
-  - For a **follow-up review** (`has_existing_gemini_review == true` and `"should_post": true`), start `"body"` with `## 📋 Gemini Cherry-Pick Review Summary` and `**Verdict:** ...`, then concisely summarize only what changed since the previous review (e.g., which prior comments were resolved and any new findings on the newly added/updated code) without repeating the full table or earlier unaddressed comments.
+  - For an **automatic follow-up review** (`has_existing_gemini_review == true`, `trigger_type == "automatic"`, and `"should_post": true`), start `"body"` with `## 📋 Gemini Cherry-Pick Review Summary` and `**Verdict:** ...`, then concisely bullet only what changed since the previous review (e.g., which prior comments were resolved and any new findings on the newly added/updated code) without repeating the checklist table or earlier unaddressed comments.
 
 - **Exact JSON Output Schema (must be the final ` ```json ` block in your response; ensure all newlines inside string values are escaped as `\n` and all double quotes inside string values, including inside markdown backticks, are escaped as `\"`):**
 
