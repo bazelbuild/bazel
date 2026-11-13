@@ -64,10 +64,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     BuildConfigurationValue config = create("--platform_suffix=test");
     assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(
-            outputBase
-                + "/execroot/"
-                + config.getWorkspaceName()
-                + "/blaze-out/.*k8-fastbuild-test");
+            String.format(
+                "%s/execroot/%s/blaze-out/.*%s-fastbuild-test",
+                outputBase, config.getWorkspaceName(), config.getCpu()));
   }
 
   @Test
