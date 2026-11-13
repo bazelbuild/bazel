@@ -33,6 +33,10 @@ public final class RegexUtil {
   private static final Pattern EXTRACT_SUFFIX_MATCH =
       Pattern.compile("(?:\\^|\\\\A)*\\.\\*(?<suffix>[^?+].*)?");
 
+  // Matches inline flags that may enable comments mode, in which "#" starts a comment that extends
+  // to the end of the line and would thus swallow a "\\z" appended to the pattern.
+  private static final Pattern MAY_ENABLE_COMMENTS = Pattern.compile("\\(\\?[a-zA-Z-]*x");
+
   /**
    * Returns a {@link Predicate} that matches the input string (in internal encoding according to
    * {@link com.google.devtools.build.lib.util.StringEncoding}) against the regex pattern with the
@@ -75,6 +79,9 @@ public final class RegexUtil {
     // Turn the "match" pattern into an equivalent "find" pattern, since these are the only ones
     // that benefit from the Boyer-Moore optimization in the Java regex engine.
     // https://github.com/openjdk/jdk/blob/50dced88ff1aed23bb4c8fe9e4a08e6cc200b897/src/java.base/share/classes/java/util/regex/Pattern.java#L1959-L1969
+    if (MAY_ENABLE_COMMENTS.matcher(suffixPattern).find()) {
+      return s -> regexPattern.matcher(internalToUnicode(s)).matches();
+    }
     Pattern compiled = Pattern.compile(suffixPattern + "\\z", Pattern.DOTALL);
     return s -> compiled.matcher(internalToUnicode(s)).find();
   }
