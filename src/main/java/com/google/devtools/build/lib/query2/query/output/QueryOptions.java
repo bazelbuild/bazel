@@ -56,6 +56,8 @@ public abstract class QueryOptions extends CommonQueryOptions {
           "If set, prints each target in the query result followed by a hash of the target and"
               + " its transitive dependencies (attribute values, rule definitions, source file"
               + " contents and the toolchains registered for the toolchain types it uses)."
+              + " With --output=streamed_proto, each length-delimited Target contains its raw"
+              + " transitive_hash when available."
               + " With --output=streamed_jsonproto, each JSON record contains the usual target"
               + " metadata in the target field and its digest in the hash field (null when"
               + " unresolved). Other output formats print only label and hash pairs."

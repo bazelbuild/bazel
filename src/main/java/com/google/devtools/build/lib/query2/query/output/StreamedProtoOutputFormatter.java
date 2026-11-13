@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.protobuf.ByteString;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -30,13 +32,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import javax.annotation.Nullable;
 
 /**
  * An output formatter that outputs a protocol buffer representation of a query result and outputs
  * the proto bytes to the output print stream. By taking the bytes and calling {@code mergeFrom()}
  * on a {@code Build.QueryResult} object the full result can be reconstructed.
  */
-public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
+public class StreamedProtoOutputFormatter extends ProtoOutputFormatter
+    implements HashOutputFormatter {
   private static final int OUTPUT_PARALLELISM = Runtime.getRuntime().availableProcessors();
 
   // At the issue's reported average target size, this produces roughly 0.5 MB chunks: large enough
@@ -54,6 +58,17 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
   @Override
   public String getName() {
     return "streamed_proto";
+  }
+
+  @Override
+  public void writeHashedTarget(
+      Target target, LabelPrinter labelPrinter, @Nullable String digest, OutputStream out)
+      throws IOException, InterruptedException {
+    Build.Target record = toTargetProtoBuffer(target, labelPrinter);
+    if (digest != null) {
+      record = record.toBuilder().setTransitiveHash(ByteString.fromHex(digest)).build();
+    }
+    record.writeDelimitedTo(out);
   }
 
   @Override

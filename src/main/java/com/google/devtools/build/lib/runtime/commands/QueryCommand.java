@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
+import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -36,11 +37,12 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.hash.TransitiveHashes;
+import com.google.devtools.build.lib.query2.query.output.HashOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
-import com.google.devtools.build.lib.query2.query.output.StreamedJSONProtoOutputFormatter;
+import com.google.devtools.build.lib.query2.query.output.StreamedProtoOutputFormatter;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -196,20 +198,20 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         try (SilentCloseable closeable = Profiler.instance().profile("QueryCommand.outputHashes")) {
           Set<Target> targets =
               ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
-          StreamedJSONProtoOutputFormatter catalog = null;
-          if (formatter instanceof StreamedJSONProtoOutputFormatter json) {
+          HashOutputFormatter catalog = null;
+          if (formatter instanceof HashOutputFormatter hashed) {
             // Require complete enumeration before writing any snapshot rows.
             if (!result.getSuccess()) {
               return Either.ofRight(result);
             }
-            json.setOptions(
+            hashed.setOptions(
                 queryOptions,
                 queryOptions
                     .getAspectDeps()
                     .createResolver(env.getPackageManager(), env.getReporter()),
                 hashFunction);
-            json.setEventHandler(env.getReporter());
-            catalog = json;
+            hashed.setEventHandler(env.getReporter());
+            catalog = hashed;
           }
           BlazeCommandResult failure =
               outputHashes(env, queryOptions, targets, out, queryEnv.getLabelPrinter(), catalog);
@@ -266,7 +268,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       Set<Target> targets,
       OutputStream out,
       LabelPrinter labelPrinter,
-      @Nullable StreamedJSONProtoOutputFormatter catalog)
+      @Nullable HashOutputFormatter catalog)
       throws IOException, InterruptedException {
     ImmutableList<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableList());
     EvaluationContext evaluationContext =
@@ -280,6 +282,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             labels,
             keys -> env.getSkyframeExecutor().prepareAndGet(keys, evaluationContext),
             message -> env.getReporter().handle(Event.progress(message)));
+    CountingOutputStream binary = null;
+    if (catalog instanceof StreamedProtoOutputFormatter) {
+      binary = new CountingOutputStream(out);
+      out = binary;
+    }
     String lineTerminator = queryOptions.getLineTerminator();
     for (Target target : targets) {
       Label label = target.getLabel();
@@ -304,6 +311,15 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
                                     ? error.getException().getMessage()
                                     : error.toString()))));
     int omitted = labels.size() - result.hashes().size();
+    if (binary != null) {
+      binary.flush();
+      env.getReporter()
+          .handle(
+              Event.info(
+                  String.format(
+                      "Streamed %d query hash records (%d unknown, %d bytes)",
+                      targets.size(), omitted, binary.getCount())));
+    }
     if (omitted == 0 && result.errors().isEmpty()) {
       return null;
     }

@@ -26,7 +26,8 @@ import javax.annotation.Nullable;
  * An output formatter that prints a list of targets according to ndjson spec to the output print
  * stream.
  */
-public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
+public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter
+    implements HashOutputFormatter {
   @Override
   public String getName() {
     return "streamed_jsonproto";
@@ -43,6 +44,7 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
   }
 
   /** Writes a snapshot row even if the target's transitive hash is unknown. */
+  @Override
   public void writeHashedTarget(
       Target target, LabelPrinter labelPrinter, @Nullable String digest, OutputStream out)
       throws IOException, InterruptedException {
