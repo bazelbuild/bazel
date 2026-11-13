@@ -123,18 +123,18 @@ runs:
               if [[ -s gemini-artifacts/stderr.log ]]; then
                 echo "<details open><summary><strong>stderr.log</strong></summary>"
                 echo ""
-                echo '```text'
+                echo '~~~~~~text'
                 tail -n 100 gemini-artifacts/stderr.log
-                echo '```'
+                echo '~~~~~~'
                 echo "</details>"
                 echo ""
               fi
               if [[ -s gemini-artifacts/cli.log ]]; then
                 echo "<details><summary><strong>cli.log (last 100 lines)</strong></summary>"
                 echo ""
-                echo '```text'
+                echo '~~~~~~text'
                 tail -n 100 gemini-artifacts/cli.log
-                echo '```'
+                echo '~~~~~~'
                 echo "</details>"
                 echo ""
               fi

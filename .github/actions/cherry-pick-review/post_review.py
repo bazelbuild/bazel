@@ -256,7 +256,7 @@ def repair_unescaped_json_quotes(s):
                         continue
                 else:
                     if re.match(
-                        r'^\s*(?:,\s*"(?:decision|should_post|skip_reason|body|comments|path|line|side|start_line|start_side)"\s*:|\}\s*(?:,\s*\{|\]|\}|`|$))',
+                        r'^\s*(?:,\s*"(?:decision|should_post|skip_reason|body|comments|path|line|side|start_line|start_side)"\s*:|\}\s*(?:,\s*\{|\]\s*[,}]|\}\s*(?:```|~~~|$)|$))',
                         rest,
                     ):
                         in_string = False
@@ -326,6 +326,16 @@ def normalize_comment_path(raw_path, workspace_root=""):
     if any(not p or p in (".", "..", ".git") for p in parts):
         return ""
     return path
+
+
+def coerce_positive_int(val):
+    if isinstance(val, int) and not isinstance(val, bool) and val > 0:
+        return val
+    if isinstance(val, str) and val.strip().isdigit():
+        parsed = int(val.strip())
+        if parsed > 0:
+            return parsed
+    return None
 
 
 def format_fallback_comment(comment):
@@ -449,8 +459,8 @@ def main():
                 continue
             path = normalize_comment_path(item.get("path"), workspace_root=workspace_root)
             c_body = strip_runner_file_links(str(item.get("body") or "").strip())
-            line = item.get("line")
-            start_line = item.get("start_line")
+            line = coerce_positive_int(item.get("line"))
+            start_line = coerce_positive_int(item.get("start_line"))
             side = str(item.get("side") or "RIGHT").strip().upper()
             if side not in ("LEFT", "RIGHT"):
                 side = "RIGHT"
@@ -461,8 +471,8 @@ def main():
             if "🔴" in c_body:
                 has_critical_comment = True
 
-            valid_line = isinstance(line, int) and not isinstance(line, bool) and line > 0
-            valid_start = isinstance(start_line, int) and not isinstance(start_line, bool) and 0 < start_line < line
+            valid_line = line is not None
+            valid_start = start_line is not None and valid_line and start_line < line
 
             if path in pr_filenames and valid_line and len(valid_inline_comments) < MAX_INLINE_COMMENTS:
                 comment_obj = {
@@ -486,9 +496,9 @@ def main():
                     }
                 )
 
-    # Deterministic safety guardrails: never APPROVE when no mainline commit was found
+    # Deterministic safety guardrails: enforce REQUEST_CHANGES whenever no mainline commit was found
     # or when a critical finding (🔴 / ❌) was reported in inline comments or the summary body.
-    if decision == "APPROVE":
+    if decision != "REQUEST_CHANGES":
         no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
         body_has_blocker = "🔴" in body or "**Verdict:** ❌" in body
         if no_mainline or has_critical_comment or body_has_blocker:
@@ -498,11 +508,15 @@ def main():
                 reason = "a critical (`🔴`) inline comment was included"
             else:
                 reason = "a critical blocker (`🔴` / `❌`) was reported in the review body"
-            print(f"Safety guardrail: downgrading APPROVE to REQUEST_CHANGES because {reason}.")
+            print(f"Safety guardrail: overriding {decision} to REQUEST_CHANGES because {reason}.")
             decision = "REQUEST_CHANGES"
-            body = re.sub(r"\*\*Verdict:\*\*\s*✅\s*Approved", "**Verdict:** ❌ Changes Requested", body)
+            body = re.sub(
+                r"\*\*Verdict:\*\*\s*(?:✅\s*Approved|💬\s*Commented[^\n]*)",
+                "**Verdict:** ❌ Changes Requested",
+                body,
+            )
             guardrail_note = (
-                f"> ⚠️ **Automated Guardrail:** Review decision downgraded to `REQUEST_CHANGES` because {reason}."
+                f"> ⚠️ **Automated Guardrail:** Review decision set to `REQUEST_CHANGES` because {reason}."
             )
             body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
 

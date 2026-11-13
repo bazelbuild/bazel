@@ -120,6 +120,32 @@ class PostReviewTest(unittest.TestCase):
         self.assertIn("**Verdict:** ❌ Changes Requested", posted[0]["body"])
         self.assertIn("Automated Guardrail", posted[0]["body"])
 
+        # Guardrail also overrides COMMENT -> REQUEST_CHANGES when a critical comment or NO_MAINLINE_COMMIT is present,
+        # and coerces string line numbers ("2" -> 2).
+        posted.clear()
+        review_obj_comment = {
+            "decision": "COMMENT",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** 💬 Commented (Non-blocking)",
+            "comments": [
+                {
+                    "path": "src/Foo.java",
+                    "line": "2",
+                    "side": "RIGHT",
+                    "body": "🔴 Critical regression.",
+                }
+            ],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(review_obj_comment)}),
+            encoding="utf-8",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(len(posted), 1)
+        self.assertEqual(posted[0]["event"], "REQUEST_CHANGES")
+        self.assertEqual(posted[0]["comments"][0]["line"], 2)
+        self.assertIn("**Verdict:** ❌ Changes Requested", posted[0]["body"])
+
     def test_self_review_http_422_falls_back_directly_to_comment(self):
         review_obj = {
             "decision": "APPROVE",
