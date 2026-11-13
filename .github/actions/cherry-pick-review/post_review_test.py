@@ -34,20 +34,23 @@ class PostReviewTest(unittest.TestCase):
         os.chdir(self.root)
         (self.root / ".gemini").mkdir()
         (self.root / "gemini-artifacts").mkdir()
-        (self.root / ".gemini" / "context.json").write_text(
-            json.dumps(
-                {
-                    "repository": "bazelbuild/bazel",
-                    "owner": "bazelbuild",
-                    "repo": "bazel",
-                    "pull_request_number": 42,
-                    "head_sha": "d" * 40,
-                    "overall_cherry_pick_classification": "CLEAN",
-                    "changed_files": [{"path": "src/Foo.java", "status": "modified"}],
-                }
-            ),
-            encoding="utf-8",
-        )
+        self._write_context()
+
+    def _write_context(self, **overrides):
+        ctx = {
+            "repository": "bazelbuild/bazel",
+            "owner": "bazelbuild",
+            "repo": "bazel",
+            "workspace_root": str(self.root),
+            "pull_request_number": 42,
+            "head_sha": "d" * 40,
+            "trigger_type": "automatic",
+            "has_existing_gemini_review": False,
+            "overall_cherry_pick_classification": "CLEAN",
+            "changed_files": [{"path": "src/Foo.java", "status": "modified"}],
+        }
+        ctx.update(overrides)
+        (self.root / ".gemini" / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
 
     def tearDown(self):
         os.chdir(self.old_cwd)
@@ -55,6 +58,7 @@ class PostReviewTest(unittest.TestCase):
 
     def test_posts_approve_review_for_clean_cherry_pick(self):
         review_obj = {
+            "should_post": True,
             "decision": "APPROVE",
             "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ✅ Approved",
             "comments": [],
@@ -65,8 +69,8 @@ class PostReviewTest(unittest.TestCase):
         )
         posted = []
 
-        def fake_post(endpoint, payload, token=None):
-            posted.append((endpoint, payload, token))
+        def fake_post(endpoint, payload):
+            posted.append((endpoint, payload))
             res = MagicMock()
             res.returncode = 0
             res.stdout = json.dumps({"html_url": "https://github.com/bazelbuild/bazel/pull/42#pullrequestreview-1"})
@@ -86,7 +90,7 @@ class PostReviewTest(unittest.TestCase):
     def test_safety_guardrail_downgrades_approve_when_critical_comment_present(self):
         review_obj = {
             "decision": "APPROVE",
-            "body": "## 📋 Gemini Cherry-Pick Review Summary",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ✅ Approved",
             "comments": [
                 {
                     "path": "src/Foo.java",
@@ -102,7 +106,7 @@ class PostReviewTest(unittest.TestCase):
         )
         posted = []
 
-        def fake_post(endpoint, payload, token=None):
+        def fake_post(endpoint, payload):
             posted.append(payload)
             res = MagicMock()
             res.returncode = 0
@@ -115,8 +119,10 @@ class PostReviewTest(unittest.TestCase):
 
         self.assertEqual(len(posted), 1)
         self.assertEqual(posted[0]["event"], "REQUEST_CHANGES")
+        self.assertIn("**Verdict:** ❌ Changes Requested", posted[0]["body"])
+        self.assertIn("Automated Guardrail", posted[0]["body"])
 
-    def test_self_review_http_422_retries_with_fallback_token_then_comment(self):
+    def test_self_review_http_422_falls_back_directly_to_comment(self):
         review_obj = {
             "decision": "APPROVE",
             "body": "## 📋 Gemini Cherry-Pick Review Summary",
@@ -128,8 +134,8 @@ class PostReviewTest(unittest.TestCase):
         )
         calls = []
 
-        def fake_post(endpoint, payload, token=None):
-            calls.append((payload["event"], token))
+        def fake_post(endpoint, payload):
+            calls.append(payload["event"])
             res = MagicMock()
             if payload["event"] == "APPROVE":
                 res.returncode = 1
@@ -141,11 +147,92 @@ class PostReviewTest(unittest.TestCase):
                 res.stderr = ""
             return res
 
-        env = {"GITHUB_TOKEN": "token-primary", "FALLBACK_GITHUB_TOKEN": "token-fallback"}
-        with patch.dict(os.environ, env, clear=False), patch.object(post_review, "gh_api_post", side_effect=fake_post):
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
             self.assertEqual(post_review.main(), 0)
 
-        self.assertEqual(calls, [("APPROVE", None), ("APPROVE", "token-fallback"), ("COMMENT", None)])
+        self.assertEqual(calls, ["APPROVE", "COMMENT"])
+
+    def test_should_post_false_skips_when_existing_review_present_but_posts_on_initial_or_manual(self):
+        review_obj = {
+            "should_post": False,
+            "skip_reason": "PR was rebased with no substantive changes.",
+            "decision": "APPROVE",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary",
+            "comments": [],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(review_obj)}),
+            encoding="utf-8",
+        )
+        posted = []
+
+        def fake_post(endpoint, payload):
+            posted.append(payload)
+            res = MagicMock()
+            res.returncode = 0
+            res.stdout = json.dumps({"html_url": "https://github.com/bazelbuild/bazel/pull/42#pullrequestreview-4"})
+            res.stderr = ""
+            return res
+
+        # 1) When has_existing_gemini_review is True and trigger_type is automatic -> skips posting
+        self._write_context(has_existing_gemini_review=True, trigger_type="automatic")
+        summary_file = self.root / "step_summary.md"
+        with patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(summary_file)}), patch.object(
+            post_review, "gh_api_post", side_effect=fake_post
+        ):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(len(posted), 0)
+        self.assertIn("Skipped posting duplicate review", summary_file.read_text(encoding="utf-8"))
+
+        # 2) When has_existing_gemini_review is False -> guardrail overrides should_post=False and posts
+        self._write_context(has_existing_gemini_review=False, trigger_type="automatic")
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(len(posted), 1)
+
+    def test_strips_runner_file_links_and_rejects_traversal_paths(self):
+        review_obj = {
+            "decision": "COMMENT",
+            "body": "See [Foo.java](file:///home/runner/work/bazel/bazel/gemini-artifacts/pr/head/src/Foo.java#L1-L5).",
+            "comments": [
+                {
+                    "path": "file:///home/runner/work/bazel/bazel/gemini-artifacts/pr/head/src/Foo.java#L2",
+                    "line": 2,
+                    "side": "RIGHT",
+                    "body": "🟡 Check [Bar.java](file:///tmp/Bar.java).",
+                },
+                {
+                    "path": "../../etc/passwd",
+                    "line": 1,
+                    "side": "RIGHT",
+                    "body": "🔴 Traversal attempt",
+                },
+            ],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(review_obj)}),
+            encoding="utf-8",
+        )
+        posted = []
+
+        def fake_post(endpoint, payload):
+            posted.append(payload)
+            res = MagicMock()
+            res.returncode = 0
+            res.stdout = json.dumps({"html_url": "https://github.com/bazelbuild/bazel/pull/42#pullrequestreview-5"})
+            res.stderr = ""
+            return res
+
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+
+        self.assertEqual(len(posted), 1)
+        self.assertNotIn("file://", posted[0]["body"])
+        self.assertIn("`Foo.java`", posted[0]["body"])
+        self.assertEqual(len(posted[0]["comments"]), 1)
+        self.assertEqual(posted[0]["comments"][0]["path"], "src/Foo.java")
+        self.assertNotIn("file://", posted[0]["comments"][0]["body"])
+        self.assertIn("`Bar.java`", posted[0]["comments"][0]["body"])
 
 
 if __name__ == "__main__":

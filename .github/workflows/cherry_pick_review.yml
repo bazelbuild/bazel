@@ -2,7 +2,7 @@ name: Cherry-Pick PR Review
 
 on:
   pull_request_target:
-    types: [opened, ready_for_review, reopened, labeled]
+    types: [opened, synchronize, ready_for_review, reopened, labeled]
     branches:
       - 'release-*'
   issue_comment:
@@ -33,7 +33,7 @@ jobs:
         (
           (github.event.action == 'labeled' && github.event.label.name == 'gemini-review') ||
           (
-            contains(fromJSON('["opened", "ready_for_review", "reopened"]'), github.event.action) &&
+            contains(fromJSON('["opened", "synchronize", "ready_for_review", "reopened"]'), github.event.action) &&
             github.event.pull_request.draft == false
           )
         )
@@ -76,4 +76,4 @@ jobs:
           pr_number: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
           additional_context: ${{ inputs.additional_context }}
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-4-argon' }}
+          gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-4-carbon' }}

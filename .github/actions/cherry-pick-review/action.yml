@@ -3,7 +3,7 @@ description: 'Prepares release-branch cherry-pick PR context against master, run
 
 inputs:
   github_token:
-    description: 'GitHub token used to read PR metadata and stage PR files (also used as fallback reviewer token)'
+    description: 'Read-only GitHub token used to read PR metadata and stage PR files'
     required: true
   review_token:
     description: 'Privileged GitHub token used only in deterministic steps to post reactions and submit the PR review (never passed to Antigravity CLI)'
@@ -23,7 +23,7 @@ inputs:
   gemini_model:
     description: 'Gemini model name'
     required: false
-    default: 'gemini-4-argon'
+    default: 'gemini-4-carbon'
 
 runs:
   using: 'composite'
@@ -36,8 +36,10 @@ runs:
         REPOSITORY: ${{ github.repository }}
         COMMENT_ID: ${{ github.event.comment.id }}
       run: |-
-        gh api "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
-          -f content='eyes' || true
+        if [[ "${REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "${COMMENT_ID}" =~ ^[1-9][0-9]*$ ]]; then
+          gh api "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content='eyes' || true
+        fi
 
     - name: Prepare cherry-pick review context
       id: prepare_context
@@ -77,8 +79,15 @@ runs:
         export PATH="${HOME}/.local/bin:${PATH}"
         agy --version
 
+        if [[ ! "${GEMINI_MODEL}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          echo "::error::Invalid GEMINI_MODEL value."
+          exit 1
+        fi
+
         mkdir -p gemini-artifacts
-        cat <<'EOF' > /tmp/agy-settings.json
+        SETTINGS_FILE="$(mktemp /tmp/agy-settings.XXXXXX.json)"
+        trap 'rm -f "${SETTINGS_FILE}"' EXIT
+        cat <<'EOF' > "${SETTINGS_FILE}"
         {
           "modelProvider": "gemini",
           "permissions": {
@@ -97,7 +106,7 @@ runs:
           --output-format json \
           --model "${GEMINI_MODEL}" \
           --disable-slash-commands \
-          --settings /tmp/agy-settings.json \
+          --settings "${SETTINGS_FILE}" \
           --log-file gemini-artifacts/cli.log \
           < .gemini/prompt.md \
           > gemini-artifacts/stdout.log \
@@ -139,7 +148,6 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.review_token || inputs.github_token }}
-        FALLBACK_GITHUB_TOKEN: ${{ inputs.github_token }}
       run: |-
         python3 "${{ github.action_path }}/post_review.py"
 
@@ -147,5 +155,4 @@ runs:
       if: always()
       shell: bash
       run: |-
-        git worktree remove --force gemini-artifacts/release_worktree 2>/dev/null || true
-        rm -rf /tmp/agy-settings.json .gemini/context.json .gemini/prompt.md gemini-artifacts
+        rm -rf /tmp/agy-settings*.json .gemini/context.json .gemini/prompt.md gemini-artifacts

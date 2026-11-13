@@ -36,7 +36,6 @@ class PrepareContextTest(unittest.TestCase):
         self._init_git_repo()
 
     def tearDown(self):
-        prepare_context.run_git(["worktree", "remove", "--force", "gemini-artifacts/release_worktree"])
         os.chdir(self.old_cwd)
         self.tmp_dir.cleanup()
 
@@ -127,7 +126,7 @@ class PrepareContextTest(unittest.TestCase):
                         }
                     ]
                 ]
-            if "issues/101/comments" in endpoint:
+            if "issues/101/comments" in endpoint or "pulls/101/reviews" in endpoint or "pulls/101/comments" in endpoint:
                 return [[]]
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
@@ -150,6 +149,7 @@ class PrepareContextTest(unittest.TestCase):
         self.assertEqual(ctx["file_comparisons"][0]["classification"], "identical")
         self.assertIsNone(ctx["vs_mainline_diff_path"])
         self.assertEqual(ctx["breaking_change_signals"], [])
+        self.assertFalse(ctx["has_existing_gemini_review"])
 
     def test_conflict_and_extra_file_and_breaking_signal_detection(self):
         # First make an intermediate change on master that is NOT on release-8.9.0
@@ -219,7 +219,7 @@ class PrepareContextTest(unittest.TestCase):
                         },
                     ]
                 ]
-            if "issues/102/comments" in endpoint:
+            if "issues/102/comments" in endpoint or "pulls/102/reviews" in endpoint or "pulls/102/comments" in endpoint:
                 return [[]]
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
@@ -247,6 +247,121 @@ class PrepareContextTest(unittest.TestCase):
         self.assertIn("CLASSIFICATION: adapted_with_conflict", vs_diff)
         self.assertIn("CLASSIFICATION: extra_in_pr", vs_diff)
         self.assertIn("<<<<<<<", vs_diff)
+
+    def test_rejects_unsafe_paths_and_symlinks(self):
+        for bad in (
+            "",
+            "/etc/passwd",
+            "../secret.txt",
+            "src/../../secret.txt",
+            "src/./Foo.java",
+            ".git/config",
+            "src/.git/hooks/pre-commit",
+            "-flag-injection",
+            ":(top)src/Foo.java",
+            "src\\Foo.java",
+            "src/Foo\x00.java",
+            "src/dir/",
+        ):
+            self.assertFalse(prepare_context.is_safe_repo_rel_path(bad), f"Should reject {bad!r}")
+            self.assertIsNone(prepare_context.resolve_path_within(self.root, bad), f"Should reject {bad!r}")
+
+        self.assertIsNone(prepare_context.is_valid_release_branch("release-1.0..2.0"))
+        self.assertIsNone(prepare_context.is_valid_release_branch("release-.hidden"))
+        self.assertIsNone(prepare_context.is_valid_release_branch("release-8.9.0.lock"))
+        self.assertEqual(prepare_context.is_valid_release_branch("release-8.9.0"), "8.9.0")
+
+        # Symlink inside base_dir must be rejected by resolve_path_within and safe_write_staged_file
+        stage_dir = self.root / "stage_test"
+        stage_dir.mkdir()
+        (stage_dir / "link_dir").symlink_to("/tmp")
+        self.assertIsNone(prepare_context.resolve_path_within(stage_dir, "link_dir/escape.txt"))
+        self.assertIsNone(prepare_context.safe_write_staged_file(stage_dir, "link_dir/escape.txt", "pwn"))
+
+        # Git symlink (mode 120000) must be rejected by read_git_regular_file_blob
+        (self.root / "src" / "evil_link").symlink_to("/etc/hosts")
+        self._git("add", "src/evil_link")
+        self._git("commit", "-m", "Add symlink")
+        sha_with_link = self._git_out("rev-parse", "HEAD")
+        self.assertIsNone(prepare_context.read_git_regular_file_blob(sha_with_link, "src/evil_link"))
+        self.assertIsNotNone(prepare_context.read_git_regular_file_blob(sha_with_link, "src/Foo.java"))
+
+    def test_prior_review_delta_detects_unchanged_rebase_and_modified_followup(self):
+        # Commit 1 on PR branch
+        self._git("checkout", "-b", "pr-branch", "release-8.9.0")
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 10; }\n  int b() { return 2; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", ".")
+        self._git("commit", "-m", "PR commit 1")
+        rev1_sha = self._git_out("rev-parse", "HEAD")
+        pr_patches_v1 = {"src/Foo.java": "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 10; }\n   int b() { return 2; }\n }"}
+
+        reviews = [
+            {
+                "id": 1,
+                "state": "CHANGES_REQUESTED",
+                "commit_id": rev1_sha,
+                "submitted_at": "2026-11-12T20:00:00Z",
+                "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ❌ Changes Requested",
+            }
+        ]
+        inline_comments = [
+            {
+                "id": 10,
+                "user": {"login": "bazel-io"},
+                "path": "src/Foo.java",
+                "line": 2,
+                "created_at": "2026-11-12T20:00:00Z",
+                "body": "🔴 Some issue",
+            }
+        ]
+
+        # Case 1: Rebase with identical patch changes
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 10; }\n  int b() { return 2; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("commit", "--amend", "-m", "PR commit 1 (rebased)")
+        rev1_rebased_sha = self._git_out("rev-parse", "HEAD")
+
+        has_existing, last_review, unchanged, since_path, comments_out = prepare_context.analyze_prior_review_delta(
+            pr_reviews=reviews,
+            pr_inline_comments=inline_comments,
+            base_ref="release-8.9.0",
+            base_sha=self.base_sha,
+            head_sha=rev1_rebased_sha,
+            pr_patches_by_file=pr_patches_v1,
+            stage_dir=self.root / "gemini-artifacts" / "pr",
+        )
+        self.assertTrue(has_existing)
+        self.assertEqual(last_review["commit_id"], rev1_sha)
+        self.assertTrue(unchanged)
+        self.assertIsNotNone(since_path)
+        self.assertEqual(len(comments_out), 1)
+
+        # Case 2: Follow-up commit modifies the PR patch
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 20; }\n  int b() { return 2; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", ".")
+        self._git("commit", "-m", "PR commit 2")
+        rev2_sha = self._git_out("rev-parse", "HEAD")
+        pr_patches_v2 = {"src/Foo.java": "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 20; }\n   int b() { return 2; }\n }"}
+
+        _, _, unchanged2, since_path2, _ = prepare_context.analyze_prior_review_delta(
+            pr_reviews=reviews,
+            pr_inline_comments=inline_comments,
+            base_ref="release-8.9.0",
+            base_sha=self.base_sha,
+            head_sha=rev2_sha,
+            pr_patches_by_file=pr_patches_v2,
+            stage_dir=self.root / "gemini-artifacts" / "pr",
+        )
+        self.assertFalse(unchanged2)
+        self.assertIn("return 20;", pathlib.Path(since_path2).read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

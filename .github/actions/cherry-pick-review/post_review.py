@@ -25,6 +25,7 @@ REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_INLINE_COMMENTS = 6
 ALLOWED_EVENTS = frozenset({"APPROVE", "COMMENT", "REQUEST_CHANGES"})
+FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
 
 
 def gh_api_get(endpoint, paginate=False, slurp=False):
@@ -38,20 +39,22 @@ def gh_api_get(endpoint, paginate=False, slurp=False):
     return json.loads(res.stdout)
 
 
-def gh_api_post(endpoint, payload, token=None):
+def gh_api_post(endpoint, payload):
     cmd = ["gh", "api", "--method", "POST", endpoint, "--input", "-"]
-    env = None
-    if token:
-        env = dict(os.environ)
-        env["GITHUB_TOKEN"] = token
     return subprocess.run(
         cmd,
         input=json.dumps(payload),
         capture_output=True,
         text=True,
         check=False,
-        env=env,
     )
+
+
+def strip_runner_file_links(markdown_text):
+    """Replaces `[label](file:///...)` runner links with `` `label` `` code spans."""
+    if not isinstance(markdown_text, str) or "file://" not in markdown_text:
+        return markdown_text
+    return FILE_LINK_RE.sub(lambda m: f"`{m.group(1).strip('`')}`", markdown_text)
 
 
 def load_gemini_output():
@@ -149,6 +152,7 @@ def write_step_summary(
     *,
     outcome_line,
     decision="",
+    skip_reason="",
     review_body="",
     inline_comments=None,
     envelope=None,
@@ -162,6 +166,8 @@ def write_step_summary(
     lines = ["### 🤖 Gemini Cherry-Pick PR Review", "", f"- **Outcome:** {outcome_line}"]
     if decision:
         lines.append(f"- **Review Decision:** `{decision}`")
+    if skip_reason:
+        lines.append(f"- **Reason:** {skip_reason}")
     stats_line = format_cli_stats(envelope or {})
     if stats_line:
         lines.append(f"- **CLI Stats:** `{stats_line}`")
@@ -295,23 +301,36 @@ def extract_review_json(text):
             for attempt in (candidate, repair_unescaped_json_quotes(candidate)):
                 try:
                     parsed, _ = decoder.raw_decode(attempt)
-                    if isinstance(parsed, dict) and "decision" in parsed:
+                    if isinstance(parsed, dict) and ("decision" in parsed or "should_post" in parsed):
                         return parsed
                 except json.JSONDecodeError:
                     continue
 
     dump_gemini_diagnostics(text)
-    raise ValueError("Could not find valid review JSON object with 'decision' in Gemini output")
+    raise ValueError("Could not find valid review JSON object with 'decision' or 'should_post' in Gemini output")
 
 
-def normalize_comment_path(raw_path):
-    """Normalizes a comment file path to a repository-relative path."""
+def normalize_comment_path(raw_path, workspace_root=""):
+    """Normalizes a comment file path to a safe repository-relative path."""
     path = str(raw_path or "").strip()
+    if path.startswith("file://"):
+        path = path[len("file://") :]
+    path = path.split("#", 1)[0]
     for marker in ("gemini-artifacts/pr/head/", "gemini-artifacts/pr/base/", "gemini-artifacts/release_worktree/"):
         idx = path.find(marker)
         if idx != -1:
             path = path[idx + len(marker) :]
-    return path.lstrip("/")
+    if workspace_root:
+        ws_prefix = workspace_root.rstrip("/") + "/"
+        if path.startswith(ws_prefix):
+            path = path[len(ws_prefix) :]
+    path = path.lstrip("/")
+    if not path or "\\" in path or "\x00" in path:
+        return ""
+    parts = path.split("/")
+    if any(not p or p in (".", "..", ".git") for p in parts):
+        return ""
+    return path
 
 
 def format_fallback_comment(comment):
@@ -355,6 +374,7 @@ def main():
     repo = str(context.get("repository") or "").strip()
     pr_number = int(context["pull_request_number"])
     head_sha = str(context.get("head_sha") or "").strip()
+    workspace_root = str(context.get("workspace_root") or "").strip()
 
     if not REPO_RE.fullmatch(repo):
         raise ValueError(f"Invalid repository in context.json: {repo!r}")
@@ -375,10 +395,34 @@ def main():
         )
         raise
 
+    should_post = review_data.get("should_post", True) is not False
+    skip_reason = str(review_data.get("skip_reason") or "").strip()
+    has_existing_review = bool(context.get("has_existing_gemini_review"))
+    trigger_type = str(context.get("trigger_type") or "automatic")
+
+    # Guardrail: initial reviews on a PR and manually triggered reviews must always post.
+    if not should_post and (not has_existing_review or trigger_type == "manual"):
+        print(
+            f"Overriding should_post=false -> true (has_existing_gemini_review={has_existing_review}, "
+            f"trigger_type={trigger_type})."
+        )
+        should_post = True
+
     raw_decision = str(review_data.get("decision") or "COMMENT").strip().upper()
     decision = raw_decision if raw_decision in ALLOWED_EVENTS else "COMMENT"
-    body = str(review_data.get("body") or "").strip()
+    body = strip_runner_file_links(str(review_data.get("body") or "").strip())
     raw_comments = review_data.get("comments") or []
+
+    if not should_post:
+        print(f"Skipping duplicate review on PR #{pr_number} (skip_reason={skip_reason or 'none'}).")
+        write_step_summary(
+            outcome_line="⏭️ Skipped posting duplicate review (`should_post: false`)",
+            skip_reason=skip_reason or "No substantive changes since the previous Gemini review.",
+            review_body=body,
+            envelope=envelope,
+            response_text=response_text,
+        )
+        return 0
 
     changed_files_ctx = context.get("changed_files")
     if isinstance(changed_files_ctx, list) and changed_files_ctx:
@@ -408,8 +452,8 @@ def main():
         for item in raw_comments:
             if not isinstance(item, dict):
                 continue
-            path = normalize_comment_path(item.get("path"))
-            c_body = str(item.get("body") or "").strip()
+            path = normalize_comment_path(item.get("path"), workspace_root=workspace_root)
+            c_body = strip_runner_file_links(str(item.get("body") or "").strip())
             line = item.get("line")
             start_line = item.get("start_line")
             side = str(item.get("side") or "RIGHT").strip().upper()
@@ -496,9 +540,11 @@ def main():
         return 0
 
     err_output = f"{res.stderr}\n{res.stdout}".strip()
+    is_self_review_err = "own pull request" in err_output.lower()
 
-    # Fallback 1: If GitHub rejected inline comment line numbers (HTTP 422), fold them into the top-level body.
-    if valid_inline_comments and ("422" in err_output or "Unprocessable" in err_output):
+    # Fallback 1: If GitHub rejected inline comment line numbers (HTTP 422, not self-review),
+    # fold them into the top-level body.
+    if valid_inline_comments and ("422" in err_output or "Unprocessable" in err_output) and not is_self_review_err:
         print(
             f"Warning: GitHub rejected inline comment position(s) ({err_output}); "
             "retrying with inline comments folded into the top-level review body."
@@ -526,35 +572,13 @@ def main():
             return 0
         err_output = f"{res.stderr}\n{res.stdout}".strip()
 
-    # Fallback 2: If GitHub rejected APPROVE or REQUEST_CHANGES because the token belongs to the PR author
-    # (e.g. @bazel-io reviewing a PR authored by @bazel-io), try FALLBACK_GITHUB_TOKEN (`github-actions[bot]`),
-    # and if that still fails, fall back to event="COMMENT".
+    # Fallback 2: If GitHub rejected APPROVE or REQUEST_CHANGES because the reviewer token
+    # belongs to the PR author (e.g. @bazel-io reviewing a PR authored by @bazel-io),
+    # directly fall back to event="COMMENT".
     if decision in ("APPROVE", "REQUEST_CHANGES") and ("422" in err_output or "Unprocessable" in err_output):
-        fallback_token = os.environ.get("FALLBACK_GITHUB_TOKEN", "").strip()
-        primary_token = os.environ.get("GITHUB_TOKEN", "").strip()
-        if fallback_token and fallback_token != primary_token:
-            print(f"Retrying {decision} review with FALLBACK_GITHUB_TOKEN...")
-            res_fb = gh_api_post(endpoint, payload, token=fallback_token)
-            if res_fb.returncode == 0:
-                review_resp = json.loads(res_fb.stdout)
-                review_url = review_resp.get("html_url")
-                print(
-                    f"Posted Gemini review on PR #{pr_number} using fallback token "
-                    f"(event={decision}, url={review_url})"
-                )
-                write_step_summary(
-                    outcome_line=format_outcome_badge(decision, review_url, len(valid_inline_comments)),
-                    decision=decision,
-                    review_body=final_body,
-                    inline_comments=valid_inline_comments,
-                    envelope=envelope,
-                    response_text=response_text,
-                )
-                return 0
-
         print(
             f"Warning: GitHub rejected event={decision} ({err_output}); "
-            "falling back to event=COMMENT."
+            "falling back directly to event=COMMENT."
         )
         comment_body = (
             f"> **Automated Review Decision: `{decision}`** "
@@ -565,17 +589,30 @@ def main():
             "commit_id": head_sha,
             "event": "COMMENT",
             "body": comment_body,
-            "comments": [],
+            "comments": valid_inline_comments,
         }
         res_comment = gh_api_post(endpoint, comment_payload)
+        if res_comment.returncode != 0 and valid_inline_comments:
+            folded_comment_body = append_fallback_comments(comment_body, valid_inline_comments)
+            comment_payload = {
+                "commit_id": head_sha,
+                "event": "COMMENT",
+                "body": folded_comment_body,
+                "comments": [],
+            }
+            res_comment = gh_api_post(endpoint, comment_payload)
+            if res_comment.returncode == 0:
+                comment_body = folded_comment_body
+                valid_inline_comments = []
         if res_comment.returncode == 0:
             review_resp = json.loads(res_comment.stdout)
             review_url = review_resp.get("html_url")
             print(f"Posted fallback COMMENT review on PR #{pr_number} (url={review_url})")
             write_step_summary(
-                outcome_line=format_outcome_badge("COMMENT", review_url, 0),
+                outcome_line=format_outcome_badge("COMMENT", review_url, len(valid_inline_comments)),
                 decision=f"{decision} (posted as COMMENT)",
                 review_body=comment_body,
+                inline_comments=valid_inline_comments,
                 envelope=envelope,
                 response_text=response_text,
             )

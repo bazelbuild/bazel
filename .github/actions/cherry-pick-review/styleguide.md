@@ -41,7 +41,7 @@ Release branches only accept safe, backwards-compatible backports (cherry-picks)
 
 ## 1) Review Decision Policy (`APPROVE` vs. `COMMENT` vs. `REQUEST_CHANGES`)
 
-Unlike general advisory review bots, this cherry-pick reviewer **always posts a review** and actively **approves** qualifying cherry-pick PRs:
+Unlike general advisory review bots, this cherry-pick reviewer **always posts an initial review** and actively **approves** qualifying cherry-pick PRs. On subsequent automatic runs (`has_existing_gemini_review == true`), it behaves like a human reviewer: skipping duplicate reviews after trivial rebases (`"should_post": false`), approving once blocking comments are resolved, or commenting only on newly introduced changes without repeating earlier unaddressed comments.
 
 - **`APPROVE`:**
   Use `"decision": "APPROVE"` when:
