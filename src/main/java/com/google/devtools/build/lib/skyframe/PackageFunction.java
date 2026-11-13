@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue.InvalidIgnorePathException;
 import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
 import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDeps.SkyframeGlobbingIOException;
@@ -73,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsF
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -87,6 +89,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -705,7 +708,7 @@ public abstract class PackageFunction implements SkyFunction {
       Predicate<PackageIdentifier> isUnderExperimental,
       Predicate<PackageIdentifier> isUnderPrototype,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile)
-      throws NoSuchPackageException, InterruptedException {
+      throws PackageFunctionException, InterruptedException {
     List<BzlLoadValue> bzlLoads;
     try {
       bzlLoads =
@@ -742,10 +745,10 @@ public abstract class PackageFunction implements SkyFunction {
           filesystemCode)) {
         exceptionBuilder.setFilesystemCode(filesystemCode);
       } else {
-        exceptionBuilder.setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+        exceptionBuilder.setPackageLoadingCode(packageLoadingCodeForBzlLoadFailure(e));
       }
       exceptionBuilder.setTransience(e.getTransience());
-      throw exceptionBuilder.buildCause();
+      throw exceptionBuilder.build();
     }
 
     // Build map of loaded modules.
@@ -763,7 +766,7 @@ public abstract class PackageFunction implements SkyFunction {
       PackageIdentifier packageId,
       Label label,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining)
-      throws NoSuchPackageException, InterruptedException {
+      throws PackageFunctionException, InterruptedException {
     List<BzlLoadValue.Key> keys = ImmutableList.of(BzlLoadValue.keyForBuildPrelude(label));
     try {
       List<BzlLoadValue> loads =
@@ -783,9 +786,21 @@ public abstract class PackageFunction implements SkyFunction {
           .setPackageIdentifier(packageId)
           .setException(rootCause instanceof IOException ? (IOException) rootCause : null)
           .setMessage(e.getMessage())
-          .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
-          .buildCause();
+          .setPackageLoadingCode(packageLoadingCodeForBzlLoadFailure(e))
+          .setTransience(e.getTransience())
+          .build();
     }
+  }
+
+  private static PackageLoading.Code packageLoadingCodeForBzlLoadFailure(BzlLoadFailedException e) {
+    // The exception cause chain does not survive transitive loads; inspect the DetailedExitCode.
+    FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
+    if (failureDetail.hasPackageLoading()) {
+      return failureDetail.getPackageLoading().getCode();
+    }
+    return failureDetail.getStarlarkLoading().getCode() == StarlarkLoading.Code.IO_ERROR
+        ? PackageLoading.Code.OTHER_IO_EXCEPTION
+        : PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR;
   }
 
   /**
@@ -1049,12 +1064,7 @@ public abstract class PackageFunction implements SkyFunction {
             PackageIdentifier.create(
                 packageId.getRepository(), rawPreludeLabel.getPackageFragment());
         preludeLabel = Label.createUnvalidated(preludePackage, rawPreludeLabel.getName());
-        Module prelude;
-        try {
-          prelude = loadPrelude(env, packageId, preludeLabel, bzlLoadFunctionForInlining);
-        } catch (NoSuchPackageException e) {
-          throw new PackageFunctionException(e, Transience.PERSISTENT);
-        }
+        Module prelude = loadPrelude(env, packageId, preludeLabel, bzlLoadFunctionForInlining);
         if (prelude == null) {
           return null; // skyframe restart
         }
@@ -1136,22 +1146,18 @@ public abstract class PackageFunction implements SkyFunction {
         } catch (LabelSyntaxException e) {
           throw new IllegalStateException("Failed to construct label representing BUILD file", e);
         }
-        try {
-          loadedModules =
-              loadBzlModules(
-                  env,
-                  packageId,
-                  "file " + buildFileLabel.getCanonicalForm(),
-                  programLoads,
-                  keys.build(),
-                  starlarkBuiltinsValue.starlarkSemantics,
-                  bzlLoadFunctionForInlining,
-                  packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
-                  packageFactory.getRuleClassProvider()::isPackageUnderPrototypes,
-                  actionOnFilesystemErrorCodeLoadingBzlFile);
-        } catch (NoSuchPackageException e) {
-          throw new PackageFunctionException(e, Transience.PERSISTENT);
-        }
+        loadedModules =
+            loadBzlModules(
+                env,
+                packageId,
+                "file " + buildFileLabel.getCanonicalForm(),
+                programLoads,
+                keys.build(),
+                starlarkBuiltinsValue.starlarkSemantics,
+                bzlLoadFunctionForInlining,
+                packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
+                packageFactory.getRuleClassProvider()::isPackageUnderPrototypes,
+                actionOnFilesystemErrorCodeLoadingBzlFile);
         if (loadedModules == null) {
           return null; // skyframe restart
         }
@@ -1316,8 +1322,13 @@ public abstract class PackageFunction implements SkyFunction {
                   .getFailureDetail()
                   .getFilesystem()
                   .getCode());
-        } else {
+        } else if (e instanceof FileNotFoundException) {
+          builder.setPackageLoadingCode(
+              PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
+        } else if (e instanceof FileAccessException) {
           builder.setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING);
+        } else {
+          builder.setPackageLoadingCode(PackageLoading.Code.OTHER_IO_EXCEPTION);
         }
         throw builder.build();
       }

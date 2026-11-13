@@ -33,13 +33,17 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1131,7 +1135,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testErrorReadingOtherBzlFileIsPersistentFromPerspectiveOfParent() throws Exception {
+  public void testErrorReadingOtherBzlFileIsTransientFromPerspectiveOfParent() throws Exception {
     CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
     scratch.file("a/BUILD");
     scratch.file("a/a1.bzl", "load('//a:a2.bzl', 'a2')");
@@ -1141,7 +1145,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
-    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isTransient();
   }
 
   @Test
@@ -1155,6 +1159,69 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+  }
+
+  @Test
+  public void testSymlinkCycleInBzlFileHasSymlinkCycleCode() throws Exception {
+    scratch.file("a/BUILD");
+    Path bzlPath = scratch.resolve("/workspace/a/a1.bzl");
+    FileSystemUtils.ensureSymbolicLink(bzlPath, PathFragment.create("a1.bzl"));
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    FailureDetail failureDetail =
+        ((BzlLoadFailedException) result.getError(key).getException())
+            .getDetailedExitCode()
+            .getFailureDetail();
+    assertThat(failureDetail.getMessage()).contains("Symlink cycle");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
+  }
+
+  @Test
+  public void testPermissionDeniedReadingBzlFileIsPersistentUserError() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("a/BUILD");
+    fs.unreadablePath = scratch.file("a/a1.bzl", "doesntmatter");
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+    FailureDetail failureDetail =
+        ((BzlLoadFailedException) result.getError(key).getException())
+            .getDetailedExitCode()
+            .getFailureDetail();
+    assertThat(failureDetail.getMessage()).contains("Permission denied");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+  }
+
+  @Test
+  public void testPermissionDeniedReadingOtherBzlFileIsPersistentUserError() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("a/BUILD");
+    scratch.file("a/a1.bzl", "load('//a:a2.bzl', 'a2')");
+    fs.unreadablePath = scratch.file("a/a2.bzl", "doesntmatter");
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+    FailureDetail failureDetail =
+        ((BzlLoadFailedException) result.getError(key).getException())
+            .getDetailedExitCode()
+            .getFailureDetail();
+    assertThat(failureDetail.getMessage()).contains("Permission denied");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -1357,6 +1424,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     @Nullable private Path badPathForStat;
     @Nullable private Path badPathForRead;
+    @Nullable private Path unreadablePath;
     @Nullable private volatile Path pathToBlockOnStat;
     private final CountDownLatch blockedStatReached = new CountDownLatch(1);
     private final CountDownLatch blockedStatMayProceed = new CountDownLatch(1);
@@ -1387,6 +1455,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     public synchronized InputStream getInputStream(PathFragment path) throws IOException {
       if (badPathForRead != null && badPathForRead.asFragment().equals(path)) {
         throw new IOException("bad");
+      }
+      if (unreadablePath != null && unreadablePath.asFragment().equals(path)) {
+        throw new FileAccessException(path + " (Permission denied)");
       }
       return super.getInputStream(path);
     }

@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -94,6 +95,7 @@ import com.google.devtools.common.options.Options;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -1021,7 +1023,77 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "error loading package 'test/starlark': Encountered error while reading extension "
                 + "file 'test/starlark/extension.bzl': Symlink cycle");
     assertDetailedExitCode(
-        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
+        ex, PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testSymlinkCycleWithTransitiveStarlarkExtension(
+      @TestParameter ComputationMode computationMode) throws Exception {
+    Path extensionFilePath = scratch.resolve("/workspace/test/starlark/extension.bzl");
+    FileSystemUtils.ensureSymbolicLink(extensionFilePath, PathFragment.create("extension.bzl"));
+    scratch.file("test/starlark/direct.bzl", "load('//test/starlark:extension.bzl', 'a')");
+    scratch.file("test/starlark/BUILD", "load('//test/starlark:direct.bzl', 'a')");
+    preparePackageLoading(computationMode);
+    invalidatePackages();
+
+    Exception ex = evaluatePackageoidToException("test/starlark");
+    assertThat(ex).hasMessageThat().contains("Symlink cycle");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnIOExceptionReadingTransitiveBzlFile(
+      @TestParameter ComputationMode computationMode) throws Exception {
+    scratch.file("foo/BUILD", "load('//foo:direct.bzl', 'x')");
+    scratch.file("foo/direct.bzl", "load('//foo:bzl.bzl', 'x')");
+    Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
+    fs.throwExceptionOnGetInputStream(fooBzlFilePath, new IOException("nope"));
+    preparePackageLoading(computationMode);
+
+    Exception ex = evaluatePackageoidToException("foo");
+    assertThat(ex).hasMessageThat().contains("nope");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.OTHER_IO_EXCEPTION, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+  }
+
+  @Test
+  public void testIOExceptionReadingBzlFileIsTransient(
+      @TestParameter({"MONOLITHIC_PACKAGE", "PACKAGE_PIECE_FOR_BUILD_FILE"})
+          ComputationMode computationMode)
+      throws Exception {
+    scratch.file("foo/BUILD", "load('//foo:bzl.bzl', 'x')");
+    Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
+    fs.throwExceptionOnGetInputStream(fooBzlFilePath, new IOException("nope"));
+    preparePackageLoading(computationMode);
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey pkgKey = getSkyKey("foo");
+    EvaluationResult<PackageoidValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(pkgKey).isTransient();
+  }
+
+  @Test
+  public void testIOExceptionReadingTransitiveBzlFileIsTransient(
+      @TestParameter({"MONOLITHIC_PACKAGE", "PACKAGE_PIECE_FOR_BUILD_FILE"})
+          ComputationMode computationMode)
+      throws Exception {
+    scratch.file("foo/BUILD", "load('//foo:direct.bzl', 'x')");
+    scratch.file("foo/direct.bzl", "load('//foo:bzl.bzl', 'x')");
+    Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
+    fs.throwExceptionOnGetInputStream(fooBzlFilePath, new IOException("nope"));
+    preparePackageLoading(computationMode);
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey pkgKey = getSkyKey("foo");
+    EvaluationResult<PackageoidValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(pkgKey).isTransient();
   }
 
   @Test
@@ -1293,7 +1365,26 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).hasMessageThat().contains("nope");
     assertThat(ex).isInstanceOf(NoSuchPackageException.class);
     assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
-    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.OTHER_IO_EXCEPTION, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnFileNotFoundExceptionReadingBuildFile(
+      @TestParameter ComputationMode computationMode) throws Exception {
+    Path fooBuildFilePath = scratch.file("foo/BUILD");
+    IOException exn = new FileNotFoundException("gone");
+    fs.throwExceptionOnGetInputStream(fooBuildFilePath, exn);
+    preparePackageLoading(computationMode);
+
+    Exception ex = evaluatePackageoidToException("foo");
+    assertThat(ex).hasMessageThat().contains("gone");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertThat(ex).hasCauseThat().isInstanceOf(FileNotFoundException.class);
+    assertDetailedExitCode(
+        ex,
+        PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   @Test
@@ -1354,7 +1445,74 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).isInstanceOf(NoSuchPackageException.class);
     assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
     assertDetailedExitCode(
+        ex, PackageLoading.Code.OTHER_IO_EXCEPTION, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnFileAccessExceptionReadingBuildFile(
+      @TestParameter ComputationMode computationMode) throws Exception {
+    Path fooBuildFilePath = scratch.file("foo/BUILD");
+    IOException exn = new FileAccessException("foo/BUILD (Permission denied)");
+    fs.throwExceptionOnGetInputStream(fooBuildFilePath, exn);
+    preparePackageLoading(computationMode);
+
+    Exception ex = evaluatePackageoidToException("foo");
+    assertThat(ex).hasMessageThat().contains("Permission denied");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertThat(ex).hasCauseThat().isInstanceOf(FileAccessException.class);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnFileAccessExceptionReadingBzlFile(
+      @TestParameter ComputationMode computationMode) throws Exception {
+    scratch.file("foo/BUILD", "load('//foo:bzl.bzl', 'x')");
+    Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
+    fs.throwExceptionOnGetInputStream(
+        fooBzlFilePath, new FileAccessException("foo/bzl.bzl (Permission denied)"));
+    preparePackageLoading(computationMode);
+
+    Exception ex = evaluatePackageoidToException("foo");
+    assertThat(ex).hasMessageThat().contains("Permission denied");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnFileAccessExceptionReadingTransitiveBzlFile(
+      @TestParameter ComputationMode computationMode) throws Exception {
+    scratch.file("foo/BUILD", "load('//foo:direct.bzl', 'x')");
+    scratch.file("foo/direct.bzl", "load('//foo:bzl.bzl', 'x')");
+    Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
+    fs.throwExceptionOnGetInputStream(
+        fooBzlFilePath, new FileAccessException("foo/bzl.bzl (Permission denied)"));
+    preparePackageLoading(computationMode);
+
+    Exception ex = evaluatePackageoidToException("foo");
+    assertThat(ex).hasMessageThat().contains("Permission denied");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testFileAccessExceptionReadingBzlFileIsNotTransient(
+      @TestParameter({"MONOLITHIC_PACKAGE", "PACKAGE_PIECE_FOR_BUILD_FILE"})
+          ComputationMode computationMode)
+      throws Exception {
+    scratch.file("foo/BUILD", "load('//foo:bzl.bzl', 'x')");
+    Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
+    fs.throwExceptionOnGetInputStream(
+        fooBzlFilePath, new FileAccessException("foo/bzl.bzl (Permission denied)"));
+    preparePackageLoading(computationMode);
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey pkgKey = getSkyKey("foo");
+    EvaluationResult<PackageoidValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(pkgKey).isNotTransient();
   }
 
   @Test
@@ -2261,6 +2419,30 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "File \"/workspace/tools/test_build_rules/test_prelude\", line 1, column 2, in"
               + " <toplevel>");
       assertContainsEvent("Error: integer division by zero");
+    }
+
+    @Test
+    public void testPreludeFailsWithEnvironmentalErrorOnIOExceptionReadingPreludeFile()
+        throws Exception {
+      scratch.file("tools/test_build_rules/BUILD");
+      Path preludePath = scratch.file("tools/test_build_rules/test_prelude", "foo = 'FOO'");
+      scratch.file("pkg/BUILD", "print(foo)");
+      fs.throwExceptionOnGetInputStream(preludePath, new IOException("nope"));
+
+      reporter.removeHandler(failFastHandler);
+      invalidatePackages(/* alsoConfigs= */ false);
+
+      SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg");
+      EvaluationResult<PackageoidValue> result =
+          SkyframeExecutorTestUtils.evaluate(
+              getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+      assertThat(result.hasError()).isTrue();
+      Exception ex = result.getError(skyKey).getException();
+      assertThat(ex).hasMessageThat().contains("nope");
+      assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+      assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
+      assertDetailedExitCode(
+          ex, PackageLoading.Code.OTHER_IO_EXCEPTION, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
 
     @Test

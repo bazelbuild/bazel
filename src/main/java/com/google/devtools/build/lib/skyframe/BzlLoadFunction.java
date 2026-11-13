@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -48,12 +49,15 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -1608,7 +1612,9 @@ public class BzlLoadFunction implements SkyFunction {
     // TODO(bazel-team): This exception should hold a Location of the requesting file's load
     // statement, and code that catches it should use the location in the Event they create.
     return new BzlLoadFailedException(
-        "at " + loc + ":\n" + cause.getMessage(), cause.getDetailedExitCode());
+        "at " + loc + ":\n" + cause.getMessage(),
+        cause.getDetailedExitCode(),
+        cause.getTransience());
   }
 
   static BzlLoadFailedException typingFailed(Label label) {
@@ -1657,7 +1663,39 @@ public class BzlLoadFunction implements SkyFunction {
           detailedException.getTransience());
     }
 
+    if (cause.getCause() instanceof FileSymlinkException) {
+      return errorReadingBzlWithPackageLoadingCode(
+          errorMessage,
+          cause,
+          PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION,
+          cause.getTransience());
+    }
+
+    if (cause.getCause() instanceof FileAccessException) {
+      return errorReadingBzlWithPackageLoadingCode(
+          errorMessage,
+          cause,
+          PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR,
+          Transience.PERSISTENT);
+    }
+
     return new BzlLoadFailedException(errorMessage, Code.IO_ERROR, cause, cause.getTransience());
+  }
+
+  private static BzlLoadFailedException errorReadingBzlWithPackageLoadingCode(
+      String errorMessage,
+      BzlCompileFunction.FailedIOException cause,
+      PackageLoading.Code code,
+      Transience transience) {
+    return new BzlLoadFailedException(
+        errorMessage,
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(errorMessage)
+                .setPackageLoading(PackageLoading.newBuilder().setCode(code))
+                .build()),
+        cause,
+        transience);
   }
 
   static BzlLoadFailedException noBuildFile(Label file, @Nullable String reason) {
