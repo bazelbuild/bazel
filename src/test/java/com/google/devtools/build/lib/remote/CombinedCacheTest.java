@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -645,8 +647,14 @@ public class CombinedCacheTest {
     assertThat(futures).hasSize(2);
     assertThat(cacheProtocol.getInProgressUploads()).isNotEmpty();
 
+    CountDownLatch allFuturesCancelled = new CountDownLatch(2);
+    for (SettableFuture<Void> future : futures) {
+      future.addListener(allFuturesCancelled::countDown, directExecutor());
+    }
+
     thread.interrupt();
     ensureInputsPresentReturned.await();
+    assertThat(allFuturesCancelled.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
 
     // assert
     assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
