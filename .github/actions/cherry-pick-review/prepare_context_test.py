@@ -449,6 +449,35 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual(len(signals_flip_flag), 1)
 
+        # normalize_patch_changes preserves context lines so moving a change to another method is detected
+        p_method_a = "@@ -1,3 +1,3 @@\n void methodA() {\n-  return 1;\n+  return 2;\n }"
+        p_method_b = "@@ -10,3 +10,3 @@\n void methodB() {\n-  return 1;\n+  return 2;\n }"
+        self.assertNotEqual(
+            prepare_context.normalize_patch_changes(p_method_a),
+            prepare_context.normalize_patch_changes(p_method_b),
+        )
+
+        # Dismissed prior reviews should not count as an active existing review
+        has_existing, last_review, _, _, _ = prepare_context.analyze_prior_review_delta(
+            pr_reviews=[
+                {
+                    "id": 99,
+                    "state": "DISMISSED",
+                    "commit_id": sha1,
+                    "submitted_at": "2026-11-12T20:00:00Z",
+                    "body": "## 📋 Gemini Cherry-Pick Review Summary",
+                }
+            ],
+            pr_inline_comments=[],
+            base_ref="release-8.9.0",
+            base_sha=self.base_sha,
+            head_sha=sha2,
+            pr_patches_by_file={},
+            stage_dir=self.root / "gemini-artifacts" / "pr",
+        )
+        self.assertFalse(has_existing)
+        self.assertIsNone(last_review)
+
 
 if __name__ == "__main__":
     unittest.main()

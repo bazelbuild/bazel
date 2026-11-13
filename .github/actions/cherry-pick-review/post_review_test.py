@@ -39,8 +39,6 @@ class PostReviewTest(unittest.TestCase):
     def _write_context(self, **overrides):
         ctx = {
             "repository": "bazelbuild/bazel",
-            "owner": "bazelbuild",
-            "repo": "bazel",
             "workspace_root": str(self.root),
             "pull_request_number": 42,
             "head_sha": "d" * 40,

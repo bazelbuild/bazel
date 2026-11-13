@@ -232,14 +232,20 @@ def reconstruct_added_file_from_patch(patch_text):
 
 
 def normalize_patch_changes(patch_text):
-    """Extracts only added/removed lines from a unified diff patch for equivalence checks."""
+    """Normalizes a unified diff patch by stripping diff/hunk headers while preserving context and +/- lines."""
     if not isinstance(patch_text, str) or not patch_text.strip():
         return []
     changes = []
+    in_hunk = False
     for line in patch_text.splitlines():
-        if line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
+        if line.startswith(("+++", "---")):
             continue
-        if line.startswith("+") or line.startswith("-"):
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if in_hunk and line.startswith(("+", "-", " ")):
+            changes.append(line)
+        elif not in_hunk and line.startswith(("+", "-")):
             changes.append(line)
     return changes
 
@@ -498,22 +504,26 @@ def stage_pr_and_base_files(repo, base_sha, head_sha, pr_files, stage_dir=pathli
         base_file_path_str = None
         if idx < 100 and is_safe_repo_rel_path(raw_filename):
             # Stage base file from local git base_sha if present and regular blob
-            if status != "removed" and base_sha:
-                base_blob = read_git_regular_file_blob(base_sha, raw_filename)
+            if status != "added" and base_sha:
+                raw_prev = str(f.get("previous_filename") or raw_filename)
+                base_lookup_path = (
+                    raw_prev if status == "renamed" and is_safe_repo_rel_path(raw_prev) else raw_filename
+                )
+                base_blob = read_git_regular_file_blob(base_sha, base_lookup_path)
                 if base_blob is not None:
                     base_file_path_str = safe_write_staged_file(base_root, raw_filename, base_blob)
 
-            # Stage head file from local git head_sha, patch reconstruction, or GitHub Contents API
+            # Stage head file from local git head_sha, falling back to patch reconstruction or GitHub API
             if status != "removed":
                 content_str = read_git_regular_file_blob(head_sha, raw_filename)
-                maybe_symlink = (
-                    status == "added"
-                    and additions == 1
-                    and isinstance(patch_text, str)
-                    and "\\ No newline at end of file" in patch_text
-                )
-                if content_str is None and status == "added" and not maybe_symlink:
-                    content_str = reconstruct_added_file_from_patch(patch_text)
+                if content_str is None and status == "added":
+                    maybe_symlink = (
+                        additions == 1
+                        and isinstance(patch_text, str)
+                        and "\\ No newline at end of file" in patch_text
+                    )
+                    if not maybe_symlink:
+                        content_str = reconstruct_added_file_from_patch(patch_text)
                 if content_str is None:
                     try:
                         encoded_rel_path = urllib.parse.quote(raw_filename, safe="/")
@@ -640,17 +650,28 @@ def analyze_mainline_and_compare(
                 }
             )
 
-        # If there are multiple mainline commits, also attempt applying all of them in sequence
+        # If there are multiple mainline commits, sort them in ancestor order and apply in sequence
         if worktree_created and len(candidates) > 1:
+            ordered_shas = [sha for sha, _ in candidates]
+            for i in range(len(ordered_shas)):
+                for j in range(i + 1, len(ordered_shas)):
+                    if is_ancestor(ordered_shas[j], ordered_shas[i]):
+                        ordered_shas[i], ordered_shas[j] = ordered_shas[j], ordered_shas[i]
             run_git(["reset", "--hard", base_sha], cwd=worktree_dir)
             run_git(["clean", "-fd"], cwd=worktree_dir)
             all_clean = True
-            for full_sha, _ in candidates:
+            for full_sha in ordered_shas:
                 if run_git(["cherry-pick", "--no-commit", full_sha], cwd=worktree_dir).returncode != 0:
                     run_git(["cherry-pick", "--abort"], cwd=worktree_dir)
                     all_clean = False
                     break
             if all_clean:
+                all_conflicted_files.clear()
+                conflict_diffs_by_file.clear()
+                for mc in mainline_commits_info:
+                    mc["applied_cleanly_on_base"] = True
+                    mc["conflicted_files"] = []
+                    mc["conflict_diff_file"] = None
                 for fp in mainline_patches_by_file:
                     wt_file = resolve_path_within(worktree_dir, fp)
                     if wt_file is not None and not wt_file.is_symlink() and wt_file.is_file():
@@ -678,6 +699,13 @@ def analyze_mainline_and_compare(
         in_mainline = fp in mainline_file_set
         pr_patch = pr_patches_by_file.get(fp, "")
         ml_patch = mainline_patches_by_file.get(fp, "")
+        clean_cp_content = clean_cherry_pick_files.get(fp)
+        head_file = resolve_path_within(pathlib.Path(head_root_path), fp) if in_pr else None
+        head_content = (
+            head_file.read_text(encoding="utf-8", errors="replace")
+            if head_file is not None and head_file.is_file()
+            else None
+        )
 
         # Ensure base file is also staged for any mainline file omitted from the PR
         if in_mainline and not in_pr and base_sha:
@@ -688,16 +716,16 @@ def analyze_mainline_and_compare(
         if fp in LOCKFILE_PATHS and in_pr:
             classification = "lockfile_regenerated"
         elif in_pr and in_mainline:
-            head_file = resolve_path_within(pathlib.Path(head_root_path), fp)
-            head_content = (
-                head_file.read_text(encoding="utf-8", errors="replace")
-                if head_file is not None and head_file.is_file()
-                else None
-            )
-            clean_cp_content = clean_cherry_pick_files.get(fp)
-            if clean_cp_content is not None and head_content is not None and clean_cp_content == head_content:
-                classification = "identical"
-            elif normalize_patch_changes(pr_patch) == normalize_patch_changes(ml_patch):
+            if clean_cp_content is not None and head_content is not None:
+                if clean_cp_content == head_content:
+                    classification = "identical"
+                elif fp in all_conflicted_files:
+                    classification = "adapted_with_conflict"
+                else:
+                    classification = "adapted_without_conflict"
+            elif fp not in all_conflicted_files and normalize_patch_changes(pr_patch) == normalize_patch_changes(
+                ml_patch
+            ):
                 classification = "identical"
             elif fp in all_conflicted_files:
                 classification = "adapted_with_conflict"
@@ -755,13 +783,6 @@ def analyze_mainline_and_compare(
                 sec.append(f"\n--- PR patch for {safe_fp} ---")
                 sec.append(pr_patch or "(empty patch)")
 
-            clean_cp_content = clean_cherry_pick_files.get(fp)
-            head_file = resolve_path_within(pathlib.Path(head_root_path), fp)
-            head_content = (
-                head_file.read_text(encoding="utf-8", errors="replace")
-                if head_file is not None and head_file.is_file()
-                else None
-            )
             if clean_cp_content is not None and head_content is not None and clean_cp_content != head_content:
                 deviation = "".join(
                     difflib.unified_diff(
@@ -823,7 +844,7 @@ def analyze_prior_review_delta(
             continue
         state = str(r.get("state") or "").upper()
         body = str(r.get("body") or "")
-        if state in ("APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED") and (
+        if state in ("APPROVED", "CHANGES_REQUESTED", "COMMENTED") and (
             GEMINI_REVIEW_MARKER in body or "Automated Review Decision:" in body
         ):
             gemini_reviews.append(
@@ -863,7 +884,8 @@ def analyze_prior_review_delta(
             if prev_head_sha == head_sha:
                 pr_patch_unchanged = True
             else:
-                run_git(["fetch", "--filter=blob:none", "--no-tags", "origin", prev_head_sha])
+                if not resolve_commit_sha(prev_head_sha):
+                    run_git(["fetch", "--filter=blob:none", "--no-tags", "origin", prev_head_sha])
                 if resolve_commit_sha(prev_head_sha):
                     base_branch_ref = f"origin/{base_ref}"
                     if run_git(["rev-parse", "--verify", f"{base_branch_ref}^{{commit}}"]).returncode != 0:
@@ -1048,10 +1070,16 @@ def main():
         ]
     )
     mainline_ref = detect_mainline_ref()
+    mb_res = run_git(["merge-base", base_sha, head_sha])
+    effective_base_sha = (
+        mb_res.stdout.strip()
+        if mb_res.returncode == 0 and SHA_RE.fullmatch(mb_res.stdout.strip())
+        else base_sha
+    )
 
     pr_diff_path, pr_head_root, pr_base_root, changed_files_info, pr_patches_by_file = stage_pr_and_base_files(
         repo=repo,
-        base_sha=base_sha,
+        base_sha=effective_base_sha,
         head_sha=head_sha,
         pr_files=pr_files,
     )
@@ -1063,7 +1091,7 @@ def main():
         pr_comments=pr_comments,
         pr_author=(pr_info.get("user") or {}).get("login", ""),
         mainline_ref=mainline_ref,
-        base_sha=base_sha,
+        base_sha=effective_base_sha,
     )
 
     (
@@ -1074,7 +1102,7 @@ def main():
     ) = analyze_mainline_and_compare(
         candidates=candidates,
         mainline_ref=mainline_ref,
-        base_sha=base_sha,
+        base_sha=effective_base_sha,
         pr_files=pr_files,
         pr_patches_by_file=pr_patches_by_file,
         head_root_path=pr_head_root,
@@ -1091,7 +1119,7 @@ def main():
         pr_reviews=pr_reviews,
         pr_inline_comments=pr_inline_comments,
         base_ref=base_ref,
-        base_sha=base_sha,
+        base_sha=effective_base_sha,
         head_sha=head_sha,
         pr_patches_by_file=pr_patches_by_file,
     )
@@ -1134,17 +1162,14 @@ def main():
         for c in pr_comments[-10:]
     ]
 
-    owner, repo_name = repo.split("/", 1)
     context_data = {
         "repository": repo,
-        "owner": owner,
-        "repo": repo_name,
         "workspace_root": str(pathlib.Path.cwd().resolve()),
         "pull_request_number": int(pr_number),
         "base_ref": base_ref,
         "release_version": release_version,
         "is_patch_release": is_patch_release_version(release_version),
-        "base_sha": base_sha,
+        "base_sha": effective_base_sha,
         "head_sha": head_sha,
         "pr_title": pr_title,
         "pr_body": sanitized_pr_body,

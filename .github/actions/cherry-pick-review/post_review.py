@@ -82,11 +82,6 @@ def load_gemini_output():
     return raw, {}
 
 
-def load_gemini_response_text():
-    response_text, _ = load_gemini_output()
-    return response_text
-
-
 def format_cli_stats(envelope):
     """Formats a single-line summary of Antigravity CLI execution statistics."""
     if not isinstance(envelope, dict) or not envelope:
@@ -316,7 +311,7 @@ def normalize_comment_path(raw_path, workspace_root=""):
     if path.startswith("file://"):
         path = path[len("file://") :]
     path = path.split("#", 1)[0]
-    for marker in ("gemini-artifacts/pr/head/", "gemini-artifacts/pr/base/", "gemini-artifacts/release_worktree/"):
+    for marker in ("gemini-artifacts/pr/head/", "gemini-artifacts/pr/base/"):
         idx = path.find(marker)
         if idx != -1:
             path = path[idx + len(marker) :]
@@ -425,7 +420,7 @@ def main():
         return 0
 
     changed_files_ctx = context.get("changed_files")
-    if isinstance(changed_files_ctx, list) and changed_files_ctx:
+    if isinstance(changed_files_ctx, list):
         pr_filenames = {
             item.get("path")
             for item in changed_files_ctx
@@ -492,15 +487,17 @@ def main():
                 )
 
     # Deterministic safety guardrails: never APPROVE when no mainline commit was found
-    # or when a critical finding (🔴) was reported in inline comments.
+    # or when a critical finding (🔴 / ❌) was reported in inline comments or the summary body.
     if decision == "APPROVE":
         no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
-        if no_mainline or has_critical_comment:
-            reason = (
-                "no verified mainline commit on `master` was matched"
-                if no_mainline
-                else "a critical (`🔴`) inline comment was included"
-            )
+        body_has_blocker = "🔴" in body or "**Verdict:** ❌" in body
+        if no_mainline or has_critical_comment or body_has_blocker:
+            if no_mainline:
+                reason = "no verified mainline commit on `master` was matched"
+            elif has_critical_comment:
+                reason = "a critical (`🔴`) inline comment was included"
+            else:
+                reason = "a critical blocker (`🔴` / `❌`) was reported in the review body"
             print(f"Safety guardrail: downgrading APPROVE to REQUEST_CHANGES because {reason}.")
             decision = "REQUEST_CHANGES"
             body = re.sub(r"\*\*Verdict:\*\*\s*✅\s*Approved", "**Verdict:** ❌ Changes Requested", body)

@@ -108,29 +108,12 @@ Complete **Step 1 (Inspect Diffs & Verify Criteria)**, **Step 2 (Choose Review D
 
 1. **Read the PR Diff, Mainline Patch(es), and Prior-Review Delta (`read_file`):**
    - Always use `read_file` on `pr_diff_path` and on each mainline commit's `patch_file` in `mainline_commits`.
-   - If `vs_mainline_diff_path` is non-null (i.e. `overall_cherry_pick_classification != "CLEAN"`), **always** use `read_file` on `vs_mainline_diff_path` to inspect every non-identical file, its conflict markers on `base_sha`, the exact deviation from the mainline commit, and the `master` commit history for that file.
+   - If `vs_mainline_diff_path` is non-null (`overall_cherry_pick_classification != "CLEAN"`), **always** use `read_file` on `vs_mainline_diff_path` to inspect every non-identical file, its conflict markers on `base_sha`, the exact deviation from the mainline commit, and the `master` commit history for that file. If needed, also read `head_file_path` / `base_file_path` and check `pr_comments` / `pr_body` for author explanations.
    - If `since_last_review_diff_path` is non-null (`has_existing_gemini_review == true`), use `read_file` on `since_last_review_diff_path` to see what changed in the PR since the previous Gemini review.
-2. **Check Criterion 1: Mainline Provenance:**
-   - Verify `mainline_commits` is non-empty and `is_on_master` is `true`. Note that a cherry-pick PR may legitimately bundle multiple cherry-picked commits from `master`.
-   - If `mainline_commits` is empty (`overall_cherry_pick_classification == "NO_MAINLINE_COMMIT"`), flag as `🔴` Critical (`REQUEST_CHANGES`).
-   - As long as the mainline commit SHA(s) are mentioned somewhere in the PR description or commit messages, no nit is needed. Only if no commit SHA was mentioned anywhere in the PR description or commit messages (so the mainline commit had to be inferred from the commit subject or PR title) should you mention the missing commit reference as a non-blocking `🟢` nit in the summary (do not block `APPROVE`).
-3. **Check Criterion 2: No Breaking Changes & Patch-Release Scope:**
-   - Inspect `breaking_change_signals`, the mainline commit message (`RELNOTES`, `Build API Changes`), and the code diff in `pr_diff_path`.
-   - Does the change introduce a backwards-incompatible change (e.g., `RELNOTES[INC]:`, flipping an `--incompatible_*` flag default, removing/breaking an existing flag, provider, rule attribute, or Starlark API, or breaking existing user builds)?
-   - Note that **adding a new command-line flag** (including a new `--incompatible_*` or `--experimental_*` flag that defaults to `false` / preserves existing behavior) is **not** a breaking change and is completely fine.
-   - If `is_patch_release == true` (`Z > 0` in `release-X.Y.Z`), also check whether the PR cherry-picks a large new feature or a large standalone refactoring rather than a bug fix, regression fix, security fix, docs fix, or CI/release-script fix.
-   - If the change is breaking or is a large feature/refactoring on a patch release: flag as `🔴` Critical (`REQUEST_CHANGES`) and add an inline comment on the offending diff line(s) explaining why it is unsuitable for `release-X.Y.Z`.
-   - If the change is a bug fix, crash fix, race condition fix, performance fix, or safe backwards-compatible fix (including adding a flag), confirm it is safe for `release-X.Y.Z`.
-4. **Check Criterion 3 & 4: Cleanliness, Conflict Resolution Minimality, and No Unrelated Changes:**
-   - **If `overall_cherry_pick_classification == "CLEAN"`:**
-     - Confirm that all files are `"identical"` (or `"lockfile_regenerated"`).
-   - **If any files are `"adapted_with_conflict"`, `"adapted_without_conflict"`, `"omitted_from_pr"`, or `"extra_in_pr"`:**
-     - Inspect `vs_mainline_diff_path` and (if needed) `head_file_path` / `base_file_path`.
-     - Also check `pr_comments` and `pr_body` to see if the author explained the adaptations.
-     - Exercise good engineering judgment for **each** non-identical file:
-       - **Legitimate minimal adaptation (qualifies for `APPROVE`):** Was the change necessary to resolve a git merge conflict on `release-X.Y.Z`, adapt to an older method/constructor signature on `release-X.Y.Z`, translate a newer JDK/language helper (e.g. Java 21 `List.getFirst()` to `List.get(0)`), adjust a split/consolidated `BUILD` target or relocated file on `release-X.Y.Z`, update a caller that still exists on `release-X.Y.Z`, drop a newer-release-only test assertion, or apply a clean release-branch CI/presubmit fix? Are the diffs reasonably minimal and faithful to the mainline fix?
-       - **Unrelated change sneaked in (`🔴` Critical):** Does the PR modify an extra file (`extra_in_pr`) or change code/flags/targets (`adapted_without_conflict` or extra hunks in `adapted_with_conflict`) that have nothing to do with the mainline commit or resolving conflicts/CI on `release-X.Y.Z`? If so, flag as `🔴` Critical (`REQUEST_CHANGES`) with an inline comment on the unrelated diff lines!
-       - **Buggy or overly intrusive conflict resolution (`🔴` Critical):** Did the conflict resolution accidentally drop part of the fix, introduce a bug/syntax error, leave a caller broken on `release-X.Y.Z`, or require a massive unsafe refactor? If so, flag as `🔴` Critical (`REQUEST_CHANGES`) with an inline comment!
+2. **Evaluate the Four Criteria Above:**
+   - **Criterion 1 (Mainline Provenance):** Confirm `mainline_commits` is non-empty and `is_on_master` is `true` (otherwise `🔴` Critical).
+   - **Criterion 2 (Backwards Compatibility & Patch-Release Scope):** Check `breaking_change_signals`, commit messages, and `pr_diff_path` against Criterion 2 above. Flag any breaking change or large feature/refactoring on a patch release as `🔴` Critical with an inline comment on the offending diff lines.
+   - **Criteria 3 & 4 (Cleanliness, Conflict Resolution Minimality, and No Unrelated Changes):** Evaluate every non-`identical` file in `file_comparisons` against Criteria 3 & 4 above. Confirm legitimate release-branch adaptations are minimal and faithful (`APPROVE`), and flag any unrelated change or buggy/intrusive conflict resolution as `🔴` Critical with an inline comment on the offending diff lines.
 
 ---
 
@@ -145,15 +128,15 @@ Assign each specific issue a severity:
   - Broken, buggy, or unsafe conflict resolution.
 - `🟠` **High (Needs Human Verification, requires `"decision": "COMMENT"` if no `🔴`):**
   - Ambiguous or unusually broad release-branch adaptations where a human release manager should verify semantics or scope before merging.
-- `🟡` **Medium (Informational / Minor Suggestion):**
-  - Non-blocking observation about a non-obvious adaptation that wasn't explained in the PR description/comments. (Does not block `"APPROVE"`.)
+- `🟡` **Medium (Informational / Minor Suggestion, does not block `"APPROVE"`):**
+  - Non-blocking observation about a non-obvious adaptation that wasn't explained in the PR description/comments.
 - `🟢` **Nit (Mention briefly in top-level `body` only, never as an inline comment, does not block `"APPROVE"`):**
-  - E.g., the mainline commit SHA(s) were not mentioned anywhere in the PR description or commit messages and had to be inferred by subject/title (even though the mainline commit on `master` was verified). Do not nitpick if the commit SHA(s) are already mentioned in the PR description or commit messages.
+  - E.g., the mainline commit SHA(s) were not mentioned anywhere in the PR description or commit messages and had to be inferred by subject/title.
 
 Select `"decision"`:
-- **`"APPROVE"`**: Zero `🔴` and zero `🟠` issues. Use `"APPROVE"` both for **100% clean cherry-picks** of non-breaking mainline commits AND for **non-breaking cherry-picks with reasonably minimal, faithful merge-conflict resolutions / release-branch adaptations**.
+- **`"APPROVE"`**: Zero `🔴` and zero `🟠` issues (both for 100% clean cherry-picks and for cherry-picks with minimal, faithful merge-conflict resolutions or release-branch adaptations).
 - **`"COMMENT"`**: Zero `🔴` issues, but at least one `🟠` issue requiring a human maintainer's review before merging.
-- **`"REQUEST_CHANGES"`**: One or more `🔴` Critical issues found (breaking change, unrelated change sneaked in, missing mainline commit, or broken conflict resolution).
+- **`"REQUEST_CHANGES"`**: One or more `🔴` Critical issues found.
 
 #### Initial Review vs. Follow-Up Re-Review (`should_post`)
 
