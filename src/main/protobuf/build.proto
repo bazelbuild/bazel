@@ -365,6 +365,19 @@ message Rule {
 
   // The rule is marked as executable or is a test.
   optional bool executable = 19;
+
+  message PossibleToolchainTypes {
+    // Canonical labels declared by the rule and aspects attached to its possible outgoing
+    // dependencies, including named execution groups. Late-bound and materializing dependency
+    // attributes may acquire values during analysis. Native genrules can also name template
+    // variable providers here.
+    repeated string label = 1;
+  }
+
+  // Present, including for an empty set, when --proto:possible_toolchain_types is enabled.
+  // These are candidates before analysis. This omits top-level command-line aspects and
+  // does not identify resolved toolchain implementations.
+  optional PossibleToolchainTypes possible_toolchain_types = 20;
 }
 
 // A Bazel repository, either representing a module, or created by a module
