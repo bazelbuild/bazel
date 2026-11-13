@@ -86,7 +86,7 @@ public class RepoOutputFormatter {
     }
     if (repoDefinition instanceof RepoDefinitionValue.RepoOverride repoOverrideValue) {
       printer.printf(
-          "## %s:\nBuiltin or overridden repo located at: %s\n\n",
+          "## %s:\n# Builtin or overridden repo located at: %s\n\n",
           key, repoOverrideValue.repoPath());
     }
   }
