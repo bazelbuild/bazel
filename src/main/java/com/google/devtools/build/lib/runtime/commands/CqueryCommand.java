@@ -147,6 +147,16 @@ public final class CqueryCommand implements BlazeCommand {
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
 
+    CqueryOptions cqueryOptions = options.getOptions(CqueryOptions.class);
+    if (cqueryOptions.getGenerateHashes()
+        && (!cqueryOptions.getIncludeImplicitDeps() || !cqueryOptions.getIncludeToolDeps())) {
+      String message =
+          "--experimental_generate_hashes hashes all dependencies and can't be combined with"
+              + " --noimplicit_deps or --notool_deps";
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.FILTERS_NOT_SUPPORTED);
+    }
+
     HashMap<String, QueryFunction> functions = new HashMap<>();
     for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
       functions.put(queryFunction.getName(), queryFunction);
