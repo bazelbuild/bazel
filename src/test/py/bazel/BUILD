@@ -15,6 +15,8 @@ sh_library(
     testonly = 1,
     srcs = ["//src:bazel"],
     data = [
+        "//src/prebuilt_tools:platform",
+        "//src/prebuilt_tools:prebuilt_tools_zip",
         "//src/tools/remote:worker",
         "//src/tools/remote:worker_deploy.jar",
     ],

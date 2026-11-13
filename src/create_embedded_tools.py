@@ -44,8 +44,6 @@ output_paths = [
     ),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),
-    ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
-    ('*launcher_maker.exe', lambda x: 'tools/launcher/launcher_maker.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),

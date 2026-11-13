@@ -20,6 +20,18 @@ visibility("//tools/...")
 
 IS_HOST_WINDOWS = Label("@platforms//os:windows") in [Label(label) for label in HOST_CONSTRAINTS]
 
+# The platforms that prebuilt tools are released for. Windows releases contain
+# the test wrapper, the XML writer, the launcher and the launcher maker, all
+# other releases only contain the launcher maker.
+PREBUILT_TOOLS_PLATFORMS = {
+    "darwin_arm64": ["@platforms//os:macos", "@platforms//cpu:arm64"],
+    "darwin_x86_64": ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    "linux_aarch64": ["@platforms//os:linux", "@platforms//cpu:arm64"],
+    "linux_x86_64": ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    "windows_arm64": ["@platforms//os:windows", "@platforms//cpu:arm64"],
+    "windows_x86_64": ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+}
+
 def _single_binary_toolchain_rule_impl(ctx):
     return platform_common.ToolchainInfo(
         binary = ctx.file.binary,

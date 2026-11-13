@@ -25,6 +25,17 @@ use_repo(java_toolchains, "remote_java_tools")
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
+prebuilt_tools_extension = use_extension("//tools/test:extensions.bzl", "prebuilt_tools_extension")
+use_repo(
+    prebuilt_tools_extension,
+    "prebuilt_tools_darwin_arm64",
+    "prebuilt_tools_darwin_x86_64",
+    "prebuilt_tools_linux_aarch64",
+    "prebuilt_tools_linux_x86_64",
+    "prebuilt_tools_windows_arm64",
+    "prebuilt_tools_windows_x86_64",
+)
+
 # Used by bazel mod tidy (see BazelModTidyFunction).
 buildozer_binary = use_extension("@buildozer//:buildozer_binary.bzl", "buildozer_binary")
 use_repo(buildozer_binary, "buildozer_binary")

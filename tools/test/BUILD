@@ -50,7 +50,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     target_compatible_with = ["@platforms//os:windows"],
-    visibility = ["//visibility:private"],
+    visibility = ["//src/prebuilt_tools:__pkg__"],
     deps = [
         ":tw_lib",
         ":tw_resources",
@@ -72,7 +72,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     target_compatible_with = ["@platforms//os:windows"],
-    visibility = ["//visibility:private"],
+    visibility = ["//src/prebuilt_tools:__pkg__"],
     deps = [
         ":tw_lib",
         ":tw_resources",
@@ -142,18 +142,11 @@ filegroup(
         "collect_cc_coverage.sh",
         "collect_coverage.sh",
         "default_test_toolchain.bzl",
+        "dummy.sh",
         "extensions.bzl",
         "generate-xml.sh",
         "test-setup.sh",
-    ] + select({
-        "@bazel_tools//src/conditions:windows": [
-            "tw",
-            "xml",
-        ],
-        "//conditions:default": [
-            "dummy.sh",
-        ],
-    }),
+    ],
     visibility = ["//tools:__pkg__"],
 )
 

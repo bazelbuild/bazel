@@ -22,6 +22,8 @@ sh_library(
     srcs = [
         ":test-deps-wo-bazel",
         "//src:bazel",
+        "//src/prebuilt_tools:platform",
+        "//src/prebuilt_tools:prebuilt_tools_zip",
         "//src/test/shell:bin/bazel",
     ],
     visibility = [
