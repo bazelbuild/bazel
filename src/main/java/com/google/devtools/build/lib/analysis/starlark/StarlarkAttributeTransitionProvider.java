@@ -155,8 +155,26 @@ public class StarlarkAttributeTransitionProvider
         }
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
+      this.hashCode = computeHashCode();
+    }
+
+    private FunctionSplitTransition(
+        FunctionSplitTransition original, StarlarkBuildSettingsDetailsValue scopeDetails) {
+      super(starlarkDefinedConfigTransition);
+      this.attrObject = original.attrObject;
+      this.scopeDetails = scopeDetails;
+      this.hashCode = computeHashCode();
+    }
+
+    private int computeHashCode() {
       int hash = HashCodes.MULTIPLIER * attrObject.hashCode() + super.hashCode();
-      this.hashCode = HashCodes.MULTIPLIER * hash + System.identityHashCode(scopeDetails);
+      return HashCodes.MULTIPLIER * hash + System.identityHashCode(scopeDetails);
+    }
+
+    @Override
+    public StarlarkTransition withAdditionalScopeDetails(
+        StarlarkBuildSettingsDetailsValue scopeDetails) {
+      return new FunctionSplitTransition(this, this.scopeDetails.union(scopeDetails));
     }
 
     /**
