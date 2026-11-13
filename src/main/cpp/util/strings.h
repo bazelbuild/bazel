@@ -15,6 +15,7 @@
 #define BAZEL_SRC_MAIN_CPP_UTIL_STRINGS_H_
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
