@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.metrics;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
@@ -36,11 +38,14 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics.WorkerPoolStats;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.MemoryPressureModule;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
@@ -58,20 +63,23 @@ import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests metric collection. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
   static class BuildMetricsEventListener extends BlazeModule {
@@ -968,6 +976,134 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .comparingExpectedFieldsOnly()
         .isEqualTo(expectedNullBuild);
+  }
+
+  @Test
+  public void actionTemplateExpansion_notCountedInEvaluatedTargetOrActionCounts(
+      @TestParameter boolean trackIncrementalState) throws Exception {
+    Assume.assumeTrue(OS.getCurrent() != OS.WINDOWS);
+    addOptions(
+        "--experimental_allow_map_directory",
+        "--experimental_merged_skyframe_analysis_execution",
+        "--loading_phase_threads=2");
+    if (!trackIncrementalState) {
+      addOptions(
+          "--notrack_incremental_state", "--discard_analysis_cache", "--nokeep_state_after_build");
+    }
+    write(
+        "bar/bar.bzl",
+        """
+        def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for child in input_directories["seed"].children:
+                out = template_ctx.declare_file(
+                    child.basename + ".out",
+                    directory = output_directories["mapped"],
+                )
+                args = template_ctx.args()
+                args.add_all([out, child])
+                template_ctx.run(
+                    inputs = [child],
+                    outputs = [out],
+                    executable = tools["copy_tool"],
+                    arguments = [args],
+                )
+
+        def _mapped_tree_impl(ctx):
+            seed = ctx.actions.declare_directory(ctx.attr.name + "_seed")
+            ctx.actions.run_shell(
+                outputs = [seed],
+                command = "echo 1 > %s/f1 && echo 2 > %s/f2" % (seed.path, seed.path),
+            )
+            mapped = ctx.actions.declare_directory(ctx.attr.name + "_mapped")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"seed": seed},
+                output_directories = {"mapped": mapped},
+                tools = {"copy_tool": ctx.attr.copy_tool.files_to_run},
+            )
+            return [DefaultInfo(files = depset([mapped]))]
+
+        mapped_tree = rule(
+            implementation = _mapped_tree_impl,
+            attrs = {
+                "copy_tool": attr.label(cfg = "exec", executable = True),
+            },
+        )
+        """);
+    write(
+        "bar/BUILD",
+        """
+        load(":bar.bzl", "mapped_tree")
+
+        genrule(
+            name = "copy_tool",
+            outs = ["copy_tool.sh"],
+            cmd = "echo '#!/bin/sh\\ncp $$2 $$1' > $@ && chmod +x $@",
+            executable = True,
+        )
+
+        mapped_tree(
+            name = "mapped",
+            copy_tool = ":copy_tool",
+        )
+        """);
+
+    Label fooLabel = Label.parseCanonicalUnchecked("//foo:foo");
+    CountDownLatch mappedExpanded = new CountDownLatch(1);
+    // Delay analyzing //foo:foo until //bar:mapped has executed its seed action, finished
+    // evaluating ActionTemplateExpansionKey (including
+    // ActionLookupValueProgressReceiver.evaluated),
+    // and started requesting its expanded actions under Skymeld, ensuring
+    // ActionTemplateExpansionKey is evaluated before AnalysisPhaseCompleteEvent fires.
+    injectListenerAtStartOfNextBuild((key, type, order, context) -> {
+      if (type == EventType.CREATE_IF_ABSENT
+          && SkyFunctions.CONFIGURED_TARGET.equals(key.functionName())
+          && key instanceof ConfiguredTargetKey ctKey
+          && ctKey.getLabel().equals(fooLabel)) {
+        assertThat(mappedExpanded.await(30, SECONDS)).isTrue();
+      } else if (type == EventType.CREATE_IF_ABSENT
+          && key instanceof ActionLookupData ald
+          && SkyFunctions.ACTION_TEMPLATE_EXPANSION.equals(
+              ald.getActionLookupKey().functionName())) {
+        mappedExpanded.countDown();
+      }
+    });
+
+    buildTarget("//bar:mapped", "//foo:foo");
+
+    assertThat(mappedExpanded.getCount()).isEqualTo(0);
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    var skyframeBuildView = getSkyframeExecutor().getSkyframeBuildView();
+    // ActionTemplateExpansionKey is evaluated during execution, not analysis; it must not increment
+    // SkyframeBuildView's evaluated target or action counters (which feed target_metrics and
+    // action_summary when execution overlaps analysis under Skymeld). The 10 configured objects are
+    // the 9 ConfiguredTargetKeys plus WorkspaceStatusValue.BUILD_INFO_KEY (and the 5 created
+    // actions are the 4 target actions plus DummyBuildInfoAction).
+    assertThat(buildMetrics.getTargetMetrics().getTargetsConfigured()).isEqualTo(10);
+    assertThat(buildMetrics.getActionSummary().getActionsCreated()).isEqualTo(5);
+    if (trackIncrementalState) {
+      // Without --discard_analysis_cache, post-analysis execution must not increment the counters
+      // either (with --discard_analysis_cache, BUILD_INFO_KEY is dropped at analysis end and
+      // re-evaluated during //foo:foo's execution).
+      assertThat(skyframeBuildView.getEvaluatedCounts().total())
+          .isEqualTo(buildMetrics.getTargetMetrics().getTargetsConfigured());
+      assertThat(skyframeBuildView.getEvaluatedActionCounts().total())
+          .isEqualTo(buildMetrics.getActionSummary().getActionsCreated());
+    }
+    // BuildGraphMetrics also excludes ActionTemplateExpansionKey in both the incremental top-down
+    // traversal (which roots at top-level ConfiguredTargetKeys and omits BUILD_INFO_KEY) and the
+    // non-incremental full-graph sweep (which includes BUILD_INFO_KEY).
+    assertThat(buildMetrics.getBuildGraphMetrics().getActionLookupValueCount())
+        .isEqualTo(trackIncrementalState ? 9 : 10);
+    assertThat(buildMetrics.getBuildGraphMetrics().getActionCount())
+        .isEqualTo(trackIncrementalState ? 4 : 5);
+    ActionData expandedActionData =
+        buildMetrics.getActionSummary().getActionDataList().stream()
+            .filter(d -> d.getMnemonic().equals("ExpandedTemplateAction"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(expandedActionData.getActionsCreated()).isEqualTo(0);
+    assertThat(expandedActionData.getActionsExecuted()).isEqualTo(2);
   }
 
   @Test

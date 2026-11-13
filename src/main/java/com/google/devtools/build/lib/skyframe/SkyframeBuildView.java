@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.co
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.UPON_CONFIGURED_OBJECT_CREATION;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
+import static com.google.devtools.build.lib.skyframe.SkyframeExecutor.isAnalysisPhaseActionLookupKey;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -1511,7 +1512,7 @@ public final class SkyframeBuildView {
 
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
-      if (skyKey instanceof ActionLookupKey) {
+      if (isAnalysisPhaseActionLookupKey(skyKey)) {
         // If the value was just dirtied and not deleted, then it may not be truly invalid, since
         // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
         // is provisional--if the key is later evaluated and the value found to be clean, then we
@@ -1527,9 +1528,11 @@ public final class SkyframeBuildView {
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
         @Nullable GroupedDeps directDeps) {
-      // We tolerate any action lookup keys here, although we only expect configured targets,
-      // aspects, and the workspace status value.
-      if (!(skyKey instanceof ActionLookupKey)) {
+      // We tolerate any analysis-phase action lookup keys here, although we only expect configured
+      // targets, aspects, and the workspace status value. Execution-phase
+      // ActionTemplateExpansionKeys also implement ActionLookupKey (to own their expanded actions)
+      // and can be evaluated before analysis completes under Skymeld, so they must be excluded.
+      if (!isAnalysisPhaseActionLookupKey(skyKey)) {
         return;
       }
       if (!state.versionChanged()) {
