@@ -52,7 +52,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -491,7 +490,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
       Digest digest,
       CountingOutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
-    ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
     ListenableFuture<Long> downloadFuture =
         Utils.refreshIfUnauthenticatedAsync(
             () ->
@@ -499,14 +497,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                     () ->
                         channel.withChannelFuture(
                             channel ->
-                                requestRead(
-                                    context,
-                                    progressiveBackoff,
-                                    digest,
-                                    out,
-                                    digestSupplier,
-                                    channel)),
-                    progressiveBackoff),
+                                requestRead(context, digest, out, digestSupplier, channel))),
             callCredentialsProvider);
 
     return Futures.catchingAsync(
@@ -531,7 +522,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
 
   private ListenableFuture<Long> requestRead(
       RemoteActionExecutionContext context,
-      ProgressiveBackoff progressiveBackoff,
       Digest digest,
       CountingOutputStream rawOut,
       @Nullable Supplier<Digest> digestSupplier,
@@ -585,8 +575,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                   future.setException(e);
                   return;
                 }
-                // reset the stall backoff because we've made progress or been kept alive
-                progressiveBackoff.reset();
               }
 
               @Override
