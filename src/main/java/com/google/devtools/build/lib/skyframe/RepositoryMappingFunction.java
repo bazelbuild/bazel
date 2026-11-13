@@ -31,7 +31,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -114,7 +113,7 @@ public class RepositoryMappingFunction implements SkyFunction {
 
     // Now try and see if this is a repo generated from a module extension.
     Optional<ModuleExtensionId> moduleExtensionId =
-        maybeGetModuleExtensionForRepo(repositoryName, bazelDepGraphValue);
+        bazelDepGraphValue.getModuleExtensionForRepo(repositoryName);
 
     if (moduleExtensionId.isPresent()) {
       var repoMappingEntriesValue =
@@ -158,14 +157,6 @@ public class RepositoryMappingFunction implements SkyFunction {
             module.getName(),
             module.getVersion(),
             module.getRepoName()));
-  }
-
-  private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(
-      RepositoryName repositoryName, BazelDepGraphValue bazelDepGraphValue) {
-    return bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
-        .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
-        .map(Entry::getKey)
-        .findFirst();
   }
 
   private static class RepositoryMappingFunctionException extends SkyFunctionException {

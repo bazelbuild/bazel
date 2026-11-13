@@ -445,6 +445,44 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Test
+  public void testRegisteredExecutionPlatforms_bzlmod_restrictNonRootRegistrations()
+      throws Exception {
+    setBuildLanguageOptions("--incompatible_restrict_non_root_registrations");
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        register_execution_platforms("//:plat")
+        bazel_dep(name = "bbb", version = "1.0")
+        """);
+    registry.addModule(
+        createModuleKey("bbb", "1.0"),
+        """
+        module(name = "bbb", version = "1.0")
+        register_execution_platforms("//:plat")
+        """);
+    scratch.file(moduleRoot.getRelative("bbb+1.0").getRelative("REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("bbb+1.0").getRelative("BUILD").getPathString(),
+        """
+        platform(name = "plat")
+        """);
+    scratch.overwriteFile(
+        "BUILD",
+        """
+        platform(name = "plat")
+        """);
+    invalidatePackages();
+
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsExactly(Label.parseCanonical("//:plat"));
+  }
+
+  @Test
   public void testRegisteredExecutionPlatformsValue_equalsAndHashCode()
       throws ConstraintCollection.DuplicateConstraintException {
     ConfiguredTargetKey executionPlatformKey1 =
