@@ -112,6 +112,21 @@ discarded):
 The speed-up depends on the change being made. A speed-up of a factor 6 is
 measured in the above situation when a commonly used constant is changed.
 
+## Retiring idle workers {#idle-timeout}
+
+By default, persistent workers remain available for reuse until Bazel shuts
+them down for another reason. To retire workers that have remained idle for a
+configured interval, set
+[`--experimental_worker_idle_timeout_secs`](/reference/command-line-reference#flag--experimental_worker_idle_timeout_secs).
+The interval starts when a request completes. A value of zero, which is the
+default, disables idle-timeout eviction.
+
+The flag may be scoped to a worker-key mnemonic as
+`--experimental_worker_idle_timeout_secs=<mnemonic>=<seconds>`. A value without
+a mnemonic applies to all mnemonics, and later values override earlier ones for
+the mnemonics they affect. Bazel retires a multiplex worker only when it has no
+requests in flight. A later request starts a replacement worker normally.
+
 ## Modifying persistent workers {#options}
 
 You can pass the

@@ -51,6 +51,8 @@ public class WorkerProcessMetrics {
 
   private Optional<Instant> lastCallTime = Optional.empty();
 
+  private Optional<Instant> lastExecutionFinishTime = Optional.empty();
+
   private Optional<Instant> lastCollectedTime = Optional.empty();
 
   private final WorkerProcessStatus status;
@@ -121,8 +123,12 @@ public class WorkerProcessMetrics {
     return newlyCreated;
   }
 
-  public void incrementActionsExecuted() {
+  /** Records a completed request, retaining the latest completion for multiplex workers. */
+  public synchronized void onExecutionFinished(Instant finishTime) {
     actionsExecuted.incrementAndGet();
+    if (lastExecutionFinishTime.isEmpty() || finishTime.isAfter(lastExecutionFinishTime.get())) {
+      lastExecutionFinishTime = Optional.of(finishTime);
+    }
   }
 
   public int getActionsExecuted() {
@@ -131,6 +137,10 @@ public class WorkerProcessMetrics {
 
   public Optional<Instant> getLastCallTime() {
     return lastCallTime;
+  }
+
+  public synchronized Optional<Instant> getLastExecutionFinishTime() {
+    return lastExecutionFinishTime;
   }
 
   public Optional<Instant> getLastCollectedTime() {

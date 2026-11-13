@@ -1462,6 +1462,7 @@ message BuildMetrics {
       KILLED_DUE_TO_INTERRUPTED_EXCEPTION = 4;
       KILLED_DUE_TO_IO_EXCEPTION = 5;
       KILLED_DUE_TO_USER_EXEC_EXCEPTION = 6;
+      KILLED_DUE_TO_IDLE_TIMEOUT = 7;
     }
 
     optional failure_details.Worker.Code code = 12;
