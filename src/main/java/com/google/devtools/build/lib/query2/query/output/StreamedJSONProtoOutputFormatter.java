@@ -20,6 +20,7 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import javax.annotation.Nullable;
 
 /**
  * An output formatter that prints a list of targets according to ndjson spec to the output print
@@ -37,6 +38,24 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
   /** Writes one unconfigured target as a single JSON line. */
   public void writeTarget(Target target, LabelPrinter labelPrinter, OutputStream out)
       throws IOException, InterruptedException {
+    writeTargetJson(target, labelPrinter, out);
+    out.write('\n');
+  }
+
+  /** Writes a snapshot row even if the target's transitive hash is unknown. */
+  public void writeHashedTarget(
+      Target target, LabelPrinter labelPrinter, @Nullable String digest, OutputStream out)
+      throws IOException, InterruptedException {
+    // Hashes contain only hex digits. Target labels and attributes use the normal JSON printer.
+    String hash = digest == null ? "null" : "\"" + digest + "\"";
+    out.write(("{\"hash\":" + hash + ",\"target\":").getBytes(StandardCharsets.UTF_8));
+    writeTargetJson(target, labelPrinter, out);
+    out.write('}');
+    out.write('\n');
+  }
+
+  private void writeTargetJson(Target target, LabelPrinter labelPrinter, OutputStream out)
+      throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
@@ -44,7 +63,6 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
         jsonPrinter
             .print(toTargetProtoBuffer(target, labelPrinter))
             .getBytes(StandardCharsets.UTF_8));
-    out.write('\n');
   }
 
   @Override

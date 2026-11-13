@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
+import com.google.devtools.build.lib.query2.query.output.StreamedJSONProtoOutputFormatter;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -195,8 +196,23 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         try (SilentCloseable closeable = Profiler.instance().profile("QueryCommand.outputHashes")) {
           Set<Target> targets =
               ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
+          StreamedJSONProtoOutputFormatter catalog = null;
+          if (formatter instanceof StreamedJSONProtoOutputFormatter json) {
+            // Require complete enumeration before writing any snapshot rows.
+            if (!result.getSuccess()) {
+              return Either.ofRight(result);
+            }
+            json.setOptions(
+                queryOptions,
+                queryOptions
+                    .getAspectDeps()
+                    .createResolver(env.getPackageManager(), env.getReporter()),
+                hashFunction);
+            json.setEventHandler(env.getReporter());
+            catalog = json;
+          }
           BlazeCommandResult failure =
-              outputHashes(env, queryOptions, targets, out, queryEnv.getLabelPrinter());
+              outputHashes(env, queryOptions, targets, out, queryEnv.getLabelPrinter(), catalog);
           if (failure != null) {
             return Either.ofLeft(failure);
           }
@@ -240,8 +256,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
   }
 
   /**
-   * Computes the transitive hash of every target and writes one {@code <label> <hash>} line per
-   * target. Returns a failure result if a hash could not be computed or may be wrong, or null.
+   * Writes transitive hashes, including metadata for every target when a catalog is requested.
+   * Returns a failure result if a hash could not be computed or may be wrong, or null.
    */
   @Nullable
   private static BlazeCommandResult outputHashes(
@@ -249,7 +265,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       QueryOptions queryOptions,
       Set<Target> targets,
       OutputStream out,
-      LabelPrinter labelPrinter)
+      LabelPrinter labelPrinter,
+      @Nullable StreamedJSONProtoOutputFormatter catalog)
       throws IOException, InterruptedException {
     ImmutableList<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableList());
     EvaluationContext evaluationContext =
@@ -264,9 +281,12 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             keys -> env.getSkyframeExecutor().prepareAndGet(keys, evaluationContext),
             message -> env.getReporter().handle(Event.progress(message)));
     String lineTerminator = queryOptions.getLineTerminator();
-    for (Label label : labels) {
+    for (Target target : targets) {
+      Label label = target.getLabel();
       String hash = result.hashes().get(label);
-      if (hash != null) {
+      if (catalog != null) {
+        catalog.writeHashedTarget(target, labelPrinter, hash, out);
+      } else if (hash != null) {
         out.write((labelPrinter.toString(label) + " " + hash + lineTerminator).getBytes(UTF_8));
       }
     }
