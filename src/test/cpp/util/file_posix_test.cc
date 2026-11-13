@@ -121,7 +121,6 @@ TEST(FilePosixTest, HammerMakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
   ASSERT_STRNE(tmp_dir, nullptr);
 
-  string path = JoinPath(tmp_dir, "x/y/z");
   // TODO(ulfjack): Fix this!
   //  ASSERT_LE(0, fork());
   //  ASSERT_TRUE(MakeDirectories(path, 0755));
