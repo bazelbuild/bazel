@@ -89,6 +89,17 @@ public class SafeRequestLoggingTest {
   }
 
   @Test
+  public void testGetRequestLogStringStripsApparentKeyValues() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=PGP_SIGNING_KEY=notprinted", "--client_env=other=isprinted")))
+        .isEqualTo(
+            "[--client_env=PGP_SIGNING_KEY=__private_value_removed__,"
+                + " --client_env=other=isprinted]");
+  }
+
+  @Test
   public void testGetRequestLogStringStripsApparentCredentialValues() {
     assertThat(
             SafeRequestLogging.getRequestLogString(
@@ -101,6 +112,16 @@ public class SafeRequestLoggingTest {
   }
 
   @Test
+  public void testGetRequestLogStringStripsAbbreviatedCredentialValues() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=MAVEN_CREDS=notprinted", "--client_env=other=isprinted")))
+        .isEqualTo(
+            "[--client_env=MAVEN_CREDS=__private_value_removed__, --client_env=other=isprinted]");
+  }
+
+  @Test
   public void testGetRequestLogStringStripsApparentSecretValues() {
     assertThat(
             SafeRequestLogging.getRequestLogString(
@@ -108,6 +129,27 @@ public class SafeRequestLoggingTest {
                     "--client_env=my_SeCrEt=notprinted", "--client_env=other=isprinted")))
         .isEqualTo(
             "[--client_env=my_SeCrEt=__private_value_removed__, --client_env=other=isprinted]");
+  }
+
+  @Test
+  public void testGetRequestLogStringStripsAlwaysRedactedEnvVars() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=DIRENV_DIFF=notprinted", "--client_env=other=isprinted")))
+        .isEqualTo(
+            "[--client_env=DIRENV_DIFF=__private_value_removed__, --client_env=other=isprinted]");
+  }
+
+  @Test
+  public void testGetRequestLogStringPassesThroughWorkingDirectory() {
+    // "pwd" is deliberately not a filter term: PWD and OLDPWD are set by every POSIX shell, and the
+    // working directory is useful when reading a server log.
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=PWD=/home/user/project", "--client_env=OLDPWD=/tmp")))
+        .isEqualTo("[--client_env=PWD=/home/user/project, --client_env=OLDPWD=/tmp]");
   }
 
   @Test
