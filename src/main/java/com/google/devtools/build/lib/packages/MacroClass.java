@@ -323,17 +323,17 @@ public final class MacroClass {
       }
     }
 
-    // Type and existence enforced by RuleClass.NAME_ATTRIBUTE.
+    // Type enforced by RuleClass.NAME_ATTRIBUTE above.
     // Other mandatory attributes are enforced after the macro is created, but we need to check for
     // name now in order to find out the depth.
-    if (!kwargs.containsKey("name")) {
+    @Nullable Object rawInstanceName = kwargs.get("name");
+    if (!(rawInstanceName instanceof String instanceName)) { // e.g. rawInstanceName is null or None
       throw Starlark.errorf("missing value for mandatory attribute 'name' in '%s' macro", name);
     }
-    String name = (String) kwargs.get("name");
     // Determine the id for this macro. If we're in another macro by the same name, increment the
     // number, otherwise use 1 for the number.
     int sameNameDepth =
-        parentMacroFrame == null || !name.equals(parentMacroFrame.macroInstance.getName())
+        parentMacroFrame == null || !instanceName.equals(parentMacroFrame.macroInstance.getName())
             ? 1
             : parentMacroFrame.macroInstance.getSameNameDepth() + 1;
 
@@ -341,7 +341,8 @@ public final class MacroClass {
         new BuildLangTypedAttributeValuesMap(attrValues.buildImmutable());
 
     MacroInstance macroInstance =
-        targetDefinitionContext.createMacro(this, name, sameNameDepth, parentThreadCallStack);
+        targetDefinitionContext.createMacro(
+            this, instanceName, sameNameDepth, parentThreadCallStack);
     attributeProvider.populateRuleAttributeValues(
         macroInstance,
         targetDefinitionContext,
