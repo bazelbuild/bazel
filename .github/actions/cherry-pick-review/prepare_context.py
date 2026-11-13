@@ -919,28 +919,18 @@ def analyze_prior_review_delta(
 def render_review_prompt(
     context_json_str,
     template_path=pathlib.Path(".github/actions/cherry-pick-review/prompt_template.md"),
-    styleguide_path=pathlib.Path(".github/actions/cherry-pick-review/styleguide.md"),
     out_path=pathlib.Path(".gemini/prompt.md"),
 ):
-    """Renders .gemini/prompt.md by expanding styleguide and context into prompt_template.md."""
+    """Renders .gemini/prompt.md by expanding context.json into prompt_template.md."""
     action_dir = pathlib.Path(__file__).resolve().parent
     if not template_path.is_file():
         fallback_tpl = action_dir / "prompt_template.md"
         if fallback_tpl.is_file():
             template_path = fallback_tpl
-    if not styleguide_path.is_file():
-        fallback_sg = action_dir / "styleguide.md"
-        if fallback_sg.is_file():
-            styleguide_path = fallback_sg
-    if not template_path.is_file() or not styleguide_path.is_file():
+    if not template_path.is_file():
         return False
     prompt_template = template_path.read_text(encoding="utf-8")
-    styleguide = styleguide_path.read_text(encoding="utf-8").strip()
-    # Expand trusted styleguide.md first, then context.json second so untrusted
-    # fields in context.json can never trigger template expansion.
-    rendered = prompt_template.replace("@{.github/actions/cherry-pick-review/styleguide.md}", styleguide).replace(
-        "@{.gemini/context.json}", context_json_str.strip()
-    )
+    rendered = prompt_template.replace("@{.gemini/context.json}", context_json_str.strip())
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(rendered, encoding="utf-8")
     return True
