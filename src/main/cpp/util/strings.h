@@ -108,7 +108,8 @@ void StripWhitespace(std::string *str);
 // newlines, carriage returns, and tabs. Respects single and double quotes (that
 // is, "a string of 'some stuff'" would be 4 tokens). If the comment character
 // is found (outside of quotes), the rest of the string will be ignored. Any
-// token can be escaped with \, e.g., "this\\ is\\ one\\ token".
+// token can be escaped with \, e.g., "this\\ is\\ one\\ token". Backslashes
+// inside single quotes are preserved literally.
 void Tokenize(const std::string &str, const char &comment,
               std::vector<std::string> *words);
 
