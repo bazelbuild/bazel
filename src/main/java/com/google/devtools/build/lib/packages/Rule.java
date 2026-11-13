@@ -739,6 +739,12 @@ public class Rule extends RuleOrMacroInstance implements Target {
   }
 
   @Override
+  @Nullable
+  public Label getTransitiveVisibility() {
+    return getPackageDeclarations().getPackageArgs().transitiveVisibility();
+  }
+
+  @Override
   public boolean isConfigurable() {
     return true;
   }

@@ -196,6 +196,16 @@ public interface Target extends TargetData {
   }
 
   /**
+   * Returns the package's {@link PackageArgs#transitiveVisibility} label if this target
+   * participates in transitive visibility (i.e., rules, input files, and output files), or {@code
+   * null} otherwise.
+   */
+  @Nullable
+  default Label getTransitiveVisibility() {
+    return null;
+  }
+
+  /**
    * Equivalent to calling {@link RuleVisibility#getDeclaredLabels} on the value returned by {@link
    * #getVisibility}, but potentially more efficient.
    *

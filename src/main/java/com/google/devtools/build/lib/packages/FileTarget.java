@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.FileType;
+import javax.annotation.Nullable;
 
 /**
  * Common superclass for InputFile and OutputFile which provides implementation for the file
@@ -41,6 +42,12 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   @Override
   public Label getLabel() {
     return label;
+  }
+
+  @Override
+  @Nullable
+  public Label getTransitiveVisibility() {
+    return getPackageDeclarations().getPackageArgs().transitiveVisibility();
   }
 
   @Override

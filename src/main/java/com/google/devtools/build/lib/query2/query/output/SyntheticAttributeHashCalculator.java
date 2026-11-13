@@ -20,6 +20,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
@@ -146,6 +147,16 @@ class SyntheticAttributeHashCalculator {
       // Include a summary of any package-wide data that applies to this target (e.g. custom make
       // variables aka `vardef`).
       codedOut.writeStringNoTag((String) extraDataForAttrHash);
+    } catch (IOException e) {
+      throw new IllegalStateException("Unexpected IO failure writing to digest stream", e);
+    }
+
+    Label transitiveVisibility = rule.getTransitiveVisibility();
+    try {
+      codedOut.writeBoolNoTag(transitiveVisibility != null);
+      if (transitiveVisibility != null) {
+        codedOut.writeStringNoTag(transitiveVisibility.getCanonicalForm());
+      }
     } catch (IOException e) {
       throw new IllegalStateException("Unexpected IO failure writing to digest stream", e);
     }

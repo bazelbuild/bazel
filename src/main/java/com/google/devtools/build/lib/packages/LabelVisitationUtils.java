@@ -84,6 +84,10 @@ public final class LabelVisitationUtils {
     for (Label label : target.getVisibilityDependencyLabels()) {
       labelProcessor.process(target, attribute, label);
     }
+    Label transitiveVisibility = target.getTransitiveVisibility();
+    if (transitiveVisibility != null) {
+      labelProcessor.process(target, attribute, transitiveVisibility);
+    }
   }
 
   private static void visitRuleVisibility(
