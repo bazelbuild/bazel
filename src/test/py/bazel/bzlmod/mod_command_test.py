@@ -673,7 +673,7 @@ class ModCommandTest(test_base.TestBase):
     self.assertListEqual(
         [line for line in stdout if line.startswith('# Located at: ')],
         [
-            '# Located at: ' + output_base[0] + '/external/' + name
+            '# Located at: "' + output_base[0] + '/external/' + name + '"'
             for name in [
                 'bar+',
                 'ext+',

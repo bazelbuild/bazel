@@ -42,11 +42,13 @@ public final class RepoOutputFormatterTest {
             OutputFormat.TEXT,
             /* externalDirectory= */ null);
 
-    formatter.print("@@bazel_tools", new RepoOverride(PathFragment.create("/embedded_tools")));
+    formatter.print(
+        "@@bazel_tools", new RepoOverride(PathFragment.create("/embedded_tools\nnot-a-repository")));
 
     StarlarkFile file =
         StarlarkFile.parse(ParserInput.fromString(output.toString(), "show_repo output"));
     assertThat(file.ok()).isTrue();
     assertThat(output.toString()).contains("# Builtin or overridden repo located at:");
+    assertThat(output.toString()).contains("/embedded_tools\\nnot-a-repository");
   }
 }
