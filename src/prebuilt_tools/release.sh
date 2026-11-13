@@ -49,6 +49,6 @@ for platform in "${platforms[@]}"; do
   zip_file="${tmp_dir}/prebuilt_tools_${platform}.zip"
   gcloud storage cp --no-clobber "$zip_file" \
     "gs://bazel-mirror/bazel_prebuilt_tools/releases/v${version}/prebuilt_tools_${platform}-v${version}.zip"
-  echo "    \"${platform}\": \"$(shasum -a 256 "$zip_file" | cut -d' ' -f1)\","
+  echo "    \"${platform}\": \"$(sha256sum "$zip_file" | cut -d" " -f1)\","
 done
 echo "}"
