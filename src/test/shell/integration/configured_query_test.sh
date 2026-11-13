@@ -1910,4 +1910,78 @@ EOF
   expect_log "//$pkg:valid"
 }
 
+function test_explicit_aspect_reports_selected_compiler() {
+  local pkg=$FUNCNAME
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<'EOF'
+Compiler = provider(fields = ["file"])
+
+def _compiler(target, ctx):
+    return [Compiler(file = ctx.file._tool)]
+
+compiler = aspect(
+    implementation = _compiler,
+    attrs = {"_tool": attr.label(default = ":tool", allow_single_file = True)},
+)
+
+def _compilation_mode(settings, attr):
+    return {"//command_line_option:compilation_mode": attr.mode}
+
+set_mode = transition(
+    implementation = _compilation_mode,
+    inputs = [],
+    outputs = ["//command_line_option:compilation_mode"],
+)
+
+def _compile(ctx):
+    tool = ctx.attr.src[0][Compiler].file
+    output = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.run_shell(
+        inputs = [tool],
+        outputs = [output],
+        arguments = [tool.path, output.path],
+        command = 'sh "$1" > "$2"',
+    )
+    return [DefaultInfo(files = depset([output]))]
+
+compile = rule(
+    implementation = _compile,
+    attrs = {
+        "src": attr.label(aspects = [compiler], cfg = set_mode),
+        "mode": attr.string(),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "compile")
+
+config_setting(name = "debug", values = {"compilation_mode": "dbg"})
+filegroup(name = "tool", srcs = select({
+    ":debug": ["debug.sh"],
+    "//conditions:default": ["fast.sh"],
+}))
+filegroup(name = "source")
+compile(name = "first", src = ":source", mode = "fastbuild")
+compile(name = "second", src = ":source", mode = "dbg")
+EOF
+  echo 'echo fast' > "$pkg/fast.sh"
+  echo 'echo debug' > "$pkg/debug.sh"
+  bazel build "//$pkg:first" "//$pkg:second" >"$TEST_log" 2>&1 || fail "build failed"
+  assert_equals fast "$(cat "bazel-bin/$pkg/first.txt")"
+  assert_equals debug "$(cat "bazel-bin/$pkg/second.txt")"
+
+  local root tool
+  for root in first second; do
+    if [[ "$root" == first ]]; then tool=fast; else tool=debug; fi
+    bazel cquery --experimental_explicit_aspects --transitions=lite --output=textproto \
+      "somepath(//$pkg:$root, //$pkg:$tool.sh)" >output 2>"$TEST_log" || fail "cquery failed"
+    assert_contains '^aspect_results {' output
+    assert_contains "label: \"//$pkg:tool\"" output
+    assert_contains "name: \"//$pkg:$tool.sh\"" output
+  done
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

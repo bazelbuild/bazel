@@ -265,6 +265,29 @@ message ConfiguredTarget {
   uint32 configuration_id = 3;
 }
 
+// Identifies an aspect application within one explicit cquery result.
+message ConfiguredAspect {
+  // Local to this cquery result (including all frames of a streamed result).
+  uint32 id = 1;
+  // Inline descriptor. Its name and parameters identify this aspect definition.
+  AspectDescriptor aspect_descriptor = 2;
+  // The ordinary target to which the aspect was applied.
+  blaze_query.ConfiguredRuleInput base_target = 3;
+  // Other aspect applications on the base that this aspect sees, in stack order.
+  repeated uint32 base_aspect_ids = 4;
+  // The forced execution platform on the base configured target key, if present.
+  string execution_platform = 5;
+  // Whether that key skips the rule transition.
+  bool skips_rule_transition = 6;
+}
+
+// An aspect application selected by the requested expression.
+message ConfiguredAspectResult {
+  uint32 aspect_id = 1;
+  // The application's direct edges when transitions are requested.
+  repeated blaze_query.ConfiguredRuleInput configured_rule_input = 2;
+}
+
 // Container for cquery results
 message CqueryResult {
   // All the configuredtargets returns by cquery
@@ -272,6 +295,14 @@ message CqueryResult {
 
   // All the Configurations referenced by results.
   repeated Configuration configurations = 2;
+
+  // Identities for both selected and referenced aspects.
+  repeated ConfiguredAspect aspects = 3;
+  repeated ConfiguredAspectResult aspect_results = 4;
+
+  // True when the formatter emitted explicit configured aspect inputs, even if
+  // no aspects were present. Streamed output sets this in the final frame.
+  bool explicit_aspect_inputs = 5;
 }
 
 // Content of a param file.

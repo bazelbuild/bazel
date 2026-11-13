@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRule
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -62,6 +63,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /** Proto output formatter for cquery results. */
 class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -155,6 +157,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
+  private final Map<AspectKey, Integer> aspectIds = new LinkedHashMap<>();
+
   private CqueryResult.Builder cqueryResultBuilder;
   private final OutputType outputType;
   private final AspectResolver resolver;
@@ -199,13 +203,32 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       return;
     }
 
+    // Resolve identities even for prerequisites outside the selected result. Some of their
+    // base configurations may also be new, so emit this table before closing the configuration
+    // table.
+    for (var entry : aspectIds.entrySet()) {
+      var identity = aspectIdentity(entry.getKey(), entry.getValue());
+      if (outputType == OutputType.DELIMITED_BINARY) {
+        writeData(CqueryResult.newBuilder().addAspects(identity).build());
+      } else {
+        cqueryResultBuilder.addAspects(identity);
+      }
+    }
+
+    if (options.getProtoIncludeConfigurations()
+        && options.getUseAspects()
+        && options.getExplicitAspects()
+        && !Transitions.NONE.equals(options.getTransitions())) {
+      cqueryResultBuilder.setExplicitAspectInputs(true);
+    }
+
     // There are a few cases that affect the shape of the output:
     //   1. --output=proto|textproto|jsonproto --proto:include_configurations =>
     //        Writes a single CqueryResult containing all the ConfiguredTarget(s) and
-    //        Configuration(s) in the specified output format.
+    //        Configuration(s), with explicit aspects when requested.
     //   2. --output=streamed_proto --proto:include_configurations =>
     //        Writes multiple length delimited CqueryResult protos, each containing a single
-    //        ConfiguredTarget or Configuration.
+    //        ConfiguredTarget, selected aspect, aspect identity, or Configuration.
     //   3. --output=proto|textproto|jsonproto --noproto:include_configurations =>
     //        Writes a single QueryResult containing all the corresponding Target(s) in the
     //        specified output format.
@@ -232,6 +255,9 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                 AnalysisProtosV2.CqueryResult.newBuilder()
                     .addConfigurations(configuration)
                     .build());
+          }
+          if (cqueryResultBuilder.getExplicitAspectInputs()) {
+            writeData(cqueryResultBuilder.build());
           }
         }
       }
@@ -268,12 +294,92 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     return outputType.formatName();
   }
 
+  private synchronized int aspectId(AspectKey key) {
+    Integer known = aspectIds.get(key);
+    if (known != null) {
+      return known;
+    }
+    for (var base : key.getBaseKeys()) {
+      aspectId(base);
+    }
+    int id = aspectIds.size() + 1;
+    aspectIds.put(key, id);
+    return id;
+  }
+
+  private ConfiguredRuleInput.Builder configuredInput(
+      Label label, @Nullable BuildConfigurationKey configuration) {
+    var input =
+        Build.ConfiguredRuleInput.newBuilder()
+            .setLabel(internalToUnicode(labelPrinter.toString(label)));
+    if (configuration != null) {
+      input
+          .setConfigurationChecksum(configuration.getOptions().checksum())
+          .setConfigurationId(configurationCache.getId(configuration.getOptions()));
+    }
+    return input;
+  }
+
+  private ConfiguredRuleInput.Builder configuredInput(CqueryNode node) {
+    var input = configuredInput(node.getOriginalLabel(), node.getConfigurationKey());
+    if (options.getProtoIncludeConfigurations() && node instanceof AspectKey aspect) {
+      input.setAspectId(aspectId(aspect));
+    }
+    return input;
+  }
+
+  private AnalysisProtosV2.ConfiguredAspect aspectIdentity(AspectKey aspect, int id) {
+    var base = aspect.getBaseConfiguredTargetKey();
+    var descriptor =
+        AnalysisProtosV2.AspectDescriptor.newBuilder()
+            .setName(internalToUnicode(aspect.getAspectClass().getName()));
+    for (var parameter : aspect.getParameters().getAttributes().entries()) {
+      descriptor.addParameters(
+          AnalysisProtosV2.KeyValuePair.newBuilder()
+              .setKey(parameter.getKey())
+              .setValue(internalToUnicode(parameter.getValue())));
+    }
+    var node =
+        AnalysisProtosV2.ConfiguredAspect.newBuilder()
+            .setId(id)
+            .setAspectDescriptor(descriptor)
+            .setBaseTarget(configuredInput(base.getLabel(), base.getConfigurationKey()))
+            .setSkipsRuleTransition(!base.shouldApplyRuleTransition());
+    if (base.getExecutionPlatformLabel() != null) {
+      node.setExecutionPlatform(
+          internalToUnicode(labelPrinter.toString(base.getExecutionPlatformLabel())));
+    }
+    for (var dependency : aspect.getBaseKeys()) {
+      node.addBaseAspectIds(aspectIds.get(dependency));
+    }
+    return node.build();
+  }
+
+  private void outputAspect(AspectKey aspect) throws InterruptedException, IOException {
+    var node = AnalysisProtosV2.ConfiguredAspectResult.newBuilder().setAspectId(aspectId(aspect));
+    if (!Transitions.NONE.equals(options.getTransitions())) {
+      for (var dep : accessor.getPrerequisites(aspect)) {
+        node.addConfiguredRuleInput(configuredInput(dep));
+      }
+    }
+    if (outputType == OutputType.DELIMITED_BINARY) {
+      writeData(CqueryResult.newBuilder().addAspectResults(node).build());
+    } else {
+      cqueryResultBuilder.addAspectResults(node);
+    }
+  }
+
   @Override
   public void processOutput(Iterable<CqueryNode> partialResult)
       throws InterruptedException, IOException {
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
     for (CqueryNode keyedConfiguredTarget : partialResult) {
+      if (options.getProtoIncludeConfigurations()
+          && keyedConfiguredTarget instanceof AspectKey aspect) {
+        outputAspect(aspect);
+        continue;
+      }
       AnalysisProtosV2.ConfiguredTarget.Builder builder =
           AnalysisProtosV2.ConfiguredTarget.newBuilder();
       // Re: testing. Since this formatter relies on the heavily tested ProtoOutputFormatter class
@@ -296,16 +402,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         //
         // cquery users should always view the graph according to cquery's canonical interpretation.
         for (CqueryNode dep : accessor.getPrerequisites(keyedConfiguredTarget)) {
-          ConfiguredRuleInput.Builder configuredRuleInput =
-              Build.ConfiguredRuleInput.newBuilder()
-                  .setLabel(internalToUnicode(labelPrinter.toString(dep.getOriginalLabel())));
-          if (dep.getConfigurationChecksum() != null) {
-            configuredRuleInput
-                .setConfigurationChecksum(dep.getConfigurationChecksum())
-                .setConfigurationId(
-                    configurationCache.getId(dep.getConfigurationKey().getOptions()));
-          }
-          targetBuilder.getRuleBuilder().addConfiguredRuleInput(configuredRuleInput);
+          targetBuilder.getRuleBuilder().addConfiguredRuleInput(configuredInput(dep));
         }
       }
 

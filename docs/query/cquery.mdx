@@ -340,6 +340,23 @@ Note: While selects are resolved both at the top level of returned
 targets and within attributes, all possible inputs for selects are still
 included as `rule_input` fields.
 
+With `--experimental_explicit_aspects` and `--proto:include_configurations`,
+`CqueryResult.aspect_results` contains the aspect applications selected by the
+query. With `--transitions=lite` or `full`, an input that refers to an aspect
+carries its `aspect_id`. Resolve that ID in the same output's `aspects` table.
+With explicit aspect inputs enabled, `explicit_aspect_inputs` is true even when
+the query finds no aspects. Streamed proto sets this field in its final frame.
+The table includes the identities of referenced applications outside the
+selected result. For `--output=streamed_proto`, read the table across all frames.
+
+The table identifies an application within one query using its reported aspect
+class and parameters, base configured target key, and ordered base applications.
+These fields can stay the same when the aspect implementation changes. Resolve
+aspect and configuration IDs separately for each query output. With
+`--noproto:include_configurations`, the flat `QueryResult` represents each selected
+application as its underlying target. Use configuration-aware output to distinguish
+those applications.
+
 ### Graph output {#graph-output}
 
 ```
