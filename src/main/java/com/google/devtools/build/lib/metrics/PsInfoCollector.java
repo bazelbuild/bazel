@@ -69,6 +69,11 @@ public class PsInfoCollector {
       updatePsSnapshot(clock, processIds);
     }
 
+    // ps always lists at least itself, so an empty snapshot means ps failed.
+    if (currentPsSnapshot.pidToPsInfo().isEmpty()) {
+      return ResourceSnapshot.createUnavailable(currentPsSnapshot.collectionTime());
+    }
+
     ImmutableMap.Builder<Long, Integer> pidToMemoryInKb = ImmutableMap.builder();
     for (Long pid : processIds) {
       PsInfo psInfo = currentPsSnapshot.pidToPsInfo().get(pid);
