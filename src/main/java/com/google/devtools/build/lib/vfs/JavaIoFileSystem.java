@@ -513,19 +513,14 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
 
   @Override
   @Nullable
-  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return stat(path, followSymlinks);
     } catch (FileNotFoundException | InvalidPathException e) {
-      // JavaIoFileSystem#stat (incorrectly) only throws FileNotFoundException (because it calls
-      // #getLastModifiedTime, which can only throw a FileNotFoundException), so we always hit this
-      // codepath. Thus, this method will incorrectly not throw an exception for some filesystem
-      // errors.
+      // JavaIoFileSystem#stat (incorrectly) only throws FileNotFoundException, so this method will
+      // incorrectly not throw an exception for some filesystem errors. Subclasses whose stat
+      // implementation distinguishes between not-found and other errors have the latter propagated.
       return null;
-    } catch (IOException e) {
-      // If this codepath is ever hit, then this method should be rewritten to properly distinguish
-      // between not-found exceptions and others.
-      throw new IllegalStateException(e);
     }
   }
 
