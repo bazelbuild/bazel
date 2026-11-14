@@ -37,7 +37,8 @@ import net.starlark.java.eval.EvalException;
 
 /**
  * Computes all information required for the {@code bazel mod tidy} command, which in particular
- * requires evaluating all module extensions in the dependency graph to update the lockfile.
+ * requires evaluating all module extensions in the dependency graph, or all those in the scope of
+ * the key, to update the lockfile.
  */
 public class BazelModTidyFunction implements SkyFunction {
 
@@ -79,8 +80,10 @@ public class BazelModTidyFunction implements SkyFunction {
       throw new IllegalStateException(e);
     }
 
+    ImmutableSet<ModuleExtensionId> scope = ((BazelModTidyValue.Key) skyKey).extensions();
     ImmutableSet<SkyKey> extensions =
         depGraphValue.getExtensionUsagesTable().rowKeySet().stream()
+            .filter(extensionId -> scope == null || scope.contains(extensionId))
             // Use the eval-only key to avoid errors caused by incorrect imports - we can fix them.
             .map(SingleExtensionValue::evalKey)
             .collect(toImmutableSet());

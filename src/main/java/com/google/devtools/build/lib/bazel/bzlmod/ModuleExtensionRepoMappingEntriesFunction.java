@@ -15,7 +15,12 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -82,7 +87,24 @@ public class ModuleExtensionRepoMappingEntriesFunction implements SkyFunction {
     // the two to avoid any surprises.
     // LINT.IfChange
     ImmutableMap.Builder<String, RepositoryName> entries = ImmutableMap.builder();
-    entries.putAll(moduleRepoMapping.entries());
+    ImmutableList<String> references =
+        extensionEvalValue
+            .metadata()
+            .map(LockfileModuleExtensionMetadata::getReferences)
+            .orElse(null);
+    if (references == null) {
+      entries.putAll(moduleRepoMapping.entries());
+    } else {
+      // An extension that declares the references of its repos restricts them to these repos.
+      ImmutableSet<RepositoryName> referencedRepos =
+          references.stream()
+              .map(
+                  pattern ->
+                      RepositoryName.createUnvalidated(
+                          pattern.substring("@@".length(), pattern.indexOf("//"))))
+              .collect(toImmutableSet());
+      entries.putAll(Maps.filterValues(moduleRepoMapping.entries(), referencedRepos::contains));
+    }
     entries.putAll(extensionEvalValue.canonicalRepoNameToInternalNames().inverse());
     entries.putAll(bazelDepGraphValue.getRepoOverrides().row(extensionId));
     var builtEntries = entries.buildKeepingLast();

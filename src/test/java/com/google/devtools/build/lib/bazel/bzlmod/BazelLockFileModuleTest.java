@@ -65,7 +65,9 @@ public class BazelLockFileModuleTest {
                         Starlark.NONE,
                         Starlark.NONE,
                         /* reproducible= */ true,
-                        /* factsObj= */ Dict.empty())))
+                        /* factsObj= */ Dict.empty(),
+                        /* references= */ null,
+                        /* toolchainTypes= */ null)))
             .build();
     evalFactors = ModuleExtensionEvalFactors.create("linux", "x86_64");
     otherEvalFactors = ModuleExtensionEvalFactors.create("linux", "aarch64");
