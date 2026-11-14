@@ -761,8 +761,10 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     SkyKey newDep = key("newDep");
     entry.addSingletonTemporaryDirectDep(newDep);
 
+    assertThat(entry.getAllRemainingDirtyDirectDeps()).containsExactly(oldDep);
     assertThat(entry.getAllDirectDepsForIncompleteNode())
         .containsExactly(oldDep, oldAndNewDep, newDep);
+    assertThat(entry.getAllRemainingDirtyDirectDeps()).isEmpty();
   }
 
   @Test

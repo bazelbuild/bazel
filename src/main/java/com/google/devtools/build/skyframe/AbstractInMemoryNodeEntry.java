@@ -203,7 +203,9 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
     checkState(dirtyBuildingState.isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
       checkState(dirtyBuildingState.getLifecycleState() == LifecycleState.REBUILDING, this);
-      return dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ true);
+      return getKey().supportsPartialReevaluation()
+          ? dirtyBuildingState.getRemainingDirtyDirectDepsForPartialReevaluation()
+          : dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ true);
     } else {
       return ImmutableSet.of();
     }
