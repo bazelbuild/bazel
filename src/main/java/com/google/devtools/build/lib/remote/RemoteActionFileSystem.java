@@ -406,6 +406,8 @@ public class RemoteActionFileSystem extends FileSystem {
     }
     // The delegate may overlay external repositories by their canonical paths. Letting the host
     // file system resolve an exec-root symlink would bypass that overlay.
+    // Use localFs rather than Path.forHostFileSystem(), which would also unwrap the repository
+    // overlay and try to read repository inputs that have not been materialized on disk.
     return localFs.getPath(resolveSymbolicLinks(path).asFragment()).getInputStream();
   }
 
