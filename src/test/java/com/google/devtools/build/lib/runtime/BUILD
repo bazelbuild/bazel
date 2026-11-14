@@ -102,6 +102,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:build_event_streamer",
         "//src/main/java/com/google/devtools/build/lib/runtime:build_event_streamer_utils",
+        "//src/main/java/com/google/devtools/build/lib/runtime:cache_file_digests_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:client_options",
         "//src/main/java/com/google/devtools/build/lib/runtime:command_complete_event",
         "//src/main/java/com/google/devtools/build/lib/runtime:command_dispatcher",
