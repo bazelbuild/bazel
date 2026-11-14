@@ -301,11 +301,17 @@ class BuildResultPrinter {
       } else if (successfulTargets.contains(target)
           && !unsuccessfulValidationTargets.contains(targetKey)) {
         succeeded.add(target);
-        ArrayList<Artifact> artifactsToPrint =
+        // Once the budget is spent, the caller prints nothing for successful targets and drops
+        // these lists, so the artifacts of the remaining targets are not looked at. Collecting
+        // them means flattening a nested set per target, which takes tens of seconds for a build
+        // of several hundred thousand targets.
+        if (essentialBudget >= 0) {
+          ArrayList<Artifact> artifactsToPrint =
             getArtifactsToPrint(target, context, outputGroupsToHide);
-        artifactsToPrintPerTarget.add(artifactsToPrint);
-        if (!artifactsToPrint.isEmpty()) {
-          essentialBudget--;
+          artifactsToPrintPerTarget.add(artifactsToPrint);
+          if (!artifactsToPrint.isEmpty()) {
+            essentialBudget--;
+          }
         }
       } else {
         boolean actuallyFailed =
@@ -392,11 +398,14 @@ class BuildResultPrinter {
     for (AspectKey aspect : aspectsToPrint) {
       if (successfulAspects.contains(aspect)) {
         succeeded.add(aspect);
-        ArrayList<Artifact> artifactsToPrint =
+        // As for targets: nothing is printed for successful aspects once the budget is spent.
+        if (essentialBudget >= 0) {
+          ArrayList<Artifact> artifactsToPrint =
             getArtifactsToPrint(aspects.get(aspect), context, outputGroupsToHide);
-        artifactsToPrintPerAspect.add(artifactsToPrint);
-        if (!artifactsToPrint.isEmpty()) {
-          essentialBudget--;
+          artifactsToPrintPerAspect.add(artifactsToPrint);
+          if (!artifactsToPrint.isEmpty()) {
+            essentialBudget--;
+          }
         }
       } else if (!result.getStopOnFirstFailure() || aspectRootCauses.containsKey(aspect)) {
         failed.add(aspect);
