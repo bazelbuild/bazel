@@ -66,7 +66,7 @@ public abstract class FileSystem {
   // Avoid eager initialization of digestBuffers if no FileSystem implementation ever calls the
   // default implementation of getDigest.
   private static final class DigestBuffersHolder {
-    private static final int DIGEST_BUFFER_SIZE = 8192;
+    private static final int DIGEST_BUFFER_SIZE = 64 * 1024;
 
     /**
      * A bounded pool of buffers for {@link #getDigest}, meant to reduce allocations while also
