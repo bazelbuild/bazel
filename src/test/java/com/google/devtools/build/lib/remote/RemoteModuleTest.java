@@ -152,6 +152,9 @@ public final class RemoteModuleTest {
                   .build())
           .build();
 
+  private CommonCommandOptions commonCommandOptions =
+      Options.getDefaults(CommonCommandOptions.class);
+
   @FunctionalInterface
   private interface WorkspaceInitializer {
     void initialize(Scratch scratch) throws IOException;
@@ -194,17 +197,12 @@ public final class RemoteModuleTest {
   }
 
   private static CommandEnvironment initCommand(
-      BlazeWorkspace workspace, RemoteOptions remoteOptions) throws AbruptExitException {
-    return initCommand(workspace, remoteOptions, BuildCommand.class);
-  }
-
-  private static CommandEnvironment initCommand(
       BlazeWorkspace workspace,
       RemoteOptions remoteOptions,
-      Class<? extends BlazeCommand> commandClass)
+      Class<? extends BlazeCommand> commandClass,
+      CommonCommandOptions commonCommandOptions)
       throws AbruptExitException {
     CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
-    CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
@@ -332,25 +330,30 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
+      OptionsParser parser =
+          OptionsParser.builder().optionsClasses(CommonCommandOptions.class).build();
+      parser.parse("--client_cwd=subdir");
+      commonCommandOptions = parser.getOptions(CommonCommandOptions.class);
       remoteOptions =
           parseRemoteOptions(
               "--remote_cache=" + CACHE_SERVER_NAME,
-              "--remote_grpc_service_config=service_config.json");
+              "--remote_grpc_service_config=%workspace%/service_config.json");
 
-      beforeCommand(
-          scratch ->
-              scratch.file(
-                  "/workspace/service_config.json",
-                  """
-                  {
-                    "methodConfig": [
-                      {
-                        "name": [{"service": "google.bytestream.ByteStream"}],
-                        "timeout": "3.500s"
-                      }
-                    ]
-                  }
-                  """));
+      beforeCommand(scratch -> {
+        scratch.file("/workspace/subdir/service_config.json", "{}");
+        scratch.file(
+            "/workspace/service_config.json",
+            """
+            {
+              "methodConfig": [
+                {
+                  "name": [{"service": "google.bytestream.ByteStream"}],
+                  "timeout": "3.500s"
+                }
+              ]
+            }
+            """);
+      });
 
       assertThat(
               remoteModule
@@ -772,7 +775,8 @@ public final class RemoteModuleTest {
   private CommandEnvironment beforeCommand(
       BlazeWorkspace workspace, Class<? extends BlazeCommand> commandClass)
       throws AbruptExitException {
-    CommandEnvironment env = initCommand(workspace, remoteOptions, commandClass);
+    CommandEnvironment env =
+        initCommand(workspace, remoteOptions, commandClass, commonCommandOptions);
     env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();

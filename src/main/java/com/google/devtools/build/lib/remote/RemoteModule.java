@@ -636,7 +636,8 @@ public final class RemoteModule extends BlazeModule {
     ImmutableMap<String, ?> remoteGrpcServiceConfig;
     try {
       remoteGrpcServiceConfig =
-          RemoteGrpcServiceConfig.create(remoteOptions, env.getWorkingDirectory());
+          RemoteGrpcServiceConfig.create(
+              remoteOptions, env.getWorkingDirectory(), env.getWorkspace());
     } catch (IOException e) {
       throw createOptionsExitException(
           "Invalid --remote_grpc_service_config: " + e.getMessage(),
