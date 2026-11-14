@@ -168,11 +168,7 @@ public class RuleTransitionApplier
       tasks.enqueue(
           new PlatformProducer(
               platformConfiguration.getTargetPlatform(),
-              preRuleTransitionKey
-                  .getConfigurationKey()
-                  .getOptions()
-                  .get(CoreOptions.class)
-                  .getCommandLineFlagAliasesMap(),
+              preRuleTransitionKey.getConfigurationKey().getOptions(),
               (PlatformProducer.ResultSink) this,
               this::computeConfigConditions));
     } else {

@@ -131,6 +131,22 @@ public class ConfiguredTargetAndData {
    */
   static ConfiguredTargetAndData fromExistingConfiguredTargetInSkyframe(
       ConfiguredTargetValue ctv, SkyFunction.Environment env) throws InterruptedException {
+    return checkNotNull(
+        fromConfiguredTargetInSkyframe(ctv, env),
+        "Missing package or configuration for %s",
+        ctv.getConfiguredTarget());
+  }
+
+  /**
+   * Wraps a {@link ConfiguredTarget} by looking up auxiliary data in Skyframe.
+   *
+   * <p>Returns {@code null} if its {@link PackageValue} or {@link BuildConfigurationValue} (if
+   * applicable) are not available yet, in which case {@link SkyFunction.Environment#valuesMissing}
+   * returns true.
+   */
+  @Nullable
+  public static ConfiguredTargetAndData fromConfiguredTargetInSkyframe(
+      ConfiguredTargetValue ctv, SkyFunction.Environment env) throws InterruptedException {
     ConfiguredTarget ct = ctv.getConfiguredTarget();
     PackageIdentifier packageKey = ct.getLabel().getPackageIdentifier();
     BuildConfigurationKey configurationKeyMaybe = ct.getConfigurationKey();
@@ -154,7 +170,9 @@ public class ConfiguredTargetAndData {
       // Don't test env.valuesMissing(), because values may already be missing from the caller.
       if (targetData == null) {
         PackageValue packageValue = (PackageValue) lookupResult.get(packageKey);
-        checkNotNull(packageValue, "Missing package for %s (%s)", ct, packageKey);
+        if (packageValue == null) {
+          return null;
+        }
         try {
           targetData = packageValue.getPackage().getTarget(ct.getLabel().getName());
         } catch (NoSuchTargetException e) {
@@ -164,7 +182,9 @@ public class ConfiguredTargetAndData {
 
       if (configurationKeyMaybe != null) {
         configuration = (BuildConfigurationValue) lookupResult.get(configurationKeyMaybe);
-        checkNotNull(configuration, "Missing configuration for %s (%s)", ct, configurationKeyMaybe);
+        if (configuration == null) {
+          return null;
+        }
       }
     }
 
