@@ -18,6 +18,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventServiceUploadCom
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
+import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -113,6 +116,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /** Number of lines of a large build event's ID to include when warning about it. */
+  private static final int MAX_LARGE_BUILD_EVENT_ID_LINES = 5;
 
   /**
    * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
@@ -349,12 +355,46 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
   }
 
+  /**
+   * Warns about build events that are unusually large once serialized. The warning is written to
+   * stderr, which the {@link BuildEventStreamer} also forwards into the stream as progress output.
+   *
+   * <p>Events are serialized asynchronously by the uploader, so this may run after the command has
+   * completed; in that case the warning is only logged.
+   */
+  @Subscribe
+  public void largeBuildEventSerialized(LargeBuildEventSerializedEvent event) {
+    String msg =
+        String.format(
+            "%s build event is %d bytes when serialized; this may cause problems uploading to the"
+                + " Build Event Service. Event ID:\n%s",
+            event.getBuildEventType(),
+            event.getSerializedSizeInBytes(),
+            truncateLines(event.getBuildEventId(), MAX_LARGE_BUILD_EVENT_ID_LINES));
+    Reporter currentReporter = reporter;
+    if (currentReporter != null) {
+      currentReporter.handle(Event.warn(msg));
+    } else {
+      logger.atWarning().log("%s", msg);
+    }
+  }
+
+  /** Returns the first {@code maxLines} lines of {@code text}, marking any truncation. */
+  private static String truncateLines(String text, int maxLines) {
+    List<String> lines = Splitter.on('\n').omitEmptyStrings().splitToList(text);
+    if (lines.size() <= maxLines) {
+      return String.join("\n", lines);
+    }
+    return String.join("\n", lines.subList(0, maxLines)) + "\n...";
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment cmdEnv) throws AbruptExitException {
     this.prevInvocationId = this.invocationId;
     this.invocationId = cmdEnv.getCommandId().toString();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();
+    cmdEnv.getEventBus().register(this);
 
     this.connectivityProvider =
         Preconditions.checkNotNull(

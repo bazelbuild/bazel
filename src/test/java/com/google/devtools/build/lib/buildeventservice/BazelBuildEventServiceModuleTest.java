@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -56,10 +57,12 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
@@ -398,6 +401,28 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     events.assertContainsEventsInOrder(
         expectedMessage, "Found 0 targets", "Found 0 targets", expectedMessage, expectedMessage);
+  }
+
+  @Test
+  public void testLargeBuildEventSerializedEventReportsWarning() throws Exception {
+    addOptions("--bes_backend=inprocess");
+    runtimeWrapper.newCommand();
+    EventBus eventBus = runtimeWrapper.getCommandEnvironment().getEventBus();
+    eventBus.register(
+        new Object() {
+          @Subscribe
+          @SuppressWarnings("unused")
+          public void transportsAnnounced(AnnounceBuildEventTransportsEvent unused) {
+            eventBus.post(
+                new LargeBuildEventSerializedEvent(
+                    "COMPLETED", "line1\nline2\nline3\nline4\nline5\nline6\nline7\n", 12345678));
+          }
+        });
+    buildTarget();
+
+    Event warning =
+        events.assertContainsWarning("COMPLETED build event is 12345678 bytes when serialized");
+    assertThat(warning.getMessage()).endsWith("Event ID:\nline1\nline2\nline3\nline4\nline5\n...");
   }
 
   @Test
