@@ -34,7 +34,8 @@ final class ActionInputMapHelper {
       MetadataConsumerForMetrics consumer) {
     switch (value) {
       case TreeArtifactValue treeArtifactValue -> {
-        expandTreeArtifactAndPopulateArtifactData(key, treeArtifactValue, inputMap);
+        expandTreeArtifactAndPopulateArtifactData(
+            key, treeArtifactValue, inputMap, /* forChildInput= */ false);
         consumer.accumulate(treeArtifactValue);
       }
       case ActionExecutionValue actionExecutionValue -> {
@@ -46,7 +47,8 @@ final class ActionInputMapHelper {
           Artifact treeArtifact = key.getParent();
           TreeArtifactValue treeArtifactValue =
               actionExecutionValue.getTreeArtifactValue(treeArtifact);
-          expandTreeArtifactAndPopulateArtifactData(treeArtifact, treeArtifactValue, inputMap);
+          expandTreeArtifactAndPopulateArtifactData(
+              treeArtifact, treeArtifactValue, inputMap, /* forChildInput= */ true);
           consumer.accumulate(treeArtifactValue);
         }
         if (key.isFileset()) {
@@ -71,7 +73,8 @@ final class ActionInputMapHelper {
               });
           runfilesArtifactValue.forEachTree(
               (treeArtifact, metadata) -> {
-                expandTreeArtifactAndPopulateArtifactData(treeArtifact, metadata, inputMap);
+                expandTreeArtifactAndPopulateArtifactData(
+                    treeArtifact, metadata, inputMap, /* forChildInput= */ false);
                 consumer.accumulate(metadata);
               });
 
@@ -106,8 +109,9 @@ final class ActionInputMapHelper {
   private static void expandTreeArtifactAndPopulateArtifactData(
       Artifact treeArtifact,
       TreeArtifactValue value,
-      ActionInputMap inputMap) {
-    inputMap.putTreeArtifact(treeArtifact, value);
+      ActionInputMap inputMap,
+      boolean forChildInput) {
+    inputMap.putTreeArtifact(treeArtifact, value, forChildInput);
     if (value.getArchivedRepresentation().isEmpty()) {
       return;
     }

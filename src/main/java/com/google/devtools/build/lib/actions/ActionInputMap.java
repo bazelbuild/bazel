@@ -31,8 +31,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
@@ -79,6 +81,9 @@ public final class ActionInputMap implements InputMetadataProvider {
   private final TreeMap<PathFragment, TreeArtifactValue> treeArtifacts =
       Maps.newTreeMap(PathFragment.HIERARCHICAL_COMPARATOR);
 
+  /** Exec paths of tree artifacts whose metadata was added only for a declared child input. */
+  @Nullable private Set<PathFragment> treeArtifactsForChildInputs;
+
   /** The filesets stored in this map. */
   private final Map<Artifact, FilesetOutputTree> filesets = Maps.newTreeMap();
 
@@ -119,6 +124,34 @@ public final class ActionInputMap implements InputMetadataProvider {
   @Override
   public FileArtifactValue getInputMetadata(ActionInput input) {
     return getInputMetadataChecked(input);
+  }
+
+  @Nullable
+  @Override
+  public FileArtifactValue getDeclaredInputMetadata(Artifact input) {
+    if (treeArtifactsForChildInputs != null) {
+      PathFragment execPath = input.getExecPath();
+      if (treeArtifactsForChildInputs.contains(execPath)
+          || (input instanceof TreeFileArtifact child
+              && getIndex(execPath) < 0
+              && !hasDeclaredTreeParent(child))) {
+        return null;
+      }
+    }
+    FileArtifactValue metadata = getInputMetadataChecked(input);
+    return metadata == FileArtifactValue.MISSING_FILE_MARKER ? null : metadata;
+  }
+
+  private boolean hasDeclaredTreeParent(TreeFileArtifact child) {
+    TreeArtifact parent = child.getParent();
+    return isDeclaredTreeArtifact(parent)
+        || (parent.isSubTreeArtifact() && isDeclaredTreeArtifact(parent.getParent()));
+  }
+
+  private boolean isDeclaredTreeArtifact(TreeArtifact tree) {
+    PathFragment execPath = tree.getExecPath();
+    return getTreeMetadata(execPath) != null
+        && (treeArtifactsForChildInputs == null || !treeArtifactsForChildInputs.contains(execPath));
   }
 
   @Nullable
@@ -340,6 +373,15 @@ public final class ActionInputMap implements InputMetadataProvider {
   }
 
   public void putTreeArtifact(Artifact tree, TreeArtifactValue treeArtifactValue) {
+    putTreeArtifact(tree, treeArtifactValue, /* forChildInput= */ false);
+  }
+
+  /**
+   * Adds tree metadata. If {@code forChildInput} is true, the tree's metadata is needed to
+   * materialize a declared child input, but the tree itself may not be declared.
+   */
+  public void putTreeArtifact(
+      Artifact tree, TreeArtifactValue treeArtifactValue, boolean forChildInput) {
     checkArgument(tree.isTreeArtifact(), tree);
     int oldIndex = putIfAbsent(tree, treeArtifactValue);
     if (oldIndex != -1) {
@@ -347,10 +389,19 @@ public final class ActionInputMap implements InputMetadataProvider {
           keys[oldIndex] instanceof TreeArtifact,
           "Tried to overwrite file with a tree artifact: '%s' with the same exec path",
           tree);
+      if (!forChildInput && treeArtifactsForChildInputs != null) {
+        treeArtifactsForChildInputs.remove(tree.getExecPath());
+      }
       return;
     }
 
     treeArtifacts.put(tree.getExecPath(), treeArtifactValue);
+    if (forChildInput) {
+      if (treeArtifactsForChildInputs == null) {
+        treeArtifactsForChildInputs = new HashSet<>();
+      }
+      treeArtifactsForChildInputs.add(tree.getExecPath());
+    }
   }
 
   private int putIfAbsent(ActionInput input, Object metadata) {
@@ -390,6 +441,7 @@ public final class ActionInputMap implements InputMetadataProvider {
     Arrays.fill(values, null);
     size = 0;
     treeArtifacts.clear();
+    treeArtifactsForChildInputs = null;
     filesets.clear();
     runfilesTrees.clear();
   }

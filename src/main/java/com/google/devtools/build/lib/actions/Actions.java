@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.collect.Iterables.elementsEqual;
+import static com.google.devtools.build.lib.actions.ActionKeyComputer.KEY_REQUIRES_INPUT_METADATA;
 import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -85,25 +86,42 @@ public final class Actions {
   public static boolean canBeShared(
       ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b)
       throws InterruptedException {
+    return canBeShared(actionKeyContext, a, b, /* allowInputMetadataAliases= */ true);
+  }
+
+  private static boolean canBeShared(
+      ActionKeyContext actionKeyContext,
+      ActionAnalysisMetadata a,
+      ActionAnalysisMetadata b,
+      boolean allowInputMetadataAliases)
+      throws InterruptedException {
     if (!(a.getMnemonic().equals(b.getMnemonic())
         // Non-Actions cannot be shared.
         && a instanceof Action
-        && b instanceof Action
-        && a.getKey(actionKeyContext, /* inputMetadataProvider= */ null)
-            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null)))) {
+        && b instanceof Action)) {
       return false;
     }
-    // Uses a standard comparison technique for shareable actions.
-    if (a.isShareable() && b.isShareable()) {
+    ActionKeyContext sharingContext = actionKeyContext.forActionSharing();
+    String key = a.getKey(sharingContext, /* inputMetadataProvider= */ null);
+    boolean shareable = a.isShareable();
+    if (!key.equals(b.getKey(sharingContext, /* inputMetadataProvider= */ null))
+        || shareable != b.isShareable()) {
+      return false;
+    }
+    if (key.equals(KEY_REQUIRES_INPUT_METADATA)) {
+      // The ActionLookupData identifies one action, including its index in the configured target.
+      if (!allowInputMetadataAliases
+          || !(a.getPrimaryOutput() instanceof DerivedArtifact outputA)
+          || !(b.getPrimaryOutput() instanceof DerivedArtifact outputB)
+          || !outputA.hasGeneratingActionKey()
+          || !outputB.hasGeneratingActionKey()
+          || !outputA.getGeneratingActionKey().equals(outputB.getGeneratingActionKey())) {
+        return false;
+      }
+    } else if (shareable) {
       return artifactsEqualWithoutOwner(
               a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
           && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());
-    }
-
-    // If this is reached, at least one action is not shareable. If the actions differ on this, they
-    // cannot be shared.
-    if (a.isShareable() || b.isShareable()) {
-      return false;
     }
 
     // If the artifacts are in fact equal (with owners), these are aliases of the same action and
@@ -115,9 +133,8 @@ public final class Actions {
   }
 
   /**
-   * Checks whether provided actions are equivalent and adds a log line in case we may be overly
-   * permissive in the result. Returned result is the same as for {@link
-   * #canBeShared(ActionKeyContext, ActionAnalysisMetadata, ActionAnalysisMetadata)}.
+   * Checks whether the actions can be shared and logs potentially imprecise results for tree
+   * artifact inputs.
    *
    * <p>TODO(b/160181927): Remove the logging once we move shared actions detection to execution
    * phase.
@@ -125,9 +142,10 @@ public final class Actions {
   static boolean canBeSharedLogForPotentialFalsePositives(
       ActionKeyContext actionKeyContext,
       ActionAnalysisMetadata actionA,
-      ActionAnalysisMetadata actionB)
+      ActionAnalysisMetadata actionB,
+      boolean allowInputMetadataAliases)
       throws InterruptedException {
-    if (!canBeShared(actionKeyContext, actionA, actionB)) {
+    if (!canBeShared(actionKeyContext, actionA, actionB, allowInputMetadataAliases)) {
       return false;
     }
     Optional<Artifact> treeArtifactInput =
@@ -219,12 +237,15 @@ public final class Actions {
         otherKey);
     int actionIndex = firstKey.getActionIndex();
     int otherIndex = otherKey.getActionIndex();
-    if (actionIndex != otherIndex
-        && (!allowSharedAction
-            || !Actions.canBeSharedLogForPotentialFalsePositives(
-                actionKeyContext, actions.get(actionIndex), actions.get(otherIndex)))) {
-      throw ActionConflictException.create(
-          actionKeyContext, output, actions.get(actionIndex), actions.get(otherIndex));
+    if (actionIndex == otherIndex) {
+      return;
+    }
+    ActionAnalysisMetadata firstAction = actions.get(actionIndex);
+    ActionAnalysisMetadata otherAction = actions.get(otherIndex);
+    if (!allowSharedAction
+        || !canBeSharedLogForPotentialFalsePositives(
+            actionKeyContext, firstAction, otherAction, /* allowInputMetadataAliases= */ false)) {
+      throw ActionConflictException.create(actionKeyContext, output, firstAction, otherAction);
     }
   }
 

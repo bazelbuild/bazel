@@ -24,6 +24,17 @@ import javax.annotation.Nullable;
  * string, or a failure in Starlark evaluation of a compact command line.
  */
 public final class CommandLineExpansionException extends Exception {
+  /** Cause used when fingerprinting a command line requires action-specific input metadata. */
+  public static final class InputMetadataRequiredException extends Exception {
+    public InputMetadataRequiredException() {
+      super(
+          "Command line requires input metadata",
+          null,
+          /* enableSuppression= */ false,
+          /* writableStackTrace= */ false);
+    }
+  }
+
   public CommandLineExpansionException(String userVisibleErrorMessage) {
     this(userVisibleErrorMessage, /*cause=*/ null);
   }
