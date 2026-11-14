@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
@@ -159,15 +158,7 @@ class SingleplexWorker extends Worker {
    * on Windows (https://github.com/bazelbuild/bazel/commit/8efc3ef0)
    */
   protected ImmutableList<String> makeExecPathAbsolute(ImmutableList<String> args) {
-    File executable = new File(args.get(0));
-    if (!executable.isAbsolute() && executable.getParent() != null) {
-      return ImmutableList.<String>builderWithExpectedSize(args.size())
-          .add(new File(workDir.getPathFile(), args.get(0)).getAbsolutePath())
-          .addAll(args.subList(1, args.size()))
-          .build();
-    } else {
-      return args;
-    }
+    return SubprocessBuilder.makeArgv0Absolute(args, workDir.getPathFile());
   }
 
   @Override

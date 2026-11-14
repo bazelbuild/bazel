@@ -256,7 +256,7 @@ public final class DependencySet {
     private static final AtomicReference<String> UNIX_ROOT = new AtomicReference<>(null);
 
     private static final Pattern EXECROOT_BASE_HEADER_PATTERN =
-        Pattern.compile(".*execroot[\\\\/](?<headerPath>.*)");
+        Pattern.compile(".*execroot[\\\\/](?<headerPath>.*)", Pattern.DOTALL);
 
     private static String removeWorkspace(String path) {
       Matcher m = EXECROOT_BASE_HEADER_PATTERN.matcher(path);

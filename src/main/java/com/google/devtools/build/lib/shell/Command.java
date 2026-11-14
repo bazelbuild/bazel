@@ -195,17 +195,9 @@ public final class Command implements DescribableExecutionUnit {
     Preconditions.checkNotNull(commandLineElements);
     Preconditions.checkArgument(!commandLineElements.isEmpty(), "cannot run an empty command line");
 
-    File executable = new File(commandLineElements.get(0));
-    if (!executable.isAbsolute() && executable.getParent() != null) {
-      commandLineElements =
-          ImmutableList.<String>builderWithExpectedSize(commandLineElements.size())
-              .add(new File(workingDirectory, commandLineElements.get(0)).getAbsolutePath())
-              .addAll(commandLineElements.subList(1, commandLineElements.size()))
-              .build();
-    }
-
     this.subprocessBuilder = new SubprocessBuilder(clientEnv);
-    subprocessBuilder.setArgv(ImmutableList.copyOf(commandLineElements));
+    subprocessBuilder.setArgv(
+        SubprocessBuilder.makeArgv0Absolute(commandLineElements, workingDirectory));
     subprocessBuilder.setEnv(environmentVariables);
     subprocessBuilder.setWorkingDirectory(workingDirectory);
     subprocessBuilder.setTimeoutMillis(timeout.toMillis());

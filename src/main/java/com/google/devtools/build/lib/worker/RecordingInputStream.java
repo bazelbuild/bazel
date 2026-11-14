@@ -21,6 +21,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Utf8;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Bytes;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -124,7 +125,7 @@ final class RecordingInputStream extends FilterInputStream {
             .matcher(
                 input.substring(0, Math.min(input.length(), BYTES_PER_HEX_LINE * MAX_HEX_LINES)))
             .find()) {
-      return NON_PRINTABLE_CHARS.matcher(input).replaceAll("?");
+      return StringEncoding.unicodeToInternal(NON_PRINTABLE_CHARS.matcher(input).replaceAll("?"));
     } else {
       List<byte[]> chunks = new ArrayList<>(MAX_HEX_LINES);
       while (chunks.size() * BYTES_PER_HEX_LINE < bytes.length && chunks.size() < MAX_HEX_LINES) {
