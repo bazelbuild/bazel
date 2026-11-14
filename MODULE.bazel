@@ -47,8 +47,7 @@ bazel_dep(name = "apple_support", version = "2.8.4")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 
 # Hermetic LLVM toolchains used to cross-compile Bazel to all supported
-# platforms from any host. They are not registered by default; see the `llvm`
-# config in .bazelrc.
+# platforms from any host. Enabled by default in .bazelrc.
 bazel_dep(name = "llvm", version = "0.8.21")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
@@ -84,6 +83,16 @@ single_version_override(
         "//third_party:grpc-windows-env-stdlib.patch",
     ],
     version = "1.76.0.bcr.1",
+)
+
+# Makes abseil link its Windows system libraries (dbghelp, bcrypt) with -l<lib>
+# when it is built with MinGW clang.
+# TODO: Remove once abseil includes
+# https://github.com/abseil/abseil-cpp/pull/2172.
+single_version_override(
+    module_name = "abseil-cpp",
+    patch_strip = 1,
+    patches = ["//third_party:abseil-cpp-mingw-clang.patch"],
 )
 
 # bazel_dep overrides
@@ -144,7 +153,11 @@ single_version_override(
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
-    patches = ["//third_party:protobuf.patch"],
+    patches = [
+        "//third_party:protobuf.patch",
+        # Fixes the build of a protobuf tool with MinGW clang.
+        "//third_party:protobuf-mingw-setmode.patch",
+    ],
     version = "36.2",
 )
 
@@ -415,9 +428,13 @@ use_repo(
     "openjdk_win_vanilla",
 )
 
-# Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
+# `local_config_cc` is required only by
+# `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc.
+# `local_config_cc_toolchains` is required only to build the Turbine native
+# image with MSVC on Windows, see
+# //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl.
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
-use_repo(cc_configure, "local_config_cc")
+use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
 
 # The hermetic macOS SDK used by the LLVM toolchains only ships a minimal set
 # of frameworks by default. Bazel's native code additionally needs CoreServices
@@ -507,6 +524,14 @@ use_repo(
 bazel_dep(name = "bazel_ci_rules", version = "2.1.2")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
+
+# MinGW already defines ssize_t, but wabt's generated config.h defines it again
+# on Windows.
+single_version_override(
+    module_name = "wabt",
+    patch_strip = 1,
+    patches = ["//third_party:wabt-mingw-ssize_t.patch"],
+)
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(

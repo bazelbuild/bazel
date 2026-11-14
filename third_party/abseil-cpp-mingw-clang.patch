@@ -1,0 +1,30 @@
+diff --git a/absl/BUILD.bazel b/absl/BUILD.bazel
+--- a/absl/BUILD.bazel
++++ b/absl/BUILD.bazel
+@@ -44,6 +44,18 @@ config_setting(
+     visibility = [":__subpackages__"],
+ )
+ 
++# Clang targeting Windows with the GNU ABI (MinGW) reports itself as "clang".
++config_setting(
++    name = "mingw-clang_compiler",
++    constraint_values = [
++        "@platforms//os:windows",
++    ],
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "clang",
++    },
++    visibility = [":__subpackages__"],
++)
++
+ config_setting(
+     name = "fuchsia",
+     constraint_values = [
+@@ -57,6 +69,7 @@ selects.config_setting_group(
+     match_any = [
+         ":mingw_unspecified_compiler",
+         ":mingw-gcc_compiler",
++        ":mingw-clang_compiler",
+     ],
+     visibility = [":__subpackages__"],
+ )

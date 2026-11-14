@@ -214,6 +214,8 @@ TEST_F(BazelStartupOptionsTest,
 #endif  // __linux || __APPLE__
 
 #if defined(__WIN32__) || defined(__CYGWIN__)
+// On Windows, the output base name is a short hash of the workspace path, see
+// GetHashedBaseDir in blaze_util_windows.cc.
 TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
   SetEnv("USER", "gandalf");
   SetEnv("HOME", "C:\\Users\\gandalf");
@@ -224,10 +226,10 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
 
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
             startup_options_->output_user_root);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
-            startup_options_->install_base);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  ASSERT_EQ(
+      blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -241,10 +243,10 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithUserProfile) {
 
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
             startup_options_->output_user_root);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
-            startup_options_->install_base);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  ASSERT_EQ(
+      blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -260,8 +262,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithTestTmpdir) {
             startup_options_->output_user_root);
   EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/install/deadbeef"),
             startup_options_->install_base);
-  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -277,8 +278,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithXdgCacheHome) {
             startup_options_->output_user_root);
   EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/install/deadbeef"),
             startup_options_->install_base);
-  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 #endif  // __WIN32__ || __CYGWIN__

@@ -379,8 +379,7 @@ windows_llvm_alias(
 )
 
 # Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
-# Not registered by default; it is only used with the `llvm` config in .bazelrc
-# and by :bazel_windows_llvm.
+# Enabled by default in .bazelrc and used by :bazel_windows_llvm.
 windows_resource_compiler_toolchain(
     name = "llvm_rc",
     rc_exe = "@llvm//tools:llvm-rc",
