@@ -34,8 +34,9 @@ public class CustomFailureDetailPublisher {
 
   private CustomFailureDetailPublisher() {}
 
+  /** Sets the path of the file to write the failure detail to, as an internal string. */
   public static void setFailureDetailFilePath(String path) {
-    failureDetailFilePath = Paths.get(path);
+    failureDetailFilePath = Paths.get(StringEncoding.internalToPlatform(path));
   }
 
   @VisibleForTesting
@@ -47,7 +48,7 @@ public class CustomFailureDetailPublisher {
     Path path = CustomFailureDetailPublisher.failureDetailFilePath;
     if (path != null) {
       try {
-        Files.write(path, failureDetail.toByteArray());
+        Files.write(path, DetailedExitCode.toUnicode(failureDetail).toByteArray());
         return true;
       } catch (IOException ioe) {
         System.err.printf(

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.buildtool.buildevent;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -127,15 +129,15 @@ public abstract class BuildStartingEvent implements BuildEvent {
             .setStartTime(Timestamps.fromMillis(request().getStartTime()))
             .setStartTimeMillis(request().getStartTime())
             .setBuildToolVersion(BlazeVersionInfo.instance().getVersion())
-            .setOptionsDescription(request().getOptionsDescription())
+            .setOptionsDescription(internalToUnicode(request().getOptionsDescription()))
             .setCommand(request().getCommandName())
             .setServerPid(ProcessHandle.current().pid())
-            .setWorkingDirectory(pwd())
-            .setHost(NetUtil.getCachedShortHostName())
-            .setUser(UserUtils.getUserName())
+            .setWorkingDirectory(internalToUnicode(pwd()))
+            .setHost(internalToUnicode(NetUtil.getCachedShortHostName()))
+            .setUser(internalToUnicode(UserUtils.getUserName()))
             .setJavaVersionInfo(javaVersionInfo);
     if (workspace() != null) {
-      started.setWorkspaceDirectory(workspace());
+      started.setWorkspaceDirectory(internalToUnicode(workspace()));
     }
     return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
   }

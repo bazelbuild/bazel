@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -23,8 +24,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 /** An event in which the command line options are discovered. */
@@ -80,26 +83,32 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
         BuildEventStreamProtos.OptionsParsed.newBuilder();
 
     OptionsParsingResult options = getStartupOptions();
-    optionsBuilder.addAllStartupOptions(OptionsUtils.asArgumentList(options));
+    optionsBuilder.addAllStartupOptions(toUnicode(OptionsUtils.asArgumentList(options)));
     optionsBuilder.addAllExplicitStartupOptions(
-        OptionsUtils.asArgumentList(
-            Iterables.filter(
-                options.asListOfExplicitOptions(),
-                input -> !Objects.equals(input.getSource(), "default"))));
+        toUnicode(
+            OptionsUtils.asArgumentList(
+                Iterables.filter(
+                    options.asListOfExplicitOptions(),
+                    input -> !Objects.equals(input.getSource(), "default")))));
     options = getOptions();
-    optionsBuilder.addAllCmdLine(OptionsUtils.asArgumentList(options));
+    optionsBuilder.addAllCmdLine(toUnicode(OptionsUtils.asArgumentList(options)));
     optionsBuilder.addAllExplicitCmdLine(
-        OptionsUtils.asArgumentList(
-            Iterables.filter(
-                options.asListOfExplicitOptions(),
-                input -> Objects.equals(input.getSource(), "command line options"))));
+        toUnicode(
+            OptionsUtils.asArgumentList(
+                Iterables.filter(
+                    options.asListOfExplicitOptions(),
+                    input -> Objects.equals(input.getSource(), "command line options")))));
 
     optionsBuilder.setInvocationPolicy(getInvocationPolicy());
 
     CommonCommandOptions commonOptions = getOptions().getOptions(CommonCommandOptions.class);
-    optionsBuilder.setToolTag(commonOptions.getToolTag());
+    optionsBuilder.setToolTag(StringEncoding.internalToUnicode(commonOptions.getToolTag()));
 
     return GenericBuildEvent.protoChaining(this).setOptionsParsed(optionsBuilder.build()).build();
+  }
+
+  private static List<String> toUnicode(List<String> args) {
+    return Lists.transform(args, StringEncoding::internalToUnicode);
   }
 
   @Override
