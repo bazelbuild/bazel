@@ -25,11 +25,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
@@ -50,9 +53,11 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -103,6 +108,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -379,8 +385,11 @@ public class CombinedCacheTest {
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     remoteCache.setRemotePathChecker(
-        (context, path) ->
-            immediateFuture(!path.relativeTo(execRoot).equals(PathFragment.create("foo"))));
+        (context, path, digest) ->
+            immediateFuture(
+                path.relativeTo(execRoot).equals(PathFragment.create("foo"))
+                    ? Optional.empty()
+                    : Optional.of(path)));
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -406,7 +415,7 @@ public class CombinedCacheTest {
       throws Exception {
     RemoteExecutionCache remoteCache = newRemoteExecutionCache(new InMemoryCacheClient());
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
-    remoteCache.setRemotePathChecker((context, path) -> immediateFuture(false));
+    remoteCache.setRemotePathChecker((context, path, digest) -> immediateFuture(Optional.empty()));
 
     // Source files in external repositories are located outside the exec root.
     Path path = fs.getPath("/outputbase/external/repo/foo");
@@ -426,6 +435,317 @@ public class CombinedCacheTest {
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("external/repo/foo"));
+  }
+
+  @Test
+  public void uploadFile_remoteInputOnActionFileSystem_readsLocalCopyWithoutDownloading()
+      throws Exception {
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "bar");
+    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(artifact, remoteMetadata(digest), inputFetcher);
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext,
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    assertThat(
+            getFromFuture(
+                remoteCache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(digest))))
+        .isEmpty();
+    verifyNoInteractions(inputFetcher);
+  }
+
+  @Test
+  public void uploadFile_staleLocalCopyOfRemoteInput_reportsLostInput() throws Exception {
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(new InMemoryCacheClient());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "baz");
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
+
+    var e =
+        assertThrows(
+            CacheNotFoundException.class,
+            () ->
+                getFromFuture(
+                    remoteCache.uploadFile(
+                        remoteActionExecutionContext,
+                        digest,
+                        actionFs.getPath(artifact.getPath().asFragment()),
+                        artifact.getExecPath(),
+                        /* force= */ false)));
+    assertThat(e.getMissingDigest()).isEqualTo(digest);
+  }
+
+  @Test
+  public void uploadFile_remoteInputOnlyInDiskCache_uploadsFromDiskCacheWithoutDownloading()
+      throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
+    RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(artifact, remoteMetadata(digest), inputFetcher);
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext,
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    assertThat(
+            getFromFuture(
+                remoteCache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(digest))))
+        .isEmpty();
+    verifyNoInteractions(inputFetcher);
+    assertThat(artifact.getPath().exists()).isFalse();
+  }
+
+  @Test
+  public void uploadFile_staleLocalCopyOfRemoteInputInDiskCache_uploadsFromDiskCache()
+      throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "baz");
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext,
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    var uploaded = new ByteArrayOutputStream();
+    getFromFuture(cacheProtocol.downloadBlob(remoteActionExecutionContext, digest, uploaded));
+    assertThat(uploaded.toString(UTF_8)).isEqualTo("bar");
+  }
+
+  @Test
+  public void uploadFile_remoteInputMaterializedAsSymlink_readsLocalTarget() throws Exception {
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "alias");
+    Artifact target = ActionsTestUtil.createArtifact(artifactRoot, "target");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    target.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(target.getPath(), "bar");
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact,
+            FileArtifactValue.createFromExistingWithResolvedPath(
+                remoteMetadata(digest), target.getPath().asFragment()),
+            mock(RemoteActionInputFetcher.class));
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext,
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    assertThat(
+            getFromFuture(
+                remoteCache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(digest))))
+        .isEmpty();
+    assertThat(artifact.getPath().exists()).isFalse();
+  }
+
+  @Test
+  public void uploadFile_diskCacheLookupFails_uploadsValidLocalCopy() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        spy(new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true));
+    doThrow(new IOException("lookup failed")).when(diskCacheClient).findBlob(any());
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "bar");
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
+
+    getFromFuture(
+        remoteCache.uploadFile(
+            remoteActionExecutionContext,
+            digest,
+            actionFs.getPath(artifact.getPath().asFragment()),
+            artifact.getExecPath(),
+            /* force= */ false));
+
+    var uploaded = new ByteArrayOutputStream();
+    getFromFuture(cacheProtocol.downloadBlob(remoteActionExecutionContext, digest, uploaded));
+    assertThat(uploaded.toString(UTF_8)).isEqualTo("bar");
+  }
+
+  @Test
+  public void uploadFile_uploadFromDiskCacheFails_propagatesFailure() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    InMemoryCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    var failure = new IOException("upload failed");
+    doReturn(Futures.immediateFailedFuture(failure))
+        .when(cacheProtocol)
+        .uploadBlobImpl(any(), any(), any());
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
+
+    var e =
+        assertThrows(
+            IOException.class,
+            () ->
+                getFromFuture(
+                    remoteCache.uploadFile(
+                        remoteActionExecutionContext,
+                        digest,
+                        actionFs.getPath(artifact.getPath().asFragment()),
+                        artifact.getExecPath(),
+                        /* force= */ false)));
+    assertThat(e).isSameInstanceAs(failure);
+  }
+
+  @Test
+  public void uploadFile_diskCacheEntryDeletedBeforeRead_reportsLostInput() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        spy(new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true));
+    // Simulate a concurrent garbage collection that deletes the entry right after it was found.
+    doAnswer(
+            invocation -> {
+              Path path = (Path) invocation.callRealMethod();
+              path.delete();
+              return path;
+            })
+        .when(diskCacheClient)
+        .findBlob(any());
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(
+            new InMemoryCacheClient(),
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    Artifact artifact = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Digest digest = digestUtil.computeAsUtf8("bar");
+    diskCacheClient.saveFile(digest, Store.CAS, new ByteArrayInputStream("bar".getBytes(UTF_8)));
+    RemoteActionFileSystem actionFs =
+        createActionFileSystemWithInput(
+            artifact, remoteMetadata(digest), mock(RemoteActionInputFetcher.class));
+
+    var e =
+        assertThrows(
+            CacheNotFoundException.class,
+            () ->
+                getFromFuture(
+                    remoteCache.uploadFile(
+                        remoteActionExecutionContext,
+                        digest,
+                        actionFs.getPath(artifact.getPath().asFragment()),
+                        artifact.getExecPath(),
+                        /* force= */ false)));
+    assertThat(e.getMissingDigest()).isEqualTo(digest);
+    assertThat(e.getExecPath()).isEqualTo(artifact.getExecPath());
+  }
+
+  private RemoteActionFileSystem createActionFileSystemWithInput(
+      Artifact artifact, FileArtifactValue metadata, RemoteActionInputFetcher inputFetcher) {
+    ActionInputMap inputs = new ActionInputMap(1);
+    inputs.put(artifact, metadata);
+    return new RemoteActionFileSystem(
+        fs, execRoot.asFragment(), artifactRoot.getExecPathString(), inputs, inputFetcher);
+  }
+
+  private static FileArtifactValue remoteMetadata(Digest digest) {
+    return FileArtifactValue.createForRemoteFileWithMaterializationData(
+        DigestUtil.toBinaryDigest(digest),
+        digest.getSizeBytes(),
+        /* locationIndex= */ 1,
+        /* expirationTime= */ null,
+        /* inMemoryOutput= */ false);
   }
 
   @Test
@@ -482,17 +802,17 @@ public class CombinedCacheTest {
         .when(cacheProtocol)
         .findMissingDigests(any(), any());
 
-    SettableFuture<Boolean> missingInputAvailable = SettableFuture.create();
+    SettableFuture<Optional<Path>> missingInputAvailable = SettableFuture.create();
     CountDownLatch remotePathChecked = new CountDownLatch(1);
     remoteCache.setRemotePathChecker(
-        (context, path) -> {
+        (context, path, digest) -> {
           PathFragment execPath = path.relativeTo(execRoot);
           if (execPath.equals(PathFragment.create("outputs/foo"))
               || execPath.equals(PathFragment.create("outputs/bar"))) {
             remotePathChecked.countDown();
             return missingInputAvailable;
           }
-          return immediateFuture(true);
+          return immediateFuture(Optional.of(path));
         });
 
     Artifact foo = ActionsTestUtil.createArtifact(artifactRoot, "foo");
@@ -573,7 +893,7 @@ public class CombinedCacheTest {
     assertThat(findMissingDigestsCalls.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
         .isTrue();
 
-    missingInputAvailable.set(false);
+    missingInputAvailable.set(Optional.empty());
     fooThread.join();
     barThread.join();
 

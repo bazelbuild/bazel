@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
@@ -35,6 +34,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -67,6 +68,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -77,12 +79,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * An interface used to check whether a given {@link Path} is available without contacting the
-   * remote cache, i.e., it is present on the local disk, perhaps after being downloaded from the
-   * disk cache.
+   * An interface used to find a copy of a given {@link Path} that is available without contacting
+   * the remote cache, i.e., is present on the local disk or in the disk cache.
    */
   public interface RemotePathChecker {
-    ListenableFuture<Boolean> isAvailableLocally(RemoteActionExecutionContext context, Path path);
+    /**
+     * Returns the path to read the contents with the given digest from, or empty if they aren't
+     * available locally.
+     */
+    ListenableFuture<Optional<Path>> getLocalPath(
+        RemoteActionExecutionContext context, Path path, Digest digest);
   }
 
   /**
@@ -94,39 +100,38 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private final AsyncTaskCache<Digest, Boolean> findMissingCache = AsyncTaskCache.create();
 
   private RemotePathChecker remotePathChecker =
-      new RemotePathChecker() {
-        @Override
-        public ListenableFuture<Boolean> isAvailableLocally(
-            RemoteActionExecutionContext context, Path path) {
-          var fs = path.getFileSystem();
-          if (!(fs instanceof RemoteActionFileSystem remoteActionFileSystem)) {
-            return immediateFuture(true);
+      (context, path, digest) -> {
+        if (!(path.getFileSystem() instanceof RemoteActionFileSystem remoteActionFileSystem)) {
+          return immediateFuture(Optional.of(path));
+        }
+        try {
+          var hostFs = remoteActionFileSystem.getHostFileSystem();
+          if (!(path.statIfFound(Symlinks.FOLLOW) instanceof FileStatusWithMetadata status)
+              || !status.getMetadata().isRemote()) {
+            var hostPath = hostFs.getPath(path.asFragment());
+            return immediateFuture(hostPath.exists() ? Optional.of(hostPath) : Optional.empty());
           }
-          // If the file is available in the disk cache, we can attempt to download it from there.
-          ListenableFuture<Void> downloadFromDiskCache = immediateVoidFuture();
-          if (context.getReadCachePolicy().allowDiskCache()) {
-            downloadFromDiskCache =
-                Futures.catchingAsync(
-                    remoteActionFileSystem.downloadIfRemote(path.asFragment()),
-                    IOException.class,
-                    e -> {
-                      logger.atWarning().withCause(e).log(
-                          "Failed to download %s", path.getPathString());
-                      return immediateVoidFuture();
-                    },
-                    directExecutor());
+          if (diskCacheClient != null && context.getReadCachePolicy().allowDiskCache()) {
+            try {
+              var diskCachePath = diskCacheClient.findBlob(digest);
+              if (diskCachePath != null) {
+                return immediateFuture(Optional.of(diskCachePath));
+              }
+            } catch (IOException e) {
+              logger.atWarning().withCause(e).log(
+                  "Failed to look up %s in the disk cache", path.getPathString());
+            }
           }
-          return Futures.transformAsync(
-              downloadFromDiskCache,
-              _ -> {
-                try {
-                  return immediateFuture(
-                      remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()));
-                } catch (IOException e) {
-                  return immediateFailedFuture(e);
-                }
-              },
-              directExecutor());
+          // A local copy of a remote input may be stale.
+          var metadata = status.getMetadata();
+          var resolvedPath = metadata.getResolvedPath();
+          var hostPath = hostFs.getPath(resolvedPath != null ? resolvedPath : path.asFragment());
+          return immediateFuture(
+              AbstractActionInputPrefetcher.shouldDownloadFile(hostPath, metadata)
+                  ? Optional.empty()
+                  : Optional.of(hostPath));
+        } catch (IOException e) {
+          return immediateFailedFuture(e);
         }
       };
 
@@ -223,16 +228,34 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       PathFragment execPath,
       boolean force) {
     return Futures.transformAsync(
-        remotePathChecker.isAvailableLocally(context, path),
-        isAvailableLocally -> {
-          if (!isAvailableLocally) {
+        remotePathChecker.getLocalPath(context, path, digest),
+        localPath -> {
+          if (localPath.isEmpty()) {
             // If we get here, the remote input was determined to exist in the remote or disk
             // cache at some point before action execution, but reported to be missing when
             // querying the remote for missing action inputs; possibly because it was evicted in
             // the interim.
             throw new CacheNotFoundException(digest, execPath);
           }
-          return uploadOrChunkFile(context, digest, path, force);
+          var upload = uploadOrChunkFile(context, digest, localPath.get(), force);
+          if (diskCacheClient == null
+              || !localPath.get().equals(diskCacheClient.toPath(digest, Store.CAS))) {
+            return upload;
+          }
+          return Futures.catchingAsync(
+              upload,
+              IOException.class,
+              e -> {
+                // The entry may have been deleted after it was found, e.g. by a concurrent garbage
+                // collection of the disk cache. Report it as lost so that it can be regenerated.
+                if (!localPath.get().exists()) {
+                  var cacheNotFoundException = new CacheNotFoundException(digest, execPath);
+                  cacheNotFoundException.addSuppressed(e);
+                  throw cacheNotFoundException;
+                }
+                throw e;
+              },
+              directExecutor());
         },
         directExecutor());
   }

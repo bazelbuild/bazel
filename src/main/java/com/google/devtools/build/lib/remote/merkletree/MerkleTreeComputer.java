@@ -18,8 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -92,6 +90,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -855,15 +855,64 @@ public final class MerkleTreeComputer {
     if (subTreeFutures == null) {
       return immediateFuture(ImmutableMap.of());
     }
-    return transform(
-        allAsList(subTreeFutures),
+    // Wait for all subtrees to complete instead of failing as soon as the first one does. Subtree
+    // computations read the inputs of the spawn, which only stay unchanged while it is executing,
+    // so they must not outlive it. This also reports the lost inputs of all subtrees at once
+    // rather than one subtree per round of rewinding.
+    var allSubTreeFutures = subTreeFutures;
+    return Futures.whenAllComplete(allSubTreeFutures)
+        .call(() -> collectSubTrees(allSubTreeFutures), directExecutor());
+  }
+
+  /**
+   * Collects the results of the given completed subtree futures.
+   *
+   * <p>If all subtrees that failed did so due to lost inputs, the failures are merged into a single
+   * {@link BulkTransferException} that reports all lost inputs. Otherwise, an unexpected failure or
+   * the first other failure is rethrown unchanged.
+   */
+  private static <T> ImmutableMap<T, MerkleTree.RootOnly> collectSubTrees(
+      List<ListenableFuture<Map.Entry<T, MerkleTree.RootOnly>>> subTreeFutures) {
+    var subTrees = new LinkedHashMap<T, MerkleTree.RootOnly>();
+    // Subtree computations are shared, so the same failure may be reported for multiple entries.
+    var failures = new LinkedHashSet<Throwable>();
+    for (var future : subTreeFutures) {
+      try {
+        var entry = Futures.getDone(future);
         // The same entry may appear multiple times (see SpawnInputs#flatten()).
-        entries ->
-            entries.stream()
-                .collect(
-                    toImmutableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (first, second) -> first)),
-        directExecutor());
+        subTrees.putIfAbsent(entry.getKey(), entry.getValue());
+      } catch (ExecutionException e) {
+        failures.add(e.getCause());
+      } catch (CancellationException e) {
+        var interruptedException = new InterruptedException();
+        interruptedException.initCause(e);
+        failures.add(new WrappedException(interruptedException));
+      }
+    }
+    if (failures.isEmpty()) {
+      return ImmutableMap.copyOf(subTrees);
+    }
+
+    var lostInputs = new BulkTransferException();
+    WrappedException otherFailure = null;
+    for (Throwable failure : failures) {
+      switch (failure) {
+        case WrappedException e
+            when e.getCause() instanceof IOException ioException
+                && BulkTransferException.allCausedByCacheNotFoundException(ioException) ->
+            lostInputs.add(ioException);
+        case WrappedException e -> {
+          if (otherFailure == null) {
+            otherFailure = e;
+          }
+        }
+        default -> {
+          Throwables.throwIfUnchecked(failure);
+          throw new IllegalStateException(failure);
+        }
+      }
+    }
+    throw otherFailure != null ? otherFailure : new WrappedException(lostInputs);
   }
 
   @Nullable

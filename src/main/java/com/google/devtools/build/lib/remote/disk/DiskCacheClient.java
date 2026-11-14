@@ -51,6 +51,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * An on-disk store for the remote action cache.
@@ -214,6 +215,19 @@ public class DiskCacheClient {
           }
         },
         directExecutor());
+  }
+
+  /**
+   * If the blob with the given digest exists, marks it as recently used and returns the path of the
+   * file holding it, which must only be read.
+   *
+   * @return the path of the blob or null if it doesn't exist.
+   * @throws IOException if an I/O error other than a missing file occurs.
+   */
+  @Nullable
+  public Path findBlob(Digest digest) throws IOException {
+    var path = toPath(digest, Store.CAS);
+    return refresh(path) ? path : null;
   }
 
   /**

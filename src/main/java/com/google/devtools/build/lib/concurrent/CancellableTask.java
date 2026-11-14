@@ -129,13 +129,14 @@ public final class CancellableTask<E extends Exception> {
    * Requests cancellation without waiting for the task to quiesce.
    *
    * <p>If the task has not started, this prevents it from starting and runs the completion action
-   * on its behalf before returning. Otherwise, it interrupts the thread executing the task body,
-   * which may still be executing when this method returns. Call {@link #awaitCompletion} afterward
-   * if quiescence is required without requesting cancellation a second time.
+   * on its behalf before returning. Otherwise, it interrupts the thread executing the task body if
+   * {@code mayInterruptIfRunning} is true. The body may still be executing when this method
+   * returns. Call {@link #awaitCompletion} afterward if quiescence is required without requesting
+   * cancellation a second time.
    *
    * @throws IllegalStateException if called from the task body or completion action
    */
-  public void requestCancellation() {
+  public void requestCancellation(boolean mayInterruptIfRunning) {
     boolean preventedStart;
     synchronized (this) {
       preventedStart =
@@ -149,9 +150,12 @@ public final class CancellableTask<E extends Exception> {
               if (executingThread == Thread.currentThread()) {
                 throw new IllegalStateException("task cannot cancel itself");
               }
-              // Interrupt while holding the state lock so that the task cannot enter its completion
-              // action between publishing the executing thread and receiving the interrupt.
-              Objects.requireNonNull(executingThread).interrupt();
+              if (mayInterruptIfRunning) {
+                // Interrupt while holding the state lock so that the task cannot enter its
+                // completion action between publishing the executing thread and receiving the
+                // interrupt.
+                Objects.requireNonNull(executingThread).interrupt();
+              }
               yield false;
             }
             case COMPLETING_AFTER_RUNNING, COMPLETING_WITHOUT_RUNNING -> {
@@ -208,7 +212,7 @@ public final class CancellableTask<E extends Exception> {
    *     which can await the task
    */
   public void cancelAndAwait() throws InterruptedException {
-    requestCancellation();
+    requestCancellation(/* mayInterruptIfRunning= */ true);
     awaitCompletion();
   }
 

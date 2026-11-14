@@ -55,6 +55,7 @@ java_library(
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
         "//third_party/java/mockito",
+        "//third_party/java/rxjava3",
         "//third_party/java/truth",
     ],
 )

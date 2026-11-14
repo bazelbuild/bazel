@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -264,8 +265,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.outputPermissions = outputPermissions;
   }
 
-  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
-      throws IOException {
+  static boolean shouldDownloadFile(Path path, FileArtifactValue metadata) throws IOException {
     var stat = path.statIfFound();
     if (stat == null) {
       return true;
@@ -429,28 +429,43 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       mergedTransfer = mergeBulkTransfer(transfers);
     }
 
-    return Futures.transformAsync(
-        mergedTransfer,
-        unused -> {
-          try {
-            // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
-            for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
-              Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
-              lock.lock();
-              try {
-                for (Path dir : entry.getValue()) {
-                  directoryTracker.setOutputPermissions(dir);
+    var restorePermissions =
+        new CancellableTask<IOException>(
+            () -> {
+              // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
+              for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
+                Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
+                lock.lock();
+                try {
+                  for (Path dir : entry.getValue()) {
+                    directoryTracker.setOutputPermissions(dir);
+                  }
+                } finally {
+                  lock.unlock();
                 }
-              } finally {
-                lock.unlock();
               }
-            }
-          } catch (IOException e) {
-            return immediateFailedFuture(e);
+            });
+    ListenableFuture<Void> result =
+        Futures.transformAsync(
+            mergedTransfer,
+            ignored -> {
+              try {
+                var unused = restorePermissions.runIfNotCancelled();
+              } catch (IOException e) {
+                return immediateFailedFuture(e);
+              }
+              return immediateVoidFuture();
+            },
+            directExecutor());
+    result.addListener(
+        () -> {
+          if (result.isCancelled()) {
+            restorePermissions.requestCancellation(/* mayInterruptIfRunning= */ false);
+            restorePermissions.awaitCompletionUninterruptibly();
           }
-          return immediateVoidFuture();
         },
         directExecutor());
+    return result;
   }
 
   private ListenableFuture<Void> prefetchFile(
@@ -781,16 +796,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                                 priority,
                                 reason),
                         directExecutor())
-                    .doOnComplete(
-                        () -> {
-                          finalizeDownload(
-                              metadata,
-                              tempPath.forHostFileSystem(),
-                              finalPath,
-                              finalTreeRoot,
-                              permissionsMode);
-                          alreadyDeleted.set(true);
-                        }));
+                    .andThen(
+                        awaitableAction(
+                            () -> {
+                              finalizeDownload(
+                                  metadata,
+                                  tempPath.forHostFileSystem(),
+                                  finalPath,
+                                  finalTreeRoot,
+                                  permissionsMode);
+                              alreadyDeleted.set(true);
+                            })));
 
     return downloadCache.execute(
         finalPath,
@@ -902,7 +918,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Path linkPath = symlink.linkPath().forHostFileSystem();
     return downloadCache.execute(
         linkPath,
-        Completable.defer(
+        awaitableAction(
             () -> {
               if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
                 // If the symlink is a source file in an external repo, its parent directory may not
@@ -913,9 +929,33 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               // whose root directory is created before the action runs.
               linkPath.delete();
               linkPath.createSymbolicLink(symlink.targetPath());
-              return Completable.complete();
             }),
         forceRefetch(linkPath));
+  }
+
+  /**
+   * Returns a {@link Completable} that runs {@code action} on subscription and whose disposal
+   * either prevents the action from starting or waits for it to finish.
+   */
+  private static Completable awaitableAction(CancellableTask.Task<IOException> action) {
+    return Completable.create(
+        emitter -> {
+          var task = new CancellableTask<>(action);
+          emitter.setCancellable(
+              () -> {
+                // The action runs on the thread that completed the download, which must not be
+                // interrupted.
+                task.requestCancellation(/* mayInterruptIfRunning= */ false);
+                task.awaitCompletionUninterruptibly();
+              });
+          try {
+            if (task.runIfNotCancelled()) {
+              emitter.onComplete();
+            }
+          } catch (IOException e) {
+            emitter.tryOnError(e);
+          }
+        });
   }
 
   /**
