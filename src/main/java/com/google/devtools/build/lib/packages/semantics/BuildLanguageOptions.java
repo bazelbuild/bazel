@@ -298,6 +298,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getIncompatibleAlwaysCheckDepsetElements();
 
   @Option(
+      name = "incompatible_disable_build_prelude",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Disable the implicit //tools/build_rules:prelude_bazel for BUILD files in every"
+              + " repository. Use explicit load() statements for symbols from the prelude.")
+  public abstract boolean getIncompatibleDisableBuildPrelude();
+
+  @Option(
       name = "incompatible_disable_target_default_provider_fields",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -947,6 +958,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY,
                 getIncompatibleCheckExternalRepoSourceDirPackageBoundary())
+            .setBool(INCOMPATIBLE_DISABLE_BUILD_PRELUDE, getIncompatibleDisableBuildPrelude())
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, getIncompatibleDisallowEmptyGlob())
             .setBool(
                 INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
@@ -1153,6 +1165,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY =
       "-incompatible_check_external_repo_source_dir_package_boundary";
+
+  public static final String INCOMPATIBLE_DISABLE_BUILD_PRELUDE =
+      "-incompatible_disable_build_prelude";
 
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";
