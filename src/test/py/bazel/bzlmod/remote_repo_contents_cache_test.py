@@ -16,7 +16,9 @@
 # pylint: disable=g-bad-todo
 
 import os
+import subprocess
 import tempfile
+import time
 from absl.testing import absltest
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
@@ -31,6 +33,171 @@ CROSS_REPO_SYMLINKS_CACHEABLE = False
 class RemoteRepoContentsCacheTest(
     remote_repo_contents_cache_test_base.RemoteRepoContentsCacheTestBase
 ):
+
+
+  def testRemoteOutputService(self):
+    if self.IsWindows():
+      self.skipTest('Requires a POSIX shell and output-directory symlinks')
+
+    output_root = tempfile.mkdtemp(dir=self._tests_root)
+    with tempfile.TemporaryFile(dir=self._test_cwd) as server_log:
+      server = subprocess.Popen(
+          [
+              self.Rlocation('io_bazel/src/tools/remote/test_output_service'),
+              '--singlejar',
+              output_root,
+              self._cas_path,
+          ],
+          stdout=server_log,
+          stderr=server_log,
+          env=self._EnvMap(env_add=self._runfiles.EnvVars()),
+      )
+      try:
+        port_file = os.path.join(output_root, 'port')
+        deadline = time.monotonic() + 30
+        while not os.path.exists(port_file):
+          self.assertIsNone(
+              server.poll(), 'Output service exited before startup'
+          )
+          self.assertLess(
+              time.monotonic(), deadline, 'Output service startup timed out'
+          )
+          time.sleep(0.1)
+        with open(port_file) as f:
+          port = f.read().strip()
+        self.ScratchFile(
+            '.bazelrc',
+            [
+                'common --experimental_remote_output_service=grpc://localhost:'
+                + port,
+                'common --experimental_remote_output_service_output_path_prefix='
+                + output_root,
+            ],
+            mode='a',
+        )
+        self.ScratchFile(
+            'MODULE.bazel',
+            [
+                'repo = use_repo_rule("//:repo.bzl", "repo")',
+                'repo(name = "my_repo")',
+            ],
+        )
+        self.ScratchFile(
+            'repo.bzl',
+            [
+                'def _repo_impl(rctx):',
+                (
+                    '  rctx.file("BUILD.bazel",'
+                    ' \'exports_files(["template.txt", "input.txt", "unused.txt"])\')'
+                ),
+                '  rctx.file("template.txt", "hello @name@\\n")',
+                '  rctx.file("input.txt", "cached repository input\\n")',
+                '  rctx.file("unused.txt", "not needed\\n")',
+                '  print("FETCHED OUTPUT SERVICE REPO")',
+                '  return rctx.repo_metadata(reproducible=True)',
+                'repo = repository_rule(_repo_impl)',
+            ],
+        )
+        repo_dir = self.RepoDir('my_repo')
+        _, stdout, _ = self.RunBazel(['info', 'execution_root'])
+        template_path = os.path.join(
+            stdout[0], 'external', os.path.basename(repo_dir), 'template.txt'
+        )
+        self.ScratchFile(
+            'rules.bzl',
+            [
+                'def _expand_impl(ctx):',
+                '  link = ctx.actions.declare_symlink(ctx.label.name + ".link")',
+                '  ctx.actions.symlink(output = link, target_path = ' +
+                repr(template_path) + ')',
+                '  out = ctx.actions.declare_file(ctx.label.name + ".txt")',
+                '  ctx.actions.expand_template(',
+                '      template = link,',
+                '      output = out,',
+                '      substitutions = {"@name@": "world"},',
+                '  )',
+                '  return [DefaultInfo(files = depset([out]))]',
+                'def _copy_impl(ctx):',
+                '  out = ctx.actions.declare_file(ctx.label.name + ".txt")',
+                '  ctx.actions.run_shell(inputs = [ctx.file.src], outputs = [out],',
+                '      arguments = [ctx.file.src.path, out.path],',
+                "      command = 'cat \"$1\" > \"$2\"')",
+                '  return [DefaultInfo(files = depset([out]))]',
+                'expand = rule(',
+                '    implementation = _expand_impl,',
+                '    attrs = {"src": attr.label(allow_single_file = True)},',
+                ')',
+                'copy = rule(',
+                '    implementation = _copy_impl,',
+                '    attrs = {"src": attr.label(allow_single_file = True)},',
+                ')',
+            ],
+        )
+        self.ScratchFile(
+            'BUILD.bazel',
+            [
+                'load(":rules.bzl", "copy", "expand")',
+                'expand(name = "expanded", src = "@my_repo//:template.txt")',
+                'copy(name = "copied", src = "@my_repo//:input.txt")',
+            ],
+        )
+        # Populate the remote repository cache, then remove all local state.
+        _, _, stderr = self.RunBazel(['build', '@my_repo//:input.txt'])
+        self.assertIn('FETCHED OUTPUT SERVICE REPO', '\n'.join(stderr))
+        self.RunBazel(['clean', '--expunge'])
+
+        # Read through symlinks in the daemon's output tree and the exec root,
+        # crossing from the native file system into the repository overlay.
+        _, _, stderr = self.RunBazel(['build', '//:expanded'])
+        self.assertNotIn('FETCHED OUTPUT SERVICE REPO', '\n'.join(stderr))
+        with open(self.Path('bazel-bin/expanded.txt')) as f:
+          self.assertEqual(f.read(), 'hello world\n')
+        self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD.bazel')))
+        self.assertFalse(os.path.exists(os.path.join(repo_dir, 'template.txt')))
+        self.assertFalse(os.path.exists(os.path.join(repo_dir, 'input.txt')))
+
+        # A local spawn materializes only its input and uploads its output.
+        self.RunBazel([
+            'build',
+            '//:copied',
+            '--spawn_strategy=local',
+        ])
+        with open(self.Path('bazel-bin/copied.txt')) as f:
+          self.assertEqual(f.read(), 'cached repository input\n')
+        self.assertTrue(os.path.exists(os.path.join(repo_dir, 'input.txt')))
+        self.assertFalse(os.path.exists(os.path.join(repo_dir, 'template.txt')))
+        self.assertFalse(os.path.exists(os.path.join(repo_dir, 'unused.txt')))
+        output_path = os.path.realpath(self.Path('bazel-out'))
+        self.assertTrue(
+            output_path.startswith(os.path.realpath(output_root) + os.sep)
+        )
+        self.RunBazel(['clean', '--expunge'])
+
+        # On an action-cache hit, the daemon stages the output from CAS while
+        # the repository inputs remain remote.
+        _, _, stderr = self.RunBazel(
+            ['build', '//:copied', '--remote_download_minimal']
+        )
+        self.assertNotIn('FETCHED OUTPUT SERVICE REPO', '\n'.join(stderr))
+        with open(self.Path('bazel-bin/copied.txt')) as f:
+          self.assertEqual(f.read(), 'cached repository input\n')
+        self.assertFalse(os.path.exists(os.path.join(repo_dir, 'input.txt')))
+        self.assertFalse(os.path.exists(os.path.join(repo_dir, 'unused.txt')))
+        with open(os.path.join(output_root, 'requests.log')) as f:
+          requests = f.read()
+        self.assertRegex(requests, r'(?m)^StageArtifacts .*/copied\.txt$')
+        self.assertRegex(requests, r'(?m)^FinalizeArtifacts .*/copied\.txt$')
+        self.assertRegex(requests, r'(?m)^BatchStat .*/copied\.txt$')
+      finally:
+        self.RunBazel(['shutdown'], allow_failure=True)
+        server.terminate()
+        try:
+          server.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+          server.kill()
+          server.wait()
+        server_log.seek(0)
+        print('Output service log:\n' + server_log.read().decode('utf-8'))
 
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(

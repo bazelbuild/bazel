@@ -14,18 +14,35 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.Tree;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatRequest;
+import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeArtifactsRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.FinalizeArtifactsResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifactsRequest;
@@ -33,20 +50,34 @@ import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StageArtifac
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildResponse;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.protobuf.Any;
 import com.google.rpc.Status;
 import io.grpc.Channel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.After;
 import org.junit.Before;
@@ -63,6 +94,7 @@ public class BazelOutputServiceTest {
       extends BazelOutputServiceGrpc.BazelOutputServiceImplBase {
     private final List<StageArtifactsRequest> stageRequests = new ArrayList<>();
     private final List<FinalizeArtifactsRequest> finalizeRequests = new ArrayList<>();
+    private final Map<String, Any> stagedArtifacts = new HashMap<>();
 
     @Override
     public void startBuild(
@@ -78,10 +110,29 @@ public class BazelOutputServiceTest {
       stageRequests.add(request);
       StageArtifactsResponse.Builder response = StageArtifactsResponse.newBuilder();
       for (int i = 0; i < request.getArtifactsCount(); i++) {
+        var artifact = request.getArtifacts(i);
+        stagedArtifacts.put(artifact.getPath(), artifact.getLocator());
         response.addResponses(
             StageArtifactsResponse.Response.newBuilder()
                 .setStatus(Status.newBuilder().setCode(0).build()) // OK
                 .build());
+      }
+      responseObserver.onNext(response.build());
+      responseObserver.onCompleted();
+    }
+
+    @Override
+    public void batchStat(
+        BatchStatRequest request, StreamObserver<BatchStatResponse> responseObserver) {
+      var response = BatchStatResponse.newBuilder();
+      for (String path : request.getPathsList()) {
+        var statResponse = response.addResponsesBuilder();
+        var locator = stagedArtifacts.get(path);
+        if (locator != null) {
+          statResponse.setStat(
+              BatchStatResponse.Stat.newBuilder()
+                  .setFile(BatchStatResponse.Stat.File.newBuilder().setLocator(locator)));
+        }
       }
       responseObserver.onNext(response.build());
       responseObserver.onCompleted();
@@ -176,6 +227,194 @@ public class BazelOutputServiceTest {
         service.startBuild(
             UUID.randomUUID(), "workspace", mock(EventHandler.class), /* finalizeActions= */ true);
     return service;
+  }
+
+  @Test
+  public void actionFileSystem_withoutRemoteRepoContentsCache_disabled() throws Exception {
+    BazelOutputService service = createService(10000);
+
+    assertThat(service.actionFileSystemType()).isEqualTo(ActionFileSystemType.DISABLED);
+    assertThat(service.supportsPathResolverForArtifactValues()).isFalse();
+    assertThat(service.shouldStoreRemoteOutputMetadataInActionCache()).isFalse();
+  }
+
+  @Test
+  public void actionFileSystem_readsCachedRepositoryThroughExecRootSymlink() throws Exception {
+    BazelOutputService service = createService(10000);
+    var externalRoot = outputBase.getRelative("external").asFragment();
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, fileSystem);
+    var contents = "cached repository input".getBytes(UTF_8);
+    var digest = digestUtil.compute(contents);
+    var cache = new InMemoryCombinedCache(ImmutableMap.of(digest, contents), digestUtil);
+    var fetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(),
+            "build-request",
+            "command",
+            cache,
+            overlay.getPath(execRoot.asFragment()),
+            new TempPathGenerator(fileSystem.getPath("/downloads")),
+            new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of()),
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.READONLY);
+    overlay.beforeCommand(
+        cache,
+        fetcher,
+        new Reporter(),
+        "build-request",
+        "command",
+        () -> mock(MemoizingEvaluator.class),
+        Duration.ofHours(1));
+    try {
+      assertThat(
+              overlay.injectRemoteRepo(
+                  RepositoryName.create("repo"),
+                  Tree.newBuilder()
+                      .setRoot(
+                          Directory.newBuilder()
+                              .addFiles(FileNode.newBuilder().setName("data.txt").setDigest(digest))
+                              .addFiles(
+                                  FileNode.newBuilder().setName("unused.txt").setDigest(digest)))
+                      .build(),
+                  "marker"))
+          .isTrue();
+      execRoot
+          .getRelative("external")
+          .createSymbolicLink(externalRoot, SymlinkTargetType.DIRECTORY);
+      var sourceLabel = Label.parseCanonical("@@repo//:data.txt");
+      var source =
+          new Artifact.SourceArtifact(
+              ArtifactRoot.asExternalSourceRoot(
+                  Root.fromPath(overlay.getPath(externalRoot.getChild("repo")))),
+              PathFragment.create("external/repo/data.txt"),
+              () -> sourceLabel);
+      var inputs = new ActionInputMap(1);
+      inputs.put(source, ((FileStatusWithMetadata) source.getPath().stat()).getMetadata());
+      var actionFileSystemService =
+          new RemoteOutputService(mock(BlazeDirectories.class), /* rewindLostInputs= */ true);
+      actionFileSystemService.setActionInputFetcher(fetcher, mock(WalkableGraph.class));
+      service.setActionFileSystemService(actionFileSystemService);
+      var actionFs =
+          service.createActionFileSystem(
+              overlay,
+              execRoot.asFragment(),
+              "outputs",
+              ImmutableList.of(),
+              inputs,
+              ImmutableList.of(),
+              /* rewindingEnabled= */ true);
+
+      assertThat(service.actionFileSystemType()).isEqualTo(ActionFileSystemType.REMOTE_FILE_SYSTEM);
+      assertThat(service.supportsPathResolverForArtifactValues()).isTrue();
+      assertThat(service.shouldStoreRemoteOutputMetadataInActionCache()).isFalse();
+      assertThat(service.getRewoundActionSynchronizer())
+          .isInstanceOf(RemoteRewoundActionSynchronizer.class);
+      assertThat(
+              FileSystemUtils.readContent(
+                  actionFs.getPath(execRoot.getRelative(source.getExecPath()).asFragment()), UTF_8))
+          .isEqualTo("cached repository input");
+      var resolver =
+          service.createPathResolverForArtifactValues(
+              execRoot.asFragment(), "outputs", overlay, ImmutableList.of(), inputs);
+      assertThat(FileSystemUtils.readContent(resolver.toPath(source), UTF_8))
+          .isEqualTo("cached repository input");
+      // Reading an input in-process need not materialize the entire repository on the host.
+      assertThat(source.getPath().forHostFileSystem().exists()).isFalse();
+      // A local spawn needs the same input on disk, without materializing unused repo files.
+      var unused =
+          fetcher
+              .prefetchFilesInterruptibly(
+                  /* action= */ null,
+                  ImmutableList.of(source),
+                  inputs::getInputMetadata,
+                  Priority.MEDIUM,
+                  Reason.INPUTS)
+              .get();
+      service.flushOutputTree();
+      assertThat(FileSystemUtils.readContent(source.getPath().forHostFileSystem(), UTF_8))
+          .isEqualTo("cached repository input");
+      assertThat(
+              source
+                  .getPath()
+                  .getParentDirectory()
+                  .getChild("unused.txt")
+                  .forHostFileSystem()
+                  .exists())
+          .isFalse();
+      assertThat(fakeService.getStageRequests()).isEmpty();
+    } finally {
+      overlay.afterCommand();
+      fetcher.shutdown();
+    }
+  }
+
+  @Test
+  public void actionFileSystem_outputMetadataHandledByDaemon() throws Exception {
+    var overlay =
+        new RemoteExternalOverlayFileSystem(
+            outputBase.getRelative("external").asFragment(), fileSystem);
+    execRoot = overlay.getPath(execRoot.asFragment());
+    BazelOutputService service = createService(10000);
+    var actionFileSystemService =
+        new RemoteOutputService(mock(BlazeDirectories.class), /* rewindLostInputs= */ false);
+    actionFileSystemService.setActionInputFetcher(
+        mock(RemoteActionInputFetcher.class), mock(WalkableGraph.class));
+    service.setActionFileSystemService(actionFileSystemService);
+    var actionFs =
+        service.createActionFileSystem(
+            overlay,
+            execRoot.asFragment(),
+            "outputs",
+            ImmutableList.of(),
+            new ActionInputMap(0),
+            ImmutableList.of(),
+            /* rewindingEnabled= */ false);
+    var output = actionFs.getPath(outputPath.getRelative("file").asFragment());
+    var digest = digestUtil.compute("output contents".getBytes(UTF_8));
+    FileMetadata file = mock(FileMetadata.class);
+    when(file.path()).thenReturn(output);
+    when(file.digest()).thenReturn(digest);
+
+    service.stageArtifacts(ImmutableList.of(file));
+
+    assertThat(fakeService.getStageRequests().get(0).getArtifacts(0).getPath()).isEqualTo("file");
+    var xattrProvider = service.getXattrProvider(SyscallCache.NO_CACHE);
+    assertThat(xattrProvider.getFastDigest(output)).isEqualTo(DigestUtil.toBinaryDigest(digest));
+    var resolvedOutput = actionFs.getPath("/prefix/suffix/file");
+    assertThat(xattrProvider.getFastDigest(resolvedOutput))
+        .isEqualTo(DigestUtil.toBinaryDigest(digest));
+
+    var stats =
+        service
+            .getBatchStatter()
+            .batchStat(
+                ImmutableList.of(
+                    PathFragment.create("outputs/file"),
+                    FileSystemUtils.relativePath(
+                        execRoot.asFragment(), resolvedOutput.asFragment()),
+                    PathFragment.create("source")));
+    assertThat(stats).hasSize(3);
+    assertThat(stats.get(0).getDigest()).isEqualTo(DigestUtil.toBinaryDigest(digest));
+    assertThat(stats.get(1).getDigest()).isEqualTo(DigestUtil.toBinaryDigest(digest));
+    assertThat(stats.get(2)).isNull();
+
+    var artifact = ActionsTestUtil.createArtifact(artifactRoot, "file");
+    var metadata = mock(FileArtifactValue.class);
+    when(metadata.getType()).thenReturn(FileStateType.REGULAR_FILE);
+    when(metadata.getDigest()).thenReturn(DigestUtil.toBinaryDigest(digest));
+    when(metadata.getSize()).thenReturn(digest.getSizeBytes());
+    var outputMetadataStore = mock(OutputMetadataStore.class);
+    when(outputMetadataStore.getOutputMetadata(artifact)).thenReturn(metadata);
+    var action = mock(Action.class);
+    when(action.getOutputs()).thenReturn(ImmutableList.of(artifact));
+
+    service.finalizeAction(action, outputMetadataStore);
+
+    assertThat(fakeService.getFinalizeRequests()).hasSize(1);
+    assertThat(fakeService.getFinalizeRequests().get(0).getArtifacts(0).getPath())
+        .isEqualTo("file");
+    assertThat(fakeService.getFinalizeRequests().get(0).getArtifacts(0).getLocator())
+        .isEqualTo(fakeService.getStageRequests().get(0).getArtifacts(0).getLocator());
   }
 
   @Test
