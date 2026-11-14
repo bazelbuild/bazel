@@ -119,6 +119,7 @@ public class HttpDownloader implements Downloader {
    * e.g. {@link java.io.FileNotFoundException}), and the earlier failures are attached to it as
    * suppressed exceptions.
    */
+  @Override
   public byte[] downloadAndRead(
       List<URI> urls,
       Credentials credentials,

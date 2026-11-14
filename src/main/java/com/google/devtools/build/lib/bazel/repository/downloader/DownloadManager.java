@@ -67,7 +67,6 @@ public class DownloadManager {
   private ImmutableList<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
-  private final HttpDownloader bzlmodHttpDownloader;
   private final ExtendedEventHandler eventHandler;
   private boolean disableDownload = false;
   private int retries = 0;
@@ -84,17 +83,11 @@ public class DownloadManager {
    *
    * @param downloader The (delegating) downloader to use to download files. Is either a
    *     HttpDownloader, or a GrpcRemoteDownloader.
-   * @param bzlmodHttpDownloader The downloader to use for downloading files from the bzlmod
-   *     registry.
    */
   public DownloadManager(
-      DownloadCache downloadCache,
-      Downloader downloader,
-      HttpDownloader bzlmodHttpDownloader,
-      ExtendedEventHandler eventHandler) {
+      DownloadCache downloadCache, Downloader downloader, ExtendedEventHandler eventHandler) {
     this.downloadCache = downloadCache;
     this.downloader = downloader;
-    this.bzlmodHttpDownloader = bzlmodHttpDownloader;
     this.eventHandler = eventHandler;
   }
 
@@ -463,7 +456,7 @@ public class DownloadManager {
     for (int attempt = 0; ; ++attempt) {
       try {
         content =
-            bzlmodHttpDownloader.downloadAndRead(
+            downloader.downloadAndRead(
                 rewrittenUrls,
                 credentialFactory.create(authHeaders),
                 checksum,

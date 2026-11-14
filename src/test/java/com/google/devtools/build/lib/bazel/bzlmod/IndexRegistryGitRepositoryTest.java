@@ -45,7 +45,7 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
    * @param sourceJson The source.json the {@link DownloadManager} should return.
    */
   private DownloadManager mockDownloadManager(String sourceJson) throws Exception {
-    return new DownloadManager(new DownloadCache(), null, null, reporter) {
+    return new DownloadManager(new DownloadCache(), null, reporter) {
       @Override
       public byte[] downloadAndReadOneUrlForBzlmod(
           URI url, Map<String, String> clientEnv, Optional<Checksum> checksum) {

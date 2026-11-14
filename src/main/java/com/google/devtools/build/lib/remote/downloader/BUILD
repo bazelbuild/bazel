@@ -34,6 +34,8 @@ java_library(
         "//third_party/java/grpc:protobuf",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf/util:time",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_proto",
