@@ -131,13 +131,6 @@ public abstract sealed class Artifact
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
 
-  /** The name of the main repository's directory in runfiles trees. */
-  public static final StarlarkSemantics.Key<String> MAIN_REPO_RUNFILES_DIRECTORY =
-      new StarlarkSemantics.Key<>("main_repo_runfiles_directory", "_main");
-
-  private static final String EXTERNAL_PATH_PREFIX_WITH_SEPARATOR =
-      LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + PathFragment.SEPARATOR_CHAR;
-
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SerializationConstant
   @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
@@ -693,27 +686,16 @@ public abstract sealed class Artifact
    * Returns the path of this artifact relative to the root of a runfiles tree, which is the path
    * runfiles libraries accept.
    */
-  public final String getRlocationPathString(String mainRepoRunfilesDirectory) {
-    String execPathString = execPath.getPathString();
-    if (root.isSourceRoot()) {
-      if (root.isExternal()) {
-        return execPathString.substring(EXTERNAL_PATH_PREFIX_WITH_SEPARATOR.length());
-      }
-      return mainRepoRunfilesDirectory + PathFragment.SEPARATOR_CHAR + execPathString;
-    }
-    int rootRelativePathStart = root.getExecPath().getPathString().length() + 1;
-    if (execPathString.startsWith(EXTERNAL_PATH_PREFIX_WITH_SEPARATOR, rootRelativePathStart)) {
-      return execPathString.substring(
-          rootRelativePathStart + EXTERNAL_PATH_PREFIX_WITH_SEPARATOR.length());
-    }
-    return mainRepoRunfilesDirectory
-        + PathFragment.SEPARATOR_CHAR
-        + execPathString.substring(rootRelativePathStart);
+  public final PathFragment getRlocationPath(String mainRepoRunfilesDirectory) {
+    PathFragment runfilesPath = getRunfilesPath();
+    return runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
+        ? runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
+        : PathFragment.create(mainRepoRunfilesDirectory).getRelative(runfilesPath);
   }
 
   @Override
-  public final String getRlocationPathForStarlark(StarlarkSemantics semantics) {
-    return getRlocationPathString(semantics.get(MAIN_REPO_RUNFILES_DIRECTORY));
+  public final String getRlocationPathString() {
+    return getRlocationPath(LabelConstants.MAIN_REPO_RUNFILES_DIRECTORY).getPathString();
   }
 
   public final String prettyPrint() {

@@ -347,9 +347,7 @@ public final class LocationExpander {
       return switch (pathType) {
         case LOCATION -> artifact.getRunfilesPath();
         case EXEC -> artifact.getExecPath();
-        case RLOCATION ->
-            PathFragment.createAlreadyNormalized(
-                artifact.getRlocationPathString(workspaceRunfilesDirectory));
+        case RLOCATION -> artifact.getRlocationPath(workspaceRunfilesDirectory);
       };
     }
 

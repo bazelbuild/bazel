@@ -123,7 +123,6 @@ public interface FileApi extends StarlarkValue {
   @StarlarkMethod(
       name = "rlocation_path",
       structField = true,
-      useStarlarkSemantics = true,
       doc =
           "The path of this file relative to the root of a runfiles tree, which is the path that"
               + " the <code>Rlocation</code> function of runfiles libraries accepts. This is the"
@@ -138,7 +137,7 @@ public interface FileApi extends StarlarkValue {
               + " map_each = _rlocation_path)</code> with a top-level function"
               + " <code>_rlocation_path</code> that returns <code>f.rlocation_path</code> over"
               + " building a list of strings during analysis.")
-  String getRlocationPathForStarlark(StarlarkSemantics semantics);
+  String getRlocationPathString();
 
   @StarlarkMethod(
       name = "path",
