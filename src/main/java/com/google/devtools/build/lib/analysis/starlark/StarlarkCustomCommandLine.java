@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -1569,10 +1570,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public String getRlocationPathForStarlark(StarlarkSemantics semantics) {
-      // The remainder of the exec path starts with a separator.
-      return fileset.getRlocationPathString(semantics.get(Artifact.MAIN_REPO_RUNFILES_DIRECTORY))
-          + execPath.getPathString().substring(fileset.getExecPath().getPathString().length());
+    public String getRlocationPathString() {
+      PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
+      return fileset
+          .getRlocationPath(LabelConstants.MAIN_REPO_DIR_NAME)
+          .getRelative(relativePath)
+          .getPathString();
     }
 
     @Override
