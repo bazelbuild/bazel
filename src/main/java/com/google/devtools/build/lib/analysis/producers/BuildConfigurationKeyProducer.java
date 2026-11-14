@@ -153,12 +153,7 @@ public final class BuildConfigurationKeyProducer<C>
     if (targetPlatforms.size() == 1) {
       // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
       //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
-      tasks.enqueue(
-          new PlatformProducer(
-              targetPlatforms.getFirst(),
-              options.get(CoreOptions.class).getCommandLineFlagAliasesMap(),
-              this,
-              DONE));
+      tasks.enqueue(new PlatformProducer(targetPlatforms.getFirst(), options, this, DONE));
       // Not the PlatformProducer's runAfter so that it also waits for the flag details lookup.
       return this::checkTargetPlatformFlags;
     } else {
