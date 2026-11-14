@@ -103,8 +103,11 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             return immediateFuture(true);
           }
           // If the file is available in the disk cache, we can attempt to download it from there.
+          // This deliberately ignores context.getReadCachePolicy(). That policy says whether the
+          // result of the action being executed may come from a cache. But the file here is one of
+          // its inputs, and those may always come from the disk cache.
           ListenableFuture<Void> downloadFromDiskCache = immediateVoidFuture();
-          if (context.getReadCachePolicy().allowDiskCache()) {
+          if (hasDiskCache()) {
             downloadFromDiskCache =
                 Futures.catchingAsync(
                     remoteActionFileSystem.downloadIfRemote(path.asFragment()),
