@@ -876,6 +876,12 @@ static void MountAllMounts() {
     }
   }
   for (const std::string& writable_file : opt.writable_files) {
+    // Paths outside the sandbox root are gone after ChangeRoot, and binding an
+    // ancestor of the root (e.g. /tmp) would hide later writable mounts in it.
+    if (GetRelativePath(writable_file) == writable_file) {
+      PRINT_DEBUG("writable outside sandbox root: %s", writable_file.c_str());
+      continue;
+    }
     PRINT_DEBUG("writable: %s", writable_file.c_str());
     if (mount(writable_file.c_str(), writable_file.c_str(), nullptr,
               MS_BIND | MS_REC, nullptr) < 0) {
