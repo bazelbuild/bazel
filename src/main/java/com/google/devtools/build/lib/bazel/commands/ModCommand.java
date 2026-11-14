@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
@@ -57,7 +58,10 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -75,7 +79,10 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
+import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -85,6 +92,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.NodeEntry;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -95,12 +105,16 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.Set;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 
@@ -245,6 +259,18 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
     }
 
+    if (subcommand == ModSubcommand.TIDY
+        && !args.isEmpty()
+        && !options
+            .getOptions(BuildLanguageOptions.class)
+            .toStarlarkSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_NON_ROOT_REGISTRATIONS)) {
+      return reportAndCreateFailureResult(
+          env,
+          "Target patterns for 'tidy' require --incompatible_restrict_non_root_registrations",
+          Code.INVALID_ARGUMENTS);
+    }
+
     ImmutableList.Builder<RepositoryMappingValue.Key> repositoryMappingKeysBuilder =
         ImmutableList.builder();
     if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
@@ -268,6 +294,8 @@ public final class ModCommand implements BlazeCommand {
     BazelDepGraphValue depGraphValue;
     @Nullable BazelModuleInspectorValue moduleInspector;
     @Nullable BazelModTidyValue modTidyValue;
+    @Nullable BazelModTidyValue.Key modTidyKey = null;
+    @Nullable ModTidyScope.Result modTidyScope = null;
     ImmutableList<RepositoryMappingValue> repoMappingValues;
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -286,7 +314,52 @@ public final class ModCommand implements BlazeCommand {
       if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
         keys.addAll(repoMappingKeys);
       } else if (subcommand.equals(ModSubcommand.TIDY)) {
-        keys.add(BazelModTidyValue.KEY);
+        if (args.isEmpty()) {
+          modTidyKey = BazelModTidyValue.KEY;
+        } else {
+          EvaluationResult<SkyValue> scopePrerequisites =
+              skyframeExecutor.evaluate(
+                  ImmutableList.of(
+                      BazelDepGraphValue.KEY, RepositoryMappingValue.key(RepositoryName.MAIN)),
+                  /* keepGoing= */ false,
+                  threadsOption.getThreads(),
+                  env.getReporter());
+          if (scopePrerequisites.hasError()) {
+            return reportAndCreateFailureResult(
+                env,
+                scopePrerequisites.getError().getException() != null
+                    ? scopePrerequisites.getError().getException().getMessage()
+                    : "Unexpected error during module graph evaluation.",
+                Code.MOD_COMMAND_UNKNOWN);
+          }
+          var mainRepoMapping =
+              (RepositoryMappingValue)
+                  scopePrerequisites.get(RepositoryMappingValue.key(RepositoryName.MAIN));
+          var mainRepoParser =
+              new TargetPattern.Parser(
+                  env.getRelativeWorkingDirectory(),
+                  RepositoryName.MAIN,
+                  mainRepoMapping.repositoryMapping());
+          ImmutableList<SignedTargetPattern> targetPatterns;
+          try {
+            targetPatterns = TargetPatternUtil.parseAllSigned(args, mainRepoParser);
+          } catch (InvalidTargetPatternException e) {
+            return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
+          }
+          try (SilentCloseable c =
+              Profiler.instance().profile(ProfilerTask.BZLMOD, "compute mod tidy scope")) {
+            modTidyScope =
+                ModTidyScope.compute(
+                    skyframeExecutor,
+                    env.getReporter(),
+                    threadsOption.getThreads(),
+                    (BazelDepGraphValue) scopePrerequisites.get(BazelDepGraphValue.KEY),
+                    mainRepoMapping.repositoryMapping(),
+                    targetPatterns);
+          }
+          modTidyKey = BazelModTidyValue.key(modTidyScope.extensions());
+        }
+        keys.add(modTidyKey);
       } else {
         keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
       }
@@ -315,7 +388,8 @@ public final class ModCommand implements BlazeCommand {
       moduleInspector =
           (BazelModuleInspectorValue) evaluationResult.get(BazelModuleInspectorValue.KEY);
 
-      modTidyValue = (BazelModTidyValue) evaluationResult.get(BazelModTidyValue.KEY);
+      modTidyValue =
+          modTidyKey != null ? (BazelModTidyValue) evaluationResult.get(modTidyKey) : null;
 
       repoMappingValues =
           repoMappingKeys.stream()
@@ -357,10 +431,23 @@ public final class ModCommand implements BlazeCommand {
       }
       return BlazeCommandResult.success();
     } else if (subcommand == ModSubcommand.TIDY) {
-      // tidy doesn't take extra arguments.
-      if (!args.isEmpty()) {
-        return reportAndCreateFailureResult(
-            env, "the 'tidy' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
+      if (modTidyScope != null) {
+        // The workspace lockfile contains exactly the extensions that the scope needs, which
+        // includes those that are only evaluated as dependencies of other extensions or packages.
+        try {
+          env.getRuntime()
+              .getBlazeModule(BazelLockFileModule.class)
+              .restrictWorkspaceLockfileTo(
+                  collectExtensionsReachableFrom(
+                      skyframeExecutor.getEvaluator().getInMemoryGraph(),
+                      Iterables.concat(
+                          modTidyScope.evaluatedKeys(), ImmutableList.of(modTidyKey))));
+        } catch (InterruptedException e) {
+          String errorMessage = "mod command interrupted: " + e.getMessage();
+          env.getReporter().handle(Event.error(errorMessage));
+          return BlazeCommandResult.detailedExitCode(
+              InterruptedFailureDetails.detailedExitCode(errorMessage));
+        }
       }
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
@@ -716,6 +803,34 @@ public final class ModCommand implements BlazeCommand {
       }
     }
     return targetToRepoName.buildKeepingLast();
+  }
+
+  private static ImmutableSet<ModuleExtensionId> collectExtensionsReachableFrom(
+      InMemoryGraph graph, Iterable<SkyKey> rootKeys) throws InterruptedException {
+    ImmutableSet.Builder<ModuleExtensionId> extensions = ImmutableSet.builder();
+    Queue<SkyKey> nodes = new ArrayDeque<>();
+    Set<SkyKey> visited = new HashSet<>();
+    for (SkyKey rootKey : rootKeys) {
+      if (visited.add(rootKey)) {
+        nodes.add(rootKey);
+      }
+    }
+    while (!nodes.isEmpty()) {
+      SkyKey key = nodes.remove();
+      if (key.functionName().equals(SkyFunctions.SINGLE_EXTENSION_EVAL)) {
+        extensions.add((ModuleExtensionId) key.argument());
+      }
+      NodeEntry nodeEntry = graph.get(null, Reason.OTHER_NEEDING_VALUE_AND_DEPS, key);
+      if (nodeEntry == null || !nodeEntry.isDone()) {
+        continue;
+      }
+      for (SkyKey depKey : nodeEntry.getDirectDeps()) {
+        if (visited.add(depKey)) {
+          nodes.add(depKey);
+        }
+      }
+    }
+    return extensions.build();
   }
 
   private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {

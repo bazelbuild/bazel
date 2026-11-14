@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -156,6 +157,57 @@ public class StarlarkBazelModule implements StarlarkValue {
         module.getVersion().getNormalized(),
         new Tags(Maps.transformValues(typeCheckedTags, StarlarkList::immutableCopyOf)),
         module.getKey().equals(ModuleKey.ROOT));
+  }
+
+  /**
+   * Returns the labels in the attribute values of all tags in the given usages of the given
+   * extension.
+   */
+  public static ImmutableSet<Label> getLabelsInTags(
+      ModuleExtension extension, SingleExtensionUsagesValue usages) throws ExternalDepsException {
+    var labels = ImmutableSet.<Label>builder();
+    ImmutableList<AbridgedModule> abridgedModules = usages.getAbridgedModules();
+    for (int i = 0; i < abridgedModules.size(); i++) {
+      var abridgedModule = abridgedModules.get(i);
+      var tags =
+          create(
+                  abridgedModule,
+                  extension,
+                  usages.getRepoMappings().get(abridgedModule.getKey()),
+                  usages.getExtensionUsages().get(abridgedModule.getKey()),
+                  new Label.SimpleRepoMappingRecorder(),
+                  i)
+              .getTags();
+      try {
+        for (String tagClassName : tags.getFieldNames()) {
+          for (Object tag : (Iterable<?>) tags.getValue(tagClassName)) {
+            var typeCheckedTag = (TypeCheckedTag) tag;
+            for (String attribute : typeCheckedTag.getFieldNames()) {
+              collectLabels(typeCheckedTag.getValue(attribute), labels);
+            }
+          }
+        }
+      } catch (EvalException e) {
+        // The field names are taken from the same objects.
+        throw new IllegalStateException(e);
+      }
+    }
+    return labels.build();
+  }
+
+  private static void collectLabels(Object value, ImmutableSet.Builder<Label> labels) {
+    if (value instanceof Label label) {
+      labels.add(label);
+    } else if (value instanceof Map<?, ?> map) {
+      for (var entry : map.entrySet()) {
+        collectLabels(entry.getKey(), labels);
+        collectLabels(entry.getValue(), labels);
+      }
+    } else if (value instanceof Iterable<?> iterable) {
+      for (Object element : iterable) {
+        collectLabels(element, labels);
+      }
+    }
   }
 
   @Override
