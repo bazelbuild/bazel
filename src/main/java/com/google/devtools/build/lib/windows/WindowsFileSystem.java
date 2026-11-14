@@ -19,17 +19,23 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.DosFileAttributes;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -160,6 +166,23 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     try {
       nioPath = getNioPath(path);
       attributes = getAttribs(nioPath, followSymlinks);
+    } catch (AccessDeniedException e) {
+      if (followSymlinks && mayBeSymlinkOrJunction(path)) {
+        // Following a file symlink that (transitively) points to a directory fails with an access
+        // denied error. Bazel creates such symlinks when the target doesn't exist yet at the time
+        // the symlink is created. Keep treating them as dangling.
+        FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+        fnfe.initCause(e);
+        throw fnfe;
+      }
+      // The path may well exist, but can't be accessed (yet or anymore), e.g. because of missing
+      // permissions or because it is pending deletion while another process still holds a handle
+      // to it. Reporting it as nonexistent would let callers such as Skyframe permanently record
+      // incorrect information about the file system, so surface the actual error instead. This
+      // matches the behavior of stat on Unix, which doesn't report EACCES as a missing file.
+      FileAccessException fae = new FileAccessException(path + ERR_PERMISSION_DENIED);
+      fae.initCause(e);
+      throw fae;
     } catch (IOException | InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);
@@ -233,6 +256,26 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
+  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
+    Collection<String> children = getDirectoryEntries(path);
+    List<Dirent> dirents = new ArrayList<>(children.size());
+    for (String child : children) {
+      Dirent.Type type = Dirent.Type.UNKNOWN;
+      try {
+        FileStatus stat = statIfFound(path.getChild(child), followSymlinks);
+        if (stat != null) {
+          type = direntFromStat(stat);
+        }
+      } catch (IOException e) {
+        // Intentionally ignored - a single entry that can't be stat'ed (e.g. because it is
+        // inaccessible) shouldn't fail the entire listing. Report it as UNKNOWN instead.
+      }
+      dirents.add(new Dirent(child, type));
+    }
+    return dirents;
+  }
+
+  @Override
   public boolean isSymbolicLink(PathFragment path) throws IOException {
     try {
       return fileIsSymbolicLink(getNioPath(path));
@@ -300,6 +343,18 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @VisibleForTesting
   static boolean isSymlinkOrJunction(Path file) throws IOException {
     return WindowsFileOperations.isSymlinkOrJunction(file.toString());
+  }
+
+  /**
+   * Returns whether the path is a symlink or junction, erring on the side of {@code true} if this
+   * can't be determined.
+   */
+  private boolean mayBeSymlinkOrJunction(PathFragment path) {
+    try {
+      return isSymlinkOrJunction(getNioPath(path));
+    } catch (IOException | InvalidPathException e) {
+      return true;
+    }
   }
 
   private static DosFileAttributes getAttribs(Path file, boolean followSymlinks)
