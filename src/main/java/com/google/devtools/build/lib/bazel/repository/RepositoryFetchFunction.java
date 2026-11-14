@@ -163,8 +163,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
         case null -> {
           return null;
         }
-        case RepoDefinitionValue.NotFound() -> {
-          return new Failure(String.format("Repository '%s' is not defined", repositoryName));
+        case RepoDefinitionValue.NotFound(String detail) -> {
+          return new Failure(
+              String.format(
+                  "Repository '%s' is not defined%s",
+                  repositoryName, detail.isEmpty() ? "" : ": " + detail));
         }
         case RepoDefinitionValue.RepoOverride(PathFragment repoPath) -> {
           return setupOverride(repoPath, env, repoRoot, repositoryName);
