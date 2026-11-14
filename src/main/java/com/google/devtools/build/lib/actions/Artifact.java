@@ -676,6 +676,22 @@ public abstract sealed class Artifact
     return getRunfilesPath().getPathString();
   }
 
+  /**
+   * Returns the path of this artifact relative to the root of a runfiles tree, which is the path
+   * runfiles libraries accept.
+   */
+  public final PathFragment getRlocationPath(String mainRepoRunfilesDirectory) {
+    PathFragment runfilesPath = getRunfilesPath();
+    return runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
+        ? runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
+        : PathFragment.create(mainRepoRunfilesDirectory).getRelative(runfilesPath);
+  }
+
+  @Override
+  public final String getRlocationPathString() {
+    return getRlocationPath(LabelConstants.MAIN_REPO_RUNFILES_DIRECTORY).getPathString();
+  }
+
   public final String prettyPrint() {
     // toDetailString would probably be more useful to users, but lots of tests rely on the
     // current values.
