@@ -179,10 +179,21 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     this.evaluator = null;
   }
 
-  /** Uses the uploaded digests while retaining the repository's files on disk. */
-  void injectUploadedRepo(RepositoryName repo, Tree contents, String markerFile)
+  /**
+   * Uses the uploaded digests while retaining the repository's files on disk.
+   *
+   * <p>Does nothing if the repo was uploaded from a directory other than its directory under the
+   * external root, e.g. from the local repo contents cache entry that the latter is a symlink to.
+   * Serving such a repo from memory would turn its directory into a symlink once it is
+   * materialized.
+   */
+  void injectUploadedRepo(
+      RepositoryName repo, PathFragment uploadedRepoDir, Tree contents, String markerFile)
       throws IOException {
     evictInMemoryRepo(repo.getName());
+    if (!uploadedRepoDir.equals(externalDirectory.getChild(repo.getName()))) {
+      return;
+    }
     try {
       // Match cache-hit metadata so unchanged files can prune invalidation after a fresh fetch.
       injectRepoContents(repo, contents, unused -> {}, unused -> {});
