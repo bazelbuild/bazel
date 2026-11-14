@@ -647,6 +647,69 @@ class LauncherTest(test_base.TestBase):
     classpath = stdout[stdout.index('-classpath') + 1]
     self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.(jar|txt)$')
 
+  def testWindowsJavaTestCoverage(self):
+    if not self.IsWindows():
+      return
+    self.AddBazelDep('rules_java')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_java//java:java_library.bzl", "java_library")',
+            'load("@rules_java//java:java_test.bzl", "java_test")',
+            'java_library(',
+            '  name = "lib",',
+            '  srcs = ["Lib.java"],',
+            ')',
+            'java_test(',
+            '  name = "foo_test",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "foo.Main",',
+            '  use_testrunner = False,',
+            '  deps = [":lib"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo/Lib.java',
+        [
+            'package foo;',
+            'public class Lib {',
+            '  public static int add(int a, int b) {',
+            '    return a + b;',
+            '  }',
+            '}',
+        ],
+    )
+    self.ScratchFile(
+        'foo/Main.java',
+        [
+            'package foo;',
+            'public class Main {',
+            '  public static void main(String[] args) {',
+            '    if (Lib.add(1, 2) != 3) {',
+            '      System.exit(1);',
+            '    }',
+            '  }',
+            '}',
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['coverage', '--test_output=errors', '//foo:foo_test'],
+        allow_failure=True,
+    )
+    _, testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
+    coverage_dat = os.path.join(
+        testlogs[0], 'foo', 'foo_test', 'coverage.dat'
+    )
+    coverage = ''
+    if os.path.exists(coverage_dat):
+      with open(coverage_dat, 'r') as f:
+        coverage = f.read()
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.assertIn('SF:foo/Lib.java', coverage)
+    self.assertIn('DA:4,1', coverage)
+
   def testWindowsShBinaryLauncherWithoutRunfilesManifest(self):
     # Without a runfiles manifest, e.g. in a remotely executed action, the
     # launcher derives the script's path from its own path, so the script's
