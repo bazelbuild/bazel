@@ -347,16 +347,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
                   e),
               Transience.TRANSIENT);
         }
-        if (remoteRepoContentsCache != null && replantSymlinksResult.safeForRemoteCache()) {
-          remoteRepoContentsCache.addToCache(
-              repositoryName,
-              repoRoot,
-              digestWriter.markerPath,
-              digestWriter.predeclaredInputHash,
-              env.getListener());
-        }
+        // Move the repo into the local repo contents cache before uploading it to the remote one:
+        // the upload makes the repo's directory under the external root served from memory, which
+        // would turn the move into a copy.
+        CandidateRepo newCacheEntry = null;
         if (repoContentsCache.isEnabled() && replantSymlinksResult.safeForLocalCache()) {
-          CandidateRepo newCacheEntry;
           try {
             newCacheEntry =
                 repoContentsCache.moveToCache(
@@ -369,6 +364,17 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     e),
                 Transience.TRANSIENT);
           }
+        }
+        if (remoteRepoContentsCache != null && replantSymlinksResult.safeForRemoteCache()) {
+          // If the repo has been moved into the local repo contents cache, upload it from there.
+          remoteRepoContentsCache.addToCache(
+              repositoryName,
+              newCacheEntry != null ? newCacheEntry.contentsDir() : repoRoot,
+              newCacheEntry != null ? newCacheEntry.recordedInputsFile() : digestWriter.markerPath,
+              digestWriter.predeclaredInputHash,
+              env.getListener());
+        }
+        if (newCacheEntry != null) {
           Path cachedRepoDir = newCacheEntry.contentsDir();
           RootedPath cachedRepoDirRootedPath =
               RootedPath.toRootedPath(

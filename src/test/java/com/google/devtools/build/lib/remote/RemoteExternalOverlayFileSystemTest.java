@@ -83,7 +83,7 @@ public final class RemoteExternalOverlayFileSystemTest {
         file.setLastModifiedTimeNanos(123000L);
         root.addFiles(FileNode.newBuilder().setName(name).setDigest(digest));
       }
-      overlay.injectUploadedRepo(repo, Tree.newBuilder().setRoot(root).build(), "marker");
+      overlay.injectUploadedRepo(repo, repoDir, Tree.newBuilder().setRoot(root).build(), "marker");
 
       // The cache is empty: both Starlark and ordinary reads must use the existing local files.
       for (var name : ImmutableList.of("defs.bzl", "data")) {
@@ -101,7 +101,8 @@ public final class RemoteExternalOverlayFileSystemTest {
                       .addFiles(FileNode.newBuilder().setName("data").setDigest(digest))
                       .addFiles(FileNode.newBuilder().setName("../escape").setDigest(digest)))
               .build();
-      assertThrows(IOException.class, () -> overlay.injectUploadedRepo(repo, invalid, "marker"));
+      assertThrows(
+          IOException.class, () -> overlay.injectUploadedRepo(repo, repoDir, invalid, "marker"));
       assertThat(overlay.getPath(repoDir.getChild("data")).getFastDigest()).isNull();
       assertThat(FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("data")), UTF_8))
           .isEqualTo("contents");
@@ -259,6 +260,51 @@ public final class RemoteExternalOverlayFileSystemTest {
               FileSystemUtils.readContent(
                   nativeFs.getPath(externalRoot.getChild(repo.getMarkerFileName())), UTF_8))
           .isEqualTo("marker");
+    } finally {
+      overlay.afterCommand();
+    }
+  }
+
+  @Test
+  public void injectUploadedRepo_fromOtherDirectory_servedFromDisk() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    var externalRoot = PathFragment.create("/output/external");
+    var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
+    overlay.beforeCommand(
+        new InMemoryCombinedCache(digestUtil),
+        mock(AbstractActionInputPrefetcher.class),
+        new Reporter(),
+        "build-request",
+        "command",
+        () -> mock(MemoizingEvaluator.class),
+        Duration.ofMinutes(1));
+    try {
+      // The repo has been moved into the local repo contents cache and uploaded from there.
+      var repo = RepositoryName.create("repo");
+      var cachedRepoDir = PathFragment.create("/cache/hash/uuid");
+      nativeFs.getPath(cachedRepoDir).createDirectoryAndParents();
+      FileSystemUtils.writeContent(nativeFs.getPath(cachedRepoDir.getChild("data")), UTF_8, "x");
+      var repoDir = externalRoot.getChild(repo.getName());
+      nativeFs.getPath(repoDir).getParentDirectory().createDirectoryAndParents();
+      nativeFs.getPath(repoDir).createSymbolicLink(cachedRepoDir);
+      var tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addFiles(
+                          FileNode.newBuilder()
+                              .setName("data")
+                              .setDigest(digestUtil.compute("x".getBytes(UTF_8)))))
+              .build();
+
+      overlay.injectUploadedRepo(repo, cachedRepoDir, tree, "marker");
+
+      // The repo directory remains a symlink into the cache, served from the native file system.
+      assertThat(overlay.getPath(repoDir).isSymbolicLink()).isTrue();
+      assertThat(overlay.getPath(repoDir.getChild("data")).getFastDigest()).isNull();
+      assertThat(FileSystemUtils.readContent(overlay.getPath(repoDir.getChild("data")), UTF_8))
+          .isEqualTo("x");
     } finally {
       overlay.afterCommand();
     }

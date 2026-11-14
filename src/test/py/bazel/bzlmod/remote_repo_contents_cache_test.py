@@ -272,6 +272,63 @@ class RemoteRepoContentsCacheTest(
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
+  def testFreshFetchIsMovedIntoLocalRepoContentsCache(self):
+    # Regression test: uploading a freshly fetched repo to the remote repo
+    # contents cache made the move into the local repo contents cache fall back
+    # to copying (and hashing) every file.
+    if self.IsWindows():
+      self.skipTest('uses ls to obtain the inode of a file')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("data.txt", "hello")',
+            '  result = rctx.execute(["ls", "-i", "data.txt"])',
+            '  inode = result.stdout.strip().split(" ")[0]',
+            '  print("JUST FETCHED, INODE=%s;" % inode)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    repo_contents_cache = tempfile.mkdtemp(dir=os.environ['TEST_TMPDIR'])
+    _, _, stderr = self.RunBazel([
+        'build',
+        '@my_repo//:haha',
+        '--repo_contents_cache=' + repo_contents_cache,
+    ])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    inode = int(stderr.split('INODE=')[1].split(';')[0])
+
+    # The repo has been moved into the local repo contents cache rather than
+    # copied.
+    self.assertTrue(os.path.islink(repo_dir))
+    cached_file = os.path.realpath(os.path.join(repo_dir, 'data.txt'))
+    self.assertTrue(
+        cached_file.startswith(os.path.realpath(repo_contents_cache) + os.sep)
+    )
+    self.assertEqual(os.stat(cached_file).st_ino, inode)
+
+    # The repo has also been uploaded to the remote repo contents cache.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel([
+        'build',
+        '@my_repo//:haha',
+        '--repo_contents_cache=' + repo_contents_cache + '2',
+    ])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
   def testNotCachedWhenPredeclaredInputsChange(self):
     self.ScratchFile(
         'MODULE.bazel',
