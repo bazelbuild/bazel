@@ -228,12 +228,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     private final byte[] digest;
     private final boolean isRemote;
     @Nullable private final PathFragment resolvedPath;
+    private final int fileCount;
 
     TreeArtifactCompositeFileArtifactValue(
-        byte[] digest, boolean isRemote, @Nullable PathFragment resolvedPath) {
+        byte[] digest, boolean isRemote, @Nullable PathFragment resolvedPath, int fileCount) {
       this.digest = digest;
       this.isRemote = isRemote;
       this.resolvedPath = resolvedPath;
+      this.fileCount = fileCount;
     }
 
     @Override
@@ -271,6 +273,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     @Override
     public long getSize() {
       return 0;
+    }
+
+    @Override
+    public int getFileCount() {
+      return fileCount;
     }
 
     @Override
@@ -325,7 +332,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   public FileArtifactValue getMetadata() {
-    return new TreeArtifactCompositeFileArtifactValue(digest, entirelyRemote, resolvedPath);
+    return new TreeArtifactCompositeFileArtifactValue(
+        digest, entirelyRemote, resolvedPath, childData.size());
   }
 
   ImmutableSet<PathFragment> getChildPaths() {

@@ -589,7 +589,8 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                     + " default 250<li>\"local_test\": number of local tests; default 1</ul><p>If a"
                     + " callback function is passed, it accepts two positional arguments: a string"
                     + " representing an OS name (e.g. \"osx\"), and an integer representing the"
-                    + " number of inputs to the action. It must return a dictionary with the same"
+                    + " number of input files to the action, excluding tools, with tree artifacts"
+                    + " and source directories expanded. It must return a dictionary with the same"
                     + " entries described above. The callback must be top-level (lambda and nested"
                     + " functions aren't allowed).<p>If this parameter is set to <code>None</code>,"
                     + " the default values are used."),

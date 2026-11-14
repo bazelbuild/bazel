@@ -131,7 +131,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         ExecutionRequirements.TIMEOUT, Long.toString(action.getTimeout().toSeconds()));
 
     ResourceSetOrBuilder localResources =
-        (os, inputsSize) ->
+        (os, inputsStats) ->
             action
                 .getTestProperties()
                 .getLocalResourceUsage(

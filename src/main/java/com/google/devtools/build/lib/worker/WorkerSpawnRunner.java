@@ -405,11 +405,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
     spawnMetrics.setSetupTime(setupInputsTime);
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
+    ResourceSet localResources = spawn.getLocalResources(context.getInputMetadataProvider());
     ResourceSet resourceSet =
-        ResourceSet.create(
-            spawn.getLocalResources().getResources(),
-            spawn.getLocalResources().getLocalTestCount(),
-            key);
+        ResourceSet.create(localResources.getResources(), localResources.getLocalTestCount(), key);
 
     // Worker doesn't automatically return to pool after closing of the handle.
     ResourceHandle handle = null;

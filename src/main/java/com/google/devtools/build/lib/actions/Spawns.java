@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -219,6 +220,31 @@ public final class Spawns {
     String disablePrefetchRequest =
         spawn.getExecutionInfo().get(ExecutionRequirements.DISABLE_LOCAL_PREFETCH);
     return (disablePrefetchRequest == null) || disablePrefetchRequest.equals("0");
+  }
+
+  /**
+   * Returns the statistics of the inputs of {@code spawn}, excluding its tools, from {@code
+   * inputMetadataProvider}.
+   */
+  static ResourceSetOrBuilder.InputsStats getInputsStats(
+      Spawn spawn, InputMetadataProvider inputMetadataProvider) {
+    return () -> {
+      ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
+      int inputsSize = 0;
+      for (ActionInput input : spawn.getInputFiles().flatten()) {
+        if (toolFiles.contains(input)) {
+          continue;
+        }
+        try {
+          FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+          inputsSize += metadata == null ? 1 : metadata.getFileCount();
+        } catch (IOException e) {
+          throw new EnvironmentalExecException(
+              e, FailureDetails.Execution.Code.ACTION_INPUT_READ_IO_EXCEPTION);
+        }
+      }
+      return inputsSize;
+    };
   }
 
   /**
