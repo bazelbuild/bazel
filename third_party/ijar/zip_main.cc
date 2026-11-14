@@ -133,7 +133,18 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
     }
     std::string normalized_root = normalize_path(output_root_);
     std::string normalized = normalize_path(path);
-    if (normalized.compare(0, normalized_root.size(), normalized_root) != 0) {
+    // Require either the output directory itself or a path below it. A plain
+    // string-prefix check incorrectly treats sibling paths such as
+    // /tmp/outside as being below /tmp/out.
+    std::string root_prefix = normalized_root;
+    if (!root_prefix.empty() && root_prefix.back() != '/' &&
+        root_prefix.back() != '\\') {
+      root_prefix += '/';
+    }
+    const bool is_within_output_root =
+        normalized == normalized_root ||
+        normalized.compare(0, root_prefix.size(), root_prefix) == 0;
+    if (!is_within_output_root) {
       fprintf(stderr,
               "paths in the zip may not end up outside of the output "
               "directory: %s vs "
