@@ -364,7 +364,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "Ha2GsKclGolI6vYa5eX+O1oQRHUEcNsO49QiEmTpllQ=",
+        "bzlTransitiveDigest": "fxXDPlzAlVf06vcjzen68wCDnOkjdmPYu1Z5SMZK3ZE=",
         "usagesDigest": "7jreou9WV8qOgoUM+8bYvk7WC5dIlxvYXDi24CckXQQ=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools"
