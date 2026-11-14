@@ -100,7 +100,9 @@ public class TestConfiguration extends Fragment {
             case its value will be read from the Bazel client environment, or by the
             `name=value` pair.
             Variables can be unset via `=name`, which removes both previously set variables
-            and variables that Bazel sets by default, such as `HOME`.
+            and variables that Bazel sets by default. For `HOME`, the test then uses the value
+            provided by its execution environment, if any, and otherwise the home directory of
+            the current user on Unix.
             This option can be used multiple times to specify several variables.
             Used only by the 'bazel test' command.
             """)
