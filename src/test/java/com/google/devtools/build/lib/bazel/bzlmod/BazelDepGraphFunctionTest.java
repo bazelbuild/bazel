@@ -109,7 +109,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
+                .put(
+                    SkyFunctions.FILE,
+                    new FileFunction(packageLocator, directories, externalFilesHelper))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(

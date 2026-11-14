@@ -160,7 +160,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(
+        SkyFunctions.FILE, new FileFunction(pkgLocator, directories, externalFilesHelper));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Bundle
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -54,6 +57,8 @@ public class ExternalFilesHelper {
   private final Supplier<Path> repoContentsCachePathSupplier;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
   private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
+  private static final Interner<Root> repoContentsCacheEntryRoots =
+      BlazeInterners.newWeakInterner();
 
   // These variables are set to true from multiple threads, but only read in the main thread.
   // So volatility or an AtomicBoolean is not needed.
@@ -125,6 +130,29 @@ public class ExternalFilesHelper {
   @Nullable
   public Path getRepoContentsCachePath() {
     return repoContentsCachePathSupplier.get();
+  }
+
+  /**
+   * Returns the root of the repo contents cache entry that contains {@code path}, or {@code null}
+   * if there is no such entry.
+   */
+  @Nullable
+  Root getRepoContentsCacheEntryRoot(Path path) {
+    Path repoContentsCachePath = repoContentsCachePathSupplier.get();
+    if (repoContentsCachePath == null || !path.startsWith(repoContentsCachePath)) {
+      return null;
+    }
+    // Entries are the <predeclared inputs hash>/<uuid> directories of the cache.
+    int entrySegmentCount = repoContentsCachePath.asFragment().segmentCount() + 2;
+    int segmentCount = path.asFragment().segmentCount();
+    if (segmentCount < entrySegmentCount) {
+      return null;
+    }
+    Path entry =
+        segmentCount == entrySegmentCount
+            ? path
+            : path.getFileSystem().getPath(path.asFragment().subFragment(0, entrySegmentCount));
+    return repoContentsCacheEntryRoots.intern(Root.fromPath(entry));
   }
 
   /**

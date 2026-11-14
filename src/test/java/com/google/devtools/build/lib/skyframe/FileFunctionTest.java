@@ -118,6 +118,7 @@ public class FileFunctionTest {
   private Root pkgRoot;
   private Path outputBase;
   private Root outputBaseRoot;
+  @Nullable private Path repoContentsCachePath;
   private PathPackageLocator pkgLocator;
   private boolean fastDigest;
   private ManualClock manualClock;
@@ -155,7 +156,8 @@ public class FileFunctionTest {
             pkgRoot.asPath(),
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
-        ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
+        ExternalFilesHelper.createForTesting(
+            pkgLocatorRef, externalFileAction, directories, () -> repoContentsCachePath);
     differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -173,7 +175,9 @@ public class FileFunctionTest {
                 .put(
                     FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
                     new FileSymlinkInfiniteExpansionUniquenessFunction())
-                .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef, directories))
+                .put(
+                    SkyFunctions.FILE,
+                    new FileFunction(pkgLocatorRef, directories, externalFilesHelper))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
@@ -433,6 +437,50 @@ public class FileFunctionTest {
             rootedPath("/output_base/external"),
             rootedPath("/output_base/external/a"),
             rootedPath("/output_base/external/a/b"));
+  }
+
+  @Test
+  public void testAbsoluteSymlinkToRepoContentsCacheEntry() throws Exception {
+    repoContentsCachePath = fs.getPath("/repo_contents_cache");
+    Path entry = repoContentsCachePath.getRelative("hash/uuid");
+    Root entryRoot = Root.fromPath(entry);
+    Path file = file(entry.getRelative("dir/file").getPathString(), "contents");
+    symlink("repo", entry.getPathString());
+    symlink("dir_link", entry.getRelative("dir").getPathString());
+    RootedPath repo = rootedPath("repo");
+    RootedPath dirLink = rootedPath("dir_link");
+    RootedPath fileViaRepo = rootedPath("repo/dir/file");
+    RootedPath realFile = RootedPath.toRootedPath(entryRoot, PathFragment.create("dir/file"));
+
+    MemoizingEvaluator evaluator = makeEvaluator();
+    EvaluationResult<FileValue> repoResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(repo)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(repoResult).hasNoError();
+    EvaluationResult<FileValue> dirLinkResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(dirLink)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(dirLinkResult).hasNoError();
+    assertThat(dirLinkResult.get(FileValue.key(dirLink)).realRootedPath(dirLink).getRoot())
+        .isSameInstanceAs(repoResult.get(FileValue.key(repo)).realRootedPath(repo).getRoot());
+    EvaluationResult<FileValue> fileResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(fileViaRepo)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(fileResult).hasNoError();
+    FileValue fileValue = fileResult.get(FileValue.key(fileViaRepo));
+    assertThat(fileValue.realRootedPath(fileViaRepo)).isEqualTo(realFile);
+    assertThat(filesSeen(evaluator))
+        .containsExactly(
+            rootedPath(""),
+            dirLink,
+            repo,
+            RootedPath.toRootedPath(entryRoot, PathFragment.EMPTY_FRAGMENT),
+            RootedPath.toRootedPath(entryRoot, PathFragment.create("dir")),
+            realFile);
+
+    FileSystemUtils.writeContentAsLatin1(file, "other contents");
+    differencer.invalidate(ImmutableList.of(FileStateValue.key(realFile)));
+    fileResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(fileViaRepo)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(fileResult).hasNoError();
+    assertThat(fileResult.get(FileValue.key(fileViaRepo))).isNotEqualTo(fileValue);
   }
 
   @Test
