@@ -167,6 +167,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       nioPath = getNioPath(path);
       attributes = getAttribs(nioPath, followSymlinks);
     } catch (AccessDeniedException e) {
+      if (followSymlinks && mayBeSymlinkOrJunction(path)) {
+        // Following a file symlink that (transitively) points to a directory fails with an access
+        // denied error. Bazel creates such symlinks when the target doesn't exist yet at the time
+        // the symlink is created. Keep treating them as dangling.
+        FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+        fnfe.initCause(e);
+        throw fnfe;
+      }
       // The path may well exist, but can't be accessed (yet or anymore), e.g. because of missing
       // permissions or because it is pending deletion while another process still holds a handle
       // to it. Reporting it as nonexistent would let callers such as Skyframe permanently record
@@ -345,6 +353,18 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @VisibleForTesting
   static boolean isSymlinkOrJunction(Path file) throws IOException {
     return WindowsFileOperations.isSymlinkOrJunction(file.toString());
+  }
+
+  /**
+   * Returns whether the path is a symlink or junction, erring on the side of {@code true} if this
+   * can't be determined.
+   */
+  private boolean mayBeSymlinkOrJunction(PathFragment path) {
+    try {
+      return isSymlinkOrJunction(getNioPath(path));
+    } catch (IOException | InvalidPathException e) {
+      return true;
+    }
   }
 
   private static DosFileAttributes getAttribs(Path file, boolean followSymlinks)
