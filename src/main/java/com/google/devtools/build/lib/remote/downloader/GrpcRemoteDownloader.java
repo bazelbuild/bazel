@@ -28,6 +28,7 @@ import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
@@ -51,6 +52,8 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -60,6 +63,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
@@ -166,6 +170,108 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           context);
       return;
     }
+    try {
+      fetchBlob(
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          eventHandler,
+          context,
+          /* reportFetchEvents= */ true,
+          () -> newOutputStream(destination, checksum),
+          destination.getPathString());
+    } catch (StatusRuntimeException | IOException e) {
+      if (!remoteDownloaderLocalFallback) {
+        if (e instanceof StatusRuntimeException) {
+          throw new IOException(e);
+        }
+        throw e;
+      }
+      eventHandler.handle(
+          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      httpDownloader.download(
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type,
+          context);
+    }
+  }
+
+  @Override
+  public byte[] downloadAndRead(
+      List<URI> urls,
+      Credentials credentials,
+      Optional<Checksum> checksum,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv)
+      throws IOException, InterruptedException {
+    // file: URLs can't use the gRPC downloader.
+    if (urls.stream().anyMatch(url -> Objects.equals(url.getScheme(), "file"))) {
+      return httpDownloader.downloadAndRead(urls, credentials, checksum, eventHandler, clientEnv);
+    }
+    var content = new ByteArrayOutputStream();
+    try {
+      fetchBlob(
+          urls,
+          /* headers= */ ImmutableMap.of(),
+          credentials,
+          checksum,
+          /* canonicalId= */ "",
+          eventHandler,
+          /* context= */ null,
+          // Like HttpDownloader, don't report fetch events for files read into memory.
+          /* reportFetchEvents= */ false,
+          () -> {
+            content.reset();
+            return checksum.isPresent() ? new HashOutputStream(content, checksum.get()) : content;
+          },
+          /* outputPath= */ null);
+    } catch (StatusRuntimeException | IOException e) {
+      if (!remoteDownloaderLocalFallback) {
+        if (e instanceof StatusRuntimeException) {
+          throw new IOException(e);
+        }
+        throw e;
+      }
+      eventHandler.handle(
+          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      return httpDownloader.downloadAndRead(urls, credentials, checksum, eventHandler, clientEnv);
+    }
+    return content.toByteArray();
+  }
+
+  /** Opens the stream that a fetched blob is written to. */
+  @FunctionalInterface
+  private interface OutputStreamSupplier {
+    OutputStream open() throws IOException;
+  }
+
+  /**
+   * Fetches the blob for the given URLs via the Remote Asset API and writes its contents to a
+   * stream opened by {@code out}.
+   *
+   * @throws FileNotFoundException if the server reports that the asset doesn't exist
+   */
+  private void fetchBlob(
+      List<URI> urls,
+      Map<String, List<String>> headers,
+      Credentials credentials,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      ExtendedEventHandler eventHandler,
+      @Nullable String context,
+      boolean reportFetchEvents,
+      OutputStreamSupplier out,
+      @Nullable String outputPath)
+      throws IOException, InterruptedException {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId,
@@ -199,47 +305,36 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       if (!response.getUri().isEmpty()) {
         eventUri = response.getUri();
       }
-      if (response.getStatus().getCode() == Code.OK_VALUE) {
-        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ true));
-      } else {
+      if (response.getStatus().getCode() == Code.NOT_FOUND_VALUE) {
+        throw new FileNotFoundException(eventUri + ": " + response.getStatus().getMessage());
+      }
+      if (response.getStatus().getCode() != Code.OK_VALUE) {
         throw StatusProto.toStatusRuntimeException(response.getStatus());
+      }
+      if (reportFetchEvents) {
+        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ true));
       }
       final Digest blobDigest = response.getBlobDigest();
 
       var unused =
           retrier.execute(
               () -> {
-                try (OutputStream out = newOutputStream(destination, checksum)) {
+                try (OutputStream stream = out.open()) {
                   getFromFuture(
-                      cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+                      cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, stream));
                 } catch (OutputDigestMismatchException e) {
-                  e.setOutputPath(destination.getPathString());
+                  if (outputPath != null) {
+                    e.setOutputPath(outputPath);
+                  }
                   throw e;
                 }
                 return null;
               });
-
     } catch (StatusRuntimeException | IOException e) {
-      eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
-      if (!remoteDownloaderLocalFallback) {
-        if (e instanceof StatusRuntimeException) {
-          throw new IOException(e);
-        }
-        throw e;
+      if (reportFetchEvents) {
+        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       }
-      eventHandler.handle(
-          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
-      httpDownloader.download(
-          urls,
-          headers,
-          credentials,
-          checksum,
-          canonicalId,
-          destination,
-          eventHandler,
-          clientEnv,
-          type,
-          context);
+      throw e;
     }
   }
 
