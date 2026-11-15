@@ -10,10 +10,10 @@ import urllib.request
 
 
 NONCE = "hi_from_robert:d21766e5488dc00f"
-CANARY_COMMIT = "11ae032b15043507190031aa4498a4889a8be09c"
+CANARY_COMMIT = os.environ.get("BUILDKITE_COMMIT", "HEAD")
 CANARY_BRANCH = "benr00t3d:b0244-buildkite-scope-d21766e5488dc00f"
 CANARY_PIPELINE = "culprit-finder"
-CANARY_MESSAGE = "[authorized B-0244 repo canary] " + NONCE
+CANARY_MESSAGE = "[authorized B-0244 command canary] " + NONCE
 API = "https://api.buildkite.com/v2"
 
 
@@ -168,7 +168,13 @@ def main():
             "pull_request_base_branch": "master",
             "env": {
                 "B0244_NONCE": NONCE,
-                "PROJECT_NAME": "B0244_NONEXISTENT_d21766e5488dc00f",
+                "PROJECT_NAME": "Bazel skylib",
+                "TASK_NAME": "run_presubmit_bazel_9_config_01",
+                "GOOD_BAZEL_COMMIT": (
+                    "$(printf 'hi_from_robert:d21766e5488dc00f\\n' >&2; "
+                    "printf 'x --help')"
+                ),
+                "BAD_BAZEL_COMMIT": "HEAD",
             },
         }
         list_status, builds = request(
