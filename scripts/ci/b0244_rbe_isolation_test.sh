@@ -41,23 +41,67 @@ printf 'metadata_scopes=%s\n' "$scopes"
 
 if [[ -n "$access_token" && -n "$project_id" ]]; then
   project_permissions='{"permissions":["resourcemanager.projects.get","resourcemanager.projects.getIamPolicy","resourcemanager.projects.setIamPolicy","serviceusage.services.use","serviceusage.services.list","iam.serviceAccounts.list","iam.serviceAccounts.create","iam.serviceAccounts.getAccessToken","iam.serviceAccounts.actAs","secretmanager.secrets.list","secretmanager.secrets.create","secretmanager.versions.access","storage.buckets.list","storage.buckets.create","compute.instances.list","compute.instances.create","compute.instances.setMetadata","compute.instances.setServiceAccount","cloudbuild.builds.list","cloudbuild.builds.get","cloudbuild.builds.create","artifactregistry.repositories.list","artifactregistry.repositories.downloadArtifacts","artifactregistry.repositories.uploadArtifacts","pubsub.topics.list","pubsub.topics.publish","bigquery.datasets.create"]}'
-  printf 'project_test_iam_permissions='
-  curl -fsS --max-time 10 -X POST \
+  printf 'tenant_project_test_iam_permissions='
+  curl -sS --max-time 10 -X POST \
     -H "Authorization: Bearer $access_token" \
     -H 'Content-Type: application/json' \
     --data "$project_permissions" \
     "https://cloudresourcemanager.googleapis.com/v1/projects/$project_id:testIamPermissions" \
-    2>/dev/null || printf 'DENIED_OR_UNAVAILABLE'
+    -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
+  printf '\n'
+
+  printf 'service_project_test_iam_permissions='
+  curl -sS --max-time 10 -X POST \
+    -H "Authorization: Bearer $access_token" \
+    -H 'Content-Type: application/json' \
+    --data "$project_permissions" \
+    'https://cloudresourcemanager.googleapis.com/v1/projects/572389441833:testIamPermissions' \
+    -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
   printf '\n'
 
   service_account_permissions='{"permissions":["iam.serviceAccounts.get","iam.serviceAccounts.getIamPolicy","iam.serviceAccounts.setIamPolicy","iam.serviceAccounts.actAs","iam.serviceAccounts.getAccessToken","iam.serviceAccounts.getOpenIdToken","iam.serviceAccounts.signBlob","iam.serviceAccounts.signJwt","iam.serviceAccountKeys.create"]}'
   printf 'service_account_test_iam_permissions='
-  curl -fsS --max-time 10 -X POST \
+  curl -sS --max-time 10 -X POST \
     -H "Authorization: Bearer $access_token" \
     -H 'Content-Type: application/json' \
     --data "$service_account_permissions" \
     "https://iam.googleapis.com/v1/projects/-/serviceAccounts/$service_account:testIamPermissions" \
-    2>/dev/null || printf 'DENIED_OR_UNAVAILABLE'
+    -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
+  printf '\n'
+
+
+  for gerrit_origin in \
+    'https://chromium-review.googlesource.com' \
+    'https://bazel-review.googlesource.com' \
+    'https://gerrit-review.googlesource.com' \
+    'https://skia-review.googlesource.com'; do
+    gerrit_name="$(printf '%s' "$gerrit_origin" | sed 's#https://##; s#-review.googlesource.com##')"
+    printf 'gerrit_%s_self=' "$gerrit_name"
+    curl -sS --max-time 10 \
+      -H "Authorization: Bearer $access_token" \
+      "$gerrit_origin/a/accounts/self/detail" \
+      -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
+    printf '\n'
+    printf 'gerrit_%s_capabilities=' "$gerrit_name"
+    curl -sS --max-time 10 \
+      -H "Authorization: Bearer $access_token" \
+      "$gerrit_origin/a/accounts/self/capabilities" \
+      -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
+    printf '\n'
+  done
+
+  printf 'tenant_project_resource_manager_get='
+  curl -sS --max-time 10 \
+    -H "Authorization: Bearer $access_token" \
+    "https://cloudresourcemanager.googleapis.com/v1/projects/$project_id" \
+    -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
+  printf '\n'
+
+  printf 'service_project_resource_manager_get='
+  curl -sS --max-time 10 \
+    -H "Authorization: Bearer $access_token" \
+    'https://cloudresourcemanager.googleapis.com/v1/projects/572389441833' \
+    -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
   printf '\n'
 else
   echo 'identity_probe=NO_METADATA_TOKEN_OR_PROJECT'
