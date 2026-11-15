@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -56,9 +58,12 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -578,5 +583,83 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
             depUnmapped.getExecPathString(),
             depAdditionalTransitive.getExecPathString())
         .inOrder();
+  }
+
+  @Test
+  public void createFullOutputDeps_replacesImmutableStagedFile() throws Exception {
+    Set<PathFragment> immutableFiles = new HashSet<>();
+    // Behaves like bb_clientd's remote output service: a staged output accepts chmod but stays
+    // read-only, and cannot be opened for writing until it is deleted.
+    FileSystem fs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public synchronized void setWritable(PathFragment path, boolean writable)
+              throws IOException {
+            if (!immutableFiles.contains(path)) {
+              super.setWritable(path, writable);
+            }
+          }
+
+          @Override
+          public synchronized OutputStream getOutputStream(
+              PathFragment path, boolean append, boolean internal) throws IOException {
+            if (immutableFiles.contains(path)) {
+              throw new FileAccessException(path + " (Permission denied)");
+            }
+            return super.getOutputStream(path, append, internal);
+          }
+
+          @Override
+          public boolean delete(PathFragment path) throws IOException {
+            immutableFiles.remove(path);
+            return super.delete(path);
+          }
+        };
+    Path execRoot = fs.getPath("/exec");
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(
+            execRoot, RootType.OUTPUT, PathFragment.create("blaze-out/k8-opt/bin"));
+    Artifact outputDepsProto =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/liba.jdeps");
+    Artifact dep = ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/libb-hjar.jar");
+    PathMapper pathMapper =
+        execPath ->
+            execPath.startsWith(PathFragment.create("blaze-out/k8-opt/bin"))
+                ? PathFragment.create("blaze-out/cfg/bin")
+                    .getRelative(execPath.relativeTo(PathFragment.create("blaze-out/k8-opt/bin")))
+                : execPath;
+
+    Path fsPath = outputDepsProto.getPath();
+    fsPath.getParentDirectory().createDirectoryAndParents();
+    try (OutputStream out = fsPath.getOutputStream()) {
+      Deps.Dependencies.newBuilder()
+          .addDependency(
+              Deps.Dependency.newBuilder()
+                  .setKind(Kind.EXPLICIT)
+                  .setPath(pathMapper.getMappedExecPathString(dep)))
+          .build()
+          .writeTo(out);
+    }
+    fsPath.setWritable(false);
+    immutableFiles.add(fsPath.asFragment());
+
+    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
+    when(actionExecutionContext.getInputPath(outputDepsProto)).thenReturn(fsPath);
+    when(actionExecutionContext.getOutputMetadataStore())
+        .thenReturn(mock(OutputMetadataStore.class));
+
+    Deps.Dependencies fullOutputDeps =
+        JavaCompileAction.createFullOutputDeps(
+            new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build(),
+            outputDepsProto,
+            NestedSetBuilder.create(Order.STABLE_ORDER, dep),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            actionExecutionContext,
+            pathMapper);
+
+    assertThat(fullOutputDeps.getDependency(0).getPath()).isEqualTo(dep.getExecPathString());
+    try (InputStream in = fsPath.getInputStream()) {
+      assertThat(Deps.Dependencies.parseFrom(in)).isEqualTo(fullOutputDeps);
+    }
   }
 }
