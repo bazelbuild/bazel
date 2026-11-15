@@ -158,14 +158,45 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
   bot_session_body="$(printf \
     '{"botId":"%s","status":"UNHEALTHY","version":"b0244-d21766e5","worker":{"devices":[{"handle":"b0244-synthetic","properties":[{"key":"os","value":"b0244-synthetic-d21766e5"}]}],"properties":[{"key":"_b0244_nonce","value":"d21766e5488dc00f"}]}}' \
     "$bot_id")"
-  printf 'rbe_synthetic_unhealthy_bot_session='
-  curl -sS --max-time 20 -X POST \
+  bot_response_file="/tmp/b0244-bot-session-$$.json"
+  bot_http_status="$(curl -sS --max-time 20 -X POST \
     -H "Authorization: Bearer $access_token" \
     -H 'Content-Type: application/json' \
     --data "$bot_session_body" \
     'https://remotebuildexecution.googleapis.com/v1test2/projects/bazel-untrusted/instances/default_instance/botSessions' \
-    -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
-  printf '\n'
+    -o "$bot_response_file" -w '%{http_code}' 2>/dev/null)"
+  printf 'rbe_synthetic_bot_session='
+  cat "$bot_response_file" 2>/dev/null || true
+  printf '\nhttp_status=%s\n' "$bot_http_status"
+
+  session_name="$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    "$bot_response_file")"
+  if [[ "$bot_http_status" == '200' && -n "$session_name" ]]; then
+    bot_update_body="$(cat "$bot_response_file")"
+    for poll_attempt in $(seq 1 90); do
+      update_response_file="/tmp/b0244-bot-update-$$.json"
+      update_http_status="$(curl -sS --max-time 10 -X PATCH \
+        -H "Authorization: Bearer $access_token" \
+        -H 'Content-Type: application/json' \
+        --data "$bot_update_body" \
+        "https://remotebuildexecution.googleapis.com/v1test2/$session_name?updateMask=status,worker,leases,version" \
+        -o "$update_response_file" -w '%{http_code}' 2>/dev/null)"
+      if [[ "$update_http_status" != '200' ]]; then
+        printf 'rbe_synthetic_bot_update_error='
+        cat "$update_response_file" 2>/dev/null || true
+        printf '\nhttp_status=%s\n' "$update_http_status"
+        break
+      fi
+      bot_update_body="$(cat "$update_response_file")"
+      if grep -q '"leases"' "$update_response_file"; then
+        printf 'rbe_synthetic_lease_receipt='
+        cat "$update_response_file"
+        printf '\n'
+        break
+      fi
+      sleep 2
+    done
+  fi
 
   printf 'tenant_project_resource_manager_get='
   curl -sS --max-time 10 \
