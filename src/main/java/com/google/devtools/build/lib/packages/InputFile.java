@@ -93,11 +93,6 @@ public class InputFile extends FileTarget {
     return false;
   }
 
-  @Override
-  public License getLicense() {
-    return License.NO_LICENSE;
-  }
-
   /**
    * Returns the path to the location of the input file (which is necessarily
    * within the source tree, not beneath <code>bin</code> or

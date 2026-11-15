@@ -30,6 +30,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.DosFileAttributes;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** File system implementation for Windows. */
@@ -168,7 +169,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     FileStatus status =
         new FileStatus() {
           @Nullable volatile Boolean isSymbolicLink; // null if not yet known
-          volatile long lastChangeTime = -1;
+          volatile long lastChangeTimeNanos = -1;
 
           @Override
           public boolean isFile() {
@@ -202,17 +203,17 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           }
 
           @Override
-          public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
+          public long getLastModifiedTimeNanos() {
+            return attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS);
           }
 
           @Override
-          public long getLastChangeTime() throws IOException {
-            if (lastChangeTime == -1) {
-              lastChangeTime =
-                  WindowsFileOperations.getLastChangeTime(nioPath.toString(), followSymlinks);
+          public long getLastChangeTimeNanos() throws IOException {
+            if (lastChangeTimeNanos == -1) {
+              lastChangeTimeNanos =
+                  WindowsFileOperations.getLastChangeTimeNanos(nioPath.toString(), followSymlinks);
             }
-            return lastChangeTime;
+            return lastChangeTimeNanos;
           }
 
           @Override

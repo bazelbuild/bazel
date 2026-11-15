@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -207,93 +208,97 @@ public final class CoverageReportActionBuilder {
     if (targetsToTest == null || targetsToTest.isEmpty()) {
       return null;
     }
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    FilesToRunProvider reportGenerator = null;
-    ActionOwner actionOwner = null;
-    for (ConfiguredTarget target : targetsToTest) {
-      // Skip incompatible tests.
-      if (target.get(IncompatiblePlatformProvider.PROVIDER) != null) {
-        continue;
+    try (var _ = NestedSetOwnerScope.enter(artifactOwner)) {
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      FilesToRunProvider reportGenerator = null;
+      ActionOwner actionOwner = null;
+      for (ConfiguredTarget target : targetsToTest) {
+        // Skip incompatible tests.
+        if (target.get(IncompatiblePlatformProvider.PROVIDER) != null) {
+          continue;
+        }
+        TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
+        FilesToRunProvider generator = testParams.getCoverageReportGenerator();
+        if (generator == null) {
+          continue;
+        }
+        builder.addAll(testParams.getCoverageArtifacts());
+        ActionOwner candidateOwner = testParams.getActionOwnerForCoverage();
+        if (candidateOwner == null) {
+          continue;
+        }
+        // Use the first test with coverage enabled as the owner of the coverage report actions.
+        // This relies on targetsToTest having a deterministic order.
+        if (actionOwner == null) {
+          reportGenerator = generator;
+          actionOwner = candidateOwner;
+        }
       }
-      TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
-      FilesToRunProvider generator = testParams.getCoverageReportGenerator();
-      if (generator == null) {
-        continue;
+      // If all tests are incompatible, there's nothing to do.
+      if (reportGenerator == null) {
+        return null;
       }
-      builder.addAll(testParams.getCoverageArtifacts());
-      ActionOwner candidateOwner = testParams.getActionOwnerForCoverage();
-      if (candidateOwner == null) {
-        continue;
+      checkNotNull(actionOwner);
+      NestedSet<Artifact> baselineCoverageArtifacts =
+          getBaselineCoverageArtifacts(configuredTargets);
+      NestedSet<Artifact> coverageArtifacts =
+          builder.addTransitive(baselineCoverageArtifacts).build();
+      if (!coverageArtifacts.isEmpty()) {
+        Artifact baselineLcovArtifact =
+            factory.getDerivedArtifact(
+                TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
+                directories.getBuildDataDirectory(workspaceName),
+                artifactOwner);
+        Action baselineLcovFileAction =
+            generateLcovFileWriteAction(
+                baselineLcovArtifact, baselineCoverageArtifacts, actionOwner);
+        Action baselineReportAction =
+            generateCoverageReportAction(
+                new CoverageArgs(
+                    directories,
+                    baselineCoverageArtifacts,
+                    baselineLcovArtifact,
+                    factory,
+                    artifactOwner,
+                    reportGenerator,
+                    workspaceName,
+                    /* htmlReport= */ null,
+                    actionOwner),
+                coverageHelper,
+                configuredTargets,
+                "_baseline_report.dat");
+        Artifact coverageLcovArtifact =
+            factory.getDerivedArtifact(
+                TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
+                directories.getBuildDataDirectory(workspaceName),
+                artifactOwner);
+        Action coverageLcovFileAction =
+            generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
+        Action coverageReportAction =
+            generateCoverageReportAction(
+                new CoverageArgs(
+                    directories,
+                    coverageArtifacts,
+                    coverageLcovArtifact,
+                    factory,
+                    artifactOwner,
+                    reportGenerator,
+                    workspaceName,
+                    htmlReport,
+                    actionOwner),
+                coverageHelper,
+                configuredTargets,
+                "_coverage_report.dat");
+        return new CoverageReportActionsWrapper(
+            baselineReportAction,
+            coverageReportAction,
+            ImmutableList.of(baselineLcovFileAction, coverageLcovFileAction),
+            actionKeyContext);
+      } else {
+        reporter.handle(
+            Event.error("Cannot generate coverage report - no coverage information was collected"));
+        return null;
       }
-      // Use the first test with coverage enabled as the owner of the coverage report actions. This
-      // relies on targetsToTest having a deterministic order.
-      if (actionOwner == null) {
-        reportGenerator = generator;
-        actionOwner = candidateOwner;
-      }
-    }
-    // If all tests are incompatible, there's nothing to do.
-    if (reportGenerator == null) {
-      return null;
-    }
-    checkNotNull(actionOwner);
-    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
-    NestedSet<Artifact> coverageArtifacts =
-        builder.addTransitive(baselineCoverageArtifacts).build();
-    if (!coverageArtifacts.isEmpty()) {
-      Artifact baselineLcovArtifact =
-          factory.getDerivedArtifact(
-              TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
-              directories.getBuildDataDirectory(workspaceName),
-              artifactOwner);
-      Action baselineLcovFileAction =
-          generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts, actionOwner);
-      Action baselineReportAction =
-          generateCoverageReportAction(
-              new CoverageArgs(
-                  directories,
-                  baselineCoverageArtifacts,
-                  baselineLcovArtifact,
-                  factory,
-                  artifactOwner,
-                  reportGenerator,
-                  workspaceName,
-                  /* htmlReport= */ null,
-                  actionOwner),
-              coverageHelper,
-              configuredTargets,
-              "_baseline_report.dat");
-      Artifact coverageLcovArtifact =
-          factory.getDerivedArtifact(
-              TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
-              directories.getBuildDataDirectory(workspaceName),
-              artifactOwner);
-      Action coverageLcovFileAction =
-          generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
-      Action coverageReportAction =
-          generateCoverageReportAction(
-              new CoverageArgs(
-                  directories,
-                  coverageArtifacts,
-                  coverageLcovArtifact,
-                  factory,
-                  artifactOwner,
-                  reportGenerator,
-                  workspaceName,
-                  htmlReport,
-                  actionOwner),
-              coverageHelper,
-              configuredTargets,
-              "_coverage_report.dat");
-      return new CoverageReportActionsWrapper(
-          baselineReportAction,
-          coverageReportAction,
-          ImmutableList.of(baselineLcovFileAction, coverageLcovFileAction),
-          actionKeyContext);
-    } else {
-      reporter.handle(
-          Event.error("Cannot generate coverage report - no coverage information was collected"));
-      return null;
     }
   }
 

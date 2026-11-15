@@ -17,6 +17,22 @@ filegroup(
 )
 
 java_test(
+    name = "AnalysisPhaseRunnerTest",
+    srcs = ["AnalysisPhaseRunnerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "JobsConverterTest",
     srcs = [
         "JobsConverterTest.java",
@@ -71,9 +87,39 @@ java_test(
 test_suite(
     name = "BuildtoolTests",
     tests = [
+        ":AnalysisPhaseRunnerTest",
         ":ExecutionProgressReceiverTest",
         ":JobsConverterTest",
         ":SymlinkForestTest",
+        ":TransitiveTargetCounterTest",
+    ],
+)
+
+java_test(
+    name = "TransitiveTargetCounterTest",
+    srcs = ["TransitiveTargetCounterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/skyframe:version",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -580,10 +626,13 @@ java_test(
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:AllTests"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/buildtool",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],
@@ -733,7 +782,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
@@ -754,22 +802,6 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
-    name = "SkyfocusIntegrationTest",
-    srcs = ["SkyfocusIntegrationTest.java"],
-    shard_count = 2,
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_state",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
-        "//third_party/java/junit",
         "//third_party/java/truth",
     ],
 )

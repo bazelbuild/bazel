@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -461,8 +461,15 @@ public abstract class PackageSpecification {
    * <p>For modeling a {@code package_group}'s transitive contents (i.e., via the {@code includes}
    * attribute), see {@link PackageSpecificationProvider}.
    */
-  @AutoValue
-  public abstract static class PackageGroupContents
+  @AutoCodec
+  public record PackageGroupContents(
+      ImmutableSet<PackageIdentifier> singlePackagePositives,
+      ImmutableList<PackageIdentifier> allPackagesBeneathPositives,
+      boolean hasPositiveAllPackages,
+      ImmutableSet<PackageIdentifier> singlePackageNegatives,
+      ImmutableList<PackageIdentifier> allPackagesBeneathNegatives,
+      boolean hasPrivate,
+      boolean hasNegativeAllPackages)
       implements NestedSetsShouldBeInternedByEquality {
     // This class is optimized for memory and cpu.
     // TODO(b/279784354): Further improvements are possible.
@@ -476,20 +483,6 @@ public abstract class PackageSpecification {
     // negatives first since package_group semantics require we check all negatives no matter what.
     // Both of these cpu optimizations combine well in practice since there are some package_group
     // targets with very large lists of negative single package specifications.
-
-    abstract ImmutableSet<PackageIdentifier> singlePackagePositives();
-
-    abstract ImmutableList<PackageIdentifier> allPackagesBeneathPositives();
-
-    abstract boolean hasPositiveAllPackages();
-
-    abstract ImmutableSet<PackageIdentifier> singlePackageNegatives();
-
-    abstract ImmutableList<PackageIdentifier> allPackagesBeneathNegatives();
-
-    abstract boolean hasPrivate();
-
-    abstract boolean hasNegativeAllPackages();
 
     /**
      * Creates a {@link PackageGroupContents} representing a collection of {@link
@@ -547,7 +540,7 @@ public abstract class PackageSpecification {
         throw new IllegalStateException(spec.toString());
       }
 
-      return new AutoValue_PackageSpecification_PackageGroupContents(
+      return new PackageGroupContents(
           singlePackagePositivesBuilder.build(),
           allPackagesBeneathPositivesBuilder.build(),
           hasPositiveAllPackages,

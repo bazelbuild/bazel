@@ -53,12 +53,16 @@ public final class GenRuleAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        MNEMONIC,
-        OutputPathsMode.OFF);
+        MNEMONIC);
   }
 
   @Override
   protected CommandLineLimits getCommandLineLimits() {
     return CommandLineLimits.UNLIMITED;
+  }
+
+  @Override
+  protected OutputPathsMode getOutputPathsMode() {
+    return OutputPathsMode.OFF;
   }
 }

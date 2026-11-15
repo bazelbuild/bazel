@@ -52,7 +52,7 @@ public final class AssignmentStatement extends Statement {
       int opOffset,
       Expression rhs,
       @Nullable DocComments docComments) {
-    super(locs, Kind.ASSIGNMENT);
+    super(locs);
     this.lhs = lhs;
     this.type = type;
     this.op = op;
@@ -61,7 +61,7 @@ public final class AssignmentStatement extends Statement {
     this.docComments = docComments;
     if (type != null) {
       Preconditions.checkState(
-          lhs.kind() == Expression.Kind.IDENTIFIER, "Can't have type annotation on complex LHS");
+          lhs instanceof Identifier, "Can't have type annotation on complex LHS");
       Preconditions.checkState(op == null, "Can't have augmented assignment with type annotation");
     }
   }

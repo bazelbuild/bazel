@@ -13,21 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.query2.engine.Lexer.BINARY_OPERATORS;
 import static java.lang.Math.min;
-import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * LL(1) recursive descent parser for the Blaze query language, revision 2.
@@ -39,7 +33,7 @@ import java.util.Map;
  * expr ::= WORD
  *        | LET WORD = expr IN expr
  *        | '(' expr ')'
- *        | WORD '(' expr ( ',' expr ) * ')'
+ *        | WORD '(' ( expr ( ',' expr ) * ) ? ')'
  *        | expr INTERSECT expr
  *        | expr '^' expr
  *        | expr UNION expr
@@ -51,39 +45,33 @@ import java.util.Map;
  */
 public final class QueryParser {
 
+  private static final int MAX_QUERY_EXPRESSION_LOG_CHARS = 1000;
+
   private Lexer.Token token; // current lookahead token
   private final List<Lexer.Token> tokens;
-  private final Iterator<Lexer.Token> tokenIterator;
-  private final Map<String, QueryFunction> functions;
-  private final Map<String, Integer> boundVariables = new HashMap<>();
+  private int tokenIndex = -1;
 
-  /** Scan and parse the specified query expression. */
-  public static QueryExpression parse(String query, QueryEnvironment<?> env)
-      throws QuerySyntaxException {
-    HashMap<String, QueryFunction> functions = new HashMap<>();
-    for (QueryFunction queryFunction : env.getFunctions()) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
-    return parse(query, functions);
-  }
-
-  public static QueryExpression parse(String query, Map<String, QueryFunction> functions)
-      throws QuerySyntaxException {
-    QueryParser parser = new QueryParser(Lexer.scan(query), functions);
-    QueryExpression expr = parser.parseExpression();
+  /** Scans and parses the specified query expression into an unresolved {@link QueryAst}. */
+  public static QueryAst parse(String query) throws QuerySyntaxException {
+    List<Lexer.Token> tokens = Lexer.scan(query);
+    QueryParser parser = new QueryParser(tokens);
+    QueryAst ast = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
+      String parsedPrefix =
+          Ascii.truncate(
+              query.substring(
+                  tokens.get(0).startOffset, tokens.get(parser.tokenIndex - 1).endOffset),
+              MAX_QUERY_EXPRESSION_LOG_CHARS,
+              "[truncated]");
       throw new QuerySyntaxException(
           String.format(
-              "unexpected token '%s' after query expression '%s'",
-              parser.token, expr.toTrunctatedString()));
+              "unexpected token '%s' after query expression '%s'", parser.token, parsedPrefix));
     }
-    return expr;
+    return ast;
   }
 
-  public QueryParser(List<Lexer.Token> tokens, Map<String, QueryFunction> functions) {
-    this.functions = functions;
+  QueryParser(List<Lexer.Token> tokens) {
     this.tokens = tokens;
-    this.tokenIterator = tokens.iterator();
     nextToken();
   }
 
@@ -92,80 +80,22 @@ public final class QueryParser {
   private QuerySyntaxException syntaxError(Lexer.Token token) throws QuerySyntaxException {
     String message = "premature end of input";
     if (token.kind != TokenKind.EOF) {
-      StringBuilder buf = new StringBuilder("syntax error at '");
-      String sep = "";
-      for (int index = tokens.indexOf(token),
-              max = Math.min(tokens.size() - 1, index + 3); // 3 tokens of context
-          index < max;
-          ++index) {
-        buf.append(sep).append(tokens.get(index));
-        sep = " ";
-      }
-      buf.append("'");
-      message = buf.toString();
+      message = "syntax error at '" + inputContextAt(tokenIndex) + "'";
     }
     throw new QuerySyntaxException(message);
   }
 
-  /** Throws an exception indicating that the current token is an unknown function name. */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException unknownFunctionError(Lexer.Token token) throws QuerySyntaxException {
-    checkArgument(token.kind == TokenKind.WORD);
-    StringBuilder buf = new StringBuilder("unknown function '");
-    buf.append(token);
-    buf.append("' at '");
-    appendInputContext(buf, token);
-    buf.append("'; expected one of ['");
-    buf.append(functions.keySet().stream().sorted().collect(joining("', '")));
-    buf.append("']");
-    throw new QuerySyntaxException(buf.toString());
-  }
-
-  /**
-   * Throws an exception indicating that the current function is being called with the wrong number
-   * of arguments.
-   */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException functionArgumentCountError(
-      QueryFunction function, String description) throws QuerySyntaxException {
-    StringBuilder buf = new StringBuilder(description);
-    buf.append(" arguments to function '");
-    buf.append(function.getName());
-    buf.append("' at '");
-    appendInputContext(buf, token);
-    buf.append("'");
-    throw new QuerySyntaxException(buf.toString());
-  }
-
-  /**
-   * Throws an exception indicating that the current function is being called with too few
-   * arguments.
-   */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException tooFewArgumentsError(QueryFunction function)
-      throws QuerySyntaxException {
-    throw functionArgumentCountError(function, "too few");
-  }
-
-  /**
-   * Throws an exception indicating that the current function is being called with too many
-   * arguments.
-   */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException tooManyArgumentsError(QueryFunction function)
-      throws QuerySyntaxException {
-    throw functionArgumentCountError(function, "too many");
-  }
-
-  private void appendInputContext(StringBuilder buf, Lexer.Token token) {
+  private String inputContextAt(int startTokenIndex) {
+    StringBuilder buf = new StringBuilder();
     String sep = "";
-    for (int index = tokens.indexOf(token),
-            max = min(tokens.size() - 1, index + 3); // 3 tokens of context
+    for (int index = startTokenIndex,
+            max = min(tokens.size() - 1, startTokenIndex + 3); // 3 tokens of context
         index < max;
         ++index) {
       buf.append(sep).append(tokens.get(index));
       sep = " ";
     }
+    return buf.toString();
   }
 
   /**
@@ -182,30 +112,14 @@ public final class QueryParser {
     return word;
   }
 
-  /**
-   * Consumes the current token, which must be a WORD containing an integer literal. Returns that
-   * integer, or throws a {@link QuerySyntaxException} otherwise.
-   */
-  private int consumeIntLiteral() throws QuerySyntaxException {
-    String intString = consume(TokenKind.WORD);
-    try {
-      return Integer.parseInt(intString);
-    } catch (
-        @SuppressWarnings("UnusedException")
-        NumberFormatException e) {
-      throw new QuerySyntaxException("expected an integer literal: '" + intString + "'");
-    }
-  }
-
   private void nextToken() {
     if (token == null || token.kind != TokenKind.EOF) {
-      token = tokenIterator.next();
+      tokenIndex++;
+      token = tokens.get(tokenIndex);
     }
   }
 
   /**
-   *
-   *
    * <pre>
    * expr ::= primary
    *        | expr INTERSECT expr
@@ -216,14 +130,12 @@ public final class QueryParser {
    *        | expr '-' expr
    * </pre>
    */
-  private QueryExpression parseExpression() throws QuerySyntaxException {
+  private QueryAst parseExpression() throws QuerySyntaxException {
     // All operators are left-associative and of equal precedence.
     return parseBinaryOperatorTail(parsePrimary());
   }
 
   /**
-   *
-   *
    * <pre>
    * tail ::= ( <op> <primary> )*
    * </pre>
@@ -231,12 +143,12 @@ public final class QueryParser {
    * <p>All operators have equal precedence. This factoring is required for left-associative binary
    * operators in LL(1).
    */
-  private QueryExpression parseBinaryOperatorTail(QueryExpression lhs) throws QuerySyntaxException {
+  private QueryAst parseBinaryOperatorTail(QueryAst lhs) throws QuerySyntaxException {
     if (!BINARY_OPERATORS.contains(token.kind)) {
       return lhs;
     }
 
-    List<QueryExpression> operands = new ArrayList<>();
+    List<QueryAst> operands = new ArrayList<>();
     operands.add(lhs);
     TokenKind lastOperator = token.kind;
 
@@ -244,135 +156,128 @@ public final class QueryParser {
       TokenKind operator = token.kind;
       consume(operator);
       if (operator != lastOperator) {
-        lhs = new BinaryOperatorExpression(lastOperator, operands);
+        lhs = new QueryAst.BinaryOperator(lastOperator, operands);
         operands.clear();
         operands.add(lhs);
         lastOperator = operator;
       }
-      QueryExpression rhs = parsePrimary();
+      QueryAst rhs = parsePrimary();
       operands.add(rhs);
     }
-    return new BinaryOperatorExpression(lastOperator, operands);
+    return new QueryAst.BinaryOperator(lastOperator, operands);
   }
 
   /**
-   *
-   *
    * <pre>
    * primary ::= WORD
-   *           | WORD '(' arg ( ',' arg ) * ')'
+   *           | WORD '(' ( arg ( ',' arg ) * ) ? ')'
    *           | LET WORD = expr IN expr
    *           | '(' expr ')'
-   *           | SET '(' WORD * ')' arg ::= expr
-   *           | WORD
-   *           | INT
+   *           | SET '(' WORD * ')'
    * </pre>
    */
-  private QueryExpression parsePrimary() throws QuerySyntaxException {
-    switch (token.kind) {
+  private QueryAst parsePrimary() throws QuerySyntaxException {
+    return switch (token.kind) {
       case WORD -> {
-        Lexer.Token wordToken = token;
+        int wordTokenIndex = tokenIndex;
         String word = consume(TokenKind.WORD);
         if (token.kind == TokenKind.LPAREN) {
-          QueryFunction function = functions.get(word);
-          if (function == null) {
-            throw unknownFunctionError(wordToken);
-          }
-          List<Argument> args = new ArrayList<>();
-          TokenKind tokenKind = TokenKind.LPAREN;
-          int argsSeen = 0;
-          for (ArgumentType type : function.getArgumentTypes()) {
-            if (token.kind == TokenKind.RPAREN) {
-              // Got rparen instead of argument-separating comma.
-              if (argsSeen >= function.getMandatoryArguments()) {
-                break;
-              } else {
-                throw tooFewArgumentsError(function);
-              }
-            }
-
-            // Consume lparen on first iteration, comma on subsequent iterations.
-            consume(tokenKind);
-            tokenKind = TokenKind.COMMA;
-            if (argsSeen == 0 && token.kind == TokenKind.RPAREN) {
-              // Got rparen instead of mandatory first argument.
-              throw tooFewArgumentsError(function);
-            }
-            switch (type) {
-              case EXPRESSION -> args.add(Argument.of(parseExpression()));
-              case WORD -> {
-                String argWord = consume(TokenKind.WORD);
-                if (LetExpression.isValidVarReference(argWord)) {
-                  String varName = LetExpression.getNameFromReference(argWord);
-                  if (boundVariables.getOrDefault(varName, 0) > 0) {
-                    throw new QuerySyntaxException(
-                        String.format(
-                            "variable '$%s' cannot be used as an argument to function '%s'; "
-                                + "variable references are only allowed in expression arguments",
-                            varName, function.getName()));
-                  }
-                }
-                args.add(Argument.of(argWord));
-              }
-              case INTEGER -> args.add(Argument.of(consumeIntLiteral()));
-            }
-
-            argsSeen++;
-          }
-
-          if (token.kind == TokenKind.COMMA && argsSeen > 0) {
-            throw tooManyArgumentsError(function);
-          }
-          consume(TokenKind.RPAREN);
-          return new FunctionExpression(function, args);
-        } else {
-          return validateTargetLiteral(word);
+          yield parseFunctionCallRest(word, wordTokenIndex);
         }
+        validateTargetLiteral(word);
+        yield new QueryAst.Word(word);
       }
       case LET -> {
         consume(TokenKind.LET);
         String name = consume(TokenKind.WORD);
         consume(TokenKind.EQUALS);
-        QueryExpression varExpr = parseExpression();
+        QueryAst varExpr = parseExpression();
         consume(TokenKind.IN);
-        boundVariables.merge(name, 1, Integer::sum);
-        QueryExpression bodyExpr;
-        try {
-          bodyExpr = parseExpression();
-        } finally {
-          boundVariables.compute(name, (k, v) -> (v == null || v <= 1) ? null : v - 1);
-        }
-        return new LetExpression(name, varExpr, bodyExpr);
+        QueryAst bodyExpr = parseExpression();
+        yield new QueryAst.Let(name, varExpr, bodyExpr);
       }
       case LPAREN -> {
         consume(TokenKind.LPAREN);
-        QueryExpression expr = parseExpression();
+        QueryAst expr = parseExpression();
         consume(TokenKind.RPAREN);
-        return expr;
+        yield new QueryAst.Parenthesized(expr);
       }
       case SET -> {
         nextToken();
         consume(TokenKind.LPAREN);
-        List<TargetLiteral> words = new ArrayList<>();
+        List<QueryAst.Word> words = new ArrayList<>();
         while (token.kind == TokenKind.WORD) {
-          words.add(validateTargetLiteral(consume(TokenKind.WORD)));
+          String word = consume(TokenKind.WORD);
+          validateTargetLiteral(word);
+          words.add(new QueryAst.Word(word));
         }
         consume(TokenKind.RPAREN);
-        return new SetExpression(words);
+        yield new QueryAst.Set(words);
       }
       default -> throw syntaxError(token);
+    };
+  }
+
+  private QueryAst.FunctionCall parseFunctionCallRest(String functionName, int functionTokenIndex)
+      throws QuerySyntaxException {
+    String functionContextForErrorMessages = inputContextAt(functionTokenIndex);
+    int lparenIndex = tokenIndex;
+    consume(TokenKind.LPAREN);
+    List<QueryAst.FunctionArgument> args = new ArrayList<>();
+    if (token.kind != TokenKind.RPAREN) {
+      int sepIndex = lparenIndex;
+      while (true) {
+        String separatorContextForErrorMessages = inputContextAt(sepIndex);
+        String argContextForErrorMessages = inputContextAt(tokenIndex);
+        QueryAst argExpr = parseFunctionArgumentExpression();
+        args.add(
+            new QueryAst.FunctionArgument(
+                argExpr, separatorContextForErrorMessages, argContextForErrorMessages));
+        if (token.kind != TokenKind.COMMA) {
+          break;
+        }
+        sepIndex = tokenIndex;
+        consume(TokenKind.COMMA);
+      }
     }
+    String closeParenContextForErrorMessages = inputContextAt(tokenIndex);
+    consume(TokenKind.RPAREN);
+    return new QueryAst.FunctionCall(
+        functionName,
+        ImmutableList.copyOf(args),
+        functionContextForErrorMessages,
+        closeParenContextForErrorMessages);
+  }
+
+  /**
+   * Parses an argument inside a function call. A standalone {@code WORD} argument is not checked
+   * against {@link #validateTargetLiteral} here because the function's parameter may have type
+   * {@code WORD} or {@code INTEGER} rather than {@code EXPRESSION}.
+   */
+  private QueryAst parseFunctionArgumentExpression() throws QuerySyntaxException {
+    if (token.kind == TokenKind.WORD) {
+      int wordTokenIndex = tokenIndex;
+      String word = consume(TokenKind.WORD);
+      if (token.kind == TokenKind.LPAREN) {
+        return parseBinaryOperatorTail(parseFunctionCallRest(word, wordTokenIndex));
+      }
+      if (!BINARY_OPERATORS.contains(token.kind)) {
+        return new QueryAst.Word(word);
+      }
+      validateTargetLiteral(word);
+      return parseBinaryOperatorTail(new QueryAst.Word(word));
+    }
+    return parseExpression();
   }
 
   /**
    * Unquoted words may not start with a hyphen or asterisk, even though relative target names may
    * start with those characters.
    */
-  private static TargetLiteral validateTargetLiteral(String word) throws QuerySyntaxException {
+  static void validateTargetLiteral(String word) throws QuerySyntaxException {
     if (word.startsWith("-") || word.startsWith("*")) {
       throw new QuerySyntaxException(
-          "target literal must not begin with " + "(" + word.charAt(0) + "): " + word);
+          "target literal must not begin with (" + word.charAt(0) + "): " + word);
     }
-    return new TargetLiteral(word);
   }
 }

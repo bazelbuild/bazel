@@ -289,7 +289,7 @@ public final class Resolver extends NodeVisitor {
       }
       this.parameterNames = names.build();
 
-      this.isToplevel = name.equals("<toplevel>");
+      this.isToplevel = name.equals("<toplevel>") || name.equals("<expr>");
       this.locals = ImmutableList.copyOf(locals);
       this.freevars = ImmutableList.copyOf(freevars);
       this.globals = globals;
@@ -326,7 +326,7 @@ public final class Resolver extends NodeVisitor {
      * <p>If this function is the toplevel function of a file or expression, its sequence number is
      * the highest function sequence number in the program.
      */
-    int getFunctionId() {
+    public int getFunctionId() {
       return functionId;
     }
 
@@ -445,7 +445,7 @@ public final class Resolver extends NodeVisitor {
 
     /**
      * isToplevel indicates that this is the <toplevel> function containing top-level statements of
-     * a file.
+     * a file, or the <expr> function evaluating a standalone expression.
      */
     // TODO(adonovan): remove this when we remove Bazel's "export" hack,
     // or switch to a compiled representation of function bodies.
@@ -647,33 +647,24 @@ public final class Resolver extends NodeVisitor {
   }
 
   private void createBindings(Statement stmt) {
-    switch (stmt.kind()) {
-      case ASSIGNMENT -> {
-        AssignmentStatement assignStmt = (AssignmentStatement) stmt;
-        createBindingsForLHS(assignStmt.getLHS(), assignStmt.getDocComments());
-      }
-      case VAR -> {
-        VarStatement varStmt = (VarStatement) stmt;
-        bind(varStmt.getIdentifier(), /* isLoad= */ false, varStmt.getDocComments());
-      }
-      case IF -> {
-        IfStatement ifStmt = (IfStatement) stmt;
+    switch (stmt) {
+      case AssignmentStatement assignStmt ->
+          createBindingsForLHS(assignStmt.getLHS(), assignStmt.getDocComments());
+      case VarStatement varStmt ->
+          bind(varStmt.getIdentifier(), /* isLoad= */ false, varStmt.getDocComments());
+      case IfStatement ifStmt -> {
         createBindingsForBlock(ifStmt.getThenBlock());
         if (ifStmt.getElseBlock() != null) {
           createBindingsForBlock(ifStmt.getElseBlock());
         }
       }
-      case FOR -> {
-        ForStatement forStmt = (ForStatement) stmt;
+      case ForStatement forStmt -> {
         createBindingsForLHS(forStmt.getVars(), /* docComments= */ null);
         createBindingsForBlock(forStmt.getBody());
       }
-      case DEF -> {
-        DefStatement defStmt = (DefStatement) stmt;
-        bind(defStmt.getIdentifier(), /* isLoad= */ false, /* docComments= */ null);
-      }
-      case LOAD -> {
-        LoadStatement load = (LoadStatement) stmt;
+      case DefStatement defStmt ->
+          bind(defStmt.getIdentifier(), /* isLoad= */ false, /* docComments= */ null);
+      case LoadStatement load -> {
         Set<String> names = new HashSet<>();
         for (LoadStatement.Binding b : load.getBindings()) {
           // Reject load('...', '_private').
@@ -692,14 +683,13 @@ public final class Resolver extends NodeVisitor {
           }
         }
       }
-      case TYPE_ALIAS -> {
+      case TypeAliasStatement typeStmt -> {
         if (options.resolveTypeSyntax()) {
-          TypeAliasStatement typeStmt = (TypeAliasStatement) stmt;
           bind(typeStmt.getIdentifier(), /* isLoad= */ false, /* docComments= */ null);
         }
       }
       // nothing to declare
-      case EXPRESSION, FLOW, RETURN -> {}
+      case ExpressionStatement _, FlowStatement _, ReturnStatement _ -> {}
     }
   }
 
@@ -717,20 +707,26 @@ public final class Resolver extends NodeVisitor {
    * bindings are already set on identifiers appearing in write context.
    */
   private void assign(Expression lhs) {
-    if (lhs instanceof Identifier) {
-      // Bindings are created by the first pass (createBindings).
-      assertIsBound((Identifier) lhs);
-    } else if (lhs instanceof IndexExpression) {
-      visit(lhs);
-    } else if (lhs instanceof ListExpression) {
-      for (Expression elem : ((ListExpression) lhs).getElements()) {
-        assign(elem);
+    switch (lhs) {
+      case Identifier id -> {
+        // Bindings are created by the first pass (createBindings).
+        assertIsBound(id);
       }
-    } else if (lhs instanceof DotExpression) {
-      visit(((DotExpression) lhs).getObject());
-      // Do not visit the field. It is an identifier but does not correspond to a binding.
-    } else {
-      errorf(lhs, "cannot assign to '%s'", lhs);
+      case IndexExpression indexExpr -> {
+        visit(indexExpr);
+      }
+      case ListExpression listExpr -> {
+        for (Expression elem : listExpr.getElements()) {
+          assign(elem);
+        }
+      }
+      case DotExpression dotExpr -> {
+        visit(dotExpr.getObject());
+        // Do not visit the field. It is an identifier but does not correspond to a binding.
+      }
+      default -> {
+        errorf(lhs, "cannot assign to '%s'", lhs);
+      }
     }
   }
 
@@ -1362,14 +1358,15 @@ public final class Resolver extends NodeVisitor {
       }
 
       if (statement instanceof LoadStatement) {
-        if (firstStatement == null) {
-          continue;
+        if (firstStatement != null) {
+          errorf(
+              statement,
+              "load statements must appear before any other statement (first non-load statement at"
+                  + " line %d)",
+              firstStatement.getStartLocation().line());
+          return;
         }
-        errorf(statement, "load statements must appear before any other statement");
-        errorf(firstStatement, "\tfirst non-load statement appears here");
-      }
-
-      if (firstStatement == null) {
+      } else if (firstStatement == null) {
         firstStatement = statement;
       }
     }

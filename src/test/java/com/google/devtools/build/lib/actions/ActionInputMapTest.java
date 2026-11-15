@@ -19,7 +19,7 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.junit.Assert.assertThrows;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -78,7 +78,7 @@ public final class ActionInputMapTest {
   public void clear_removesAllElements() {
     ActionInput input1 = new TestInput("/abc/def");
     ActionInput input2 = new TestInput("/ghi/jkl");
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeChild = TreeFileArtifact.createTreeOutput(tree, "child");
     map.put(input1, TestMetadata.create(1));
     map.put(input2, TestMetadata.create(2));
@@ -99,7 +99,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void putTreeArtifact_addsEmptyTreeArtifact() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
 
     map.putTreeArtifact(tree, TreeArtifactValue.empty());
 
@@ -109,7 +109,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void putTreeArtifact_addsTreeArtifactAndAllChildren() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     FileArtifactValue child1Metadata = TestMetadata.create(1);
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
@@ -130,7 +130,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void putTreeArtifact_mixedTreeAndFiles_addsTreeAndChildren() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
     FileArtifactValue childMetadata = TestMetadata.create(1);
     ActionInput file = ActionInputHelper.fromPath("file");
@@ -148,10 +148,10 @@ public final class ActionInputMapTest {
 
   @Test
   public void putTreeArtifact_multipleTrees_addsAllTreesAndChildren() {
-    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeArtifact tree1 = createTreeArtifact("tree1");
     TreeFileArtifact tree1Child = TreeFileArtifact.createTreeOutput(tree1, "child");
     FileArtifactValue tree1ChildMetadata = TestMetadata.create(1);
-    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeArtifact tree2 = createTreeArtifact("tree2");
     TreeFileArtifact tree2Child = TreeFileArtifact.createTreeOutput(tree2, "child");
     FileArtifactValue tree2ChildMetadata = TestMetadata.create(2);
     TreeArtifactValue tree1Value =
@@ -170,9 +170,9 @@ public final class ActionInputMapTest {
 
   @Test
   public void putTreeArtifact_multipleTreesUnderSameDirectory_addsAllTrees() {
-    SpecialArtifact tree1 = createTreeArtifact("dir/tree1");
-    SpecialArtifact tree2 = createTreeArtifact("dir/tree2");
-    SpecialArtifact tree3 = createTreeArtifact("dir/tree3");
+    TreeArtifact tree1 = createTreeArtifact("dir/tree1");
+    TreeArtifact tree2 = createTreeArtifact("dir/tree2");
+    TreeArtifact tree3 = createTreeArtifact("dir/tree3");
 
     map.putTreeArtifact(tree1, TreeArtifactValue.empty());
     map.putTreeArtifact(tree2, TreeArtifactValue.empty());
@@ -185,8 +185,8 @@ public final class ActionInputMapTest {
 
   @Test
   public void putTreeArtifact_afterPutTreeArtifactWithSameExecPath_doesNothing() {
-    SpecialArtifact tree1 = createTreeArtifact("tree");
-    SpecialArtifact tree2 = createTreeArtifact("tree");
+    TreeArtifact tree1 = createTreeArtifact("tree");
+    TreeArtifact tree2 = createTreeArtifact("tree");
     TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
     TreeArtifactValue tree1Value = TreeArtifactValue.empty();
     TreeArtifactValue tree2Value =
@@ -205,7 +205,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void putTreeArtifact_sameExecPathAsARegularFile_fails() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     ActionInput file = ActionInputHelper.fromPath(tree.getExecPath());
     map.put(file, TestMetadata.create(1));
 
@@ -231,7 +231,7 @@ public final class ActionInputMapTest {
   @Test
   public void putTreeArtifact_nestedFile_returnsNestedFileFromExecPath(
       @TestParameter PutOrder putOrder) {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileArtifactValue treeFileMetadata = TestMetadata.create(1);
     ActionInput file = ActionInputHelper.fromPath(treeFile.getExecPath());
@@ -260,7 +260,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void put_sameExecPathAsATree_fails() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     ActionInput file = ActionInputHelper.fromPath(tree.getExecPath());
     FileArtifactValue fileMetadata = TestMetadata.create(1);
     map.putTreeArtifact(tree, TreeArtifactValue.empty());
@@ -270,7 +270,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void put_treeArtifact_fails() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     FileArtifactValue metadata = TestMetadata.create(1);
 
     assertThrows(IllegalArgumentException.class, () -> map.put(tree, metadata));
@@ -278,7 +278,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void getMetadata_actionInputWithTreeExecPath_returnsTreeArtifactEntries() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     map.putTreeArtifact(tree, TreeArtifactValue.empty());
     ActionInput input = ActionInputHelper.fromPath(tree.getExecPath());
 
@@ -288,7 +288,7 @@ public final class ActionInputMapTest {
   @Test
   public void getMetadata_actionInputWithTreeFileExecPath_returnsTreeArtifactEntries() {
     ActionInputMap inputMap = new ActionInputMap(/* sizeHint= */ 1);
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileArtifactValue treeFileMetadata = TestMetadata.create(1);
     TreeArtifactValue treeValue =
@@ -303,7 +303,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void getMetadata_artifactWithTreeFileExecPath_returnsNull() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     TreeArtifactValue treeValue =
         TreeArtifactValue.newBuilder(tree).putChild(treeFile, TestMetadata.create(1)).build();
@@ -318,7 +318,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void getMetadata_missingFileWithinTree_returnsNull() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     map.putTreeArtifact(
         tree,
         TreeArtifactValue.newBuilder(tree)
@@ -331,7 +331,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void getInputMetadata_treeFileUnderFile_fails() {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "file");
     ActionInput file = ActionInputHelper.fromPath(tree.getExecPath());
     map.put(file, TestMetadata.create(1));
@@ -341,8 +341,8 @@ public final class ActionInputMapTest {
 
   @Test
   public void getInputMetadata_subtreeFile() {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    SpecialArtifact subtree = createSubTreeArtifact(tree, "subdir");
+    TreeArtifact tree = createTreeArtifact("tree");
+    TreeArtifact subtree = createSubTreeArtifact(tree, "subdir");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(subtree, "file");
     FileArtifactValue treeFileMetadata = TestMetadata.create(1);
     map.putTreeArtifact(
@@ -353,8 +353,8 @@ public final class ActionInputMapTest {
 
   @Test
   public void getInputMetadata_subtreeFileUnderTopLevelTree() {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    SpecialArtifact subtree = createSubTreeArtifact(tree, "subdir");
+    TreeArtifact tree = createTreeArtifact("tree");
+    TreeArtifact subtree = createSubTreeArtifact(tree, "subdir");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(subtree, "file");
     FileArtifactValue treeFileMetadata = TestMetadata.create(1);
     // When the top-level tree is added (instead of the subtree)...
@@ -376,7 +376,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void getTreeMetadataForPrefix_emptyTree() {
-    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeArtifact tree = createTreeArtifact("a/tree");
     TreeArtifactValue treeValue = TreeArtifactValue.newBuilder(tree).build();
     map.putTreeArtifact(tree, treeValue);
 
@@ -388,7 +388,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void getTreeMetadataForPrefix_nonEmptyTree() {
-    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeArtifact tree = createTreeArtifact("a/tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "some/child");
     TreeArtifactValue treeValue =
         TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
@@ -406,7 +406,7 @@ public final class ActionInputMapTest {
   @Test
   public void getters_missingTree_returnNull() {
     map.putTreeArtifact(createTreeArtifact("tree"), TreeArtifactValue.empty());
-    SpecialArtifact otherTree = createTreeArtifact("other");
+    TreeArtifact otherTree = createTreeArtifact("other");
 
     assertDoesNotContain(otherTree);
     assertDoesNotContain(TreeFileArtifact.createTreeOutput(otherTree, "child"));
@@ -464,14 +464,14 @@ public final class ActionInputMapTest {
   }
 
   private void assertContainsFile(ActionInput input, FileArtifactValue fileValue) {
-    checkArgument(!(input instanceof SpecialArtifact), "use assertContainsTree for tree artifacts");
+    checkArgument(!(input instanceof TreeArtifact), "use assertContainsTree for tree artifacts");
     assertThat(map.getInputMetadata(input)).isSameInstanceAs(fileValue);
     assertThat(map.getMetadata(input.getExecPath())).isSameInstanceAs(fileValue);
     assertThat(map.getTreeMetadata(input.getExecPath())).isNull();
     assertThat(map.getInput(input.getExecPath())).isSameInstanceAs(input);
   }
 
-  private void assertContainsTree(SpecialArtifact input, TreeArtifactValue treeValue) {
+  private void assertContainsTree(TreeArtifact input, TreeArtifactValue treeValue) {
     // TreeArtifactValue#getMetadata returns a freshly allocated instance.
     assertThat(map.getInputMetadata(input)).isEqualTo(treeValue.getMetadata());
     assertThat(map.getMetadata(input.getExecPath())).isEqualTo(treeValue.getMetadata());
@@ -537,14 +537,14 @@ public final class ActionInputMapTest {
     }
   }
 
-  private SpecialArtifact createTreeArtifact(String relativeExecPath) {
+  private TreeArtifact createTreeArtifact(String relativeExecPath) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         artifactRoot, artifactRoot.getExecPath().getRelative(relativeExecPath));
   }
 
-  private SpecialArtifact createSubTreeArtifact(SpecialArtifact parent, String parentRelativePath) {
-    SpecialArtifact subtree =
-        SpecialArtifact.createSubTreeArtifact(
+  private TreeArtifact createSubTreeArtifact(TreeArtifact parent, String parentRelativePath) {
+    TreeArtifact subtree =
+        TreeArtifact.createSubTreeArtifact(
             parent, PathFragment.create(parentRelativePath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
     subtree.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     return subtree;

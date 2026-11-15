@@ -38,7 +38,7 @@ public final class DefStatement extends Statement {
       ImmutableList<Parameter> parameters,
       @Nullable Expression returnType,
       ImmutableList<Statement> body) {
-    super(locs, Kind.DEF);
+    super(locs);
     this.defOffset = defOffset;
     this.identifier = identifier;
     this.typeParameters = typeParameters;

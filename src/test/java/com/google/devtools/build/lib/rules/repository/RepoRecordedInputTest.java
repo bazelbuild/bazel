@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValu
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +52,14 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
   private static void assertMarkerFileEscaping(String testCase) {
     String escaped = RepoRecordedInput.escape(testCase);
     assertThat(RepoRecordedInput.unescape(escaped)).isEqualTo(testCase);
+  }
+
+  @Test
+  public void testRepositoryRoundTrip() throws Exception {
+    var input = new RepoRecordedInput.Repository(RepositoryName.create("+ext+repo"));
+
+    assertThat(input.toString()).startsWith("REPO:");
+    assertThat(RepoRecordedInput.parse(input.toString())).isEqualTo(input);
   }
 
   @Test
@@ -66,6 +77,36 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testParseRoundTrip_fileWithSpace() {
+    var input =
+        new RepoRecordedInput.File(
+            RepoCacheFriendlyPath.createInsideWorkspace(
+                RepositoryName.MAIN, PathFragment.create("input with space.txt")));
+    assertThat(RepoRecordedInput.parse(input.toString())).isEqualTo(input);
+  }
+
+  @Test
+  public void testRecordedInputRoundTrip() throws Exception {
+    for (String name :
+        ImmutableList.of("plain", "with space", "with\\backslash", "with\nnewline")) {
+      var path =
+          new RepoRecordedInput.RepoCacheFriendlyPath(
+              Optional.of(RepositoryName.create("repo")), PathFragment.create(name));
+      for (var input :
+          ImmutableList.of(
+              new RepoRecordedInput.File(path),
+              new RepoRecordedInput.Dirents(path),
+              new RepoRecordedInput.DirTree(path, ImmutableList.of()),
+              new RepoRecordedInput.DirTree(
+                  path, ImmutableList.of("excluded directory/**", "file,with,commas")))) {
+        assertThat(RepoRecordedInput.parse(input.toString())).isEqualTo(input);
+        var withValue = new RepoRecordedInput.WithValue(input, "value with\\escapes\n");
+        assertThat(parse(withValue.toString())).hasValue(withValue);
+      }
+    }
+  }
+
+  @Test
   public void testFileValueToMarkerValue() throws Exception {
     RootedPath path =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), scratch.file("foo", "bar"));
@@ -76,7 +117,7 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
 
     // Digest should also be returned if the FileStateValue doesn't have it.
     FileStatus status = Mockito.mock(FileStatus.class);
-    when(status.getLastChangeTime()).thenReturn(100L);
+    when(status.getLastChangeTimeNanos()).thenReturn(100L);
     when(status.getNodeId()).thenReturn(200L);
     fv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
@@ -139,5 +180,43 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
                 parse("FILE:@@//:baz cba").orElseThrow()),
             ImmutableList.of(
                 parse("FILE:@@foo//:baz bac").orElseThrow(), parse("ENV:KEY value").orElseThrow()));
+  }
+
+  @Test
+  public void testSplitIntoBatches_inputsInAlreadyRequestedRepo() {
+    var inputs =
+        ImmutableList.of(
+            parse("FILE:@@//main.txt 0").orElseThrow(),
+            // Batch 2: A dependency on a repo starts a new batch, but files in the repo can be
+            // requested together with it.
+            parse("REPO:foo ").orElseThrow(),
+            parse("FILE:@@foo//a.txt 1").orElseThrow(),
+            parse("ENV:KEY value").orElseThrow(),
+            parse("FILE:@@foo//b.txt 2").orElseThrow(),
+            // Batch 3: Without a preceding dependency on the repo, the first file in it starts a
+            // new batch, but further files in it and a dependency on it can be requested together
+            // with it.
+            parse("FILE:@@bar//a.txt 3").orElseThrow(),
+            parse("REPO:bar ").orElseThrow(),
+            parse("FILE:@@bar//b.txt 4").orElseThrow(),
+            parse("FILE:@@foo//dir DIR").orElseThrow(),
+            // Batch 4: Directory listings always start a new batch, but both @@foo and @@bar have
+            // already been requested.
+            parse("DIRENTS:@@foo//dir 5").orElseThrow(),
+            parse("FILE:@@foo//dir/c.txt 6").orElseThrow(),
+            parse("FILE:@@bar//c.txt 7").orElseThrow(),
+            parse("FILE:@@//other.txt 8").orElseThrow(),
+            // Batch 5: A dependency on a new repo starts a new batch.
+            parse("REPO:baz ").orElseThrow(),
+            parse("FILE:@@baz//a.txt 9").orElseThrow());
+
+    assertThat(splitIntoBatches(inputs))
+        .containsExactly(
+            inputs.subList(0, 1),
+            inputs.subList(1, 5),
+            inputs.subList(5, 9),
+            inputs.subList(9, 13),
+            inputs.subList(13, 15))
+        .inOrder();
   }
 }

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkdebug.server;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -43,10 +45,10 @@ final class DebuggerSerialization {
     // TODO(bazel-team): prune cycles, and provide a way to limit breadth/depth of children reported
     boolean hasChildren = hasChildren(value);
     return Value.newBuilder()
-        .setLabel(label)
+        .setLabel(internalToUnicode(label))
         // TODO(bazel-team): omit type details for non-Starlark values
         .setType(Starlark.type(value))
-        .setDescription(getDescription(value))
+        .setDescription(internalToUnicode(getDescription(value)))
         .setHasChildren(hasChildren)
         .setId(hasChildren ? objectMap.registerValue(value) : 0)
         .build();

@@ -13,14 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -112,6 +116,124 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     String stderr = recOutErr.errAsLatin1();
     assertThat(stderr)
         .contains("Target //foo:foo up-to-date (nothing to build except internal output groups)\n");
+  }
+
+  /**
+   * Writes {@code //groups:t}, whose default output is {@code t_default.txt} and whose {@code
+   * custom} output group contains {@code t_custom.txt} and {@code t_shared.txt}. {@code
+   * t_shared.txt} is also in the {@code shared} output group.
+   */
+  private void writeOutputGroupsTarget() throws Exception {
+    write(
+        "groups/defs.bzl",
+        """
+        def _impl(ctx):
+            default = ctx.actions.declare_file(ctx.label.name + "_default.txt")
+            custom = ctx.actions.declare_file(ctx.label.name + "_custom.txt")
+            shared = ctx.actions.declare_file(ctx.label.name + "_shared.txt")
+            for f in [default, custom, shared]:
+                ctx.actions.write(f, f.basename)
+            return [
+                DefaultInfo(files = depset([default])),
+                OutputGroupInfo(
+                    custom = depset([custom, shared]),
+                    shared = depset([shared]),
+                ),
+            ]
+
+        groups_rule = rule(implementation = _impl)
+        """);
+    write(
+        "groups/BUILD",
+        """
+        load(":defs.bzl", "groups_rule")
+
+        groups_rule(name = "t")
+        """);
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroups_builtButHidden() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--extra_default_output_groups=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .containsMatch("Target //groups:t up-to-date:\n  .*/groups/t_default\\.txt\n");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+    assertThat(stderr).doesNotContain("t_shared.txt");
+    // Hidden from the result output, but still built.
+    Path defaultOutput = getOnlyElement(getArtifacts("//groups:t")).getPath();
+    assertThat(defaultOutput.getParentDirectory().getRelative("t_custom.txt").exists()).isTrue();
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroups_defaultOutputGroup() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+custom", "--extra_default_output_groups=default");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("t_default.txt");
+    assertThat(stderr).contains("/groups/t_custom.txt\n");
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroups_artifactInVisibleGroupStillShown() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+shared", "--extra_default_output_groups=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("/groups/t_default.txt\n");
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroups_droppedByOutputGroupsOverride() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=shared", "--extra_default_output_groups=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+    assertThat(stderr).doesNotContain("t_default.txt");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+    // The unprefixed --output_groups drops the extra default group entirely, so it is not built.
+    Path defaultOutput = getOnlyElement(getArtifacts("//groups:t")).getPath();
+    assertThat(defaultOutput.getParentDirectory().getRelative("t_custom.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroups_suppressesUnknownOutputGroupWarning() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+shown_missing", "--extra_default_output_groups=hidden_missing");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("Output group 'hidden_missing' was requested");
+    assertThat(stderr).contains("Output group 'shown_missing' was requested");
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroups_doesNotSuppressUnknownOutputGroupError()
+      throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions(
+        "--extra_default_output_groups=hidden_missing",
+        "--incompatible_fail_on_unknown_output_groups");
+    ViewCreationFailedException e =
+        assertThrows(ViewCreationFailedException.class, () -> buildTarget("//groups:t"));
+    assertThat(e).hasMessageThat().contains("Output group 'hidden_missing' was requested");
   }
 
   @Test

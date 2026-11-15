@@ -325,12 +325,7 @@ public final class MacroInstance extends RuleOrMacroInstance {
       return;
     }
 
-    Type.LabelVisitor visitor =
-        (label, unusedAttribute) -> {
-          if (label != null) {
-            consumer.accept(label);
-          }
-        };
+    Type.LabelVisitor visitor = (label, unusedAttribute) -> consumer.accept(label);
 
     if (value instanceof SelectorList) {
       @SuppressWarnings("unchecked") // safe by precondition assumption

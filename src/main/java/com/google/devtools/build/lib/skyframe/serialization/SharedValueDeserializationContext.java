@@ -278,34 +278,6 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
             directExecutor()));
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
-  @Override
-  @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
-  public void deserialize(CodedInputStream codedIn, Object parent, long offset, Runnable done)
-      throws IOException, SerializationException {
-    Object result = processTagAndDeserialize(codedIn);
-    if (result == null) {
-      done.run();
-      return;
-    }
-
-    if (!(result instanceof ListenableFuture)) {
-      unsafe().putObject(parent, offset, result);
-      done.run();
-      return;
-    }
-
-    addReadStatusFuture(
-        Futures.transform(
-            (ListenableFuture<?>) result,
-            value -> {
-              unsafe().putObject(parent, offset, value);
-              done.run();
-              return null;
-            },
-            directExecutor()));
-  }
-
   @Override
   public void deserializeArrayElement(CodedInputStream codedIn, Object[] arr, int index)
       throws IOException, SerializationException {
@@ -321,6 +293,33 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     }
 
     arr[index] = result;
+  }
+
+  @Override
+  public void deserializeArrayElement(
+      CodedInputStream codedIn, Object[] arr, int index, Runnable done)
+      throws IOException, SerializationException {
+    Object result = processTagAndDeserialize(codedIn);
+    if (result == null) {
+      done.run();
+      return;
+    }
+
+    if (result instanceof ListenableFuture<?> futureResult) {
+      addReadStatusFuture(
+          Futures.transform(
+              futureResult,
+              value -> {
+                arr[index] = value;
+                done.run();
+                return null;
+              },
+              directExecutor()));
+      return;
+    }
+
+    arr[index] = result;
+    done.run();
   }
 
   @Override
@@ -483,47 +482,48 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     }
 
     private void deserializeAndComplete(InputStreamSupplier streamSupplier) {
+      SharedValueDeserializationContext innerContext;
+      DeferredValue<?> deferred;
       try (InputStream inputStream = streamSupplier.get()) {
-        deserializeAndComplete(inputStream);
+        innerContext = getFreshContext(childFingerprint);
+        deferred =
+            codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
       } catch (SerializationException | IOException | RuntimeException | Error e) {
+        // Error is caught here so getOperation and skyframeLookupCollector fail rather than
+        // leaving waiting threads blocked; callers unwrap and rethrow Error.
         onFailure(e);
+        return;
       }
-    }
 
-    private void deserializeAndComplete(InputStream inputStream)
-        throws SerializationException, IOException {
-      SharedValueDeserializationContext innerContext = getFreshContext(childFingerprint);
-      DeferredValue<?> deferred =
-          codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
       if (skyframeLookupCollector != null) {
-        // The codec above is responsible for calling `getSkyValue` so any SkyKey directly requested
-        // by this deserialization will be requested by this point and the notification can be sent.
+        // The codec above is responsible for calling `getSkyValue` so any SkyKey directly
+        // requested by this deserialization will be requested by this point and the notification
+        // can be sent.
         //
         // The inner reads could also call `getSkyValue` but have independent reference counting.
         skyframeLookupCollector.notifyFetchDone();
       }
-      List<ListenableFuture<?>> innerReadStatusFutures = innerContext.readStatusFutures;
-      if (innerReadStatusFutures == null || innerReadStatusFutures.isEmpty()) {
-        Object result;
-        try {
-          result = deferred.call();
+
+      try {
+        List<ListenableFuture<?>> innerReadStatusFutures = innerContext.readStatusFutures;
+        if (innerReadStatusFutures == null || innerReadStatusFutures.isEmpty()) {
+          Object result = deferred.call();
           setter.set(parent, result);
-        } catch (SerializationException e) {
-          getOperation.setException(e);
+          getOperation.set(result);
           return;
         }
-        getOperation.set(result);
-        return;
+        getOperation.setFuture(
+            Futures.whenAllSucceed(innerReadStatusFutures)
+                .call(
+                    () -> {
+                      Object result = deferred.call();
+                      setter.set(parent, result);
+                      return result;
+                    },
+                    directExecutor()));
+      } catch (SerializationException | RuntimeException | Error e) {
+        getOperation.setException(e);
       }
-      getOperation.setFuture(
-          Futures.whenAllSucceed(innerReadStatusFutures)
-              .call(
-                  () -> {
-                    Object result = deferred.call();
-                    setter.set(parent, result);
-                    return result;
-                  },
-                  directExecutor()));
     }
 
     @Override

@@ -469,6 +469,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "incompatible_remove_ctx_android_fragment",
+        // TODO(tedx): When this is flipped to true, we need to update MODULE.tools's version of
+        // rules_android to include a release with
+        // https://github.com/bazelbuild/rules_android/commit/6f8a1fa83bcef96c7f80440fac6ec4c5a572271d
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
@@ -478,6 +481,19 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " ctx.fragments.android is undefined. This is a migration flag to move all"
                 + " Android flags  from core Bazel to Python rules.")
     public abstract boolean getDisableAndroidFragment();
+
+    // TODO(blaze-configurability-team): Deprecate this.
+    @Override
+    public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+        throws OutputDirectoriesContext.AddToMnemonicException {
+      if (getDisableAndroidFragment()) {
+        return;
+      }
+      ctx.markAsExplicitInOutputPathFor("Android configuration distinguisher");
+      if (getConfigurationDistinguisher().suffix != null) {
+        ctx.addToMnemonic(getConfigurationDistinguisher().suffix);
+      }
+    }
   }
 
   private final ConfigurationDistinguisher configurationDistinguisher;
@@ -655,16 +671,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public String getOutputDirectoryName() {
     return configurationDistinguisher.suffix;
-  }
-
-  // TODO(blaze-configurability-team): Deprecate this.
-  @Override
-  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
-      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
-    ctx.markAsExplicitInOutputPathFor("Android configuration distinguisher");
-    if (configurationDistinguisher.suffix != null) {
-      ctx.addToMnemonic(configurationDistinguisher.suffix);
-    }
   }
 
   @Override

@@ -353,12 +353,13 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return stat(path, followSymlinks).getLastModifiedTime();
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return stat(path, followSymlinks).getLastModifiedTimeNanos();
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
     var comp = Blocker.begin();
     try {
       run(

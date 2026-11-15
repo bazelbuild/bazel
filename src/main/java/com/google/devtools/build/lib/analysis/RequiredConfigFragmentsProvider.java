@@ -102,7 +102,11 @@ public record RequiredConfigFragmentsProvider(
   }
 
   public static Builder builder() {
-    return new Builder();
+    return builder(/* starlarkOnly= */ false);
+  }
+
+  public static Builder builder(boolean starlarkOnly) {
+    return new Builder(starlarkOnly);
   }
 
   /**
@@ -115,40 +119,57 @@ public record RequiredConfigFragmentsProvider(
    * dependencies.
    */
   public static final class Builder {
+    private final boolean starlarkOnly;
     private Set<Class<? extends FragmentOptions>> optionsClasses = ImmutableSet.of();
     private Set<Class<? extends Fragment>> fragmentClasses = ImmutableSet.of();
     private Set<String> defines = ImmutableSet.of();
     private Set<Label> starlarkOptions = ImmutableSet.of();
 
-    private Builder() {}
+    private Builder(boolean starlarkOnly) {
+      this.starlarkOnly = starlarkOnly;
+    }
+
+    public boolean isStarlarkOnly() {
+      return starlarkOnly;
+    }
 
     @CanIgnoreReturnValue
     public Builder addOptionsClass(Class<? extends FragmentOptions> optionsClass) {
-      optionsClasses = append(optionsClasses, optionsClass);
+      if (!starlarkOnly) {
+        optionsClasses = append(optionsClasses, optionsClass);
+      }
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addOptionsClasses(Collection<Class<? extends FragmentOptions>> optionsClasses) {
-      this.optionsClasses = appendAll(this.optionsClasses, optionsClasses);
+      if (!starlarkOnly) {
+        this.optionsClasses = appendAll(this.optionsClasses, optionsClasses);
+      }
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addFragmentClasses(Collection<Class<? extends Fragment>> fragmentClasses) {
-      this.fragmentClasses = appendAll(this.fragmentClasses, fragmentClasses);
+      if (!starlarkOnly) {
+        this.fragmentClasses = appendAll(this.fragmentClasses, fragmentClasses);
+      }
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addDefine(String define) {
-      defines = append(defines, define);
+      if (!starlarkOnly) {
+        defines = append(defines, define);
+      }
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addDefines(Collection<String> defines) {
-      this.defines = appendAll(this.defines, defines);
+      if (!starlarkOnly) {
+        this.defines = appendAll(this.defines, defines);
+      }
       return this;
     }
 
@@ -167,9 +188,11 @@ public record RequiredConfigFragmentsProvider(
     @CanIgnoreReturnValue
     public Builder merge(RequiredConfigFragmentsProvider provider) {
       if (provider != null) {
-        optionsClasses = appendAll(optionsClasses, provider.optionsClasses());
-        fragmentClasses = appendAll(fragmentClasses, provider.fragmentClasses());
-        defines = appendAll(defines, provider.defines());
+        if (!starlarkOnly) {
+          optionsClasses = appendAll(optionsClasses, provider.optionsClasses());
+          fragmentClasses = appendAll(fragmentClasses, provider.fragmentClasses());
+          defines = appendAll(defines, provider.defines());
+        }
         starlarkOptions = appendAll(starlarkOptions, provider.starlarkOptions());
       }
       return this;

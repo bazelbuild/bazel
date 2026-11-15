@@ -120,6 +120,7 @@ java_test(
     srcs = ["StarlarkRuleTransitionProviderTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_root_cause_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",

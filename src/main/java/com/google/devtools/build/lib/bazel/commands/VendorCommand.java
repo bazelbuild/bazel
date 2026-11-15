@@ -30,12 +30,14 @@ import com.google.devtools.build.lib.bazel.commands.TargetFetcher.TargetFetcherE
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.remote.LazyMaterializer;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -67,6 +70,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -192,6 +196,12 @@ public final class VendorCommand implements BlazeCommand {
           e.getMessage() != null
               ? "Error while vendoring repos: " + e.getMessage()
               : "Error while vendoring repos";
+      if (e instanceof DetailedException detailed) {
+        // Keep the failure's own exit code, e.g. so that the command is retried when a file of a
+        // repo has been evicted from the remote cache.
+        return createFailedBlazeCommandResult(
+            env.getReporter(), message, detailed.getDetailedExitCode());
+      }
       return createFailedBlazeCommandResult(
           env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
     }
@@ -412,7 +422,7 @@ public final class VendorCommand implements BlazeCommand {
     // The user has to update the Bazel registries this if such conflicts occur.
     Map<String, String> vendorPathToUrl = new HashMap<>();
     for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
-      URI url = URI.create(entry.getKey());
+      URI url = parseRegistryFileUrl(entry.getKey());
       if (Objects.equals(url.getScheme(), "file")) {
         continue;
       }
@@ -430,7 +440,9 @@ public final class VendorCommand implements BlazeCommand {
                     + " cause conflict on case insensitive file systems, please fix by changing the"
                     + " registry URLs!",
                 previousUrl,
-                vendorManager.getVendorPathForUrl(URI.create(previousUrl)).getPathString(),
+                vendorManager
+                    .getVendorPathForUrl(parseRegistryFileUrl(previousUrl))
+                    .getPathString(),
                 entry.getKey(),
                 outputPath));
       }
@@ -461,6 +473,12 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
+    if (externalPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+      // Repos that have been retrieved from the remote repo contents cache may not be on disk yet.
+      for (RepositoryName repo : reposToVendor) {
+        lazyMaterializer.ensureMaterialized(repo, /* requester= */ null);
+      }
+    }
     vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
 
     // 3. Invalidate RepositoryDirectoryValue for vendored repos.
@@ -470,6 +488,14 @@ public final class VendorCommand implements BlazeCommand {
             k ->
                 k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
                     && reposToVendor.contains(k.argument()));
+  }
+
+  private static URI parseRegistryFileUrl(String url) throws IOException {
+    try {
+      return HttpUtils.parseUrl(url);
+    } catch (URISyntaxException e) {
+      throw new IOException("Invalid registry file URL: " + url, e);
+    }
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(

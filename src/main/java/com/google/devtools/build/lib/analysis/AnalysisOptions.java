@@ -160,4 +160,14 @@ public abstract class AnalysisOptions extends OptionsBase {
               + "*0.5`.",
       converter = CpuResourceConverter.class)
   public abstract int getOomSensitiveSkyFunctionsSemaphoreSize();
+
+  @Option(
+      name = "experimental_max_transitive_analysis_nodes",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Maximum number of transitive analysis nodes allowed for a single top-level target. If"
+              + " positive, the build fails if any top-level target exceeds this limit.")
+  public abstract long getMaxTransitiveAnalysisNodes();
 }

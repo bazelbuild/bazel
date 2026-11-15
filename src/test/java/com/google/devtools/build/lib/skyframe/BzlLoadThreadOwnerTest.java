@@ -17,13 +17,17 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -36,6 +40,7 @@ import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import com.google.protobuf.ByteString;
 import java.util.concurrent.ExecutionException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -135,7 +140,84 @@ public class BzlLoadThreadOwnerTest extends BuildViewTestCase {
     assertThat(oldOwnerDeserialized).isEqualTo(oldOwner);
   }
 
-  private BzlLoadValue.Key getKey(String label) {
+  /**
+   * Regression test for b/565384708.
+   *
+   * <p>When a {@link BzlLoadValue} is dropped from Skyframe and later recomputed, the new {@link
+   * Module} is a distinct instance. Owners built from the old and new modules must still compare
+   * equal if the semantics and transitive digest match, otherwise Starlark values tokenized by the
+   * old module compare unequal to deserialized copies tokenized by the new one.
+   */
+  @Test
+  public void owner_equalForDifferentModuleInstancesWithSameSemanticsAndDigest() {
+    BzlLoadValue.Key key = getKey("//test:lib.bzl");
+    byte[] digest = {0, 1, 2, 3};
+    Module module1 = createModule(key, StarlarkSemantics.DEFAULT, digest);
+    Module module2 = createModule(key, StarlarkSemantics.DEFAULT, digest);
+    assertThat(module1).isNotSameInstanceAs(module2);
+
+    BzlLoadThreadOwner owner1 = BzlLoadThreadOwner.of(key, module1);
+    BzlLoadThreadOwner owner2 = BzlLoadThreadOwner.of(key, module2);
+
+    assertThat(owner1).isEqualTo(owner2);
+    assertThat(owner1.hashCode()).isEqualTo(owner2.hashCode());
+  }
+
+  @Test
+  public void owner_unequalForDifferentDigest() {
+    BzlLoadValue.Key key = getKey("//test:lib.bzl");
+    Module module1 = createModule(key, StarlarkSemantics.DEFAULT, new byte[] {0, 1, 2, 3});
+    Module module2 = createModule(key, StarlarkSemantics.DEFAULT, new byte[] {0xB, 0xA, 0xD});
+
+    assertThat(BzlLoadThreadOwner.of(key, module1))
+        .isNotEqualTo(BzlLoadThreadOwner.of(key, module2));
+  }
+
+  @Test
+  public void owner_unequalForDifferentSemantics() {
+    BzlLoadValue.Key key = getKey("//test:lib.bzl");
+    byte[] digest = {0, 1, 2, 3};
+    Module module1 = createModule(key, StarlarkSemantics.DEFAULT, digest);
+    Module module2 =
+        createModule(
+            key,
+            StarlarkSemantics.builder()
+                .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE, false)
+                .build(),
+            digest);
+
+    assertThat(BzlLoadThreadOwner.of(key, module1))
+        .isNotEqualTo(BzlLoadThreadOwner.of(key, module2));
+  }
+
+  @Test
+  public void owner_unequalForDifferentKey() {
+    byte[] digest = {0, 1, 2, 3};
+    BzlLoadValue.Key key1 = getKey("//test:lib.bzl");
+    BzlLoadValue.Key key2 = getKey("//test:other.bzl");
+
+    assertThat(BzlLoadThreadOwner.of(key1, createModule(key1, StarlarkSemantics.DEFAULT, digest)))
+        .isNotEqualTo(
+            BzlLoadThreadOwner.of(key2, createModule(key2, StarlarkSemantics.DEFAULT, digest)));
+  }
+
+  private static Module createModule(
+      BzlLoadValue.Key key, StarlarkSemantics semantics, byte[] transitiveDigest) {
+    return Module.withPredeclaredAndData(
+        semantics,
+        ImmutableMap.of(),
+        BazelModuleContext.create(
+            key,
+            RepositoryMapping.EMPTY,
+            /* moduleRepoName= */ null,
+            key.getLabel().toPathFragment().toString(),
+            ImmutableList.of(),
+            transitiveDigest,
+            ImmutableMap.of(),
+            ImmutableList.of()));
+  }
+
+  private static BzlLoadValue.Key getKey(String label) {
     return BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked(label));
   }
 

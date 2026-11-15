@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -59,13 +60,16 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
@@ -87,7 +91,6 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
@@ -105,6 +108,7 @@ public final class StarlarkRepositoryContextTest {
   private Path outputDirectory;
   private Root root;
   private StarlarkRepositoryContext context;
+  private DownloadManager downloader;
   private SkyFunction.Environment environment;
   private ExtendedEventHandler listener;
   private Label fakeFileLabel;
@@ -147,8 +151,7 @@ public final class StarlarkRepositoryContextTest {
 
   private static Object exec(String... lines) {
     try {
-      return Starlark.execFile(
-          ParserInput.fromLines(lines), FileOptions.DEFAULT, Module.create(), thread);
+      return Starlark.execFile(ParserInput.fromLines(lines), Module.create(), thread);
     } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
       throw new AssertionError("exec failed", ex);
     }
@@ -176,7 +179,7 @@ public final class StarlarkRepositoryContextTest {
         repoRule.instantiate(kwargs, DUMMY_STACK, labelConverter, listener, "somewhere");
     RepoDefinition repoDefinition =
         new RepoDefinition(repoRule, repoSpec.attributes(), (String) kwargs.get("name"), null);
-    DownloadManager downloader = Mockito.mock(DownloadManager.class);
+    downloader = Mockito.mock(DownloadManager.class);
     environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
     fakeFileLabel = Label.parseCanonical("//:foo");
@@ -267,16 +270,16 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testFile() throws Exception {
     setUpRepo("test");
-    context.createFile(context.getPath("foobar"), "", true, true, thread);
-    context.createFile(context.getPath("foo/bar"), "foobar", true, true, thread);
-    context.createFile(context.getPath("bar/foo/bar"), "", true, true, thread);
+    context.createFile(context.getPath("foobar", thread), "", true, true, thread);
+    context.createFile(context.getPath("foo/bar", thread), "foobar", true, true, thread);
+    context.createFile(context.getPath("bar/foo/bar", thread), "", true, true, thread);
 
     testOutputFile(outputDirectory.getChild("foobar"), "");
     testOutputFile(outputDirectory.getRelative("foo/bar"), "foobar");
     testOutputFile(outputDirectory.getRelative("bar/foo/bar"), "");
 
     try {
-      context.createFile(context.getPath("/absolute"), "", true, true, thread);
+      context.createFile(context.getPath("/absolute", thread), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -285,7 +288,7 @@ public final class StarlarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /absolute");
     }
     try {
-      context.createFile(context.getPath("../somepath"), "", true, true, thread);
+      context.createFile(context.getPath("../somepath", thread), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -294,7 +297,7 @@ public final class StarlarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
     try {
-      context.createFile(context.getPath("foo/../../somepath"), "", true, true, thread);
+      context.createFile(context.getPath("foo/../../somepath", thread), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -307,7 +310,7 @@ public final class StarlarkRepositoryContextTest {
             RepositoryFunctionException.class,
             () ->
                 context.createFile(
-                    Starlark.str(context.getPath(""), StarlarkSemantics.DEFAULT) + "_1",
+                    Starlark.str(context.getPath("", thread), StarlarkSemantics.DEFAULT) + "_1",
                     "",
                     true,
                     true,
@@ -323,7 +326,7 @@ public final class StarlarkRepositoryContextTest {
     setUpRepo("testDelete");
     Path bar = outputDirectory.getRelative("foo/bar");
     Object path1 = bar.getPathString();
-    StarlarkPath barPath = context.getPath(path1);
+    StarlarkPath barPath = context.getPath(path1, thread);
     context.createFile(barPath, "content", true, true, thread);
     assertThat(context.delete(barPath, thread)).isTrue();
 
@@ -331,7 +334,7 @@ public final class StarlarkRepositoryContextTest {
 
     Path tempFile = scratch.file("/abcde/b", "123");
     Object path = tempFile.getPathString();
-    assertThat(context.delete(context.getPath(path), thread)).isTrue();
+    assertThat(context.delete(context.getPath(path, thread), thread)).isTrue();
 
     Path innerDir = scratch.dir("/some/inner");
     scratch.dir("/some/inner/deeper");
@@ -362,20 +365,24 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testRead() throws Exception {
     setUpRepo("test");
-    context.createFile(context.getPath("foo/bar"), "foobar", true, true, thread);
+    context.createFile(context.getPath("foo/bar", thread), "foobar", true, true, thread);
 
-    String content = context.readFile(context.getPath("foo/bar"), "auto", thread);
+    String content = context.readFile(context.getPath("foo/bar", thread), "auto", thread);
     assertThat(content).isEqualTo("foobar");
   }
 
   @Test
   public void testPatch() throws Exception {
     setUpRepo("test");
-    StarlarkPath foo = context.getPath("foo");
+    StarlarkPath foo = context.getPath("foo", thread);
     context.createFile(foo, "line one\n", false, true, thread);
-    StarlarkPath patchFile = context.getPath("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch", thread);
     context.createFile(
-        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+        context.getPath("my.patch", thread),
+        "--- foo\n+++ foo\n" + ONE_LINE_PATCH,
+        false,
+        true,
+        thread);
     context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
     testOutputFile(foo.getPath(), "line one\nline two\n");
   }
@@ -383,9 +390,9 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testPatchInDirectory() throws Exception {
     setUpRepo("test");
-    StarlarkPath foo = context.getPath("sub/foo");
+    StarlarkPath foo = context.getPath("sub/foo", thread);
     context.createFile(foo, "line one\n", false, true, thread);
-    StarlarkPath patchFile = context.getPath("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch", thread);
     context.createFile(patchFile, "--- a/foo\n+++ b/foo\n" + ONE_LINE_PATCH, false, true, thread);
     context.patch(patchFile, StarlarkInt.of(1), "sub", "auto", thread);
     testOutputFile(foo.getPath(), "line one\nline two\n");
@@ -394,7 +401,7 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testPatchInDirectoryOutsideOfExternalRepository() throws Exception {
     setUpRepo("test");
-    StarlarkPath patchFile = context.getPath("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch", thread);
     context.createFile(patchFile, "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
       context.patch(patchFile, StarlarkInt.of(0), "/other_root", "auto", thread);
@@ -410,9 +417,13 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testCannotFindFileToPatch() throws Exception {
     setUpRepo("test");
-    StarlarkPath patchFile = context.getPath("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch", thread);
     context.createFile(
-        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+        context.getPath("my.patch", thread),
+        "--- foo\n+++ foo\n" + ONE_LINE_PATCH,
+        false,
+        true,
+        thread);
     try {
       context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
@@ -429,9 +440,9 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testPatchOutsideOfExternalRepository() throws Exception {
     setUpRepo("test");
-    StarlarkPath patchFile = context.getPath("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch", thread);
     context.createFile(
-        context.getPath("my.patch"),
+        context.getPath("my.patch", thread),
         "--- ../other_root/foo\n" + "+++ ../other_root/foo\n" + ONE_LINE_PATCH,
         false,
         true,
@@ -452,8 +463,8 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testPatchErrorWasThrown() throws Exception {
     setUpRepo("test");
-    StarlarkPath foo = context.getPath("foo");
-    StarlarkPath patchFile = context.getPath("my.patch");
+    StarlarkPath foo = context.getPath("foo", thread);
+    StarlarkPath patchFile = context.getPath("my.patch", thread);
     context.createFile(foo, "line1\nline2\nWRONG\nALSO WRONG\nline5\nline6\n", false, true, thread);
     String patch =
         """
@@ -468,7 +479,7 @@ public final class StarlarkRepositoryContextTest {
          line5
          line6
         """;
-    context.createFile(context.getPath("my.patch"), patch, false, true, thread);
+    context.createFile(context.getPath("my.patch", thread), patch, false, true, thread);
     try {
       context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
@@ -544,13 +555,13 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testRename() throws Exception {
     setUpRepo("test");
-    context.createFile(context.getPath("foo"), "foobar", true, true, thread);
+    context.createFile(context.getPath("foo", thread), "foobar", true, true, thread);
 
-    context.rename(context.getPath("foo"), context.getPath("bar/baz"), thread);
+    context.rename(context.getPath("foo", thread), context.getPath("bar/baz", thread), thread);
     testOutputFile(outputDirectory.getChild("bar").getChild("baz"), "foobar");
 
     try {
-      context.rename(context.getPath("/foo"), context.getPath("bar"), thread);
+      context.rename(context.getPath("/foo", thread), context.getPath("bar", thread), thread);
       fail("Expected error on renaming path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -560,7 +571,7 @@ public final class StarlarkRepositoryContextTest {
     }
 
     try {
-      context.rename(context.getPath("foo"), context.getPath("/bar"), thread);
+      context.rename(context.getPath("foo", thread), context.getPath("/bar", thread), thread);
       fail("Expected error on renaming path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -573,12 +584,12 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testRenameConflict() throws Exception {
     setUpRepo("test");
-    context.createFile(context.getPath("foo"), "fooooo", true, true, thread);
-    context.createFile(context.getPath("bar"), "baaaar", true, true, thread);
-    context.createFile(context.getPath("baz.d/baz"), "baaaaz", true, true, thread);
+    context.createFile(context.getPath("foo", thread), "fooooo", true, true, thread);
+    context.createFile(context.getPath("bar", thread), "baaaar", true, true, thread);
+    context.createFile(context.getPath("baz.d/baz", thread), "baaaaz", true, true, thread);
 
     try {
-      context.rename(context.getPath("foo"), context.getPath("bar"), thread);
+      context.rename(context.getPath("foo", thread), context.getPath("bar", thread), thread);
       fail("Expected error on renaming to a path that already exists");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -588,7 +599,7 @@ public final class StarlarkRepositoryContextTest {
     }
 
     try {
-      context.rename(context.getPath("foo"), context.getPath("baz.d"), thread);
+      context.rename(context.getPath("foo", thread), context.getPath("baz.d", thread), thread);
       fail("Expected error on renaming to a path that already exists");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -601,12 +612,248 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testSymlink() throws Exception {
     setUpRepo("test");
-    context.createFile(context.getPath("foo"), "foobar", true, true, thread);
+    context.createFile(context.getPath("foo", thread), "foobar", true, true, thread);
 
-    context.symlink(context.getPath("foo"), context.getPath("bar"), thread);
+    context.symlink(context.getPath("foo", thread), context.getPath("bar", thread), thread);
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
-    assertThat(context.getPath("bar").realpath()).isEqualTo(context.getPath("foo"));
+    assertThat(context.getPath("bar", thread).realpath()).isEqualTo(context.getPath("foo", thread));
+  }
+
+  @Test
+  public void testCopy() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
+    src.chmod(0400);
+    var executableSrc = scratch.file(root.getRelative("foo.sh").getPathString(), "foobar");
+    executableSrc.chmod(0700);
+
+    context.copy(src.getPathString(), "bar/baz", true, "auto", thread);
+    context.copy(executableSrc.getPathString(), "bar/baz.sh", false, "no", thread);
+
+    var dst = outputDirectory.getRelative("bar/baz");
+    testOutputFile(dst, "foobar\n");
+    assertThat(dst.isSymbolicLink()).isFalse();
+    assertThat(dst.stat().getPermissions()).isEqualTo(0755);
+    var nonExecutableDst = outputDirectory.getRelative("bar/baz.sh");
+    testOutputFile(nonExecutableDst, "foobar\n");
+    assertThat(nonExecutableDst.stat().getPermissions()).isEqualTo(0644);
+    assertThat(context.getRecordedInputs().stream().map(RepoRecordedInput.WithValue::input))
+        .containsExactly(
+            new RepoRecordedInput.File(
+                RepoCacheFriendlyPath.createInsideWorkspace(
+                    RepositoryName.MAIN, PathFragment.create("foo"))));
+  }
+
+  @Test
+  public void testCopyOverwritesDestination() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "new");
+    context.createFile(context.getPath("target", thread), "old", false, false, thread);
+    context.symlink(context.getPath("target", thread), context.getPath("link", thread), thread);
+    var targetDir = scratch.dir(root.getRelative("target_dir").getPathString());
+    outputDirectory.getChild("dir_link").createSymbolicLink(targetDir);
+
+    context.copy(src.getPathString(), "link", true, "auto", thread);
+    context.copy(src.getPathString(), "dir_link", true, "auto", thread);
+
+    var dst = outputDirectory.getChild("link");
+    testOutputFile(dst, "new\n");
+    assertThat(dst.isSymbolicLink()).isFalse();
+    testOutputFile(outputDirectory.getChild("target"), "old");
+    var dirLinkDst = outputDirectory.getChild("dir_link");
+    testOutputFile(dirLinkDst, "new\n");
+    assertThat(dirLinkDst.isSymbolicLink()).isFalse();
+    assertThat(targetDir.getDirectoryEntries()).isEmpty();
+  }
+
+  @Test
+  public void testCopyDirectory() throws Exception {
+    setUpRepo("test");
+    when(environment.getValue(
+            argThat(
+                key ->
+                    key != null && key.functionName().equals(SkyFunctions.DIRECTORY_TREE_DIGEST))))
+        .thenReturn(DirectoryTreeDigestValue.of("digest"));
+    var srcDir = scratch.dir(root.getRelative("dir").getPathString());
+    var file = scratch.file(srcDir.getRelative("file").getPathString(), "file");
+    file.setExecutable(false);
+    file.setWritable(false);
+    scratch.file(srcDir.getRelative("sub/tool.sh").getPathString(), "tool").setExecutable(true);
+    srcDir.getRelative("empty").createDirectory();
+    var outsideFile = scratch.file(root.getRelative("outside/file").getPathString(), "outside");
+    srcDir.getRelative("file_link").createSymbolicLink(outsideFile);
+    srcDir.getRelative("dir_link").createSymbolicLink(outsideFile.getParentDirectory());
+    srcDir.getRelative("sub/relative_link").createSymbolicLink(PathFragment.create("../file"));
+
+    context.copy(srcDir.getPathString(), "out/dir", false, "auto", thread);
+
+    var dstDir = outputDirectory.getRelative("out/dir");
+    var dstFile = dstDir.getRelative("file");
+    testOutputFile(dstFile, "file\n");
+    assertThat(dstFile.isExecutable()).isFalse();
+    assertThat(dstFile.isWritable()).isTrue();
+    var dstTool = dstDir.getRelative("sub/tool.sh");
+    testOutputFile(dstTool, "tool\n");
+    assertThat(dstTool.isExecutable()).isFalse();
+    assertThat(dstDir.getRelative("empty").isDirectory(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(dstDir.getRelative("file_link").isSymbolicLink()).isFalse();
+    testOutputFile(dstDir.getRelative("file_link"), "outside\n");
+    assertThat(dstDir.getRelative("dir_link").isSymbolicLink()).isFalse();
+    testOutputFile(dstDir.getRelative("dir_link/file"), "outside\n");
+    assertThat(dstDir.getRelative("sub/relative_link").isSymbolicLink()).isFalse();
+    testOutputFile(dstDir.getRelative("sub/relative_link"), "file\n");
+    var recordedPath =
+        RepoCacheFriendlyPath.createInsideWorkspace(
+            RepositoryName.MAIN, PathFragment.create("dir"));
+    assertThat(context.getRecordedInputs().stream().map(RepoRecordedInput.WithValue::input))
+        .containsExactly(
+            new RepoRecordedInput.File(recordedPath),
+            new RepoRecordedInput.DirTree(recordedPath, ImmutableList.of()));
+  }
+
+  @Test
+  public void testCopyDirectoryMergesWithDestination() throws Exception {
+    setUpRepo("test");
+    var srcDir = scratch.dir(root.getRelative("dir").getPathString());
+    scratch.file(srcDir.getRelative("sub/overwritten").getPathString(), "new");
+    context.createFile(context.getPath("out/sub/overwritten", thread), "old", false, false, thread);
+    context.createFile(context.getPath("out/sub/kept", thread), "kept", false, false, thread);
+
+    context.copy(srcDir.getPathString(), "out", true, "no", thread);
+
+    testOutputFile(outputDirectory.getRelative("out/sub/overwritten"), "new\n");
+    testOutputFile(outputDirectory.getRelative("out/sub/kept"), "kept");
+  }
+
+  @Test
+  public void testCopyDirectoryErrors() throws Exception {
+    setUpRepo("test");
+    var cyclicDir = scratch.dir(root.getRelative("cyclic").getPathString());
+    scratch.dir(cyclicDir.getRelative("sub").getPathString());
+    cyclicDir.getRelative("sub/link").createSymbolicLink(cyclicDir);
+    var danglingDir = scratch.dir(root.getRelative("dangling").getPathString());
+    danglingDir.getRelative("link").createSymbolicLink(PathFragment.create("missing"));
+    context.createFile(context.getPath("nested/file", thread), "", false, false, thread);
+
+    var cycleException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(cyclicDir.getPathString(), "bar", true, "no", thread));
+    assertThat(cycleException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/cyclic to /outputDir/bar: /wsRoot/cyclic is part of a symlink"
+                + " cycle");
+    assertThat(cycleException.isTransient()).isFalse();
+
+    var danglingException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(danglingDir.getPathString(), "baz", true, "no", thread));
+    assertThat(danglingException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/dangling to /outputDir/baz: /wsRoot/dangling/link is a"
+                + " dangling symlink");
+    assertThat(danglingException.isTransient()).isFalse();
+
+    var overlapException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy("nested", "nested/copy", true, "no", thread));
+    assertThat(overlapException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /outputDir/nested to /outputDir/nested/copy: /outputDir/nested and"
+                + " /outputDir/nested/copy overlap");
+    assertThat(overlapException.isTransient()).isFalse();
+  }
+
+  @Test
+  public void testCopyDirectoryDestinationErrors() throws Exception {
+    setUpRepo("test");
+    scratch.file(root.getRelative("dir/sub/file").getPathString(), "file");
+    var srcDir = root.getRelative("dir");
+    var targetDir = scratch.dir(root.getRelative("target_dir").getPathString());
+    outputDirectory.getChild("link").createSymbolicLink(targetDir);
+    outputDirectory.getRelative("nested_link").createDirectory();
+    outputDirectory.getRelative("nested_link/sub").createSymbolicLink(targetDir);
+    context.createFile(context.getPath("file", thread), "", false, false, thread);
+
+    var linkException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(srcDir.getPathString(), "link", true, "no", thread));
+    assertThat(linkException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("Could not copy /wsRoot/dir to /outputDir/link: /outputDir/link is a symlink");
+    assertThat(linkException.isTransient()).isFalse();
+
+    var nestedLinkException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(srcDir.getPathString(), "nested_link", true, "no", thread));
+    assertThat(nestedLinkException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/dir to /outputDir/nested_link: /outputDir/nested_link/sub is"
+                + " a symlink");
+    assertThat(nestedLinkException.isTransient()).isFalse();
+    assertThat(targetDir.getDirectoryEntries()).isEmpty();
+
+    var fileException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(srcDir.getPathString(), "file", true, "no", thread));
+    assertThat(fileException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/dir to /outputDir/file: /outputDir/file is not a directory");
+    assertThat(fileException.isTransient()).isFalse();
+  }
+
+  @Test
+  public void testCopyErrors() throws Exception {
+    setUpRepo("test");
+    var src = scratch.file(root.getRelative("foo").getPathString(), "foobar");
+    outputDirectory.getChild("empty").createDirectory();
+
+    var outsideException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(src.getPathString(), "/bar", true, "auto", thread));
+    assertThat(outsideException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("Cannot write outside of the repository directory for path /bar");
+
+    var missingException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy("/wsRoot/missing", "bar", true, "auto", thread));
+    assertThat(missingException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .startsWith("Could not copy /wsRoot/missing to /outputDir/bar: ");
+
+    var directoryException =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () -> context.copy(src.getPathString(), "empty", true, "auto", thread));
+    assertThat(directoryException)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(
+            "Could not copy /wsRoot/foo to /outputDir/empty: /outputDir/empty is a directory");
+    assertThat(directoryException.isTransient()).isFalse();
+    assertThat(outputDirectory.getChild("empty").isDirectory()).isTrue();
   }
 
   private static void testOutputFile(Path path, String content) throws IOException {
@@ -627,14 +874,14 @@ public final class StarlarkRepositoryContextTest {
     scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
     scratch.symlink("/my/folder/f", "f"); // looping symlink
 
-    assertThat(context.getPath("/my/folder").readdir("no"))
+    assertThat(context.getPath("/my/folder", thread).readdir("no"))
         .containsExactly(
-            context.getPath("/my/folder/a"),
-            context.getPath("/my/folder/b"),
-            context.getPath("/my/folder/c"),
-            context.getPath("/my/folder/d"),
-            context.getPath("/my/folder/e"),
-            context.getPath("/my/folder/f"));
+            context.getPath("/my/folder/a", thread),
+            context.getPath("/my/folder/b", thread),
+            context.getPath("/my/folder/c", thread),
+            context.getPath("/my/folder/d", thread),
+            context.getPath("/my/folder/e", thread),
+            context.getPath("/my/folder/f", thread));
   }
 
   @Test
@@ -647,12 +894,12 @@ public final class StarlarkRepositoryContextTest {
     scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
     scratch.symlink("/my/folder/f", "f"); // looping symlink
 
-    assertThat(context.getPath("/my/folder/a").exists()).isTrue();
-    assertThat(context.getPath("/my/folder/b").exists()).isTrue();
-    assertThat(context.getPath("/my/folder/c").exists()).isTrue();
-    assertThat(context.getPath("/my/folder/d").exists()).isTrue();
-    assertThat(context.getPath("/my/folder/e").exists()).isFalse();
-    assertThat(context.getPath("/my/folder/f").exists()).isFalse();
+    assertThat(context.getPath("/my/folder/a", thread).exists()).isTrue();
+    assertThat(context.getPath("/my/folder/b", thread).exists()).isTrue();
+    assertThat(context.getPath("/my/folder/c", thread).exists()).isTrue();
+    assertThat(context.getPath("/my/folder/d", thread).exists()).isTrue();
+    assertThat(context.getPath("/my/folder/e", thread).exists()).isFalse();
+    assertThat(context.getPath("/my/folder/f", thread).exists()).isFalse();
   }
 
   @Test
@@ -665,12 +912,12 @@ public final class StarlarkRepositoryContextTest {
     scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
     scratch.symlink("/my/folder/f", "f"); // looping symlink
 
-    assertThat(context.getPath("/my/folder/a").isDir()).isFalse();
-    assertThat(context.getPath("/my/folder/b").isDir()).isTrue();
-    assertThat(context.getPath("/my/folder/c").isDir()).isFalse();
-    assertThat(context.getPath("/my/folder/d").isDir()).isTrue();
-    assertThat(context.getPath("/my/folder/e").isDir()).isFalse();
-    assertThat(context.getPath("/my/folder/f").isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/a", thread).isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/b", thread).isDir()).isTrue();
+    assertThat(context.getPath("/my/folder/c", thread).isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/d", thread).isDir()).isTrue();
+    assertThat(context.getPath("/my/folder/e", thread).isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/f", thread).isDir()).isFalse();
   }
 
   @Test
@@ -680,35 +927,41 @@ public final class StarlarkRepositoryContextTest {
   }
 
   @Test
-  public void testNoIncompatibleNoImplicitWatchLabel() throws Exception {
-    setUpRepo(
-        "test",
-        StarlarkSemantics.DEFAULT.toBuilder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, false)
-            .build());
+  public void testNoImplicitWatchLabel() throws Exception {
+    setUpRepo("test");
     scratch.file(root.getRelative("foo").getPathString());
-    StarlarkPath unusedPath = context.getPath(fakeFileLabel);
-    String unusedRead = context.readFile(fakeFileLabel, "no", thread);
-    assertThat(
-            context.getRecordedInputs().stream()
-                .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
-        .isNotEmpty();
-  }
-
-  @Test
-  public void testIncompatibleNoImplicitWatchLabel() throws Exception {
-    setUpRepo(
-        "test",
-        StarlarkSemantics.DEFAULT.toBuilder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, true)
-            .build());
-    scratch.file(root.getRelative("foo").getPathString());
-    StarlarkPath unusedPath = context.getPath(fakeFileLabel);
+    StarlarkPath unusedPath = context.getPath(fakeFileLabel, thread);
     String unusedRead = context.readFile(fakeFileLabel, "no", thread);
     assertThat(
             context.getRecordedInputs().stream()
                 .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
         .isEmpty();
+  }
+
+  @Test
+  public void testDownloadAndExtractAllowFail_leavesNoDownloadDirectory() throws Exception {
+    setUpRepo("test");
+    when(downloader.finalizeDownload(any())).thenThrow(new IOException("connection reset"));
+
+    StructImpl result =
+        context.downloadAndExtract(
+            "http://localhost/archive.zip",
+            "out",
+            /* sha256= */ "",
+            /* type= */ "zip",
+            /* stripPrefix= */ "",
+            /* allowFail= */ true,
+            /* canonicalId= */ "",
+            /* authUnchecked= */ Dict.empty(),
+            /* headersUnchecked= */ Dict.empty(),
+            /* integrity= */ "",
+            /* renameFiles= */ Dict.empty(),
+            /* oldStripPrefix= */ "",
+            /* stripComponentsI= */ StarlarkInt.of(0),
+            thread);
+
+    assertThat(result.getValue("success")).isEqualTo(false);
+    assertThat(outputDirectory.getRelative("out").readdir(Symlinks.NOFOLLOW)).isEmpty();
   }
 
   @Test

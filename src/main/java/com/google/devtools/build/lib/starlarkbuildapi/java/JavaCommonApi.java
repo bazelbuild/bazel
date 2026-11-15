@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -32,6 +33,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -707,4 +709,157 @@ public interface JavaCommonApi<
       documented = false,
       parameters = {@Param(name = "opts")})
   Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "create_jvm_compile_action",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = true, named = true, doc = "The rule context."),
+        @Param(
+            name = "outputs",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            named = true,
+            positional = false),
+        @Param(
+            name = "mandatory_inputs",
+            allowedTypes = {@ParamType(type = Depset.class)},
+            named = true,
+            positional = false),
+        @Param(
+            name = "transitive_inputs",
+            allowedTypes = {@ParamType(type = Depset.class)},
+            named = true,
+            positional = false),
+        @Param(
+            name = "direct_jars",
+            allowedTypes = {@ParamType(type = Depset.class)},
+            named = true,
+            positional = false),
+        @Param(
+            name = "executable",
+            allowedTypes = {
+              @ParamType(type = FilesToRunProviderApi.class),
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+            },
+            named = true,
+            positional = false),
+        @Param(
+            name = "tools",
+            allowedTypes = {
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
+            },
+            defaultValue = "[]",
+            named = true,
+            positional = false),
+        @Param(
+            name = "arguments",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = CommandLineArgsApi.class),
+            },
+            named = true,
+            positional = false),
+        @Param(
+            name = "mnemonic",
+            allowedTypes = {
+              @ParamType(type = String.class),
+            },
+            named = true,
+            positional = false),
+        @Param(
+            name = "progress_message",
+            allowedTypes = {
+              @ParamType(type = String.class),
+            },
+            named = true,
+            positional = false),
+        @Param(
+            name = "env",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false),
+        @Param(
+            name = "execution_requirements",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "unbound",
+            named = true,
+            positional = false),
+        @Param(
+            name = "output_deps_proto",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false),
+        @Param(
+            name = "dependency_artifacts",
+            allowedTypes = {@ParamType(type = Depset.class)},
+            named = true,
+            positional = false),
+        @Param(
+            name = "insert_dependencies",
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "False",
+            named = true,
+            positional = false),
+        @Param(
+            name = "enable_direct_classpath",
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "False",
+            named = true,
+            positional = false),
+        @Param(
+            name = "reduce_classpath_incompatible",
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "False",
+            named = true,
+            positional = false),
+        @Param(
+            name = "executable_args",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            positional = false),
+      },
+      useStarlarkThread = true)
+  void createJvmCompileAction(
+      StarlarkRuleContextT ctx,
+      Sequence<?> outputs,
+      Depset mandatoryInputs,
+      Depset transitiveInputs,
+      Depset directJars,
+      Object executableUnchecked,
+      Object toolsUnchecked,
+      Sequence<?> arguments,
+      String mnemonic,
+      String progressMessage,
+      Dict<?, ?> envUnchecked,
+      Dict<?, ?> executionRequirementsUnchecked,
+      Object toolchainUnchecked,
+      Object outputDepsProto,
+      Depset dependencyArtifacts,
+      boolean insertDependencies,
+      boolean enableDirectClasspath,
+      boolean reduceClasspathIncompatible,
+      Sequence<?> executableArgs,
+      StarlarkThread thread)
+      throws EvalException, RuleErrorException, InterruptedException;
 }

@@ -39,7 +39,7 @@ Compiles Java source files/jars from the implementation of a Starlark rule and r
 | `source_jars` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of the jars to be compiled. At least one of source_jars or source_files should be specified. |
 | `source_files` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of the Java source files to be compiled. At least one of source_jars or source_files should be specified. |
 | `output` | [File](../builtins/File); required |
-| `output_source_jar` | [File](../builtins/File); or `None`; default is `None`  The output source jar. Defaults to `&lcub;output_jar&rcub;-src.jar` if unset. |
+| `output_source_jar` | [File](../builtins/File); or `None`; default is `None`  The output source jar. Defaults to `{output_jar}-src.jar` if unset. |
 | `javac_opts` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  A list of the desired javac options. |
 | `deps` | [sequence](../core/list) of [struct](../builtins/struct)s; default is `[]`  A list of dependencies. |
 | `runtime_deps` | [sequence](../core/list) of [struct](../builtins/struct)s; default is `[]`  A list of runtime dependencies. |
@@ -110,7 +110,7 @@ Packs sources and source jars into a single source jar file. The return value is
 | Parameter | Description |
 | --- | --- |
 | `actions` | [actions](../builtins/actions); required  ctx.actions |
-| `output_jar` | [File](../builtins/File); or `None`; default is `None`  **Deprecated**. This parameter is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `--incompatible_java_common_parameters`. Use this flag to verify your code is compatible with its imminent removal.  Deprecated: The output jar of the rule. Used to name the resulting source jar. The parameter sets output_source_jar parameter to `&lcub;output_jar&rcub;-src.jar`.Use output_source_jar parameter directly instead. |
+| `output_jar` | [File](../builtins/File); or `None`; default is `None`  **Deprecated**. This parameter is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `--incompatible_java_common_parameters`. Use this flag to verify your code is compatible with its imminent removal.  Deprecated: The output jar of the rule. Used to name the resulting source jar. The parameter sets output_source_jar parameter to `{output_jar}-src.jar`.Use output_source_jar parameter directly instead. |
 | `output_source_jar` | [File](../builtins/File); or `None`; default is `None` |
 | `sources` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of Java source files to be packed into the source jar. |
 | `source_jars` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of source jars to be packed into the source jar. |

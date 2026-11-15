@@ -1229,7 +1229,7 @@ public class RuleClass implements RuleClassData {
 
     /**
      * Set if the rule can have any provider. This is called for the {@code alias} rule and other
-     * alias-like rules such as {@code bind}.
+     * alias-like rules such as {@code label_setting}.
      */
     @CanIgnoreReturnValue
     public Builder canHaveAnyProvider() {
@@ -2357,16 +2357,6 @@ public class RuleClass implements RuleClassData {
   /** Returns a list of AllowlistChecker to check. */
   public ImmutableList<AllowlistChecker> getAllowlistCheckers() {
     return allowlistCheckers;
-  }
-
-  /**
-   * If true, no rule of this class ever declares a license regardless of what the rule's or
-   * package's <code>licenses</code> attribute says.
-   *
-   * <p>This is useful for rule types that don't make sense for license checking.
-   */
-  boolean ignoreLicenses() {
-    return attributeProvider.ignoreLicenses();
   }
 
   public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {

@@ -109,8 +109,10 @@ public abstract class FileOptions {
         .loadBindsGlobally(false)
         .requireLoadStatementsFirst(true)
         .stringLiteralsAreAsciiOnly(false)
-        .allowTypeSyntax(false)
-        .resolveTypeSyntax(false)
+        // LINT.IfChange
+        .allowTypeSyntax(true)
+        .resolveTypeSyntax(true)
+        // LINT.ThenChange(//src/main/java/net/starlark/java/eval/StarlarkSemantics.java)
         .tolerateInvalidTypeExpressions(false);
   }
 

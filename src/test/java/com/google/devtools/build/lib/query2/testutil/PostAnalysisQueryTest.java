@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
@@ -130,7 +131,8 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         .equals(Collections.singletonList(getDefaultUniverseScope()))) {
       return;
     }
-    QueryExpression expression = QueryParser.parse(query, getDefaultFunctions());
+    QueryExpression expression =
+        QueryExpressionResolver.resolve(QueryParser.parse(query), getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     if (!targetPatternSet.isEmpty()) {

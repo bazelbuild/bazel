@@ -44,12 +44,10 @@ toolchain_type(name = "test_runner_toolchain_type")
         "grep-includes": ":empty",
         "interface_library_builder": "@rules_cc//cc/private/toolchain:interface_library_builder",
         "link_dynamic_library": "@rules_cc//cc/private/toolchain:link_dynamic_library",
-        "lib_cc_configure": "@rules_cc//cc/private/toolchain:lib_cc_configure",
         "compiler": "@rules_cc//cc/private/toolchain:compiler",
         "cc_flags": "@rules_cc//cc/private/toolchain:cc_flags",
         "current_cc_toolchain": "@rules_cc//cc:current_cc_toolchain",
         "optional_current_cc_toolchain": "@rules_cc//cc:optional_current_cc_toolchain",
-        "current_libc_top": "@rules_cc//cc:current_libc_top",
     }.items()
 ]
 
@@ -99,26 +97,6 @@ filegroup(
     name = "bzl_srcs",
     srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
-)
-
-config_setting(
-    name = "disable_static_cc_toolchains",
-    values = {
-        "incompatible_disable_static_cc_toolchains": "true",
-    },
-)
-
-# This is the entry point for --crosstool_top.  Toolchains are found
-# by lopping off the name of --crosstool_top and searching for
-# "cc-compiler-${CPU}" in this BUILD file, where CPU is the target CPU
-# specified in --cpu.
-#
-# This file group should include
-#   * all cc_toolchain targets supported
-#   * all file groups that said cc_toolchain might refer to
-alias(
-    name = "toolchain",
-    actual = "@local_config_cc//:toolchain",
 )
 
 # The following is the default value for --xcode_version_config.

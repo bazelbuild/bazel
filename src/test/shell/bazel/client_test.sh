@@ -33,7 +33,7 @@ function test_fails_before_starting_java_outside_workspace() {
 
   assert_equals 2 "$?"
   [[ ! -e "${install_base}" ]] || fail "Bazel initialized its install base"
-  expect_log "^ERROR: Bazel 'build' must be invoked from within a workspace (below a directory having a MODULE\\.bazel file)\\.$"
+  expect_log "^FATAL: Bazel 'build' must be invoked from within a workspace (below a directory having a MODULE\\.bazel file)\\.$"
   expect_log "^See documentation at https://bazel\\.build/concepts/build-ref#workspace$"
   expect_not_log "batch mode"
   expect_not_log "OpenJDK"
@@ -104,8 +104,7 @@ function test_install_base_garbage_collection() {
   mkdir -p "${fresh}"
   touch "${fresh}/A-server.jar"
 
-  bazel --install_base="${install_base}" info \
-      --experimental_install_base_gc_max_age=1d \
+  bazel --install_base="${install_base}" info --install_base_gc_max_age=1d \
       &> "$TEST_log" || fail "Expected success"
 
   sleep 1
@@ -132,8 +131,7 @@ EOF
   assert_action_cache_empty
 
   # Run a build with garbage collection disabled.
-  bazel build --experimental_action_cache_gc_idle_delay=0 \
-      --experimental_action_cache_gc_max_age=0 \
+  bazel build --action_cache_gc_idle_delay=0 --action_cache_gc_max_age=0 \
       //pkg:foo &> "$TEST_log" || fail "Expected success"
 
   # Give the idle task a chance to run, then verify it did *not* run.
@@ -141,8 +139,7 @@ EOF
   assert_action_cache_not_empty
 
   # Run a build with garbage collection enabled.
-  bazel build --experimental_action_cache_gc_idle_delay=0 \
-      --experimental_action_cache_gc_max_age=1s \
+  bazel build --action_cache_gc_idle_delay=0 --action_cache_gc_max_age=1s \
       //pkg:foo &> "$TEST_log" || fail "Expected success"
 
   # Give the idle task a chance to run, then verify it did run.

@@ -51,6 +51,12 @@ public class WindowsPathTest extends PathAbstractTest {
   }
 
   @Test
+  public void testGetChildRejectsBackslash() {
+    Path path = create("C:/foo/bar");
+    assertThrows(IllegalArgumentException.class, () -> path.getChild("x\\y"));
+  }
+
+  @Test
   public void testEqualsAndHashcodeWindows() {
     new EqualsTester()
         .addEqualityGroup(create("/a/b"))
@@ -150,6 +156,11 @@ public class WindowsPathTest extends PathAbstractTest {
     assertThat(osPathPolicy.needsToNormalize("will~1.exi"))
         .isEqualTo(WindowsOsPathPolicy.NEEDS_SHORT_PATH_NORMALIZATION);
     assertThat(osPathPolicy.needsToNormalize("d:/no-normalization"))
+        .isEqualTo(WindowsOsPathPolicy.NEEDS_NORMALIZE);
+    assertThat(osPathPolicy.needsToNormalize("D:/no-normalization"))
+        .isEqualTo(WindowsOsPathPolicy.NORMALIZED);
+    assertThat(osPathPolicy.needsToNormalize("D:/")).isEqualTo(WindowsOsPathPolicy.NORMALIZED);
+    assertThat(osPathPolicy.needsToNormalize("D:/foo./bar.."))
         .isEqualTo(WindowsOsPathPolicy.NORMALIZED);
   }
 

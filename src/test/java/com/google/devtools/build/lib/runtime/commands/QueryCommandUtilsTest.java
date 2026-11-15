@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import org.junit.Before;
@@ -53,7 +54,7 @@ public class QueryCommandUtilsTest {
   public void testAqueryCommandGetTopLevelTargets_skyframeState_targetLabelSpecified()
       throws Exception {
     String query = "//some_target";
-    QueryExpression expr = QueryParser.parse(query, functions);
+    QueryExpression expr = QueryExpressionResolver.resolve(QueryParser.parse(query), functions);
     QueryException exception =
         assertThrows(
             QueryException.class,

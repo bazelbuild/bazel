@@ -387,6 +387,14 @@ public class RemoteExecutionService {
         && !isScrubbedSpawn(spawn, scrubber);
   }
 
+  /**
+   * Returns {@code true} if this service is configured for remote execution, in which case
+   * "exclusive-if-local" tests should be allowed to run in parallel rather than serialized.
+   */
+  public boolean forceExclusiveIfLocalTestsInParallel() {
+    return combinedCache instanceof RemoteExecutionCache && remoteExecutor != null;
+  }
+
   @Nullable
   private static ByteString buildSalt(Spawn spawn, @Nullable SpawnScrubber spawnScrubber) {
     CacheSalt.Builder saltBuilder =
@@ -1469,7 +1477,9 @@ public class RemoteExecutionService {
       throw e;
     }
 
-    FileOutErr.dump(tmpOutErr, outErr);
+    if (tmpOutErr.hasRecordedOutput()) {
+      FileOutErr.dump(tmpOutErr, outErr);
+    }
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
     // strategy.

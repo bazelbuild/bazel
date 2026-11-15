@@ -163,7 +163,7 @@ public class SkyframeMemoryDumper {
               false,
               ObjectGraphTraverser.NOOP_OBJECT_RECEIVER,
               null);
-      depTraverser.traverse(directDepEntry.getValue());
+      depTraverser.traverse(directDepEntry.getValueMaybeWithMetadata());
     }
 
     // Now traverse the objects reachable from the given SkyValue. Objects reachable from direct
@@ -178,7 +178,7 @@ public class SkyframeMemoryDumper {
     ObjectGraphTraverser traverser =
         new ObjectGraphTraverser(
             fieldCache, true, reportTransient, seenObjects, true, memoryAccountant, null, needle);
-    traverser.traverse(nodeEntry.getValue());
+    traverser.traverse(nodeEntry.getValueMaybeWithMetadata());
     return memoryAccountant.getStats();
   }
 
@@ -204,7 +204,7 @@ public class SkyframeMemoryDumper {
         Futures.submit(
             () -> {
               NodeEntry entry = graph.get(null, Reason.OTHER, skyKey);
-              value[0] = entry.getValue();
+              value[0] = entry.getValueMaybeWithMetadata();
               return entry.getDirectDeps();
             },
             executor);

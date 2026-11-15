@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.util.UserUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -62,6 +63,20 @@ public class TestPolicy {
       Map<String, String> clientEnv,
       PathFragment relativeRunfilesDir,
       PathFragment tmpDir) {
+    return computeTestEnvironment(
+        testAction, clientEnv, relativeRunfilesDir, tmpDir, PathMapper.NOOP);
+  }
+
+  /**
+   * Returns a mutable map of the environment variables for a specific test, mapping output paths
+   * using the given {@link PathMapper}.
+   */
+  public Map<String, String> computeTestEnvironment(
+      TestRunnerAction testAction,
+      Map<String, String> clientEnv,
+      PathFragment relativeRunfilesDir,
+      PathFragment tmpDir,
+      PathMapper pathMapper) {
     Map<String, String> env = new LinkedHashMap<>();
 
     // Add all env variables, allow some string replacements and inheritance.
@@ -96,7 +111,7 @@ public class TestPolicy {
 
     // Setup bazel test-specific env variables; note that this does not overwrite
     // some values if they're already set.
-    testAction.setupEnvVariables(env);
+    testAction.setupEnvVariables(env, pathMapper);
 
     return env;
   }

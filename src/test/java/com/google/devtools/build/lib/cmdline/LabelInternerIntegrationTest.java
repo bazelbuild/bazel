@@ -61,35 +61,12 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     // dep 2.
     write(
         "hello/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo', srcs = ['foo.cc'], deps = ['//dep1:bar', '//dep2:baz'])");
-    write(
-        "hello/foo.cc",
-        "#include \"dep1/bar.h\"",
-        "#include \"dep2/baz.h\"",
-        "int main() {",
-        "  g();",
-        "  return f();",
-        "}");
+        "genrule(name = 'foo', srcs = ['//dep1:bar', '//dep2:baz'], outs = ['out'], cmd = 'touch"
+            + " $@')");
     write(
         "dep1/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'bar', hdrs = ['bar.h'], srcs = ['bar.cc'], deps = ['//dep2:baz'])");
-    write(
-        "dep1/bar.cc",
-        "#include \"bar.h\"",
-        "#include \"dep2/baz.h\"",
-        "int f() {",
-        "  g();",
-        "  return 0;",
-        "}");
-    write("dep1/bar.h", "int f();");
-    write(
-        "dep2/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'baz', hdrs = ['baz.h'], srcs = ['baz.cc'])");
-    write("dep2/baz.cc", "#include \"baz.h\"", "void g() { }");
-    write("dep2/baz.h", "void g();");
+        "genrule(name = 'bar', srcs = ['//dep2:baz'], outs = ['out'], cmd = 'touch $@')");
+    write("dep2/BUILD", "genrule(name = 'baz', outs = ['out'], cmd = 'touch $@')");
     buildTarget("//hello:foo");
 
     List<Label> allPackageTargetsLabelInstances = new ArrayList<>();
@@ -129,11 +106,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
   @Test
   public void labelInterner_dirtyPackageStillPoolInternLabel() throws Exception {
-    write(
-        "hello/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
-    write("hello/foo.cc", "int main() {", "  return 0;", "}");
+    write("hello/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = 'touch $@')");
     buildTarget("//hello:foo");
 
     InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
@@ -156,11 +129,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
   @Test
   public void labelInterner_removeDirtyPackageStillWeakInternItsLabels() throws Exception {
-    write(
-        "hello/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
-    write("hello/foo.cc", "int main() {", "  return 0;", "}");
+    write("hello/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = 'touch $@')");
     buildTarget("//hello:foo");
 
     InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
@@ -186,11 +155,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
   @Test
   public void labelInterner_clearPackageSkyValueStillWeakInternsItsLabels() throws Exception {
-    write(
-        "hello/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
-    write("hello/foo.cc", "int main() {", "  return 0;", "}");
+    write("hello/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = 'touch $@')");
     buildTarget("//hello:foo");
 
     InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();

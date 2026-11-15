@@ -58,9 +58,16 @@ import javax.annotation.Nullable;
 /** An {@link ActionContext} providing the ability to log executed spawns. */
 public abstract class SpawnLogContext implements ActionContext {
   protected final Predicate<Spawn> logSpawnPredicate;
+  private final boolean expandParamFiles;
 
-  protected SpawnLogContext(Predicate<Spawn> logSpawnPredicate) {
+  protected SpawnLogContext(Predicate<Spawn> logSpawnPredicate, boolean expandParamFiles) {
     this.logSpawnPredicate = logSpawnPredicate;
+    this.expandParamFiles = expandParamFiles;
+  }
+
+  /** Returns the arguments to record for the spawn, with param files expanded if requested. */
+  protected ImmutableList<String> getLoggedArguments(Spawn spawn) {
+    return expandParamFiles ? spawn.getArgumentsWithExpandedParamFiles() : spawn.getArguments();
   }
 
   /** Returns true if the spawn should be logged. */

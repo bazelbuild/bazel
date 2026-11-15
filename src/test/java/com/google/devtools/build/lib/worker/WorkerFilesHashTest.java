@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -82,7 +82,7 @@ public final class WorkerFilesHashTest {
 
   @Test
   public void getWorkerFilesWithDigests_treeArtifactTool_returnsExpanded() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     byte[] child1Digest = "text1".getBytes(UTF_8);
@@ -223,7 +223,7 @@ public final class WorkerFilesHashTest {
     return value;
   }
 
-  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
+  private TreeArtifact createTreeArtifact(String rootRelativePath) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         outputRoot, outputRoot.getExecPath().getRelative(rootRelativePath));
   }

@@ -315,8 +315,8 @@ bool IsEmacsTerminal();
 // issues (ie one stream deleting a line the other intended to be displayed).
 bool IsStandardTerminal();
 
-// Returns the number of columns of the terminal to which stdout is connected,
-// or 80 if there is no such terminal.
+// Returns the number of columns of the terminal to which stdout or stderr is
+// connected, or 80 if there is no such terminal.
 int GetTerminalColumns();
 
 // Gets the system-wide explicit limit for the given resource.

@@ -15,6 +15,7 @@
 #include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <ios>
 #include <iostream>

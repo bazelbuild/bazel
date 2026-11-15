@@ -65,8 +65,7 @@ public class BazelProtoCommon implements StarlarkValue {
               ProtoConstants.EXTERNAL_PROTO_INFO_KEYS.stream()
                   .map(
                       key ->
-                          StarlarkProvider.builder(
-                                  Location.BUILTIN, thread.getSemantics(), thread.getTypeContext())
+                          StarlarkProvider.builder(Location.BUILTIN)
                               .buildExported(new StarlarkProvider.Key(key, "ProtoInfo")))
                   .collect(toImmutableList()));
       StarlarkList<StarlarkProvider> prev =

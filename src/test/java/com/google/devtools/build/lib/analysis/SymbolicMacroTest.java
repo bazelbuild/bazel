@@ -792,8 +792,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   // take arbitrary parameter types from their caller. These untested symbols include:
   //
   //  - For BUILD threads: licenses(), environment_group()
-  //  - For WORKSPACE threads: workspace(), register_toolchains(), register_execution_platforms(),
-  //    bind(), and repository rules.
+  //  - For Bzlmod threads: register_toolchains(), register_execution_platforms(),
+  //    and repository rules.
   //
   // Starlark-defined repository rules might technically be callable but we skip over that edge
   // case here.
@@ -1057,6 +1057,27 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     assertGetPackageFailsWithEvent(
         "pkg", "missing value for mandatory attribute 'xyz' in 'my_macro' macro");
+  }
+
+  // Regression test for b/585254807
+  @Test
+  public void noneAttrValue_doesNotSatisfyName() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, visibility):
+            pass
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name = None)
+        """);
+
+    assertGetPackageFailsWithEvent(
+        "pkg", "missing value for mandatory attribute 'name' in 'my_macro' macro");
   }
 
   @Test

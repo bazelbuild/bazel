@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -243,12 +242,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   .build())
           .build();
 
-  public static final BuiltinRestriction.Allowlist ALLOWLIST_RULE_EXTENSION_API =
-      BuiltinRestriction.Allowlist.of(
-          mainRepoAllowlistEntry("initializer_testing"),
-          mainRepoAllowlistEntry("extend_rule_testing"),
-          mainRepoAllowlistEntry("subrule_testing"));
-
   public static final BuiltinRestriction.Allowlist ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
       BuiltinRestriction.Allowlist.of(
           mainRepoAllowlistEntry("third_party/bazel_rules/rules_cc"),
@@ -327,11 +320,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
             .add(
-                attr("$collect_coverage_script", LABEL)
+                attr(":collect_coverage_script", LABEL)
                     .cfg(
                         ExecutionTransitionFactory.createFactory(
                             DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
-                    .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
+                    .value(
+                        BaseRuleClasses.collectCoverageScriptAttribute(
+                            labelCache.get(
+                                toolsRepository
+                                    + BaseRuleClasses.DEFAULT_COLLECT_COVERAGE_SCRIPT_VALUE))))
             // Input files for test actions collecting code coverage
             .add(
                 attr(":coverage_support", LABEL)
@@ -371,21 +368,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                     .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
                     .build());
 
-    env.getNetworkAllowlistForTests()
-        .ifPresent(
-            label ->
-                builder.add(
-                    Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
-
     return builder.build();
   }
 
   @Override
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
-    StarlarkProvider.Builder builder =
-        StarlarkProvider.builder(
-            thread.getCallerLocation(), thread.getSemantics(), thread.getTypeContext());
+    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
     Starlark.toJavaOptional(doc, String.class)
         .map(Starlark::trimDocString)
         .ifPresent(builder::setDocumentation);
@@ -1366,17 +1355,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkThread thread)
       throws EvalException {
     // Ensure we're initializing a .bzl file.
-    BzlInitThreadContext.fromOrFail(thread, "aspect()");
+    BzlInitThreadContext bazelContext = BzlInitThreadContext.fromOrFail(thread, "aspect()");
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
 
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> descriptors =
         attrObjectToAttributesList(attrs);
 
-    if (!subrulesUnchecked.isEmpty()) {
-      if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
-        BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
-      }
-    }
     ImmutableList<StarlarkSubrule> subrules =
         Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList();
     ImmutableList<Pair<String, Descriptor>> subruleAttributes =
@@ -1390,6 +1374,20 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
+    if (!subrulesUnchecked.isEmpty()) {
+      if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)
+          && !BazelModuleContext.ofInnermostBzlOrThrow(thread)
+              .label()
+              .getRepository()
+              .equals(RepositoryName.BUILTINS)) {
+        attributes.add(
+            attr("$allowlist_subrules", LABEL)
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                .value(bazelContext.getToolsLabel("//tools/allowlists/subrules_allowlist"))
+                .build());
+      }
+    }
     ImmutableSet.Builder<String> requiredParams = ImmutableSet.builder();
     for (Pair<String, Descriptor> nameDescriptorPair : descriptors) {
       String nativeName = nameDescriptorPair.first;

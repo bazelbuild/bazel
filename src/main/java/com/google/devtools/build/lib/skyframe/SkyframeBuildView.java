@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.co
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.UPON_CONFIGURED_OBJECT_CREATION;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
+import static com.google.devtools.build.lib.skyframe.SkyframeExecutor.isAnalysisPhaseActionLookupKey;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoade
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -1128,7 +1130,8 @@ public final class SkyframeBuildView {
     return exclusiveTests.build();
   }
 
-  private static TestType determineTestTypeImpl(
+  @VisibleForTesting
+  static TestType determineTestTypeImpl(
       ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
       Label label,
@@ -1146,7 +1149,10 @@ public final class SkyframeBuildView {
     TestType fromExplicitFlagOrTag;
     if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
         || TargetUtils.isExclusiveTestRule(rule)
-        || (TargetUtils.isExclusiveIfLocalTestRule(rule) && TargetUtils.isLocalTestRule(rule))) {
+        || (TargetUtils.isExclusiveIfLocalTestRule(rule)
+            && (TargetUtils.isLocalTestRule(rule) || TargetUtils.isNoRemoteExecTestRule(rule)))) {
+      // An "exclusive-if-local" test that can never run remotely (because it is pinned to local
+      // execution by its tags) is treated like an ordinary "exclusive" test.
       fromExplicitFlagOrTag = TestType.EXCLUSIVE;
     } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE_IF_LOCAL;
@@ -1154,10 +1160,8 @@ public final class SkyframeBuildView {
       fromExplicitFlagOrTag = TestType.PARALLEL;
     }
 
-    if ((fromExplicitFlagOrTag == TestType.EXCLUSIVE
-            && buildDriverKeyTestContext.forceExclusiveTestsInParallel())
-        || (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
-            && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel())) {
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE
+        && buildDriverKeyTestContext.forceExclusiveTestsInParallel()) {
       eventHandler.handle(
           Event.warn(
               label
@@ -1166,6 +1170,13 @@ public final class SkyframeBuildView {
                   + ", but --test_strategy="
                   + buildDriverKeyTestContext.getTestStrategy()
                   + " forces parallel test execution."));
+      return TestType.PARALLEL;
+    }
+    // A remote-eligible "exclusive-if-local" test is allowed to run in parallel when remote
+    // execution is enabled. This is the expected behavior of the tag rather than a forced override,
+    // so (unlike the "exclusive" case above) no warning is emitted.
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
+        && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel()) {
       return TestType.PARALLEL;
     }
     return fromExplicitFlagOrTag;
@@ -1419,7 +1430,10 @@ public final class SkyframeBuildView {
                 (BzlLoadValue)
                     analysisEnvironment
                         .getSkyframeEnv()
-                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+            configuration == null
+                ? StarlarkBuildSettingsDetailsValue.EMPTY
+                : configuration.starlarkFlagDetails());
     if (starlarkExecTransition == null) {
       return null;
     }
@@ -1498,7 +1512,7 @@ public final class SkyframeBuildView {
 
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
-      if (skyKey instanceof ActionLookupKey) {
+      if (isAnalysisPhaseActionLookupKey(skyKey)) {
         // If the value was just dirtied and not deleted, then it may not be truly invalid, since
         // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
         // is provisional--if the key is later evaluated and the value found to be clean, then we
@@ -1514,9 +1528,11 @@ public final class SkyframeBuildView {
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
         @Nullable GroupedDeps directDeps) {
-      // We tolerate any action lookup keys here, although we only expect configured targets,
-      // aspects, and the workspace status value.
-      if (!(skyKey instanceof ActionLookupKey)) {
+      // We tolerate any analysis-phase action lookup keys here, although we only expect configured
+      // targets, aspects, and the workspace status value. Execution-phase
+      // ActionTemplateExpansionKeys also implement ActionLookupKey (to own their expanded actions)
+      // and can be evaluated before analysis completes under Skymeld, so they must be excluded.
+      if (!isAnalysisPhaseActionLookupKey(skyKey)) {
         return;
       }
       if (!state.versionChanged()) {

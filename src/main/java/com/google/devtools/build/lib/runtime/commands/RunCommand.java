@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
-import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -773,14 +772,21 @@ public class RunCommand implements BlazeCommand {
             env.getSkyframeExecutor()
                 .getActionGraph(env.getReporter())
                 .getGeneratingAction(Iterables.getOnlyElement(statusArtifacts));
-    TestTargetExecutionSettings settings = testAction.getExecutionSettings();
-    // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
-    Preconditions.checkState(
-        settings.getRunfilesSymlinksCreated()
-            == options.getOptions(CoreOptions.class).getBuildRunfileLinks());
-
+    if (testAction.getUnrunnableReason() != null) {
+      // Fail just like executing the test action with `bazel test` would.
+      env.getReporter().handle(Event.error(testAction.getUnrunnableReason()));
+      throw new RunCommandException(
+          BlazeCommandResult.failureDetail(
+              FailureDetail.newBuilder()
+                  .setMessage(testAction.getUnrunnableReason())
+                  .setToolchain(
+                      FailureDetails.Toolchain.newBuilder()
+                          .setCode(FailureDetails.Toolchain.Code.NO_MATCHING_TOOLCHAIN))
+                  .build()),
+          builtTargets.stopTime);
+    }
     Path execRoot = env.getExecRoot();
-    Path runfilesDir = settings.getRunfilesDir();
+    Path runfilesDir = testAction.getExecutionSettings().getRunfilesDir();
     if (runfilesDir == null) {
       runfilesDir = builtTargets.targetToRunRunfilesDir.getParentDirectory();
     }

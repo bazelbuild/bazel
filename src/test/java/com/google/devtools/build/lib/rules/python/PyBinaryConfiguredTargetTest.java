@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.rules.python;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.regex.Pattern;
@@ -172,6 +174,44 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "    name = 'foo/bar',",
         "    srcs = ['foo/bar.py'])");
     getOkPyTarget("//pkg:foo/bar"); // should not fail
+  }
+
+  @Test
+  public void createRepoMappingManifestWithoutExternalRepositories() throws Exception {
+    scratch.file(
+        // py_internal is a context-guarded value; it's permitted in //tools/build_defs/python/...
+        "tools/build_defs/python/test/rule.bzl",
+        """
+        def _my_rule_impl(ctx):
+            manifest = ctx.actions.declare_file(ctx.label.name + ".repo_mapping")
+            rf = ctx.runfiles(files = ctx.files.srcs)
+            py_internal.create_repo_mapping_manifest(
+                ctx = ctx,
+                runfiles = rf,
+                output = manifest,
+            )
+            return [DefaultInfo(files = depset([manifest]))]
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            attrs = {"srcs": attr.label_list(allow_files = True)},
+        )
+        """);
+    scratch.file("tools/build_defs/python/test/BUILD");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//tools/build_defs/python/test:rule.bzl", "my_rule")
+        my_rule(
+            name = "foo",
+            srcs = ["foo.py"],
+        )
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    Artifact manifest = getFilesToBuild(target).toList().get(0);
+    RepoMappingManifestAction action = (RepoMappingManifestAction) getGeneratingAction(manifest);
+    assertThat(action.newDeterministicWriter(null).getBytes().toStringUtf8()).isEmpty();
   }
 
   // TODO(brandjon): Add tests for content of stub Python script (particularly for choosing python

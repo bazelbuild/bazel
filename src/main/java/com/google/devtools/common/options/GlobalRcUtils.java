@@ -21,6 +21,9 @@ public final class GlobalRcUtils {
 
   private GlobalRcUtils() {}
 
+  /** The source attributed to options set or added by invocation policy. */
+  public static final String INVOCATION_POLICY_SOURCE = "Invocation policy";
+
   /* No global RC files in Bazel, so no global configs. */
   public static final ImmutableList<String> ALLOWED_GLOBAL_CONFIGS = ImmutableList.of();
 
@@ -29,10 +32,7 @@ public final class GlobalRcUtils {
           // LINT.IfChange
           "client",
           // LINT.ThenChange(//src/main/cpp/option_processor.cc)
-          // LINT.IfChange
-          "Invocation policy"
-          // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/InvocationPolicyEnforcer.java)
-          );
+          INVOCATION_POLICY_SOURCE);
 
   /** No global RC files in Bazel. Consider "client" options to be global. */
   static final Predicate<ParsedOptionDescription> IS_GLOBAL_RC_OPTION =

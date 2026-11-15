@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -326,8 +325,6 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         .containsExactly(RuleVisibility.PUBLIC_LABEL);
     assertThat(((VisibilityLicenseSpecifiedInputFile) exportFileTarget).isLicenseSpecified())
         .isTrue();
-    assertThat(exportFileTarget.getLicense().getLicenseTypes())
-        .containsExactly(LicenseType.RESTRICTED);
 
     // A is an input file with private visibility
     Target inputFileTarget = pkg.getTarget("A");
@@ -491,6 +488,145 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             "no such target '//x:dir': target 'dir' not declared in package 'x' defined by"
                 + " /workspace/x/BUILD; however, a source directory of this name exists.  (Perhaps"
                 + " add 'exports_files([\"dir\"])' to x/BUILD, or define a filegroup?)");
+  }
+
+  @Test
+  public void testTargetSuggestionPrefersConsumingRuleOverSourceFile() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        """
+        fake_cc_library(
+            name = "core_lib",
+            srcs = [
+                "foo_bar.cc",
+                "sub/HelperUtil.cc",
+            ],
+        )
+        fake_cc_library(
+            name = "foo_baz",
+            srcs = ["foo_baz.cc"],
+        )
+        """);
+
+    Package pkg = getPackage("x");
+
+    NoSuchTargetException e =
+        assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("foo_bar"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:foo_bar': target 'foo_bar' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD (did you mean \"core_lib\" (fake_cc_library)?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("helperutil"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:helperutil': target 'helperutil' not declared in package 'x'"
+                + " defined by /workspace/x/BUILD (did you mean \"core_lib\" (fake_cc_library)?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("sub/HelperUtil"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:sub/HelperUtil': target 'sub/HelperUtil' not declared in package"
+                + " 'x' defined by /workspace/x/BUILD (did you mean \"core_lib\""
+                + " (fake_cc_library)?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("HelperUtil.cc"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:HelperUtil.cc': target 'HelperUtil.cc' not declared in package"
+                + " 'x' defined by /workspace/x/BUILD (did you mean \"core_lib\""
+                + " (fake_cc_library)?)");
+
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("core_li"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:core_li': target 'core_li' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD (did you mean \"core_lib\" (fake_cc_library)?)");
+  }
+
+  @Test
+  public void testTargetSuggestionAnnotatesRuleTypesAndBridgesTestRules() throws Exception {
+    scratch.file(
+        "x/foo_test.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_test = rule(
+            implementation = _impl,
+            test = True,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(),
+            },
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        load(":foo_test.bzl", "foo_test")
+
+        test_suite(
+            name = "all_tests",
+        )
+        fake_cc_library(
+            name = "bar_test_lib",
+            srcs = ["BarTest.java"],
+        )
+        foo_test(
+            name = "SmallTests",
+            deps = [":bar_test_lib"],
+        )
+        fake_cc_library(
+            name = "foo",
+            srcs = ["foo.cc"],
+        )
+        foo_test(
+            name = "foo_unit_test",
+            srcs = ["foo_test.cc"],
+            deps = [":foo"],
+        )
+        fake_cc_library(
+            name = "auth_a_ext",
+        )
+        foo_test(
+            name = "auth_a_my_test",
+        )
+        """);
+
+    Package pkg = getPackage("x");
+
+    // Non-test helper library compiling BarTest.java bridges 1 hop to "SmallTests" (foo_test).
+    NoSuchTargetException e =
+        assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("BarTest"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:BarTest': target 'BarTest' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD (did you mean \"bar_test_lib\" (fake_cc_library), or"
+                + " \"SmallTests\" (foo_test)?)");
+
+    // Direct test rule compiling foo_test.cc is not bridged into bare test_suite(name =
+    // "all_tests").
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("foo_test"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:foo_test': target 'foo_test' not declared in package 'x' defined"
+                + " by /workspace/x/BUILD (did you mean \"foo_unit_test\" (foo_test)?)");
+
+    // Fuzzy rule matches include each rule's class.
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("auth_a_test"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:auth_a_test': target 'auth_a_test' not declared in package 'x'"
+                + " defined by /workspace/x/BUILD (did you mean \"auth_a_ext\""
+                + " (fake_cc_library), or \"auth_a_my_test\" (foo_test)?)");
   }
 
   @Test

@@ -50,7 +50,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  fedora39:
+  fedora43:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -83,8 +83,8 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2204_clang:
-    platform: ubuntu2204
+  ubuntu2404_clang:
+    platform: ubuntu2404
     environment:
       CC: clang
       CC_CONFIGURE_DEBUG: 1
@@ -98,6 +98,8 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      # Tagged as manual, cross-compiles Bazel for Windows.
+      - "//src:bazel_windows_llvm"
       - "//src:test_repos"
       - "//..."
     test_flags:

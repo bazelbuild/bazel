@@ -18,7 +18,7 @@
 
 load("@rules_graalvm//graalvm:repositories.bzl", "graalvm_repository")
 load("//:distdir.bzl", "repo_cache_tar")
-load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "embedded_jdk_repositories")
+load("//:repositories.bzl", "DIST_ARCHIVE_ARTIFACTS", "DIST_ARCHIVE_REPOS", "embedded_jdk_repositories")
 load("//src/tools/bzlmod:utils.bzl", "parse_bazel_module_repos")
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 
@@ -30,17 +30,22 @@ def _bazel_build_deps(ctx):
     repo_cache_tar(
         name = "bootstrap_repo_cache",
         repos = DIST_ARCHIVE_REPOS,
+        artifacts = DIST_ARCHIVE_ARTIFACTS,
         dirname = "derived/repository_cache",
         lockfiles = [
             "//:MODULE.bazel.lock",
             "//src/test/tools/bzlmod:MODULE.bazel.lock",
         ],
+        reproducible = True,
     )
     BAZEL_TOOLS_DEPS_REPOS = parse_bazel_module_repos(ctx, ctx.path(Label("//src/test/tools/bzlmod:MODULE.bazel.lock")))
     repo_cache_tar(
         name = "bazel_tools_repo_cache",
         repos = BAZEL_TOOLS_DEPS_REPOS,
         lockfiles = ["//src/test/tools/bzlmod:MODULE.bazel.lock"],
+        # Integration tests rely on this repo's fetch populating the repository cache, which
+        # wouldn't happen if it were served from a cache.
+        reproducible = False,
     )
     graalvm_repository(
         name = "graalvm_ce",

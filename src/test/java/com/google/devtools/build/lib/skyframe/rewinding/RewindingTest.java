@@ -242,6 +242,43 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void changedRewoundOutputDetected(@TestParameter boolean changeSecondaryOutput)
+      throws Exception {
+    helper.runChangedRewoundOutputDetected(
+        /* producerFromPreviousBuild= */ false, changeSecondaryOutput);
+  }
+
+  @Test
+  public void changedRewoundOutputFromPreviousBuildDetected() throws Exception {
+    helper.runChangedRewoundOutputDetected(
+        /* producerFromPreviousBuild= */ true, /* changeSecondaryOutput= */ false);
+  }
+
+  @Test
+  public void deterministicRewoundOutputCheckSucceeds() throws Exception {
+    addOptions("--experimental_check_rewound_action_outputs");
+    helper.runIntermediateActionRewound();
+  }
+
+  @Test
+  public void omittedRewoundOutputCheckSucceeds(@TestParameter boolean omittedBeforeRewind)
+      throws Exception {
+    helper.runOmittedRewoundOutputCheckSucceeds(omittedBeforeRewind);
+  }
+
+  @Test
+  public void sharedRewoundOutputCheckIsBestEffort(
+      @TestParameter boolean cacheHit, @TestParameter boolean changed) throws Exception {
+    helper.runSharedRewoundOutputCheckIsBestEffort(cacheHit, changed);
+  }
+
+  @Test
+  public void sharedRewoundOutputCheckSucceeds() throws Exception {
+    addOptions("--experimental_check_rewound_action_outputs");
+    helper.runParallelTrackSharedActionsRewound();
+  }
+
+  @Test
   public void parallelTrackSharedActionsRewound() throws Exception {
     helper.runParallelTrackSharedActionsRewound();
   }
@@ -272,6 +309,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @Test
   public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactLost() throws Exception {
     helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactLost();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_symlinkToTreeLost() throws Exception {
+    helper.runActionTemplateExpansionRewound_symlinkToTreeLost();
   }
 
   @Test

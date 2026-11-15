@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
@@ -22,12 +23,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -103,8 +106,8 @@ public final class CpuProfiler {
     CpuProfiler.nativeSupport = nativeSupport;
   }
 
-  private CpuProfiler(OutputStream out, Duration period) {
-    this.pprof = new PprofWriter(out, period);
+  private CpuProfiler(OutputStream out, Duration period, boolean utf8ByteStrings) {
+    this.pprof = new PprofWriter(out, period, utf8ByteStrings ? ISO_8859_1 : UTF_8);
   }
 
   // The active profiler, if any.
@@ -116,22 +119,41 @@ public final class CpuProfiler {
     return instance;
   }
 
-  // Maps OS thread ID to its CPU tick counter. Keeping only the counter avoids retaining
-  // the StarlarkThread and its evaluation context when an association outlives the evaluation.
-  private static final Map<Integer, AtomicInteger> cpuTicksByThread = new ConcurrentHashMap<>();
+  // Cache the native thread ID to avoid repeated JNI calls when registering Starlark threads.
+  private static final ThreadLocal<Integer> threadId =
+      ThreadLocal.withInitial(() -> nativeSupport.getThreadId());
+
+  // Reuse each OS thread's slot for this profiling session instead of allocating a map entry
+  // for every top-level call. Slots hold only counters, not Starlark evaluation contexts.
+  private final Map<Integer, AtomicReference<AtomicInteger>> cpuTicksByThread =
+      new ConcurrentHashMap<>();
 
   /** Associates a counter with the current OS thread and returns its previous counter, if any. */
   @Nullable
-  static AtomicInteger setCpuTicksForCurrentThread(@Nullable AtomicInteger cpuTicks) {
-    if (cpuTicks == null) {
-      return cpuTicksByThread.remove(nativeSupport.getThreadId());
-    } else {
-      return cpuTicksByThread.put(nativeSupport.getThreadId(), cpuTicks);
+  AtomicInteger setCpuTicksForCurrentThread(@Nullable AtomicInteger cpuTicks) {
+    Integer tid = threadId.get();
+    // computeIfAbsent can lock on hash collisions even when the slot already exists.
+    AtomicReference<AtomicInteger> slot = cpuTicksByThread.get(tid);
+    if (slot == null) {
+      slot = cpuTicksByThread.computeIfAbsent(tid, unused -> new AtomicReference<>());
     }
+    return slot.getAndSet(cpuTicks);
+  }
+
+  // Keep the profiler reference out of the router frame, which can remain blocked in pipe.read
+  // after profiling stops.
+  @Nullable
+  private static AtomicInteger getCpuTicksForThread(int tid) {
+    CpuProfiler profiler = instance;
+    if (profiler == null) {
+      return null;
+    }
+    AtomicReference<AtomicInteger> slot = profiler.cpuTicksByThread.get(tid);
+    return slot == null ? null : slot.get();
   }
 
   /** Start the profiler. */
-  static boolean start(OutputStream out, Duration period) {
+  static boolean start(OutputStream out, Duration period, boolean utf8ByteStrings) {
     if (nativeSupport == null) {
       logger.atWarning().log("--starlark_cpu_profile is unsupported on this platform");
       return false;
@@ -145,7 +167,7 @@ public final class CpuProfiler {
       throw new IllegalStateException("profile signal handler already in use");
     }
 
-    instance = new CpuProfiler(out, period);
+    instance = new CpuProfiler(out, period, utf8ByteStrings);
     return true;
   }
 
@@ -222,7 +244,7 @@ public final class CpuProfiler {
       // may be changing it, so we increment the thread's counter.
       // When the thread later observes the counter is non-zero,
       // it gives us the stack by calling addEvent.
-      AtomicInteger cpuTicks = cpuTicksByThread.get(tid);
+      AtomicInteger cpuTicks = getCpuTicksForThread(tid);
       if (cpuTicks != null) {
         cpuTicks.getAndIncrement();
       }
@@ -241,12 +263,14 @@ public final class CpuProfiler {
   private static final class PprofWriter {
 
     private final Duration period;
+    private final Charset stringCharset;
     private final long startNano;
     private GZIPOutputStream gz;
     private IOException error; // the first write error, if any; reported during stop()
 
-    PprofWriter(OutputStream out, Duration period) {
+    PprofWriter(OutputStream out, Duration period, Charset stringCharset) {
       this.period = period;
+      this.stringCharset = stringCharset;
       this.startNano = System.nanoTime();
 
       try {
@@ -289,12 +313,14 @@ public final class CpuProfiler {
     synchronized void writeEnd() throws IOException {
       long endNano = System.nanoTime();
       try {
-        writeLong(gz, PROFILE_DURATION_NANOS, endNano - startNano);
         if (this.error != null) {
           throw this.error; // retained from an earlier error
         }
+        writeLong(gz, PROFILE_DURATION_NANOS, endNano - startNano);
       } finally {
-        gz.close();
+        if (gz != null) {
+          gz.close();
+        }
       }
     }
 
@@ -304,11 +330,6 @@ public final class CpuProfiler {
     private static void writeLong(OutputStream out, int fieldNumber, long x) throws IOException {
       writeVarint(out, (fieldNumber << 3) | 0); // wire type 0 = varint
       writeVarint(out, x);
-    }
-
-    private static void writeString(OutputStream out, int fieldNumber, String x)
-        throws IOException {
-      writeByteArray(out, fieldNumber, x.getBytes(UTF_8));
     }
 
     private static void writeByteArray(OutputStream out, int fieldNumber, byte[] x)
@@ -369,7 +390,7 @@ public final class CpuProfiler {
     private long getStringID(String s) throws IOException {
       Long i = stringIDs.putIfAbsent(s, Long.valueOf(stringIDs.size()));
       if (i == null) {
-        writeString(gz, PROFILE_STRING_TABLE, s);
+        writeByteArray(gz, PROFILE_STRING_TABLE, s.getBytes(stringCharset));
         return stringIDs.size() - 1L;
       }
       return i;

@@ -430,7 +430,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public boolean isProfiling(ProfilerTask type) {
-    return profiledTasks.contains(type);
+    return isActive() && profiledTasks.contains(type);
   }
 
   /**

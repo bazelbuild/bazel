@@ -262,4 +262,19 @@ public interface ActionAnalysisMetadata {
         .putAll(second)
         .buildKeepingLast();
   }
+
+  static ImmutableMap<String, String> mergeMaps(
+      ImmutableMap<String, String> first,
+      ImmutableMap<String, String> second,
+      String key,
+      String value) {
+    if (first.isEmpty() && second.isEmpty()) {
+      return ImmutableMap.of(key, value);
+    }
+    return ImmutableMap.<String, String>builderWithExpectedSize(first.size() + second.size() + 1)
+        .putAll(first)
+        .putAll(second)
+        .put(key, value)
+        .buildKeepingLast();
+  }
 }

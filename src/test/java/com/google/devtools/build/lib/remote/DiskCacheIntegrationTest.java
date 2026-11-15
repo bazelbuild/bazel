@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.TestUtils.tmpDirFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assume.assumeFalse;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
@@ -316,6 +317,94 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     }
   }
 
+  @Test
+  public void bwob_symlinkToOutputWhoseBlobIsMissingFromCas_rewindsProducer(
+      @TestParameter({"--remote_download_toplevel", "--remote_download_regex=.*/link$"})
+          String downloadOption)
+      throws Exception {
+    // Arrange: Populate the disk cache with the output of an action that a symlink points to.
+    write(
+        "defs.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.symlink(output = out, target_file = ctx.file.target)
+            return DefaultInfo(files = depset([out]))
+
+        symlink = rule(_impl, attrs = {"target": attr.label(allow_single_file = True)})
+        """);
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "symlink")
+
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "echo -n foo > $@",
+        )
+
+        symlink(
+            name = "link",
+            target = ":foo.out",
+        )
+        """);
+    write("foo.in", "foo");
+    addOptions("--remote_download_minimal");
+    buildTarget("//:foo");
+
+    // Act: Delete blobs in CAS from disk cache and do a clean build that downloads the symlink,
+    // which is the first read of the blob referenced by the AC entry.
+    getWorkspace().getFileSystem().getPath(getDiskCacheDir().getRelative("cas")).deleteTree();
+    cleanAndRestartServer();
+    addOptions("--remote_download_minimal", downloadOption);
+    buildTarget("//:link");
+
+    // Assert: The AC entry was accepted and the action that created the lost output was rewound.
+    events.assertContainsInfo("1 disk cache hit");
+    var link = Iterables.getOnlyElement(getArtifacts("//:link"));
+    assertThat(FileSystemUtils.readContent(link.getPath(), UTF_8)).isEqualTo("foo");
+  }
+
+  @Test
+  public void bwob_outputSymlinkToOutputWhoseBlobIsMissingFromCas_reexecutesAction(
+      @TestParameter({"--remote_download_toplevel", "--remote_download_regex=.*/foo-link$"})
+          String downloadOption)
+      throws Exception {
+    // Disable on Windows since ln -s copies the file there.
+    assumeFalse(isWindows());
+
+    // Arrange: Populate the disk cache with the result of an action with an output that is a
+    // symlink to another of its outputs.
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out", "foo-link"],
+            cmd = "echo -n foo > $(location foo.out) && ln -s foo.out $(location foo-link)",
+        )
+        """);
+    write("foo.in", "foo");
+    addOptions("--remote_download_minimal");
+    buildTarget("//:foo");
+
+    // Act: Delete blobs in CAS from disk cache and do a clean build that downloads only the
+    // symlink, which is the first read of the blob of the other output.
+    getWorkspace().getFileSystem().getPath(getDiskCacheDir().getRelative("cas")).deleteTree();
+    cleanAndRestartServer();
+    addOptions("--remote_download_minimal", downloadOption);
+    buildTarget(downloadOption.equals("--remote_download_toplevel") ? "//:foo-link" : "//:foo");
+
+    // Assert: The AC entry was accepted and the action was executed again instead of accepting it
+    // a second time.
+    events.assertContainsInfo("1 disk cache hit");
+    var link = Iterables.getOnlyElement(getArtifacts("//:foo-link"));
+    assertThat(FileSystemUtils.readContent(link.getPath(), UTF_8)).isEqualTo("foo");
+  }
+
   private void doRemoteExecWithDiskCache(boolean rewindLostInputs, String... additionalOptions)
       throws Exception {
     // Arrange: Prepare the workspace and populate disk cache.
@@ -490,7 +579,7 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     while (!dirs.isEmpty()) {
       Path dir = dirs.remove();
       for (Path child : dir.getDirectoryEntries()) {
-        child.setLastModifiedTime(0);
+        child.setLastModifiedTimeNanos(0);
         if (child.isDirectory()) {
           dirs.add(child);
         }
@@ -514,8 +603,8 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
         .that(path.exists())
         .isTrue();
     assertWithMessage("disk cache entry %s/%s is too old", store, digest.getHash())
-        .that(path.getLastModifiedTime())
-        .isGreaterThan(Instant.now().minusSeconds(60).toEpochMilli());
+        .that(Instant.ofEpochSecond(0, path.getLastModifiedTimeNanos()))
+        .isGreaterThan(Instant.now().minusSeconds(60));
   }
 
   private Path getDiskCacheEntryPath(Store store, Digest digest) throws IOException {

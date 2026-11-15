@@ -84,6 +84,7 @@ StartupOptions::StartupOptions(const string& product_name,
       batch_cpu_scheduling(false),
       io_nice_level(-1),
       shutdown_on_low_sys_mem(false),
+      delete_output_base_on_shutdown(false),
       oom_more_eagerly(false),
       oom_more_eagerly_threshold(100),
       write_command_log(true),
@@ -143,6 +144,8 @@ StartupOptions::StartupOptions(const string& product_name,
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
+  RegisterNullaryStartupFlag("delete_output_base_on_shutdown",
+                             &delete_output_base_on_shutdown);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
@@ -612,19 +615,7 @@ blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
     }
     return BadServerJavabaseError(javabase_type, option_sources);
   }
-  if (  // If the full JDK is installed
-      blaze_util::CanReadFile(javabase.GetRelative("jre/lib/rt.jar")) ||
-      // If just the JRE is installed
-      blaze_util::CanReadFile(javabase.GetRelative("lib/rt.jar")) ||
-      // rt.jar does not exist in java 9+ so check for java instead
-      blaze_util::CanReadFile(javabase.GetRelative("bin/java")) ||
-      blaze_util::CanReadFile(javabase.GetRelative("bin/java.exe"))) {
-    return blaze_exit_code::SUCCESS;
-  }
-  BAZEL_LOG(ERROR) << "Problem with java installation: couldn't find/access "
-                      "rt.jar or java in "
-                   << javabase.AsPrintablePath();
-  return BadServerJavabaseError(javabase_type, option_sources);
+  return blaze_exit_code::SUCCESS;
 }
 
 blaze_util::Path StartupOptions::GetExe(const blaze_util::Path& jvm,

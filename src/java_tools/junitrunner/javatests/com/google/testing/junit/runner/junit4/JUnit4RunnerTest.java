@@ -44,7 +44,7 @@ import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.internal.TextListener;

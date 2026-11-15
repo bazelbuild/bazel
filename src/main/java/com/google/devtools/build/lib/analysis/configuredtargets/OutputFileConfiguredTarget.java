@@ -51,7 +51,7 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
     this(
         targetContext.getAnalysisEnvironment().getOwner(),
         targetContext.getVisibility(),
-        outputArtifact,
+        singleFile(outputArtifact),
         checkNotNull(generatingRule));
     checkArgument(targetContext.getTarget() instanceof OutputFile, targetContext.getTarget());
   }
@@ -61,9 +61,9 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   OutputFileConfiguredTarget(
       ActionLookupKey lookupKey,
       NestedSet<PackageGroupContents> visibility,
-      Artifact artifact,
+      NestedSet<Artifact> singleFile,
       RuleConfiguredTarget generatingRule) {
-    super(lookupKey, visibility, artifact);
+    super(lookupKey, visibility, singleFile);
     this.generatingRule = checkNotNull(generatingRule);
   }
 

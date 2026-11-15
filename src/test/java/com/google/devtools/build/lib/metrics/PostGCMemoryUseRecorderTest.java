@@ -102,6 +102,20 @@ public final class PostGCMemoryUseRecorderTest {
   }
 
   @Test
+  public void lastPostGcHeapBytes() {
+    PostGCMemoryUseRecorder rec =
+        new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
+    assertThat(rec.getLastPostGcHeapBytes()).isEqualTo(0);
+
+    rec.handleNotification(
+        createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
+    assertThat(rec.getLastPostGcHeapBytes()).isGreaterThan(0);
+
+    rec.reset();
+    assertThat(rec.getLastPostGcHeapBytes()).isEqualTo(0);
+  }
+
+  @Test
   public void noGcCauseEventsNotIgnored() {
     PostGCMemoryUseRecorder underTest =
         new PostGCMemoryUseRecorder(ImmutableList.of(), BugReporter.defaultInstance());

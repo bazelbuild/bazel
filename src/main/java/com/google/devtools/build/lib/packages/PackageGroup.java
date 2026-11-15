@@ -112,11 +112,6 @@ public class PackageGroup implements Target {
   }
 
   @Override
-  public License getLicense() {
-    return License.NO_LICENSE;
-  }
-
-  @Override
   public Packageoid getPackageoid() {
     return containingPackageoid;
   }

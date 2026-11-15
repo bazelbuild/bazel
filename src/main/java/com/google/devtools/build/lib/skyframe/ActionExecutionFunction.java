@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlanResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -273,6 +272,22 @@ public class ActionExecutionFunction implements SkyFunction {
     InputDiscoveryState state;
     if (action.discoversInputs()) {
       state = env.getState(InputDiscoveryState::new);
+      if (previousExecution != null
+          && !previousExecution.isDone()
+          && state.discoveredInputs == null) {
+        // This path is only reached when the previous execution failed with lost inputs and needed
+        // a Skyframe restart to prepare the rewind plan, since otherwise prepareForRewinding would
+        // have already cleaned up previousExecution. Because InputDiscoveryState is not guaranteed
+        // to survive Skyframe restarts and can be evicted from the compute state cache under memory
+        // pressure, clean up the stale ActionExecutionState so this evaluation re-runs
+        // checkInputs() and discoverInputs().
+        skyframeActionExecutor.prepareForRewinding(
+            actionLookupData,
+            action,
+            /* depsToRewind= */ ImmutableList.of(),
+            /* lostOwnOutputs= */ false);
+        previousExecution = null;
+      }
     } else {
       // Because this is a new state, all conditionals below about whether state has already done
       // something will return false, and so we will execute all necessary steps.
@@ -353,7 +368,14 @@ public class ActionExecutionFunction implements SkyFunction {
     try {
       result =
           checkCacheAndExecuteIfNeeded(
-              action, state, env, clientEnv, actionLookupData, previousExecution, actionStartTime);
+              action,
+              state,
+              allInputs,
+              env,
+              clientEnv,
+              actionLookupData,
+              previousExecution,
+              actionStartTime);
     } catch (LostInputsActionExecutionException e) {
       ImmutableSet<SkyKey> inputDepKeys =
           getInputDepKeys(
@@ -698,6 +720,7 @@ public class ActionExecutionFunction implements SkyFunction {
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(
       Action action,
       InputDiscoveryState state,
+      NestedSet<Artifact> allInputs,
       Environment env,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
@@ -727,6 +750,21 @@ public class ActionExecutionFunction implements SkyFunction {
           action,
           skyframeActionExecutor.getSharedActionCallback(
               env.getListener(), state.discoveredInputs != null, action, actionLookupData));
+    }
+
+    ActionExecutionValue previousOutputs = null;
+    if (skyframeActionExecutor.checkRewoundActionOutputs()
+        && evaluator.get().isRewinding(actionLookupData)) {
+      // Rewinding retains the prior SkyValue even while its node is being rebuilt. Unlike the
+      // executor's per-build action map, this also covers local/remote cache hits and actions that
+      // completed in a previous invocation. This is best effort: if another shared owner wins
+      // execution, the shared-result shortcut above can bypass the check. Only inspect this key's
+      // retained value, without introducing a dependency on ourselves.
+      NodeEntry entry =
+          evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(actionLookupData);
+      if (entry.toValue() instanceof ActionExecutionValue value) {
+        previousOutputs = value;
+      }
     }
 
     ArtifactPathResolver pathResolver =
@@ -762,7 +800,8 @@ public class ActionExecutionFunction implements SkyFunction {
               pathResolver,
               actionStartTime,
               state.allInputs.actionCacheInputs,
-              clientEnv);
+              clientEnv,
+              previousOutputs);
     }
 
     if (state.token == null) {
@@ -791,6 +830,7 @@ public class ActionExecutionFunction implements SkyFunction {
                 skyframeActionExecutor.discoverInputs(
                     action,
                     actionLookupData,
+                    allInputs,
                     state.compositeInputMetadataProvider,
                     env,
                     state.actionFileSystem);
@@ -837,7 +877,8 @@ public class ActionExecutionFunction implements SkyFunction {
         actionLookupData,
         state.actionFileSystem,
         new ActionPostprocessingImpl(state),
-        state.discoveredInputs != null);
+        state.discoveredInputs != null,
+        previousOutputs);
   }
 
   /** Implementation of {@link ActionPostprocessing}. */
@@ -1248,7 +1289,7 @@ public class ActionExecutionFunction implements SkyFunction {
    *       execution.
    * </ol>
    */
-  static class InputDiscoveryState implements SerializableSkyKeyComputeState {
+  static class InputDiscoveryState extends SerializableSkyKeyComputeState {
     AllInputs allInputs;
 
     /** Mutable map containing metadata for known artifacts. */
@@ -1298,9 +1339,6 @@ public class ActionExecutionFunction implements SkyFunction {
 
     boolean checkedForConsumedArtifactRegistration = false;
 
-    @Nullable // Initialized lazily
-    private RetrievalContext retrievalContext = null;
-
     boolean hasCollectedInputs() {
       return allInputs != null;
     }
@@ -1347,15 +1385,6 @@ public class ActionExecutionFunction implements SkyFunction {
       // If token is null because there was an action cache hit, this method is never called again
       // because we return immediately.
       return token != null;
-    }
-
-    @Override
-    public RetrievalContext getRetrievalContext() {
-      if (retrievalContext == null) {
-        retrievalContext = new RetrievalContext();
-      }
-
-      return retrievalContext;
     }
 
     @Override

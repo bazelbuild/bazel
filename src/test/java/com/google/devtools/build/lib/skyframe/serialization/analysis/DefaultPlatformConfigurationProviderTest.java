@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.common.options.Options;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -84,40 +87,73 @@ public final class DefaultPlatformConfigurationProviderTest extends AnalysisTest
   }
 
   @Test
-  public void testResolveMnemonic_withoutPlatformInOutputDir_throwsIllegalArgumentException()
+  public void testGetBaseOptionsForPlatform_untrimmed_doesNotDependOnThisBuildsTestOptions()
       throws Exception {
-    scratch.file("custom/BUILD", "platform(name = 'p1')", "platform(name = 'p2')");
-    useConfiguration(
-        "--platforms=//custom:p1", "--incompatible_limit_platforms_in_output_dir_to=//custom:p2");
-    update("//test:test");
+    // Test options and the --run_under command are not covered by FrontierNodeVersion, so the
+    // baseline that untrimmed keys are diffed against must not depend on them (b/570095568).
+    Label platform = Label.parseCanonicalUnchecked("//custom:platform");
+    BuildOptions withTestFlags =
+        BuildOptions.of(
+            ImmutableList.of(CoreOptions.class, PlatformOptions.class, TestOptions.class),
+            "--platforms=//custom:platform",
+            "--experimental_cancel_concurrent_tests",
+            "--test_arg=foo",
+            "--run_under=//tools:runner --arg");
+    BuildOptions withoutTestFlags =
+        BuildOptions.of(
+            ImmutableList.of(CoreOptions.class, PlatformOptions.class, TestOptions.class),
+            "--platforms=//custom:platform",
+            "--run_under=//tools:runner");
+    var providerWithTestFlags =
+        new DefaultPlatformConfigurationProvider(platform, withTestFlags, withTestFlags);
+    var providerWithoutTestFlags =
+        new DefaultPlatformConfigurationProvider(platform, withoutTestFlags, withoutTestFlags);
 
-    BuildOptions targetOptions = getTargetConfiguration().getOptions();
-    assertThrows(IllegalArgumentException.class, () -> provider.resolveMnemonic(targetOptions));
+    for (boolean isExec : new boolean[] {false, true}) {
+      BuildOptions baselineWithTestFlags =
+          providerWithTestFlags.getBaseOptionsForPlatform(
+              platform, isExec, /* trimTestOptions= */ false);
+      BuildOptions baselineWithoutTestFlags =
+          providerWithoutTestFlags.getBaseOptionsForPlatform(
+              platform, isExec, /* trimTestOptions= */ false);
+
+      assertThat(baselineWithTestFlags).isEqualTo(baselineWithoutTestFlags);
+      assertThat(baselineWithTestFlags.get(TestOptions.class))
+          .isEqualTo(Options.getDefaults(TestOptions.class));
+      assertThat(baselineWithTestFlags.get(CoreOptions.class).getRunUnder())
+          .isEqualTo(TestTrimmingLogic.trim(withTestFlags).get(CoreOptions.class).getRunUnder());
+    }
   }
 
   @Test
-  public void testResolveMnemonic_nullOptions_throwsNullPointerException() {
-    assertThrows(NullPointerException.class, () -> provider.resolveMnemonic(null));
-  }
+  public void testGetActualBaseOptionsForPlatform_keepsThisBuildsTestOptions() throws Exception {
+    Label platform = Label.parseCanonicalUnchecked("//custom:platform");
+    BuildOptions topLevelOptions =
+        BuildOptions.of(
+            ImmutableList.of(CoreOptions.class, PlatformOptions.class, TestOptions.class),
+            "--platforms=//custom:platform",
+            "--test_filter=Foo",
+            "--run_under=//tools:runner --arg");
+    var providerWithTestFlags =
+        new DefaultPlatformConfigurationProvider(platform, topLevelOptions, topLevelOptions);
 
-  @Test
-  public void testResolveMnemonic_withPlatformInOutputDir() throws Exception {
-    scratch.file("custom/BUILD", "platform(name = 'my_platform')");
-    useConfiguration("--platforms=//custom:my_platform", "--compilation_mode=dbg");
-    update("//test:test");
+    for (boolean isExec : new boolean[] {false, true}) {
+      BuildOptions untrimmed =
+          providerWithTestFlags.getActualBaseOptionsForPlatform(
+              platform, isExec, /* trimTestOptions= */ false);
+      assertThat(untrimmed.get(TestOptions.class))
+          .isEqualTo(topLevelOptions.get(TestOptions.class));
+      assertThat(untrimmed.get(CoreOptions.class).getRunUnder())
+          .isEqualTo(topLevelOptions.get(CoreOptions.class).getRunUnder());
 
-    BuildOptions targetOptions = getTargetConfiguration().getOptions();
-    BuildOptions execOptions = getExecConfiguration().getOptions();
-    Label topLevelPlatform = targetOptions.get(PlatformOptions.class).computeTargetPlatform();
-    provider =
-        new DefaultPlatformConfigurationProvider(topLevelPlatform, targetOptions, execOptions);
-
-    String mnemonic = provider.resolveMnemonic(targetOptions);
-    assertThat(mnemonic).isNotEmpty();
-    String legacyMnemonic = targetOptions.get(CoreOptions.class).getCpu() + "-dbg";
-    assertThat(mnemonic).isNotEqualTo(legacyMnemonic);
-    assertThat(mnemonic).endsWith("-dbg");
-    assertThat(mnemonic).startsWith("my_platform");
+      // Trimmed configurations have no test options, so both baselines are the same.
+      assertThat(
+              providerWithTestFlags.getActualBaseOptionsForPlatform(
+                  platform, isExec, /* trimTestOptions= */ true))
+          .isEqualTo(
+              providerWithTestFlags.getBaseOptionsForPlatform(
+                  platform, isExec, /* trimTestOptions= */ true));
+    }
   }
 
   @Test

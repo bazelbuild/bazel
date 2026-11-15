@@ -305,6 +305,48 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void directlySet_optionInDisableTransitionsOn_fails() throws Exception {
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=compilation_mode");
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--compilation_mode=opt"],
+                  is_default = True,
+                  description = "user-friendly config description",
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("compilation_mode"),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            "project flags can't set option listed in --incompatible_disable_transitions_on:"
+                + " --compilation_mode");
+  }
+
+  @Test
   public void enforceCanonicalConfigsValidConfig() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
@@ -651,7 +693,91 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
     assertThat(thrown).hasMessageThat().contains("Found ['--//test:myflag=other_value']");
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("conflicts with ['--//test:myflag=test_config_value'] in the project file");
     assertThat(thrown).hasMessageThat().doesNotContain("['--//test:other_flag=test_config_value']");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_compatiblePolicy_defineWithDifferentKey_warns()
+      throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "compatible",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--define=project_key=1"]
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions = createBuildOptions("--define=user_key=1");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("define"),
+            /* userOptions= */ ImmutableMap.of("--define=user_key=1", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    FlagSetValue flagSetsValue = executeFunction(key);
+    assertThat(flagSetsValue.getOptionsFromFlagset()).containsExactly("--define=project_key=1");
+    assertContainsPersistentMessage(
+        flagSetsValue,
+        EventKind.WARNING,
+        /* frequency= */ 1,
+        "also sets output-affecting flags in the command line or user bazelrc:"
+            + " ['--define=user_key=1']");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_compatiblePolicy_defineWithSameKeyDifferentValue_fails()
+      throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "compatible",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--define=project_key=1", "--define=other_key=1"]
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions = createBuildOptions("--define=project_key=2");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("define"),
+            /* userOptions= */ ImmutableMap.of("--define=project_key=2", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            "Found ['--define=project_key=2'], which conflicts with ['--define=project_key=1'] in"
+                + " the project file");
+    assertThat(thrown).hasMessageThat().doesNotContain("other_key");
   }
 
   @Test
@@ -1237,6 +1363,8 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   public void enforceCanonicalConfigsNoSclConfigFlagValidDefaultConfig() throws Exception {
+    // Note: it is not possible to directly set options listed in
+    // --incompatible_disable_transitions_on via PROJECT.scl.
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",

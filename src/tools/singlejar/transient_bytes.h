@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <ostream>
 
 #include "src/tools/singlejar/diag.h"

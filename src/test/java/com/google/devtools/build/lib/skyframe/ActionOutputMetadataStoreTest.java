@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -216,7 +216,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void unknownTreeArtifactPermittedDuringInputDiscovery() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     ActionInputMap inputMap = new ActionInputMap(0);
@@ -227,7 +227,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void withUnknownOutputArtifactStatsFileTreeArtifact() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     scratch.file(artifact.getPath().getPathString(), "not empty");
@@ -238,7 +238,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void createsTreeArtifactValueFromFilesystem() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "child2");
@@ -262,7 +262,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void createsTreeArtifactValueUsingOneBatchStatOfFinalFilesystemState() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "nested/child2");
@@ -300,7 +300,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void withDanglingSymlinkInTreeArtifactFailsWithException() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
     treeArtifact.getPath().createDirectoryAndParents();
@@ -357,7 +357,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void cannotInjectTreeArtifactChildIndividually() {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
 
@@ -375,7 +375,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void canInjectTemplateExpansionOutput() {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact output =
         TreeFileArtifact.createTemplateExpansionOutput(
@@ -394,7 +394,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void injectRemoteTreeArtifactMetadata() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "dir");
     ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(treeArtifact));
     store.prepareForActionExecution();
@@ -506,7 +506,7 @@ public final class ActionOutputMetadataStoreTest {
   @Test
   public void treeArtifactMaterializedAsSymlinkToNonArtifact() throws Exception {
     Path resolvedPath = outputRoot.getRoot().getRelative("resolved");
-    SpecialArtifact outputArtifact =
+    TreeArtifact outputArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "output");
 
     RemoteActionFileSystem actionFs = createRemoteActionFileSystem();
@@ -536,14 +536,14 @@ public final class ActionOutputMetadataStoreTest {
   @Test
   public void treeArtifactMaterializedAsSymlinkToAnotherTreeArtifact(
       @TestParameter ResolvedPathDepth depth) throws Exception {
-    SpecialArtifact resolvedArtifact =
+    TreeArtifact resolvedArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "resolved");
-    SpecialArtifact inputArtifact =
+    TreeArtifact inputArtifact =
         switch (depth) {
           case SHALLOW -> resolvedArtifact;
           case DEEP -> ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "input");
         };
-    SpecialArtifact outputArtifact =
+    TreeArtifact outputArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "output");
 
     TreeArtifactValue.Builder builder =
@@ -629,10 +629,10 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void omitTreeArtifact() {
-    SpecialArtifact omittedTree =
+    TreeArtifact omittedTree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             outputRoot, PathFragment.create("omitted"));
-    SpecialArtifact consumedTree =
+    TreeArtifact consumedTree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             outputRoot, PathFragment.create("consumed"));
     ActionOutputMetadataStore store =
@@ -694,7 +694,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void outputTreeArtifactNotPreviouslyInjectedInExecutionMode() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
@@ -730,7 +730,7 @@ public final class ActionOutputMetadataStoreTest {
     Artifact artifact =
         ActionsTestUtil.createArtifactWithRootRelativePath(
             outputRoot, PathFragment.create("output"));
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
     scratch.file(artifact.getPath().getPathString(), "1");
@@ -835,7 +835,7 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void outputTreeArtifact_withBatchStatter_allHits() throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
@@ -867,7 +867,7 @@ public final class ActionOutputMetadataStoreTest {
   @Test
   public void outputTreeArtifact_withBatchStatter_partialHitsFallsBackToFilesystem()
       throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
@@ -900,7 +900,7 @@ public final class ActionOutputMetadataStoreTest {
   @Test
   public void outputTreeArtifact_withBatchStatter_allMissesFallsBackToFilesystem()
       throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
@@ -929,7 +929,7 @@ public final class ActionOutputMetadataStoreTest {
   @Test
   public void outputTreeArtifact_withBatchStatter_ioExceptionFallsBackToFilesystem()
       throws Exception {
-    SpecialArtifact treeArtifact =
+    TreeArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");

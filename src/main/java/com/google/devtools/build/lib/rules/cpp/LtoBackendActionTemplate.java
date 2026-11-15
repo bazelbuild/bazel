@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -59,19 +59,19 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
   private final ActionEnvironment env;
 
   // An input tree artifact containing the full bitcode. It is never null.
-  private final SpecialArtifact fullBitcodeTreeArtifact;
+  private final TreeArtifact fullBitcodeTreeArtifact;
 
   // An input tree artifact containing ".thinlto.bc" and ".imports" files, generated together with
   // It will be null when this is a shared non-lto backend.
-  @Nullable private final SpecialArtifact indexAndImportsTreeArtifact;
+  @Nullable private final TreeArtifact indexAndImportsTreeArtifact;
 
   // An output tree artifact that will contain the native objects. In a sibling directory to
   // indexTreeArtifact. The objects will be generated in the same location as defined in the .param
   // file created during the lto indexing step.
-  private final SpecialArtifact objectFileTreeArtifact;
+  private final TreeArtifact objectFileTreeArtifact;
 
   // The corresponding dwoFile if fission is used.
-  private final SpecialArtifact dwoFileTreeArtifact;
+  private final TreeArtifact dwoFileTreeArtifact;
 
   private final FeatureConfiguration featureConfiguration;
 
@@ -99,10 +99,10 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
    * @param actionOwner the owner of this {@link ActionTemplate}.
    */
   LtoBackendActionTemplate(
-      SpecialArtifact indexAndImportsTreeArtifact,
-      SpecialArtifact fullBitcodeTreeArtifact,
-      SpecialArtifact objectFileTreeArtifact,
-      SpecialArtifact dwoFileTreeArtifact,
+      TreeArtifact indexAndImportsTreeArtifact,
+      TreeArtifact fullBitcodeTreeArtifact,
+      TreeArtifact objectFileTreeArtifact,
+      TreeArtifact dwoFileTreeArtifact,
       FeatureConfiguration featureConfiguration,
       NestedSet<Artifact> additionalInputs,
       ActionEnvironment env,
@@ -361,7 +361,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+  public ImmutableList<TreeArtifact> getInputTreeArtifacts() {
     return ImmutableList.of(firstNonNull(indexAndImportsTreeArtifact, fullBitcodeTreeArtifact));
   }
 

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
@@ -169,32 +170,54 @@ public class PackageTest {
     assertThat(result).containsExactly(testLabel);
   }
 
+  @Test
+  public void testGetDeclaringMacroAndPackageForTargetRejectsTargetFromDifferentPackage()
+      throws Exception {
+    Package pkg =
+        pkgBuilder("pkg_a", /* trackFullMacroInformation= */ true)
+            .build(/* discoverAssumedInputFiles= */ false);
+    Package.Builder otherPkgBuilder = pkgBuilder("pkg_b", /* trackFullMacroInformation= */ true);
+    addRule(otherPkgBuilder, Label.parseCanonicalUnchecked("//pkg_b:other"), FAUX_TEST_CLASS);
+    Package otherPkg = otherPkgBuilder.build(/* discoverAssumedInputFiles= */ false);
+    Target otherTarget = otherPkg.getTarget("other");
+
+    assertThrows(IllegalArgumentException.class, () -> pkg.getDeclaringMacroForTarget(otherTarget));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> pkg.getDeclaringPackageForTargetIfInMacro(otherTarget));
+  }
+
   private Package.Builder pkgBuilder(String name) {
+    return pkgBuilder(name, /* trackFullMacroInformation= */ false);
+  }
+
+  private Package.Builder pkgBuilder(String name, boolean trackFullMacroInformation) {
     return Package.newPackageBuilder(
-        PackageSettings.DEFAULTS,
-        PackageIdentifier.createInMainRepo(name),
-        /* filename= */ RootedPath.toRootedPath(
-            Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
-            PathFragment.create(name + "/BUILD")),
-        "workspace",
-        Optional.empty(),
-        Optional.empty(),
-        /* noImplicitFileExport= */ true,
-        /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-        /* symbolicMacroStrictAttrs= */ StarlarkSemantics.DEFAULT.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
-        /* repositoryMapping= */ RepositoryMapping.EMPTY,
-        /* mainRepositoryMapping= */ null,
-        /* cpuBoundSemaphore= */ null,
-        PackageOverheadEstimator.NOOP_ESTIMATOR,
-        /* generatorMap= */ null,
-        /* configSettingVisibilityPolicy= */ null,
-        /* globber= */ null,
-        /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ false,
-        PackageValidator.NOOP_VALIDATOR,
-        Package.Builder.PackageLimits.DEFAULTS);
+            PackageSettings.DEFAULTS,
+            PackageIdentifier.createInMainRepo(name),
+            /* filename= */ RootedPath.toRootedPath(
+                Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
+                PathFragment.create(name + "/BUILD")),
+            "workspace",
+            Optional.empty(),
+            Optional.empty(),
+            /* noImplicitFileExport= */ true,
+            /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+            /* symbolicMacroStrictAttrs= */ StarlarkSemantics.DEFAULT.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
+            /* repositoryMapping= */ RepositoryMapping.EMPTY,
+            /* mainRepositoryMapping= */ null,
+            /* cpuBoundSemaphore= */ null,
+            PackageOverheadEstimator.NOOP_ESTIMATOR,
+            /* generatorMap= */ null,
+            /* configSettingVisibilityPolicy= */ null,
+            /* globber= */ null,
+            /* enableNameConflictChecking= */ true,
+            trackFullMacroInformation,
+            PackageValidator.NOOP_VALIDATOR,
+            Package.Builder.PackageLimits.DEFAULTS)
+        .setLoads(ImmutableList.of());
   }
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)

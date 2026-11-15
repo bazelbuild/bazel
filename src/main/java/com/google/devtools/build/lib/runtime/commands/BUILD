@@ -19,16 +19,29 @@ java_library(
     name = "commands",
     srcs = glob(
         ["*.java"],
-        exclude = ["PathToReplaceUtils.java"],
+        exclude = [
+            "NoTestsFound.java",
+            "PathToReplaceUtils.java",
+            "RunCommandLine.java",
+        ],
     ),
     resources = glob(["*.txt"]) + [
         "//scripts:completion_scripts",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/license",
     ],
+    exports = [
+        ":no_tests_found",
+        ":run_command_line",
+    ],
     deps = [
+        ":no_tests_found",
         ":paths_to_replace_utils",
+        ":run_command_line",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
@@ -40,6 +53,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:print_action_visitor",
+        "//src/main/java/com/google/devtools/build/lib/analysis:sh_toolchain",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
@@ -59,6 +73,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:output_directory_links_utils",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -85,6 +100,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/runtime:aggregating_test_listener",
+        "//src/main/java/com/google/devtools/build/lib/runtime:async_directory_cleaner",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",
@@ -115,7 +131,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_key_stats",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_stats",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_target_pattern_evaluator",
@@ -132,7 +147,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:env_var",
@@ -185,5 +199,32 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "no_tests_found",
+    srcs = ["NoTestsFound.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "run_command_line",
+    srcs = ["RunCommandLine.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

@@ -159,8 +159,7 @@ public class FileFunction implements SkyFunction {
     if (parent.equals(originalParent)) {
       return originalChild; // Avoid constructing a new instance if we already have the child.
     }
-    return RootedPath.toRootedPath(
-        parent.getRoot(), parent.getRootRelativePath().getChild(baseName));
+    return parent.getChild(baseName);
   }
 
   private RootedPath toRootedPath(Path path) {
@@ -192,8 +191,7 @@ public class FileFunction implements SkyFunction {
       SymlinkResolutionState symlinkResolutionState,
       Environment env)
       throws InterruptedException, FileFunctionException {
-    PathFragment relativePath = rootedPath.getRootRelativePath();
-    String baseName = relativePath.getBaseName();
+    String baseName = rootedPath.getRootRelativeBaseName();
 
     FileValue parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
     if (parentFileValue == null) {

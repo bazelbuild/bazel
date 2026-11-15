@@ -124,6 +124,7 @@ public class ChunkedTransferBenchmark {
         totalBytes += chunkData.length;
       }
 
+      when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
       when(combinedCache.downloadBlob(any(), any(Digest.class)))
           .thenAnswer(
               invocation ->
@@ -148,7 +149,7 @@ public class ChunkedTransferBenchmark {
       FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(chunkSizeBytes, 2, 0);
       downloader =
           new ChunkedBlobDownloader(
-              grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL, new ChunkLocationMap());
+              grpcCacheClient, combinedCache, chunkingConfig, new ChunkLocationMap());
     }
 
     @TearDown(Level.Trial)
@@ -187,6 +188,7 @@ public class ChunkedTransferBenchmark {
 
       GrpcCacheClient grpcCacheClient = mock(GrpcCacheClient.class);
       CombinedCache combinedCache = mock(CombinedCache.class);
+      when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
 
       byte[] data = new byte[fileSizeBytes];
       new Random(42).nextBytes(data);
@@ -200,8 +202,7 @@ public class ChunkedTransferBenchmark {
       }
 
       FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(avgChunkSizeBytes, 2, 0);
-      uploader =
-          new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL);
+      uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig);
 
       List<Digest> chunkDigests;
       try (var input = file.getInputStream()) {

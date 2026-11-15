@@ -59,6 +59,7 @@ bool Options::ParseToken(ArgTokenStream* tokens) {
                           &warn_duplicate_resources) ||
       tokens->MatchAndSet("--nocompress_suffixes", &nocompress_suffixes) ||
       tokens->MatchAndSet("--check_desugar_deps", &check_desugar_deps) ||
+      tokens->MatchAndSet("--desugar_deps_format", &desugar_deps_format) ||
       tokens->MatchAndSet("--multi_release", &multi_release) ||
       tokens->MatchAndSet("--hermetic_java_home", &hermetic_java_home) ||
       tokens->MatchAndSet("--add_exports", &add_exports) ||
@@ -86,5 +87,10 @@ void Options::PostValidateOptions() {
     diag_errx(
         1,
         "--compression and --dont_change_compression are mutually exclusive");
+  }
+  if (desugar_deps_format != "proto" && desugar_deps_format != "json") {
+    diag_errx(1,
+              "Invalid --desugar_deps_format '%s' (expected 'proto' or 'json')",
+              desugar_deps_format.c_str());
   }
 }

@@ -85,6 +85,9 @@ class StartupOptions {
   virtual blaze_util::Path GetExe(const blaze_util::Path &jvm,
                                   const std::string &jar_path) const;
 
+  // Returns the relative path to the server JAR within the install base.
+  virtual std::string GetServerJarFilename() const { return "A-server.jar"; }
+
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.
   virtual void AddJVMArgumentPrefix(const blaze_util::Path &javabase,
@@ -103,6 +106,12 @@ class StartupOptions {
   blaze_exit_code::ExitCode AddJVMArguments(
       const blaze_util::Path &server_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
+
+  // Adds JVM logging-related flags for Bazel, and writes javalog.properties.
+  //
+  // This is called by StartupOptions::AddJVMArguments and is a separate method
+  // so that subclasses of StartupOptions can override it.
+  virtual void AddJVMLoggingArguments(std::vector<std::string>* result) const;
 
   // Checks whether "arg" is a valid nullary option (e.g. "--master_bazelrc" or
   // "--nomaster_bazelrc").
@@ -190,6 +199,9 @@ class StartupOptions {
   int max_idle_secs;
 
   bool shutdown_on_low_sys_mem;
+
+  // If true, the Blaze/Bazel server deletes its output base on shutdown.
+  bool delete_output_base_on_shutdown;
 
   bool oom_more_eagerly;
 
@@ -334,12 +346,6 @@ class StartupOptions {
   // the default target javabase and as a fall-back host_javabase. This is not
   // the embedded JDK.
   virtual blaze_util::Path GetSystemJavabase() const;
-
-  // Adds JVM logging-related flags for Bazel.
-  //
-  // This is called by StartupOptions::AddJVMArguments and is a separate method
-  // so that subclasses of StartupOptions can override it.
-  virtual void AddJVMLoggingArguments(std::vector<std::string> *result) const;
 
   // Adds JVM memory tuning flags for Bazel.
   //

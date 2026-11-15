@@ -172,12 +172,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   private void visitLabels(
       List<Attribute> attributes, DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
-    Type.LabelVisitor visitor =
-        (label, attribute) -> {
-          if (label != null) {
-            consumer.accept(attribute, label);
-          }
-        };
+    Type.LabelVisitor visitor = (label, attribute) -> consumer.accept(attribute, label);
     for (Attribute attribute : attributes) {
       Type<?> type = attribute.getType();
       // TODO(bazel-team): clean up the typing / visitation interface so we don't have to

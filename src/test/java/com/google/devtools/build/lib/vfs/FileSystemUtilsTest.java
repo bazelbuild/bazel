@@ -156,16 +156,31 @@ public class FileSystemUtilsTest {
     Path file = fileSystem.getPath("/my-file");
     assertThrows(FileNotFoundException.class, () -> BlazeTestUtils.changeModtime(file));
     FileSystemUtils.createEmptyFile(file);
-    long prevMtime = file.getLastModifiedTime();
+    long prevMtime = file.getLastModifiedTimeNanos();
     BlazeTestUtils.changeModtime(file);
-    assertThat(prevMtime == file.getLastModifiedTime()).isFalse();
+    assertThat(prevMtime).isNotEqualTo(file.getLastModifiedTimeNanos());
   }
 
   @Test
-  public void testCommonAncestor() {
-    assertThat(commonAncestor(topDir, topDir)).isEqualTo(topDir);
+  public void testCommonAncestor() throws IOException {
+    createTestDirectoryTree();
+    assertThat(commonAncestor(topDir, topDir)).isSameInstanceAs(topDir);
     assertThat(commonAncestor(file1, file3)).isEqualTo(topDir);
     assertThat(commonAncestor(file1, dirLink)).isEqualTo(topDir);
+    assertThat(commonAncestor(topDir, file3)).isSameInstanceAs(topDir);
+    assertThat(commonAncestor(file3, topDir)).isSameInstanceAs(topDir);
+    assertThat(commonAncestor(PathFragment.create("foo/bar"), PathFragment.create("foo/baz")))
+        .isEqualTo(PathFragment.create("foo"));
+    assertThat(commonAncestor(PathFragment.create("foo/bar"), PathFragment.create("foo/barbaz")))
+        .isEqualTo(PathFragment.create("foo"));
+    assertThat(commonAncestor(PathFragment.create("foo"), PathFragment.create("bar")))
+        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(commonAncestor(PathFragment.create("/foo"), PathFragment.create("foo"))).isNull();
+    assertThrows(NullPointerException.class, () -> commonAncestor((Path) null, topDir));
+    assertThrows(NullPointerException.class, () -> commonAncestor(topDir, (Path) null));
+    PathFragment foo = PathFragment.create("foo");
+    assertThrows(NullPointerException.class, () -> commonAncestor((PathFragment) null, foo));
+    assertThrows(NullPointerException.class, () -> commonAncestor(foo, (PathFragment) null));
   }
 
   @Test
@@ -329,11 +344,11 @@ public class FileSystemUtilsTest {
   public void testTouchFileAdjustsFileTime() throws IOException {
     createTestDirectoryTree();
     Path testFile = file4;
-    long oldTime = testFile.getLastModifiedTime();
-    testFile.setLastModifiedTime(42);
+    long oldTime = testFile.getLastModifiedTimeNanos();
+    testFile.setLastModifiedTimeNanos(42);
     touchFile(testFile);
 
-    assertThat(testFile.getLastModifiedTime()).isAtLeast(oldTime);
+    assertThat(testFile.getLastModifiedTimeNanos()).isAtLeast(oldTime);
   }
 
   // The kind of filesystem to use for the copyFile tests.
@@ -364,14 +379,14 @@ public class FileSystemUtilsTest {
         case FILE -> {
           FileSystemUtils.writeContent(source, UTF_8, contents);
           source.chmod(perms);
-          source.setLastModifiedTime(lastModifiedTime);
+          source.setLastModifiedTimeNanos(lastModifiedTime);
         }
         case SYMLINK -> {
           Path actualSource = source.getParentDirectory().getChild("actual-source");
           source.createSymbolicLink(actualSource.asFragment());
           FileSystemUtils.writeContent(actualSource, UTF_8, contents);
           actualSource.chmod(perms);
-          actualSource.setLastModifiedTime(lastModifiedTime);
+          actualSource.setLastModifiedTimeNanos(lastModifiedTime);
         }
       }
     }
@@ -421,7 +436,7 @@ public class FileSystemUtilsTest {
     assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello world");
     assertThat(target.stat().getPermissions()).isEqualTo(0555);
-    assertThat(target.getLastModifiedTime()).isEqualTo(12345L);
+    assertThat(target.getLastModifiedTimeNanos()).isEqualTo(12345L);
     assertThat(source.exists()).isTrue();
   }
 
@@ -548,7 +563,7 @@ public class FileSystemUtilsTest {
 
     FileSystemUtils.writeContent(source, UTF_8, "hello world");
     source.chmod(0555);
-    source.setLastModifiedTime(12345L);
+    source.setLastModifiedTimeNanos(12345L);
 
     targetState.create(target, "bad contents");
 
@@ -557,7 +572,7 @@ public class FileSystemUtilsTest {
     assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello world");
     assertThat(target.stat().getPermissions()).isEqualTo(0555);
-    assertThat(target.getLastModifiedTime()).isEqualTo(12345L);
+    assertThat(target.getLastModifiedTimeNanos()).isEqualTo(12345L);
     assertThat(source.exists()).isFalse();
   }
 
@@ -664,8 +679,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.writeIsoLatin1(file1, "nobody says ");
     FileSystemUtils.writeIsoLatin1(file1, "mary had");
     FileSystemUtils.appendIsoLatin1(file1, "a little lamb");
-    assertThat(new String(FileSystemUtils.readContentAsLatin1(file1)))
-        .isEqualTo("mary had\na little lamb\n");
+    assertThat(FileSystemUtils.readContentAsLatin1(file1)).isEqualTo("mary had\na little lamb\n");
   }
 
   @Test
@@ -771,7 +785,7 @@ public class FileSystemUtilsTest {
     Path file = fileSystem.getPath("/does/not/exist/yet.txt");
     FileSystemUtils.writeIsoLatin1(file, "Line 1", "Line 2", "Line 3");
     String expected = "Line 1\nLine 2\nLine 3\n";
-    String actual = new String(FileSystemUtils.readContentAsLatin1(file));
+    String actual = FileSystemUtils.readContentAsLatin1(file);
     assertThat(actual).isEqualTo(expected);
   }
 
@@ -795,8 +809,8 @@ public class FileSystemUtilsTest {
     byte[] actual = FileSystemUtils.readContent(file);
     assertThat(actual).isEqualTo(content);
     FileStatus stat = file.stat();
-    assertThat(stat.getLastChangeTime()).isEqualTo(1000);
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1000);
+    assertThat(stat.getLastChangeTimeNanos()).isEqualTo(1_000_000_000L);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo(1_000_000_000L);
 
     clock.advanceMillis(1000);
 
@@ -804,8 +818,8 @@ public class FileSystemUtilsTest {
     FileSystemUtils.maybeUpdateContent(file, content);
     assertThat(actual).isEqualTo(content);
     stat = file.stat();
-    assertThat(stat.getLastChangeTime()).isEqualTo(1000);
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1000);
+    assertThat(stat.getLastChangeTimeNanos()).isEqualTo(1_000_000_000L);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo(1_000_000_000L);
 
     clock.advanceMillis(1000);
 
@@ -816,8 +830,8 @@ public class FileSystemUtilsTest {
     actual = FileSystemUtils.readContent(file);
     assertThat(actual).isEqualTo(content);
     stat = file.stat();
-    assertThat(stat.getLastChangeTime()).isEqualTo(3000);
-    assertThat(stat.getLastModifiedTime()).isEqualTo(3000);
+    assertThat(stat.getLastChangeTimeNanos()).isEqualTo(3_000_000_000L);
+    assertThat(stat.getLastModifiedTimeNanos()).isEqualTo(3_000_000_000L);
   }
 
   @Test

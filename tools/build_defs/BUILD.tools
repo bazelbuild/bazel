@@ -1,0 +1,10 @@
+filegroup(
+    name = "bzl_srcs",
+    srcs = [
+        "//tools/build_defs/build_info:bzl_srcs",
+        "//tools/build_defs/cc:action_names.bzl",
+        "//tools/build_defs/hash:hash.bzl",
+        "//tools/build_defs/repo:bzl_srcs",
+    ],
+    visibility = ["//tools:__pkg__"],
+)

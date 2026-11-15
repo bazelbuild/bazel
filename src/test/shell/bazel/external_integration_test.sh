@@ -454,8 +454,11 @@ EOF
 function test_deferred_download_two_parallel_downloads() {
   local server_dir="${TEST_TMPDIR}/server_dir"
   local gate_socket="${server_dir}/gate_socket"
-  local served_apple="APPLE"
-  local served_banana="BANANA"
+  # Make the downloads unique so that they can't be served from a repository
+  # cache shared with earlier runs, which would never contact the server.
+  local nonce=$(mktemp -u XXXXXXXX)
+  local served_apple="APPLE ${nonce}"
+  local served_banana="BANANA ${nonce}"
   local apple_sha256=$(echo "${served_apple}" | sha256sum | cut -f1 -d' ')
   local banana_sha256=$(echo "${served_banana}" | sha256sum | cut -f1 -d' ')
 
@@ -556,7 +559,9 @@ function test_deferred_download_smoke() {
   local server_dir="${TEST_TMPDIR}/server_dir"
   local served_socket="${server_dir}/served_socket"
   local gate_socket="${server_dir}/gate_socket"
-  local served_string="DEFERRED"
+  # Make the download unique so that it can't be served from a repository cache
+  # shared with earlier runs, which would never contact the server.
+  local served_string="DEFERRED $(mktemp -u XXXXXXXX)"
   local served_sha256=$(echo "${served_string}" | sha256sum | cut -f1 -d' ')
 
   mkdir -p "${server_dir}"
@@ -2932,7 +2937,6 @@ dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
 dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
 EOF
 
-  add_to_bazelrc "common --incompatible_repo_env_ignores_action_env"
   add_to_bazelrc "common --experimental_strict_repo_env"
 
   bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
@@ -2970,7 +2974,6 @@ dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
 dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
 EOF
 
-  add_to_bazelrc "common --incompatible_repo_env_ignores_action_env"
   add_to_bazelrc "common --noexperimental_strict_repo_env"
 
   bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
@@ -2996,47 +2999,6 @@ EOF
   PREDECLARED_KEY=val5 MY_VAR=val6 bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
   expect_log "PREDECLARED_KEY=val5"
   expect_log "MY_VAR=val6"
-}
-
-function test_environ_incrementally_without_client_env_with_action_env() {
-  cat > repo.bzl <<EOF
-def _impl(rctx):
-  rctx.symlink(rctx.attr.build_file, 'BUILD')
-  print('PREDECLARED_KEY=%s' % rctx.os.environ.get('PREDECLARED_KEY'))
-  print('MY_VAR=%s' % rctx.getenv('MY_VAR'))
-dummy_repository = repository_rule(
-  implementation = _impl,
-  attrs = {'build_file': attr.label()},
-  environ = ['PREDECLARED_KEY'],
-)
-EOF
-  cat > BUILD.dummy <<EOF
-filegroup(name='dummy', srcs=['BUILD'])
-EOF
-  touch BUILD
-  cat > $(setup_module_dot_bazel) <<EOF
-dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
-dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
-EOF
-
-  add_to_bazelrc "common --noincompatible_repo_env_ignores_action_env"
-  add_to_bazelrc "common --experimental_strict_repo_env"
-
-  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_log "PREDECLARED_KEY=None"
-  expect_log "MY_VAR=None"
-
-  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_not_log "PREDECLARED_KEY"
-  expect_not_log "MY_VAR"
-
-  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_log "PREDECLARED_KEY=val3"
-  expect_log "MY_VAR=None"
-
-  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_log "PREDECLARED_KEY=val3"
-  expect_log "MY_VAR=val4"
 }
 
 function test_environ_build_query_build() {

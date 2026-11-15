@@ -99,20 +99,8 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   /** Returns the declaring {@link OptionsBase} class that owns this option. */
   public abstract <C extends OptionsBase> Class<? extends C> getDeclaringClass(Class<C> baseClass);
 
-  /**
-   * Returns the raw value of the option. Use {@link #getValue} if possible to correctly handle
-   * default values.
-   */
-  public abstract Object getRawValue(OptionsBase optionsBase);
-
-  /** Returns the value of this option, taking default values into account. */
-  public Object getValue(OptionsBase optionsBase) {
-    Object value = getRawValue(optionsBase);
-    if (value == null && !isSpecialNullDefault()) {
-      value = getUnparsedDefaultValue();
-    }
-    return value;
-  }
+  /** Returns the value of this option. */
+  public abstract Object getValue(OptionsBase optionsBase);
 
   /**
    * Returns the value of this option as a boolean. If the option is not boolean-typed, throws an
@@ -187,6 +175,16 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   /** Returns metadata about this option. */
   public OptionMetadataTag[] getOptionMetadataTags() {
     return optionAnnotation.metadataTags();
+  }
+
+  /** Returns whether this option has the FULLY_REDACTED_IN_LOGS metadata tag. */
+  public boolean isFullyRedactedInLogs() {
+    for (OptionMetadataTag tag : getOptionMetadataTags()) {
+      if (tag == OptionMetadataTag.FULLY_REDACTED_IN_LOGS) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Returns a converter to use for this option. */

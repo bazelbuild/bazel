@@ -608,11 +608,18 @@ public final class Label
       enableOnlyWithFlag = BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS,
       useStarlarkThread = true)
   @Deprecated
-  public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
-    return parseWithPackageContext(
-        relName,
+  public Label getRelative(String relName, StarlarkThread thread)
+      throws LabelSyntaxException, EvalException {
+    Parts parts = Parts.parse(relName);
+    return parseWithPackageContextInternal(
+        parts,
         PackageContext.of(
-            packageIdentifier, BazelModuleContext.ofInnermostBzlOrThrow(thread).repoMapping()));
+            packageIdentifier,
+            parts.repo() == null
+                ? RepositoryMapping.EMPTY
+                : BazelModuleContext.ofInnermostBzlOrFail(
+                        thread, "Label.relative() with an argument containing a repository name")
+                    .repoMapping()));
   }
 
   @Override

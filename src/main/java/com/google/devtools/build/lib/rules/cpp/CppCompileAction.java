@@ -62,11 +62,13 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -142,6 +144,7 @@ public class CppCompileAction extends AbstractAction
   private final NestedSet<Artifact> additionalPrunableHeaders;
 
   @Nullable private final Artifact grepIncludes;
+  @Nullable private final PlatformInfo grepIncludesExecutionPlatform;
   private final boolean shareable;
   private final boolean shouldScanIncludes;
   private final boolean usePic;
@@ -268,6 +271,7 @@ public class CppCompileAction extends AbstractAction
       boolean needsIncludeValidation,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       ImmutableList<Artifact> additionalOutputs,
       NestedSet<Artifact> moduleFiles,
       Artifact modmapInputFile) {
@@ -307,6 +311,7 @@ public class CppCompileAction extends AbstractAction
     this.usedModules = null;
     this.topLevelModules = null;
     this.grepIncludes = grepIncludes;
+    this.grepIncludesExecutionPlatform = grepIncludesExecutionPlatform;
     this.dotdFile = isGenerateDotdFile(sourceFile) ? dotdFile : null;
 
     NestedSetBuilder<Artifact> allowedDerivedInputsBuilder =
@@ -346,6 +351,7 @@ public class CppCompileAction extends AbstractAction
       NestedSet<Artifact> allowedDerivedInputs,
       NestedSet<Artifact> additionalPrunableHeaders,
       @Nullable Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       boolean shareable,
       boolean shouldScanIncludes,
       boolean usePic,
@@ -372,6 +378,7 @@ public class CppCompileAction extends AbstractAction
     this.allowedDerivedInputs = allowedDerivedInputs;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.grepIncludes = grepIncludes;
+    this.grepIncludesExecutionPlatform = grepIncludesExecutionPlatform;
     this.shareable = shareable;
     this.shouldScanIncludes = shouldScanIncludes;
     this.usePic = usePic;
@@ -645,7 +652,12 @@ public class CppCompileAction extends AbstractAction
 
     NestedSet<Artifact> topLevelModules = topLevelModulesBuilder.build();
     discoveredModulesBuilder.addTransitive(topLevelModules);
-    return new CppDiscoveredModules(discoveredModulesBuilder.buildInterruptibly(), topLevelModules);
+    NestedSet<Artifact> transitivelyUsed;
+    // TODO: b/542300922 - Remove once --experimental_skycache_analysis_only is the only mode.
+    try (var _ = NestedSetOwnerScope.enterWithoutIdentity()) {
+      transitivelyUsed = discoveredModulesBuilder.buildInterruptibly();
+    }
+    return new CppDiscoveredModules(transitivelyUsed, topLevelModules);
   }
 
   // TODO(b/213594908): Remove this method from Action interface once CppCompileAction is immutable.
@@ -794,6 +806,11 @@ public class CppCompileAction extends AbstractAction
   @Nullable
   public Artifact getGrepIncludes() {
     return grepIncludes;
+  }
+
+  @Nullable
+  public PlatformInfo getGrepIncludesExecutionPlatform() {
+    return grepIncludesExecutionPlatform;
   }
 
   /**
@@ -1309,11 +1326,14 @@ public class CppCompileAction extends AbstractAction
     super.updateInputs(inputs);
     if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
         && !isCpp20ModuleCompilationAction(actionName)) {
-      discoveredModules =
-          NestedSetBuilder.wrap(
-              Order.STABLE_ORDER,
-              Iterables.filter(
-                  inputs.toList(), input -> input.isFileType(CppFileTypes.CPP_MODULE)));
+      // TODO: b/542300922 - Remove once --experimental_skycache_analysis_only is the only mode.
+      try (var _ = NestedSetOwnerScope.enterWithoutIdentity()) {
+        discoveredModules =
+            NestedSetBuilder.wrap(
+                Order.STABLE_ORDER,
+                Iterables.filter(
+                    inputs.toList(), input -> input.isFileType(CppFileTypes.CPP_MODULE)));
+      }
     }
   }
 
@@ -1986,6 +2006,7 @@ public class CppCompileAction extends AbstractAction
               includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                  .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate())
                   // Register generated prunable/toolchain headers as declared so the include
                   // scanner can resolve them; it never stats output-directory paths. Keep in sync
                   // with the matching call in discoverInputs above. See

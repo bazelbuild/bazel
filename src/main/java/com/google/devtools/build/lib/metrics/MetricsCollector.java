@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.Entry;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.LatencyBySkyFunction;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.UploadPhaseTimings;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
@@ -497,6 +498,11 @@ class MetricsCollector {
     }
 
     result.setSerializationExceptionCount(listener.getSerializationExceptionCounts());
+
+    UploadPhaseTimings uploadPhaseTimings = listener.getUploadPhaseTimings();
+    if (uploadPhaseTimings != null) {
+      result.setUploadPhaseTimings(uploadPhaseTimings);
+    }
 
     RemoteAnalysisCachingServicesSupplier supplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();

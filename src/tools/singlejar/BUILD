@@ -439,6 +439,7 @@ cc_library(
     deps = [
         ":combiners",
         "//src/main/protobuf:desugar_deps_cc_proto",
+        "@nlohmann_json//:json",
     ],
 )
 

@@ -29,5 +29,5 @@ public interface RemoteAnalysisMetadataWriter {
       String blazeVersion,
       Collection<String> targets,
       Collection<String> configFlags)
-      throws IOException;
+      throws IOException, InterruptedException;
 }

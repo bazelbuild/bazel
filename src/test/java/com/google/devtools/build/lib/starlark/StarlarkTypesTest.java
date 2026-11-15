@@ -13,32 +13,41 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo.DefaultInfoProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.SelectorValue;
 import com.google.devtools.build.lib.skyframe.BzlCompileValue;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.function.Predicate;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.syntax.AssignmentStatement;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Program;
@@ -191,39 +200,76 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   /** Asserts {@code t1} is assignable to {@code t2}. */
-  private void assertLt(StarlarkType t1, StarlarkType t2) {
-    assertWithMessage("%s is expected to be assignable to %s", t1, t2)
+  private void assertLt(String context, StarlarkType t1, StarlarkType t2) {
+    assertWithMessage(
+            "%s%s%s (class %s) is expected to be assignable to %s (class %s)",
+            context,
+            context.isEmpty() ? "" : ": ",
+            t1.typeRepr(),
+            t1.getClass(),
+            t2.typeRepr(),
+            t2.getClass())
         .that(StarlarkType.assignableFrom(t2, t1, getTypeContext()))
         .isTrue();
   }
 
+  private void assertLt(StarlarkType t1, StarlarkType t2) {
+    assertLt("", t1, t2);
+  }
+
   /** Asserts {@code t1} is *not* assignable to {@code t2}. */
-  private void assertNotLt(StarlarkType t1, StarlarkType t2) {
-    assertWithMessage("%s is expected to be *not* assignable to %s", t1, t2)
+  private void assertNotLt(String context, StarlarkType t1, StarlarkType t2) {
+    assertWithMessage(
+            "%s%s%s (class %s) is expected to be not assignable to %s (class %s)",
+            context,
+            context.isEmpty() ? "" : ": ",
+            t1.typeRepr(),
+            t1.getClass(),
+            t2.typeRepr(),
+            t2.getClass())
         .that(StarlarkType.assignableFrom(t2, t1, getTypeContext()))
         .isFalse();
   }
 
+  private void assertNotLt(StarlarkType t1, StarlarkType t2) {
+    assertNotLt("", t1, t2);
+  }
+
   /** Asserts {@code t1} is assignable to {@code t2}, but not vice versa. */
+  @SuppressWarnings("unused")
+  private void assertStrictLt(String context, StarlarkType t1, StarlarkType t2) {
+    assertLt(context, t1, t2);
+    assertNotLt(context, t2, t1);
+  }
+
   private void assertStrictLt(StarlarkType t1, StarlarkType t2) {
     assertLt(t1, t2);
     assertNotLt(t2, t1);
   }
 
   /** Asserts {@code t1} and {@code t2} are assignable in both directions. */
+  private void assertLtAndGt(String context, StarlarkType t1, StarlarkType t2) {
+    assertLt(context, t1, t2);
+    assertLt(context, t2, t1);
+  }
+
   private void assertLtAndGt(StarlarkType t1, StarlarkType t2) {
     assertLt(t1, t2);
     assertLt(t2, t1);
   }
 
   /** Asserts that the given types are *not* assignable in either direction. */
-  private void assertIncomparable(StarlarkType... types) {
+  private void assertIncomparable(String context, StarlarkType... types) {
     for (int i = 0; i < types.length - 1; i++) {
       for (int j = i + 1; j < types.length; j++) {
-        assertNotLt(types[i], types[j]);
-        assertNotLt(types[j], types[i]);
+        assertNotLt(context, types[i], types[j]);
+        assertNotLt(context, types[j], types[i]);
       }
     }
+  }
+
+  private void assertIncomparable(StarlarkType... types) {
+    assertIncomparable("", types);
   }
 
   @StarlarkBuiltin(name = "TestStructApiImpl")
@@ -367,31 +413,7 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void typeResolverDoesNotRunByDefault() throws Exception {
-    // If the type resolver were running, it'd complain about the var annotation after x has already
-    // been assigned to.
-    setBuildLanguageOptions("--experimental_starlark_type_syntax");
-    scratch.file(
-        "test/foo.bzl",
-        """
-        def f():
-            x = 1
-            x : int
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load(":foo.bzl", "f")
-        """);
-
-    getTarget("//test:BUILD");
-    assertNoEvents();
-  }
-
-  @Test
-  public void typeResolverDoesRunWithDynamicTypeCheckingFlag() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+  public void typeResolverRunsByDefault() throws Exception {
     scratch.file(
         "test/foo.bzl",
         """
@@ -410,27 +432,31 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void staticTypeCheckingDoesNotRunByDefault() throws Exception {
-    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+  public void typeResolverDoesRunWithOnlyDynamicTypeCheckingFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax",
+        "--noexperimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking");
     scratch.file(
         "test/foo.bzl",
         """
-        x: int = "a"
+        def f():
+            x = 1
+            x : int
         """);
     scratch.file(
         "test/BUILD",
         """
-        load(":foo.bzl", "x")
+        load(":foo.bzl", "f")
         """);
 
-    getTarget("//test:BUILD");
-    assertNoEvents();
+    checkLoadingPhaseError(
+        "//test:BUILD", "type annotation on 'x' may only appear at its declaration");
   }
 
   @Test
-  public void staticTypeCheckingDoesRunWithStaticTypeCheckingFlag() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+  public void staticTypeCheckingRunsByDefault() throws Exception {
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
     scratch.file(
         "test/foo.bzl",
         """
@@ -497,6 +523,11 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     // Type is narrowed on export
     assertThat(revealExportedType("struct(x = 1, y = 2)"))
         .isEqualTo(Types.struct(ImmutableMap.of("x", Types.INT, "y", Types.INT)));
+
+    // struct constructor (the singleton StructProvider instance) is a provider
+    StarlarkType structSymbolType = revealStaticType("struct");
+    StarlarkType anyProviderType = parseType("Provider");
+    assertLtAndGt(structSymbolType, anyProviderType);
   }
 
   @Test
@@ -552,6 +583,50 @@ public class StarlarkTypesTest extends BuildViewTestCase {
             bad: None = value
             """,
             pkgName));
+  }
+
+  @Test
+  public void selfReferentialValue_exportedType() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    assertThat(
+            revealExportedType(
+                "self_referential_struct",
+                """
+                self_referential_struct = struct(data = [])
+                self_referential_struct.data.append(self_referential_struct)
+                """))
+        .isEqualTo(Types.ANY_STRUCT);
+
+    // A deeply nested cycle is caught only at the outermost level.
+    assertThat(
+            revealExportedType(
+                "struct_with_deeply_nested_self_referential_field",
+                """
+                struct_with_deeply_nested_self_referential_field = struct(data = {"x": []})
+                struct_with_deeply_nested_self_referential_field.data["x"].append(
+                    struct_with_deeply_nested_self_referential_field.data["x"]
+                )
+                """))
+        .isEqualTo(Types.ANY_STRUCT);
+
+    assertThat(
+            revealExportedType(
+                "self_referential_list",
+                """
+                self_referential_list = []
+                cast(list, self_referential_list).append(self_referential_list)
+                """))
+        .isEqualTo(Types.list(Types.ANY));
+
+    assertThat(
+            revealExportedType(
+                "self_referential_dict",
+                """
+                self_referential_dict = {}
+                cast(dict, self_referential_dict)["self"] = self_referential_dict
+                """))
+        .isEqualTo(Types.dict(Types.ANY, Types.ANY));
   }
 
   @Test
@@ -637,6 +712,11 @@ public class StarlarkTypesTest extends BuildViewTestCase {
             revealStaticType(
                 "select_of_label_or_none", "load('//lib:select.bzl', 'select_of_label_or_none')"))
         .isEqualTo(SelectorValue.Type.of(labelType));
+  }
+
+  @Test
+  public void select_typeIsInterned() throws Exception {
+    assertThat(SelectorValue.Type.of(Types.INT)).isSameInstanceAs(SelectorValue.Type.of(Types.INT));
   }
 
   @Test
@@ -954,6 +1034,90 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     StarlarkType instanceTypeDynamically =
         revealExportedType("MyInfo(2)", "load('//lib:provider.bzl', 'MyInfo')");
     assertThat(instanceTypeDynamically).isEqualTo(myInfoType);
+  }
+
+  @Test
+  public void defaultInfo() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+
+    StarlarkType defaultInfoSymbolType = revealStaticType("DefaultInfo");
+    assertThat(defaultInfoSymbolType.typeRepr()).isEqualTo("<Provider[DefaultInfo]>");
+    assertStrictLt(defaultInfoSymbolType, Types.ANY_CALLABLE);
+    assertStrictLt(defaultInfoSymbolType, Types.TYPE);
+    assertLtAndGt(defaultInfoSymbolType, parseType("Provider"));
+
+    StarlarkType defaultInfoType = parseType("DefaultInfo");
+    assertThat(revealStaticType("DefaultInfo()")).isEqualTo(defaultInfoType);
+    assertThat(revealExportedType("DefaultInfo()")).isEqualTo(defaultInfoType);
+    assertThat(defaultInfoType.typeRepr()).isEqualTo("DefaultInfo");
+    assertStrictLt(defaultInfoType, Types.ANY_STRUCT);
+    assertThat(defaultInfoType.getField("files", getTypeContext()))
+        .isEqualTo(parseType("depset | None"));
+    assertThat(defaultInfoType.getField("nonexistent field", getTypeContext())).isNull();
+  }
+
+  @Test
+  public void anyProvider() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    StarlarkType anyProviderType = parseType("Provider");
+
+    assertThat(Starlark.getStarlarkTypeFromJavaType(ProviderApi.class, /* objectIsAny= */ false))
+        .isEqualTo(anyProviderType);
+    assertStrictLt(anyProviderType, Types.ANY_CALLABLE);
+    assertStrictLt(anyProviderType, Types.TYPE);
+  }
+
+  @Test
+  public void builtinProviders() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    StarlarkType anyProviderType = parseType("Provider");
+
+    ImmutableSet<Class<?>> builtinProviderClasses =
+        Classpath.findClasses("com/google/devtools/build").stream()
+            .filter(BuiltinProvider.class::isAssignableFrom)
+            .collect(toImmutableSet());
+    assertThat(builtinProviderClasses).isNotEmpty();
+    assertThat(builtinProviderClasses).contains(DefaultInfoProvider.class);
+    for (Class<?> cls : builtinProviderClasses) {
+      if (isCallableFromStarlark(cls) || cls == BuiltinProvider.class) {
+        // Callable from Starlark -> exposed as a Provider (sub)type
+        String messagePrefix = "For builtin provider " + cls;
+        StarlarkType providerType = Starlark.getStarlarkTypeFromJavaType(cls, false);
+        assertLtAndGt(messagePrefix, providerType, anyProviderType);
+        assertStrictLt(messagePrefix, providerType, Types.ANY_CALLABLE);
+        if (StarlarkAnnotations.getParentWithStarlarkBuiltin(cls) != ProviderApi.class) {
+          // If a builtin provider has a custom @StarlarkBuiltin annotation, it's expected to have a
+          // custom Starlark type too.
+          assertWithMessage(messagePrefix).that(providerType).isNotEqualTo(anyProviderType);
+          assertWithMessage(messagePrefix)
+              .that(providerType.typeRepr())
+              .matches("<Provider\\[.*\\]>");
+        }
+      } else {
+        // Not callable from Starlark -> not typed as a Provider
+        // Examples: AnalysisFailureInfoProvider, ActionsProvider.
+        String messagePrefix =
+            "If you just now added this subclass of BuiltinProvider, you should probably subclass"
+                + " BuiltinProvider.NonCallable\n. For non-Starlark-callable builtin provider "
+                + cls;
+        StarlarkType nonProviderType = Starlark.getStarlarkTypeFromJavaType(cls, false);
+        assertNotLt(messagePrefix, nonProviderType, anyProviderType);
+        assertNotLt(messagePrefix, nonProviderType, Types.ANY_CALLABLE);
+      }
+    }
+  }
+
+  private boolean isCallableFromStarlark(Class<?> cls) {
+    if (StarlarkCallable.class.isAssignableFrom(cls)) {
+      return true;
+    }
+    if (CallUtils.getBuiltinManager(getStarlarkSemantics()).getSelfCallMethodType(cls) != null) {
+      return true;
+    }
+    return false;
   }
 
   @Test

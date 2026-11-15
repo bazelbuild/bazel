@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.unsafe;
 
-
 import java.lang.reflect.Field;
 import sun.misc.Unsafe;
 
@@ -30,11 +29,6 @@ public class UnsafeProvider {
 
   public static Unsafe unsafe() {
     return UNSAFE;
-  }
-
-  // TODO: b/386384684 - remove Unsafe usage
-  public static long getFieldOffset(Class<?> type, String fieldName) throws NoSuchFieldException {
-    return UNSAFE.objectFieldOffset(type.getDeclaredField(fieldName));
   }
 
   /**

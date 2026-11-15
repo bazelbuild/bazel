@@ -1046,6 +1046,109 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertThat(getConfiguredTarget("//buildenv/foo:foo")).isNotNull();
   }
 
+  @Test
+  public void environmentGroupDefaultInfoFilesIsEmpty() throws Exception {
+    scratch.file(
+        "buildenv/foo/defs.bzl",
+        """
+        AspectInfo = provider(fields = ["files"])
+
+        def _probe_aspect_impl(target, ctx):
+            files = ctx.rule.attr.dep[DefaultInfo].files
+            if files.to_list() != []:
+                fail("Expected empty files depset in aspect, got %s" % files)
+            return [AspectInfo(files = files)]
+
+        probe_aspect = aspect(
+            implementation = _probe_aspect_impl,
+            attr_aspects = ["*"],
+        )
+
+        def _probe_impl(ctx):
+            files = ctx.attr.dep[DefaultInfo].files
+            if files.to_list() != []:
+                fail("Expected empty files depset, got %s" % files)
+            return [DefaultInfo(files = files)]
+
+        probe = rule(
+            implementation = _probe_impl,
+            attrs = {"dep": attr.label()},
+        )
+
+        def _aspect_runner_impl(ctx):
+            return [DefaultInfo(files = ctx.attr.target[AspectInfo].files)]
+
+        aspect_runner = rule(
+            implementation = _aspect_runner_impl,
+            attrs = {"target": attr.label(aspects = [probe_aspect])},
+        )
+        """);
+    scratch.file(
+        "buildenv/foo/BUILD",
+        """
+        load(":defs.bzl", "aspect_runner", "probe")
+
+        environment(name = "a")
+
+        environment_group(
+            name = "foo",
+            environments = [":a"],
+            defaults = [":a"],
+        )
+
+        probe(
+            name = "probe_foo",
+            dep = ":foo",
+        )
+
+        aspect_runner(
+            name = "run_aspect",
+            target = ":probe_foo",
+        )
+        """);
+
+    assertThat(getConfiguredTarget("//buildenv/foo:probe_foo")).isNotNull();
+    assertThat(getConfiguredTarget("//buildenv/foo:run_aspect")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void environmentGroupInFileRestrictedAttributeFailsCleanly() throws Exception {
+    scratch.file(
+        "buildenv/foo/defs.bzl",
+        """
+        def _needs_txt_impl(ctx):
+            return []
+
+        needs_txt = rule(
+            implementation = _needs_txt_impl,
+            attrs = {"dep": attr.label(allow_files = [".txt"])},
+        )
+        """);
+    scratch.file(
+        "buildenv/foo/BUILD",
+        """
+        load(":defs.bzl", "needs_txt")
+
+        environment(name = "a")
+
+        environment_group(
+            name = "foo",
+            environments = [":a"],
+            defaults = [":a"],
+        )
+
+        needs_txt(
+            name = "consumer",
+            dep = ":foo",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//buildenv/foo:consumer")).isNull();
+    assertContainsEvent("'//buildenv/foo:foo' does not produce any needs_txt dep files");
+  }
+
   private void writeDepsForSelectTests() throws Exception {
     scratch.file(
         "deps/BUILD",
@@ -1105,6 +1208,64 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         """);
     useConfiguration("--define", "mode=a");
     assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
+  }
+
+  @Test
+  public void labelFlagDepsRefineEnvironmentsLikeSelectDeps() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    writeDepsForSelectTests();
+    scratch.file(
+        "hello/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        label_flag(
+            name = 'backend',
+            build_setting_default = '//deps:dep_a')
+        cc_library(
+            name = 'lib',
+            srcs = [],
+            deps = [':backend'],
+            compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])
+        cc_library(
+            name = 'depender_a',
+            srcs = [],
+            deps = [':lib'],
+            restricted_to = ['//buildenv/foo:a'])
+        """);
+    // Valid because :backend resolves to //deps:dep_a, which refines :lib to //buildenv/foo:a.
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
+    assertThat(getConfiguredTarget("//hello:depender_a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void labelFlagDepsFailRefinedEnvironmentCheckWhenIncompatible() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    writeDepsForSelectTests();
+    scratch.file(
+        "hello/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        label_flag(
+            name = 'backend',
+            build_setting_default = '//deps:dep_a')
+        cc_library(
+            name = 'lib',
+            srcs = [],
+            deps = [':backend'],
+            compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])
+        cc_library(
+            name = 'depender_b',
+            srcs = [],
+            deps = [':lib'],
+            restricted_to = ['//buildenv/foo:b'])
+        """);
+    reporter.removeHandler(failFastHandler);
+    // Invalid because :backend resolves to //deps:dep_a, refining :lib to //buildenv/foo:a,
+    // which disqualifies :depender_b's required //buildenv/foo:b environment.
+    assertThat(getConfiguredTarget("//hello:depender_b")).isNull();
+    assertContainsEvent(
+        "//hello:depender_b: the current command line flags disqualify all supported environments");
   }
 
   @Test

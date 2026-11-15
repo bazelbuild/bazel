@@ -799,7 +799,10 @@ public final class UiEventHandler implements EventHandler {
     synchronized (this) {
       buildRunning = false;
     }
-    completeBuild();
+    // buildComplete() leaves the update thread running if it saw unfinished activities, and
+    // completeBuild() would return early here because buildRunning is false. The thread must not
+    // outlive the command, as it keeps this handler and its event bus reachable.
+    stopUpdateThread();
     try {
       flushStdOutStdErrBuffers();
       terminal.resetTerminal();

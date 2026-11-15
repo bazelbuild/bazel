@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
 /**
  * The {@link Scrubber} implements scrubbing of remote cache keys.
  *
- * <p>See the documentation for the {@code --experimental_remote_scrub_config} flag for more
+ * <p>See the documentation for the {@code --experimental_remote_scrubbing_config} flag for more
  * information.
  */
 public final class Scrubber {

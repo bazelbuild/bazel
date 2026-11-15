@@ -239,8 +239,8 @@ public class SevenZDecompressorTest {
         fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
 
     assertThat(files).containsExactly("fileNoModificationDate", "regularFile");
-    assertThat(fileDir.getRelative("regularFile").getLastModifiedTime())
-        .isEqualTo(testDate.getTimeInMillis());
+    assertThat(fileDir.getRelative("regularFile").getLastModifiedTimeNanos())
+        .isEqualTo(testDate.getTimeInMillis() * 1_000_000);
   }
 
   /** Check that we throw when handling nameless 7z entries. */

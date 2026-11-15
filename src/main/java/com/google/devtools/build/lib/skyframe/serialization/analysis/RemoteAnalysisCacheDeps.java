@@ -24,7 +24,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.events.Event;
@@ -44,12 +43,10 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -66,9 +63,7 @@ public class RemoteAnalysisCacheDeps
 
   private final RemoteAnalysisCacheMode mode;
   private final boolean bailOutOnMissingFingerprint;
-  private final boolean minimizeMemory;
   private final String serializedFrontierProfile;
-  private final Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher;
   private final RemoteAnalysisCachingEventListener listener;
   private final FrontierNodeVersion frontierNodeVersion;
   private final boolean skycacheAnalysisOnly;
@@ -102,13 +97,11 @@ public class RemoteAnalysisCacheDeps
       ExtendedEventHandler eventHandler,
       RemoteAnalysisCacheMode mode,
       boolean bailOutOnMissingFingerprint,
-      boolean minimizeMemory,
       RemoteAnalysisCachingServicesSupplier servicesSupplier,
       RemoteAnalysisCachingEventListener listener,
       ListenableFuture<ObjectCodecs> objectCodecs,
       CompressionService compressionService,
       FrontierNodeVersion frontierNodeVersion,
-      Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
       String serializedFrontierProfile,
       boolean skycacheAnalysisOnly,
       boolean emitUploadedEvents,
@@ -121,9 +114,7 @@ public class RemoteAnalysisCacheDeps
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
     this.skycacheAnalysisOnly = skycacheAnalysisOnly;
     this.emitUploadedEvents = emitUploadedEvents;
-    this.minimizeMemory = minimizeMemory;
     this.serializedFrontierProfile = serializedFrontierProfile;
-    this.activeDirectoriesMatcher = activeDirectoriesMatcher;
     this.eventHandler = eventHandler;
 
     this.objectCodecs = objectCodecs;
@@ -161,11 +152,9 @@ public class RemoteAnalysisCacheDeps
   private RemoteAnalysisCacheDeps() {
     this.mode = RemoteAnalysisCacheMode.OFF;
     this.bailOutOnMissingFingerprint = false;
-    this.minimizeMemory = false;
     this.skycacheAnalysisOnly = false;
     this.emitUploadedEvents = false;
     this.serializedFrontierProfile = "";
-    this.activeDirectoriesMatcher = Optional.empty();
     this.eventHandler = null;
     this.objectCodecs = null;
     this.listener = null;
@@ -206,21 +195,9 @@ public class RemoteAnalysisCacheDeps
   }
 
   @Override
-  public boolean shouldMinimizeMemory() {
-    checkEnabled();
-    return minimizeMemory;
-  }
-
-  @Override
   public String getSerializedFrontierProfile() {
     checkEnabled();
     return serializedFrontierProfile;
-  }
-
-  @Override
-  public Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher() {
-    checkEnabled();
-    return activeDirectoriesMatcher;
   }
 
   @Override

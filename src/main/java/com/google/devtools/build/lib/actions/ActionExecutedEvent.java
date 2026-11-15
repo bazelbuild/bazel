@@ -29,9 +29,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguratio
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
@@ -60,6 +62,12 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   /** Timestamp of the action finishing; if no timestamp is available will be {@code null}. */
   @Nullable private final Instant endTime;
 
+  /**
+   * One entry per spawn, populating only {@code runner} and {@code cache_hit}: a full {@link
+   * SpawnExec} would make the BEP too large and duplicate the execution log.
+   */
+  private final ImmutableList<SpawnExec> strategyDetails;
+
   public ActionExecutedEvent(
       PathFragment actionId,
       Action action,
@@ -71,7 +79,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       Path stderr,
       ErrorTiming timing,
       @Nullable Instant startTime,
-      @Nullable Instant endTime) {
+      @Nullable Instant endTime,
+      ImmutableList<SpawnExec> strategyDetails) {
     this.actionId = actionId;
     this.action = action;
     this.exception = exception;
@@ -83,6 +92,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     this.timing = timing;
     this.startTime = startTime;
     this.endTime = endTime;
+    this.strategyDetails = strategyDetails;
     Preconditions.checkState(
         (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
     Preconditions.checkState(
@@ -185,6 +195,9 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
         actionBuilder.setEndTime(timestampProto(endTime));
       }
     }
+    for (SpawnExec details : strategyDetails) {
+      actionBuilder.addStrategyDetails(Any.pack(details));
+    }
 
     if (exception != null) {
       // TODO(b/150405553): This statement seems to be confused. The exit_code field of
@@ -253,6 +266,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
         .add("primaryOutputMetadata", primaryOutputMetadata)
         .add("startTime", startTime)
         .add("endTime", endTime)
+        .add("strategyDetails", strategyDetails)
         .toString();
   }
 

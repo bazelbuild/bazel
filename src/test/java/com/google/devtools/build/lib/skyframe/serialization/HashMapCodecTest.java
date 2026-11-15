@@ -53,7 +53,14 @@ public final class HashMapCodecTest {
             (VerificationFunction<Map>)
                 (original, deserialized) -> {
                   if (!(original instanceof LinkedHashMap)) {
-                    original = new LinkedHashMap(original);
+                    // HashMapCodec serializes in entrySet() order; populate via entrySet() rather
+                    // than new LinkedHashMap(original), which since JDK-8368292 (JDK 27) scans
+                    // HashMap's backing table directly and may diverge from entrySet() order.
+                    var copy = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> entry : ((Map<?, ?>) original).entrySet()) {
+                      copy.put(entry.getKey(), entry.getValue());
+                    }
+                    original = copy;
                   }
                   // Compares the structure to avoid stack overflow when the equals operation
                   // attempts to traverse the circular maps.

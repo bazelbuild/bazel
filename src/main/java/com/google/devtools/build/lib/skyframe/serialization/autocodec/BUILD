@@ -139,7 +139,6 @@ java_library(
         "Initializers.java",
         "InterningObjectCodecFieldGenerators.java",
         "InterningObjectCodecGenerator.java",
-        "SerializationCodeGenerator.java",
     ],
     deps = [
         ":autocodec-annotation",

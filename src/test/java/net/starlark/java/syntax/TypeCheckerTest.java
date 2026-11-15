@@ -383,7 +383,7 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":3:3: operator '+' cannot be applied to types 'int | bool' and 'int | bool'",
+        ":3:3: operator '+' cannot be applied to types 'bool | int' and 'bool | int'",
         """
         z: list[int|bool]
         x, y = z
@@ -593,7 +593,7 @@ public final class TypeCheckerTest {
         """);
     assertInvalid(
         ":2:1: cannot assign type 'int' to 'o.f' which expects a value satisfying all of the 2"
-            + " types ['int', 'bool']",
+            + " types ['bool', 'int']",
         """
         o: MutableFoo[int] | MutableFoo[bool]
         o.f = 123
@@ -1002,7 +1002,7 @@ public final class TypeCheckerTest {
         """);
     assertInvalid(
         ":2:1: cannot assign type 'str' to 'u[1]' which expects a value satisfying all of the 2"
-            + " types ['str', 'int']",
+            + " types ['int', 'str']",
         """
         u: list[str] | list[int]
         u[1] = "abc"
@@ -1074,7 +1074,7 @@ public final class TypeCheckerTest {
     assertInvalid(
         ":2:3: operator '|=' cannot be applied to types 'dict[str, int]' and 'dict[int, float]':"
             + " cannot update 'x' of type 'dict[str, int]' with a result value of type"
-            + " 'dict[str | int, int | float]'",
+            + " 'dict[int | str, float | int]'",
         """
         x: dict[str, int]
         x |= {1: 2.3}
@@ -1108,7 +1108,7 @@ public final class TypeCheckerTest {
         x.f *= 2
         """);
     assertInvalid(
-        ":2:1: x of type 'MutableFoo[int] | Foo[int]' does not support field assignment",
+        ":2:1: x of type 'Foo[int] | MutableFoo[int]' does not support field assignment",
         """
         x: MutableFoo[int] | Foo[int]  # potentially immutable
         x.f *= 2
@@ -1245,7 +1245,7 @@ public final class TypeCheckerTest {
     assertInvalid(":2:1: operator '-' cannot be applied to type 'str'", "x: str", "-x");
     assertInvalid(":2:1: operator '+' cannot be applied to type 'str'", "x: str", "+x");
     assertInvalid(":2:1: operator '~' cannot be applied to type 'str'", "x: str", "~x");
-    assertInvalid(":2:1: operator '-' cannot be applied to type 'str | int'", "x: str | int", "-x");
+    assertInvalid(":2:1: operator '-' cannot be applied to type 'int | str'", "x: str | int", "-x");
   }
 
   @Test
@@ -1477,7 +1477,7 @@ public final class TypeCheckerTest {
     // unsupported operations
     assertInvalid("operator '|' cannot be applied to types 'int' and 'float'", "x: int; x | 2.0");
     assertInvalid(
-        "operator '|' cannot be applied to types 'int | set[int]' and 'int | set[int]'",
+        "operator '|' cannot be applied to types 'set[int] | int' and 'set[int] | int'",
         "x: int|set[int]; y: int|set[int]; x | y");
   }
 
@@ -2064,7 +2064,7 @@ public final class TypeCheckerTest {
         f(*args)
         """);
     assertInvalid(
-        "argument after * must be a sequence, not 'str | list[str]'",
+        "argument after * must be a sequence, not 'list[str] | str'",
         """
         def f(*args) -> int:
             return 0
@@ -2073,7 +2073,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong element type
     assertInvalid(
-        "in call to 'f()', elements of argument after * must be 'float', not 'str | float'",
+        "in call to 'f()', elements of argument after * must be 'float', not 'float | str'",
         """
         def f(*args: float) -> int:
             return 0
@@ -2082,7 +2082,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong type of residual positional arguments
     assertInvalid(
-        "in call to 'f()', residual positional arguments must be 'str | float', not 'int'",
+        "in call to 'f()', residual positional arguments must be 'float | str', not 'int'",
         """
         def f(x: int, *args: str|float) -> int:
             return 0
@@ -2145,7 +2145,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong element type
     assertInvalid(
-        "in call to 'f()', values of argument after ** must be 'float', not 'str | float'",
+        "in call to 'f()', values of argument after ** must be 'float', not 'float | str'",
         """
         def f(**kwargs: float) -> int:
             return 0
@@ -2154,7 +2154,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong type of residual keyword arguments
     assertInvalid(
-        "in call to 'f()', residual keyword arguments must be 'str | float', not 'int'",
+        "in call to 'f()', residual keyword arguments must be 'float | str', not 'int'",
         """
         def f(x: int, **kwargs: str|float) -> int:
             return 0

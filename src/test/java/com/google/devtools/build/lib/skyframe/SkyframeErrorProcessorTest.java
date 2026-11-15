@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -94,6 +95,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 import org.junit.runner.RunWith;
 
 /**
@@ -1252,6 +1254,35 @@ public class SkyframeErrorProcessorTest {
 
     assertThat(result.actionConflicts()).containsExactly(action, conflict);
     assertThat(result.aspectKeysForConflictReporting()).containsExactly(aspectKey);
+  }
+
+  @Test
+  public void actionConflictException_onNonStandardKey_notHarvestedAndClassifiedAsAnalysisError()
+      throws Exception {
+    // Action conflicts only bypass classification when they arrive on a standard top-level key
+    // (ConfiguredTargetKey or AspectBaseKey). On any other ActionLookupKey (e.g. BuildInfoKey),
+    // the conflict is not harvested into actionConflicts and instead proceeds to standard
+    // error classification, ensuring --nokeep_going aborts immediately.
+    ActionLookupKey key = WorkspaceStatusValue.BUILD_INFO_KEY;
+    ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
+    ActionConflictException conflict = actionConflictException("conflict", action);
+
+    assertThrows(
+        ViewCreationFailedException.class,
+        () ->
+            processErrors(
+                resultOf(key, errorInfo(conflict)),
+                /* keepGoing= */ false,
+                /* includeExecutionPhase= */ false));
+
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(key, errorInfo(conflict)),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ false);
+
+    assertThat(result.actionConflicts()).isEmpty();
+    assertThat(result.hasAnalysisError()).isTrue();
   }
 
   @Test
@@ -2705,41 +2736,11 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown).hasMessageThat().contains("direct deps not stored");
   }
 
-  // TODO(b/561978611): Remove this behavior. processErrors should not need a BuildViewTestCase-only
-  // code path.
   @Test
-  public void buildViewTest_invalidErrorKeyType_emitsAnErrorEventAndSkipsTheError()
-      throws Exception {
-    // Pins the BuildViewTestCase-only early skip: with a null EventBus and a key that is neither a
-    // ConfiguredTargetKey nor an AspectBaseKey, the ErrorInfo is dumped to the event handler and
-    // the error is otherwise ignored - classify is not called and nothing is thrown, not even with
-    // --nokeep_going. Note that validation runs *before* the skip, so the exception
-    // still has to be a valid analysis exception.
-    ConfiguredTargetKey ctKey = configuredTargetKey("//build_info");
-    ActionLookupData key = ActionLookupData.create(ctKey, /* actionIndex= */ 0);
-    ErrorInfo errorInfo = errorInfo(analysisException("analysis exception", ctKey.getLabel()));
-
-    ErrorProcessingResult result =
-        processErrorsInBuildViewTest(
-            resultOf(key, errorInfo), /* keepGoing= */ false, /* includeExecutionPhase= */ false);
-
-    assertThat(errorMessages()).containsExactly(errorInfo.toString());
-    // An empty result is what proves that classify was skipped: the same error on a
-    // ConfiguredTargetKey would have set hasAnalysisError.
-    assertThat(result.hasAnalysisError()).isFalse();
-    assertThat(result.hasLoadingError()).isFalse();
-    assertThat(result.executionDetailedExitCode()).isNull();
-    assertThat(result.actionConflicts()).isEmpty();
-    assertThat(result.aspectKeysForConflictReporting()).isEmpty();
-  }
-
-  // TODO(b/561978611): Remove this behavior. An error key this class does not recognize should not
-  // be a crash.
-  @Test
-  public void analysisErrorOnAnInvalidErrorKeyType_throwsIllegalStateException() {
-    // The other half of the skip above: with a real EventBus there is no skip, so a key that is
-    // not an ActionLookupKey falls through to the default arm of classify's switch. The exception
-    // still has to be a valid analysis exception, because validation runs first.
+  public void analysisErrorOnAnInvalidErrorKeyType_throwsIllegalStateException(
+      @TestParameter boolean inBuildViewTest) {
+    // A key that is not an ActionLookupKey falls through to the default arm of classify's switch.
+    // The exception still has to be a valid analysis exception, because validation runs first.
     //
     // The boundary is ActionLookupKey, not ConfiguredTargetKey: any other ActionLookupKey - a
     // BuildInfoKey, say - reaches classify and is handled like any other analysis error.
@@ -2749,10 +2750,15 @@ public class SkyframeErrorProcessorTest {
             TransitiveTargetKey.of(label),
             errorInfo(analysisException("analysis exception", label)));
 
-    IllegalStateException thrown =
-        assertThrows(
-            IllegalStateException.class,
-            () -> processErrors(result, /* keepGoing= */ true, /* includeExecutionPhase= */ false));
+    ThrowingRunnable act =
+        inBuildViewTest
+            ? () ->
+                processErrorsInBuildViewTest(
+                    result, /* keepGoing= */ true, /* includeExecutionPhase= */ false)
+            : () ->
+                processErrors(result, /* keepGoing= */ true, /* includeExecutionPhase= */ false);
+
+    IllegalStateException thrown = assertThrows(IllegalStateException.class, act);
 
     assertThat(thrown).hasMessageThat().contains("Unexpected error key");
   }

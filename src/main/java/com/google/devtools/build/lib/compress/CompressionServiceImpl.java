@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.compress;
 
 import com.github.luben.zstd.RecyclingBufferPool;
+import com.github.luben.zstd.ZstdCompressCtx;
+import com.github.luben.zstd.ZstdException;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.devtools.build.lib.skybridge.ScOnly;
@@ -33,5 +35,15 @@ public final class CompressionServiceImpl implements CompressionService {
   @Override
   public OutputStream newZstdOutputStream(OutputStream outputStream) throws IOException {
     return new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE);
+  }
+
+  @Override
+  public byte[] compressZstd(byte[] input, int level) throws IOException {
+    try (ZstdCompressCtx context = new ZstdCompressCtx()) {
+      context.setLevel(level);
+      return context.compress(input);
+    } catch (ZstdException e) {
+      throw new IOException(e);
+    }
   }
 }

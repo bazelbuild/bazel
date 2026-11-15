@@ -27,7 +27,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.math.BigInteger;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -170,7 +169,9 @@ final class MethodDescriptor {
           !doesNotReturn,
           "In method '%s': structField=true is incompatible with doesNotReturn",
           method.getName());
-      StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      StarlarkType returnType =
+          Starlark.getStarlarkTypeFromJavaType(
+              method.getGenericReturnType(), /* objectIsAny= */ true);
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -210,7 +211,8 @@ final class MethodDescriptor {
       if (allowedTypes.length > 0) {
         parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i]));
+        parameterTypes.add(
+            Starlark.getStarlarkTypeFromJavaType(methodParamTypes[i], /* objectIsAny= */ false));
       }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
@@ -219,10 +221,10 @@ final class MethodDescriptor {
     StarlarkType returnType;
     if (doesNotReturn) {
       returnType = Types.NEVER;
-    } else if (method.getReturnType() == Object.class) {
-      returnType = Types.ANY;
     } else {
-      returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      returnType =
+          Starlark.getStarlarkTypeFromJavaType(
+              method.getGenericReturnType(), /* objectIsAny= */ true);
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -277,59 +279,8 @@ final class MethodDescriptor {
                     return paramType.type();
                   }
                 })
-            .map(this::starlarkTypeFromJava)
+            .map(t -> Starlark.getStarlarkTypeFromJavaType(t, /* objectIsAny= */ false))
             .collect(toImmutableSet()));
-  }
-
-  /** Returns the Starlark type corresponding to the given Java type. */
-  private StarlarkType starlarkTypeFromJava(Type cls) {
-    if (cls == NoneType.class || cls == void.class) {
-      return Types.NONE;
-    } else if (cls == String.class) {
-      return Types.STR;
-    } else if (cls == Boolean.class || cls == boolean.class) {
-      return Types.BOOL;
-    } else if (cls == int.class
-        || cls == long.class
-        || cls == Integer.class
-        || cls == Long.class
-        || cls == StarlarkInt.class
-        || (cls instanceof Class<?> c && BigInteger.class.isAssignableFrom(c))) {
-      return Types.INT;
-    } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
-      return Types.FLOAT;
-    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Dict.class) {
-      return Types.dict(
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[0]),
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[1]));
-    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
-      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
-    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkSet.class) {
-      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
-    } else if (cls instanceof Class<?> c && Tuple.class.isAssignableFrom(c)) {
-      // TODO: #27370 - Should we ever return a narrower tuple type?
-      return Types.homogeneousTuple(Types.ANY);
-    } else if (cls instanceof ParameterizedType ptype
-        && ptype.getRawType() == StarlarkIterable.class) {
-      return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
-    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
-      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
-    } else if (cls == StarlarkCallable.class || cls == StarlarkFunction.class) {
-      return Types.ANY_CALLABLE;
-    } else if (cls == Object.class || cls == StarlarkValue.class) {
-      return Types.OBJECT;
-    } else {
-      if (cls instanceof Class<?> c) {
-        @Nullable StarlarkType classStarlarkType = CallUtils.getStarlarkBuiltinAutoType(c);
-        if (classStarlarkType != null) {
-          return classStarlarkType;
-        }
-        if (Structure.class.isAssignableFrom(c)) {
-          return Types.ANY_STRUCT;
-        }
-      }
-      return Types.ANY;
-    }
   }
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
@@ -582,23 +533,30 @@ final class MethodDescriptor {
       return;
     }
 
-    // TODO(b/407506132): A method enabled by a non-experimental flag should not be marked as
-    //  experimental
     if (!thread
         .getSemantics()
         .isFeatureEnabledBasedOnTogglingFlags(
             conditionalCheck.enableOnlyWithFlag(), conditionalCheck.disableWithFlag())) {
       if (!conditionalCheck.enableOnlyWithFlag().isEmpty()) {
+        String flagName = conditionalCheck.enableOnlyWithFlag().substring(1); // remove [+-] prefix
         throw Starlark.errorf(
-            "function %s() is experimental and thus unavailable with the current flags. It may be"
-                + " enabled by setting --%s",
-            name, conditionalCheck.enableOnlyWithFlag().substring(1)); // remove [+-] prefix
+            "function %s() is %s. It may be enabled by setting --%s",
+            name,
+            flagName.startsWith("experimental_")
+                ? "experimental and thus unavailable with the current flags"
+                : "unavailable with the current flags",
+            flagName);
       }
       if (!conditionalCheck.disableWithFlag().isEmpty()) {
+        String flagName = conditionalCheck.disableWithFlag().substring(1); // remove [+-] prefix
         throw Starlark.errorf(
-            "function %s() is deprecated and will be removed soon. It may be temporarily re-enabled"
-                + " by setting --%s",
-            name, conditionalCheck.disableWithFlag().substring(1)); // remove [+-] prefix
+            "function %s() is %s. It may be %s by setting --%s=false",
+            name,
+            flagName.startsWith("incompatible_")
+                ? "deprecated and will be removed soon"
+                : "unavailable with the current flags",
+            flagName.startsWith("incompatible_") ? "temporarily re-enabled" : "enabled",
+            flagName);
       }
     }
   }

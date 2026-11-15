@@ -18,14 +18,10 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 
 /** Hardcoded constants describing bazel-on-skyframe behavior. */
 public class BazelSkyframeExecutorConstants {
   private BazelSkyframeExecutorConstants() {}
-
-  public static final CrossRepositoryLabelViolationStrategy
-      CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;
 
   public static final ImmutableList<BuildFileName> BUILD_FILES_BY_PRIORITY =
       ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD);

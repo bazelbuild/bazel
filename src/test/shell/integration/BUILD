@@ -423,7 +423,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 8,
+    shard_count = 12,
     tags = ["no_windows"],
     toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
@@ -480,19 +480,6 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
-)
-
-sh_test(
-    name = "focus_test",
-    size = "medium",
-    timeout = "long",
-    srcs = ["focus_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    shard_count = 4,
-    tags = ["manual"],
 )
 
 sh_test(
@@ -961,6 +948,9 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
 )
 
 sh_test(

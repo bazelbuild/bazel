@@ -34,7 +34,7 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ConstraintSettingInfo> PROVIDER =
-      new BuiltinProvider<ConstraintSettingInfo>(STARLARK_NAME, ConstraintSettingInfo.class) {};
+      new BuiltinProvider.NonCallable<>(STARLARK_NAME, ConstraintSettingInfo.class) {};
 
   private final Label label;
   @Nullable private final Label defaultConstraintValueLabel;
@@ -104,12 +104,14 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
       return false;
     }
 
-    return Objects.equals(label, otherConstraint.label);
+    return Objects.equals(label, otherConstraint.label)
+        && Objects.equals(defaultConstraintValueLabel, otherConstraint.defaultConstraintValueLabel)
+        && Objects.equals(refinedConstraintValue, otherConstraint.refinedConstraintValue);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(label);
+    return Objects.hash(label, defaultConstraintValueLabel, refinedConstraintValue);
   }
 
   @Override

@@ -22,10 +22,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.IdentityHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** Static utility methods pertaining to restricting Starlark method invocations */
 // TODO(bazel-team): Maybe we can merge this utility class with some other existing allowlist
@@ -34,6 +37,26 @@ import net.starlark.java.eval.StarlarkThread;
 public final class BuiltinRestriction {
 
   private static final String MAIN_REPO_NAME = RepositoryName.MAIN.getName();
+
+  private static final int ALLOWLIST_CACHE_MAX_SIZE = 32;
+  private static final Object ALLOWLIST_CACHE_LOCK = new Object();
+
+  /**
+   * Caches the conversion from a Starlark {@link Sequence} to a {@link
+   * BuiltinRestriction.Allowlist}.
+   *
+   * <p>Allowlist checks may be checked on every private API call, making it a hot path. However, it
+   * is typically called with only a handful of unique {@link Sequence} instances defined in
+   * Starlark files.
+   *
+   * <p>To maximize performance, we use a copy-on-write {@link IdentityHashMap}. This avoids the
+   * cost of hashing sequences and keeps reads (the common case) lock-free. Updates are rare and are
+   * synchronized. If the cache exceeds {@link #ALLOWLIST_CACHE_MAX_SIZE}, we start fresh with an
+   * empty cache. This approach performs better than a Caffeine cache with maximum size and/or weak
+   * keys, which both have per-read maintenance operations.
+   */
+  private static volatile IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist>
+      allowlistCache = new IdentityHashMap<>();
 
   /** An allowlist of packages that can access restricted APIs. */
   public static final class Allowlist {
@@ -254,5 +277,59 @@ public final class BuiltinRestriction {
       return false;
     }
     return !allowlist.allows(label, moduleRepoName);
+  }
+
+  public static BuiltinRestriction.Allowlist allowlistFromStarlark(Object allowlistObject)
+      throws EvalException {
+    // Fast path: lock-free read.
+    BuiltinRestriction.Allowlist allowlist = allowlistCache.get(allowlistObject);
+    if (allowlist != null) {
+      return allowlist;
+    }
+
+    Sequence<Tuple> seq = Sequence.cast(allowlistObject, Tuple.class, "allowlist");
+    if (!seq.isImmutable()) {
+      return createAllowlist(seq);
+    }
+
+    // Cache miss: check again under lock.
+    synchronized (ALLOWLIST_CACHE_LOCK) {
+      allowlist = allowlistCache.get(seq);
+      if (allowlist == null) {
+        // Copy on write.
+        IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist> newCache =
+            allowlistCache.size() < ALLOWLIST_CACHE_MAX_SIZE
+                ? new IdentityHashMap<>(allowlistCache)
+                : new IdentityHashMap<>();
+        allowlist = createAllowlist(seq);
+        newCache.put(seq, allowlist);
+        allowlistCache = newCache;
+      }
+    }
+    return allowlist;
+  }
+
+  private static BuiltinRestriction.Allowlist createAllowlist(Sequence<Tuple> seq)
+      throws EvalException {
+    ImmutableList.Builder<AllowlistEntry> listBuilder = ImmutableList.builder();
+    for (Tuple p : seq) {
+      if (p.size() != 2) {
+        throw Starlark.errorf(
+            "Expected '(string, string)' tuple for allowlist elements; got %s", p);
+      }
+      Object repoUnchecked = p.get(0);
+      Object packageUnchecked = p.get(1);
+      if (repoUnchecked instanceof String repo
+          && packageUnchecked instanceof String packagePrefix) {
+        listBuilder.add(
+            repo.isEmpty()
+                ? BuiltinRestriction.mainRepoAllowlistEntry(packagePrefix)
+                : BuiltinRestriction.externalRepoAllowlistEntry(repo, packagePrefix));
+      } else {
+        throw Starlark.errorf(
+            "Expected '(string, string)' tuple for allowlist elements; got %s", p);
+      }
+    }
+    return BuiltinRestriction.Allowlist.create(listBuilder.build());
   }
 }

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
@@ -44,21 +43,6 @@ public final class OutputDirectoryLinksUtils {
   // Static utilities class.
   private OutputDirectoryLinksUtils() {}
 
-  /**
-   * Returns all (types of) convenience symlinks that may be created.
-   *
-   * <p>Note that this is independent of which symlinks are actually requested by the build options;
-   * that's controlled by returning no candidates in {@link SymlinkDefinition#getLinkPaths}.
-   *
-   * <p>The order of the result indicates precedence for {@link PathPrettyPrinter}.
-   */
-  private static ImmutableList<SymlinkDefinition> getAllLinkDefinitions(
-      Iterable<SymlinkDefinition> symlinkDefinitions) {
-    ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
-    builder.addAll(STANDARD_LINK_DEFINITIONS);
-    builder.addAll(symlinkDefinitions);
-    return builder.build();
-  }
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
@@ -89,7 +73,6 @@ public final class OutputDirectoryLinksUtils {
    * mutation operation fails.
    */
   static SymlinkCreationResult createOutputDirectoryLinks(
-      Iterable<SymlinkDefinition> symlinkDefinitions,
       BuildRequestOptions buildRequestOptions,
       String workspaceName,
       Path workspace,
@@ -114,7 +97,7 @@ public final class OutputDirectoryLinksUtils {
     String workspaceBaseName = workspace.getBaseName();
     boolean logOnly = mode == ConvenienceSymlinksMode.LOG_ONLY;
 
-    for (SymlinkDefinition symlink : getAllLinkDefinitions(symlinkDefinitions)) {
+    for (SymlinkDefinition symlink : STANDARD_LINK_DEFINITIONS) {
       String linkName = symlink.getLinkName(symlinkPrefix, workspaceBaseName);
       if (!createdLinks.add(linkName)) {
         // already created a link by this name
@@ -172,13 +155,11 @@ public final class OutputDirectoryLinksUtils {
    * <p>Issues a warning if it fails, e.g. because workspaceDirectory is readonly. Also cleans up
    * any child directories created by a custom prefix.
    *
-   * @param symlinkDefinitions extra symlink types added by the {@link ConfiguredRuleClassProvider}
    * @param workspace the runtime's workspace
    * @param eventHandler the error eventHandler
    * @param symlinkPrefix the symlink prefix which should be removed
    */
   public static void removeOutputDirectoryLinks(
-      Iterable<SymlinkDefinition> symlinkDefinitions,
       Path workspace,
       EventHandler eventHandler,
       String symlinkPrefix) {
@@ -189,7 +170,7 @@ public final class OutputDirectoryLinksUtils {
 
     String workspaceBaseName = workspace.getBaseName();
 
-    for (SymlinkDefinition link : getAllLinkDefinitions(symlinkDefinitions)) {
+    for (SymlinkDefinition link : STANDARD_LINK_DEFINITIONS) {
       removeLink(
           workspace,
           link.getLinkName(symlinkPrefix, workspaceBaseName),

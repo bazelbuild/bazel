@@ -95,15 +95,18 @@ public final class Lexer {
 
     public final TokenKind kind;
     public final String word;
+    public final int startOffset;
+    public final int endOffset;
 
-    Token(TokenKind kind) {
-      this.kind = kind;
-      this.word = null;
+    Token(TokenKind kind, int startOffset, int endOffset) {
+      this(kind, null, startOffset, endOffset);
     }
 
-    Token(String word) {
-      this.kind = TokenKind.WORD;
+    Token(TokenKind kind, String word, int startOffset, int endOffset) {
+      this.kind = kind;
       this.word = word;
+      this.startOffset = startOffset;
+      this.endOffset = endOffset;
     }
 
     @Override
@@ -153,7 +156,7 @@ public final class Lexer {
         case '\'', '"' -> {
           if (c == quot) {
             // close-quote, all done.
-            return new Token(bufferSlice(oldPos + 1, pos - 1));
+            return new Token(TokenKind.WORD, bufferSlice(oldPos + 1, pos - 1), oldPos, pos);
           }
         }
         default -> {}
@@ -281,24 +284,28 @@ public final class Lexer {
    * @return the word or keyword token.
    */
   private Token wordOrKeyword(char firstChar) {
+    int startOffset = pos - 1;
     String word = scanWord(firstChar);
     TokenKind kind = getTokenKindForWord(word);
-    return kind == TokenKind.WORD ? new Token(word) : new Token(kind);
+    return kind == TokenKind.WORD
+        ? new Token(TokenKind.WORD, word, startOffset, pos)
+        : new Token(kind, startOffset, pos);
   }
 
   /** Performs tokenization of the character buffer of file contents provided to the constructor. */
   private void tokenize() throws QuerySyntaxException {
     while (pos < input.length()) {
+      int startOffset = pos;
       char c = input.charAt(pos);
       pos++;
       switch (c) {
-        case '(' -> addToken(new Token(TokenKind.LPAREN));
-        case ')' -> addToken(new Token(TokenKind.RPAREN));
-        case ',' -> addToken(new Token(TokenKind.COMMA));
-        case '+' -> addToken(new Token(TokenKind.PLUS));
-        case '-' -> addToken(new Token(TokenKind.MINUS));
-        case '=' -> addToken(new Token(TokenKind.EQUALS));
-        case '^' -> addToken(new Token(TokenKind.CARET));
+        case '(' -> addToken(new Token(TokenKind.LPAREN, startOffset, pos));
+        case ')' -> addToken(new Token(TokenKind.RPAREN, startOffset, pos));
+        case ',' -> addToken(new Token(TokenKind.COMMA, startOffset, pos));
+        case '+' -> addToken(new Token(TokenKind.PLUS, startOffset, pos));
+        case '-' -> addToken(new Token(TokenKind.MINUS, startOffset, pos));
+        case '=' -> addToken(new Token(TokenKind.EQUALS, startOffset, pos));
+        case '^' -> addToken(new Token(TokenKind.CARET, startOffset, pos));
         case '\n', ' ', '\t', '\r' -> {
           /* ignore */
         }
@@ -307,7 +314,7 @@ public final class Lexer {
       }
     }
 
-    addToken(new Token(TokenKind.EOF));
+    addToken(new Token(TokenKind.EOF, input.length(), input.length()));
 
     this.input = null; // release buffer now that we have our tokens
   }

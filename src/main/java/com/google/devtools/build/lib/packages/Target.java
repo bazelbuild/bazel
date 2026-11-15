@@ -54,14 +54,15 @@ public interface Target extends TargetData {
    * outside any symbolic macro (i.e. directly in a BUILD file or only in one or more legacy
    * macros).
    *
-   * <p>For targets in deserialized packages, throws {@link IllegalStateException}.
+   * <p>For targets in deserialized packages, or in packages that have not yet finished loading,
+   * this throws {@link IllegalStateException}.
    */
   // Overlaps RuleorMacroInstance#getDeclaringMacro.
   @Nullable
   default MacroInstance getDeclaringMacro() {
     Packageoid packageoid = getPackageoid();
     if (packageoid instanceof Package pkg) {
-      return pkg.getDeclaringMacroForTarget(getName());
+      return pkg.getDeclaringMacroForTarget(this);
       // TODO: #19922 - We might replace Package#getDeclaringMacroForTarget by storing a reference
       // to the declaring macro in implementations of this interface (sharing memory with the field
       // for the package).
@@ -90,7 +91,7 @@ public interface Target extends TargetData {
   default PackageIdentifier getDeclaringPackage() {
     Packageoid packageoid = getPackageoid();
     if (packageoid instanceof Package pkg) {
-      PackageIdentifier pkgId = pkg.getDeclaringPackageForTargetIfInMacro(getName());
+      PackageIdentifier pkgId = pkg.getDeclaringPackageForTargetIfInMacro(this);
       return pkgId != null ? pkgId : pkg.getPackageIdentifier();
     } else if (packageoid instanceof PackagePiece.ForMacro forMacro) {
       return forMacro.getDeclaringPackage();
@@ -108,7 +109,7 @@ public interface Target extends TargetData {
   default boolean isCreatedInSymbolicMacro() {
     Packageoid packageoid = getPackageoid();
     if (packageoid instanceof Package pkg) {
-      return pkg.getDeclaringPackageForTargetIfInMacro(getName()) != null;
+      return pkg.getDeclaringPackageForTargetIfInMacro(this) != null;
     } else if (packageoid instanceof PackagePiece.ForMacro) {
       return true;
     } else if (packageoid instanceof PackagePiece.ForBuildFile) {
@@ -126,11 +127,6 @@ public interface Target extends TargetData {
    */
   @Nullable
   Rule getAssociatedRule();
-
-  /**
-   * Returns the license associated with this target.
-   */
-  License getLicense();
 
   /**
    * Returns the visibility that was supplied at the point of this target's declaration -- e.g. the
@@ -197,6 +193,16 @@ public interface Target extends TargetData {
    */
   default Iterable<Label> getVisibilityDependencyLabels() {
     return getVisibility().getDependencyLabels();
+  }
+
+  /**
+   * Returns the package's {@link PackageArgs#transitiveVisibility} label if this target
+   * participates in transitive visibility (i.e., rules, input files, and output files), or {@code
+   * null} otherwise.
+   */
+  @Nullable
+  default Label getTransitiveVisibility() {
+    return null;
   }
 
   /**

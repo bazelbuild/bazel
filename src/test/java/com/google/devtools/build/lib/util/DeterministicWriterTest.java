@@ -92,9 +92,12 @@ public final class DeterministicWriterTest {
         out -> {
           try {
             out.write(1);
+            out.flush();
             out.write(2);
+            out.flush();
             bufferFilled.countDown();
             out.write(3);
+            out.flush();
           } finally {
             writerStopped.countDown();
           }

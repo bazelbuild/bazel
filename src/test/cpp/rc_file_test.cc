@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdlib>
 #include <optional>
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -29,6 +30,7 @@
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/sem_ver.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"

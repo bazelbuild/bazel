@@ -28,9 +28,9 @@ class AllowlistTest : public ::testing::Test {};
 
 TEST_F(AllowlistTest, Allowlisting) {
   DuplicateClassCollector vc;
-  vc.Add("com/google/Foo", 1, Label("//hello:foo", "hello/libfoo.jar"));
-  vc.Add("com/google/Foo", 2, Label("//hello:bar", "hello/libbar.jar"));
-  vc.Add("com/google/Foo", 2, Label("//hello:baz", "hello/libbaz.jar"));
+  vc.Add("com/google/Foo", 1, vc.AddLabel({"//hello:foo", "hello/libfoo.jar"}));
+  vc.Add("com/google/Foo", 2, vc.AddLabel({"//hello:bar", "hello/libbar.jar"}));
+  vc.Add("com/google/Foo", 2, vc.AddLabel({"//hello:baz", "hello/libbaz.jar"}));
   std::string expected =
       "  com/google/Foo has incompatible definitions in:\n"
       "    crc32=1\n"

@@ -20,9 +20,9 @@ import java.util.Objects;
 
 /**
  * In case we can't get a fast digest from the filesystem, we store this metadata as a proxy to the
- * file contents. Currently it is up to two timestamps and a "node id". On Linux, macOS and Windows
- * we use both ctime and mtime, on Linux and macOS also the inode number. On other OSes, only the
- * mtime is used. We might want to add the device number in the future.
+ * file contents. Currently it is up to two timestamps in nanoseconds and a "node id". On Linux,
+ * macOS and Windows we use both ctime and mtime, on Linux and macOS also the inode number. On other
+ * OSes, only the mtime is used. We might want to add the device number in the future.
  *
  * <p>For a Linux example of why mtime alone is insufficient, note that 'mv' preserves mtime. So if
  * files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged after
@@ -45,9 +45,9 @@ public final class FileContentsProxy {
 
   public static FileContentsProxy create(FileStatus stat) throws IOException {
     return new FileContentsProxy(
-        // Note: there are file systems that return mtime for getLastChangeTime() instead of ctime,
-        // such as the JavaIoFileSystem.
-        stat.getLastChangeTime(), stat.getLastModifiedTime(), stat.getNodeId());
+        // Note: there are file systems that return mtime for getLastChangeTimeNanos() instead of
+        // ctime, such as the JavaIoFileSystem.
+        stat.getLastChangeTimeNanos(), stat.getLastModifiedTimeNanos(), stat.getNodeId());
   }
 
   /**
@@ -64,7 +64,7 @@ public final class FileContentsProxy {
    * A {@link FileStatus} populated with the information available in a {@link FileContentsProxy}.
    */
   private record MetadataOnlyFileStatus(
-      long getLastChangeTime, long getLastModifiedTime, long getNodeId, long getSize)
+      long getLastChangeTimeNanos, long getLastModifiedTimeNanos, long getNodeId, long getSize)
       implements FileStatus {
     @Override
     public boolean isFile() {

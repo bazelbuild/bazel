@@ -94,12 +94,6 @@ final class DirectoryDirentProducer implements StateMachine, Consumer<SkyValue> 
 
   private StateMachine checkSubpackageExistence(Tasks tasks) {
     Preconditions.checkNotNull(packageLookupValue);
-    if (packageLookupValue
-        instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
-      // Cross repository boundary, so glob expansion should not descend into that subdir.
-      return DONE;
-    }
-
     if (packageLookupValue.packageExists()) {
       // Cross the package boundary. The subdir contains a BUILD file and thus defines another
       // package, so glob expansion should not descend into that subdir.

@@ -269,7 +269,7 @@ public final class RequestBatching {
             @Override
             public void onFailure(Throwable t) {
               for (Operation<RequestT, ResponseT> operation : operations) {
-                operation.setException(t);
+                operation.acceptFailure(t);
               }
             }
 

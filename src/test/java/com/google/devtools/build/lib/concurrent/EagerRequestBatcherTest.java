@@ -38,6 +38,7 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -909,6 +910,27 @@ public final class EagerRequestBatcherTest {
     batch2.setSimpleResponses();
     assertThat(r2.get()).isEqualTo(new Response(2));
     assertThat(r3.get()).isEqualTo(new Response(3));
+    assertThat(batcher.getInFlightCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void multiplexerBatchCancellation_cancelsIndividualRequestFutures() throws Exception {
+    var multiplexer = new SettableMultiplexer();
+    var batcher =
+        EagerRequestBatcher.create(
+            multiplexer,
+            safeDirectExecutor(),
+            /* maxBatchSize= */ 10,
+            /* targetConcurrentRequests= */ 1,
+            safeDirectExecutor());
+
+    ListenableFuture<Response> responseFuture = batcher.submit(new Request(1));
+    BatchedOperations batch = multiplexer.queue.take();
+
+    batch.responses().cancel(/* mayInterruptIfRunning= */ false);
+
+    assertThat(responseFuture.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, responseFuture::get);
     assertThat(batcher.getInFlightCount()).isEqualTo(0);
   }
 

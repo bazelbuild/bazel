@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -51,7 +52,9 @@ public class ArFunction implements Decompressor {
       ArArchiveInputStream arStream = new ArArchiveInputStream(decompressorStream);
       ArArchiveEntry entry;
       while ((entry = arStream.getNextArEntry()) != null) {
-        String entryName = entry.getName();
+        // BSD ar (used on macOS) pads long names ("#1/<len>") with NUL bytes, for example
+        // "__.SYMDEF SORTED\0\0\0\0". Remove the padding.
+        String entryName = CharMatcher.is('\0').trimTrailingFrom(entry.getName());
         entryName = renameFiles.getOrDefault(entryName, entryName);
         PathFragment entryPathRelative = PathFragment.create(entryName);
         if (entryPathRelative.isAbsolute()) {
@@ -79,8 +82,8 @@ public class ArFunction implements Decompressor {
           // are not, but many other tools are working around this and thus mask these issues.
           filePath.chmod(entry.getMode() | 0400);
           // entry.getLastModified() appears to be in seconds, so we need to convert
-          // it into milliseconds for setLastModifiedTime
-          filePath.setLastModifiedTime(entry.getLastModified() * 1000L);
+          // it into nanoseconds for setLastModifiedTimeNanos
+          filePath.setLastModifiedTimeNanos(entry.getLastModified() * 1_000_000_000L);
         }
         if (Thread.interrupted()) {
           throw new InterruptedException();

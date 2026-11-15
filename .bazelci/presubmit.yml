@@ -52,7 +52,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  fedora39:
+  fedora43:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -99,6 +99,8 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      # Tagged as manual, cross-compiles Bazel for Windows.
+      - "//src:bazel_windows_llvm"
       - "//src:test_repos"
       - "//..."
     test_flags:
@@ -135,23 +137,23 @@ tasks:
     include_json_profile:
       - build
       - test
-  macos:
-    environment:
-      ANDROID_HOME: ""
-      ANDROID_NDK_HOME: ""
-    shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
-      - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
-    build_flags:
-      - "--config=ci-macos"
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_jdk_minimal"
-      - "//src:java_tools_zip"
-      - "//src:java_tools_prebuilt_zip"
-    include_json_profile:
-      - build
+  # macos:
+  #   environment:
+  #     ANDROID_HOME: ""
+  #     ANDROID_NDK_HOME: ""
+  #   shell_commands:
+  #     - rm -rf $HOME/bazeltest
+  #     - mkdir $HOME/bazeltest
+  #     - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
+  #   build_flags:
+  #     - "--config=ci-macos"
+  #   build_targets:
+  #     - "//src:bazel"
+  #     - "//src:bazel_jdk_minimal"
+  #     - "//src:java_tools_zip"
+  #     - "//src:java_tools_prebuilt_zip"
+  #   include_json_profile:
+  #     - build
   macos_arm64:
     shards: 6
     shell_commands:
@@ -197,7 +199,7 @@ tasks:
       - build
       - test
   windows:
-    shards: 10
+    shards: 12
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external

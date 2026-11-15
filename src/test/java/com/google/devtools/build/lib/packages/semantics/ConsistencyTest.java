@@ -124,12 +124,24 @@ public class ConsistencyTest {
     assertThat(parseOptions("--bzl_file_size_limit_allowlist=").getBzlFileSizeLimitAllowlist())
         .isEmpty();
     assertThat(
-            parseOptions("--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl")
+            parseOptions(
+                    "--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.allowlist.scl")
                 .getBzlFileSizeLimitAllowlist())
-        .isEqualTo("//tools/allowlist:allowlist.scl");
+        .isEqualTo("//tools/allowlist:allowlist.allowlist.scl");
+    assertThat(
+            parseOptions(
+                    "--bzl_file_size_limit_allowlist=@@repo//tools/allowlist:allowlist.allowlist.scl")
+                .getBzlFileSizeLimitAllowlist())
+        .isEqualTo("@@repo//tools/allowlist:allowlist.allowlist.scl");
     assertThrows(
         OptionsParsingException.class,
         () -> parseOptions("--bzl_file_size_limit_allowlist=not_a_valid_label"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseOptions("--bzl_file_size_limit_allowlist=:allowlist.allowlist.scl"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseOptions("--bzl_file_size_limit_allowlist=//tools/allowlist:allowlist.scl"));
   }
 
   /**
@@ -142,10 +154,8 @@ public class ConsistencyTest {
         "--experimental_builtins_bzl_path=" + rand.nextDouble(),
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
-        "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_single_package_toolchain_binding=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
-        "--incompatible_no_implicit_watch_label=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
@@ -162,6 +172,7 @@ public class ConsistencyTest {
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)]
                 .toString()
                 .toLowerCase(Locale.ROOT),
+        "--incompatible_existing_rules_default_omit_macro_internals=" + rand.nextBoolean(),
         "--incompatible_locations_prefers_executable=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
         "--incompatible_no_implicit_file_export=" + rand.nextBoolean(),
@@ -175,7 +186,8 @@ public class ConsistencyTest {
         "--max_computation_steps=" + rand.nextLong(),
         "--max_bzl_file_size=" + rand.nextLong(),
         "--soft_max_bzl_file_size=" + rand.nextLong(),
-        "--bzl_file_size_limit_allowlist=//pkg:" + rand.nextInt());
+        "--bzl_file_size_limit_allowlist=//pkg:" + rand.nextInt() + ".allowlist.scl",
+        "--nested_set_count_limit=" + rand.nextInt());
   }
 
   /**
@@ -189,11 +201,8 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY, rand.nextBoolean())
         .setBool(
-            BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
-        .setBool(
             BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())
@@ -211,6 +220,9 @@ public class ConsistencyTest {
             BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8,
             BuildLanguageOptions.Utf8EnforcementMode.values()[
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)])
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_DEFAULT_OMIT_MACRO_INTERNALS,
+            rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, rand.nextBoolean())
@@ -225,7 +237,10 @@ public class ConsistencyTest {
         .set(BuildLanguageOptions.MAX_COMPUTATION_STEPS, rand.nextLong())
         .set(BuildLanguageOptions.MAX_BZL_FILE_SIZE, rand.nextLong())
         .set(BuildLanguageOptions.SOFT_MAX_BZL_FILE_SIZE, rand.nextLong())
-        .set(BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST, "//pkg:" + rand.nextInt())
+        .set(
+            BuildLanguageOptions.BZL_FILE_SIZE_LIMIT_ALLOWLIST,
+            "//pkg:" + rand.nextInt() + ".allowlist.scl")
+        .set(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT, rand.nextInt())
         .build();
   }
 

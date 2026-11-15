@@ -176,18 +176,23 @@ final class ParamDescriptor {
   /** Returns a phrase meaning "disabled" appropriate to the specified flag. */
   public String getDisabledErrorMessage() {
     Preconditions.checkNotNull(conditionalCheck);
-    // TODO(b/407506132): A parameter enabled by a non-experimental flag should not be marked as
-    //  experimental
     if (!conditionalCheck.enableOnlyWithFlag().isEmpty()) {
+      String flagName = conditionalCheck.enableOnlyWithFlag().substring(1); // remove [+-] prefix
       return String.format(
-          "experimental and thus unavailable with the current flags. It may be enabled by setting"
-              + " --%s",
-          conditionalCheck.enableOnlyWithFlag().substring(1)); // remove [+-] prefix
+          "%s. It may be enabled by setting --%s",
+          flagName.startsWith("experimental_")
+              ? "experimental and thus unavailable with the current flags"
+              : "unavailable with the current flags",
+          flagName);
     }
+    String flagName = conditionalCheck.disableWithFlag().substring(1); // remove [+-] prefix
     return String.format(
-        "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
-            + " --%s=false",
-        conditionalCheck.disableWithFlag().substring(1)); // remove [+-] prefix
+        "%s. It may be %s by setting --%s=false",
+        flagName.startsWith("incompatible_")
+            ? "deprecated and will be removed soon"
+            : "unavailable with the current flags",
+        flagName.startsWith("incompatible_") ? "temporarily re-enabled" : "enabled",
+        flagName);
   }
 
   // A memoization of evalDefault, keyed by expression.

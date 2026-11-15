@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataDigestUtils;
@@ -84,6 +84,8 @@ public interface ActionCache {
     /** Unique instance standing for a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
         new Entry(null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+
+    private static final byte[] EMPTY_DIGEST = new byte[1];
 
     // Digest of all relevant properties of the action for cache invalidation purposes.
     // Null if the entry is corrupted.
@@ -174,7 +176,7 @@ public interface ActionCache {
 
     /** Gets the metadata of an output tree. */
     @Nullable
-    public SerializableTreeArtifactValue getOutputTree(SpecialArtifact output) {
+    public SerializableTreeArtifactValue getOutputTree(TreeArtifact output) {
       checkState(!isCorrupted());
       return outputTreeMetadata.get(output.getExecPathString());
     }
@@ -438,15 +440,14 @@ public interface ActionCache {
 
       /** Adds an output tree. */
       @CanIgnoreReturnValue
-      public Builder addOutputTree(SpecialArtifact output, TreeArtifactValue metadata) {
+      public Builder addOutputTree(TreeArtifact output, TreeArtifactValue metadata) {
         return addOutputTree(output, metadata, /* saveTreeMetadata= */ false);
       }
 
       /** Adds an output tree. */
       @CanIgnoreReturnValue
       public Builder addOutputTree(
-          SpecialArtifact output, TreeArtifactValue metadata, boolean saveTreeMetadata) {
-        checkArgument(output.isTreeArtifact(), "artifact must be a tree artifact: %s", output);
+          TreeArtifact output, TreeArtifactValue metadata, boolean saveTreeMetadata) {
         String execPath = output.getExecPathString();
         if (saveTreeMetadata) {
           if (!metadata.getChildValues().isEmpty()
@@ -517,12 +518,18 @@ public interface ActionCache {
       }
 
       private static byte[] computeMapDigest(Map<String, String> map) {
-        byte[] result = new byte[0];
+        if (map.isEmpty()) {
+          return EMPTY_DIGEST;
+        }
+        // Reuse Fingerprint and scratch buffer to avoid per-entry allocations.
         Fingerprint fp = new Fingerprint();
+        byte[] result = new byte[fp.getDigestLength()];
+        byte[] scratch = new byte[result.length];
         for (Map.Entry<String, String> entry : map.entrySet()) {
           fp.addString(entry.getKey());
           fp.addString(entry.getValue());
-          result = DigestUtils.combineUnordered(result, fp.digestAndReset());
+          fp.digestAndReset(scratch, 0, scratch.length);
+          result = DigestUtils.combineUnordered(result, scratch);
         }
         return result;
       }

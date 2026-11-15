@@ -798,7 +798,7 @@ public class BazelServer implements TestRule, AutoCloseable {
       defaults.add("--override_repository=bazel_tools=embedded_tools");
     }
     if (OS.getCurrent() == OS.WINDOWS) {
-      defaults.add("--shell_executable=c:/msys64/usr/bin/bash.exe");
+      defaults.add("--shell_executable=C:/msys64/usr/bin/bash.exe");
     }
     return defaults.build();
   }

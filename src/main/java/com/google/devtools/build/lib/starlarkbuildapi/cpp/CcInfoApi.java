@@ -28,6 +28,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.StarlarkType;
 
 /** Wrapper for every C++ compilation and linking provider. */
 @StarlarkBuiltin(
@@ -75,6 +76,10 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       // callable function.
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(CcInfoApi.Provider.class, CcInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = NAME,

@@ -43,7 +43,7 @@ public interface JavaSemantics {
   String DIRECT_SOURCE_JARS_OUTPUT_GROUP =
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "direct_source_jars";
 
-  public String getJavaToolchainType();
+  public Label getJavaToolchainType();
 
   public Label getJavaRuntimeToolchainType();
 

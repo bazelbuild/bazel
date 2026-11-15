@@ -177,7 +177,8 @@ symbolic macro). As with rule targets, the location of the call to
 automatically appended to the file's visibility.
 
 Files declared by `exports_files` can have their visibility set by the
-`visibility` parameter to that function. If this parameter is not given, the visibility is public.
+`visibility` parameter to that function. If this parameter is not given, the
+visibility is public.
 
 Note: `exports_files` may not be used to override the visibility of a generated
 file.
@@ -418,7 +419,7 @@ targets may transitively depend on this package's targets.
 # //third_party/sensitive_dep/BUILD
 package(
     # This must be explicitly listed
-    transitive_visibility = [":sensitive_dep_users"]
+    transitive_visibility = ":sensitive_dep_users",
 )
 
 package_group(

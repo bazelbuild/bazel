@@ -382,8 +382,6 @@ public class DumpCommand implements BlazeCommand {
     RDEPS,
     CHANGED,
     FUNCTION_GRAPH,
-    ACTIVE_DIRECTORIES,
-    ACTIVE_DIRECTORIES_FRONTIER_DEPS,
   }
 
   /** Enum converter for SkyframeDumpOption. */
@@ -535,10 +533,6 @@ public class DumpCommand implements BlazeCommand {
         case CHANGED ->
             dumpChangedValues(env.getSkyframeExecutor(), out, dumpOptions.getSkyKeyFilter());
         case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.getSkyKeyFilter());
-        case ACTIVE_DIRECTORIES ->
-            env.getSkyframeExecutor().getSkyfocusState().dumpActiveDirectories(out);
-        case ACTIVE_DIRECTORIES_FRONTIER_DEPS ->
-            env.getSkyframeExecutor().getSkyfocusState().dumpFrontierSet(out);
         case OFF -> {}
       }
 
@@ -712,8 +706,7 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private static void dumpRuleStats(
-      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out)
-      throws InterruptedException {
+      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out) {
     SkyframeStats skyframeStats = executor.getSkyframeStats();
     if (skyframeStats.ruleStats().isEmpty()) {
       out.print("No rules in Bazel server, please run a build command first.");
@@ -813,13 +806,26 @@ public class DumpCommand implements BlazeCommand {
   private static BuildConfigurationKey getConfigurationKey(CommandEnvironment env, String hash) {
     if (hash == null) {
       // Use the target configuration
-      return env.getSkyframeBuildView().getBuildConfiguration().getKey();
+      BuildConfigurationValue configuration = env.getSkyframeBuildView().getBuildConfiguration();
+      if (configuration == null) {
+        env.getReporter().error(null, "No configuration available");
+        return null;
+      }
+      return configuration.getKey();
+    }
+
+    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    if (graph == null) {
+      env.getReporter().error(null, "No Skyframe graph available");
+      return null;
     }
 
     ImmutableList<BuildConfigurationKey> candidates =
-        env.getSkyframeExecutor().getEvaluator().getDoneValues().entrySet().stream()
-            .filter(e -> e.getKey().functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
-            .map(e -> (BuildConfigurationKey) e.getKey())
+        graph
+            .collectDoneValues(key -> key.functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
+            .keySet()
+            .stream()
+            .map(key -> (BuildConfigurationKey) key)
             .filter(k -> k.getOptions().checksum().startsWith(hash))
             .collect(ImmutableList.toImmutableList());
 
@@ -841,6 +847,9 @@ public class DumpCommand implements BlazeCommand {
           String[] labelAndConfig = memoryMode.subject.split("@", 2);
           BuildConfigurationKey configurationKey =
               getConfigurationKey(env, labelAndConfig.length == 2 ? labelAndConfig[1] : null);
+          if (configurationKey == null) {
+            yield null;
+          }
           yield ConfiguredTargetKey.builder()
               .setConfigurationKey(configurationKey)
               .setLabel(Label.parseCanonical(labelAndConfig[0]))

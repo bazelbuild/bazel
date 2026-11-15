@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -111,14 +110,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     checkState(providerBuilder.contains(RunfilesProvider.class), actionLookupKey);
     checkState(providerBuilder.contains(FileProvider.class), actionLookupKey);
     checkState(providerBuilder.contains(FilesToRunProvider.class), actionLookupKey);
-
-    // Initialize every StarlarkApiProvider
-    for (int i = 0; i < providers.getProviderCount(); i++) {
-      Object obj = providers.getProviderInstanceAt(i);
-      if (obj instanceof StarlarkApiProvider starlarkApiProvider) {
-        starlarkApiProvider.init(this);
-      }
-    }
 
     this.providers = providerBuilder.build();
     this.configConditions = configConditions;

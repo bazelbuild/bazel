@@ -1633,7 +1633,10 @@ public class BuildViewTest extends BuildViewTestBase {
         new TopLevelArtifactContext(
             false,
             OutputGroupInfo.determineOutputGroups(
-                outputGroups, OutputGroupInfo.ValidationMode.OFF, /* shouldRunTests= */ false),
+                outputGroups,
+                /* extraDefaultOutputGroups= */ ImmutableList.of(),
+                OutputGroupInfo.ValidationMode.OFF,
+                /* shouldRunTests= */ false),
             failOnUnknownOutputGroups,
             /* forRunCommand= */ false);
     return update(context, ImmutableList.copyOf(aspects), targets);

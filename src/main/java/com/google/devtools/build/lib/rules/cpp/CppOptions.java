@@ -142,7 +142,7 @@ public abstract class CppOptions extends FragmentOptions {
   // this without warning spam because of a globally set bazelrc.
   @Option(
       name = "crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
@@ -980,4 +980,13 @@ public abstract class CppOptions extends FragmentOptions {
           "If enabled, will estimate precise resource usage for local execution of"
               + " CppCompileAction.")
   public abstract boolean getExperimentalCppCompileResourcesEstimation();
+
+  @Override
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
+    if (!getOutputDirectoryTag().isEmpty()) {
+      ctx.addToMnemonic(getOutputDirectoryTag());
+    }
+  }
 }

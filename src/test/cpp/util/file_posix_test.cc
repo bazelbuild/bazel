@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <cerrno>
 #include <map>
 #include <string>
 #include <vector>
@@ -120,7 +121,6 @@ TEST(FilePosixTest, HammerMakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
   ASSERT_STRNE(tmp_dir, nullptr);
 
-  string path = JoinPath(tmp_dir, "x/y/z");
   // TODO(ulfjack): Fix this!
   //  ASSERT_LE(0, fork());
   //  ASSERT_TRUE(MakeDirectories(path, 0755));
@@ -323,6 +323,17 @@ TEST(FileTest, TestCreatSiblingTempDirDoesntClobberParentPerms) {
   struct stat filestat = {};
   ASSERT_EQ(0, stat(existing_parent_dir.AsNativePath().c_str(), &filestat));
   ASSERT_EQ(mode_t(0700), filestat.st_mode & 0777);
+}
+
+// WriteFile unlinks its target before creating it. As root that used to
+// replace /dev/null with a regular file; as an ordinary user the unlink
+// fails and nothing shows. Check that the device is still there, so that a
+// run as root fails here instead of corrupting everything after it.
+TEST(FilePosixTest, WriteFileLeavesDevNullAlone) {
+  ASSERT_TRUE(WriteFile("hello", 5, "/dev/null"));
+  struct stat filestat = {};
+  ASSERT_EQ(0, stat("/dev/null", &filestat));
+  ASSERT_TRUE(S_ISCHR(filestat.st_mode));
 }
 
 }  // namespace blaze_util

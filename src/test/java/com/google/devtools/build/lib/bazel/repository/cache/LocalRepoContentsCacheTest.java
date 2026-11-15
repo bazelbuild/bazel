@@ -73,7 +73,7 @@ public final class LocalRepoContentsCacheTest {
       entry.getRelative("repo").createDirectoryAndParents();
       var inputs = entry.getRelative("repo.recorded_inputs");
       FileSystemUtils.writeContentAsLatin1(inputs, hash);
-      inputs.setLastModifiedTime(1);
+      inputs.setLastModifiedTimeNanos(1);
     }
     var cache = new LocalRepoContentsCache();
     cache.setPath(cachePath);

@@ -211,5 +211,17 @@ TEST_F(LaunchUtilTest, RelativeToTest) {
   ASSERT_FALSE(RelativeTo(L"c:\\foo\\bar1", L"d:\\foo\\bar2", &value));
 }
 
+TEST_F(LaunchUtilTest, GetLastErrorStringTest) {
+  SetLastError(0);
+  ASSERT_EQ("", GetLastErrorString());
+
+  // Use a customer-bit error code (bit 29 set) which is guaranteed to have no
+  // system message table entry, exercising the FormatMessageA failure fallback.
+  SetLastError(0x20000001);
+  string result = GetLastErrorString();
+  ASSERT_NE(result.find("0x20000001"), string::npos);
+  ASSERT_NE(result.find("<FormatMessageA failed: 0x"), string::npos);
+}
+
 }  // namespace launcher
 }  // namespace bazel

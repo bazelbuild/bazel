@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.createRandomLeafArray;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -235,9 +235,6 @@ public final class SharedValueDeserializationContextTest {
   }
 
   private static class NotNestedSetContainer {
-    private static final long FIRST_OFFSET;
-    private static final long SECOND_OFFSET;
-
     private NotNestedSet first;
     private NotNestedSet second;
 
@@ -247,22 +244,12 @@ public final class SharedValueDeserializationContextTest {
       this.first = first;
       this.second = second;
     }
-
-    static {
-      try {
-        FIRST_OFFSET = getFieldOffset(NotNestedSetContainer.class, "first");
-        SECOND_OFFSET = getFieldOffset(NotNestedSetContainer.class, "second");
-      } catch (ReflectiveOperationException e) {
-        throw new ExceptionInInitializerError(e);
-      }
-    }
   }
 
   /** Selects the {@link AsyncDeserializationContext#deserialize} overload. */
   private enum DeserializeOverloadSelector {
-    OFFSET,
     SETTER,
-    OFFSET_WITH_DONE_CALLBACK
+    ARRAY_ELEMENT_WITH_DONE_CALLBACK
   }
 
   /** Codec that observes futures through {@link AsyncObjectCodec#deserialize} overloads. */
@@ -305,10 +292,6 @@ public final class SharedValueDeserializationContextTest {
       // callback. This enables verification that the provided values are fully deserialized as soon
       // as they are set, as required by the specification.
       switch (overloadSelector) {
-        case OFFSET:
-          context.deserialize(codedIn, value, NotNestedSetContainer.FIRST_OFFSET);
-          context.deserialize(codedIn, value, NotNestedSetContainer.SECOND_OFFSET);
-          break;
         case SETTER:
           context.deserialize(
               codedIn,
@@ -327,18 +310,26 @@ public final class SharedValueDeserializationContextTest {
                 verifyDeserializedNotNestedSet(expectedSecond, second);
               });
           break;
-        case OFFSET_WITH_DONE_CALLBACK:
-          context.deserialize(
-              codedIn,
-              value,
-              NotNestedSetContainer.FIRST_OFFSET,
-              () -> verifyDeserializedNotNestedSet(expectedFirst, value.first));
-          context.deserialize(
-              codedIn,
-              value,
-              NotNestedSetContainer.SECOND_OFFSET,
-              () -> verifyDeserializedNotNestedSet(expectedSecond, value.second));
-          break;
+        case ARRAY_ELEMENT_WITH_DONE_CALLBACK:
+          {
+            // Buffers the elements and populates the container only once all callbacks have run.
+            // If any callback were skipped, the container would remain unpopulated and the
+            // SerializationTester's verification would fail.
+            Object[] elements = new Object[2];
+            AtomicInteger remaining = new AtomicInteger(2);
+            Runnable done =
+                () -> {
+                  if (remaining.decrementAndGet() == 0) {
+                    value.first = (NotNestedSet) elements[0];
+                    value.second = (NotNestedSet) elements[1];
+                    verifyDeserializedNotNestedSet(expectedFirst, value.first);
+                    verifyDeserializedNotNestedSet(expectedSecond, value.second);
+                  }
+                };
+            context.deserializeArrayElement(codedIn, elements, 0, done);
+            context.deserializeArrayElement(codedIn, elements, 1, done);
+            break;
+          }
       }
       return value;
     }
@@ -498,6 +489,105 @@ public final class SharedValueDeserializationContextTest {
     assertThat(thrown).hasMessageThat().isEqualTo("Missing shared value bytes");
   }
 
+  private enum FailureKind {
+    SERIALIZATION_EXCEPTION {
+      @Override
+      Throwable create() {
+        return new SerializationException("boom");
+      }
+    },
+    RUNTIME_EXCEPTION {
+      @Override
+      Throwable create() {
+        return new IllegalStateException("boom");
+      }
+    },
+    ERROR {
+      @Override
+      Throwable create() {
+        return new AssertionError("boom");
+      }
+    };
+
+    abstract Throwable create();
+  }
+
+  private enum PostFetchFailureStage {
+    DEFERRED_CALL,
+    SETTER
+  }
+
+  @Test
+  public void
+      getSharedValue_failureAfterNotifyFetchDone_failsOperationWithoutDoubleDecrementingCollector(
+          @TestParameter FailureKind failureKind,
+          @TestParameter PostFetchFailureStage stage,
+          @TestParameter boolean nested)
+          throws Exception {
+    GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(store);
+
+    Throwable failure = failureKind.create();
+    ObjectCodecs codecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .add(new ThrowingContainerCodec(stage, failure))
+                .build());
+
+    Object[] firstContents =
+        nested
+            ? new Object[] {createRandomLeafArray(rng, Random::nextInt)}
+            : createRandomLeafArray(rng, Random::nextInt);
+    Object[] secondContents = createRandomLeafArray(rng, Random::nextInt);
+    var subject =
+        new NotNestedSetContainer(
+            new NotNestedSet(firstContents), new NotNestedSet(secondContents));
+
+    SerializationResult<ByteString> serialized =
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+    if (writeStatus != null) {
+      writeStatus.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    var continuationFuture =
+        (ListenableFuture<SkyframeLookupContinuation>)
+            SharedValueDeserializationContext.deserializeWithSkyframe(
+                codecs.getCodecRegistry(),
+                ImmutableClassToInstanceMap.of(),
+                compressionService,
+                fingerprintValueService,
+                serialized.getObject().newCodedInput());
+
+    GetRequest firstRequest = store.takeFirstRequest();
+    GetRequest secondRequest = store.takeFirstRequest();
+
+    // Complete first's request (and its nested child request if nested) while second's request is
+    // still pending. The failure thrown after notifyFetchDone() must not call onFailure() and
+    // double-decrement SkyframeLookupCollector.
+    firstRequest.complete();
+    if (nested) {
+      assertThat(continuationFuture.isDone()).isFalse();
+      store.takeFirstRequest().complete();
+    }
+    assertThat(continuationFuture.isDone()).isFalse();
+
+    // Completing second's request finishes the lookup collector; the resulting deserialization
+    // future fails with the exact exception rather than hanging.
+    secondRequest.complete();
+    SkyframeLookupContinuation continuation = continuationFuture.get(WAIT_TIMEOUT_SECONDS, SECONDS);
+    ListenableFuture<?> resultFuture = continuation.process(/* env= */ null);
+    Throwable thrown =
+        assertThrows(
+                ExecutionException.class, () -> resultFuture.get(WAIT_TIMEOUT_SECONDS, SECONDS))
+            .getCause();
+    assertThat(thrown).isSameInstanceAs(failure);
+  }
+
   @Test
   public void sharedValueIsDecompressed(@TestParameter boolean compress) throws Exception {
     GetRecordingStore store = new GetRecordingStore();
@@ -526,7 +616,8 @@ public final class SharedValueDeserializationContextTest {
     ImmutableList<byte[]> storeValues =
         ImmutableList.copyOf(store.getFingerprintToContents().values());
     assertThat(storeValues).hasSize(1);
-    assertThat(storeValues.get(0)).hasLength(compress ? 24 : 1007);
+    // One-shot zstd frames record the content size, so the compressed value is 25 bytes.
+    assertThat(storeValues.get(0)).hasLength(compress ? 25 : 1007);
 
     store.takeFirstRequest().complete();
     verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
@@ -792,5 +883,103 @@ public final class SharedValueDeserializationContextTest {
 
   private static ObjectCodec<NotNestedSet> getDefaultNotNestedSetCodec() {
     return new NotNestedSetCodec(new NestedArrayCodec());
+  }
+
+  private static final class ThrowingContainerCodec
+      extends DeferredObjectCodec<NotNestedSetContainer> {
+    private final PostFetchFailureStage stage;
+    private final Throwable failure;
+    private final NestedArrayCodec nestedArrayCodec = new NestedArrayCodec();
+    private final DeferredObjectCodec<Object[]> firstArrayCodec;
+
+    private ThrowingContainerCodec(PostFetchFailureStage stage, Throwable failure) {
+      this.stage = stage;
+      this.failure = failure;
+      this.firstArrayCodec =
+          new DeferredObjectCodec<Object[]>() {
+            @Override
+            public boolean autoRegister() {
+              return false;
+            }
+
+            @Override
+            public Class<Object[]> getEncodedClass() {
+              return Object[].class;
+            }
+
+            @Override
+            public void serialize(
+                SerializationContext context, Object[] obj, CodedOutputStream codedOut)
+                throws SerializationException, IOException {
+              nestedArrayCodec.serialize(context, obj, codedOut);
+            }
+
+            @Override
+            public DeferredValue<Object[]> deserializeDeferred(
+                AsyncDeserializationContext context, CodedInputStream codedIn)
+                throws SerializationException, IOException {
+              DeferredValue<Object[]> inner =
+                  nestedArrayCodec.deserializeDeferred(context, codedIn);
+              return () -> {
+                if (stage == PostFetchFailureStage.DEFERRED_CALL) {
+                  throwFailure(failure);
+                }
+                return inner.call();
+              };
+            }
+          };
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<NotNestedSetContainer> getEncodedClass() {
+      return NotNestedSetContainer.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, NotNestedSetContainer container, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          container.first.getContents(), /* distinguisher= */ null, firstArrayCodec, codedOut);
+      context.putSharedValue(
+          container.second.getContents(), /* distinguisher= */ null, nestedArrayCodec, codedOut);
+    }
+
+    @Override
+    public DeferredValue<NotNestedSetContainer> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var container = new NotNestedSetContainer();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          firstArrayCodec,
+          container,
+          (c, v) -> {
+            if (stage == PostFetchFailureStage.SETTER) {
+              throwFailure(failure);
+            }
+            c.first = new NotNestedSet((Object[]) v);
+          });
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          nestedArrayCodec,
+          container,
+          (c, v) -> c.second = new NotNestedSet((Object[]) v));
+      return () -> container;
+    }
+
+    private static void throwFailure(Throwable failure) throws SerializationException {
+      throwIfInstanceOf(failure, SerializationException.class);
+      throwIfInstanceOf(failure, RuntimeException.class);
+      throwIfInstanceOf(failure, Error.class);
+      throw new AssertionError(failure);
+    }
   }
 }

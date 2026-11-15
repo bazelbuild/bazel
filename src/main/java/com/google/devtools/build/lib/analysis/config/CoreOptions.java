@@ -16,12 +16,16 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Map.Entry.comparingByKey;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
@@ -445,9 +449,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           `=name`, which unsets the variable of that name. This option can be used
           multiple times; for options given for the same variable, the latest wins,
           options for different variables accumulate.
-
-          Note that unless `--incompatible_repo_env_ignores_action_env` is true, all `name=value`
-          pairs will be available to repository rules.
           """)
   public abstract List<EnvVar> getActionEnvironment();
 
@@ -917,7 +918,9 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           RequiredConfigFragmentsProvider with the configuration fragments they directly
           require.
           If `transitive`, they do the same but also include the fragments their
-          transitive dependencies require. If `off`, the provider is omitted.
+          transitive dependencies require. If `transitive_starlark_only`, they only include the
+          Starlark options they and their transitive dependencies require (omitting native
+          options, fragments, and `--define`s). If `off`, the provider is omitted.
 
           Be careful using this feature: it adds memory to every configured target in the
           build.
@@ -1018,11 +1021,36 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
         || getLimitOutputDirToPlatforms().contains(platform);
   }
 
+  // ALIAS_MAP_CACHE avoids rebuilding the map on repeated calls with the same List instance, while
+  // ALIAS_MAP_INTERNER canonicalizes equal maps across distinct List instances (e.g. after
+  // getNormalized() or deserialization) so map equality checks hit the reference fast path.
+  private static final Interner<ImmutableMap<String, Label>> ALIAS_MAP_INTERNER =
+      Interners.newWeakInterner();
+
   private static final LoadingCache<List<Map.Entry<String, Label>>, ImmutableMap<String, Label>>
-      ALIAS_MAP_CACHE = Caffeine.newBuilder().weakKeys().build(ImmutableMap::copyOf);
+      ALIAS_MAP_CACHE =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(list -> ALIAS_MAP_INTERNER.intern(ImmutableMap.copyOf(list)));
 
   public final ImmutableMap<String, Label> getCommandLineFlagAliasesMap() {
     return ALIAS_MAP_CACHE.get(getCommandLineFlagAliases());
+  }
+
+  private static final LoadingCache<ImmutableMap<String, Label>, ImmutableSet<Label>>
+      HOST_FLAG_ALIASES_CACHE =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  aliases ->
+                      aliases.entrySet().stream()
+                          .filter(alias -> alias.getKey().startsWith("host_"))
+                          .map(Map.Entry::getValue)
+                          .collect(toImmutableSet()));
+
+  /** Returns the Starlark flags that {@code --flag_alias} maps to a {@code host_}-prefixed name. */
+  public final ImmutableSet<Label> getHostFlagAliases() {
+    return HOST_FLAG_ALIASES_CACHE.get(getCommandLineFlagAliasesMap());
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
@@ -1035,7 +1063,12 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
     /** Provide the fragments required <em>directly</em> by this rule. */
     DIRECT,
     /** Provide the fragments required by this rule and its transitive dependencies. */
-    TRANSITIVE
+    TRANSITIVE,
+    /**
+     * Provide only the Starlark options required by this rule and its transitive dependencies,
+     * omitting native options, fragments, and {@code --define}s.
+     */
+    TRANSITIVE_STARLARK_ONLY
   }
 
   /** Enum converter for --include_config_fragments_provider. */

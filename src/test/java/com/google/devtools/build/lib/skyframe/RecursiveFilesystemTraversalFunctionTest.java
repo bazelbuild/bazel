@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
@@ -174,12 +173,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
-            deletedPackages,
-            CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            deletedPackages, BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP);
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
@@ -206,14 +202,13 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)), path);
   }
 
-  private SpecialArtifact treeArtifact(String path) {
+  private TreeArtifact treeArtifact(String path) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"),
         PathFragment.create("out/" + path));
   }
 
-  private void addNewTreeFileArtifact(SpecialArtifact parent, String relatedPath)
-      throws IOException {
+  private void addNewTreeFileArtifact(TreeArtifact parent, String relatedPath) throws IOException {
     TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(parent, relatedPath);
     artifactFunction.addNewTreeFileArtifact(treeFileArtifact);
   }
@@ -567,10 +562,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // Creating the files will also create the parent directories.
     RootedPath file1 = createFile(childOf(directoryArtifact, "bar.txt"));
     RootedPath file2;
-    if (directoryArtifact.isTreeArtifact()) {
+    if (directoryArtifact instanceof TreeArtifact treeArtifact) {
       file2 = createFile(childOf(directoryArtifact, "qux.txt"));
-      addNewTreeFileArtifact((SpecialArtifact) directoryArtifact, "bar.txt");
-      addNewTreeFileArtifact((SpecialArtifact) directoryArtifact, "qux.txt");
+      addNewTreeFileArtifact(treeArtifact, "bar.txt");
+      addNewTreeFileArtifact(treeArtifact, "qux.txt");
     } else {
       file2 = createFile(childOf(directoryArtifact, "baz/qux.txt"));
     }
@@ -588,10 +583,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     // Add a new file to the directory and see that the value is rebuilt.
     TimestampGranularityUtils.waitForTimestampGranularity(
-        directoryArtifact.getPath().stat().getLastChangeTime(), OutErr.SYSTEM_OUT_ERR);
+        directoryArtifact.getPath().stat().getLastChangeTimeNanos(), OutErr.SYSTEM_OUT_ERR);
     RootedPath file3 = createFile(childOf(directoryArtifact, "foo.txt"));
-    if (directoryArtifact.isTreeArtifact()) {
-      addNewTreeFileArtifact((SpecialArtifact) directoryArtifact, "foo.txt");
+    if (directoryArtifact instanceof TreeArtifact treeArtifact) {
+      addNewTreeFileArtifact(treeArtifact, "foo.txt");
     }
     if (directoryArtifact.isSourceArtifact()) {
       invalidateDirectory(directoryArtifact);
@@ -888,8 +883,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     // Change the mtime of the file but not the digest. See that the value is *not* rebuilt.
     TimestampGranularityUtils.waitForTimestampGranularity(
-        path.asPath().stat().getLastChangeTime(), OutErr.SYSTEM_OUT_ERR);
-    path.asPath().setLastModifiedTime(System.currentTimeMillis());
+        path.asPath().stat().getLastChangeTimeNanos(), OutErr.SYSTEM_OUT_ERR);
+    path.asPath().setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(params, expected);
     assertThat(v2).isEqualTo(v1);
     assertTraversalRootHashesAreEqual(v1, v2);

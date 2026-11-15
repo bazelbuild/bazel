@@ -63,6 +63,31 @@ config_setting(
     self.assertNotIn("&lcub;", result)
     self.assertNotIn("&rcub;", result)
 
+  def test_inline_backticks_in_html_are_not_entity_escaped(self):
+    html = """<html><body>
+<p>The default value of facts is `{}` and `{output_jar}-src.jar` with `__init__.py`, while {prose} is escaped.</p>
+</body></html>"""
+    result = docs2mdx._transform("example.html", html)
+
+    self.assertIn("`{}`", result)
+    self.assertIn("`{output_jar}-src.jar`", result)
+    self.assertIn("`__init__.py`", result)
+    self.assertIn("&lcub;prose&rcub;", result)
+
+  def test_var_tags_and_double_bracket_templates_are_stripped(self):
+    md = """# Title
+
+#### `--stripopt={{ "<var>" }}strip-option{{ "</var>" }}` {#stripopt}
+
+#### `--copt=<var>cc-option</var>` {#copt}
+"""
+    result = docs2mdx._transform("example.md", md)
+
+    self.assertIn("#### `--stripopt=strip-option` {#stripopt}", result)
+    self.assertIn("#### `--copt=cc-option` {#copt}", result)
+    self.assertNotIn("<var>", result)
+    self.assertNotIn("</var>", result)
+
 
 class Docs2MdxTableCellTest(parameterized.TestCase):
 
@@ -174,6 +199,24 @@ class Docs2MdxHeadingAnchorTest(parameterized.TestCase):
     result = docs2mdx._transform("test.html", html)
     self.assertIn("## Rules", result)
     self.assertNotIn("{#", result)
+
+
+class Docs2MdxCodeFenceTest(unittest.TestCase):
+
+  def test_single_line_fence_is_split_onto_separate_lines(self):
+    md = "Text.\n\n```--output package```\n\nMore text."
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("\n```\n--output package\n```\n", result)
+
+  def test_indented_single_line_fence_keeps_indentation(self):
+    md = "*   Item:\n\n    ```--output graph```\n"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("    ```\n    --output graph\n    ```", result)
+
+  def test_regular_fence_is_unchanged(self):
+    md = "```\nbazel build //foo\n```\n"
+    result = docs2mdx._transform("test.md", md)
+    self.assertIn("```\nbazel build //foo\n```", result)
 
 
 class Docs2MdxFlagAnchorTest(parameterized.TestCase):

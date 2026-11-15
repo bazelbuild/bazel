@@ -45,6 +45,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_result",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",

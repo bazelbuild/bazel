@@ -28,6 +28,7 @@
 #endif
 
 #include <algorithm>
+#include <cerrno>
 #include <cinttypes>
 #include <cstdint>
 #include <cstring>

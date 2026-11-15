@@ -327,4 +327,56 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
       assertThat(hashBefore).isEqualTo(hashAfter);
     }
   }
+
+  @Test
+  public void testComputeTransitiveVisibilityChangesHash() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name='x', cmd='touch $@', outs=['y'])");
+    Rule ruleWithoutTv = (Rule) getTarget("//pkg:x");
+
+    scratch.overwriteFile(
+        "pkg/BUILD",
+        """
+        package(transitive_visibility = ':tv1')
+        genrule(name='x', cmd='touch $@', outs=['y'])
+        """);
+    invalidatePackages();
+    Rule ruleWithTv1 = (Rule) getTarget("//pkg:x");
+
+    scratch.overwriteFile(
+        "pkg/BUILD",
+        """
+        package(transitive_visibility = ':tv2')
+        genrule(name='x', cmd='touch $@', outs=['y'])
+        """);
+    invalidatePackages();
+    Rule ruleWithTv2 = (Rule) getTarget("//pkg:x");
+
+    String hashWithoutTv =
+        SyntheticAttributeHashCalculator.compute(
+            ruleWithoutTv,
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false,
+            /* includeStarlarkRuleEnv= */ true);
+    String hashWithTv1 =
+        SyntheticAttributeHashCalculator.compute(
+            ruleWithTv1,
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false,
+            /* includeStarlarkRuleEnv= */ true);
+    String hashWithTv2 =
+        SyntheticAttributeHashCalculator.compute(
+            ruleWithTv2,
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false,
+            /* includeStarlarkRuleEnv= */ true);
+
+    assertThat(hashWithoutTv).isNotEqualTo(hashWithTv1);
+    assertThat(hashWithTv1).isNotEqualTo(hashWithTv2);
+  }
 }

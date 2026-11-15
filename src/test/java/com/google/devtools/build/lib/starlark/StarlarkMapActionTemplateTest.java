@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -248,7 +248,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
     assertTreeContainsFileWithContents(outputTree, "input_dir_f1.out", "1", "some data");
     assertTreeContainsFileWithContents(outputTree, "input_dir_f2.out", "2", "some data");
     assertTreeContainsFileWithContents(outputTree, "input_dir_f3.out", "3", "some data");
@@ -282,7 +282,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
     assertTreeContainsFileWithContents(outputTree, "input_dir1_f1_input_dir2_f4.out", "1", "4");
     assertTreeContainsFileWithContents(outputTree, "input_dir1_f2_input_dir2_f5.out", "2", "5");
     assertTreeContainsFileWithContents(outputTree, "input_dir1_f3_input_dir2_f6.out", "3", "6");
@@ -316,8 +316,8 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir1, output_dir2]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree1 = assertTreeBuilt("test/target_output_dir1");
-    SpecialArtifact outputTree2 = assertTreeBuilt("test/target_output_dir2");
+    TreeArtifact outputTree1 = assertTreeBuilt("test/target_output_dir1");
+    TreeArtifact outputTree2 = assertTreeBuilt("test/target_output_dir2");
     assertTreeContainsFileWithContents(outputTree1, "input_dir_f1.out", "1");
     assertTreeContainsFileWithContents(outputTree1, "input_dir_f3.out", "3");
     assertTreeContainsFileWithContents(outputTree2, "input_dir_f2.out", "2");
@@ -371,19 +371,101 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir, output_dir2]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
     assertTreeContainsFileWithContents(outputTree, "input_dir1_f1.out", "1", "some data");
     assertTreeContainsFileWithContents(outputTree, "input_dir1_f2.out", "2", "some data");
     assertTreeContainsFileWithContents(outputTree, "input_dir1_f3.out", "3", "some data");
 
     buildTarget("//test:target");
-    SpecialArtifact outputTree2 = assertTreeBuilt("test/target_output_dir2");
+    TreeArtifact outputTree2 = assertTreeBuilt("test/target_output_dir2");
     assertTreeContainsFileWithContents(
         outputTree2, "input_dir1_f1.out_input_dir2_f4.out", "1", "some data", "4");
     assertTreeContainsFileWithContents(
         outputTree2, "input_dir1_f2.out_input_dir2_f5.out", "2", "some data", "5");
     assertTreeContainsFileWithContents(
         outputTree2, "input_dir1_f3.out_input_dir2_f6.out", "3", "some data", "6");
+  }
+
+  @Test
+  public void chainedMapDirectoryCallsAfterReorderingExpandedActions() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/reorder.bzl",
+        """
+        def reorder_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                additional_params,
+                **kwargs):
+            f1 = input_directories["input_dir"].children[0]
+            outputs = [
+                template_ctx.declare_file("a", directory = output_directories["output_dir1"]),
+                template_ctx.declare_file("b", directory = output_directories["output_dir2"]),
+            ]
+            if additional_params["reverse"]:
+                outputs = reversed(outputs)
+            for o1 in outputs:
+                args = template_ctx.args()
+                args.add_all([o1, f1])
+                template_ctx.run(
+                    inputs = [f1],
+                    outputs = [o1],
+                    executable = tools["cat_tool"],
+                    arguments = [args],
+                )
+        """);
+    String ruleDef =
+        """
+        load(":helpers.bzl", "create_seed_dir", "zip_and_combine_impl")
+        load(":reorder.bzl", "reorder_impl")
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 1)
+            output_dir1 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir1")
+            output_dir2 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir2")
+            ctx.actions.map_directory(
+                implementation = reorder_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir1": output_dir1,
+                    "output_dir2": output_dir2,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+                additional_params = {
+                    "reverse": %s,
+                },
+            )
+            output_dir3 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir3")
+            ctx.actions.map_directory(
+                implementation = zip_and_combine_impl,
+                input_directories = {
+                    "input_dir1": output_dir1,
+                    "input_dir2": output_dir2,
+                },
+                output_directories = {
+                    "output_dir": output_dir3,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir3]))]
+        """;
+    write("test/rule_def.bzl", ruleDef.formatted("False"));
+    buildTarget("//test:target");
+    assertTreeContainsFileWithContents(
+        assertTreeBuilt("test/target_output_dir3"), "a_b.out", "1", "1");
+
+    write("test/rule_def.bzl", ruleDef.formatted("True"));
+    buildTarget("//test:target");
+    assertTreeContainsFileWithContents(
+        assertTreeBuilt("test/target_output_dir3"), "a_b.out", "1", "1");
   }
 
   @Test
@@ -415,7 +497,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
     TreeFileArtifact treeFileArtifact1 = getTreeFileArtifact(outputTree, "input_dir_f1.out", 0);
     TreeFileArtifact treeFileArtifact2 = getTreeFileArtifact(outputTree, "input_dir_f2.out", 1);
     TreeFileArtifact treeFileArtifact3 = getTreeFileArtifact(outputTree, "input_dir_f3.out", 2);
@@ -456,7 +538,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
     TreeFileArtifact treeFileArtifact1 = getTreeFileArtifact(outputTree, "input_dir_f1.out", 0);
     TreeFileArtifact treeFileArtifact2 = getTreeFileArtifact(outputTree, "input_dir_f2.out", 1);
     TreeFileArtifact treeFileArtifact3 = getTreeFileArtifact(outputTree, "input_dir_f3.out", 2);
@@ -498,7 +580,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
     for (int index = 0; index < 3; ++index) {
       TreeFileArtifact output =
           getTreeFileArtifact(outputTree, "input_dir_f" + (index + 1) + ".out", index);
@@ -540,7 +622,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             """,
             value));
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
     assertTreeContainsFileWithContents(outputTree, "input_dir_f1.out", "1");
     assertTreeContainsFileWithContents(outputTree, "input_dir_f2.out", "2");
     assertTreeContainsFileWithContents(outputTree, "input_dir_f3.out", "3");
@@ -770,8 +852,8 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
         )
         """);
     buildTarget("//outside:target");
-    SpecialArtifact outputTree = assertTreeBuilt("//outside:target", "outside/target_output_dir");
-    SpecialArtifact subdir = getSubdirArtifact(outputTree, "subdir_0", 0);
+    TreeArtifact outputTree = assertTreeBuilt("//outside:target", "outside/target_output_dir");
+    TreeArtifact subdir = getSubdirArtifact(outputTree, "subdir_0", 0);
     assertThat(getChildRelativePaths(subdir, getTreeArtifactValue(subdir)))
         .containsExactly(PathFragment.create("f1"), PathFragment.create("f2"));
   }
@@ -1080,9 +1162,9 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
-    SpecialArtifact subdir1 = getSubdirArtifact(outputTree, "subdir_0", 1);
-    SpecialArtifact subdir2 = getSubdirArtifact(outputTree, "subdir_1", 2);
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    TreeArtifact subdir1 = getSubdirArtifact(outputTree, "subdir_0", 1);
+    TreeArtifact subdir2 = getSubdirArtifact(outputTree, "subdir_1", 2);
     // The top-level tree artifact value should contain a flattened view of all the files under it
     // (including the files from its subdirectories).
     assertThat(getChildRelativePaths(outputTree, getTreeArtifactValueFromTemplate(outputTree)))
@@ -1159,9 +1241,9 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir2]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree2 = assertTreeBuilt("test/target_output_dir2");
-    SpecialArtifact otherSubdir0 = getSubdirArtifact(outputTree2, "other_subdir_0", 2);
-    SpecialArtifact otherSubdir1 = getSubdirArtifact(outputTree2, "other_subdir_1", 3);
+    TreeArtifact outputTree2 = assertTreeBuilt("test/target_output_dir2");
+    TreeArtifact otherSubdir0 = getSubdirArtifact(outputTree2, "other_subdir_0", 2);
+    TreeArtifact otherSubdir1 = getSubdirArtifact(outputTree2, "other_subdir_1", 3);
     // The top-level tree artifact value should contain a flattened view of all the files under it
     // (including the files from its subdirectories).
     assertThat(getChildRelativePaths(outputTree2, getTreeArtifactValueFromTemplate(outputTree2)))
@@ -1222,7 +1304,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
             return [DefaultInfo(files = depset([output_dir2]))]
         """);
     buildTarget("//test:target");
-    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir2");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir2");
     // The top-level tree artifact value should contain a flattened view of all the files under it
     // (including the files from its subdirectories).
     TreeArtifactValue treeArtifactValue = getTreeArtifactValue(outputTree);
@@ -1444,22 +1526,22 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
                 + ".*test/target_output_dir/subdir1.*");
   }
 
-  private SpecialArtifact assertTreeBuilt(String rootRelativePath) throws Exception {
+  private TreeArtifact assertTreeBuilt(String rootRelativePath) throws Exception {
     return assertTreeBuilt("//test:target", rootRelativePath);
   }
 
-  private SpecialArtifact assertTreeBuilt(String target, String rootRelativePath) throws Exception {
+  private TreeArtifact assertTreeBuilt(String target, String rootRelativePath) throws Exception {
     ImmutableList<Artifact> artifacts = getArtifacts(target);
     Optional<Artifact> maybeTree =
         artifacts.stream()
             .filter(a -> a.getRootRelativePathString().equals(rootRelativePath))
             .findFirst();
     assertThat(maybeTree).isPresent();
-    return (SpecialArtifact) maybeTree.get();
+    return (TreeArtifact) maybeTree.get();
   }
 
   private TreeFileArtifact getTreeFileArtifact(
-      SpecialArtifact tree, String relativeFilePath, int actionIndex) {
+      TreeArtifact tree, String relativeFilePath, int actionIndex) {
     // The actionIndex of the ActionTemplateExpansionKey should correspond to the actionIndex of the
     // StarlarkMapActionTemplate instance.
     ActionTemplateExpansionKey key =
@@ -1474,32 +1556,31 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   private ImmutableSet<PathFragment> getChildRelativePaths(
-      SpecialArtifact tree, TreeArtifactValue treeValue) {
+      TreeArtifact tree, TreeArtifactValue treeValue) {
     return treeValue.getChildren().stream()
         .map(child -> child.getExecPath().relativeTo(tree.getExecPath()))
         .collect(toImmutableSet());
   }
 
-  private SpecialArtifact getSubdirArtifact(
-      SpecialArtifact parent, String subdir, int actionIndex) {
+  private TreeArtifact getSubdirArtifact(TreeArtifact parent, String subdir, int actionIndex) {
     ActionTemplateExpansionKey key =
         ActionTemplateExpansionValue.key(
             parent.getArtifactOwner(), parent.getGeneratingActionKey().getActionIndex());
-    return SpecialArtifact.createSubTreeArtifact(
+    return TreeArtifact.createSubTreeArtifact(
         parent, PathFragment.create(subdir), ActionLookupData.create(key, actionIndex));
   }
 
-  private TreeArtifactValue getTreeArtifactValueFromTemplate(SpecialArtifact artifact)
+  private TreeArtifactValue getTreeArtifactValueFromTemplate(TreeArtifact artifact)
       throws InterruptedException {
     return (TreeArtifactValue) getSkyframeExecutor().getEvaluator().getExistingValue(artifact);
   }
 
   private void assertTreeContainsFileWithContents(
-      SpecialArtifact tree, String relativeFilePath, String... expectedContents) throws Exception {
+      TreeArtifact tree, String relativeFilePath, String... expectedContents) throws Exception {
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     Path path = execRoot.getRelative(tree.getExecPath().getChild(relativeFilePath));
     assertThat(path.exists()).isTrue();
-    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    String actualContents = FileSystemUtils.readContentAsLatin1(path);
     for (String expected : expectedContents) {
       assertThat(actualContents).contains(expected);
     }

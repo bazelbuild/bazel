@@ -1,7 +1,6 @@
-load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
-BUILD_SCM_REV_CMD = "\\\"$$(grep BUILD_SCM_REVISION bazel-out/volatile-status.txt | sed 's/^BUILD_SCM_REVISION //')\\\""
+BUILD_SCM_REV_CMD = "\"$$(sed -n 's/^BUILD_SCM_REVISION //p' bazel-out/volatile-status.txt 2>/dev/null | grep . || echo UNSET)\""
 
 # Requires --config=docs
 # TODO: Rename to gen_release_docs once the docs migration is done.
@@ -31,7 +30,7 @@ py_binary(
     deps = [
         ":mdx_fixes",
         ":rewriter",
-        "//third_party/py/abseil",
+        "@bazel_pip_dev_deps//absl_py",
     ],
 )
 
@@ -46,7 +45,7 @@ py_test(
     data = [":testdata"],
     deps = [
         ":rewriter",
-        "//third_party/py/abseil",
+        "@bazel_pip_dev_deps//absl_py",
     ],
 )
 
@@ -70,8 +69,8 @@ py_library(
     deps = [
         ":clr_converter",
         ":mdx_fixes",
-        "//third_party/py/abseil",
-        requirement("markdownify"),
+        "@bazel_pip_dev_deps//absl_py",
+        "@bazel_pip_dev_deps//markdownify",
     ],
 )
 
@@ -97,7 +96,7 @@ py_test(
     srcs = ["docs2mdx_test.py"],
     deps = [
         ":docs2mdx_lib",
-        "//third_party/py/abseil",
+        "@bazel_pip_dev_deps//absl_py",
     ],
 )
 

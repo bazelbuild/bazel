@@ -31,11 +31,6 @@ public interface OutputFilter {
 
   /** An output filter using regular expression matching. */
   final class RegexOutputFilter implements OutputFilter {
-    /** Returns an output filter for the given regex (by compiling it). */
-    public static OutputFilter forRegex(String regex) {
-      return new RegexOutputFilter(Pattern.compile(regex));
-    }
-
     /** Returns an output filter for the given pattern. */
     public static OutputFilter forPattern(Pattern pattern) {
       return new RegexOutputFilter(pattern);

@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertWithMessage;
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.joining;
 
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -35,8 +33,6 @@ interface SkycacheIntegrationTestHelpers {
 
   @CanIgnoreReturnValue
   Path write(String relativePath, String... lines) throws IOException;
-
-  void writeProjectSclDefinition(String dest, boolean alsoWriteBuildFile) throws IOException;
 
   @CanIgnoreReturnValue
   BuildResult buildTarget(String... targets) throws Exception;
@@ -75,22 +71,5 @@ interface SkycacheIntegrationTestHelpers {
                 .getRemoteAnalysisCachingEventListener()
                 .getSerializationExceptionCounts())
         .isEqualTo(0);
-  }
-
-  default void writeProjectSclWithActiveDirs(String path, String... activeDirs) throws IOException {
-    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
-    String activeDirsString = stream(activeDirs).map(s -> "\"" + s + "\"").collect(joining(", "));
-    write(
-        path + "/PROJECT.scl",
-"""
-load("//test:project_proto.scl", "project_pb2")
-project = project_pb2.Project.create(project_directories = [%s])
-"""
-            .formatted(activeDirsString));
-  }
-
-  default void writeProjectSclWithActiveDirs(String path) throws IOException {
-    // Overload for the common case where the path is the only active directory.
-    writeProjectSclWithActiveDirs(path, path);
   }
 }

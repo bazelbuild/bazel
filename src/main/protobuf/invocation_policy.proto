@@ -31,6 +31,38 @@ message InvocationPolicy {
   repeated FlagPolicy flag_policies = 1;
 
   optional blaze.strategy_policy.StrategyPolicy strategy_policy = 2;
+
+  // Policies that add --config=<name> to the command line. Unlike
+  // flag_policies, these are applied before --config expansion, so they behave
+  // exactly as if the user had passed --config=<name> on the command line.
+  // Order matters: policies are applied in the order they are listed.
+  repeated ConfigPolicy config_policies = 3;
+}
+
+// A policy that adds a --config=<name> to the command line of the invocation.
+//
+// For example, given a policy with name = "my_config" and order = PREPEND,
+// running "build --a --b" is equivalent to running
+// "build --config=my_config --a --b".
+message ConfigPolicy {
+  // The name of the config to add, i.e. <name> in --config=<name>. The config
+  // must be defined in an rc file.
+  //
+  // Note that unlike flag policies, where a policy on an unrecognized flag is
+  // silently ignored, an unrecognized config is an error, just as it would be
+  // if the user had passed --config=<name>.
+  optional string name = 1;
+
+  enum Order {
+    UNDEFINED = 0;
+    // Add --config=<name> before the user's command line options so that the
+    // user's options take precedence.
+    PREPEND = 1;
+    // Add --config=<name> after the user's command line options so that the
+    // config's options take precedence.
+    APPEND = 2;
+  }
+  optional Order order = 2;
 }
 
 // A policy for controlling the value of a flag.

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -29,13 +28,6 @@ import java.util.Set;
  */
 @SkybridgeInterface
 public interface SkycacheMetadataParams {
-
-  /**
-   * TODO: b/425247333 - Metadata insertions and queries should be very fast. 5 seconds is already
-   * very generous. As part of normal workflows we expect subsecond operations. We can re-evaluate
-   * this in production when we have more data.
-   */
-  Duration TIMEOUT = Duration.ofSeconds(5);
 
   void init(
       long clNumber,

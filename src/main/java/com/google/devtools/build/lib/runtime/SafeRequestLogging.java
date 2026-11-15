@@ -31,6 +31,7 @@ public class SafeRequestLogging {
 
   private static final ImmutableSet<String> CREDENTIAL_OPTION_NAMES =
       ImmutableSet.of(
+          "--invocation_policy",
           "--bes_header",
           "--remote_header",
           "--remote_cache_header",

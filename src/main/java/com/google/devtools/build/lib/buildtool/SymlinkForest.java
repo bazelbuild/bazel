@@ -51,7 +51,6 @@ public class SymlinkForest {
 
   private final ImmutableMap<PackageIdentifier, Root> packageRoots;
   private final Path execroot;
-  private final String productName;
   private final String prefix;
 
   /**
@@ -67,7 +66,6 @@ public class SymlinkForest {
       ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
     this.packageRoots = packageRoots;
     this.execroot = execroot;
-    this.productName = productName;
     this.prefix = productName + "-";
   }
 
@@ -259,8 +257,9 @@ public class SymlinkForest {
       for (Path target : sourceDirectory.getDirectoryEntries()) {
         String baseName = target.getBaseName();
         Path execPath = execrootDirectory.getRelative(baseName);
-        // Create any links that don't exist yet and don't start with bazel-.
-        if (!baseName.startsWith(productName + "-") && !execPath.exists()) {
+        // Create any links that don't exist yet and don't start with bazel- or conflict with
+        // external/.
+        if (symlinkShouldBePlanted(prefix, baseName, target) && !execPath.exists()) {
           execPath.createSymbolicLink(target);
           plantedSymlinks.add(execPath);
         }
@@ -292,12 +291,6 @@ public class SymlinkForest {
       }
       RepositoryName repository = pkgId.getRepository();
       if (repository.isMain()) {
-        // Record main repo packages.
-        packageRootsForMainRepo.put(entry.getKey(), entry.getValue());
-
-        // Record the root of the packages.
-        mainRepoRoots.add(entry.getValue());
-
         // For single root (single package path) case:
         // If root package of the main repo is required, we record the main repo root so that
         // we can later link everything under the main repo's top-level directory.
@@ -307,15 +300,19 @@ public class SymlinkForest {
           shouldLinkAllTopLevelItems = true;
         } else {
           String baseName = pkgId.getPackageFragment().getSegment(0);
-          if (baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
-            // ignore external/ directory if user has it in the source tree
-            // because it conflicts with external repository location.
+          Path sourcePath = entry.getValue().getRelative(pkgId.getTopLevelDir());
+          if (!symlinkShouldBePlanted(prefix, baseName, sourcePath)) {
+            // Ignore directories that start with the product prefix (e.g., bazel-) or conflict
+            // with the external repository directory (external/).
             continue;
           }
           Path execrootLink = execroot.getRelative(baseName);
-          Path sourcePath = entry.getValue().getRelative(pkgId.getTopLevelDir());
           mainRepoLinks.putIfAbsent(execrootLink, sourcePath);
         }
+
+        // Record the root of the packages and main repo packages.
+        mainRepoRoots.add(entry.getValue());
+        packageRootsForMainRepo.put(entry.getKey(), entry.getValue());
       } else {
         plantSymlinkForExternalRepo(
             plantedSymlinks, repository, entry.getValue().asPath(), externalRepoLinks);

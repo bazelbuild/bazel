@@ -67,7 +67,7 @@ public class InMemoryFileSystem extends FileSystem {
   private final InMemoryDirectoryInfo rootInode;
 
   // Maximum number of traversals before ELOOP is thrown.
-  private static final int MAX_TRAVERSALS = 256;
+  private static final int MAX_SYMLINKS_FOLLOWED = 256;
 
   /**
    * Creates a new {@code InMemoryFileSystem} with default clock and given hash function.
@@ -82,14 +82,7 @@ public class InMemoryFileSystem extends FileSystem {
   public InMemoryFileSystem(Clock clock, DigestHashFunction hashFunction) {
     super(hashFunction);
     this.clock = clock;
-    this.rootInode = newRootInode(clock);
-  }
-
-  private static InMemoryDirectoryInfo newRootInode(Clock clock) {
-    InMemoryDirectoryInfo rootInode = new InMemoryDirectoryInfo(clock);
-    rootInode.addChild(".", rootInode);
-    rootInode.addChild("..", rootInode);
-    return rootInode;
+    this.rootInode = new InMemoryDirectoryInfo(clock);
   }
 
   /** The errors that {@link InMemoryFileSystem} might issue for different sorts of IO failures. */
@@ -246,15 +239,30 @@ public class InMemoryFileSystem extends FileSystem {
     }
 
     InMemoryContentInfo inode = rootInode;
-    int traversals = 0;
+    int depth = 0;
+    int symlinksFollowed = 0;
 
-    // Stack of symlink targets. Lazily initialized because we probably won't see any.
+    // Stacks of symlink targets and traversed parent directories. Lazily initialized because we
+    // probably won't see any symlinks (and normalized PathFragments only contain ".." in relative
+    // symlink targets).
     Deque<String> symlinks = null;
+    Deque<InMemoryDirectoryInfo> parents = null;
 
     while (it.hasNext() || !isNullOrEmpty(symlinks)) {
-      traversals++;
-
       String name = !isNullOrEmpty(symlinks) ? symlinks.pop() : it.next();
+
+      if (name.equals("..")) {
+        if (!inode.isDirectory()) {
+          return Errno.ENOTDIR;
+        }
+        if (!inode.isExecutable()) {
+          return Errno.EACCES;
+        }
+        if (!isNullOrEmpty(parents)) {
+          inode = parents.pop();
+        }
+        continue;
+      }
 
       InodeOrErrno childOrError = directoryLookupErrno(inode, name);
 
@@ -267,7 +275,7 @@ public class InMemoryFileSystem extends FileSystem {
         if (behavior == OnEnoent.CREATE_DIRECTORY_AND_PARENTS) {
           // ENOENT anywhere with Create.DIRECTORY_AND_PARENTS => create a new directory.
           InMemoryDirectoryInfo newDir = new InMemoryDirectoryInfo(clock);
-          error = insertChildDirectory(parent, newDir, name);
+          error = insert(parent, name, newDir);
           child = newDir;
         } else if (!it.hasNext() && isNullOrEmpty(symlinks)) {
           // ENOENT on last segment with Create.FILE => create a new file.
@@ -284,14 +292,29 @@ public class InMemoryFileSystem extends FileSystem {
       }
 
       if (!child.isSymbolicLink()) {
+        // Don't record rootInode as the parent of a Windows drive root (e.g. "C:/").
+        if (!name.endsWith("/")) {
+          if (parents != null) {
+            parents.push(inode.asDirectory());
+          } else {
+            depth++;
+          }
+        }
         inode = child;
       } else {
+        if (++symlinksFollowed > MAX_SYMLINKS_FOLLOWED) {
+          return Errno.ELOOP;
+        }
         PathFragment linkTarget = ((InMemoryLinkInfo) child).getNormalizedLinkContent();
         if (linkTarget.isAbsolute()) {
           inode = rootInode;
+          depth = 0;
+          if (parents != null) {
+            parents.clear();
+          }
         }
-        if (traversals > MAX_TRAVERSALS) {
-          return Errno.ELOOP;
+        if (parents == null) {
+          parents = replayParents(path, depth);
         }
 
         List<String> segments = linkTarget.splitToListOfSegments(); // May include ".." segments.
@@ -309,6 +332,20 @@ public class InMemoryFileSystem extends FileSystem {
       }
     }
     return inode;
+  }
+
+  private Deque<InMemoryDirectoryInfo> replayParents(PathFragment path, int depth) {
+    Deque<InMemoryDirectoryInfo> parents = new ArrayDeque<>(depth);
+    InMemoryDirectoryInfo dir =
+        path.getDriveStrLength() > 1
+            ? rootInode.getChild(path.getDriveStr()).asDirectory()
+            : rootInode;
+    Iterator<String> it = path.segments().iterator();
+    for (int i = 0; i < depth; i++) {
+      parents.push(dir);
+      dir = dir.getChild(it.next()).asDirectory();
+    }
+    return parents;
   }
 
   /**
@@ -461,12 +498,12 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
-    return createDirectory(path, /* expectedChildCount= */ -1);
+    return createDirectory(path, /* expectedChildCount= */ 0);
   }
 
   /**
-   * Like {@link #createDirectory(PathFragment)}, but if the directory is created and {@code
-   * expectedChildCount} is non-negative, presizes its entry map for that number of children.
+   * Like {@link #createDirectory(PathFragment)}, but if the directory is created, presizes its
+   * entry map for that number of children.
    */
   public boolean createDirectory(PathFragment path, int expectedChildCount) throws IOException {
     if (isRootDirectory(path)) {
@@ -485,21 +522,12 @@ public class InMemoryFileSystem extends FileSystem {
         }
         return false;
       }
-      error =
-          insertChildDirectory(parent, new InMemoryDirectoryInfo(clock, expectedChildCount), name);
+      error = insert(parent, name, new InMemoryDirectoryInfo(clock, expectedChildCount));
     }
     if (error != null) {
       throw error.exception(path);
     }
     return true;
-  }
-
-  @Nullable
-  private static Errno insertChildDirectory(
-      InMemoryDirectoryInfo parent, InMemoryDirectoryInfo newDir, String name) {
-    newDir.addChild(".", newDir);
-    newDir.addChild("..", parent);
-    return insert(parent, name, newDir);
   }
 
   @Override
@@ -550,14 +578,7 @@ public class InMemoryFileSystem extends FileSystem {
       throw Errno.EACCES.exception(path);
     }
 
-    Collection<String> allChildren = dirInfo.getAllChildren();
-    List<String> result = new ArrayList<>(allChildren.size());
-    for (String child : allChildren) {
-      if (!child.equals(".") && !child.equals("..")) {
-        result.add(child);
-      }
-    }
-    return result;
+    return new ArrayList<>(dirInfo.getAllChildren());
   }
 
   @Override
@@ -573,7 +594,7 @@ public class InMemoryFileSystem extends FileSystem {
           if (child == null) {
             return false;
           }
-          if (child.isDirectory() && child.getSize() > 2) {
+          if (child.isDirectory() && child.getSize() > 0) {
             throw Errno.ENOTEMPTY.exception(path);
           }
           unlink(parent, baseNameOrWindowsDrive(path), path);
@@ -593,15 +614,17 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return stat(path, followSymlinks).getLastModifiedTime();
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return stat(path, followSymlinks).getLastModifiedTimeNanos();
   }
 
   @Override
-  public synchronized void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public synchronized void setLastModifiedTimeNanos(PathFragment path, long newTime)
+      throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
-    status.setLastModifiedTime(
-        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime);
+    status.setLastModifiedTimeNanos(
+        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() * 1_000_000 : newTime);
   }
 
   @Override
@@ -703,7 +726,7 @@ public class InMemoryFileSystem extends FileSystem {
             if (!sourceInode.isDirectory()) {
               throw new IOException(sourcePath + " -> " + targetPath + " (" + Errno.EISDIR + ")");
             }
-            if (targetInode.getSize() > 2) {
+            if (targetInode.getSize() > 0) {
               throw Errno.ENOTEMPTY.exception(targetPath);
             }
           } else if (sourceInode.isDirectory()) {

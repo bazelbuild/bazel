@@ -91,6 +91,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
@@ -103,7 +104,7 @@ import net.starlark.java.syntax.Location;
 public class ModuleFileFunction implements SkyFunction {
 
   // Never empty.
-  public static final Precomputed<ImmutableSet<String>> REGISTRIES =
+  public static final Precomputed<ImmutableList<String>> REGISTRIES =
       new Precomputed<>("registries");
   public static final Precomputed<Boolean> IGNORE_DEV_DEPS =
       new Precomputed<>("ignore_dev_dependency");
@@ -112,6 +113,8 @@ public class ModuleFileFunction implements SkyFunction {
       new Precomputed<>("module_overrides");
   public static final Precomputed<ImmutableMap<String, PathFragment>> INJECTED_REPOSITORIES =
       new Precomputed<>("repository_injections");
+  public static final Precomputed<ImmutableMap<String, PathFragment>> INJECTED_MODULES =
+      new Precomputed<>("module_injections");
 
   private final BazelStarlarkEnvironment starlarkEnv;
   private final Path workspaceRoot;
@@ -241,6 +244,7 @@ public class ModuleFileFunction implements SkyFunction {
               /* ignoreDevDeps= */ true,
               builtinModules,
               /* injectedRepositories= */ ImmutableMap.of(),
+              /* injectedModules= */ ImmutableMap.of(),
               // Disable printing for modules from registries. We don't want them to be able to spam
               // the console during resolution.
               /* printIsNoop= */ true,
@@ -290,6 +294,18 @@ public class ModuleFileFunction implements SkyFunction {
   private SkyValue computeForRootModule(
       StarlarkSemantics starlarkSemantics, Environment env, SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
+    // Otherwise, the --override_module path would silently win over the --inject_module path.
+    Map<String, ModuleOverride> commandOverrides = MODULE_OVERRIDES.get(env);
+    for (String moduleName : INJECTED_MODULES.get(env).keySet()) {
+      if (commandOverrides.containsKey(moduleName)) {
+        throw errorf(
+            Code.BAD_MODULE,
+            "module '%s' is given to both --inject_module and --override_module; use"
+                + " --inject_module to add a new module, or --override_module to override a"
+                + " module that is already a dependency",
+            moduleName);
+      }
+    }
     var state = env.getState(State::new);
     if (state.compiledModuleFile == null) {
       RootedPath moduleFilePath = getModuleFilePath(workspaceRoot);
@@ -374,6 +390,7 @@ public class ModuleFileFunction implements SkyFunction {
         ignoreDevDeps,
         builtinModules,
         isRoot ? INJECTED_REPOSITORIES.get(env) : ImmutableMap.of(),
+        isRoot ? INJECTED_MODULES.get(env) : ImmutableMap.of(),
         // Allow printing to aid in debugging non-registry overrides, which are often edited by the
         // user.
         /* printIsNoop= */ false,
@@ -649,6 +666,7 @@ public class ModuleFileFunction implements SkyFunction {
       boolean ignoreDevDeps,
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       Map<String, PathFragment> injectedRepositories,
+      Map<String, PathFragment> injectedModules,
       boolean printIsNoop,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler eventHandler,
@@ -684,6 +702,7 @@ public class ModuleFileFunction implements SkyFunction {
 
       compiledRootModuleFile.runOnThread(thread);
       injectRepos(injectedRepositories, context, thread);
+      injectModules(injectedModules, builtinModules, context, thread);
       for (Event warning : context.getWarnings()) {
         eventHandler.handle(warning);
       }
@@ -731,6 +750,55 @@ public class ModuleFileFunction implements SkyFunction {
           injectedRepository.getKey(),
           "by --inject_repository",
           thread.getCallStack());
+    }
+  }
+
+  // Adds a bazel_dep with a local_path_override for each module injected via --inject_module.
+  private static void injectModules(
+      Map<String, PathFragment> injectedModules,
+      ImmutableMap<String, NonRegistryOverride> builtinModules,
+      ModuleThreadContext context,
+      StarlarkThread thread)
+      throws EvalException {
+    // Injected modules are regular (non-dev) dependencies: like --override_module and
+    // --inject_repository, they are explicitly requested and thus still apply when
+    // --ignore_dev_dependency is set.
+    if (injectedModules.isEmpty()) {
+      return;
+    }
+    for (var injectedModule : injectedModules.entrySet()) {
+      String moduleName = injectedModule.getKey();
+      if (moduleName.equals(context.getModuleBuilder().getName())) {
+        throw Starlark.errorf("--inject_module cannot inject the root module '%s'", moduleName);
+      }
+      if (builtinModules.containsKey(moduleName)) {
+        throw Starlark.errorf(
+            "--inject_module cannot inject '%s' as it is a built-in module; use --override_module"
+                + " to override it instead",
+            moduleName);
+      }
+      // Deps of other modules on an injected module are checked in Discovery, as they aren't known
+      // yet. The root module's deps are checked here instead: this fails before any other module
+      // files are fetched and doesn't have to tell apart the dep added below. Nodep deps are
+      // deliberately not checked, see Discovery#checkInjectedModules.
+      if (context.hasDepOnModule(moduleName)) {
+        throw Starlark.errorf(
+            "--inject_module cannot inject '%s' as it is already in the dependency graph: the root"
+                + " module depends on it; use --override_module to override it instead",
+            moduleName);
+      }
+      if (context.hasOverride(moduleName)) {
+        throw Starlark.errorf(
+            "--inject_module cannot inject '%s' as the root module already has an override for"
+                + " it; use --override_module to override it instead",
+            moduleName);
+      }
+      context.addRepoNameUsage(moduleName, "by --inject_module", thread.getCallStack());
+      context.addDep(Optional.of(moduleName), new ModuleKey(moduleName, Version.EMPTY));
+      context.addCommandLineOverride(
+          moduleName,
+          new NonRegistryOverride(
+              LocalPathRepoSpecs.create(injectedModule.getValue().getPathString())));
     }
   }
 
@@ -789,11 +857,11 @@ public class ModuleFileFunction implements SkyFunction {
               + " non-registry override?",
           key.name());
     }
-    ImmutableSet<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
+    ImmutableList<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
     if (override instanceof RegistryOverride registryOverride) {
       String overrideRegistry = registryOverride.getRegistry();
       if (!overrideRegistry.isEmpty()) {
-        registries = ImmutableSet.of(overrideRegistry);
+        registries = ImmutableList.of(overrideRegistry);
       }
     } else if (override != null) {
       // This should never happen.

@@ -39,14 +39,27 @@ import java.io.IOException;
  * with different configurations while allowing the diff-based serialization optimization to save
  * space.
  *
+ * <p>That checksum is computed from the test-trimmed top-level options, so it does not cover test
+ * options. For this reason, keys that retain {@link TestOptions} are diffed against a baseline
+ * whose test options are at their defaults rather than at this build's values (see {@link
+ * PlatformConfigurationProvider#getBaseOptionsForPlatform}). Such keys also record how this build's
+ * actual baseline differs from that baseline, i.e. this build's test options and {@code
+ * --run_under}: the output directory mnemonic of an untrimmed configuration is computed against
+ * them, so two builds may only share such a key if they agree on them (see {@link
+ * PlatformConfigurationProvider#getActualBaseOptionsForPlatform}). Otherwise, a configuration
+ * reached through a transition that sets a test option could be shared between a build that sets
+ * that option on the command line and one that doesn't, even though their output directories for it
+ * differ.
+ *
  * <p>The wire format is a single {@code byte} of bit flags encoding {@code isEmptyOptions}, {@code
  * isExec}, {@code trimTestOptions}, and {@code isTopLevelPlatform}, followed by:
  *
  * <ul>
  *   <li>if {@code isEmptyOptions}: nothing; the key represents {@link CommonOptions#EMPTY_OPTIONS}
  *       and the other flags are unset
- *   <li>otherwise: the platform {@link Label} (only when {@code !isTopLevelPlatform}), and the
- *       {@link OptionsDiff}
+ *   <li>otherwise: the platform {@link Label} (only when {@code !isTopLevelPlatform}), the {@link
+ *       OptionsDiff}, and, only when {@code !trimTestOptions}, the {@link OptionsDiff} from the
+ *       baseline to the actual baseline, which the reader skips
  * </ul>
  */
 public class BuildConfigurationKeyBaselineDiffCodec
@@ -115,6 +128,13 @@ public class BuildConfigurationKeyBaselineDiffCodec
     }
 
     context.serialize(OptionsDiff.diff(baselineOptions, options), codedOut);
+    if (!trimTestOptions) {
+      // Only needed to make the bytes depend on what the output directory mnemonic of this
+      // configuration is computed against; the reader doesn't need it to reconstruct the key.
+      BuildOptions actualBaselineOptions =
+          provider.getActualBaseOptionsForPlatform(platformLabel, isExec, trimTestOptions);
+      context.serialize(OptionsDiff.diff(baselineOptions, actualBaselineOptions), codedOut);
+    }
   }
 
   @Override
@@ -139,6 +159,9 @@ public class BuildConfigurationKeyBaselineDiffCodec
       context.deserialize(codedIn, builder, PlatformDiffBuilder::setPlatformLabel);
     }
     context.deserialize(codedIn, builder, PlatformDiffBuilder::setDiff);
+    if (!trimTestOptions) {
+      context.deserialize(codedIn, builder, PlatformDiffBuilder::skipActualBaselineDiff);
+    }
     return builder;
   }
 
@@ -166,6 +189,9 @@ public class BuildConfigurationKeyBaselineDiffCodec
     private static void setDiff(PlatformDiffBuilder builder, Object value) {
       builder.diff = (OptionsDiff) value;
     }
+
+    @SuppressWarnings("unused") // Only read to advance past it.
+    private static void skipActualBaselineDiff(PlatformDiffBuilder builder, Object value) {}
 
     @Override
     public BuildConfigurationKey call() throws SerializationException {

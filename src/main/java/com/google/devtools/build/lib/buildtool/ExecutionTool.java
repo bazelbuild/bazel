@@ -253,6 +253,10 @@ public class ExecutionTool {
     return actionContextRegistry.getContext(TestActionContext.class);
   }
 
+  SpawnStrategyRegistry getSpawnStrategyRegistry() {
+    return spawnStrategyRegistry;
+  }
+
   /**
    * Sets up for execution.
    *
@@ -821,7 +825,6 @@ public class ExecutionTool {
     try (SilentCloseable c =
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
       return OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-          runtime.getRuleClassProvider().getSymlinkDefinitions(),
           buildRequestOptions,
           env.getWorkspaceName(),
           env.getWorkspace(),
@@ -883,7 +886,7 @@ public class ExecutionTool {
    * An ErrorEventListener implementation that records DEPCHECKER events into a log file, iff the
    * --explain flag is specified during a build.
    */
-  private static class ExplanationHandler implements EventHandler, AutoCloseable {
+  static class ExplanationHandler implements EventHandler, AutoCloseable {
     private final PrintWriter log;
 
     private ExplanationHandler(OutputStream log, String optionsDescription) {

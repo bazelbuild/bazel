@@ -30,11 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * references), you need to walk the object graph.
  */
 public class ShallowObjectSizeComputer {
-  // "OOPS" stands for "Ordinary Object PointerS"
-  private static final Layout COMPRESSED_OOPS = new Layout(12, 8, 4, 4, 16);
-
-  private static final Layout NO_COMPRESSED_OOPS = new Layout(16, 8, 8, 8, 24);
-
   private static final Layout LAYOUT = Layout.getCurrentLayout();
 
   private ShallowObjectSizeComputer() {}
@@ -59,7 +54,7 @@ public class ShallowObjectSizeComputer {
       this.arrayHeaderBytes = arrayHeaderBytes;
     }
 
-    public static Layout getCurrentLayout() {
+    static Layout getCurrentLayout() {
       if (!System.getProperty("java.vm.name").startsWith("OpenJDK ")) {
         throw new IllegalStateException("Only OpenJDK is supported");
       }
@@ -68,12 +63,58 @@ public class ShallowObjectSizeComputer {
         throw new IllegalStateException("Only 64-bit JVMs are supported");
       }
 
+      // The layout computation below assumes compact object headers (JDK 24) and array element
+      // packing (JDK 23) exist.
+      if (Runtime.version().feature() < 25) {
+        throw new IllegalStateException("Only JDK 25 or later is supported");
+      }
+
       HotSpotDiagnosticMXBean diagnosticBean =
           ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class);
       boolean compressedOops =
           Boolean.parseBoolean(diagnosticBean.getVMOption("UseCompressedOops").getValue());
 
-      return compressedOops ? COMPRESSED_OOPS : NO_COMPRESSED_OOPS;
+      boolean compactObjectHeaders =
+          Boolean.parseBoolean(diagnosticBean.getVMOption("UseCompactObjectHeaders").getValue());
+
+      boolean compressedClassPointers;
+      try {
+        compressedClassPointers =
+            Boolean.parseBoolean(
+                diagnosticBean.getVMOption("UseCompressedClassPointers").getValue());
+      } catch (IllegalArgumentException e) {
+        // UseCompressedClassPointers was obsoleted in JDK 27, where class pointers are always
+        // compressed on 64-bit JVMs.
+        compressedClassPointers = Runtime.version().feature() >= 27;
+      }
+
+      long objectHeaderBytes = compactObjectHeaders ? 8 : compressedClassPointers ? 12 : 16;
+
+      // Array elements pack immediately after the 4-byte length field (JDK-8139457).
+      long arrayHeaderBytes = objectHeaderBytes + Integer.BYTES;
+
+      return new Layout(
+          /* objectHeaderBytes= */ objectHeaderBytes,
+          /* objectAlignment= */ 8,
+          /* referenceBytes= */ compressedOops ? 4 : 8,
+          /* superclassPaddingBytes= */ compressedOops ? 4 : 8,
+          /* arrayHeaderBytes= */ arrayHeaderBytes);
+    }
+
+    @Override
+    public String toString() {
+      return "Layout{"
+          + "objectHeaderBytes="
+          + objectHeaderBytes
+          + ", objectAlignment="
+          + objectAlignment
+          + ", referenceBytes="
+          + referenceBytes
+          + ", superclassPaddingBytes="
+          + superclassPaddingBytes
+          + ", arrayHeaderBytes="
+          + arrayHeaderBytes
+          + '}';
     }
   }
 
@@ -135,8 +176,15 @@ public class ShallowObjectSizeComputer {
 
   /** Returns the size of an array of a given length containing the given type. */
   public static long getArraySize(long length, Class<?> componentType) {
-    return roundUp(
-        LAYOUT.arrayHeaderBytes + length * getStorageSize(componentType), LAYOUT.objectAlignment);
+    long componentSize = getStorageSize(componentType);
+    // Array elements smaller than 8 bytes pack immediately after the array header (which ends in a
+    // 4-byte length field), while 8-byte elements (e.g. long, double, uncompressed references) are
+    // aligned to an 8-byte boundary (JDK-8139457).
+    long baseOffset =
+        componentSize == Long.BYTES
+            ? roundUp(LAYOUT.arrayHeaderBytes, Long.BYTES)
+            : LAYOUT.arrayHeaderBytes;
+    return roundUp(baseOffset + length * componentSize, LAYOUT.objectAlignment);
   }
 
   private static ClassSizes getClassSizes(Class<?> clazz) {

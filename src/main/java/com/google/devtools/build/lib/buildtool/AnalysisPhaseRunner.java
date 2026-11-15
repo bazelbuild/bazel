@@ -15,12 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.ANALYSIS_CACHING_DOWNLOAD;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.ANALYSIS_CACHING_UPLOAD;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SCL_CONFIG;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SKYFOCUS;
-import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS;
-import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
+import static com.google.devtools.build.lib.util.StringUtil.formatCount;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.base.Preconditions;
@@ -31,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -54,7 +50,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -64,8 +59,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
@@ -75,12 +70,10 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -147,6 +140,7 @@ public final class AnalysisPhaseRunner {
       }
 
       postAbortedEventsForSkippedTargets(env, analysisResult.getTargetsToSkip());
+      countTransitiveTargets(env, analysisResult.getTargetsToBuild());
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
@@ -164,14 +158,10 @@ public final class AnalysisPhaseRunner {
   }
 
   /** A simple container for storing processed evaluation results of the PROJECT.scl file. */
-  record ProjectEvaluationResult(
-      ImmutableSet<String> buildOptions,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
-      Optional<Label> projectFile) {
+  record ProjectEvaluationResult(ImmutableSet<String> buildOptions, Optional<Label> projectFile) {
 
     public ProjectEvaluationResult {
       checkArgument(buildOptions != null, "buildOptions cannot be null.");
-      checkArgument(activeDirectoriesMatcher != null, "activeDirectoriesMatcher cannot be null.");
       checkArgument(projectFile != null, "projectFile cannot be null.");
     }
 
@@ -183,24 +173,15 @@ public final class AnalysisPhaseRunner {
     public interface Builder {
       Builder buildOptions(ImmutableSet<String> buildOptions);
 
-      Builder activeDirectoriesMatcher(Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher);
-
       Builder projectFile(Optional<Label> projectFile);
 
       ProjectEvaluationResult build();
     }
   }
 
-  enum FeaturesUsingProjectFile {
-    ANALYSIS_CACHING_UPLOAD,
-    ANALYSIS_CACHING_DOWNLOAD,
-    SCL_CONFIG,
-    SKYFOCUS;
-  }
-
   /**
    * Evaluates the PROJECT.scl file and set corresponding options, if required by specific feature
-   * flags (e.g. canonical configurations, remote analysis caching).
+   * flags (e.g. canonical configurations).
    *
    * <p>May have a side-effect from updating the fields in the {@link CommandEnvironment} {@code
    * env} parameter.
@@ -215,51 +196,14 @@ public final class AnalysisPhaseRunner {
       TargetPatternPhaseValue targetPatternPhaseValue,
       CommandEnvironment env)
       throws LoadingFailedException, InvalidConfigurationException {
-    EnumSet<FeaturesUsingProjectFile> featureFlags = EnumSet.noneOf(FeaturesUsingProjectFile.class);
     ProjectEvaluationResult.Builder resultBuilder =
         ProjectEvaluationResult.builder()
             .buildOptions(ImmutableSet.of())
-            .activeDirectoriesMatcher(Optional.empty())
             .projectFile(Optional.empty());
 
-    if (env.getCommand().buildPhase().executes()) {
-      // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
-      // method only runs for build commands.
-      var mode = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).getMode();
-      if (mode.serializesValues()) {
-        featureFlags.add(ANALYSIS_CACHING_UPLOAD);
-      }
-      if (mode.isRetrievalEnabled()) {
-        featureFlags.add(ANALYSIS_CACHING_DOWNLOAD);
-      }
-    }
-
-    if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).getSclConfig())
-        || request.getBuildOptions().getEnforceProjectConfigs()) {
-      featureFlags.add(SCL_CONFIG);
-    }
-
-    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
-      featureFlags.add(SKYFOCUS);
-    }
-
-    if (featureFlags.isEmpty()) {
+    if (Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).getSclConfig())
+        && !request.getBuildOptions().getEnforceProjectConfigs()) {
       return resultBuilder.build();
-    }
-
-    if (featureFlags.contains(SKYFOCUS)
-        && (featureFlags.contains(ANALYSIS_CACHING_UPLOAD)
-            || featureFlags.contains(ANALYSIS_CACHING_DOWNLOAD))) {
-      String message =
-          "Skyfocus and remote analysis caching are incompatible. Enable one or the other.";
-      throw new LoadingFailedException(
-          message,
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(message)
-                  .setRemoteAnalysisCaching(
-                      RemoteAnalysisCaching.newBuilder().setCode(INCOMPATIBLE_OPTIONS))
-                  .build()));
     }
 
     Project.ActiveProjects activeProjects;
@@ -275,33 +219,7 @@ public final class AnalysisPhaseRunner {
           DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
     }
 
-    if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD) || featureFlags.contains(SKYFOCUS)) {
-      // Features that can work with zero or one project file.
-      if (activeProjects.projectFilesToTargetLabels().size() > 1) {
-        String message =
-            "This is a %s. %s"
-                .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
-        throw new LoadingFailedException(
-            message,
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(message)
-                    .setRemoteAnalysisCaching(
-                        RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
-                    .build()));
-      }
-      PathFragmentPrefixTrie projectMatcher =
-          activeProjects.isEmpty()
-              ? null
-              : BuildTool.getActiveDirectoriesMatcher(
-                  activeProjects.projectFilesToTargetLabels().keySet().iterator().next(),
-                  env.getSkyframeExecutor(),
-                  env.getReporter());
-
-      resultBuilder.activeDirectoriesMatcher(Optional.ofNullable(projectMatcher));
-    }
-
-    if (featureFlags.contains(SCL_CONFIG) && !activeProjects.isEmpty()) {
+    if (!activeProjects.isEmpty()) {
       // Do not apply canonical configurations if there are no project files.
       ImmutableSet<String> options =
           Project.applySclConfig(
@@ -339,6 +257,24 @@ public final class AnalysisPhaseRunner {
                   AbortReason.SKIPPED,
                   String.format("Target %s build was skipped.", label),
                   label));
+    }
+  }
+
+  private static void countTransitiveTargets(
+      CommandEnvironment env, Collection<ConfiguredTarget> targetsToBuild)
+      throws InterruptedException {
+    AnalysisOptions analysisOptions = env.getOptions().getOptions(AnalysisOptions.class);
+    if (analysisOptions == null || analysisOptions.getMaxTransitiveAnalysisNodes() <= 0) {
+      return;
+    }
+    try (SilentCloseable c = Profiler.instance().profile("countTransitiveTargets")) {
+      ImmutableSet<ConfiguredTargetKey> roots =
+          targetsToBuild.stream()
+              .map(ConfiguredTargetKey::fromConfiguredTarget)
+              .collect(ImmutableSet.toImmutableSet());
+      var unused =
+          TransitiveTargetCounter.count(
+              env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(), roots);
     }
   }
 
@@ -390,6 +326,7 @@ public final class AnalysisPhaseRunner {
               request.getAspects(),
               request.getAspectsParameters(),
               request.getViewOptions(),
+              request.getBuildOptions(),
               request.getKeepGoing(),
               request.getViewOptions().getSkipIncompatibleExplicitTargets(),
               request.getCheckForActionConflicts(),
@@ -400,7 +337,6 @@ public final class AnalysisPhaseRunner {
               env.getEventBus(),
               env.getRuntime().getBugReporter(),
               /* includeExecutionPhase= */ false,
-              /* skymeldAnalysisOverlapPercentage= */ 0,
               /* resourceManager= */ null,
               /* buildResultListener= */ null,
               /* executionSetupCallback= */ null,
@@ -489,16 +425,16 @@ public final class AnalysisPhaseRunner {
           .handle(
               Event.info(
                   "Found "
-                      + testCount
+                      + formatCount(testCount)
                       + (testCount == 1 ? " test target..." : " test targets...")));
     } else {
       env.getReporter()
           .handle(
               Event.info(
                   "Found "
-                      + targetCount
+                      + formatCount(targetCount)
                       + (targetCount == 1 ? " target and " : " targets and ")
-                      + testCount
+                      + formatCount(testCount)
                       + (testCount == 1 ? " test target..." : " test targets...")));
     }
   }
@@ -507,7 +443,10 @@ public final class AnalysisPhaseRunner {
     int targetCount = targetsToBuild.size();
     env.getReporter()
         .handle(
-            Event.info("Found " + targetCount + (targetCount == 1 ? " target..." : " targets...")));
+            Event.info(
+                "Found "
+                    + formatCount(targetCount)
+                    + (targetCount == 1 ? " target..." : " targets...")));
   }
 
   /**

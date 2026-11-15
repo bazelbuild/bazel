@@ -179,7 +179,7 @@ public class NativePathTest {
     Path path = fs.getPath(aFile.getPath());
     String latin1String = new String(allLatin1Chars);
     FileSystemUtils.writeContentAsLatin1(path, latin1String);
-    String fileContent = new String(FileSystemUtils.readContentAsLatin1(path));
+    String fileContent = FileSystemUtils.readContentAsLatin1(path);
     assertThat(latin1String).isEqualTo(fileContent);
   }
 

@@ -37,7 +37,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ConstraintValueInfo> PROVIDER =
-      new BuiltinProvider<>(STARLARK_NAME, ConstraintValueInfo.class) {};
+      new BuiltinProvider.NonCallable<>(STARLARK_NAME, ConstraintValueInfo.class) {};
 
   private final ConstraintSettingInfo constraint;
   private final Label label;

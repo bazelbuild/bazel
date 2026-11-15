@@ -21,7 +21,11 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -70,27 +74,28 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * <p>This is useful for files that store data that changes very frequently (e.g. current time)
    * but does not substantially affect the result of the build.
    */
-  Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+  ConstantMetadataArtifact getConstantMetadataArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root);
 
   /** Returns and artifact that represents a runfiles tree. */
-  SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+  RunfilesArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
   /**
    * Returns the artifact for the derived TreeArtifact with directory {@code rootRelativePath},
    * creating it if necessary, and setting the root of that artifact to {@code root}. The artifact
    * will be a TreeArtifact.
    */
-  SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+  TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
   /** Returns an artifact that represents an un-dereferenced symlinks. */
-  SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+  UnresolvedSymlinkArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
   /**
    * Returns the artifact for the derived file {@code rootRelativePath}, creating it if necessary,
    * and setting the root of that artifact to {@code root}. The artifact will represent the output
    * directory of a {@code Fileset}.
    */
-  Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+  FilesetArtifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
   /**
    * Returns the generating action for the given local artifact.

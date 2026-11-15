@@ -126,6 +126,30 @@ java_test(
 )
 
 java_test(
+    name = "ToolchainCycleReporterTest",
+    srcs = ["ToolchainCycleReporterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_cycle_reporter",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_cycle_reporter",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:single_toolchain_resolution_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "ToolchainResolutionFunctionTest",
     srcs = ["ToolchainResolutionFunctionTest.java"],
     shard_count = 5,
@@ -165,6 +189,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/baseline_coverage_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:dependency_evaluation_exception",

@@ -169,8 +169,9 @@ public abstract class BazelModuleContext {
    *     innermost Starlark function's module has no {@code BazelModuleContext}.
    */
   public static BazelModuleContext ofInnermostBzlOrThrow(StarlarkThread thread) {
-    Module m = Preconditions.checkNotNull(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    return Preconditions.checkNotNull(of(m));
+    @Nullable Module m = Module.ofInnermostEnclosingStarlarkFunction(thread);
+    @Nullable BazelModuleContext ctx = m != null ? of(m) : null;
+    return Preconditions.checkNotNull(ctx, "This API can only be used in .bzl files");
   }
 
   /**
@@ -187,8 +188,7 @@ public abstract class BazelModuleContext {
       ctx = of(m);
     }
     if (ctx == null) {
-      throw Starlark.errorf(
-          "%s can only be used during .bzl initialization (top-level evaluation)", what);
+      throw Starlark.errorf("%s can only be used in .bzl files", what);
     }
     return ctx;
   }

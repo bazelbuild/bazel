@@ -58,7 +58,8 @@ public final class SettablePlatformConfigurationProvider implements PlatformConf
   }
 
   @Override
-  public String resolveMnemonic(BuildOptions targetOptions) {
-    return get().resolveMnemonic(targetOptions);
+  public BuildOptions getActualBaseOptionsForPlatform(
+      Label platformLabel, boolean isExec, boolean trimTestOptions) throws SerializationException {
+    return get().getActualBaseOptionsForPlatform(platformLabel, isExec, trimTestOptions);
   }
 }

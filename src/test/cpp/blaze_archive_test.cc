@@ -34,7 +34,7 @@
 #include "googletest/include/gtest/gtest.h"
 #include "absl/status/statusor.h"
 #include "absl/time/time.h"
-#include "util/task/status_macros.h"
+#include "third_party/gloop/util/status/status_macros.h"
 
 using ::testing::Gt;
 using ::testing::status::IsOkAndHolds;

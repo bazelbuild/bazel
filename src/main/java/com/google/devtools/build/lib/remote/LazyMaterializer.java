@@ -14,22 +14,29 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * A file system that may keep the contents of certain directory trees in memory, backed by remote
  * storage, and that supports materializing them to the local file system on demand.
  */
 public interface LazyMaterializer {
+  /** Returns the recorded file permissions, or the default for a path outside the overlay. */
+  int getMaterializationPermissions(PathFragment path, int defaultPermissions) throws IOException;
+
   /**
    * Materializes the given external repository to the local file system if its contents are
    * currently only available in memory.
    *
    * <p>Does nothing if the repository is already backed by the local file system.
+   *
+   * @param requester a human-readable description of what requires the repository (e.g.
+   *     "repository @@foo at defs.bzl:1:2"), which is shown in the progress bar while the
+   *     repository is being materialized
    */
-  void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  void ensureMaterialized(RepositoryName repo, @Nullable String requester)
       throws IOException, InterruptedException;
 
   /**

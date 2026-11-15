@@ -80,6 +80,13 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   private boolean building = true;
   private SkyKey depErrorKey = null;
+
+  /**
+   * Whether the {@link SkyFunction} requested a dep in error without handling its exception, so
+   * that it observed the dep's value as missing.
+   */
+  private boolean unhandledChildError = false;
+
   private final SkyKey skyKey;
   private final GroupedDeps previouslyRequestedDeps;
 
@@ -713,9 +720,11 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       resultCallback.acceptValue(depKey, skyValue);
       return true;
     }
-    if (result instanceof Exception exception
-        && resultCallback.tryHandleException(depKey, exception)) {
-      return true;
+    if (result instanceof Exception exception) {
+      if (resultCallback.tryHandleException(depKey, exception)) {
+        return true;
+      }
+      unhandledChildError = true;
     }
     valuesMissing = true;
     return false;
@@ -756,6 +765,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     if (result instanceof Exception) {
       SkyFunctionException.throwIfInstanceOf(
           (Exception) result, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
+      unhandledChildError = true;
     }
     valuesMissing = true;
     return null;
@@ -805,6 +815,14 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   @Nullable
   SkyKey getDepErrorKey() {
     return depErrorKey;
+  }
+
+  /**
+   * Returns whether the {@link SkyFunction} requested a dep in error without handling its
+   * exception.
+   */
+  boolean hasUnhandledChildError() {
+    return unhandledChildError;
   }
 
   @Override

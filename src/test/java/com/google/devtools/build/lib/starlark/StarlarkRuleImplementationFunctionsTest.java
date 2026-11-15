@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -4161,7 +4161,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     when(result.getTreeMetadata(any()))
         .thenAnswer(
             invocation -> {
-              SpecialArtifact arg = invocation.getArgument(0);
+              TreeArtifact arg = invocation.getArgument(0);
               if (!arg.getRootRelativePathString().equals(dirRelativePath)) {
                 throw new IllegalStateException();
               }

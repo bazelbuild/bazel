@@ -163,4 +163,25 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "If true, Blaze will emit debug events for remote analysis caching.")
   public abstract boolean getEmitBepUploadEvents();
+
+  // This option has no consumers in Bazel; it is read by Google-internal code. Do not remove.
+  @Option(
+      name = "skycache_interactive_messages",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, Skycache console messages may include developer-focused guidance. If false,"
+              + " they are written for an automated environment.")
+  public abstract boolean getInteractiveMessages();
+
+  @Option(
+      name = "experimental_skycache_check_nested_set_owner",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, Skycache serialization fails when encountering a non-empty NestedSet without"
+              + " an owner.")
+  public abstract boolean getCheckNestedSetOwner();
 }

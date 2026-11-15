@@ -40,6 +40,10 @@ public class FileAccessException extends IOException {
     super(s);
   }
 
+  public FileAccessException(String s, Throwable cause) {
+    super(s, cause);
+  }
+
   /**
    * Codec for {@link FileAccessException}.
    *

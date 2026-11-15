@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkCallable;
 
@@ -25,7 +27,7 @@ import net.starlark.java.eval.StarlarkCallable;
     name = "Subrule",
     category = DocCategory.BUILTIN,
     doc =
-        "Experimental: a building block for writing rules with shared code. For more information,"
+        "A building block for writing rules with shared code. For more information,"
             + " please see the subrule proposal:"
             + " https://docs.google.com/document/d/1RbNC88QieKvBEwir7iV5zZU08AaMlOzxhVkPnmKDedQ")
 public interface StarlarkSubruleApi extends StarlarkCallable {
@@ -39,4 +41,9 @@ public interface StarlarkSubruleApi extends StarlarkCallable {
   }
 
   Optional<String> getUserDefinedNameIfSubruleAttr(String attrName);
+
+  String getName();
+
+  @Nullable
+  Label getExtensionLabel();
 }

@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-
 public final class JUnit4BazelMock {
 
   public static Builder builder() {

@@ -76,17 +76,20 @@ public abstract class Facts implements StarlarkIndexable {
   // human-readable and friendly to VCS merges.
   private static final int MAX_FACTS_DEPTH = 7;
 
+  static void checkDepth(int depth) throws EvalException {
+    if (depth > MAX_FACTS_DEPTH) {
+      throw Starlark.errorf("Facts cannot be nested more than %s levels deep", MAX_FACTS_DEPTH);
+    }
+  }
+
   @SuppressWarnings("unchecked")
   private static Dict<String, Object> validateAndNormalize(Dict<String, Object> facts)
       throws EvalException {
-    return (Dict<String, Object>) validateAndNormalize(facts, MAX_FACTS_DEPTH);
+    return (Dict<String, Object>) validateAndNormalize(facts, 0);
   }
 
-  private static Object validateAndNormalize(Object facts, int remainingDepth)
-      throws EvalException {
-    if (remainingDepth < 0) {
-      throw Starlark.errorf("Facts cannot be nested more than %s levels deep", MAX_FACTS_DEPTH);
-    }
+  private static Object validateAndNormalize(Object facts, int depth) throws EvalException {
+    checkDepth(depth);
     // Only permit types that can be serialized to JSON and ensure that they contain no information
     // not captured by equality by sorting dicts.
     return switch (facts) {
@@ -98,7 +101,7 @@ public abstract class Facts implements StarlarkIndexable {
       case StarlarkList<?> list -> {
         Object[] normalizedList = new Object[list.size()];
         for (int i = 0; i < list.size(); i++) {
-          normalizedList[i] = validateAndNormalize(list.get(i), remainingDepth - 1);
+          normalizedList[i] = validateAndNormalize(list.get(i), depth + 1);
         }
         yield StarlarkList.immutableOf(normalizedList);
       }
@@ -106,7 +109,7 @@ public abstract class Facts implements StarlarkIndexable {
         // Turn a tuple into a list since JSON does not have a tuple type.
         Object[] normalizedList = new Object[tuple.size()];
         for (int i = 0; i < tuple.size(); i++) {
-          normalizedList[i] = validateAndNormalize(tuple.get(i), remainingDepth - 1);
+          normalizedList[i] = validateAndNormalize(tuple.get(i), depth + 1);
         }
         yield StarlarkList.immutableOf(normalizedList);
       }
@@ -118,7 +121,7 @@ public abstract class Facts implements StarlarkIndexable {
                 "Facts keys must be strings, got '%s' (%s)",
                 Starlark.repr(entry, StarlarkSemantics.DEFAULT), Starlark.type(entry.getKey()));
           }
-          builder.put(string, validateAndNormalize(entry.getValue(), remainingDepth - 1));
+          builder.put(string, validateAndNormalize(entry.getValue(), depth + 1));
         }
         yield Dict.immutableCopyOf(builder);
       }

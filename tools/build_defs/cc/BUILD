@@ -1,9 +1,6 @@
 licenses(["notice"])
 
-exports_files([
-    "action_names.bzl",
-    "cc_import.bzl",
-])
+exports_files(["action_names.bzl"])
 
 filegroup(
     name = "srcs",

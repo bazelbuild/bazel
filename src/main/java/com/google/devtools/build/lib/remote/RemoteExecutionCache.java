@@ -146,6 +146,15 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
         chunkLocationMap);
   }
 
+  RemoteExecutionCache(
+      RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      @Nullable String symlinkTemplate,
+      DigestUtil digestUtil,
+      ListenableFuture<Chunking> chunking) {
+    super(checkNotNull(remoteCacheClient), diskCacheClient, symlinkTemplate, digestUtil, chunking);
+  }
+
   @VisibleForTesting
   void setRemotePathChecker(RemotePathChecker remotePathChecker) {
     this.remotePathChecker = remotePathChecker;
@@ -223,7 +232,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // the interim.
             throw new CacheNotFoundException(digest, execPath);
           }
-          return remoteCacheClient.uploadFile(context, digest, path, force);
+          return uploadOrChunkFile(context, digest, path, force);
         },
         directExecutor());
   }

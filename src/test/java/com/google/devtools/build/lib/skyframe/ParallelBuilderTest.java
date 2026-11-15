@@ -285,12 +285,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
                 }
 
                 @Override
-                public long getLastModifiedTime() throws IOException {
+                public long getLastModifiedTimeNanos() throws IOException {
                   throw new IOException();
                 }
 
                 @Override
-                public long getLastChangeTime() throws IOException {
+                public long getLastChangeTimeNanos() throws IOException {
                   throw new IOException();
                 }
               };

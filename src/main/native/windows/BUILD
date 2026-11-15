@@ -28,9 +28,14 @@ cc_library(
         "file.h",
         "util.h",
     ],
-    linkopts = [
-        "-DEFAULTLIB:advapi32.lib",  # RegGetValueW
-    ],
+    # RegGetValueW. This package is embedded into @bazel_tools, so it can't use
+    # the conditions in //src/conditions.
+    linkopts = select({
+        "@rules_cc//cc/compiler:clang": ["-ladvapi32"],
+        "@rules_cc//cc/compiler:gcc": ["-ladvapi32"],
+        "@rules_cc//cc/compiler:mingw-gcc": ["-ladvapi32"],
+        "//conditions:default": ["-DEFAULTLIB:advapi32.lib"],
+    }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = [
         "//src/main/cpp:__subpackages__",
@@ -79,6 +84,7 @@ cc_binary(
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/jni:__pkg__",
     ],
+    win_def_file = "windows_jni.def",
     deps = [
         ":lib-file",
         ":lib-process",

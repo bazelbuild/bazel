@@ -107,7 +107,7 @@ public class MethodOptionDefinition extends OptionDefinition {
   }
 
   @Override
-  public Object getRawValue(OptionsBase optionsBase) {
+  public Object getValue(OptionsBase optionsBase) {
     try {
       return method.invoke(optionsBase);
     } catch (ReflectiveOperationException e) {
