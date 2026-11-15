@@ -163,7 +163,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     -H "Authorization: Bearer $access_token" \
     -H 'Content-Type: application/json' \
     --data "$bot_session_body" \
-    'https://remoteworkers.googleapis.com/v1test2/projects/bazel-untrusted/instances/default_instance/botSessions' \
+    'https://remotebuildexecution.googleapis.com/v1test2/projects/bazel-untrusted/instances/default_instance/botSessions' \
     -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
   printf '\n'
 
