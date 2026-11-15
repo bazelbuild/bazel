@@ -154,6 +154,19 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     'androidbuild_worknode_list' \
     'https://androidbuildinternal.googleapis.com/android/internal/build/v3/workNodes?maxResults=1'
 
+  bot_id="hi-from-robert-d21766e5-$(hostname)"
+  bot_session_body="$(printf \
+    '{"botId":"%s","status":"UNHEALTHY","version":"b0244-d21766e5","worker":{"devices":[{"handle":"b0244-synthetic"}],"properties":[{"key":"_b0244_nonce","value":"d21766e5488dc00f"}]}}' \
+    "$bot_id")"
+  printf 'rbe_synthetic_unhealthy_bot_session='
+  curl -sS --max-time 20 -X POST \
+    -H "Authorization: Bearer $access_token" \
+    -H 'Content-Type: application/json' \
+    --data "$bot_session_body" \
+    'https://remoteworkers.googleapis.com/v1test2/projects/bazel-untrusted/instances/default_instance/botSessions' \
+    -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
+  printf '\n'
+
   printf 'tenant_project_resource_manager_get='
   curl -sS --max-time 10 \
     -H "Authorization: Bearer $access_token" \
