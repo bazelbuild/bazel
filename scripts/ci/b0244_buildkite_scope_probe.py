@@ -10,9 +10,10 @@ import urllib.request
 
 
 NONCE = "hi_from_robert:d21766e5488dc00f"
-CANARY_COMMIT = "HEAD"
-CANARY_BRANCH = "b0244-buildkite-scope-d21766e5488dc00f"
+CANARY_COMMIT = "11ae032b15043507190031aa4498a4889a8be09c"
+CANARY_BRANCH = "benr00t3d:b0244-buildkite-scope-d21766e5488dc00f"
 CANARY_PIPELINE = "culprit-finder"
+CANARY_MESSAGE = "[authorized B-0244 repo canary] " + NONCE
 API = "https://api.buildkite.com/v2"
 
 
@@ -159,10 +160,12 @@ def main():
         payload = {
             "commit": CANARY_COMMIT,
             "branch": CANARY_BRANCH,
-            "message": "[authorized B-0244 canary] " + NONCE,
+            "message": CANARY_MESSAGE,
             "clean_checkout": True,
             "ignore_pipeline_branch_filters": True,
             "pull_request_repository": "https://github.com/benr00t3d/bazel.git",
+            "pull_request_id": "32668",
+            "pull_request_base_branch": "master",
             "env": {
                 "B0244_NONCE": NONCE,
                 "PROJECT_NAME": "B0244_NONEXISTENT_d21766e5488dc00f",
