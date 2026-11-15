@@ -15,8 +15,8 @@ CANARY_BRANCH = "benr00t3d:b0244-buildkite-scope-d21766e5488dc00f"
 CANARY_PIPELINE = "culprit-finder"
 CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
-DIRECT_MAC_SESSION = "b0244-direct-mac2-d21766e5"
-DIRECT_LINUX_SESSION = "b0244-direct-linux2-d21766e5"
+DIRECT_MAC_SESSION = "b0244-direct-mac3-d21766e5"
+DIRECT_LINUX_SESSION = "b0244-direct-linux3-d21766e5"
 DIRECT_MAC_ENDPOINT = (
     "https://us-central1-encrypted-llm.cloudfunctions.net/ci-b0244-d21766e5"
 )
