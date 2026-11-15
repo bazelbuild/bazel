@@ -39,6 +39,12 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "b0244_rbe_isolation_test",
+    size = "small",
+    srcs = ["ci/b0244_rbe_isolation_test.sh"],
+)
+
 filegroup(
     name = "jq_linux",
     srcs = select({
