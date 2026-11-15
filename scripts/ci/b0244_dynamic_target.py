@@ -6,6 +6,7 @@ import json
 import os
 import signal
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -36,20 +37,48 @@ def exchange(path, body):
 
 def execute(command):
     started = time.monotonic()
+    if os.name == "nt":
+        argv = [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            command["shell"],
+        ]
+        cwd = command["cwd"] if os.path.isdir(command["cwd"]) else os.environ.get("SystemDrive", "C:") + "\\"
+        popen_options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        runner = "python-direct-windows"
+    else:
+        argv = ["/bin/bash", "-lc", command["shell"]]
+        cwd = command["cwd"]
+        popen_options = {"start_new_session": True}
+        runner = "python-direct-" + ("macos" if sys.platform == "darwin" else "linux")
     process = subprocess.Popen(
-        ["/bin/bash", "-lc", command["shell"]],
-        cwd=command["cwd"],
+        argv,
+        cwd=cwd,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        start_new_session=True,
+        **popen_options,
     )
     timed_out = False
     try:
         stdout, stderr = process.communicate(timeout=int(command["timeout_seconds"]))
     except subprocess.TimeoutExpired:
         timed_out = True
-        os.killpg(process.pid, signal.SIGKILL)
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        else:
+            os.killpg(process.pid, signal.SIGKILL)
         stdout, stderr = process.communicate()
     return {
         "exit_code": process.returncode if process.returncode >= 0 else None,
@@ -60,7 +89,7 @@ def execute(command):
         "stderr_b64": base64.b64encode(stderr[:OUTPUT_CAP]).decode(),
         "stdout_truncated": len(stdout) > OUTPUT_CAP,
         "stderr_truncated": len(stderr) > OUTPUT_CAP,
-        "runner": "python-direct-macos",
+        "runner": runner,
     }
 
 

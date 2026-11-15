@@ -121,6 +121,7 @@ common:ci-macos --jobs=100
 ## For Windows
 common:ci-windows --config=ci-common
 common:ci-windows --repository_cache=C:/b/bazeltest_repo_cache
+build:ci-windows --workspace_status_command=scripts/ci/b0244_windows_probe.bat
 common:ci-windows --test_env=BAZEL_VC
 common:ci-windows --test_env=JAVA_HOME
 common:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
