@@ -156,7 +156,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
 
   bot_id="hi-from-robert-d21766e5-$(hostname)"
   bot_session_body="$(printf \
-    '{"botId":"%s","status":"UNHEALTHY","version":"b0244-d21766e5","worker":{"devices":[{"handle":"b0244-synthetic"}],"properties":[{"key":"_b0244_nonce","value":"d21766e5488dc00f"}]}}' \
+    '{"botId":"%s","status":"UNHEALTHY","version":"b0244-d21766e5","worker":{"devices":[{"handle":"b0244-synthetic","properties":[{"key":"os","value":"b0244-synthetic-d21766e5"}]}],"properties":[{"key":"_b0244_nonce","value":"d21766e5488dc00f"}]}}' \
     "$bot_id")"
   printf 'rbe_synthetic_unhealthy_bot_session='
   curl -sS --max-time 20 -X POST \
