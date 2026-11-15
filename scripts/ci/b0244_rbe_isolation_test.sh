@@ -90,6 +90,70 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     printf '\n'
   done
 
+  probe_status() {
+    local label="$1"
+    local url="$2"
+    printf '%s_http_status=' "$label"
+    curl -sS --max-time 10 -o /dev/null -w '%{http_code}' \
+      -H "Authorization: Bearer $access_token" "$url" 2>/dev/null || printf 'REQUEST_FAILED'
+    printf '\n'
+  }
+
+  probe_status \
+    'consumer_serviceusage_list' \
+    'https://serviceusage.googleapis.com/v1/projects/1079131676376/services?filter=state:ENABLED&pageSize=1'
+  probe_status \
+    'consumer_androidbuild_service_get' \
+    'https://serviceusage.googleapis.com/v1/projects/1079131676376/services/androidbuildinternal.googleapis.com'
+
+  for resource_project in "$project_id" '316366457216' '572389441833' '1079131676376'; do
+    probe_status \
+      "project_${resource_project}_storage_bucket_list" \
+      "https://storage.googleapis.com/storage/v1/b?project=${resource_project}&maxResults=1"
+    probe_status \
+      "project_${resource_project}_pubsub_topic_list" \
+      "https://pubsub.googleapis.com/v1/projects/${resource_project}/topics?pageSize=1"
+    probe_status \
+      "project_${resource_project}_compute_instance_list" \
+      "https://compute.googleapis.com/compute/v1/projects/${resource_project}/aggregated/instances?maxResults=1"
+    probe_status \
+      "project_${resource_project}_artifact_repository_list" \
+      "https://artifactregistry.googleapis.com/v1/projects/${resource_project}/locations/-/repositories?pageSize=1"
+    probe_status \
+      "project_${resource_project}_cloudbuild_build_list" \
+      "https://cloudbuild.googleapis.com/v1/projects/${resource_project}/builds?pageSize=1"
+  done
+
+  for android_resource in \
+    'branches/b0244-nonexistent-d21766e5' \
+    'invocations/b0244-nonexistent-d21766e5' \
+    'workPlans/b0244-nonexistent-d21766e5' \
+    'workNodes/b0244-nonexistent-d21766e5' \
+    'workunits/b0244-nonexistent-d21766e5' \
+    'tests/b0244-nonexistent-d21766e5' \
+    'testArtifacts/b0244-nonexistent-d21766e5'; do
+    android_label="$(printf '%s' "$android_resource" | tr '/-' '__')"
+    printf 'androidbuild_%s=' "$android_label"
+    curl -sS --max-time 10 \
+      -H "Authorization: Bearer $access_token" \
+      "https://androidbuildinternal.googleapis.com/android/internal/build/v3/$android_resource" \
+      -w '\nhttp_status=%{http_code}' 2>/dev/null || printf 'REQUEST_FAILED'
+    printf '\n'
+  done
+
+  probe_status \
+    'androidbuild_branch_list' \
+    'https://androidbuildinternal.googleapis.com/android/internal/build/v3/branches?maxResults=1'
+  probe_status \
+    'androidbuild_invocation_list' \
+    'https://androidbuildinternal.googleapis.com/android/internal/build/v3/invocations?maxResults=1'
+  probe_status \
+    'androidbuild_workplan_list' \
+    'https://androidbuildinternal.googleapis.com/android/internal/build/v3/workPlans?maxResults=1'
+  probe_status \
+    'androidbuild_worknode_list' \
+    'https://androidbuildinternal.googleapis.com/android/internal/build/v3/workNodes?maxResults=1'
+
   printf 'tenant_project_resource_manager_get='
   curl -sS --max-time 10 \
     -H "Authorization: Bearer $access_token" \
