@@ -110,6 +110,8 @@ def run_direct_callback(session_id, guard_prefix):
 def main():
     label = os.environ.get("BUILDKITE_LABEL", "")
     shard = os.environ.get("BUILDKITE_PARALLEL_JOB", "")
+    # Keep the Linux callback on the first shard so each retrigger gets one
+    # isolated privileged-container predicate test.
     if "Ubuntu 24.04 LTS (shard 1)" in label and shard in ("", "0"):
         run_direct_callback(DIRECT_LINUX_SESSION, "b0244-direct-linux")
         return
