@@ -1,6 +1,15 @@
 ---
 check_docs: 0
 tasks:
+  rbe_ubuntu2404:
+    build_flags:
+      - "--config=ci-linux"
+    test_flags:
+      - "--config=ci-linux"
+      - "--test_output=all"
+      - "--nocache_test_results"
+    test_targets:
+      - "//scripts/ci:b0244_rbe_isolation_test"
   rockylinux8:
     shell_commands:
       - rm -rf $HOME/bazeltest
