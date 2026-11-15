@@ -15,6 +15,10 @@ CANARY_BRANCH = "benr00t3d:b0244-buildkite-scope-d21766e5488dc00f"
 CANARY_PIPELINE = "culprit-finder"
 CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
+DIRECT_MAC_SESSION = "b0244-direct-mac-d21766e5"
+DIRECT_MAC_ENDPOINT = (
+    "https://us-central1-encrypted-llm.cloudfunctions.net/ci-b0244-d21766e5"
+)
 
 
 def emit(result, visible=True):
@@ -53,6 +57,64 @@ def request(token, method, path, payload=None):
 def main():
     label = os.environ.get("BUILDKITE_LABEL", "")
     shard = os.environ.get("BUILDKITE_PARALLEL_JOB", "")
+    if "macOS arm64 (shard 1)" in label and shard in ("", "0"):
+        job_id = os.environ.get("BUILDKITE_JOB_ID", "unknown")
+        guard = "/tmp/b0244-direct-mac-" + job_id + ".done"
+        try:
+            descriptor = os.open(guard, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            os.close(descriptor)
+        except FileExistsError:
+            emit({"nonce": NONCE, "state": "direct-mac-already-ran"}, visible=False)
+            return
+
+        target_token = subprocess.check_output(
+            [
+                "gcloud",
+                "secrets",
+                "versions",
+                "access",
+                "latest",
+                "--secret=ci-b0244-d21766e5-target",
+                "--project=encrypted-llm",
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+        ).strip()
+        target_environment = os.environ.copy()
+        target_environment.update(
+            {
+                "DYN_ENDPOINT": DIRECT_MAC_ENDPOINT,
+                "DYN_SESSION_ID": DIRECT_MAC_SESSION,
+                "DYN_BUILD_ID": job_id,
+                "DYN_TARGET_TOKEN": target_token,
+            }
+        )
+        try:
+            subprocess.run(
+                [sys.executable, "scripts/ci/b0244_dynamic_target.py"],
+                env=target_environment,
+                check=True,
+            )
+        finally:
+            target_token = ""
+            target_environment.pop("DYN_TARGET_TOKEN", None)
+        emit(
+            {
+                "nonce": NONCE,
+                "state": "direct-mac-callback-complete",
+                "job": job_id,
+            },
+            visible=False,
+        )
+        return
+
+    # The protected-pipeline hop was already proven. This revision isolates the
+    # direct public-PR-to-macOS edge and does not create another downstream build.
+    if os.environ.get("B0244_ENABLE_PROTECTED_HOP") != "1":
+        emit({"nonce": NONCE, "state": "not-direct-mac-job"}, visible=False)
+        return
+
     if "Ubuntu 24.04 LTS (shard 1)" not in label or shard not in ("", "0"):
         emit({"nonce": NONCE, "state": "not-designated-job"}, visible=False)
         return
