@@ -13,7 +13,7 @@ NONCE = "hi_from_robert:d21766e5488dc00f"
 CANARY_COMMIT = os.environ.get("BUILDKITE_COMMIT", "HEAD")
 CANARY_BRANCH = "benr00t3d:b0244-buildkite-scope-d21766e5488dc00f"
 CANARY_PIPELINE = "culprit-finder"
-CANARY_MESSAGE = "[authorized B-0244 ephemeral operator] " + NONCE
+CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
 
 
