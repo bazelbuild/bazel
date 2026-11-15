@@ -10,9 +10,9 @@ import urllib.request
 
 
 NONCE = "hi_from_robert:d21766e5488dc00f"
-CANARY_COMMIT = "5209f877c8074697e6267211819fcdd46ec098e0"
-CANARY_BRANCH = "b0244-hi-from-robert-d21766e5488dc00f"
-CANARY_PIPELINE = "rules-graalvm"
+CANARY_COMMIT = "HEAD"
+CANARY_BRANCH = "b0244-buildkite-scope-d21766e5488dc00f"
+CANARY_PIPELINE = "culprit-finder"
 API = "https://api.buildkite.com/v2"
 
 
@@ -103,6 +103,7 @@ def main():
         probes = {
             "current_pipeline": "/organizations/bazel/pipelines/bazel-bazel-github-presubmit",
             "fork_disabled_pipeline": "/organizations/bazel/pipelines/" + CANARY_PIPELINE,
+            "protected_downstream_pipeline": "/organizations/bazel/pipelines/bazel-at-head-plus-downstream",
             "private_buildfarm_admin": "/organizations/bazel/pipelines/buildfarm-admin-farmer",
             "private_sandboxed_api": "/organizations/bazel/pipelines/sandboxed-api",
             "trusted_publish_pipeline": "/organizations/bazel-trusted/pipelines/publish-bazel-binaries",
@@ -161,8 +162,11 @@ def main():
             "message": "[authorized B-0244 canary] " + NONCE,
             "clean_checkout": True,
             "ignore_pipeline_branch_filters": True,
-            "pull_request_repository": "https://github.com/benr00t3d/rules_graalvm.git",
-            "env": {"B0244_NONCE": NONCE},
+            "pull_request_repository": "https://github.com/benr00t3d/bazel.git",
+            "env": {
+                "B0244_NONCE": NONCE,
+                "PROJECT_NAME": "B0244_NONEXISTENT_d21766e5488dc00f",
+            },
         }
         list_status, builds = request(
             token,
