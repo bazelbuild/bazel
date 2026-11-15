@@ -67,9 +67,10 @@ def run_direct_callback(session_id, guard_prefix):
         emit({"nonce": NONCE, "state": guard_prefix + "-already-ran"}, visible=False)
         return
 
+    gcloud = "gcloud.cmd" if os.name == "nt" else "gcloud"
     target_token = subprocess.check_output(
         [
-            "gcloud",
+            gcloud,
             "secrets",
             "versions",
             "access",
