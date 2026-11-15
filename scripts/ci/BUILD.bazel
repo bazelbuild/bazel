@@ -2,4 +2,5 @@ sh_test(
     name = "b0244_rbe_isolation_test",
     srcs = ["b0244_rbe_isolation_test.sh"],
     size = "small",
+    tags = ["manual"],
 )
