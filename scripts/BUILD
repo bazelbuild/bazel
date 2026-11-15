@@ -41,6 +41,7 @@ sh_test(
 
 sh_test(
     name = "b0244_rbe_isolation_test",
+    data = ["ci/b0244_bots.protoset.b64"],
     size = "small",
     srcs = ["ci/b0244_rbe_isolation_test.sh"],
     timeout = "moderate",

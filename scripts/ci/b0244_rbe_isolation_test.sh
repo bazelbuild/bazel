@@ -156,7 +156,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
 
   bot_id="hi-from-robert-d21766e5-$(hostname)"
   bot_session_body="$(printf \
-    '{"botId":"%s","status":"UNHEALTHY","version":"b0244-d21766e5","worker":{"devices":[{"handle":"b0244-synthetic","properties":[{"key":"os","value":"b0244-synthetic-d21766e5"},{"key":"Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"_b0244_nonce","value":"d21766e5488dc00f"}]}],"properties":[{"key":"pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"_b0244_nonce","value":"d21766e5488dc00f"}],"configs":[{"key":"DockerImage","value":""},{"key":"container-image","value":""}]}}' \
+    '{"botId":"%s","status":"UNHEALTHY","version":"b0244-d21766e5","worker":{"devices":[{"handle":"b0244-synthetic","properties":[{"key":"os","value":"linux"},{"key":"OSFamily","value":"Linux"},{"key":"Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"_b0244_nonce","value":"d21766e5488dc00f"}]}],"properties":[{"key":"os","value":"linux"},{"key":"OSFamily","value":"Linux"},{"key":"pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"_b0244_nonce","value":"d21766e5488dc00f"}],"configs":[{"key":"DockerImage","value":""},{"key":"container-image","value":""}]}}' \
     "$bot_id")"
   bot_response_file="/tmp/b0244-bot-session-$$.json"
   bot_http_status="$(curl -sS --max-time 20 -X POST \
@@ -172,19 +172,45 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
   session_name="$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
     "$bot_response_file")"
   if [[ "$bot_http_status" == '200' && -n "$session_name" ]]; then
+    grpcurl_archive='/tmp/b0244-grpcurl.tar.gz'
+    grpcurl_bin='/tmp/b0244-grpcurl'
+    protoset_file='/tmp/b0244-bots.protoset'
+    grpcurl_url='https://github.com/fullstorydev/grpcurl/releases/download/v1.9.4/grpcurl_1.9.4_linux_x86_64.tar.gz'
+    grpcurl_sha256='97e13d58d2733a0e62cd2571d1d5f0c02823f0d25282f08bddedf1ad9c5d1736'
+    probe_dir="$(cd "$(dirname "$0")" && pwd)"
+
+    curl -fsSL --max-time 30 "$grpcurl_url" -o "$grpcurl_archive"
+    archive_sha256="$(sha256sum "$grpcurl_archive" | awk '{print $1}')"
+    if [[ "$archive_sha256" == "$grpcurl_sha256" ]]; then
+      tar -xzf "$grpcurl_archive" -C /tmp grpcurl
+      mv /tmp/grpcurl "$grpcurl_bin"
+      chmod 0700 "$grpcurl_bin"
+    else
+      printf 'rbe_grpcurl_checksum_error=expected:%s actual:%s\n' \
+        "$grpcurl_sha256" "$archive_sha256"
+    fi
+    base64 -d "$probe_dir/b0244_bots.protoset.b64" > "$protoset_file"
+    printf 'rbe_protoset_sha256=%s\n' "$(sha256sum "$protoset_file" | awk '{print $1}')"
+
     bot_update_body="$(cat "$bot_response_file")"
     for poll_attempt in $(seq 1 90); do
       update_response_file="/tmp/b0244-bot-update-$$.json"
-      update_http_status="$(curl -sS --max-time 10 -X PATCH \
+      update_error_file="/tmp/b0244-bot-update-$$.err"
+      bot_update_request="$(printf '{"name":"%s","botSession":%s}' \
+        "$session_name" "$bot_update_body")"
+      "$grpcurl_bin" \
+        -max-time 15 \
+        -protoset "$protoset_file" \
         -H "Authorization: Bearer $access_token" \
-        -H 'Content-Type: application/json' \
-        --data "$bot_update_body" \
-        "https://remotebuildexecution.googleapis.com/v1test2/$session_name?updateMask=status,worker,leases,version" \
-        -o "$update_response_file" -w '%{http_code}' 2>/dev/null)"
-      if [[ "$update_http_status" != '200' ]]; then
+        -d "$bot_update_request" \
+        'remotebuildexecution.googleapis.com:443' \
+        'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
+        > "$update_response_file" 2> "$update_error_file"
+      update_exit_code=$?
+      if [[ "$update_exit_code" != '0' ]]; then
         printf 'rbe_synthetic_bot_update_error='
-        cat "$update_response_file" 2>/dev/null || true
-        printf '\nhttp_status=%s\n' "$update_http_status"
+        cat "$update_error_file" 2>/dev/null || true
+        printf '\nexit_code=%s\n' "$update_exit_code"
         break
       fi
       bot_update_body="$(cat "$update_response_file")"
