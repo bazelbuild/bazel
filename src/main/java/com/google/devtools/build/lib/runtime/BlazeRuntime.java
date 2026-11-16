@@ -1326,6 +1326,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         parseStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
 
+    // Install user-specified redactions before anything logs a command line.
+    SafeRequestLogging.setRedactedClientEnvNames(startupOptions.redactClientEnv);
+
     // Set up the failure detail path first, so that it can communicate problems with other flags
     // and module initialization.
     PathFragment failureDetailOut = startupOptions.failureDetailOut;
