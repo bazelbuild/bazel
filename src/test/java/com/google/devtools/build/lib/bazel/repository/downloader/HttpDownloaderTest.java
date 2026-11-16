@@ -1316,6 +1316,7 @@ public class HttpDownloaderTest {
                       "HTTP/1.1 302 Found",
                       "Location: http://localhost:" + server2.getLocalPort() + "/redirected",
                       "Connection: close",
+                      "",
                       "");
                 }
                 return null;
