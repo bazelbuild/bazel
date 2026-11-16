@@ -1503,10 +1503,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           return false; // It was already cleared.
         }
         boolean topLevel = topLevelTargets.contains(configuredTarget);
-        if (!topLevel
-            && !trackIncrementalState
-            && !remoteAnalysisCachingEnabled
-            && !hasActions(ctValue)) {
+        if (!topLevel && !trackIncrementalState && !hasActions(ctValue)) {
           // If not tracking incremental state, removing these nodes doesn't hurt. Morally we should
           // always be able to remove these, since they're not used for execution, but it leaves the
           // graph inconsistent, and the --discard_analysis_cache with --track_incremental_state
@@ -1526,10 +1523,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           return false; // Not successfully analyzed.
         }
         boolean topLevel = topLevelAspects.contains(key);
-        if (!topLevel
-            && !trackIncrementalState
-            && !remoteAnalysisCachingEnabled
-            && !hasActions(aspectValue)) {
+        if (!topLevel && !trackIncrementalState && !hasActions(aspectValue)) {
           return true;
         }
         if (isEmptyOptionsKey(aspectKey.getConfigurationKey())) {
