@@ -19,6 +19,18 @@ filegroup(
 )
 
 java_test(
+    name = "WireTypeTest",
+    size = "small",
+    srcs = ["WireTypeTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:wire_type",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "PackageLookupValueCodecTest",
     size = "small",
     srcs = ["PackageLookupValueCodecTest.java"],
@@ -518,6 +530,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_registry_setup_helpers",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skyvalue_retriever",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:wire_type",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
