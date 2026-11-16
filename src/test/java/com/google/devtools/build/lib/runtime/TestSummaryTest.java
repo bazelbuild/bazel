@@ -501,9 +501,10 @@ public class TestSummaryTest {
       TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
       InOrder order = Mockito.inOrder(printer);
       order.verify(printer).print(contains("//package:name"));
-      order.verify(printer).print(find("FAILED.*apple"));
-      order.verify(printer).print(find("FAILED.*banana"));
-      order.verify(printer).print(find("FAILED.*cranberry"));
+      // The test cases are printed in one piece, a line each.
+      order
+          .verify(printer)
+          .print(find("FAILED.*apple.*\\n.*FAILED.*banana.*\\n.*FAILED.*cranberry"));
     }
   }
 

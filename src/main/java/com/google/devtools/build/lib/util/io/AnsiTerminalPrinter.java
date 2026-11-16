@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util.io;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -68,6 +69,7 @@ public class AnsiTerminalPrinter {
   private static final Pattern PATTERN = Pattern.compile(MODE_PATTERN);
 
   private final OutputStream stream;
+  private final ByteArrayOutputStream held = new ByteArrayOutputStream();
   private final PrintWriter writer;
   private final AnsiTerminal terminal;
   private boolean useColor;
@@ -79,14 +81,19 @@ public class AnsiTerminalPrinter {
    */
   public AnsiTerminalPrinter(OutputStream out, boolean useColor) {
     this.useColor = useColor;
-    terminal = new AnsiTerminal(out);
-    writer = new PrintWriter(out, true);
+    // Text and coloring sequences go through one buffer, so they stay in order without the text
+    // being flushed to the stream ahead of every sequence.
+    terminal = new AnsiTerminal(held);
+    writer = new PrintWriter(held, true);
     stream = out;
   }
 
   /**
    * Writes the specified string to the output stream while injecting coloring
    * sequences when appropriate mode keyword is found and flushes.
+   *
+   * <p>The stream is flushed once, after the whole string. A flush can be expensive: the stream
+   * of a command's output sends what it has to the client on every one.
    *
    * List of supported mode keywords is defined by the enum {@link Mode}.
    *
@@ -107,7 +114,16 @@ public class AnsiTerminalPrinter {
         }
       }
       writer.print(part);
+      // Into the buffer, ahead of the coloring sequence the next part may start with.
       writer.flush();
+    }
+    try {
+      held.writeTo(stream);
+      stream.flush();
+    } catch (IOException e) {
+      // As a PrintWriter on the stream would: it keeps no exception either.
+    } finally {
+      held.reset();
     }
   }
 
