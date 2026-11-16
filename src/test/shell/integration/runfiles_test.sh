@@ -517,11 +517,10 @@ EOF
     || fail "MANIFEST file not recreated"
 }
 
-function test_rebuilt_when_mapping_changes {
-  if is_windows; then
-    # Can't do 'ln -s' on Windows
-    return
-  fi
+# Sets up //a:g, a genrule that runs the given command and has the executable //a:a as a tool.
+# The runfiles of //a:a contain a symlink to a/f named "link_one".
+function setup_runfiles_mapping_consumer {
+  local -r cmd="$1"
 
   mkdir -p a
   cat > a/a.bzl <<'EOF'
@@ -548,7 +547,7 @@ a = rule(
 )
 EOF
 
-  cat >a/BUILD <<'EOF'
+  cat >a/BUILD <<EOF
 load(":a.bzl", "a")
 a(
   name = "a",
@@ -562,18 +561,45 @@ genrule(
   outs = ["go"],
   output_to_bindir = 1,
   tools = [":a"],
-  cmd = "echo $(location :a).runfiles/*/link_* > $@",
+  cmd = "$cmd",
 )
 EOF
 
   touch a/f
+}
+
+function test_rebuilt_when_mapping_changes {
+  if is_windows; then
+    # Can't do 'ln -s' on Windows
+    return
+  fi
+
+  setup_runfiles_mapping_consumer 'echo $(location :a).runfiles/*/link_* > $@'
 
   bazel build //a:g || fail "first build failed"
   assert_contains '/link_one$' *-bin/a/go
 
   inplace-sed 's/link_one/link_two/' a/BUILD
-  bazel build //a:g || fail "first build failed"
+  bazel build //a:g || fail "second build failed"
   assert_contains '/link_two$' *-bin/a/go
+}
+
+# Without a runfiles manifest, the mapping itself has to be part of the digest of the runfiles
+# tree for the actions that use the tree to notice that it changed.
+function test_rebuilt_when_mapping_changes_without_manifests {
+  setup_runfiles_mapping_consumer 'echo $$RANDOM-$$RANDOM-$$RANDOM > $@'
+
+  bazel build --nobuild_runfile_manifests //a:g || fail "first build failed"
+  cp ${PRODUCT_NAME}-bin/a/go first
+
+  bazel build --nobuild_runfile_manifests //a:g || fail "second build failed"
+  diff first ${PRODUCT_NAME}-bin/a/go || fail "expected //a:g not to be rebuilt"
+
+  inplace-sed 's/link_one/link_two/' a/BUILD
+  bazel build --nobuild_runfile_manifests //a:g || fail "third build failed"
+  if diff first ${PRODUCT_NAME}-bin/a/go > /dev/null; then
+    fail "expected //a:g to be rebuilt"
+  fi
 }
 
 function test_special_chars_in_runfiles_source_paths() {

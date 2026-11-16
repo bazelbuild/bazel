@@ -47,6 +47,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_info",
         "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:custom_command_line",
