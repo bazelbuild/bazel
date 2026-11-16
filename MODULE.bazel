@@ -229,8 +229,8 @@ maven.install(
         "io.netty:netty-codec-compression:4.2.19.Final",
         "io.netty:netty-codec-http:4.2.19.Final",
         "io.netty:netty-codec-http2:4.2.19.Final",
-        "io.netty:netty-common:4.2.19.Final",
         "io.netty:netty-codec-socks:4.2.19.Final",
+        "io.netty:netty-common:4.2.19.Final",
         "io.netty:netty-handler:4.2.19.Final",
         "io.netty:netty-handler-proxy:4.2.19.Final",
         "io.netty:netty-resolver:4.2.19.Final",
@@ -262,6 +262,7 @@ maven.install(
         "org.openjdk.jol:jol-core:0.17",
         "org.roaringbitmap:RoaringBitmap:1.6.22",
         "org.threeten:threeten-extra:1.8.0",
+        "org.tomlj:tomlj:1.1.1",
         "org.tukaani:xz:1.9",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
