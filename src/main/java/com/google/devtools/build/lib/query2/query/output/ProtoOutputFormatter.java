@@ -34,12 +34,17 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
+import com.google.devtools.build.lib.packages.AttributeProvider;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.MaterializingDefault;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
@@ -73,6 +78,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
@@ -121,6 +127,35 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   /** Non-null if and only if --proto:rule_classes option is set. */
   @Nullable private RuleClassInfoFormatter ruleClassInfoFormatter;
 
+  @Nullable private volatile DefaultAttributeCache defaultAttributeCache;
+
+  private record DefaultAttributeCache(
+      LabelPrinter labelPrinter, Map<AttributeProvider, DefaultAttributeProtos> byProvider) {}
+
+  /** Releases the default protobufs and label printer after query output completes. */
+  public final void clearDefaultAttributeCache() {
+    defaultAttributeCache = null;
+  }
+
+  private DefaultAttributeProtos getDefaultAttributeProtos(Rule rule, LabelPrinter labelPrinter) {
+    DefaultAttributeCache cache = defaultAttributeCache;
+    if (cache == null || cache.labelPrinter() != labelPrinter) {
+      cache = new DefaultAttributeCache(labelPrinter, new ConcurrentHashMap<>());
+      defaultAttributeCache = cache;
+    }
+    AttributeProvider provider = rule.getAttributeProvider();
+    DefaultAttributeProtos defaults = cache.byProvider().get(provider);
+    return defaults != null
+        ? defaults
+        : cache
+            .byProvider()
+            .computeIfAbsent(
+                provider,
+                unused ->
+                    new DefaultAttributeProtos(
+                        provider.getAttributeCount(), labelPrinter, includeAttributeSourceAspects));
+  }
+
   @Override
   public String getName() {
     return "proto";
@@ -130,6 +165,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   public void setOptions(
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
+    clearDefaultAttributeCache();
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.packageGroupIncludesDoubleSlash = options.getIncompatiblePackageGroupIncludesDoubleSlash();
@@ -403,25 +439,38 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       LabelPrinter labelPrinter) {
     Map<Attribute, Build.Attribute> serializedAttributes = new HashMap<>();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
-    for (Attribute attr : rule.getAttributes()) {
+    var attributes = rule.getAttributeProvider().getAttributes();
+    DefaultAttributeProtos defaults = getDefaultAttributeProtos(rule, labelPrinter);
+    for (int index = 0; index < attributes.size(); index++) {
+      Attribute attr = attributes.get(index);
       if (!shouldIncludeAttribute(rule, attr)) {
         continue;
       }
-      Object attributeValue;
-      if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
-        attributeValue = getFlattenedAttributeValues(attr.getType(), rule, attr);
-      } else {
-        attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
+      Object attributeValue = rule.getAttr(attr.getName(), attr.getType());
+      if (attributeValue == null
+          || attributeValue instanceof SelectorList<?>
+          || attributeValue instanceof ComputedDefault
+          || attributeValue instanceof LateBoundDefault<?, ?>
+          || attributeValue instanceof MaterializingDefault<?, ?>
+          || attr.getName().equals("visibility")) {
+        if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
+          attributeValue = getFlattenedAttributeValues(attr.getType(), rule, attr);
+        } else {
+          attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
+        }
       }
+      boolean explicitlySpecified = rule.isAttributeValueExplicitlySpecified(attr);
       Build.Attribute serializedAttribute =
-          AttributeFormatter.getAttributeProto(
-              attr,
-              attributeValue,
-              rule.isAttributeValueExplicitlySpecified(attr),
-              /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
-              /* sourceAspect= */ null,
-              includeAttributeSourceAspects,
-              labelPrinter);
+          !explicitlySpecified && attributeValue == attr.getDefaultValueUnchecked()
+              ? defaults.getOutputProto(index, attr, attributeValue)
+              : AttributeFormatter.getAttributeProto(
+                  attr,
+                  attributeValue,
+                  explicitlySpecified,
+                  /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
+                  /* sourceAspect= */ null,
+                  includeAttributeSourceAspects,
+                  labelPrinter);
       serializedAttributes.put(attr, serializedAttribute);
     }
     rulePb.addAllAttribute(
@@ -441,7 +490,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                       extraDataForAttrHash,
                       hashFunction,
                       includeAttributeSourceAspects,
-                      includeStarlarkRuleEnv))
+                      includeStarlarkRuleEnv,
+                      defaults))
               .setType(Discriminator.STRING));
     }
   }
