@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -215,7 +216,10 @@ public final class MockToolsConfig {
       throws IOException {
     // Tests are assumed to be run from the main repository only.
     java.nio.file.Path source = nativeFs.getPath(path).getPathFile().toPath();
-    try (Stream<java.nio.file.Path> stream = Files.walk(source, depth)) {
+    // The source may be a junction on Windows, which is a directory only when following links as
+    // of JDK 26.
+    try (Stream<java.nio.file.Path> stream =
+        Files.walk(source, depth, FileVisitOption.FOLLOW_LINKS)) {
       stream
           .filter(f -> f.toFile().isFile())
           .map(f -> source.relativize(f).toString())
