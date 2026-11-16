@@ -237,35 +237,107 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     bot_update_body="$(sed 's/"status"[[:space:]]*:[[:space:]]*"[A-Z_]*"/"status": "OK"/' \
       "$bot_response_file")"
     if [[ "$lease_received" == '0' ]]; then
-      for poll_attempt in $(seq 1 90); do
-      update_response_file="/tmp/b0244-bot-update-$$.json"
-      update_error_file="/tmp/b0244-bot-update-$$.err"
-      bot_update_request="$(printf '{"name":"%s","botSession":%s}' \
-        "$session_name" "$bot_update_body")"
-      "$grpcurl_bin" \
-        -max-time 15 \
-        -protoset "$protoset_file" \
-        -H "Authorization: Bearer $access_token" \
-        -H "x-goog-request-params: name=$routing_name" \
-        -d "$bot_update_request" \
-        'remotebuildexecution.googleapis.com:443' \
-        'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
-        > "$update_response_file" 2> "$update_error_file"
-      update_exit_code=$?
-      if [[ "$update_exit_code" != '0' ]]; then
-        printf 'rbe_synthetic_bot_update_error='
+      selected_mask_mode=''
+      for mask_mode in absent empty full; do
+        update_response_file="/tmp/b0244-bot-update-$$-$mask_mode.json"
+        update_error_file="/tmp/b0244-bot-update-$$-$mask_mode.err"
+        case "$mask_mode" in
+          absent)
+            bot_update_request="$(printf '{"name":"%s","botSession":%s}' \
+              "$session_name" "$bot_update_body")"
+            ;;
+          empty)
+            bot_update_request="$(printf \
+              '{"name":"%s","botSession":%s,"updateMask":""}' \
+              "$session_name" "$bot_update_body")"
+            ;;
+          full)
+            bot_update_request="$(printf \
+              '{"name":"%s","botSession":%s,"updateMask":"status,worker,leases,version"}' \
+              "$session_name" "$bot_update_body")"
+            ;;
+        esac
+        "$grpcurl_bin" \
+          -max-time 10 \
+          -protoset "$protoset_file" \
+          -H "Authorization: Bearer $access_token" \
+          -H "x-goog-request-params: name=$routing_name" \
+          -d "$bot_update_request" \
+          'remotebuildexecution.googleapis.com:443' \
+          'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
+          > "$update_response_file" 2> "$update_error_file"
+        update_exit_code=$?
+        if [[ "$update_exit_code" == '0' ]]; then
+          selected_mask_mode="$mask_mode"
+          bot_update_body="$(cat "$update_response_file")"
+          printf 'rbe_synthetic_update_mode=%s\n' "$mask_mode"
+          if grep -q '"leases"' "$update_response_file"; then
+            printf 'rbe_synthetic_lease_receipt='
+            cat "$update_response_file"
+            printf '\n'
+            lease_received=1
+          fi
+          break
+        fi
+        if grep -q 'DeadlineExceeded' "$update_error_file"; then
+          selected_mask_mode="$mask_mode"
+          printf 'rbe_synthetic_update_mode=%s-long-poll\n' "$mask_mode"
+          break
+        fi
+        printf 'rbe_synthetic_bot_update_error_%s=' "$mask_mode"
         cat "$update_error_file" 2>/dev/null || true
         printf '\nexit_code=%s\n' "$update_exit_code"
-        break
-      fi
-      bot_update_body="$(cat "$update_response_file")"
-      if grep -q '"leases"' "$update_response_file"; then
-        printf 'rbe_synthetic_lease_receipt='
-        cat "$update_response_file"
-        printf '\n'
-        break
-      fi
-        sleep 2
+      done
+
+      for poll_attempt in $(seq 1 20); do
+        if [[ "$lease_received" == '1' || -z "$selected_mask_mode" ]]; then
+          break
+        fi
+        update_response_file="/tmp/b0244-bot-poll-$$.json"
+        update_error_file="/tmp/b0244-bot-poll-$$.err"
+        case "$selected_mask_mode" in
+          absent)
+            bot_update_request="$(printf '{"name":"%s","botSession":%s}' \
+              "$session_name" "$bot_update_body")"
+            ;;
+          empty)
+            bot_update_request="$(printf \
+              '{"name":"%s","botSession":%s,"updateMask":""}' \
+              "$session_name" "$bot_update_body")"
+            ;;
+          full)
+            bot_update_request="$(printf \
+              '{"name":"%s","botSession":%s,"updateMask":"status,worker,leases,version"}' \
+              "$session_name" "$bot_update_body")"
+            ;;
+        esac
+        "$grpcurl_bin" \
+          -max-time 10 \
+          -protoset "$protoset_file" \
+          -H "Authorization: Bearer $access_token" \
+          -H "x-goog-request-params: name=$routing_name" \
+          -d "$bot_update_request" \
+          'remotebuildexecution.googleapis.com:443' \
+          'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
+          > "$update_response_file" 2> "$update_error_file"
+        update_exit_code=$?
+        if [[ "$update_exit_code" == '0' ]]; then
+          bot_update_body="$(cat "$update_response_file")"
+          if grep -q '"leases"' "$update_response_file"; then
+            printf 'rbe_synthetic_lease_receipt='
+            cat "$update_response_file"
+            printf '\n'
+            lease_received=1
+          fi
+        elif grep -q 'DeadlineExceeded' "$update_error_file"; then
+          printf 'rbe_synthetic_poll_deadline=%s\n' "$poll_attempt"
+        else
+          printf 'rbe_synthetic_bot_poll_error='
+          cat "$update_error_file" 2>/dev/null || true
+          printf '\nexit_code=%s\n' "$update_exit_code"
+          break
+        fi
+        sleep 1
       done
     fi
   fi
