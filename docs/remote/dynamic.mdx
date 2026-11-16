@@ -149,10 +149,9 @@ to monitor your remote system performance if you enable this option.
 `--experimental_dynamic_ignore_local_signals` can be used to let the remote
 branch take over when a local spawn exits due to a given signal. This is
 is mainly useful together with worker resource limits (see
-[`--experimental_worker_memory_limit_mb`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_memory_limit_mb),
-[`--experimental_worker_sandbox_hardening`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_sandbox_hardening),
+[`--experimental_worker_memory_limit_mb`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_memory_limit_mb)
 and
-[`--experimental_sandbox_memory_limit_mb`)](https://bazel.build/reference/command-line-reference#flag--experimental_sandbox_memory_limit_mb)),
+[`--experimental_worker_sandbox_hardening`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_sandbox_hardening)),
 where worker processes may be killed when they use too many resources.
 
 The [JSON trace profile](/advanced/performance/json-trace-profile) contains a
