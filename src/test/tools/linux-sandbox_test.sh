@@ -150,6 +150,22 @@ test_hermetic_sandbox_root_readonly() {
   fi
 }
 
+test_hermetic_writable_dir_with_writable_ancestor() {
+  local sbroot="${TEST_TMPDIR}/root"
+  local sb_out="${sbroot}/work/out"
+  mkdir -p "$sb_out"
+
+  # Bazel passes /tmp as writable, which contains the sandbox root when the
+  # output base is under /tmp.
+  "${LINUX_SANDBOX}" -W "${sbroot}/work" -h "${sbroot}" \
+    -w "${TEST_TMPDIR}" -w "${sb_out}" \
+    -M /bin -m /bin -M /lib -m /lib -M /lib64 -m /lib64 -M /usr -m /usr \
+    -- /bin/sh -c 'echo ok > out/file' &> "$TEST_log" \
+    || fail "Could not write to a writable dir under the sandbox root"
+
+  assert_equals "ok" "$(cat "${sb_out}/file")"
+}
+
 test_leaked_fd_closed() {
   (
     exec 7>&1
