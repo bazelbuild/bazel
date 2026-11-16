@@ -156,7 +156,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
 
   bot_id="hi-from-robert-d21766e5-$(hostname)"
   bot_session_body="$(printf \
-    '{"botId":"%s","status":"INITIALIZING","version":"b0244-d21766e5","worker":{"devices":[{"handle":"primary","properties":[{"key":"label:OSFamily","value":"Linux"},{"key":"label:Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"label:_b0244_nonce","value":"d21766e5488dc00f"}]}],"configs":[{"key":"DockerImage","value":""},{"key":"container-image","value":""}]}}' \
+    '{"botId":"%s","status":"INITIALIZING","version":"b0244-d21766e5","worker":{"devices":[{"handle":"primary","properties":[{"key":"label:OSFamily","value":"Linux"},{"key":"label:Pool","value":"b0244-hi-from-robert-d21766e5"}]}]}}' \
     "$bot_id")"
   bot_response_file="/tmp/b0244-bot-session-$$.json"
   bot_http_status="$(curl -sS --max-time 20 -X POST \

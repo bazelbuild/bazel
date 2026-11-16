@@ -17,7 +17,7 @@ CANARY_PIPELINE = "culprit-finder"
 CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
 DIRECT_MAC_SESSION = "b0244-direct-mac7-d21766e5"
-DIRECT_LINUX_SESSION = "b0244-direct-linux11-d21766e5"
+DIRECT_LINUX_SESSION = "b0244-direct-linux12-d21766e5"
 DIRECT_WINDOWS_SESSION = "b0244-direct-windows8-d21766e5"
 DIRECT_MAC_ENDPOINT = (
     "https://us-central1-encrypted-llm.cloudfunctions.net/ci-b0244-d21766e5"
