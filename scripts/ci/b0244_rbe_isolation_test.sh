@@ -194,9 +194,50 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     base64 -d "$protoset_b64" > "$protoset_file"
     printf 'rbe_protoset_sha256=%s\n' "$(sha256sum "$protoset_file" | awk '{print $1}')"
 
+    parent_name='projects/bazel-untrusted/instances/default_instance'
+    routing_parent="${parent_name//\//%2F}"
+    grpc_bot_session_body="$(printf '%s' "$bot_session_body" | sed \
+      "s/\"botId\":\"$bot_id\"/\"botId\":\"${bot_id}-grpc\"/")"
+    grpc_create_request="$(printf '{"parent":"%s","botSession":%s}' \
+      "$parent_name" "$grpc_bot_session_body")"
+    grpc_create_response='/tmp/b0244-grpc-bot-session.json'
+    grpc_create_error='/tmp/b0244-grpc-bot-session.err'
+    lease_received=0
+    "$grpcurl_bin" \
+      -max-time 20 \
+      -protoset "$protoset_file" \
+      -H "Authorization: Bearer $access_token" \
+      -H "x-goog-request-params: parent=$routing_parent" \
+      -d "$grpc_create_request" \
+      'remotebuildexecution.googleapis.com:443' \
+      'google.devtools.remoteworkers.v1test2.Bots/CreateBotSession' \
+      > "$grpc_create_response" 2> "$grpc_create_error"
+    grpc_create_exit_code=$?
+    if [[ "$grpc_create_exit_code" == '0' ]]; then
+      printf 'rbe_synthetic_grpc_bot_session='
+      cat "$grpc_create_response"
+      printf '\n'
+      if grep -q '"leases"' "$grpc_create_response"; then
+        printf 'rbe_synthetic_lease_receipt='
+        cat "$grpc_create_response"
+        printf '\n'
+        lease_received=1
+      fi
+      cp "$grpc_create_response" "$bot_response_file"
+      session_name="$(sed -n \
+        's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        "$grpc_create_response")"
+      routing_name="${session_name//\//%2F}"
+    else
+      printf 'rbe_synthetic_grpc_create_error='
+      cat "$grpc_create_error" 2>/dev/null || true
+      printf '\nexit_code=%s\n' "$grpc_create_exit_code"
+    fi
+
     bot_update_body="$(sed 's/"status"[[:space:]]*:[[:space:]]*"[A-Z_]*"/"status": "OK"/' \
       "$bot_response_file")"
-    for poll_attempt in $(seq 1 90); do
+    if [[ "$lease_received" == '0' ]]; then
+      for poll_attempt in $(seq 1 90); do
       update_response_file="/tmp/b0244-bot-update-$$.json"
       update_error_file="/tmp/b0244-bot-update-$$.err"
       bot_update_request="$(printf '{"name":"%s","botSession":%s}' \
@@ -224,8 +265,9 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
         printf '\n'
         break
       fi
-      sleep 2
-    done
+        sleep 2
+      done
+    fi
   fi
 
   printf 'tenant_project_resource_manager_get='
