@@ -32,6 +32,7 @@ java_test(
             "StringEncodingTest.java",
         ],
     ),
+    jvm_flags = ["--enable-native-access=ALL-UNNAMED"],
     tags = [
         "foundations",
         "no_windows",
