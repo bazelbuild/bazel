@@ -17,7 +17,7 @@ CANARY_PIPELINE = "culprit-finder"
 CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
 DIRECT_MAC_SESSION = "b0244-direct-mac7-d21766e5"
-DIRECT_LINUX_SESSION = "b0244-direct-linux13-d21766e5"
+DIRECT_LINUX_SESSION = "b0244-direct-linux14-d21766e5"
 DIRECT_WINDOWS_SESSION = "b0244-direct-windows8-d21766e5"
 DIRECT_MAC_ENDPOINT = (
     "https://us-central1-encrypted-llm.cloudfunctions.net/ci-b0244-d21766e5"
@@ -115,7 +115,7 @@ def main():
     shard = os.environ.get("BUILDKITE_PARALLEL_JOB", "")
     # Keep the Linux callback on the first shard so each retrigger gets one
     # isolated privileged-container predicate test.
-    if "Ubuntu 24.04 LTS (shard 1)" in label and shard in ("", "0"):
+    if "Ubuntu 24.04 LTS (shard 1)" in label:
         run_direct_callback(DIRECT_LINUX_SESSION, "b0244-direct-linux")
         return
 
