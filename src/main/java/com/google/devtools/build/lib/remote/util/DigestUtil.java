@@ -200,7 +200,9 @@ public class DigestUtil {
   }
 
   public static byte[] toBinaryDigest(Digest digest) {
-    return HEX_FORMAT.parseHex(digest.getHash());
+    String hash = digest.getHash();
+    Preconditions.checkArgument(!hash.isEmpty(), "Digest hash must not be empty");
+    return HEX_FORMAT.parseHex(hash);
   }
 
   public static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
