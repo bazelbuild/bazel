@@ -47,21 +47,6 @@ sh_test(
     timeout = "moderate",
 )
 
-genrule(
-    name = "b0244_buildkite_scope_probe",
-    srcs = [
-        "ci/b0244_buildkite_scope_probe.py",
-        "ci/b0244_dynamic_target.py",
-    ],
-    outs = ["b0244_buildkite_scope_probe.txt"],
-    cmd = "python3 $(location ci/b0244_buildkite_scope_probe.py) > $@",
-    local = True,
-    tags = [
-        "no-cache",
-        "no-sandbox",
-    ],
-)
-
 filegroup(
     name = "jq_linux",
     srcs = select({

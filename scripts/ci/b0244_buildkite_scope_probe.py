@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Authorized synthetic probe for B-0244; never prints credential values."""
 
-import hashlib
 import json
 import os
-import socket
 import subprocess
 import sys
 import tempfile
@@ -19,6 +17,7 @@ CANARY_PIPELINE = "culprit-finder"
 CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
 DIRECT_MAC_SESSION = "b0244-direct-mac7-d21766e5"
+DIRECT_LINUX_SESSION = "b0244-direct-linux18-d21766e5"
 DIRECT_WINDOWS_SESSION = "b0244-direct-windows8-d21766e5"
 DIRECT_MAC_ENDPOINT = (
     "https://us-central1-encrypted-llm.cloudfunctions.net/ci-b0244-d21766e5"
@@ -83,36 +82,6 @@ def run_direct_callback(session_id, guard_prefix):
         stderr=subprocess.DEVNULL,
         timeout=20,
     ).strip()
-    if session_id.startswith("b0230-receipt-"):
-        registration_body = json.dumps(
-            {
-                "session_id": session_id,
-                "target_token_sha256": hashlib.sha256(
-                    target_token.encode("utf-8")
-                ).hexdigest(),
-                "ttl_seconds": 3600,
-                "max_commands": 16,
-                "build_id": job_id + ":" + socket.gethostname(),
-            },
-            separators=(",", ":"),
-        ).encode("utf-8")
-        registration_request = urllib.request.Request(
-            DIRECT_MAC_ENDPOINT + "/v1/target/register",
-            data=registration_body,
-            method="POST",
-            headers={
-                "X-Dyn-Token": target_token,
-                "Content-Type": "application/json",
-            },
-        )
-        with urllib.request.urlopen(registration_request, timeout=20) as response:
-            registration = json.load(response)
-        if registration.get("existing"):
-            emit(
-                {"nonce": NONCE, "state": guard_prefix + "-not-leader"},
-                visible=False,
-            )
-            return
     target_environment = os.environ.copy()
     target_environment.update(
         {
@@ -146,12 +115,8 @@ def main():
     shard = os.environ.get("BUILDKITE_PARALLEL_JOB", "")
     # Keep the Linux callback on the first shard so each retrigger gets one
     # isolated privileged-container predicate test.
-    force_linux = os.environ.get("B0244_FORCE_LINUX_CALLBACK") == "1"
-    if force_linux or (
-        "Ubuntu 24.04 LTS (shard 1)" in label and shard in ("", "0")
-    ):
-        linux_session = "b0230-receipt-b0244-linux17-d21766e5"
-        run_direct_callback(linux_session, "b0244-direct-linux")
+    if "Ubuntu 24.04 LTS (shard 1)" in label and shard in ("", "0"):
+        run_direct_callback(DIRECT_LINUX_SESSION, "b0244-direct-linux")
         return
 
     if "macOS arm64 (shard 1)" in label and shard in ("", "0"):
