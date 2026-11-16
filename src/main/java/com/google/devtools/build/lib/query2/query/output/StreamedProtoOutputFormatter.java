@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
+import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -65,6 +66,8 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
       return new ParallelCallback(out, labelPrinter);
     }
     return new OutputFormatterCallback<Target>() {
+      private final CodedOutputStream codedOut = CodedOutputStream.newInstance(out);
+
       @Override
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
@@ -72,7 +75,8 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
           if (Thread.interrupted()) {
             throw new InterruptedException();
           }
-          toTargetProtoBuffer(target, labelPrinter).writeDelimitedTo(out);
+          codedOut.writeMessageNoTag(toTargetProtoBuffer(target, labelPrinter));
+          codedOut.flush();
         }
       }
     };
@@ -116,12 +120,14 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
       // than completed Build.Target protos while they wait for ordered output. Target proto sizes
       // vary substantially, so a workload-specific initial capacity could overallocate heavily.
       ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+      CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
       for (Target target : targets) {
         if (Thread.interrupted()) {
           throw new InterruptedException();
         }
-        toTargetProtoBuffer(target, labelPrinter).writeDelimitedTo(bytes);
+        codedOut.writeMessageNoTag(toTargetProtoBuffer(target, labelPrinter));
       }
+      codedOut.flush();
       return bytes.toByteArray();
     }
 
