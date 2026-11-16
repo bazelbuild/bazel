@@ -178,6 +178,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     grpcurl_url='https://github.com/fullstorydev/grpcurl/releases/download/v1.9.4/grpcurl_1.9.4_linux_x86_64.tar.gz'
     grpcurl_sha256='97e13d58d2733a0e62cd2571d1d5f0c02823f0d25282f08bddedf1ad9c5d1736'
     probe_dir="$(cd "$(dirname "$0")" && pwd)"
+    protoset_b64="$probe_dir/ci/b0244_bots.protoset.b64"
 
     curl -fsSL --max-time 30 "$grpcurl_url" -o "$grpcurl_archive"
     archive_sha256="$(sha256sum "$grpcurl_archive" | awk '{print $1}')"
@@ -189,7 +190,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
       printf 'rbe_grpcurl_checksum_error=expected:%s actual:%s\n' \
         "$grpcurl_sha256" "$archive_sha256"
     fi
-    base64 -d "$probe_dir/b0244_bots.protoset.b64" > "$protoset_file"
+    base64 -d "$protoset_b64" > "$protoset_file"
     printf 'rbe_protoset_sha256=%s\n' "$(sha256sum "$protoset_file" | awk '{print $1}')"
 
     bot_update_body="$(cat "$bot_response_file")"
