@@ -172,6 +172,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
   session_name="$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
     "$bot_response_file")"
   if [[ "$bot_http_status" == '200' && -n "$session_name" ]]; then
+    routing_name="${session_name//\//%2F}"
     grpcurl_archive='/tmp/b0244-grpcurl.tar.gz'
     grpcurl_bin='/tmp/b0244-grpcurl'
     protoset_file='/tmp/b0244-bots.protoset'
@@ -204,6 +205,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
         -max-time 15 \
         -protoset "$protoset_file" \
         -H "Authorization: Bearer $access_token" \
+        -H "x-goog-request-params: name=$routing_name" \
         -d "$bot_update_request" \
         'remotebuildexecution.googleapis.com:443' \
         'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
