@@ -70,7 +70,6 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
-      - python3 scripts/ci/b0244_buildkite_scope_probe.py
     build_flags:
       - "--config=ci-linux"
     build_targets:
