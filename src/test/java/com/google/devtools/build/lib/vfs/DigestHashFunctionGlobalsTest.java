@@ -33,6 +33,10 @@ public class DigestHashFunctionGlobalsTest {
 
   @Test
   public void convertReturnsTheSameValueAsTheConstant() throws Exception {
+    assertThat(
+            DigestHashFunction.getReusableDigestFunction(
+                DigestHashFunction.SHA256.getHashFunction()))
+        .isSameInstanceAs(DigestHashFunction.SHA256);
     assertThat(converter.convert("sha-256")).isSameInstanceAs(DigestHashFunction.SHA256);
     assertThat(converter.convert("SHA-256")).isSameInstanceAs(DigestHashFunction.SHA256);
     assertThat(converter.convert("SHA256")).isSameInstanceAs(DigestHashFunction.SHA256);
@@ -46,7 +50,9 @@ public class DigestHashFunctionGlobalsTest {
 
   @Test
   public void lateRegistrationGetsPickedUpByConverter() throws Exception {
-    DigestHashFunction.register(Hashing.goodFastHash(32), "MD5");
+    var hash = Hashing.goodFastHash(32);
+    DigestHashFunction.register(hash, "MD5");
+    assertThat(DigestHashFunction.getReusableDigestFunction(hash)).isNull();
 
     assertThat(converter.convert("MD5")).isSameInstanceAs(converter.convert("md5"));
   }
