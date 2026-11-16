@@ -143,14 +143,6 @@ java_library(
 )
 
 java_library(
-    name = "config_aware_aspect_builder",
-    srcs = ["ConfigAwareAspectBuilder.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
-)
-
-java_library(
     name = "config_matching_provider",
     srcs = ["ConfigMatchingProvider.java"],
     deps = [
