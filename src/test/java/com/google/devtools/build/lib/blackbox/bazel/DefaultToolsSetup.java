@@ -58,6 +58,9 @@ public class DefaultToolsSetup implements ToolsSetup {
     // explicitly.
     lines.add("common --repo_contents_cache=");
 
+    // Use BCR module mirror to avoid flaky network errors.
+    lines.add("common --module_mirrors=https://bcr.cloudflaremirrors.com");
+
     if (OS.getCurrent() == OS.DARWIN && hasIpv6DefaultRouteOnDarwin()) {
       // Prefer IPv6 network on macOS only when an IPv6 default route exists.
       lines.add("startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true");

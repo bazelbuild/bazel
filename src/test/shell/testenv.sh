@@ -345,6 +345,9 @@ EOF
   # exercise the repo contents cache opt in explicitly.
   echo "common --repo_contents_cache=" >> $TEST_TMPDIR/bazelrc
 
+  # Use BCR module mirror to avoid flaky network errors.
+  echo "common --module_mirrors=https://bcr.cloudflaremirrors.com" >> $TEST_TMPDIR/bazelrc
+
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
     local install_base_key
     install_base_key="$(unzip -p "$PATH_TO_BAZEL_BIN" install_base_key)" || \
