@@ -1515,149 +1515,81 @@ static string GetMsysBash() {
   return string();
 }
 
-// Uses backslashes as the only separator and collapses repeated separators.
-static std::wstring NormalizeSeparators(const std::wstring& path) {
-  std::wstring result = path;
-  std::replace(result.begin(), result.end(), L'/', L'\\');
-  result.erase(std::unique(result.begin(), result.end(),
-                           [](wchar_t a, wchar_t b) {
-                             return a == L'\\' && b == L'\\';
-                           }),
-               result.end());
-  return result;
-}
-
-// Returns whether `file` is under `dir`, regardless of case and separator
-// style.
-static bool IsUnderDirectory(const std::wstring& file,
-                             const std::wstring& dir) {
-  if (dir.empty()) {
+// Returns whether `path` is under `dir`, ignoring case.
+static bool IsUnderDirectory(const blaze_util::Path& path,
+                             const blaze_util::Path& dir) {
+  if (dir.IsEmpty()) {
     return false;
   }
-  std::wstring prefix = NormalizeSeparators(dir);
-  if (prefix.back() != L'\\') {
-    prefix += L'\\';
-  }
-  std::wstring normalized_file = NormalizeSeparators(file);
-  if (normalized_file.size() < prefix.size()) {
-    return false;
-  }
+  const std::wstring prefix = dir.AsNativePath() + L"\\";
+  const std::wstring file = path.AsNativePath();
   int prefix_size = static_cast<int>(prefix.size());
-  return CompareStringOrdinal(normalized_file.c_str(), prefix_size,
-                              prefix.c_str(), prefix_size,
-                              TRUE) == CSTR_EQUAL;
-}
-
-// Returns the first `binary_name` on `path_list` that is not under any of
-// `skip_dirs`.
-static string GetBinaryFromPath(const string& binary_name,
-                                const string& path_list,
-                                const std::vector<string>& skip_dirs) {
-  std::wstring wbinary_name = blaze_util::CstringToWstring(binary_name);
-  std::vector<std::wstring> wskip_dirs;
-  for (const string& dir : skip_dirs) {
-    wskip_dirs.push_back(blaze_util::CstringToWstring(dir));
-  }
-
-  // We do not fully replicate all the quirks of search in PATH.
-  // There is no system function to do so, and that way lies madness.
-  size_t start = 0;
-  do {
-    // This ignores possibly quoted semicolons in PATH etc.
-    size_t end = path_list.find_first_of(";", start);
-    string path = path_list.substr(
-        start, end != string::npos ? end - start : string::npos);
-    // Handle one typical way of quoting (where.exe does not handle this, but
-    // CreateProcess does).
-    if (path.size() > 1 && path[0] == '"' && path[path.size() - 1] == '"') {
-      path = path.substr(1, path.size() - 2);
-    }
-    std::wstring wpath = blaze_util::CstringToWstring(path);
-    std::wstring wfound(MAX_PATH, L'\0');
-    DWORD size = SearchPathW(wpath.c_str(), wbinary_name.c_str(), nullptr,
-                             static_cast<DWORD>(wfound.size()), &wfound[0],
-                             nullptr);
-    if (size >= wfound.size()) {
-      wfound.resize(size);
-      size = SearchPathW(wpath.c_str(), wbinary_name.c_str(), nullptr,
-                         static_cast<DWORD>(wfound.size()), &wfound[0],
-                         nullptr);
-    }
-    if (size > 0 && size < wfound.size()) {
-      wfound.resize(size);
-      string found = blaze_util::WstringToCstring(wfound);
-      if (std::any_of(wskip_dirs.begin(), wskip_dirs.end(),
-                      [&wfound](const std::wstring& dir) {
-                        return IsUnderDirectory(wfound, dir);
-                      })) {
-        BAZEL_LOG(INFO) << "Ignoring " << found;
-      } else {
-        BAZEL_LOG(INFO) << binary_name.c_str() << " found on PATH: " << found;
-        return found;
-      }
-    }
-    if (end == string::npos) {
-      break;
-    }
-    start = end + 1;
-  } while (true);
-
-  return string();
+  return file.size() >= prefix.size() &&
+         CompareStringOrdinal(file.c_str(), prefix_size, prefix.c_str(),
+                              prefix_size, TRUE) == CSTR_EQUAL;
 }
 
 string FindBashInPath(const string& path_list, const string& windir,
                       const string& local_app_data) {
   // Skip the WSL launcher in %WINDIR% and its Microsoft Store alias, they
   // cannot run Bazel's commands.
-  std::vector<string> skip_dirs = {windir};
+  string error;
+  std::vector<blaze_util::Path> skip_dirs = {blaze_util::Path(windir, &error)};
   if (!local_app_data.empty()) {
-    skip_dirs.push_back(local_app_data + "\\Microsoft\\WindowsApps");
+    skip_dirs.emplace_back(local_app_data + "\\Microsoft\\WindowsApps", &error);
   }
-  return GetBinaryFromPath("bash.exe", path_list, skip_dirs);
-}
 
-struct RegKeyCloser {
-  void operator()(HKEY key) const { RegCloseKey(key); }
-};
-using AutoRegKey = std::unique_ptr<std::remove_pointer_t<HKEY>, RegKeyCloser>;
+  // We do not fully replicate all the quirks of search in PATH.
+  // There is no system function to do so, and that way lies madness.
+  // This ignores possibly quoted semicolons in PATH etc.
+  for (string dir : blaze_util::Split(path_list, ';')) {
+    // Handle one typical way of quoting (where.exe does not handle this, but
+    // CreateProcess does).
+    if (dir.size() > 1 && dir.front() == '"' && dir.back() == '"') {
+      dir = dir.substr(1, dir.size() - 2);
+    }
+    if (dir.empty()) {
+      continue;
+    }
+    blaze_util::Path bash(blaze_util::JoinPath(dir, "bash.exe"), &error);
+    if (!blaze_util::PathExists(bash)) {
+      continue;
+    }
+    if (std::any_of(skip_dirs.begin(), skip_dirs.end(),
+                    [&bash](const blaze_util::Path& skip_dir) {
+                      return IsUnderDirectory(bash, skip_dir);
+                    })) {
+      BAZEL_LOG(INFO) << "Ignoring " << bash.AsPrintablePath();
+      continue;
+    }
+    BAZEL_LOG(INFO) << "bash.exe found on PATH: " << bash.AsPrintablePath();
+    return bash.AsPrintablePath();
+  }
+  return string();
+}
 
 // Returns Git for Windows' bash.exe from the install path in `root`, or an
 // empty string.
 static string GetGitForWindowsBash(HKEY root) {
-  HKEY h_key;
-  if (RegOpenKeyExW(root, L"Software\\GitForWindows", 0,
-                    KEY_QUERY_VALUE | KEY_WOW64_64KEY,
-                    &h_key) != ERROR_SUCCESS) {
+  WCHAR install_path[MAX_PATH];
+  DWORD size = sizeof(install_path);
+  if (RegGetValueW(root, L"Software\\GitForWindows", L"InstallPath",
+                   RRF_RT_REG_SZ, nullptr, install_path,
+                   &size) != ERROR_SUCCESS ||
+      install_path[0] == L'\0') {
     return string();
   }
-  AutoRegKey auto_key(h_key);
-
-  DWORD size = 0;
-  if (RegGetValueW(h_key, nullptr, L"InstallPath", RRF_RT_REG_SZ, nullptr,
-                   nullptr, &size) != ERROR_SUCCESS) {
+  string error;
+  blaze_util::Path bash(
+      blaze_util::JoinPath(blaze_util::WstringToCstring(install_path),
+                           "usr\\bin\\bash.exe"),
+      &error);
+  if (!blaze_util::PathExists(bash)) {
     return string();
   }
-  std::wstring value(size / sizeof(WCHAR) + 1, L'\0');
-  size = static_cast<DWORD>(value.size() * sizeof(WCHAR));
-  if (RegGetValueW(h_key, nullptr, L"InstallPath", RRF_RT_REG_SZ, nullptr,
-                   &value[0], &size) != ERROR_SUCCESS) {
-    return string();
-  }
-  value.resize(wcslen(value.c_str()));
-  while (!value.empty() && (value.back() == L'\\' || value.back() == L'/')) {
-    value.pop_back();
-  }
-  if (value.empty()) {
-    return string();
-  }
-
-  string bash_exe =
-      blaze_util::WstringToCstring(value) + "\\usr\\bin\\bash.exe";
-  if (!blaze_util::PathExists(bash_exe)) {
-    return string();
-  }
-  BAZEL_LOG(INFO) << "Detected Git for Windows Bash at " << bash_exe.c_str();
-  return bash_exe;
+  BAZEL_LOG(INFO) << "Detected Git for Windows Bash at "
+                  << bash.AsPrintablePath();
+  return bash.AsPrintablePath();
 }
 
 static string LocateBashMaybe() {
