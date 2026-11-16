@@ -369,6 +369,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
 
+    if (output.isDirectory()) {
+      throw Starlark.errorf("for 'output', got a directory, want a regular file");
+    }
+
     String mnemonic = getMnemonic(mnemonicUnchecked, AbstractFileWriteAction.MNEMONIC);
 
     final Action action;
