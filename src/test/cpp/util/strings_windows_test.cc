@@ -27,12 +27,12 @@ static const char kAsciiLatin[] = {'A', 'b', 'c', '\0'};
 static const wchar_t kUtf16Latin[] = {L'A', L'b', L'c', L'\0'};
 static const char kUtf8Cyrillic[] = {
     'H',  'e',  'y', '=',  //
-    0xd0, 0x9f,            // Cyrillic Capital Letter Pe
-    0xd1, 0x80,            // Cyrillic Small Letter Er
-    0xd0, 0xb8,            // Cyrillic Small Letter I
-    0xd0, 0xb2,            // Cyrillic Small Letter Ve
-    0xd0, 0xb5,            // Cyrillic Small Letter Ie
-    0xd1, 0x82,            // Cyrillic Small Letter Te
+    static_cast<char>(0xd0), static_cast<char>(0x9f),  // Cyrillic Capital Letter Pe
+    static_cast<char>(0xd1), static_cast<char>(0x80),  // Cyrillic Small Letter Er
+    static_cast<char>(0xd0), static_cast<char>(0xb8),  // Cyrillic Small Letter I
+    static_cast<char>(0xd0), static_cast<char>(0xb2),  // Cyrillic Small Letter Ve
+    static_cast<char>(0xd0), static_cast<char>(0xb5),  // Cyrillic Small Letter Ie
+    static_cast<char>(0xd1), static_cast<char>(0x82),  // Cyrillic Small Letter Te
     0,
 };
 static const wchar_t kUtf16Cyrillic[] = {
