@@ -341,6 +341,7 @@ public final class ProfilerTest {
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
         /* collectTaskHistograms= */ true);
+    clock.advanceMillis(1000);
     metricsCollected.await(10, TimeUnit.SECONDS);
     profiler.stop();
 
@@ -389,8 +390,8 @@ public final class ProfilerTest {
         /* includeConfiguration= */ false,
         /* collectTaskHistograms= */ true);
 
-    // Stop after short delay without waiting for COLLECT_SLEEP_INTERVAL (200ms).
-    Thread.sleep(10);
+    // Stop after a short delay without waiting for COLLECT_SLEEP_INTERVAL (200ms).
+    clock.advanceMillis(10);
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));

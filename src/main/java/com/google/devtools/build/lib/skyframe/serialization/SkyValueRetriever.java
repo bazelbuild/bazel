@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
@@ -152,7 +153,7 @@ public final class SkyValueRetriever {
     }
 
     private void transitionTo(SerializationState nextState) {
-      long now = System.nanoTime();
+      long now = BlazeClock.nanoTime();
       SerializationState previousState;
       boolean evicted;
       synchronized (this) {
@@ -212,7 +213,7 @@ public final class SkyValueRetriever {
       if (startTimestampNanos == 0) {
         return 0L;
       }
-      return (System.nanoTime() - startTimestampNanos) / 1000L;
+      return (BlazeClock.nanoTime() - startTimestampNanos) / 1000L;
     }
 
     private SerializationException failWithSerializationException(SerializationException e) {

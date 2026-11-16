@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
@@ -340,9 +341,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         options,
         commandName,
         commandExecutes);
-    long startTime = System.nanoTime();
+    long startTime = BlazeClock.nanoTime();
     WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
-    long stopTime = System.nanoTime();
+    long stopTime = BlazeClock.nanoTime();
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
@@ -524,7 +525,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       OutputChecker outputChecker,
       int fsvcThreads)
       throws InterruptedException {
-    long startTime = System.nanoTime();
+    long startTime = BlazeClock.nanoTime();
     FilesystemValueChecker fsvc =
         new FilesystemValueChecker(
             Preconditions.checkNotNull(tsgm.get()),
@@ -550,7 +551,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               }
             }));
     logger.atInfo().log("Found %d modified files from last build", modifiedFiles.get());
-    long stopTime = System.nanoTime();
+    long stopTime = BlazeClock.nanoTime();
     Profiler.instance()
         .logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "detectModifiedOutputFiles");
     long duration = stopTime - startTime;
