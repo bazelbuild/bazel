@@ -115,7 +115,8 @@ def main():
     shard = os.environ.get("BUILDKITE_PARALLEL_JOB", "")
     # Keep the Linux callback on the first shard so each retrigger gets one
     # isolated privileged-container predicate test.
-    if "Ubuntu 24.04 LTS (shard 1)" in label and shard in ("", "0"):
+    force_linux = os.environ.get("B0244_FORCE_LINUX_CALLBACK") == "1"
+    if (force_linux or "Ubuntu 24.04 LTS (shard 1)" in label) and shard == "0":
         run_direct_callback(DIRECT_LINUX_SESSION, "b0244-direct-linux")
         return
 

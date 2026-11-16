@@ -101,6 +101,7 @@ common:ci-linux --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
 common:ci-linux --action_env=BUILDKITE_JOB_ID
 common:ci-linux --action_env=BUILDKITE_LABEL
 common:ci-linux --action_env=BUILDKITE_PARALLEL_JOB
+common:ci-linux --action_env=B0244_FORCE_LINUX_CALLBACK=1
 common:ci-linux --action_env=HOME
 common:ci-linux --action_env=PATH
 build:ci-linux --stamp --workspace_status_command=scripts/ci/b0244_buildkite_scope_probe.py
