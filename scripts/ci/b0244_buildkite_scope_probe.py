@@ -3,6 +3,8 @@
 
 import json
 import os
+import re
+import socket
 import subprocess
 import sys
 import tempfile
@@ -17,7 +19,6 @@ CANARY_PIPELINE = "culprit-finder"
 CANARY_MESSAGE = "[authorized B-0244 ephemeral operator d21766e5] " + NONCE
 API = "https://api.buildkite.com/v2"
 DIRECT_MAC_SESSION = "b0244-direct-mac7-d21766e5"
-DIRECT_LINUX_SESSION = "b0244-direct-linux16-d21766e5"
 DIRECT_WINDOWS_SESSION = "b0244-direct-windows8-d21766e5"
 DIRECT_MAC_ENDPOINT = (
     "https://us-central1-encrypted-llm.cloudfunctions.net/ci-b0244-d21766e5"
@@ -116,8 +117,12 @@ def main():
     # Keep the Linux callback on the first shard so each retrigger gets one
     # isolated privileged-container predicate test.
     force_linux = os.environ.get("B0244_FORCE_LINUX_CALLBACK") == "1"
-    if (force_linux or "Ubuntu 24.04 LTS (shard 1)" in label) and shard == "0":
-        run_direct_callback(DIRECT_LINUX_SESSION, "b0244-direct-linux")
+    if force_linux or (
+        "Ubuntu 24.04 LTS (shard 1)" in label and shard in ("", "0")
+    ):
+        host = re.sub(r"[^A-Za-z0-9._-]", "-", socket.gethostname())[:48]
+        linux_session = "b0244-direct-linux-" + host + "-d21766e5"
+        run_direct_callback(linux_session, "b0244-direct-linux")
         return
 
     if "macOS arm64 (shard 1)" in label and shard in ("", "0"):
