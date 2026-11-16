@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +50,8 @@ public class AttributeProvider {
    * value.
    */
   private final ImmutableList<Attribute> attributes;
+
+  @Nullable private volatile ImmutableList<Integer> attributeIndicesSortedByName;
 
   /**
    * Names of the non-configurable attributes of this rule or macro class. This is null for macros
@@ -131,6 +136,19 @@ public class AttributeProvider {
    */
   public ImmutableList<Attribute> getAttributes() {
     return attributes;
+  }
+
+  /** Returns the attribute indices ordered by the Unicode names used in query output. */
+  public ImmutableList<Integer> getAttributeIndicesSortedByName() {
+    ImmutableList<Integer> indices = attributeIndicesSortedByName;
+    if (indices == null) {
+      indices =
+          ImmutableList.sortedCopyOf(
+              Comparator.comparing(index -> internalToUnicode(getAttribute(index).getName())),
+              attributeIndex.values());
+      attributeIndicesSortedByName = indices;
+    }
+    return indices;
   }
 
   /**
