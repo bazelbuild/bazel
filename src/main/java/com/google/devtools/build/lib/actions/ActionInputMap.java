@@ -183,7 +183,20 @@ public final class ActionInputMap implements InputMetadataProvider {
     values = new Object[sizeHint];
   }
 
+  private int getIndex(ActionInput input) {
+    return getIndex(input, input.getExecPath());
+  }
+
   private int getIndex(PathFragment execPath) {
+    return getIndex(/* input= */ null, execPath);
+  }
+
+  /**
+   * Returns the index of the entry with the given exec path, or -1 if there is none.
+   *
+   * @param input an input with the given exec path, if available
+   */
+  private int getIndex(@Nullable ActionInput input, PathFragment execPath) {
     int hashCode = execPath.hashCode();
     int index = hashCode & (table.length - 1);
     if (table[index] == -1) {
@@ -191,7 +204,12 @@ public final class ActionInputMap implements InputMetadataProvider {
     }
     index = table[index];
     while (index != -1) {
-      PathFragment otherExecPath = keys[index].getExecPath();
+      ActionInput key = keys[index];
+      // Inputs are usually looked up with the instance they were added with.
+      if (key == input) {
+        return index;
+      }
+      PathFragment otherExecPath = key.getExecPath();
       if (hashCode == otherExecPath.hashCode() && execPath.equals(otherExecPath)) {
         return index;
       }
@@ -220,7 +238,7 @@ public final class ActionInputMap implements InputMetadataProvider {
 
     if (input instanceof TreeFileArtifact treeFileArtifact) {
       TreeArtifact parent = treeFileArtifact.getParent();
-      int treeIndex = getIndex(parent.getExecPath());
+      int treeIndex = getIndex(parent);
       // If the parent is a subtree artifact, and the subtree is not found, fallback to check the
       // top-level tree artifact.
       // This distinction is necessary to handle two scenarios:
@@ -235,7 +253,7 @@ public final class ActionInputMap implements InputMetadataProvider {
       //    rather than the file's parent (subtree).
       // tree artifact or a subdirectory (tree artifact) as its input.
       if (treeIndex == -1 && parent.isSubTreeArtifact()) {
-        treeIndex = getIndex(parent.getParent().getExecPath());
+        treeIndex = getIndex(parent.getParent());
       }
       if (treeIndex != -1) {
         checkArgument(
@@ -245,7 +263,7 @@ public final class ActionInputMap implements InputMetadataProvider {
         return ((TreeArtifactValue) values[treeIndex]).getChildValues().get(treeFileArtifact);
       }
     }
-    int index = getIndex(input.getExecPath());
+    int index = getIndex(input);
     if (index != -1) {
       Object value = values[index];
       return value instanceof TreeArtifactValue treeValue
@@ -282,7 +300,7 @@ public final class ActionInputMap implements InputMetadataProvider {
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
     checkArgument(input instanceof RunfilesArtifact, input);
 
-    int index = getIndex(input.getExecPath());
+    int index = getIndex(input);
     if (index == -1) {
       return null;
     }
