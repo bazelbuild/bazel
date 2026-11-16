@@ -26,8 +26,10 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Type of hash function to use for digesting files.
@@ -40,6 +42,10 @@ import java.util.stream.Collectors;
 public class DigestHashFunction {
   // This map must be declared first to make sure that calls to register() have it ready.
   private static final HashMap<String, DigestHashFunction> hashFunctionRegistry = new HashMap<>();
+
+  // Registrations are rare. Publish a new identity map so readers need no lock.
+  private static volatile IdentityHashMap<HashFunction, DigestHashFunction> reusableDigests =
+      new IdentityHashMap<>();
 
   /** Describes the length of a digest. */
   public interface DigestLength {
@@ -70,10 +76,10 @@ public class DigestHashFunction {
   public static final DigestHashFunction SHA256;
 
   static {
-    SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1", "sha1");
-    SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256", "sha256");
-    register(Hashing.sha384(), "SHA-384", "SHA384", "sha384");
-    register(Hashing.sha512(), "SHA-512", "SHA512", "sha512");
+    SHA1 = registerReusable(Hashing.sha1(), "SHA-1", "SHA1", "sha1");
+    SHA256 = registerReusable(Hashing.sha256(), "SHA-256", "SHA256", "sha256");
+    registerReusable(Hashing.sha384(), "SHA-384", "SHA384", "sha384");
+    registerReusable(Hashing.sha512(), "SHA-512", "SHA512", "sha512");
   }
 
   private final HashFunction hashFunction;
@@ -92,6 +98,27 @@ public class DigestHashFunction {
     this.names = names;
     this.messageDigestPrototype = getMessageDigestInstance();
     this.messageDigestPrototypeSupportsClone = supportsClone(messageDigestPrototype);
+  }
+
+  /**
+   * Registers a digest whose resettable {@link MessageDigest} computes the same bytes as {@code
+   * hash} and retains bounded memory between uses.
+   */
+  public static DigestHashFunction registerReusable(
+      HashFunction hash, String hashName, String... altNames) {
+    DigestHashFunction digest = register(hash, hashName, altNames);
+    synchronized (hashFunctionRegistry) {
+      var updated = new IdentityHashMap<>(reusableDigests);
+      updated.put(hash, digest);
+      reusableDigests = updated;
+    }
+    return digest;
+  }
+
+  /** Returns the reusable digest registered for this exact {@link HashFunction}, if any. */
+  @Nullable
+  public static DigestHashFunction getReusableDigestFunction(HashFunction hash) {
+    return reusableDigests.get(hash);
   }
 
   public static DigestHashFunction register(

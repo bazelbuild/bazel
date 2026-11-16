@@ -29,7 +29,8 @@ public final class BazelHashFunctions {
 
     try {
       Security.addProvider(new Blake3Provider());
-      blake3HashFunction = DigestHashFunction.register(Blake3HashFunction.INSTANCE, "BLAKE3");
+      blake3HashFunction =
+          DigestHashFunction.registerReusable(Blake3HashFunction.INSTANCE, "BLAKE3");
     } catch (UnsatisfiedLinkError ignored) {
       // This can happen when bootstrapping a Bazel binary via compile.sh. In that case JNI is
       // available, but missing the blake3 symbols necessary to register the hasher.
@@ -38,7 +39,7 @@ public final class BazelHashFunctions {
     BLAKE3 = blake3HashFunction;
 
     Security.addProvider(new GitSha1Provider());
-    GITSHA1 = DigestHashFunction.register(GitSha1HashFunction.INSTANCE, "GITSHA1");
+    GITSHA1 = DigestHashFunction.registerReusable(GitSha1HashFunction.INSTANCE, "GITSHA1");
   }
 
   public static void ensureRegistered() {}

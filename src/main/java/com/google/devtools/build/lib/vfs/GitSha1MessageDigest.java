@@ -23,12 +23,11 @@ import java.security.NoSuchAlgorithmException;
 public final class GitSha1MessageDigest extends MessageDigest {
   private static final byte[] header = {'b', 'l', 'o', 'b', ' '};
   private final MessageDigest sha1;
-  private final ByteArrayOutputStream stream;
+  private ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
   public GitSha1MessageDigest() throws NoSuchAlgorithmException {
     super("GITSHA1");
     sha1 = MessageDigest.getInstance("SHA-1");
-    stream = new ByteArrayOutputStream();
   }
 
   @Override
@@ -60,6 +59,11 @@ public final class GitSha1MessageDigest extends MessageDigest {
 
   private void internalReset() {
     sha1.reset();
-    stream.reset();
+    // A reusable digest may outlive the largest blob it hashes.
+    if (stream.size() > 4096) {
+      stream = new ByteArrayOutputStream();
+    } else {
+      stream.reset();
+    }
   }
 }
