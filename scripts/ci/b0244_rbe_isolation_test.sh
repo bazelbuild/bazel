@@ -236,6 +236,18 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
 
     bot_update_body="$(sed 's/"status"[[:space:]]*:[[:space:]]*"[A-Z_]*"/"status": "OK"/' \
       "$bot_response_file")"
+    perform_bot_update() {
+      "$grpcurl_bin" \
+        -max-time 10 \
+        -protoset "$protoset_file" \
+        -H "Authorization: Bearer $access_token" \
+        -H "x-goog-request-params: name=$routing_name" \
+        -d "$bot_update_request" \
+        'remotebuildexecution.googleapis.com:443' \
+        'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
+        > "$update_response_file" 2> "$update_error_file"
+      update_exit_code=$?
+    }
     if [[ "$lease_received" == '0' ]]; then
       selected_mask_mode=''
       for mask_mode in absent empty full; do
@@ -257,31 +269,35 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
               "$session_name" "$bot_update_body")"
             ;;
         esac
-        "$grpcurl_bin" \
-          -max-time 10 \
-          -protoset "$protoset_file" \
-          -H "Authorization: Bearer $access_token" \
-          -H "x-goog-request-params: name=$routing_name" \
-          -d "$bot_update_request" \
-          'remotebuildexecution.googleapis.com:443' \
-          'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
-          > "$update_response_file" 2> "$update_error_file"
-        update_exit_code=$?
-        if [[ "$update_exit_code" == '0' ]]; then
-          selected_mask_mode="$mask_mode"
-          bot_update_body="$(cat "$update_response_file")"
-          printf 'rbe_synthetic_update_mode=%s\n' "$mask_mode"
-          if grep -q '"leases"' "$update_response_file"; then
-            printf 'rbe_synthetic_lease_receipt='
-            cat "$update_response_file"
-            printf '\n'
-            lease_received=1
+        for rpc_attempt in $(seq 1 5); do
+          perform_bot_update
+          if [[ "$update_exit_code" == '0' ]]; then
+            selected_mask_mode="$mask_mode"
+            bot_update_body="$(cat "$update_response_file")"
+            printf 'rbe_synthetic_update_mode=%s\n' "$mask_mode"
+            if grep -q '"leases"' "$update_response_file"; then
+              printf 'rbe_synthetic_lease_receipt='
+              cat "$update_response_file"
+              printf '\n'
+              lease_received=1
+            fi
+            break
+          fi
+          if grep -q 'DeadlineExceeded' "$update_error_file"; then
+            selected_mask_mode="$mask_mode"
+            printf 'rbe_synthetic_update_mode=%s-long-poll\n' "$mask_mode"
+            break
+          fi
+          if grep -q 'Code: Internal' "$update_error_file" \
+              && [[ "$rpc_attempt" -lt '5' ]]; then
+            printf 'rbe_synthetic_update_retry=%s:%s:Internal\n' \
+              "$mask_mode" "$rpc_attempt"
+            sleep 1
+            continue
           fi
           break
-        fi
-        if grep -q 'DeadlineExceeded' "$update_error_file"; then
-          selected_mask_mode="$mask_mode"
-          printf 'rbe_synthetic_update_mode=%s-long-poll\n' "$mask_mode"
+        done
+        if [[ -n "$selected_mask_mode" ]]; then
           break
         fi
         printf 'rbe_synthetic_bot_update_error_%s=' "$mask_mode"
@@ -311,16 +327,16 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
               "$session_name" "$bot_update_body")"
             ;;
         esac
-        "$grpcurl_bin" \
-          -max-time 10 \
-          -protoset "$protoset_file" \
-          -H "Authorization: Bearer $access_token" \
-          -H "x-goog-request-params: name=$routing_name" \
-          -d "$bot_update_request" \
-          'remotebuildexecution.googleapis.com:443' \
-          'google.devtools.remoteworkers.v1test2.Bots/UpdateBotSession' \
-          > "$update_response_file" 2> "$update_error_file"
-        update_exit_code=$?
+        for rpc_attempt in $(seq 1 5); do
+          perform_bot_update
+          if ! grep -q 'Code: Internal' "$update_error_file" \
+              || [[ "$rpc_attempt" == '5' ]]; then
+            break
+          fi
+          printf 'rbe_synthetic_poll_retry=%s:%s:Internal\n' \
+            "$poll_attempt" "$rpc_attempt"
+          sleep 1
+        done
         if [[ "$update_exit_code" == '0' ]]; then
           bot_update_body="$(cat "$update_response_file")"
           if grep -q '"leases"' "$update_response_file"; then
