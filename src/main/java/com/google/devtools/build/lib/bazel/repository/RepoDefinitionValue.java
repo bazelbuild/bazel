@@ -49,11 +49,16 @@ import com.google.devtools.build.skyframe.SkyKey;
 public sealed interface RepoDefinitionValue extends NotComparableSkyValue {
   SkyFunctionName REPO_DEFINITION = SkyFunctionName.createHermetic("REPO_DEFINITION");
 
-  RepoDefinitionValue NOT_FOUND = new NotFound();
+  RepoDefinitionValue NOT_FOUND = new NotFound("");
 
-  /** No repo found with the given name. */
+  /**
+   * No repo found with the given name.
+   *
+   * @param detail additional information about why the repo wasn't found, either empty or meant to
+   *     be appended to an error message after a colon.
+   */
   @AutoCodec
-  record NotFound() implements RepoDefinitionValue {}
+  record NotFound(String detail) implements RepoDefinitionValue {}
 
   /** Symlink to target directory. */
   @AutoCodec

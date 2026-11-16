@@ -191,9 +191,6 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
-                    SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
-                    new ModuleExtensionRepoMappingEntriesFunction())
-                .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .buildOrThrow(),

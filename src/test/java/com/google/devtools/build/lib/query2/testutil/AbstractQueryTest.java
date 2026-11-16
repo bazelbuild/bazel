@@ -2680,7 +2680,7 @@ public abstract class AbstractQueryTest<T> {
         helper.getModuleRoot().getRelative("repo+1.0/a/b/BUILD").getPathString(),
         "exports_files(['p', 'q'])",
         "filegroup(name = 'a_b_shar')");
-    RepositoryMapping mapping =
+    RepositoryMapping.Explicit mapping =
         RepositoryMapping.create(
             ImmutableMap.of("my_repo", RepositoryName.create("repo+")), RepositoryName.MAIN);
     helper.setMainRepoTargetParser(mapping);
@@ -2939,7 +2939,7 @@ public abstract class AbstractQueryTest<T> {
 
     Path getModuleRoot();
 
-    void setMainRepoTargetParser(RepositoryMapping mapping);
+    void setMainRepoTargetParser(RepositoryMapping.Explicit mapping);
 
     void maybeHandleDiffs() throws AbruptExitException, InterruptedException;
   }
