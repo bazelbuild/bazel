@@ -396,7 +396,7 @@ public final class TargetCompleteEvent
 
   @Override
   public ImmutableList<LocalFile> referencedLocalFiles() {
-    return localFilesOfImportantGroups(outputGroup -> true);
+    return localFilesOfImportantGroups(outputs, completionContext, outputGroup -> true);
   }
 
   /**
@@ -414,15 +414,32 @@ public final class TargetCompleteEvent
     if (options.getLegacyImportantOutputs()) {
       return referencedLocalFiles();
     }
-    OutputGroupFileModes modes = options.getOutputGroupFileModesMapping();
-    return localFilesOfImportantGroups(
-        outputGroup -> {
-          OutputGroupFileMode mode = modes.getMode(outputGroup);
-          return mode == OutputGroupFileMode.INLINE_ONLY || mode == OutputGroupFileMode.BOTH;
-        });
+    return localFilesReportedInline(outputs, completionContext, options);
   }
 
-  private ImmutableList<LocalFile> localFilesOfImportantGroups(Predicate<String> outputGroups) {
+  /**
+   * Returns the files of the important output groups that {@link #toOutputGroupProtos} names in
+   * the event itself when it is written with the given options: those of the groups reported
+   * inline.
+   */
+  static ImmutableList<LocalFile> localFilesReportedInline(
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      CompletionContext completionContext,
+      BuildEventProtocolOptions options) {
+    if (options.getOutputGroupFileModes().isEmpty()) {
+      // No group is reported inline. This is the common case, and it is asked about once per
+      // event and transport, so answer it without building the mapping.
+      return ImmutableList.of();
+    }
+    OutputGroupFileModes modes = options.getOutputGroupFileModesMapping();
+    return localFilesOfImportantGroups(
+        outputs, completionContext, outputGroup -> modes.getMode(outputGroup).reportsFilesInline());
+  }
+
+  private static ImmutableList<LocalFile> localFilesOfImportantGroups(
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      CompletionContext completionContext,
+      Predicate<String> outputGroups) {
     ImmutableList.Builder<LocalFile> builder = ImmutableList.builder();
     for (Map.Entry<String, ArtifactsInOutputGroup> entry : outputs.entrySet()) {
       ArtifactsInOutputGroup group = entry.getValue();
@@ -528,8 +545,7 @@ public final class TargetCompleteEvent
       OutputGroupFileMode mode = outputGroupFileModes.getMode(groupName);
       var artifactsInGroup = entry.getValue();
       if (artifactsInGroup.areImportant()) {
-        if (mode == OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY
-            || mode == OutputGroupFileMode.BOTH) {
+        if (mode.reportsNamedSetsOfFiles()) {
           builder.add(artifactsInGroup.getArtifacts());
         }
       }
@@ -584,12 +600,11 @@ public final class TargetCompleteEvent
     OutputGroup.Builder builder =
         OutputGroup.newBuilder().setName(outputGroup).setIncomplete(outputGroupIncomplete);
     OutputGroupFileMode fileMode = converters.getFileModeForOutputGroup(outputGroup);
-    if (fileMode == OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY
-        || fileMode == OutputGroupFileMode.BOTH) {
+    if (fileMode.reportsNamedSetsOfFiles()) {
       ArtifactGroupNamer namer = converters.artifactGroupNamer();
       builder.addFileSets(namer.apply(artifactsToReport.get().toNode()));
     }
-    if (fileMode == OutputGroupFileMode.INLINE_ONLY || fileMode == OutputGroupFileMode.BOTH) {
+    if (fileMode.reportsFilesInline()) {
       addFilesDirectlyToProtoField(
           completionContext, builder::addInlineFiles, converters, artifactListSupplier.get());
     }

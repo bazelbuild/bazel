@@ -42,6 +42,24 @@ public interface BuildEventContext {
     NAMED_SET_OF_FILES_ONLY,
     INLINE_ONLY,
     BOTH;
+
+    /**
+     * Whether the event of a target or aspect refers to the files of an output group in this mode
+     * through named sets of files, whose own events name and declare the files.
+     */
+    public boolean reportsNamedSetsOfFiles() {
+      return this == NAMED_SET_OF_FILES_ONLY || this == BOTH;
+    }
+
+    /**
+     * Whether the event of a target or aspect names the files of an output group in this mode
+     * itself. The event has to declare the files it names in {@link
+     * BuildEvent#referencedLocalFiles(BuildEventProtocolOptions)}: both ask this method, so that
+     * they agree.
+     */
+    public boolean reportsFilesInline() {
+      return this == INLINE_ONLY || this == BOTH;
+    }
   }
 
   /** Return the {@link OutputGroupFileMode} to use for a given output group. */

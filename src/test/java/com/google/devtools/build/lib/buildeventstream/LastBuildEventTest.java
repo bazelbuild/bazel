@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -62,5 +63,49 @@ public class LastBuildEventTest {
               }
             });
     assertThat(event.referencedLocalFiles()).containsExactly(localFile);
+  }
+
+  @Test
+  public void testForwardsReferencedLocalFilesCallWithOptions() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    LocalFile namedWithOptions =
+        new LocalFile(
+            fs.getPath("/some/file"), LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null);
+    LocalFile namedWithoutOptions =
+        new LocalFile(
+            fs.getPath("/other/file"), LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null);
+    BuildEventProtocolOptions options = Options.getDefaults(BuildEventProtocolOptions.class);
+    LastBuildEvent event =
+        new LastBuildEvent(
+            new BuildEvent() {
+              @Override
+              public BuildEventId getEventId() {
+                return null;
+              }
+
+              @Override
+              public ImmutableList<BuildEventId> getChildrenEvents() {
+                return ImmutableList.of();
+              }
+
+              @Override
+              public ImmutableList<LocalFile> referencedLocalFiles() {
+                return ImmutableList.of(namedWithOptions, namedWithoutOptions);
+              }
+
+              @Override
+              public ImmutableList<LocalFile> referencedLocalFiles(
+                  BuildEventProtocolOptions given) {
+                assertThat(given).isSameInstanceAs(options);
+                return ImmutableList.of(namedWithOptions);
+              }
+
+              @Override
+              public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context) {
+                return null;
+              }
+            });
+
+    assertThat(event.referencedLocalFiles(options)).containsExactly(namedWithOptions);
   }
 }
