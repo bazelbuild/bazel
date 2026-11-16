@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 public class RegisteredToolchainsCycleReporter extends AbstractToolchainCycleReporter {
 
   public RegisteredToolchainsCycleReporter() {
-    super(SkyFunctions.REGISTERED_TOOLCHAINS);
+    super(SkyFunctions.REGISTERED_TOOLCHAINS, SkyFunctions.TOOLCHAIN_DECLARATIONS);
   }
 
   @Override

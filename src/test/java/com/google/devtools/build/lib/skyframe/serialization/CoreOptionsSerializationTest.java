@@ -62,8 +62,6 @@ public class CoreOptionsSerializationTest {
 
   @Test
   public void emptyOptionsRoundTrip_toSameInstance_withCustomCoreOptionsCodec() throws Exception {
-    BuildOptions original = CommonOptions.EMPTY_OPTIONS;
-
     // Simulates the reader build passing --check_visibility=false.
     BuildOptions readerOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
     readerOptions.get(CoreOptions.class).setCheckVisibility(false);
@@ -88,14 +86,15 @@ public class CoreOptionsSerializationTest {
 
     ObjectCodecs codecs = new ObjectCodecs(registry, dependencies);
 
-    SerializationTester tester = new SerializationTester(original);
+    SerializationTester tester =
+        new SerializationTester(CommonOptions.allNoConfigOptions().asList());
     tester.setObjectCodecs(codecs);
 
     tester
         .makeMemoizingAndAllowFutureBlocking(true)
         .setVerificationFunction(
             (orig, deserialized) -> {
-              // Check that EMPTY_OPTIONS remain untainted by the custom CoreOptions
+              // Check that the no-config options remain untainted by the custom CoreOptions
               // check_visibility trimming.
               assertThat(deserialized).isSameInstanceAs(orig);
             })

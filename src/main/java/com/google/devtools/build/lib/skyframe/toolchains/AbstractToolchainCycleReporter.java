@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,6 +50,9 @@ public abstract class AbstractToolchainCycleReporter implements CyclesReporter.S
   private static final Predicate<SkyKey> IS_REGISTERED_TOOLCHAINS_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.REGISTERED_TOOLCHAINS);
 
+  private static final Predicate<SkyKey> IS_TOOLCHAIN_DECLARATIONS_SKY_KEY =
+      SkyFunctions.isSkyFunction(SkyFunctions.TOOLCHAIN_DECLARATIONS);
+
   private static final Predicate<SkyKey> IS_SINGLE_TOOLCHAIN_RESOLUTION_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_TOOLCHAIN_RESOLUTION);
 
@@ -59,13 +63,15 @@ public abstract class AbstractToolchainCycleReporter implements CyclesReporter.S
       Predicates.or(
           IS_REGISTERED_EXECUTION_PLATFORMS_SKY_KEY,
           IS_REGISTERED_TOOLCHAINS_SKY_KEY,
+          IS_TOOLCHAIN_DECLARATIONS_SKY_KEY,
           IS_SINGLE_TOOLCHAIN_RESOLUTION_SKY_KEY,
           IS_TOOLCHAIN_RESOLUTION_SKY_KEY);
 
   private final Predicate<SkyKey> isRootKey;
 
-  AbstractToolchainCycleReporter(SkyFunctionName rootFunction) {
-    this.isRootKey = SkyFunctions.isSkyFunction(rootFunction);
+  AbstractToolchainCycleReporter(SkyFunctionName... rootFunctions) {
+    ImmutableSet<SkyFunctionName> roots = ImmutableSet.copyOf(rootFunctions);
+    this.isRootKey = key -> roots.contains(key.functionName());
   }
 
   /** Formats the cycle error message prefix for the given root target. */
@@ -110,6 +116,9 @@ public abstract class AbstractToolchainCycleReporter implements CyclesReporter.S
     }
     if (input instanceof RegisteredToolchainsValue.Key) {
       return "RegisteredToolchains";
+    }
+    if (input instanceof ToolchainDeclarationsValue.Key) {
+      return "ToolchainDeclarations";
     }
     if (input instanceof SingleToolchainResolutionKey singleToolchainResolutionKey) {
       Label toolchainType = singleToolchainResolutionKey.toolchainType().toolchainType();

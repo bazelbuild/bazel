@@ -59,6 +59,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_config_transition",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

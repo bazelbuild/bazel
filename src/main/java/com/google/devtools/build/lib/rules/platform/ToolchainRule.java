@@ -97,10 +97,10 @@ public class ToolchainRule implements RuleDefinition {
         A list of <code>config_setting</code>s that must be satisfied by the target configuration
         in order for this toolchain to be selected during toolchain resolution.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr(TARGET_SETTING_ATTR, BuildType.LABEL_LIST)
-                .allowedRuleClasses("config_setting")
-                .allowedFileTypes(FileTypeSet.NO_FILE))
+        // This is not a dependency so that the toolchain declaration can be analyzed independently
+        // of the target configuration. The settings are instead analyzed, validated and evaluated
+        // in each target configuration during toolchain resolution.
+        .add(attr(TARGET_SETTING_ATTR, BuildType.NODEP_LABEL_LIST))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain) -->
         The target representing the actual tool or tool suite that is made available when this
         toolchain is selected.

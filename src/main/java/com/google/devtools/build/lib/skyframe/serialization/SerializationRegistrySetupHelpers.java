@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.OutputDirectory;
@@ -88,7 +89,8 @@ public final class SerializationRegistrySetupHelpers {
                 ruleClassProvider
                     .getFragmentRegistry()
                     .getAllFragments()
-                    .trim(TestConfiguration.class));
+                    .trim(TestConfiguration.class))
+            .addAll(CommonOptions.allNoConfigOptions());
 
     Root virtualRoot = directories.getVirtualSourceRoot();
     if (virtualRoot != null) {
