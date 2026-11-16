@@ -94,7 +94,6 @@ py_binary(
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
                "//src/main/protobuf:srcs",
-               "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
                "//third_party/def_parser:srcs",
                "//third_party/ijar:embedded_zipper_sources",
@@ -107,8 +106,6 @@ py_binary(
                "//conditions:default": [],
            }) + select({
                "//src/conditions:windows": [
-                   "//src/tools/launcher",
-                   "//src/tools/launcher:launcher_maker",
                    "//third_party/def_parser",
                ],
                "//conditions:default": [],
@@ -418,6 +415,7 @@ filegroup(
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
+        "//src/prebuilt_tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",

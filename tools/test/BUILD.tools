@@ -121,9 +121,18 @@ filegroup(
     # On other platforms this binary is a no-op.
     # See https://github.com/bazelbuild/bazel/issues/5508
     srcs = select({
-        "@bazel_tools//src/conditions:windows": ["tw.exe"],
+        "@bazel_tools//src/conditions:windows": [":windows_test_wrapper"],
         "//conditions:default": ["dummy.sh"],
     }),
+)
+
+alias(
+    name = "windows_test_wrapper",
+    actual = select({
+        "@platforms//cpu:arm64": "@prebuilt_tools_windows_arm64//:tw.exe",
+        "@platforms//cpu:x86_64": "@prebuilt_tools_windows_x86_64//:tw.exe",
+    }),
+    visibility = ["//visibility:private"],
 )
 
 filegroup(
@@ -132,9 +141,18 @@ filegroup(
     # paths have short limits on Windows.
     # On other platforms this binary is a no-op.
     srcs = select({
-        "@bazel_tools//src/conditions:windows": ["xml.exe"],
+        "@bazel_tools//src/conditions:windows": [":windows_xml_writer"],
         "//conditions:default": ["dummy.sh"],
     }),
+)
+
+alias(
+    name = "windows_xml_writer",
+    actual = select({
+        "@platforms//cpu:arm64": "@prebuilt_tools_windows_arm64//:xml.exe",
+        "@platforms//cpu:x86_64": "@prebuilt_tools_windows_x86_64//:xml.exe",
+    }),
+    visibility = ["//visibility:private"],
 )
 
 filegroup(

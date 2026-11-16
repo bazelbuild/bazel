@@ -10,6 +10,7 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "empty.sh",
+        "launcher_maker.sh",
     ],
     visibility = ["//tools:__pkg__"],
 )

@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools/res:win_res.bzl", "windows_resources")
 load(":launcher_maker_test.bzl", "launcher_maker_test")
 load(":win_rules.bzl", "win_cc_binary", "win_cc_library")
@@ -19,7 +20,7 @@ win_cc_binary(
     name = "launcher",
     srcs = ["launcher_main.cc"],
     visibility = [
-        "//src:__pkg__",
+        "//src/prebuilt_tools:__pkg__",
         "//tools/launcher:__pkg__",
     ],
     deps = [
@@ -77,10 +78,28 @@ cc_binary(
     name = "launcher_maker",
     srcs = ["launcher_maker.cc"],
     visibility = [
-        "//src:__pkg__",
+        "//src/prebuilt_tools:__pkg__",
         "//tools/launcher:__pkg__",
     ],
     deps = ["//src/main/cpp/util:filesystem"],
 )
 
 launcher_maker_test(name = "launcher_maker_test")
+
+sh_test(
+    name = "launcher_maker_sh_test",
+    srcs = ["launcher_maker_sh_test.sh"],
+    args = [
+        "$(rootpath :launcher_maker)",
+        "$(rootpath //tools/launcher:launcher_maker.sh)",
+    ],
+    data = [
+        ":launcher_maker",
+        "//tools/launcher:launcher_maker.sh",
+    ],
+    # launcher_maker.sh is only used on non-Windows execution platforms.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
