@@ -82,12 +82,6 @@ However, since in a remote execution scenario each build action executes a
 separate compiler instance, compiler state and _bar_'s implicit dependency on
 _foo_ will be lost and the build will fail.
 
-To help detect and eliminate these dependency problems, Bazel 0.14.1 offers the
-local Docker sandbox, which has the same restrictions for dependencies as remote
-execution. Use the sandbox to prepare your build for remote execution by
-identifying and resolving dependency-related build errors. See [Troubleshooting Bazel Remote Execution with Docker Sandbox](/remote/sandbox)
-for more information.
-
 ## Managing platform-dependent binaries {#manage-binaries}
 
 Typically, a binary built on the host platform cannot safely execute on an
