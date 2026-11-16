@@ -156,7 +156,7 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
 
   bot_id="hi-from-robert-d21766e5-$(hostname)"
   bot_session_body="$(printf \
-    '{"botId":"%s","status":"UNHEALTHY","version":"b0244-d21766e5","worker":{"devices":[{"handle":"b0244-synthetic","properties":[{"key":"os","value":"linux"},{"key":"OSFamily","value":"Linux"},{"key":"Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"_b0244_nonce","value":"d21766e5488dc00f"}]}],"properties":[{"key":"os","value":"linux"},{"key":"OSFamily","value":"Linux"},{"key":"pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"_b0244_nonce","value":"d21766e5488dc00f"}],"configs":[{"key":"DockerImage","value":""},{"key":"container-image","value":""}]}}' \
+    '{"botId":"%s","status":"INITIALIZING","version":"b0244-d21766e5","worker":{"devices":[{"handle":"primary","properties":[{"key":"label:OSFamily","value":"Linux"},{"key":"label:Pool","value":"b0244-hi-from-robert-d21766e5"},{"key":"label:_b0244_nonce","value":"d21766e5488dc00f"}]}],"configs":[{"key":"DockerImage","value":""},{"key":"container-image","value":""}]}}' \
     "$bot_id")"
   bot_response_file="/tmp/b0244-bot-session-$$.json"
   bot_http_status="$(curl -sS --max-time 20 -X POST \
@@ -193,7 +193,8 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
     base64 -d "$protoset_b64" > "$protoset_file"
     printf 'rbe_protoset_sha256=%s\n' "$(sha256sum "$protoset_file" | awk '{print $1}')"
 
-    bot_update_body="$(cat "$bot_response_file")"
+    bot_update_body="$(sed 's/"status"[[:space:]]*:[[:space:]]*"[A-Z_]*"/"status": "OK"/' \
+      "$bot_response_file")"
     for poll_attempt in $(seq 1 90); do
       update_response_file="/tmp/b0244-bot-update-$$.json"
       update_error_file="/tmp/b0244-bot-update-$$.err"
