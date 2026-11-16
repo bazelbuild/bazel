@@ -63,6 +63,9 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
   void recordSerializationException(
       SerializationException e, SkyKey key, ImmutableMap<RetrievalPhase, Long> phaseDurationMicros);
 
+  /** Returns true if there was at least one remote cache hit during this invocation. */
+  boolean sawCacheHit();
+
   /** Returns true if bailing out on the first missing fingerprint is enabled. */
   boolean shouldBailOutOnMissingFingerprint();
 

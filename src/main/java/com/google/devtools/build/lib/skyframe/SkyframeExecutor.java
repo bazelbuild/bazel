@@ -1424,32 +1424,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
     boolean trackIncrementalState = tracksStateForIncrementality();
 
-    // If remote analysis cache retrieval is enabled, we can only perform a partial discard. See
-    // b/466388360.
-    boolean remoteAnalysisCachingEnabled =
-        remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled();
+    // Targets may be analyzed during execution below a remotely retrieved value, which prunes the
+    // analysis-phase traversal of its dependencies. In that case, we can only perform a partial
+    // discard. See b/466388360.
+    boolean partialDiscard =
+        discardType.discardsAnalysis()
+            && remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled()
+            // On a clean build with no remote analysis cache hits, a full discard is safe.
+            && (analysisCount.get() > 1 || remoteAnalysisCacheReaderDepsProvider.sawCacheHit());
 
     getEventBus().post(new AboutToClearAnalysisCacheEvent());
 
-    try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
-      graph.parallelForEach(
-          e -> {
-            if (!e.isDone()) {
-              return;
-            }
-            boolean removeNode =
-                processDiscardAndDetermineRemoval(
-                    e,
-                    discardType,
-                    topLevelPackages,
-                    topLevelTargets,
-                    topLevelAspects,
-                    trackIncrementalState,
-                    remoteAnalysisCachingEnabled);
-            if (removeNode) {
-              graph.remove(e.getKey());
-            }
-          });
+    try (SilentCloseable p = trackDiscardAnalysisCache(discardType, partialDiscard)) {
+      graph.parallelForEach(e -> {
+        if (!e.isDone()) {
+          return;
+        }
+        boolean removeNode =
+            processDiscardAndDetermineRemoval(
+                e,
+                discardType,
+                topLevelPackages,
+                topLevelTargets,
+                topLevelAspects,
+                trackIncrementalState,
+                partialDiscard);
+        if (removeNode) {
+          graph.remove(e.getKey());
+        }
+      });
     }
   }
 
@@ -1480,7 +1483,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Collection<ConfiguredTarget> topLevelTargets,
       ImmutableSet<AspectKey> topLevelAspects,
       boolean trackIncrementalState,
-      boolean remoteAnalysisCachingEnabled) {
+      boolean partialDiscard) {
     SkyKey key = entry.getKey();
     SkyFunctionName functionName = key.functionName();
     if (discardType.discardsLoading()) {
@@ -1515,7 +1518,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // empty configuration key and will never change.
           return false;
         }
-        ctValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
+        ctValue.clear(!topLevel && !partialDiscard);
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectKey aspectKey = (AspectKey) key;
         AspectValue aspectValue = (AspectValue) entry.getValue();
@@ -1531,7 +1534,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // empty configuration key and will never change.
           return false;
         }
-        aspectValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
+        aspectValue.clear(!topLevel && !partialDiscard);
       }
     }
     return false;
@@ -1542,9 +1545,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
-  private SilentCloseable trackDiscardAnalysisCache(DiscardType discardType) {
+  private SilentCloseable trackDiscardAnalysisCache(DiscardType discardType, boolean partial) {
     AutoProfiler profiler =
-        GoogleAutoProfilerUtils.logged("discarding analysis cache " + discardType);
+        GoogleAutoProfilerUtils.logged(
+            "discarding analysis cache " + discardType + (partial ? " (partial)" : ""));
     return () -> {
       Duration d = Duration.ofNanos(profiler.completeAndGetElapsedTimeNanos());
       getEventBus().post(new AnalysisCacheClearEvent(d));
