@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
@@ -110,7 +111,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         ImmutableMap.of(),
         /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
-        new TimestampGranularityMonitor(null));
+        new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
     scratch.file(".bazelignore");
