@@ -248,12 +248,12 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
             ;;
           empty)
             bot_update_request="$(printf \
-              '{"name":"%s","botSession":%s,"updateMask":""}' \
+              '{"name":"%s","botSession":%s,"updateMask":{}}' \
               "$session_name" "$bot_update_body")"
             ;;
           full)
             bot_update_request="$(printf \
-              '{"name":"%s","botSession":%s,"updateMask":"status,worker,leases,version"}' \
+              '{"name":"%s","botSession":%s,"updateMask":{"paths":["status","worker","leases","version"]}}' \
               "$session_name" "$bot_update_body")"
             ;;
         esac
@@ -302,12 +302,12 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
             ;;
           empty)
             bot_update_request="$(printf \
-              '{"name":"%s","botSession":%s,"updateMask":""}' \
+              '{"name":"%s","botSession":%s,"updateMask":{}}' \
               "$session_name" "$bot_update_body")"
             ;;
           full)
             bot_update_request="$(printf \
-              '{"name":"%s","botSession":%s,"updateMask":"status,worker,leases,version"}' \
+              '{"name":"%s","botSession":%s,"updateMask":{"paths":["status","worker","leases","version"]}}' \
               "$session_name" "$bot_update_body")"
             ;;
         esac
