@@ -318,6 +318,37 @@ if [[ -n "$access_token" && -n "$project_id" ]]; then
         printf '\nexit_code=%s\n' "$update_exit_code"
       done
 
+      if [[ -z "$selected_mask_mode" ]]; then
+        for update_status in UNHEALTHY INITIALIZING; do
+          status_update_body="$(printf '%s' "$bot_update_body" | sed \
+            "s/\"status\"[[:space:]]*:[[:space:]]*\"[A-Z_]*\"/\"status\": \"$update_status\"/")"
+          bot_update_request="$(printf '{"name":"%s","botSession":%s}' \
+            "$session_name" "$status_update_body")"
+          update_response_file="/tmp/b0244-bot-status-$$-$update_status.json"
+          update_error_file="/tmp/b0244-bot-status-$$-$update_status.err"
+          for rpc_attempt in $(seq 1 5); do
+            perform_bot_update
+            if [[ "$update_exit_code" == '0' ]]; then
+              printf 'rbe_synthetic_status_update_%s=' "$update_status"
+              cat "$update_response_file"
+              printf '\n'
+              break
+            fi
+            if grep -q 'Code: Internal' "$update_error_file" \
+                && [[ "$rpc_attempt" -lt '5' ]]; then
+              printf 'rbe_synthetic_status_retry=%s:%s:Internal\n' \
+                "$update_status" "$rpc_attempt"
+              sleep 1
+              continue
+            fi
+            printf 'rbe_synthetic_status_error_%s=' "$update_status"
+            cat "$update_error_file" 2>/dev/null || true
+            printf '\nexit_code=%s\n' "$update_exit_code"
+            break
+          done
+        done
+      fi
+
       for poll_attempt in $(seq 1 20); do
         if [[ "$lease_received" == '1' || -z "$selected_mask_mode" ]]; then
           break
