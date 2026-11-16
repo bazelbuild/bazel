@@ -1013,11 +1013,6 @@ java_library(
 )
 
 java_library(
-    name = "line_buffered_output_stream",
-    srcs = ["LineBufferedOutputStream.java"],
-)
-
-java_library(
     name = "synchronized_output_stream",
     srcs = ["SynchronizedOutputStream.java"],
     deps = [
