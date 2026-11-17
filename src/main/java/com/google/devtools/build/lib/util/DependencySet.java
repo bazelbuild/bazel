@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -84,25 +83,11 @@ public final class DependencySet {
   }
 
   /**
-   * Gets the dependencies of this DependencySet instance in {@link Path} form.
-   *
-   * <p>Prefer {@link #getDependencyPathFragments}, which doesn't create a {@link Path} per
-   * dependency.
-   */
-  public ImmutableList<Path> getDependencies() {
-    ImmutableList.Builder<Path> paths = ImmutableList.builderWithExpectedSize(dependencies.size());
-    for (PathFragment dependency : dependencies) {
-      paths.add(root.getRelative(dependency));
-    }
-    return paths.build();
-  }
-
-  /**
    * Gets an unmodifiable view of the dependencies of this DependencySet instance. A dependency is
    * relative to the root of this DependencySet if and only if its {@link PathFragment} is relative.
    * Relative dependencies never start with an uplevel reference.
    */
-  public Collection<PathFragment> getDependencyPathFragments() {
+  public Collection<PathFragment> getDependencies() {
     return Collections.unmodifiableCollection(dependencies);
   }
 

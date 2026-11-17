@@ -125,14 +125,19 @@ public final class ActionCacheCheckerTest {
   }
 
   private ActionCacheChecker createActionCacheChecker(boolean storeOutputMetadata) {
-    return createActionCacheChecker(storeOutputMetadata, ImmutableSet.of());
+    return createActionCacheChecker(
+        storeOutputMetadata,
+        /* bustActionCachesTargets= */ ImmutableSet.of(),
+        /* artifactResolver= */ new FakeArtifactResolverBase());
   }
 
   private ActionCacheChecker createActionCacheChecker(
-      boolean storeOutputMetadata, ImmutableSet<Label> bustActionCachesTargets) {
+      boolean storeOutputMetadata,
+      ImmutableSet<Label> bustActionCachesTargets,
+      ArtifactResolver artifactResolver) {
     return new ActionCacheChecker(
         cache,
-        new FakeArtifactResolverBase(),
+        artifactResolver,
         new ActionKeyContext(),
         action -> true,
         proxyMetadataFactory,
@@ -500,7 +505,10 @@ public final class ActionCacheCheckerTest {
   public void bustActionCaches_skipsCacheHitForMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
     cacheChecker =
-        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(target),
+            new FakeArtifactResolverBase());
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action = new WriteEmptyOutputAction(createActionOwner(target), output);
 
@@ -515,7 +523,10 @@ public final class ActionCacheCheckerTest {
   public void bustActionCaches_acceptsCacheHitForNonMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
     cacheChecker =
-        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(target),
+            new FakeArtifactResolverBase());
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action =
         new WriteEmptyOutputAction(
@@ -531,7 +542,9 @@ public final class ActionCacheCheckerTest {
     Label other = Label.parseCanonicalUnchecked("//pkg:other");
     cacheChecker =
         createActionCacheChecker(
-            /* storeOutputMetadata= */ true, ImmutableSet.of(target1, target2));
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(target1, target2),
+            new FakeArtifactResolverBase());
     Action action1 =
         new WriteEmptyOutputAction(
             createActionOwner(target1), createArtifact(artifactRoot, "bin/out1"));
@@ -2239,8 +2252,9 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     ActionCacheChecker checker =
-        new ActionCacheChecker(
-            cache,
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ false,
+            /* bustActionCachesTargets= */ ImmutableSet.of(),
             new FakeArtifactResolverBase() {
               @Override
               public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
@@ -2249,14 +2263,7 @@ public final class ActionCacheCheckerTest {
                 execPaths.forEach(execPath -> result.put(execPath, null));
                 return result;
               }
-            },
-            new ActionKeyContext(),
-            unused -> true,
-            proxyMetadataFactory,
-            ActionCacheChecker.CacheConfig.builder()
-                .setEnabled(true)
-                .setStoreOutputMetadata(false)
-                .build());
+            });
 
     assertThat(checker.getCachedInputs(action, /* resolver= */ null))
         .containsExactly(discoveredInput);
