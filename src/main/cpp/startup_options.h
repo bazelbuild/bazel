@@ -208,10 +208,6 @@ class StartupOptions {
   // If true, the Blaze/Bazel server deletes its output base on shutdown.
   bool delete_output_base_on_shutdown;
 
-  bool oom_more_eagerly;
-
-  int oom_more_eagerly_threshold;
-
   // TODO: b/231429363 - Remove this after the 6 month compatibility window ends
   //   in October 2025.
   bool write_command_log;
