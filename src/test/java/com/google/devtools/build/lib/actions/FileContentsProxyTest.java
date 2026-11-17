@@ -73,18 +73,8 @@ public class FileContentsProxyTest {
     }
 
     @Override
-    public long getLastModifiedTime() {
-      return Math.floorDiv(mtime, 1_000_000);
-    }
-
-    @Override
     public long getLastModifiedTimeNanos() {
       return mtime;
-    }
-
-    @Override
-    public long getLastChangeTime() {
-      return Math.floorDiv(ctime, 1_000_000);
     }
 
     @Override
@@ -132,9 +122,7 @@ public class FileContentsProxyTest {
             /* mtime= */ 1_000_001, /* ctime= */ 2_000_002, /* size= */ 3, /* nodeId= */ 4);
     FileStatus partial = FileContentsProxy.create(stat).toMetadataOnlyFileStatus(stat.getSize());
 
-    assertThat(partial.getLastModifiedTime()).isEqualTo(stat.getLastModifiedTime());
     assertThat(partial.getLastModifiedTimeNanos()).isEqualTo(stat.getLastModifiedTimeNanos());
-    assertThat(partial.getLastChangeTime()).isEqualTo(stat.getLastChangeTime());
     assertThat(partial.getLastChangeTimeNanos()).isEqualTo(stat.getLastChangeTimeNanos());
     assertThat(partial.getNodeId()).isEqualTo(stat.getNodeId());
     assertThat(partial.getSize()).isEqualTo(stat.getSize());

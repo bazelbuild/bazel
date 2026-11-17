@@ -337,8 +337,7 @@ public class OptionsParser implements OptionsParsingResult {
       OptionPriority.PriorityCategory priority, String source, String[] args) {
     for (String arg : args) {
       if (arg.equals("--help")) {
-        System.out.println(
-            describeOptionsWithDeprecatedCategories(ImmutableMap.of(), HelpVerbosity.LONG));
+        System.out.println(describeOptions(HelpVerbosity.LONG));
 
         System.exit(0);
       }

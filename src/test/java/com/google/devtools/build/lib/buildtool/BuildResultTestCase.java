@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -151,10 +153,10 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testHideOutputGroupResults() throws Exception {
+  public void testExtraDefaultOutputGroups_builtButHidden() throws Exception {
     writeOutputGroupsTarget();
 
-    addOptions("--output_groups=+custom", "--hide_output_group_results=custom");
+    addOptions("--extra_default_output_groups=custom");
     build(false, "no-error", "//groups:t");
 
     String stderr = recOutErr.errAsLatin1();
@@ -162,13 +164,16 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
         .containsMatch("Target //groups:t up-to-date:\n  .*/groups/t_default\\.txt\n");
     assertThat(stderr).doesNotContain("t_custom.txt");
     assertThat(stderr).doesNotContain("t_shared.txt");
+    // Hidden from the result output, but still built.
+    Path defaultOutput = getOnlyElement(getArtifacts("//groups:t")).getPath();
+    assertThat(defaultOutput.getParentDirectory().getRelative("t_custom.txt").exists()).isTrue();
   }
 
   @Test
-  public void testHideOutputGroupResults_defaultOutputGroup() throws Exception {
+  public void testExtraDefaultOutputGroups_defaultOutputGroup() throws Exception {
     writeOutputGroupsTarget();
 
-    addOptions("--output_groups=+custom", "--hide_output_group_results=default");
+    addOptions("--output_groups=+custom", "--extra_default_output_groups=default");
     build(false, "no-error", "//groups:t");
 
     String stderr = recOutErr.errAsLatin1();
@@ -178,10 +183,10 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testHideOutputGroupResults_artifactInVisibleGroupStillShown() throws Exception {
+  public void testExtraDefaultOutputGroups_artifactInVisibleGroupStillShown() throws Exception {
     writeOutputGroupsTarget();
 
-    addOptions("--output_groups=+custom,+shared", "--hide_output_group_results=custom");
+    addOptions("--output_groups=+shared", "--extra_default_output_groups=custom");
     build(false, "no-error", "//groups:t");
 
     String stderr = recOutErr.errAsLatin1();
@@ -191,12 +196,26 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testHideOutputGroupResults_suppressesUnknownOutputGroupWarning() throws Exception {
+  public void testExtraDefaultOutputGroups_droppedByOutputGroupsOverride() throws Exception {
     writeOutputGroupsTarget();
 
-    addOptions(
-        "--output_groups=+hidden_missing,+shown_missing",
-        "--hide_output_group_results=hidden_missing");
+    addOptions("--output_groups=shared", "--extra_default_output_groups=custom");
+    build(false, "no-error", "//groups:t");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("/groups/t_shared.txt\n");
+    assertThat(stderr).doesNotContain("t_default.txt");
+    assertThat(stderr).doesNotContain("t_custom.txt");
+    // The unprefixed --output_groups drops the extra default group entirely, so it is not built.
+    Path defaultOutput = getOnlyElement(getArtifacts("//groups:t")).getPath();
+    assertThat(defaultOutput.getParentDirectory().getRelative("t_custom.txt").exists()).isFalse();
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroups_suppressesUnknownOutputGroupWarning() throws Exception {
+    writeOutputGroupsTarget();
+
+    addOptions("--output_groups=+shown_missing", "--extra_default_output_groups=hidden_missing");
     build(false, "no-error", "//groups:t");
 
     String stderr = recOutErr.errAsLatin1();
@@ -205,12 +224,12 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testHideOutputGroupResults_doesNotSuppressUnknownOutputGroupError() throws Exception {
+  public void testExtraDefaultOutputGroups_doesNotSuppressUnknownOutputGroupError()
+      throws Exception {
     writeOutputGroupsTarget();
 
     addOptions(
-        "--output_groups=+hidden_missing",
-        "--hide_output_group_results=hidden_missing",
+        "--extra_default_output_groups=hidden_missing",
         "--incompatible_fail_on_unknown_output_groups");
     ViewCreationFailedException e =
         assertThrows(ViewCreationFailedException.class, () -> buildTarget("//groups:t"));

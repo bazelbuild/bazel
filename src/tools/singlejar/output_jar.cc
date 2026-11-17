@@ -139,7 +139,7 @@ size_t OutputJar::WriteNoLock(const void* buffer, size_t count) {
   EnsureCapacity(count);
 #if defined(__linux__)
   return fwrite_unlocked(buffer, 1, count, file_);
-#elif defined(_WIN32)
+#elif defined(_WIN32) && (defined(_MSC_VER) || defined(_UCRT))
   return _fwrite_nolock(buffer, 1, count, file_);
 #else
   return fwrite(buffer, 1, count, file_);
@@ -545,9 +545,7 @@ bool OutputJar::AddJar(int jar_path_index) {
 
       // Plain file entry. If duplicates are not allowed, bail out. Otherwise
       // just ignore this entry.
-      if (options_->no_duplicates ||
-          (options_->no_duplicate_classes &&
-           absl::EndsWith(entry_name_view, ".class"))) {
+      if (options_->no_duplicates) {
         diag_errx(
             1, "%s:%d: %.*s is present both in %s and %s", __FILE__, __LINE__,
             file_name_length, file_name,

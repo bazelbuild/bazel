@@ -203,18 +203,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           }
 
           @Override
-          public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
-          }
-
-          @Override
           public long getLastModifiedTimeNanos() {
             return attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS);
-          }
-
-          @Override
-          public long getLastChangeTime() throws IOException {
-            return Math.floorDiv(getLastChangeTimeNanos(), 1_000_000);
           }
 
           @Override

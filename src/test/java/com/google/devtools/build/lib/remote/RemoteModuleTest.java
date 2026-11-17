@@ -96,10 +96,12 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -283,8 +285,8 @@ public final class RemoteModuleTest {
 
   @Before
   public void initialize() {
-    serviceConfigsByTarget = new HashMap<>();
-    createdChannels = new ArrayList<>();
+    serviceConfigsByTarget = Collections.synchronizedMap(new HashMap<>());
+    createdChannels = new CopyOnWriteArrayList<>();
     remoteModule = new RemoteModule();
     remoteModule.setChannelFactory(
         (target, proxy, options, interceptors, serviceConfig) -> {

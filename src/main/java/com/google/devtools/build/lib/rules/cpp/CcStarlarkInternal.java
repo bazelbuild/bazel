@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionCo
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -90,26 +89,6 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
 
-  private static final int ALLOWLIST_CACHE_MAX_SIZE = 32;
-  private static final Object ALLOWLIST_CACHE_LOCK = new Object();
-
-  /**
-   * Caches the conversion from a Starlark {@link Sequence} to a {@link
-   * BuiltinRestriction.Allowlist}.
-   *
-   * <p>{@link #checkPrivateApi} is called on every private API usage, making it a hot path.
-   * However, it is typically called with only a handful of unique {@link Sequence} instances
-   * defined in Starlark files.
-   *
-   * <p>To maximize performance, we use a copy-on-write {@link IdentityHashMap}. This avoids the
-   * cost of hashing sequences and keeps reads (the common case) lock-free. Updates are rare and are
-   * synchronized. If the cache exceeds {@link #ALLOWLIST_CACHE_MAX_SIZE}, we start fresh with an
-   * empty cache. This approach performs better than a Caffeine cache with maximum size and/or weak
-   * keys, which both have per-read maintenance operations.
-   */
-  private static volatile IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist>
-      allowlistCache = new IdentityHashMap<>();
-
   @StarlarkMethod(
       name = "check_private_api",
       documented = false,
@@ -130,13 +109,15 @@ public class CcStarlarkInternal implements StarlarkValue {
             named = true,
             defaultValue = "1"),
       })
-  public void checkPrivateApi(Object allowlistObject, Object depth, StarlarkThread thread)
+  public void checkPrivateApi(Object allowlistObject, StarlarkInt depth, StarlarkThread thread)
       throws EvalException {
     // This method may be called anywhere from builtins, but not outside (because it's not exposed
     // in cc_common.bzl
-    Module module =
-        Module.ofInnermostEnclosingStarlarkFunction(
-            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
+    int depthInt = depth.toInt("depth");
+    if (depthInt < 0) {
+      throw Starlark.errorf("depth must be non-negative, got %d", depthInt);
+    }
+    Module module = Module.ofInnermostEnclosingStarlarkFunction(thread, depthInt);
     if (module == null) {
       // The module is null when the call is coming from one of the callbacks passed to execution
       // phase
@@ -144,54 +125,9 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
 
     BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
-    BuiltinRestriction.Allowlist allowlist = allowlistFromStarlark(allowlistObject);
+    BuiltinRestriction.Allowlist allowlist =
+        BuiltinRestriction.allowlistFromStarlark(allowlistObject);
     BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
-  }
-
-  private static BuiltinRestriction.Allowlist allowlistFromStarlark(Object allowlistObject)
-      throws EvalException {
-    // Fast path: lock-free read.
-    BuiltinRestriction.Allowlist allowlist = allowlistCache.get(allowlistObject);
-    if (allowlist != null) {
-      return allowlist;
-    }
-
-    Sequence<Tuple> seq = Sequence.cast(allowlistObject, Tuple.class, "allowlist");
-    if (!seq.isImmutable()) {
-      return createAllowlist(seq);
-    }
-
-    // Cache miss: check again under lock.
-    synchronized (ALLOWLIST_CACHE_LOCK) {
-      allowlist = allowlistCache.get(seq);
-      if (allowlist == null) {
-        // Copy on write.
-        IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist> newCache =
-            allowlistCache.size() < ALLOWLIST_CACHE_MAX_SIZE
-                ? new IdentityHashMap<>(allowlistCache)
-                : new IdentityHashMap<>();
-        allowlist = createAllowlist(seq);
-        newCache.put(seq, allowlist);
-        allowlistCache = newCache;
-      }
-    }
-    return allowlist;
-  }
-
-  private static BuiltinRestriction.Allowlist createAllowlist(Sequence<Tuple> seq) {
-    return BuiltinRestriction.Allowlist.create(
-        seq.stream()
-            // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
-            // Starlark, even though it is allowlisted.
-            .map(
-                p -> {
-                  String repo = (String) p.get(0);
-                  String packagePrefix = (String) p.get(1);
-                  return repo.isEmpty()
-                      ? BuiltinRestriction.mainRepoAllowlistEntry(packagePrefix)
-                      : BuiltinRestriction.externalRepoAllowlistEntry(repo, packagePrefix);
-                })
-            .collect(toImmutableList()));
   }
 
   /** Wraps a dictionary of build variables into CcToolchainVariables. */

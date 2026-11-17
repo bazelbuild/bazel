@@ -392,6 +392,7 @@ java_test(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:rewinding_tests_helper",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:action_event_recorder",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",

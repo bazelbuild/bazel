@@ -184,6 +184,11 @@ class StartupOptions {
 
   std::string extra_classpath;
 
+  // Client environment variable names whose values the server must redact
+  // from its log, in addition to the built-in heuristic. Whole-name match,
+  // case-insensitive, with '*' matching any sequence of characters.
+  std::vector<std::string> redact_client_env;
+
   bool batch;
 
   // From the man page: "This policy is useful for workloads that are
@@ -202,10 +207,6 @@ class StartupOptions {
 
   // If true, the Blaze/Bazel server deletes its output base on shutdown.
   bool delete_output_base_on_shutdown;
-
-  bool oom_more_eagerly;
-
-  int oom_more_eagerly_threshold;
 
   // TODO: b/231429363 - Remove this after the 6 month compatibility window ends
   //   in October 2025.

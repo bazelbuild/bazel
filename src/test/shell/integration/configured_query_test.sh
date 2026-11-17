@@ -236,6 +236,38 @@ EOF
     || fail "Expected the UTF-8 label in configured_rule_input: $(grep -F csv output)"
 }
 
+function test_unicode_jsonproto() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch "$pkg/文.csv"
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "data",
+    srcs = ["文.csv"],
+)
+EOF
+
+  bazel cquery "//$pkg:data" --output=jsonproto \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "\"//$pkg:文.csv\"" output
+}
+
+function test_unicode_starlark_file() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+filegroup(name = "文")
+EOF
+  cat > "$pkg/输出.star" <<'EOF'
+def format(target):
+    return "标签: " + str(target.label)
+EOF
+
+  bazel cquery "//$pkg:文" --output=starlark --starlark:file="$pkg/输出.star" \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "^标签: .*//$pkg:文$" output
+}
+
 function test_transitions_incompatible_target() {
   local -r pkg=$FUNCNAME
 
@@ -1876,6 +1908,55 @@ EOF
   expect_not_log "NullPointerException"
   expect_not_log "crashed due to an internal error"
   expect_log "//$pkg:valid"
+}
+
+function test_configured_rule_inputs_toolchains() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat >$pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_toolchain", "rule_using_toolchain")
+
+toolchain_type(
+    name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+my_toolchain(
+    name = "my_toolchain",
+)
+
+toolchain(
+    name = "toolchain",
+    toolchain = ":my_toolchain",
+    toolchain_type = ":toolchain_type",
+)
+
+rule_using_toolchain(
+    name = "rule",
+)
+EOF
+
+  cat >$pkg/rules.bzl <<EOF
+def _rule_using_toolchain_impl(ctx):
+    pass
+
+rule_using_toolchain = rule(
+    implementation = _rule_using_toolchain_impl,
+    toolchains = ["//$pkg:toolchain_type"],
+)
+
+def _toolchain_impl(ctx):
+    return [platform_common.ToolchainInfo()]
+
+my_toolchain = rule(
+    implementation = _toolchain_impl,
+)
+EOF
+
+  bazel cquery --output=textproto --extra_toolchains=//$pkg:toolchain //$pkg:rule > output 2>"$TEST_log" || fail "Unexpected failure"
+  assert_contains "label: \"//$pkg:my_toolchain\"" output
+  assert_not_contains "rule_input: \"//$pkg:my_toolchain\"" output
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

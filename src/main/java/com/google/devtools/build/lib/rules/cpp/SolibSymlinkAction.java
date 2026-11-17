@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -252,7 +252,7 @@ public final class SolibSymlinkAction extends AbstractAction {
     if (filename.length() <= MAX_FILENAME_LENGTH) {
       return filename;
     } else {
-      String hashedName = Hashing.sha256().hashString(filename, UTF_8).toString();
+      String hashedName = Hashing.sha256().hashString(filename, ISO_8859_1).toString();
       String extension = Files.getFileExtension(filename);
       if (extension.isEmpty()) {
         return hashedName;

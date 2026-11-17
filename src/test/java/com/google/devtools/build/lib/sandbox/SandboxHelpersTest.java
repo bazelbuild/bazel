@@ -59,6 +59,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -361,7 +362,8 @@ public class SandboxHelpersTest {
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
 
     SandboxContents sandboxContents =
-        SandboxHelpers.createContentMap(execRoot, inputs, SandboxOutputs.getEmptyInstance());
+        SandboxHelpers.createContentMap(
+            execRoot, fs.getPath("/real_execroot"), inputs, SandboxOutputs.getEmptyInstance());
 
     SandboxContents workDirContents = sandboxContents.dirMap().get(execRoot.getBaseName());
     assertThat(workDirContents).isNotNull();
@@ -381,7 +383,11 @@ public class SandboxHelpersTest {
     files.put(emptyInput, null);
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
-        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+        SandboxHelpers.createContentMap(
+            workDir,
+            scratch.getFileSystem().getPath("/real_execroot"),
+            inputs,
+            SandboxOutputs.getEmptyInstance());
     clock.advanceMillis(1);
     long timestamp = SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
 
@@ -409,7 +415,8 @@ public class SandboxHelpersTest {
     files.put(knownInput, sourceFile);
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
-        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+        SandboxHelpers.createContentMap(
+            workDir, sourceFile.getParentDirectory(), inputs, SandboxOutputs.getEmptyInstance());
     clock.advanceMillis(1);
     long timestamp = SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
 
@@ -422,7 +429,7 @@ public class SandboxHelpersTest {
     assertThat(knownSymlink.isSymbolicLink()).isTrue();
     assertThat(unexpectedSymlink.exists()).isFalse();
     assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
-        .containsEntry("input.txt", sourceFile.asFragment());
+        .containsEntry("input.txt", PathFragment.create("input.txt"));
     assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
         .doesNotContainKey("unexpected");
   }
@@ -443,7 +450,10 @@ public class SandboxHelpersTest {
         new SandboxInputs(previousFiles, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents sandboxContents =
         SandboxHelpers.createContentMap(
-            execRoot, previousInputs, SandboxOutputs.getEmptyInstance());
+            execRoot,
+            sharedSource.getParentDirectory(),
+            previousInputs,
+            SandboxOutputs.getEmptyInstance());
 
     Map<PathFragment, Path> currentFiles = new HashMap<>(previousFiles);
     if (!keepEmptyInput) {
@@ -467,10 +477,86 @@ public class SandboxHelpersTest {
         dirsToCreate,
         execRoot,
         treeDeleter,
+        sharedSource.getParentDirectory(),
         sandboxContents);
 
     assertThat(emptyFile.exists()).isEqualTo(keepEmptyInput);
     assertThat(inputsToCreate).isEmpty();
+  }
+
+  @Test
+  public void cleanExisting_withInMemoryContents_matchesSymlinkTargets() throws Exception {
+    Path realExecRoot = scratch.dir("/real_execroot");
+    PathFragment samePathInput = PathFragment.create("pkg/same_path.txt");
+    PathFragment runfilesInput = PathFragment.create("tool.runfiles/_main/pkg/runfile.txt");
+    PathFragment outsideInput = PathFragment.create("pkg/outside.txt");
+    PathFragment changedInput = PathFragment.create("pkg/changed.txt");
+    PathFragment fileThenSymlinkInput = PathFragment.create("pkg/file_then_symlink");
+    PathFragment symlinkInput = PathFragment.create("pkg/symlink");
+    Map<PathFragment, Path> previousFiles = new HashMap<>();
+    previousFiles.put(samePathInput, realExecRoot.getRelative(samePathInput));
+    previousFiles.put(runfilesInput, realExecRoot.getRelative("pkg/runfile.txt"));
+    previousFiles.put(outsideInput, fs.getPath("/outside/outside.txt"));
+    previousFiles.put(changedInput, realExecRoot.getRelative("pkg/old.txt"));
+    previousFiles.put(fileThenSymlinkInput, realExecRoot.getRelative("pkg/target.txt"));
+    var previousInputs =
+        new SandboxInputs(
+            previousFiles,
+            ImmutableMap.of(),
+            ImmutableMap.of(symlinkInput, PathFragment.create("target.txt")));
+    for (Map.Entry<PathFragment, Path> entry : previousFiles.entrySet()) {
+      Path link = execRoot.getRelative(entry.getKey());
+      link.getParentDirectory().createDirectoryAndParents();
+      link.createSymbolicLink(entry.getValue());
+    }
+    execRoot.getRelative(symlinkInput).createSymbolicLink(PathFragment.create("target.txt"));
+    SandboxContents sandboxContents =
+        SandboxHelpers.createContentMap(
+            execRoot, realExecRoot, previousInputs, SandboxOutputs.getEmptyInstance());
+
+    Map<PathFragment, Path> currentFiles = new HashMap<>(previousFiles);
+    currentFiles.put(changedInput, realExecRoot.getRelative("pkg/new.txt"));
+    currentFiles.remove(fileThenSymlinkInput);
+    // The symlink's target is the old file input's target relative to the exec root.
+    var currentInputs =
+        new SandboxInputs(
+            currentFiles,
+            ImmutableMap.of(),
+            ImmutableMap.of(
+                symlinkInput,
+                PathFragment.create("target.txt"),
+                fileThenSymlinkInput,
+                PathFragment.create("pkg/target.txt")));
+    Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    SandboxHelpers.populateInputsAndDirsToCreate(
+        ImmutableSet.of(),
+        inputsToCreate,
+        dirsToCreate,
+        Iterables.concat(currentFiles.keySet(), currentInputs.getSymlinks().keySet()),
+        SandboxOutputs.getEmptyInstance());
+
+    SandboxHelpers.cleanExisting(
+        execRoot.getParentDirectory(),
+        currentInputs,
+        inputsToCreate,
+        dirsToCreate,
+        execRoot,
+        treeDeleter,
+        realExecRoot,
+        sandboxContents);
+
+    assertThat(inputsToCreate).containsExactly(changedInput, fileThenSymlinkInput);
+    assertThat(execRoot.getRelative(changedInput).exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(execRoot.getRelative(fileThenSymlinkInput).exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(execRoot.getRelative(samePathInput).readSymbolicLink())
+        .isEqualTo(realExecRoot.getRelative(samePathInput).asFragment());
+    assertThat(execRoot.getRelative(runfilesInput).readSymbolicLink())
+        .isEqualTo(realExecRoot.getRelative("pkg/runfile.txt").asFragment());
+    assertThat(execRoot.getRelative(outsideInput).readSymbolicLink())
+        .isEqualTo(PathFragment.create("/outside/outside.txt"));
+    assertThat(execRoot.getRelative(symlinkInput).readSymbolicLink())
+        .isEqualTo(PathFragment.create("target.txt"));
   }
 
   @Test
@@ -676,6 +762,7 @@ public class SandboxHelpersTest {
 
     assertThat(trashBase.getDirectoryEntries()).isEmpty();
   }
+
   @Test
   public void asynchronousTreeDeleter_differentFileSystem_deletesSynchronously() throws Exception {
     FileSystem fs1 = new InMemoryFileSystem(DigestHashFunction.SHA256);
@@ -826,7 +913,11 @@ public class SandboxHelpersTest {
     files.put(modifiedInput, null);
     SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
     SandboxContents contents =
-        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+        SandboxHelpers.createContentMap(
+            workDir,
+            scratch.getFileSystem().getPath("/real_execroot"),
+            inputs,
+            SandboxOutputs.getEmptyInstance());
     clock.advanceMillis(1);
     long timestamp = SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
 
@@ -1484,5 +1575,110 @@ public class SandboxHelpersTest {
           null);
     }
   }
-}
 
+  @Test
+  public void sandboxStash_renameUpdatingDirectoryCtime_updatesContentMapBeforeRename()
+      throws Exception {
+    ManualClock manualClock = new ManualClock();
+    AtomicInteger wsReaddirCount = new AtomicInteger(0);
+    InMemoryFileSystem ctimeUpdatingRenameFs =
+        new InMemoryFileSystem(manualClock, DigestHashFunction.SHA256) {
+          @Override
+          public synchronized void setLastModifiedTimeNanos(PathFragment path, long newTime)
+              throws IOException {
+            if (newTime == Path.NOW_SENTINEL_TIME) {
+              manualClock.advanceMillis(1);
+            }
+            super.setLastModifiedTimeNanos(path, newTime);
+          }
+
+          @Override
+          public void renameTo(PathFragment sourcePath, PathFragment targetPath)
+              throws IOException {
+            super.renameTo(sourcePath, targetPath);
+            // Simulate filesystems (such as macOS APFS) where renaming execroot updates ctime on
+            // moved directory entries after takeContentMapTimestamp was recorded.
+            bumpCtimeRecursively(getPath(targetPath));
+          }
+
+          private void bumpCtimeRecursively(Path currentPath) throws IOException {
+            currentPath.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
+            if (currentPath.isDirectory(Symlinks.NOFOLLOW)) {
+              for (Dirent dirent : currentPath.readdir(Symlinks.NOFOLLOW)) {
+                bumpCtimeRecursively(currentPath.getChild(dirent.getName()));
+              }
+            }
+          }
+
+          @Override
+          public synchronized Collection<String> getDirectoryEntries(PathFragment path)
+              throws IOException {
+            if (path.getBaseName().equals("ws")) {
+              wsReaddirCount.incrementAndGet();
+            }
+            return super.getDirectoryEntries(path);
+          }
+        };
+    Scratch apfsScratch = new Scratch(ctimeUpdatingRenameFs);
+    Path sandboxBase = apfsScratch.dir("/sandbox_stash_apfs_ctime");
+    Path sourceFile = apfsScratch.file("/workspace/a.txt", "hello");
+    Path execRoot = sourceFile.getParentDirectory();
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+
+      Path sandbox1 = apfsScratch.dir("/sandbox_stash_apfs_ctime/1");
+      Path sandboxExecRoot1 = sandbox1.getRelative("execroot/ws");
+      Map<PathFragment, Path> inputFiles = new HashMap<>();
+      inputFiles.put(PathFragment.create("dir/a.txt"), sourceFile);
+      inputFiles.put(PathFragment.create("empty.txt"), null);
+      SandboxInputs inputs1 = new SandboxInputs(inputFiles, ImmutableMap.of(), ImmutableMap.of());
+      SymlinkedSandboxedSpawn spawn1 =
+          new SymlinkedSandboxedSpawn(
+              sandbox1,
+              sandboxExecRoot1,
+              execRoot,
+              ImmutableList.of("/bin/true"),
+              ImmutableMap.of(),
+              inputs1,
+              SandboxOutputs.getEmptyInstance(),
+              ImmutableSet.of(),
+              new SynchronousTreeDeleter(),
+              /* sandboxDebugPath= */ null,
+              /* statisticsPath= */ null,
+              /* interactiveDebugArguments= */ null,
+              "ObjcCompile",
+              Label.parseCanonicalUnchecked("//pkg:target"));
+      spawn1.createFileSystem();
+      manualClock.advanceMillis(1);
+
+      wsReaddirCount.set(0);
+      spawn1.delete();
+
+      // Running updateContentMap before renameTo avoids ctime-induced directory scans and prevents
+      // updateContentMap from deleting empty input files whose ctime changed during renameTo.
+      Set<Path> readyStashes = stash.getReadyStashesForTesting().get("ObjcCompile");
+      assertThat(readyStashes).hasSize(1);
+      Path stashedDir = readyStashes.iterator().next();
+      assertThat(stashedDir.getRelative("execroot/ws/empty.txt").exists(Symlinks.NOFOLLOW))
+          .isTrue();
+      assertThat(stashedDir.getRelative("execroot/ws/dir/a.txt").isSymbolicLink()).isTrue();
+      // Only bumpCtimeRecursively inside renameTo (after updateContentMap) reads `ws`.
+      assertThat(wsReaddirCount.get()).isEqualTo(1);
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+}

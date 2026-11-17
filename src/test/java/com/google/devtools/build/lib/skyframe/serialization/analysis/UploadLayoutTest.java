@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.ArrayList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -137,6 +139,49 @@ public final class UploadLayoutTest {
   }
 
   @Test
+  public void uploadOrder_summaryKeysImmediatelyPrecedeTheirOwners() {
+    ActionLookupKey empty = key("empty");
+    ActionLookupKey top = key("top");
+    ActionLookupKey bottom = key("bottom");
+    ActionLookupKey skipped = key("skipped");
+    var emptySummary = new TestSummaryKey(empty);
+    var topSummary = new TestSummaryKey(top);
+    var bottomSummary = new TestSummaryKey(bottom);
+    var skippedSummary = new TestSummaryKey(skipped);
+    ActionLookupData action = ActionLookupData.create(top, 0);
+    var nodes =
+        ImmutableMap.<ActionLookupKey, FileOpNodeOrEmpty>of(
+            empty,
+            EMPTY_FILE_OP_NODE,
+            top,
+            nested(/* depth= */ 1),
+            bottom,
+            nested(/* depth= */ 2),
+            skipped,
+            nested(/* depth= */ 1));
+
+    UploadLayout partition =
+        UploadLayout.partition(
+            ImmutableList.of(
+                topSummary,
+                action,
+                top,
+                skippedSummary,
+                bottom,
+                bottomSummary,
+                empty,
+                emptySummary,
+                skipped),
+            key -> key.equals(skipped),
+            nodes::get);
+
+    assertThat(partition.uploadOrder(/* maxDepth= */ 2))
+        .containsExactly(
+            emptySummary, empty, bottomSummary, bottom, topSummary, top, skippedSummary, action)
+        .inOrder();
+  }
+
+  @Test
   public void uploadOrder_unwalkedNode_throws() {
     ActionLookupKey unwalked = key("unwalked");
     var node =
@@ -170,5 +215,12 @@ public final class UploadLayoutTest {
 
   private RootedPath rootedPath(String path) {
     return RootedPath.toRootedPath(root, PathFragment.create(path));
+  }
+
+  private record TestSummaryKey(ActionLookupKey argument) implements ActionLookupSummaryKey {
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.createHermetic("TEST_SUMMARY");
+    }
   }
 }

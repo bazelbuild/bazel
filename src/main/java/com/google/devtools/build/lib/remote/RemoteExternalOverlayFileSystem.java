@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -80,7 +79,6 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /**
  * A file system that overlays the native file system with a {@link RemoteExternalFileSystem} for
@@ -416,8 +414,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * AbstractActionInputPrefetcher}.
    */
   @Override
-  public void ensureMaterialized(
-      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
+  public void ensureMaterialized(RepositoryName repo, @Nullable String requester)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
       // The repo has not been injected into the in-memory file system, or has already been
@@ -427,7 +424,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       String repoName = repo.getName();
       if (!materializedRepos.contains(repoName)) {
         materializeSymlinkTargetReposBelow(
-            nativeFs.getPath(externalDirectory.getChild(repoName)), location, reporter);
+            nativeFs.getPath(externalDirectory.getChild(repoName)), requester);
       }
       return;
     }
@@ -442,11 +439,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
                   if (!markerFileContents.containsKey(repo.getName())) {
                     return immediateVoidFuture();
                   }
-                  return materializationExecutor.submit(
-                      () -> {
-                        doMaterialize(repo, location, reporter);
-                        return null;
-                      });
+                  return materializationExecutor.submit(() -> {
+                    doMaterialize(repo, requester);
+                    return null;
+                  });
                 }));
   }
 
@@ -454,8 +450,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
    * Materializes the repos served from memory that symlinks below the given native directory point
    * to, following chains of native symlinks on the way.
    */
-  private void materializeSymlinkTargetReposBelow(
-      Path nativeDir, @Nullable Location location, ExtendedEventHandler reporter)
+  private void materializeSymlinkTargetReposBelow(Path nativeDir, @Nullable String requester)
       throws IOException, InterruptedException {
     if (markerFileContents.isEmpty() || !nativeDir.isDirectory(Symlinks.NOFOLLOW)) {
       return;
@@ -466,14 +461,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       }
       Path child = nativeDir.getChild(dirent.getName());
       switch (dirent.getType()) {
-        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, location, reporter);
+        case DIRECTORY -> materializeSymlinkTargetReposBelow(child, requester);
         case SYMLINK -> {
           PathFragment target = resolveNativeSymlinkIntoMemory(child);
           if (target != null) {
             ensureMaterialized(
                 RepositoryName.createUnvalidated(target.getSegment(externalDirectorySegmentCount)),
-                location,
-                reporter);
+                requester);
           }
         }
         default -> {}
@@ -504,11 +498,18 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     return null;
   }
 
-  private void doMaterialize(
-      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
+  private void doMaterialize(RepositoryName repo, @Nullable String requester)
       throws IOException, InterruptedException {
-    reporter.handle(Event.debug(location, "Materializing remote repo %s".formatted(repo)));
-    materializeSubtree(externalDirectory.getChild(repo.getName()));
+    // Show the materialization in the progress bar only while it is ongoing. This uses the reporter
+    // of the command rather than a Skyframe listener of the requester, as the requesting
+    // SkyFunction may no longer be running by the time the materialization finishes (e.g. after an
+    // interrupt).
+    reporter.post(new MaterializationProgress(repo, requester, /* finished= */ false));
+    try {
+      materializeSubtree(externalDirectory.getChild(repo.getName()));
+    } finally {
+      reporter.post(new MaterializationProgress(repo, requester, /* finished= */ true));
+    }
     materializedRepos.add(repo.getName());
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
@@ -519,6 +520,26 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     FileSystemUtils.writeContentAsLatin1(
         markerFileSibling, markerFileContents.remove(repo.getName()));
     markerFileSibling.renameTo(markerFile);
+  }
+
+  /** Shows the ongoing materialization of a repo served from memory in the progress bar. */
+  private record MaterializationProgress(
+      RepositoryName repo, @Nullable String requester, boolean finished)
+      implements ExtendedEventHandler.FetchProgress {
+    @Override
+    public String getResourceIdentifier() {
+      return "remote repo " + repo;
+    }
+
+    @Override
+    public String getProgress() {
+      return requester == null ? "materializing" : "materializing for " + requester;
+    }
+
+    @Override
+    public boolean isFinished() {
+      return finished;
+    }
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {

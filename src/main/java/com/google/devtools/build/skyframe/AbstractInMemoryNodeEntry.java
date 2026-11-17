@@ -169,9 +169,9 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public final synchronized LifecycleState markChangedIfCheckingDependencies() {
+  public final synchronized LifecycleState tryPromoteDirtyToChanged() {
     LifecycleState state = getLifecycleState();
-    if (state == LifecycleState.CHECK_DEPENDENCIES) {
+    if (state == LifecycleState.CHECK_DEPENDENCIES && !dirtyBuildingState.isEvaluating()) {
       markDirty(DirtyType.CHANGE);
     }
     return state;

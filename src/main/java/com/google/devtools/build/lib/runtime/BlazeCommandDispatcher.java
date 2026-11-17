@@ -502,7 +502,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           return result;
         }
         try {
-          starlarkCpuProfileStarted = Starlark.startCpuProfile(out, Duration.ofMillis(10));
+          starlarkCpuProfileStarted =
+              Starlark.startCpuProfile(out, Duration.ofMillis(10), /* utf8ByteStrings= */ true);
         } catch (IllegalStateException ex) { // e.g. SIGPROF in use
           String message = Strings.nullToEmpty(ex.getMessage());
           outErr.printErrLn(message);
@@ -579,12 +580,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         DebugLoggerConfigurator.setupLogging(commonOptions.getVerbosity());
 
-        boolean newStatsSummary =
-            options.getOptions(ExecutionOptions.class) != null
-                && options.getOptions(ExecutionOptions.class).getStatsSummary();
         UiEventHandler handler =
-            createEventHandler(
-                outErr, eventHandlerOptions, quiet, env, newStatsSummary, terminalSizeMonitor);
+            createEventHandler(outErr, eventHandlerOptions, quiet, env, terminalSizeMonitor);
         env.setUiEventHandler(handler);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
@@ -594,12 +591,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
               createEventHandler(
-                  colorfulOutErr,
-                  eventHandlerOptions,
-                  quiet,
-                  env,
-                  newStatsSummary,
-                  terminalSizeMonitor);
+                  colorfulOutErr, eventHandlerOptions, quiet, env, terminalSizeMonitor);
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -677,7 +669,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
-      if (env.getCommand().buildPhase().analyzes()) {
+      if (command.needsMainRepoMapping(env, options)) {
         try {
           env.syncPackageLoading(options);
         } catch (InterruptedException e) {
@@ -759,19 +751,19 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
-      }
 
-      // Parse starlark options.
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
-        earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
-      }
-      if (!earlyExitCode.isSuccess()) {
-        reporter.post(
-            new NoBuildEvent(
-                commandName, firstContactTime, false, true, env.getCommandId().toString()));
-        result = BlazeCommandResult.detailedExitCode(earlyExitCode);
-        return result;
+        // Parse starlark options.
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
+          earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
+        }
+        if (!earlyExitCode.isSuccess()) {
+          reporter.post(
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
+          return result;
+        }
       }
       options = optionHandler.getOptionsResult();
 
@@ -1046,7 +1038,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       UiOptions eventOptions,
       boolean quiet,
       CommandEnvironment env,
-      boolean newStatsSummary,
       TerminalSizeMonitor terminalSizeMonitor) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
@@ -1058,7 +1049,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getEventBus(),
         workspacePathFragment,
         env.withMergedAnalysisAndExecutionSourceOfTruth(),
-        newStatsSummary,
         terminalSizeMonitor);
   }
 

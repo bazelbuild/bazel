@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -1148,6 +1150,9 @@ public class RuleContext extends TargetContext
     if (requiredConfigFragments == null) {
       return null;
     }
+    if (!shouldIncludeMakeVariablesInRequiredConfigFragments()) {
+      return requiredConfigFragments;
+    }
 
     RequiredConfigFragmentsProvider.Builder merged = null;
 
@@ -1325,7 +1330,7 @@ public class RuleContext extends TargetContext
   public boolean verifyNestedSetCountLimit() {
     StarlarkSemantics semantics = getAnalysisEnvironment().getStarlarkSemantics();
     int limit = semantics.get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT);
-    int count = NestedSet.getCurrentTargetNestedSetCount();
+    int count = NestedSetOwnerScope.getCurrentNestedSetCount();
     if (limit <= 0 || count <= limit) {
       return true;
     }
@@ -1457,6 +1462,20 @@ public class RuleContext extends TargetContext
    */
   public boolean shouldIncludeRequiredConfigFragmentsProvider() {
     return requiredConfigFragments != null;
+  }
+
+  /**
+   * Returns {@code true} if Make variables accessed through {@code ctx.var} or Make variable
+   * substitution should be recorded as {@code --define}s in {@link
+   * RequiredConfigFragmentsProvider}.
+   */
+  public boolean shouldIncludeMakeVariablesInRequiredConfigFragments() {
+    return requiredConfigFragments != null
+        && getConfiguration()
+                .getOptions()
+                .get(CoreOptions.class)
+                .getIncludeRequiredConfigFragmentsProvider()
+            != CoreOptions.IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY;
   }
 
   @Override

@@ -443,23 +443,6 @@ public class ExecutionTool {
             request.getViewOptions().getDiscardAnalysisCache()
                 || !skyframeExecutor.tracksStateForIncrementality();
         if (shouldDiscardAnalysisCache) {
-          if (skyframeExecutor
-              .getRemoteAnalysisCacheReaderDepsProvider()
-              .mode()
-              .isRetrievalEnabled()) {
-            // When remote analysis value retrieval is enabled, it is possible for analysis to occur
-            // during the logical execution phase. Discarding the analysis cache fully can lead to
-            // crashes.
-            //
-            // TODO: b/466388360 - consider alternatives
-            getReporter()
-                .handle(
-                    Event.warn(
-                        "Remote analysis caching is enabled. Performing only a partial analysis"
-                            + " cache discard."));
-          }
-        }
-        if (shouldDiscardAnalysisCache) {
           // Free memory by removing cache entries that aren't going to be needed.
           try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
             env.getSkyframeBuildView()
@@ -474,8 +457,7 @@ public class ExecutionTool {
             executorLifecycleListener.executionPhaseStarting(
                 actionGraph,
                 // If this supplier is ever consumed by more than one ActionContextProvider, it can
-                // be
-                // pulled out of the loop and made a memoizing supplier.
+                // be pulled out of the loop and made a memoizing supplier.
                 () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
                 skyframeExecutor.getEphemeralCheckIfOutputConsumed());
           }
@@ -979,7 +961,7 @@ public class ExecutionTool {
                 .setEnabled(options.getUseActionCache())
                 .setStoreOutputMetadata(
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
-                .setBustActionCachesTarget(options.getBustActionCachesTarget())
+                .setBustActionCachesTargets(options.getBustActionCachesTargets())
                 .build()),
         actionExecutionSalt,
         modifiedOutputFiles,

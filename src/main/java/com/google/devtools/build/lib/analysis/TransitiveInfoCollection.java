@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
@@ -35,12 +36,17 @@ import net.starlark.java.eval.StarlarkIndexable;
  * @see TransitiveInfoProvider
  */
 public interface TransitiveInfoCollection
-    extends StarlarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
+    extends StarlarkIndexable, ProviderCollection, TransitiveInfoCollectionApi, CommandLineItem {
 
   /**
    * Returns the label associated with this prerequisite.
    */
   Label getLabel();
+
+  @Override
+  default String expandToCommandLine() {
+    return getLabel().expandToCommandLine();
+  }
 
   /**
    * Checks whether this {@link TransitiveInfoCollection} satisfies given {@link RequiredProviders}.

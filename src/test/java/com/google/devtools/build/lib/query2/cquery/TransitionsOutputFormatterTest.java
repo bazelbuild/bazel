@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Options;
@@ -276,7 +277,8 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
   private List<String> getOutput(String queryExpression, CqueryOptions.Transitions verbosity)
       throws Exception {
-    QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
+    QueryExpression expression =
+        QueryExpressionResolver.resolve(QueryParser.parse(queryExpression), getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
@@ -293,7 +295,10 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
             env.getAccessor(),
             ruleClassProvider,
             LabelPrinter.legacy());
-    env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(queryExpression, env)), callback);
+    env.evaluateQuery(
+        env.transformParsedQuery(
+            QueryExpressionResolver.resolve(QueryParser.parse(queryExpression), env)),
+        callback);
     return callback.getResult();
   }
 }

@@ -54,7 +54,6 @@ java_library(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )
@@ -284,7 +283,6 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )
@@ -301,7 +299,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

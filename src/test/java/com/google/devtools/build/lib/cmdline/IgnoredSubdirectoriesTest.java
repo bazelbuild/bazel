@@ -90,7 +90,7 @@ public class IgnoredSubdirectoriesTest {
         IgnoredSubdirectories.of(
             prefixes("prefix"), patterns(".claude", "foo/bar", "**/sub", "*/qux"));
     IgnoredSubdirectories filtered = original.filterForDirectory(PathFragment.EMPTY_FRAGMENT);
-    assertThat(filtered).isEqualTo(original);
+    assertThat(filtered).isSameInstanceAs(original);
   }
 
   @Test

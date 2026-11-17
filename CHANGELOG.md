@@ -1,3 +1,112 @@
+## Release 11.0.0-pre.20261103.3 (2026-11-17)
+
+```
+Baseline: 7f1a880ae06600dabf6b852de43a7ae6f6b68a82
+
+Cherry picks:
+
+   + b0c96ba57af49deeb04cd6756bbdd9ab3b4b1777:
+     Avoid stream and temporary allocations in Starlark type
+     construction.
+   + 7018f4a84126fe4b238fa628e82705aabbc071e7:
+     Compute StarlarkProvider types lazily.
+   + 47576679786898ffb5cf28789a1fe86b2eee24bc:
+     Handle GitHub API errors and skip rolling releases in
+     relnotes.py.
+   + 0310b164abe1f967771b77fbdf33f301b1840600:
+     Automated rollback of commit
+     3d1925ba871174d82b0a50a94c467eb0cb9b024b.
+   + 01595c124be99235c0c99ded6bafddc1ef5b0b5d:
+     Fix `.ar` extraction of BSD long names with NUL padding (#32592)
+```
+
+Incompatible changes:
+
+  - The `files` of `http_archive` and `archive_override` are now
+    copied instead of symlinked, which allows the repo contents cache
+    to store these repos. The `symlink_files` method in
+    `@bazel_tools//tools/build_defs/repo:utils.bzl` has been removed.
+  - Exec properties that are execution requirements only interpreted
+    by Bazel (keys starting with `no-`, `supports-` or `disable-` as
+    well as `local` and `worker-key-mnemonic`) are no longer sent to
+    remote executors and no longer affect remote cache keys.
+
+New features:
+
+  - [`ActionExecuted`](https://bazel.build/remote/bep-glossary#actione
+    xecuted) events now report the runner of each spawn and whether
+    it was a cache hit in `strategy_details`.
+  - `--file_write_strategy=remote` and
+    `--template_expansion_strategy=remote` keep the outputs of
+    `ctx.actions.write` and `ctx.actions.expand_template` in the
+    remote and/or disk cache instead of writing them to disk when
+    building without the bytes.
+  - add omit_macro_internals parameter to native.existing_rules()
+
+Important changes:
+
+  - Target counts of 10,000 or more in the "Found" summaries for
+    builds and tests now include comma separators, matching other CLI
+    messages.
+  - `--experimental_use_hermetic_linux_sandbox` now fails the build
+    on Linux when `linux-sandbox` is not supported, instead of
+    silently falling back to `processwrapper-sandbox`; making it
+    consistent with experimental_use_windows_sandbox.
+  - `--expand_param_files` now also expands the arguments persisted
+    in the execution log.
+  - --experimental_starlark_static_type_checking is enabled by default
+  - Tests on Windows no longer require Bash unless coverage is
+    collected.
+
+This release contains contributions from many people at Google, as well as alex-the-third, bazel.build machine account, Cy Cheng, David Zbarsky, dependabot[bot], Dmitry Spikhalsky, Fabian Meumertzheim, Fabian Meumertzheim, gztong666, iMostfa, Jordan, Joseph Gette, Lalita Hegade, Sarad Pant, Yossi Eliaz.
+
+## Release 11.0.0-pre.20261028.2 (2026-11-06)
+
+```
+Baseline: ecb89d3cf2e09bd9d04d09b280fe3d649833b12a
+
+Cherry picks:
+
+   + e7e982927047cbec547ce5d7753f2cf9c5f7f046:
+     Honor --incompatible_disable_transitions_on in PROJECT.scl files
+     and platform definitions and platform mappings. Also change the
+     behavior of this flag to allow these flags to be set in the exec
+     transition passed by --experimental_exec_config.
+   + 1585138a0cae7625b09c74c682482d737b2ef83d:
+     Handle GitHub API errors and skip rolling releases in
+     relnotes.py.
+```
+
+New features:
+
+  - The new `--inject_module={module name}={path}` flag adds a module
+    from a local path as a dependency of the root module, without
+    editing `MODULE.bazel`.
+  - The new `copy` method on `repository_ctx` and `module_ctx` copies
+    a file or directory, using OS and file system optimizations such
+    as reflinks if available.
+
+Important changes:
+
+  - Visibility of implicit dependencies of subrules are checked
+    against the subrule package instead of that of the rule.
+  - `--test_env==NAME` (and `--action_env==NAME`) now also unsets
+    variables that Bazel sets by default, e.g. `--test_env==HOME`.
+  - Fix a crash when input pruning and remote action rewinding
+    interact with runfiles trees.
+  - Reduce zstd-compressed remote upload size and encoding overhead.
+  - Bazel detects file changes using file modification and change
+    times at the full precision provided by the operating system
+    instead of at millisecond precision.
+  - Asynchronous sandbox deletion now deletes on the action thread
+    once 256 sandbox trees are waiting, bounding the disk space,
+    inodes and hardlinks held by pending deletions.
+  - Fixed the handling of non-ASCII characters in repository
+    downloads, archive extraction, registries, module extension facts
+    in the lockfile and `bazel mod` output.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Chris McDonald, David Zbarsky, Dmitry Spikhalsky, Fabian Meumertzheim, Fabian Meumertzheim, John Cater, Keith Smiley, Showta Ishizaki, Son Luong Ngoc, Tamir Duberstein.
+
 ## Release 11.0.0-pre.20261022.3 (2026-11-05)
 
 ```

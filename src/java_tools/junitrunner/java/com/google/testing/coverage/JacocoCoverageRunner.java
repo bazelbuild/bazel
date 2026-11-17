@@ -20,6 +20,7 @@ import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,8 +35,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -53,7 +54,6 @@ import java.util.jar.Manifest;
 import org.jacoco.agent.rt.IAgent;
 import org.jacoco.agent.rt.RT;
 import org.jacoco.core.tools.ExecFileLoader;
-import sun.misc.Unsafe;
 
 /**
  * Runner class used to generate code coverage report when using Jacoco offline instrumentation.
@@ -315,44 +315,21 @@ public class JacocoCoverageRunner {
       return ((URLClassLoader) classLoader).getURLs();
     }
 
-    // java 9 and later
-    if (classLoader.getClass().getName().startsWith("jdk.internal.loader.ClassLoaders$")) {
-      try {
-        Field field = Unsafe.class.getDeclaredField("theUnsafe");
-        field.setAccessible(true);
-        Unsafe unsafe = (Unsafe) field.get(null);
-
-        Field ucpField;
-        try {
-          // Java 9-15:
-          // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
-          ucpField = classLoader.getClass().getDeclaredField("ucp");
-        } catch (NoSuchFieldException e) {
-          // Java 16+:
-          // jdk.internal.loader.BuiltinClassLoader.ucp
-          // https://github.com/openjdk/jdk/commit/03a4df0acd103702e52dcd01c3f03fda4d7b04f5#diff-32cc12c0e3172fe5f2da1f65a75fa1cb920c39040d06323c83ad2c4d84e095aaL147
-          ucpField = classLoader.getClass().getSuperclass().getDeclaredField("ucp");
-        }
-        long ucpFieldOffset = unsafe.objectFieldOffset(ucpField);
-        Object ucpObject = unsafe.getObject(classLoader, ucpFieldOffset);
-
-        Field pathField;
-        try {
-          // Java 9-26:
-          // jdk.internal.loader.URLClassPath.path
-          pathField = ucpField.getType().getDeclaredField("path");
-        } catch (NoSuchFieldException e) {
-          // Java 27+:
-          // jdk.internal.loader.URLClassPath.searchPath
-          pathField = ucpField.getType().getDeclaredField("searchPath");
-        }
-        long pathFieldOffset = unsafe.objectFieldOffset(pathField);
-        ArrayList<URL> path = (ArrayList<URL>) unsafe.getObject(ucpObject, pathFieldOffset);
-
-        return path.toArray(new URL[path.size()]);
-      } catch (Exception e) {
-        return null;
+    // Java 9+ system classloader is BuiltinClassLoader/AppClassLoader, not URLClassLoader.
+    if (classLoader == ClassLoader.getSystemClassLoader()) {
+      String classPath = System.getProperty("java.class.path");
+      if (Strings.isNullOrEmpty(classPath)) {
+        return new URL[0];
       }
+      List<URL> urls = new ArrayList<>();
+      for (String entry : Splitter.on(File.pathSeparatorChar).omitEmptyStrings().split(classPath)) {
+        try {
+          urls.add(new File(entry).toURI().toURL());
+        } catch (MalformedURLException e) {
+          return null;
+        }
+      }
+      return urls.toArray(new URL[0]);
     }
     return null;
   }

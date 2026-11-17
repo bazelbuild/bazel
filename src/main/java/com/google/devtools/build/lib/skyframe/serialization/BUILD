@@ -32,6 +32,7 @@ java_library(
         ":serialization",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_value",
@@ -128,6 +129,7 @@ java_library(
             "StarlarkSetCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
+            "WireType.java",
             "WriteStatus.java",
             "WriteStatuses.java",
         ],
@@ -147,6 +149,7 @@ java_library(
         ":fingerprint_value_store",
         ":frontier_node_version",
         ":key_bytes_provider",
+        ":wire_type",
         ":write_status",
         ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -202,6 +205,15 @@ java_library(
 java_library(
     name = "visible-for-serialization",
     srcs = ["VisibleForSerialization.java"],
+)
+
+java_library(
+    name = "wire_type",
+    srcs = ["WireType.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 java_library(

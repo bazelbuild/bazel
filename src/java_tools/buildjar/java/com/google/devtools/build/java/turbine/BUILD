@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load("@rules_graalvm//graalvm:defs.bzl", "native_image")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":native_image.bzl", "native_image")
 
 package(
     default_applicable_licenses = ["//:license"],

@@ -691,9 +691,8 @@ public final class Types {
    * ANY_CALLABLE} if the type is {@link ANY}; otherwise returns {@code null} if no callable type is
    * found.
    *
-   * <p>Intended for use with {@link net.starlark.java.eval.BuiltinFunction.BuiltinTypeFunction} and
-   * similar callable values whose {@code getStarlarkType} method doesn't directly return a {@link
-   * CallableType}.
+   * <p>Intended for use with {@code BuiltinFunction.BuiltinTypeFunction} and similar callable
+   * values whose {@code getStarlarkType} method doesn't directly return a {@link CallableType}.
    */
   @Nullable
   public static CallableType toCallableType(StarlarkType type, TypeContext context) {

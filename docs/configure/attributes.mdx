@@ -43,28 +43,12 @@ config_setting(
 This declares a `cc_binary` that "chooses" its deps based on the flags at the
 command line. Specifically, `deps` becomes:
 
-<table>
-  <tr style={{background: "#E9E9E9", fontWeight: "bold"}}>
-    <td>Command</td>
-    <td>deps =</td>
-  </tr>
-  <tr>
-    <td><code>bazel build //myapp:mybinary --cpu=arm</code></td>
-    <td><code>[":arm_lib"]</code></td>
-  </tr>
-  <tr>
-    <td><code>bazel build //myapp:mybinary -c dbg --cpu=x86</code></td>
-    <td><code>[":x86_dev_lib"]</code></td>
-  </tr>
-  <tr>
-    <td><code>bazel build //myapp:mybinary --cpu=ppc</code></td>
-    <td><code>[":generic_lib"]</code></td>
-  </tr>
-  <tr>
-    <td><code>bazel build //myapp:mybinary -c dbg --cpu=ppc</code></td>
-    <td><code>[":generic_lib"]</code></td>
-  </tr>
-</table>
+| Command | deps = |
+| --- | --- |
+| `bazel build //myapp:mybinary --cpu=arm` | `[":arm_lib"]` |
+| `bazel build //myapp:mybinary -c dbg --cpu=x86` | `[":x86_dev_lib"]` |
+| `bazel build //myapp:mybinary --cpu=ppc` | `[":generic_lib"]` |
+| `bazel build //myapp:mybinary -c dbg --cpu=ppc` | `[":generic_lib"]` |
 
 `select()` serves as a placeholder for a value that will be chosen based on
 *configuration conditions*, which are labels referencing [`config_setting`](/reference/be/general#config_setting)

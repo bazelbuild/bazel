@@ -36,11 +36,6 @@ java_library(
 )
 
 java_library(
-    name = "equivalence_relation",
-    srcs = ["EquivalenceRelation.java"],
-)
-
-java_library(
     name = "extrema",
     srcs = ["Extrema.java"],
     deps = [

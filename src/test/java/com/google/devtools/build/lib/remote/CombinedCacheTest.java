@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -104,6 +106,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
@@ -644,8 +647,14 @@ public class CombinedCacheTest {
     assertThat(futures).hasSize(2);
     assertThat(cacheProtocol.getInProgressUploads()).isNotEmpty();
 
+    CountDownLatch allFuturesCancelled = new CountDownLatch(2);
+    for (SettableFuture<Void> future : futures) {
+      future.addListener(allFuturesCancelled::countDown, directExecutor());
+    }
+
     thread.interrupt();
     ensureInputsPresentReturned.await();
+    assertThat(allFuturesCancelled.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
 
     // assert
     assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
@@ -865,18 +874,25 @@ public class CombinedCacheTest {
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
     Map<Digest, SettableFuture<Void>> uploadFutures = new ConcurrentHashMap<>();
-    // 3 unique file digests + 2 unique directory blob digests = 5 uploads total.
-    CountDownLatch uploadCalls = new CountDownLatch(5);
+    // Wait for all six subscriptions, including both consumers of the shared bar upload.
+    CountDownLatch uploadSubscriptions = new CountDownLatch(6);
     doAnswer(
             invocationOnMock -> {
               Digest digest = invocationOnMock.getArgument(1, Digest.class);
               SettableFuture<Void> future = SettableFuture.create();
               uploadFutures.put(digest, future);
-              uploadCalls.countDown();
               return future;
             })
         .when(cacheProtocol)
         .uploadBlobImpl(any(), any(), (Blob) any());
+    doAnswer(
+            invocationOnMock -> {
+              var future = invocationOnMock.callRealMethod();
+              uploadSubscriptions.countDown();
+              return future;
+            })
+        .when(cacheProtocol)
+        .uploadBlob(any(), any(), (Blob) any(), eq(false));
 
     Path foo = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(foo, "foo");
@@ -930,12 +946,21 @@ public class CombinedCacheTest {
     // act
     thread1.start();
     thread2.start();
-    uploadCalls.await();
+    assertThat(uploadSubscriptions.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
     assertThat(uploadFutures).hasSize(5);
     assertThat(cacheProtocol.getInProgressUploads()).hasSize(5);
 
     thread1.interrupt();
     ensureInterrupted.await();
+
+    // Cancellation can race with an upload supplier returning on another thread. Wait until
+    // cancellation reaches both uploads that are exclusive to the interrupted consumer.
+    for (Digest digest : ImmutableList.of(fooDigest, merkleTree1.digest())) {
+      assertThrows(
+          CancellationException.class,
+          () -> uploadFutures.get(digest).get(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    }
 
     // assert
     assertThat(cacheProtocol.getInProgressUploads()).hasSize(3);
@@ -952,6 +977,9 @@ public class CombinedCacheTest {
     ensureInputsPresentReturned.await();
     assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
     assertThat(cacheProtocol.getFinishedUploads()).hasSize(3);
+    // The shared bar upload has two subscriptions but only one underlying request.
+    verify(cacheProtocol, times(5)).uploadBlobImpl(any(), any(), (Blob) any());
+    verify(cacheProtocol, times(6)).uploadBlob(any(), any(), (Blob) any(), eq(false));
   }
 
   @Test

@@ -53,6 +53,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.MultiExecutorQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -4519,6 +4520,633 @@ public class ParallelEvaluatorTest {
     assertThat(secondResult.hasError()).isFalse();
     assertThat(evaluatedCounts.get(childKey)).isEqualTo(2);
     assertThat(evaluatedCounts.get(parentKey)).isEqualTo(2);
+  }
+
+  @Test
+  public void nonPriorityExecutorDisablesDfsScheduling() {
+    graph = new InMemoryGraphImpl();
+    ParallelEvaluator nonDfsEvaluator =
+        makeEvaluator(
+            AbstractQueueVisitor.create(
+                /* name= */ "DefaultNonPriorityEvalTest",
+                /* parallelism= */ 2,
+                ParallelEvaluatorErrorClassifier.instance()),
+            /* keepGoing= */ false);
+    assertThat(nonDfsEvaluator.evaluatorContext.isDfsScheduled(skyKey("root"))).isFalse();
+  }
+
+  @Test
+  public void dfsPrioritySchedulerEvaluatesMultiLevelGraphAndResumedNodes()
+      throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    SkyKey sharedLeaf = skyKey("sharedLeaf");
+    tester.getOrCreate(sharedLeaf).setConstantValue(new StringValue("S"));
+
+    SkyKey root = skyKey("root");
+    GraphTester.TestFunction rootFn = tester.getOrCreate(root);
+    StringBuilder expectedRoot = new StringBuilder();
+    for (int i = 0; i < 6; i++) {
+      SkyKey leaf = skyKey("leaf" + i);
+      SkyKey mid = skyKey("mid" + i);
+      SkyKey branch = skyKey("branch" + i);
+      String leafVal = "L" + i;
+      tester.getOrCreate(leaf).setConstantValue(new StringValue(leafVal));
+      tester
+          .getOrCreate(mid)
+          .addDependency(leaf)
+          .addDependency(sharedLeaf)
+          .setComputedValue(CONCATENATE);
+      tester.getOrCreate(branch).addDependency(mid).setComputedValue(CONCATENATE);
+      rootFn.addDependency(branch);
+      expectedRoot.append(leafVal).append("S");
+    }
+    rootFn.setComputedValue(CONCATENATE);
+
+    ParallelEvaluator evaluator = makeDfsEvaluator(/* parallelism= */ 2, /* keepGoing= */ false);
+    assertThat(evaluator.evaluatorContext.isDfsScheduled(root)).isTrue();
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(root));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(root)).isEqualTo(new StringValue(expectedRoot.toString()));
+  }
+
+  @Test
+  public void dfsPrioritySchedulerOrdersTiersDepthsAndPreservesDiamondDepthOnSingleThread()
+      throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    List<String> evaluationEvents = new ArrayList<>();
+    SettableFuture<Void> bothWaitersReached = SettableFuture.create();
+    AtomicInteger waitersOnSharedDep = new AtomicInteger(0);
+
+    SkyKey root = skyKey("root");
+    SkyKey branchA = skyKey("branchA");
+    SkyKey shallowWaiter = skyKey("shallowWaiter");
+    SkyKey postResumeShallowChild = skyKey("postResumeShallowChild");
+    SkyKey deepChain1 = skyKey("deepChain1");
+    SkyKey deepChain2 = skyKey("deepChain2");
+    SkyKey deepChain3 = skyKey("deepChain3");
+    SkyKey deepNode = skyKey("deepNode");
+    SkyKey postResumeDeepChild = skyKey("postResumeDeepChild");
+    SkyKey sharedDep = skyKey("sharedDep");
+
+    // root (depth 0) requests branchA and deepChain1 (both at depth 1).
+    tester
+        .getOrCreate(root)
+        .setBuilder(
+            (key, env) -> {
+              SkyframeLookupResult deps =
+                  env.getValuesAndExceptions(ImmutableList.of(branchA, deepChain1));
+              StringValue a = (StringValue) deps.get(branchA);
+              StringValue d = (StringValue) deps.get(deepChain1);
+              if (a == null || d == null) {
+                return null;
+              }
+              return new StringValue(a.getValue() + d.getValue());
+            });
+
+    // branchA (depth 1) requests shallowWaiter (depth 2).
+    tester
+        .getOrCreate(branchA)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("branchA");
+              return env.getValue(shallowWaiter);
+            });
+
+    // shallowWaiter (depth 2) first requests sharedDep, then upon IN_PROGRESS resumption requests
+    // postResumeShallowChild (which must receive depth 3).
+    tester
+        .getOrCreate(shallowWaiter)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("shallowWaiter");
+              StringValue shared = (StringValue) env.getValue(sharedDep);
+              if (shared == null) {
+                if (waitersOnSharedDep.incrementAndGet() == 2) {
+                  bothWaitersReached.set(null);
+                }
+                return null;
+              }
+              StringValue child = (StringValue) env.getValue(postResumeShallowChild);
+              return child == null ? null : new StringValue(shared.getValue() + child.getValue());
+            });
+    tester
+        .getOrCreate(postResumeShallowChild)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("postResumeShallowChild");
+              return new StringValue("shallowDone");
+            });
+
+    // deepChain1 (depth 1) -> deepChain2 (depth 2) -> deepChain3 (depth 3) -> deepNode (depth 4).
+    tester
+        .getOrCreate(deepChain1)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("deepChain1");
+              return env.getValue(deepChain2);
+            });
+    tester
+        .getOrCreate(deepChain2)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("deepChain2");
+              return env.getValue(deepChain3);
+            });
+    tester
+        .getOrCreate(deepChain3)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("deepChain3");
+              return env.getValue(deepNode);
+            });
+
+    // deepNode (depth 4) first requests sharedDep, then upon IN_PROGRESS resumption requests
+    // postResumeDeepChild (which must preserve depth 4 + 1 = 5 despite sharedDep also being
+    // depended on by shallowWaiter at depth 2).
+    tester
+        .getOrCreate(deepNode)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("deepNode");
+              StringValue shared = (StringValue) env.getValue(sharedDep);
+              if (shared == null) {
+                if (waitersOnSharedDep.incrementAndGet() == 2) {
+                  bothWaitersReached.set(null);
+                }
+                return null;
+              }
+              StringValue child = (StringValue) env.getValue(postResumeDeepChild);
+              return child == null ? null : new StringValue(shared.getValue() + child.getValue());
+            });
+    tester
+        .getOrCreate(postResumeDeepChild)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("postResumeDeepChild");
+              return new StringValue("deepDone");
+            });
+
+    // sharedDep suspends until both shallowWaiter and deepNode are waiting on it, so completing
+    // sharedDep signals both parents into IN_PROGRESS simultaneously.
+    tester
+        .getOrCreate(sharedDep)
+        .setBuilder(
+            (key, env) -> {
+              evaluationEvents.add("sharedDep");
+              if (!bothWaitersReached.isDone()) {
+                env.dependOnFuture(bothWaitersReached);
+                return null;
+              }
+              return new StringValue("S:");
+            });
+
+    ParallelEvaluator evaluator = makeDfsEvaluator(/* parallelism= */ 1, /* keepGoing= */ false);
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(root));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(root)).isEqualTo(new StringValue("S:shallowDoneS:deepDone"));
+
+    // 1. Whichever depth-1 branch started first ran its entire deeper DEPTH_ORDERED chain down to
+    //    sharedDep without interleaving with the other unstarted depth-1 branch.
+    int firstDeepChainIdx = evaluationEvents.indexOf("deepChain1");
+    assertThat(evaluationEvents.subList(firstDeepChainIdx, firstDeepChainIdx + 4))
+        .containsExactly("deepChain1", "deepChain2", "deepChain3", "deepNode")
+        .inOrder();
+    int firstBranchAIdx = evaluationEvents.indexOf("branchA");
+    assertThat(evaluationEvents.subList(firstBranchAIdx, firstBranchAIdx + 2))
+        .containsExactly("branchA", "shallowWaiter")
+        .inOrder();
+
+    // 2. Once sharedDep completes (its second evaluation), both waiting parents resume in
+    //    IN_PROGRESS (in either tie-breaking order) before either newly enqueued DEPTH_ORDERED
+    //    child starts.
+    int sharedCompletedIdx = evaluationEvents.lastIndexOf("sharedDep");
+    assertThat(evaluationEvents.subList(sharedCompletedIdx + 1, sharedCompletedIdx + 3))
+        .containsExactly("shallowWaiter", "deepNode");
+
+    // 3. Because per-node depth is preserved across the diamond dependency, postResumeDeepChild
+    //    (depth 5) runs before postResumeShallowChild (depth 3), and the entire deep ancestor chain
+    //    completes in IN_PROGRESS before postResumeShallowChild starts.
+    assertThat(evaluationEvents.subList(sharedCompletedIdx + 3, evaluationEvents.size()))
+        .containsExactly(
+            "postResumeDeepChild",
+            "deepNode",
+            "deepChain3",
+            "deepChain2",
+            "deepChain1",
+            "postResumeShallowChild",
+            "shallowWaiter",
+            "branchA")
+        .inOrder();
+  }
+
+  @Test
+  public void dfsPrioritySchedulerDirtyAndPartialReevaluationTierOrdering()
+      throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    List<String> evaluationOrder = new ArrayList<>();
+
+    SkyKey initRoot = skyKey("initRoot");
+    SkyKey dirtyAnalysisNode = skyKey("dirtyAnalysisNode");
+    SkyKey dirtyLeaf = skyKey("dirtyLeaf");
+    PartialReevaluationKey partialKey = new PartialReevaluationKey("partialParent");
+    SkyKey partialLeaf = skyKey("partialLeaf");
+
+    tester
+        .getOrCreate(dirtyLeaf)
+        .setBuilder(
+            (key, env) -> {
+              evaluationOrder.add("dirtyLeaf");
+              return new StringValue("leaf_v1");
+            });
+    tester
+        .getOrCreate(dirtyAnalysisNode)
+        .setBuilder(
+            (key, env) -> {
+              evaluationOrder.add("dirtyAnalysisNode");
+              return env.getValue(dirtyLeaf);
+            });
+    tester
+        .getOrCreate(partialLeaf)
+        .setBuilder(
+            (key, env) -> {
+              evaluationOrder.add("partialLeaf");
+              return new StringValue("fast");
+            });
+    tester.putSkyFunction(
+        PartialReevaluationKey.FUNCTION_NAME,
+        (key, env) -> {
+          evaluationOrder.add("partialParent");
+          return env.getValue(partialLeaf);
+        });
+    tester
+        .getOrCreate(initRoot)
+        .setBuilder(
+            (key, env) -> {
+              SkyframeLookupResult deps =
+                  env.getValuesAndExceptions(ImmutableList.of(dirtyAnalysisNode, partialKey));
+              StringValue d = (StringValue) deps.get(dirtyAnalysisNode);
+              StringValue p = (StringValue) deps.get(partialKey);
+              if (d == null || p == null) {
+                return null;
+              }
+              return new StringValue(d.getValue() + p.getValue());
+            });
+    EvaluationResult<StringValue> firstResult =
+        makeDfsEvaluator(/* parallelism= */ 1, /* keepGoing= */ false)
+            .eval(ImmutableList.of(initRoot));
+    assertThat(firstResult.hasError()).isFalse();
+
+    // Mark leaves with DirtyType.CHANGE and parents with DirtyType.DIRTY for incremental
+    // evaluation. Gate deepWaiter (depth 2) and incrementalParent (depth 1) on sharedGate so that
+    // upon resumption freshDeepLeaf (DEPTH_ORDERED, depth 3), dirtyAnalysisNode (depth 2), and
+    // partialKey (depth 2) are queued simultaneously.
+    graphVersion = graphVersion.next();
+    NodeBatch batch =
+        graph.getBatch(
+            /* requestor= */ null,
+            QueryableGraph.Reason.OTHER,
+            ImmutableList.of(dirtyLeaf, dirtyAnalysisNode, partialKey, partialLeaf));
+    batch.get(dirtyLeaf).markDirty(NodeEntry.DirtyType.CHANGE);
+    batch.get(partialLeaf).markDirty(NodeEntry.DirtyType.CHANGE);
+    batch.get(dirtyAnalysisNode).markDirty(NodeEntry.DirtyType.DIRTY);
+    batch.get(partialKey).markDirty(NodeEntry.DirtyType.DIRTY);
+    tester
+        .getOrCreate(dirtyLeaf)
+        .setBuilder(
+            (key, env) -> {
+              evaluationOrder.add("dirtyLeaf");
+              return new StringValue("leaf_v2");
+            });
+    tester
+        .getOrCreate(partialLeaf)
+        .setBuilder(
+            (key, env) -> {
+              evaluationOrder.add("partialLeaf");
+              return new StringValue("fast_v2");
+            });
+
+    SettableFuture<Void> bothParentsReached = SettableFuture.create();
+    AtomicInteger waitingParents = new AtomicInteger(0);
+    SkyKey sharedGate = skyKey("sharedGate");
+    SkyKey deepBranch = skyKey("deepBranch");
+    SkyKey deepWaiter = skyKey("deepWaiter");
+    SkyKey freshDeepLeaf = skyKey("freshDeepLeaf");
+    SkyKey incrementalParent = skyKey("incrementalParent");
+    SkyKey root2 = skyKey("root2");
+
+    tester
+        .getOrCreate(sharedGate)
+        .setBuilder(
+            (key, env) -> {
+              if (!bothParentsReached.isDone()) {
+                env.dependOnFuture(bothParentsReached);
+                return null;
+              }
+              return new StringValue("");
+            });
+    tester
+        .getOrCreate(freshDeepLeaf)
+        .setBuilder(
+            (key, env) -> {
+              evaluationOrder.add("freshDeepLeaf");
+              return new StringValue("deep");
+            });
+    tester
+        .getOrCreate(deepWaiter)
+        .setBuilder(
+            (key, env) -> {
+              if (env.getValue(sharedGate) == null) {
+                if (waitingParents.incrementAndGet() == 2) {
+                  bothParentsReached.set(null);
+                }
+                return null;
+              }
+              return env.getValue(freshDeepLeaf);
+            });
+    tester.getOrCreate(deepBranch).setBuilder((key, env) -> env.getValue(deepWaiter));
+    tester
+        .getOrCreate(incrementalParent)
+        .setBuilder(
+            (key, env) -> {
+              if (env.getValue(sharedGate) == null) {
+                if (waitingParents.incrementAndGet() == 2) {
+                  bothParentsReached.set(null);
+                }
+                return null;
+              }
+              SkyframeLookupResult deps =
+                  env.getValuesAndExceptions(ImmutableList.of(dirtyAnalysisNode, partialKey));
+              StringValue d = (StringValue) deps.get(dirtyAnalysisNode);
+              StringValue p = (StringValue) deps.get(partialKey);
+              if (d == null || p == null) {
+                return null;
+              }
+              return new StringValue(d.getValue() + p.getValue());
+            });
+    tester
+        .getOrCreate(root2)
+        .setBuilder(
+            (key, env) -> {
+              SkyframeLookupResult deps =
+                  env.getValuesAndExceptions(ImmutableList.of(deepBranch, incrementalParent));
+              StringValue f = (StringValue) deps.get(deepBranch);
+              StringValue inc = (StringValue) deps.get(incrementalParent);
+              if (f == null || inc == null) {
+                return null;
+              }
+              return new StringValue(f.getValue() + inc.getValue());
+            });
+
+    evaluationOrder.clear();
+    EvaluationResult<StringValue> secondResult =
+        makeDfsEvaluator(/* parallelism= */ 1, /* keepGoing= */ false)
+            .eval(ImmutableList.of(root2));
+    assertThat(secondResult.hasError()).isFalse();
+    assertThat(secondResult.get(root2)).isEqualTo(new StringValue("deepleaf_v2fast_v2"));
+
+    // Neither dirtyAnalysisNode (DIRTY, depth 2) nor partialKey (supportsPartialReevaluation with
+    // pre-populated mailbox state in stateCache, depth 2) has started in this evaluation yet, so
+    // both stay in DEPTH_ORDERED rather than preempting freshDeepLeaf (DEPTH_ORDERED, depth 3).
+    assertThat(evaluationOrder.get(0)).isEqualTo("freshDeepLeaf");
+    assertThat(evaluationOrder.indexOf("dirtyAnalysisNode")).isGreaterThan(0);
+    assertThat(evaluationOrder.indexOf("partialParent")).isGreaterThan(0);
+  }
+
+  @Test
+  public void dfsPrioritySchedulerCycleDetection() throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    SkyKey root = skyKey("root");
+    SkyKey branch = skyKey("branch");
+    SkyKey cycleA = skyKey("cycleA");
+    SkyKey cycleB = skyKey("cycleB");
+
+    tester.getOrCreate(root).addDependency(branch).setComputedValue(CONCATENATE);
+    tester.getOrCreate(branch).addDependency(cycleA).setComputedValue(CONCATENATE);
+    tester.getOrCreate(cycleA).addDependency(cycleB).setComputedValue(CONCATENATE);
+    tester.getOrCreate(cycleB).addDependency(cycleA).setComputedValue(CONCATENATE);
+
+    ParallelEvaluator evaluator = makeDfsEvaluator(/* parallelism= */ 2, /* keepGoing= */ true);
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(root));
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError(root).getCycleInfo())
+        .containsExactly(
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(root, branch), ImmutableList.of(cycleA, cycleB)));
+  }
+
+  private static final class TestExecutionPhaseKey extends AbstractSkyKey<String>
+      implements ExecutionPhaseSkyKey {
+    private static final SkyFunctionName FUNCTION_NAME =
+        SkyFunctionName.createHermetic("TEST_EXECUTION_PHASE");
+
+    private TestExecutionPhaseKey(String arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return FUNCTION_NAME;
+    }
+  }
+
+  @Test
+  public void dfsPrioritySchedulerSkipsNonPriorityExecutionPhasePool() throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    SkyKey rootDriver = skyKey("rootDriver");
+    SkyKey analysisNode = skyKey("analysisNode");
+    TestExecutionPhaseKey execParent = new TestExecutionPhaseKey("execParent");
+    TestExecutionPhaseKey execChild = new TestExecutionPhaseKey("execChild");
+
+    AtomicReference<ParallelEvaluator> evaluatorRef = new AtomicReference<>();
+    AtomicInteger analysisDepthObserved = new AtomicInteger(-1);
+    AtomicInteger execChildDepthObserved = new AtomicInteger(-1);
+
+    tester
+        .getOrCreate(analysisNode)
+        .setBuilder(
+            (key, env) -> {
+              analysisDepthObserved.set(
+                  evaluatorRef.get().evaluatorContext.getNodeDepth(analysisNode));
+              return new StringValue("analyzed:");
+            });
+    tester.putSkyFunction(
+        TestExecutionPhaseKey.FUNCTION_NAME,
+        (key, env) -> {
+          if (key.equals(execParent)) {
+            SkyValue childVal = env.getValue(execChild);
+            return childVal == null
+                ? null
+                : new StringValue("exec(" + ((StringValue) childVal).getValue() + ")");
+          }
+          execChildDepthObserved.set(evaluatorRef.get().evaluatorContext.getNodeDepth(execChild));
+          return new StringValue("leaf");
+        });
+    tester
+        .getOrCreate(rootDriver)
+        .setBuilder(
+            (key, env) -> {
+              SkyframeLookupResult deps =
+                  env.getValuesAndExceptions(ImmutableList.of(analysisNode, execParent));
+              StringValue analyzed = (StringValue) deps.get(analysisNode);
+              StringValue executed = (StringValue) deps.get(execParent);
+              if (analyzed == null || executed == null) {
+                return null;
+              }
+              return new StringValue(analyzed.getValue() + executed.getValue());
+            });
+
+    MultiExecutorQueueVisitor skymeldVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            AbstractQueueVisitor.createPriorityExecutorService(
+                /* parallelism= */ 1, /* poolName= */ "DfsRegular"),
+            AbstractQueueVisitor.createPriorityExecutorService(
+                /* parallelism= */ 1, /* poolName= */ "DfsCpuHeavy"),
+            AbstractQueueVisitor.createExecutorService(
+                /* parallelism= */ 1, /* poolName= */ "DefaultExecution"),
+            AbstractQueueVisitor.ExceptionHandlingMode.KEEP_GOING,
+            ParallelEvaluatorErrorClassifier.instance());
+    skymeldVisitor.launchQueuedUpExecutionPhaseTasks();
+
+    ParallelEvaluator evaluator = makeEvaluator(skymeldVisitor, /* keepGoing= */ false);
+    evaluatorRef.set(evaluator);
+
+    assertThat(evaluator.evaluatorContext.isDfsScheduled(rootDriver)).isTrue();
+    assertThat(evaluator.evaluatorContext.isDfsScheduled(analysisNode)).isTrue();
+    assertThat(evaluator.evaluatorContext.isDfsScheduled(execParent)).isFalse();
+    assertThat(evaluator.evaluatorContext.isDfsScheduled(execChild)).isFalse();
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(rootDriver));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(rootDriver)).isEqualTo(new StringValue("analyzed:exec(leaf)"));
+    assertThat(analysisDepthObserved.get()).isEqualTo(1);
+    assertThat(execChildDepthObserved.get()).isEqualTo(0);
+  }
+
+  @Test
+  public void dfsPrioritySchedulerAlreadyEvaluatingPropagatesUpdatedDepthOnFirstPass()
+      throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    SkyKey root = skyKey("root");
+    SkyKey sharedDep = skyKey("sharedDep");
+    SkyKey childUnderShared = skyKey("childUnderShared");
+    SkyKey deepChain1 = skyKey("deepChain1");
+    SkyKey deepChain2 = skyKey("deepChain2");
+    SkyKey deepChain3 = skyKey("deepChain3");
+    SkyKey deepNode = skyKey("deepNode");
+    SkyKey sentinelLeaf = skyKey("sentinelLeaf");
+
+    CountDownLatch sharedInCompute = new CountDownLatch(1);
+    CountDownLatch deepRecordedAlreadyEvaluating = new CountDownLatch(1);
+    AtomicBoolean sharedFirstPass = new AtomicBoolean(true);
+    AtomicReference<ParallelEvaluator> evaluatorRef = new AtomicReference<>();
+    AtomicInteger childDepthObserved = new AtomicInteger(-1);
+
+    // root (depth 0) schedules sharedDep and deepChain1 (both at depth 1).
+    tester
+        .getOrCreate(root)
+        .setBuilder(
+            (key, env) -> {
+              SkyframeLookupResult deps =
+                  env.getValuesAndExceptions(ImmutableList.of(sharedDep, deepChain1));
+              StringValue s = (StringValue) deps.get(sharedDep);
+              StringValue d = (StringValue) deps.get(deepChain1);
+              return (s == null || d == null) ? null : new StringValue(s.getValue() + d.getValue());
+            });
+
+    // sharedDep snapshots Evaluate.depth = 1 when first queued. Hold its first compute() pass open
+    // until deepNode (depth 4) hits ALREADY_EVALUATING on sharedDep (recording depth 5) and runs
+    // sentinelLeaf, then have sharedDep enqueue childUnderShared on that same first pass.
+    tester
+        .getOrCreate(sharedDep)
+        .setBuilder(
+            (key, env) -> {
+              if (sharedFirstPass.compareAndSet(true, false)) {
+                sharedInCompute.countDown();
+                assertThat(
+                        deepRecordedAlreadyEvaluating.await(
+                            TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    .isTrue();
+              }
+              return env.getValue(childUnderShared);
+            });
+    tester
+        .getOrCreate(childUnderShared)
+        .setBuilder(
+            (key, env) -> {
+              childDepthObserved.set(
+                  evaluatorRef.get().evaluatorContext.getNodeDepth(childUnderShared));
+              return new StringValue("sharedChild:");
+            });
+
+    // deepChain1 (1) -> deepChain2 (2) -> deepChain3 (3) -> deepNode (4).
+    tester
+        .getOrCreate(deepChain1)
+        .setBuilder(
+            (key, env) -> {
+              assertThat(sharedInCompute.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                  .isTrue();
+              return env.getValue(deepChain2);
+            });
+    tester.getOrCreate(deepChain2).setBuilder((key, env) -> env.getValue(deepChain3));
+    tester.getOrCreate(deepChain3).setBuilder((key, env) -> env.getValue(deepNode));
+    tester
+        .getOrCreate(deepNode)
+        .setBuilder(
+            (key, env) -> {
+              SkyframeLookupResult deps =
+                  env.getValuesAndExceptions(ImmutableList.of(sharedDep, sentinelLeaf));
+              StringValue s = (StringValue) deps.get(sharedDep);
+              StringValue leaf = (StringValue) deps.get(sentinelLeaf);
+              return (s == null || leaf == null)
+                  ? null
+                  : new StringValue(s.getValue() + leaf.getValue());
+            });
+    // Because Thread 1 is blocked inside sharedDep.compute, Thread 2 only runs sentinelLeaf after
+    // deepNode.runCore() finishes its enqueueChild loop (which records depth 5 on sharedDep).
+    tester
+        .getOrCreate(sentinelLeaf)
+        .setBuilder(
+            (key, env) -> {
+              deepRecordedAlreadyEvaluating.countDown();
+              return new StringValue("deep");
+            });
+
+    ParallelEvaluator evaluator = makeDfsEvaluator(/* parallelism= */ 2, /* keepGoing= */ false);
+    evaluatorRef.set(evaluator);
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(root));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(root)).isEqualTo(new StringValue("sharedChild:sharedChild:deep"));
+    assertThat(childDepthObserved.get()).isEqualTo(6);
+  }
+
+  private ParallelEvaluator makeEvaluator(QuiescingExecutor executor, boolean keepGoing) {
+    return new ParallelEvaluator(
+        graph,
+        graphVersion,
+        Version.minimal(),
+        tester.getSkyFunctionMap(),
+        reportedEvents,
+        new EmittedEventState(),
+        EventFilter.FULL_STORAGE,
+        ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+        revalidationReceiver,
+        GraphInconsistencyReceiver.THROWING,
+        executor,
+        new SimpleCycleDetector(/* storeExactCycles= */ true),
+        UnnecessaryTemporaryStateDropperReceiver.NULL,
+        unused -> keepGoing);
+  }
+
+  private ParallelEvaluator makeDfsEvaluator(int parallelism, boolean keepGoing) {
+    return makeEvaluator(
+        AbstractQueueVisitor.createWithExecutorService(
+            AbstractQueueVisitor.createPriorityExecutorService(
+                parallelism, /* poolName= */ "DfsEvalTest"),
+            AbstractQueueVisitor.ExceptionHandlingMode.KEEP_GOING,
+            ParallelEvaluatorErrorClassifier.instance()),
+        keepGoing);
   }
 
   private ParallelEvaluator makeDirectExecutorEvaluator() {

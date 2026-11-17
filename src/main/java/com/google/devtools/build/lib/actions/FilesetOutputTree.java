@@ -19,14 +19,19 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
 /** A collection of {@link FilesetOutputSymlink}s comprising the output tree of a fileset. */
+@AutoCodec
 public final class FilesetOutputTree implements RichArtifactData {
 
+  @SerializationConstant
   public static final FilesetOutputTree EMPTY =
       new FilesetOutputTree(
           ImmutableList.of(), ImmutableMap.of(), createProxyMetadata(ImmutableList.of()), false);
@@ -58,7 +63,8 @@ public final class FilesetOutputTree implements RichArtifactData {
 
   private final boolean forwarded;
 
-  private FilesetOutputTree(
+  @VisibleForSerialization
+  FilesetOutputTree(
       ImmutableList<FilesetOutputSymlink> symlinks,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts,
       FileArtifactValue metadata,

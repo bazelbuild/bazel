@@ -384,7 +384,14 @@ public final class DynamicCodecTest {
 
   @Test
   public void testNoCodecExample() {
-    ObjectCodecs codecs = new ObjectCodecs(AutoRegistry.get(), ImmutableClassToInstanceMap.of());
+    ObjectCodecs codecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .addClassName(NoCodecExample1.class.getName())
+                .addClassName(NoCodecExample2.class.getName())
+                .build(),
+            ImmutableClassToInstanceMap.of());
     SerializationException.NoCodecException expected =
         assertThrows(
             SerializationException.NoCodecException.class,

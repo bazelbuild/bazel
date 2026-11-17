@@ -1392,9 +1392,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>It is necessary to partition by rule class because a {@code
      * StarlarkComputedDefaultTemplate} may be shared among multiple rule classes with different
-     * default values for dependency attributes.
+     * default values for dependency attributes. Keyed by {@link RuleClassId} rather than {@link
+     * RuleClass} to avoid a {@code RuleClass -> Attribute -> StarlarkComputedDefaultTemplate ->
+     * RuleClass} reference cycle.
      */
-    private final Map<RuleClass, StarlarkComputedDefault> defaultInstances =
+    private final Map<RuleClassId, StarlarkComputedDefault> defaultInstances =
         new ConcurrentHashMap<>(1);
 
     /**
@@ -1444,11 +1446,11 @@ public final class Attribute implements Comparable<Attribute> {
       }
 
       // None of the dependency attributes were specified. Share a single instance.
-      RuleClass ruleClass = target.getRuleClassObject();
-      StarlarkComputedDefault result = defaultInstances.get(ruleClass);
+      RuleClassId ruleClassId = target.getRuleClassObject().getRuleClassId();
+      StarlarkComputedDefault result = defaultInstances.get(ruleClassId);
       if (result == null) {
         result = computePossibleValuesInternal(attr, rule, targetDefinitionContext);
-        result = firstNonNull(defaultInstances.putIfAbsent(ruleClass, result), result);
+        result = firstNonNull(defaultInstances.putIfAbsent(ruleClassId, result), result);
       }
       return result;
     }

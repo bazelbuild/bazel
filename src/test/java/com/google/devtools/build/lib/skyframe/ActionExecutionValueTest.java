@@ -31,8 +31,10 @@ import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
@@ -143,6 +145,10 @@ public final class ActionExecutionValueTest {
 
   @Test
   public void serialization() throws Exception {
+    NestedSet<Artifact> discoveredModules;
+    try (var _ = NestedSetOwnerScope.enterWithoutIdentity()) {
+      discoveredModules = NestedSetBuilder.create(Order.STABLE_ORDER, output("module"));
+    }
     new SerializationTester(
             // Single output file
             createWithArtifactData(ImmutableMap.of(output("output1"), VALUE_1_REMOTE)),
@@ -157,15 +163,22 @@ public final class ActionExecutionValueTest {
                         /* expirationTime= */ Instant.ofEpochMilli(123456789L),
                         /* inMemoryOutput= */ false))),
             // Fileset
+            createWithFilesetOutput(FilesetOutputTree.EMPTY),
             createWithFilesetOutput(
                 FilesetOutputTree.create(
                     ImmutableList.of(
                         new FilesetOutputSymlink(
                             PathFragment.create("name"), output("target"), VALUE_1_REMOTE)),
                     /* treeArtifacts= */ ImmutableMap.of())),
+            createWithFilesetOutput(
+                FilesetOutputTree.forward(
+                    FilesetOutputTree.create(
+                        ImmutableList.of(
+                            new FilesetOutputSymlink(
+                                PathFragment.create("name"), output("target"), VALUE_1_REMOTE)),
+                        /* treeArtifacts= */ ImmutableMap.of()))),
             // Module discovering
-            createWithDiscoveredModules(
-                NestedSetBuilder.create(Order.STABLE_ORDER, output("module"))),
+            createWithDiscoveredModules(discoveredModules),
             // Multiple output files
             createWithArtifactData(
                 ImmutableMap.of(
@@ -192,6 +205,8 @@ public final class ActionExecutionValueTest {
                     FileArtifactValue.createFromExistingWithResolvedPath(
                         VALUE_1_REMOTE,
                         OUTPUT_ROOT.getRoot().getRelative("resolved/path").asFragment()))))
+        .addCodec(new DeferredNestedSetCodec())
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
         .addDependency(FileSystem.class, OUTPUT_ROOT.getRoot().getFileSystem())
         .addDependency(
             PackagePathCodecDependencies.class, () -> ImmutableList.of(OUTPUT_ROOT.getRoot()))

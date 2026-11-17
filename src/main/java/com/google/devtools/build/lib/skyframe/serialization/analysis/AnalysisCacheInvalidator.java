@@ -23,10 +23,16 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
@@ -35,6 +41,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncSerializationTask;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
@@ -50,6 +57,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -72,6 +80,7 @@ public final class AnalysisCacheInvalidator {
   private final RemoteAnalysisCachingEventListener eventListener;
   private final FrontierNodeVersion currentVersion;
   private final ClientId currentClientId;
+  @Nullable private final String currentUntrimmedConfigurationChecksum;
   private final SafeExecutor executor;
 
   public AnalysisCacheInvalidator(
@@ -81,6 +90,7 @@ public final class AnalysisCacheInvalidator {
       FingerprintValueService fingerprintValueService,
       FrontierNodeVersion currentVersion,
       ClientId currentClientId,
+      @Nullable String currentUntrimmedConfigurationChecksum,
       ExtendedEventHandler eventHandler,
       RemoteAnalysisCachingEventListener eventListener,
       SafeExecutor executor) {
@@ -90,6 +100,7 @@ public final class AnalysisCacheInvalidator {
     this.fingerprintService = checkNotNull(fingerprintValueService, "fingerprintValueService");
     this.currentVersion = checkNotNull(currentVersion, "currentVersion");
     this.currentClientId = checkNotNull(currentClientId, "currentClientId");
+    this.currentUntrimmedConfigurationChecksum = currentUntrimmedConfigurationChecksum;
     this.eventHandler = checkNotNull(eventHandler, "eventHandler");
     this.eventListener = checkNotNull(eventListener, "eventListener");
     this.executor = checkNotNull(executor, "executor");
@@ -124,9 +135,12 @@ public final class AnalysisCacheInvalidator {
       return keysToLookupSupplier.get(); // everything must be invalidated
     }
 
-    if (Objects.equals(currentClientId, serverState.clientId())) {
-      // The current client state is the same as the previous client state, so
-      // no invalidation is needed because all deserialized keys are still valid.
+    boolean untrimmedConfigurationChanged =
+        !Objects.equals(
+            currentUntrimmedConfigurationChecksum, serverState.untrimmedConfigurationChecksum());
+    if (!untrimmedConfigurationChanged && Objects.equals(currentClientId, serverState.clientId())) {
+      // The current client state and untrimmed configuration are the same as the previous client
+      // state, so no invalidation is needed because all deserialized keys are still valid.
       return ImmutableSet.of();
     }
 
@@ -137,6 +151,27 @@ public final class AnalysisCacheInvalidator {
       return ImmutableSet.of();
     }
 
+    ImmutableSet<SkyKey> untrimmedKeysToInvalidate = ImmutableSet.of();
+    if (untrimmedConfigurationChanged) {
+      untrimmedKeysToInvalidate =
+          keysToLookup.stream()
+              .filter(AnalysisCacheInvalidator::hasTestOptions)
+              .collect(toImmutableSet());
+      if (Objects.equals(currentClientId, serverState.clientId())) {
+        return untrimmedKeysToInvalidate;
+      }
+      keysToLookup = Sets.difference(keysToLookup, untrimmedKeysToInvalidate).immutableCopy();
+      if (keysToLookup.isEmpty()) {
+        return untrimmedKeysToInvalidate;
+      }
+    }
+
+    ImmutableSet<SkyKey> keysToInvalidateRemotely = lookupKeysToInvalidateRemotely(keysToLookup);
+    return Sets.union(untrimmedKeysToInvalidate, keysToInvalidateRemotely).immutableCopy();
+  }
+
+  private ImmutableSet<SkyKey> lookupKeysToInvalidateRemotely(ImmutableSet<SkyKey> keysToLookup)
+      throws InterruptedException {
     Stopwatch stopwatch = Stopwatch.createStarted();
     int numInvalidatedKeys = 0;
     InvalidationLookupMetrics.Status status = null;
@@ -144,37 +179,30 @@ public final class AnalysisCacheInvalidator {
     List<ListenableFuture<Optional<SkyKey>>> futures = null;
     try {
       futures = submitInvalidationLookupsBatched(keysToLookup);
-      if (futures == null) {
-        numInvalidatedKeys = keysToLookup.size();
-        status = InvalidationLookupMetrics.Status.TIMED_OUT;
-        return keysToLookup;
-      }
 
       try (SilentCloseable unused = Profiler.instance().profile("waitInvalidationLookups")) {
-        try {
-          keysToInvalidate =
-              Futures.allAsList(futures).get(INVALIDATION_TIMEOUT_SECONDS, SECONDS).stream()
-                  // Flatten Optionals, keeping only non-empty ones (keys to invalidate)
-                  .flatMap(Optional::stream)
-                  .collect(toImmutableSet());
-          status = InvalidationLookupMetrics.Status.OK;
-          numInvalidatedKeys = keysToInvalidate.size();
-        } catch (ExecutionException e) {
-          status = InvalidationLookupMetrics.Status.ERROR;
-          numInvalidatedKeys = keysToLookup.size();
-          logger.atWarning().withCause(e).log(
-              "Skycache: Error waiting for analysis cache responses during invalidation check."
-                  + " Invalidating everything.");
-          return keysToLookup;
-        } catch (TimeoutException e) {
-          status = InvalidationLookupMetrics.Status.TIMED_OUT;
-          numInvalidatedKeys = keysToLookup.size();
-          logger.atWarning().log(
-              "Skycache: Timeout waiting for analysis cache responses during invalidation check."
-                  + " Invalidating everything.");
-          return keysToLookup;
-        }
+        keysToInvalidate =
+            Futures.allAsList(futures).get(INVALIDATION_TIMEOUT_SECONDS, SECONDS).stream()
+                // Flatten Optionals, keeping only non-empty ones (keys to invalidate)
+                .flatMap(Optional::stream)
+                .collect(toImmutableSet());
+        status = InvalidationLookupMetrics.Status.OK;
+        numInvalidatedKeys = keysToInvalidate.size();
       }
+    } catch (ExecutionException e) {
+      status = InvalidationLookupMetrics.Status.ERROR;
+      numInvalidatedKeys = keysToLookup.size();
+      logger.atWarning().withCause(e).log(
+          "Skycache: Error waiting for analysis cache responses during invalidation check."
+              + " Invalidating everything.");
+      return keysToLookup;
+    } catch (TimeoutException e) {
+      status = InvalidationLookupMetrics.Status.TIMED_OUT;
+      numInvalidatedKeys = keysToLookup.size();
+      logger.atWarning().withCause(e).log(
+          "Skycache: Timeout waiting for analysis cache responses during invalidation check."
+              + " Invalidating everything.");
+      return keysToLookup;
     } finally {
       if (futures != null && status != InvalidationLookupMetrics.Status.OK) {
         cancelFutures(futures);
@@ -196,6 +224,21 @@ public final class AnalysisCacheInvalidator {
                 "Skycache: Invalidation lookup took %s. %s/%s keys will be invalidated.",
                 stopwatch, keysToInvalidate.size(), keysToLookup.size())));
     return keysToInvalidate;
+  }
+
+  // Keep in sync with SelectedEntrySerializer.upload and
+  // SkyValueRetrieverUtils.retrieveRemoteSkyValue.
+  private static boolean hasTestOptions(SkyKey key) {
+    BuildConfigurationKey configurationKey =
+        switch (key) {
+          case ActionLookupKey actionLookupKey -> actionLookupKey.getConfigurationKey();
+          case ActionLookupData actionLookupData ->
+              actionLookupData.getActionLookupKey().getConfigurationKey();
+          case DerivedArtifact artifact -> artifact.getArtifactOwner().getConfigurationKey();
+          case ActionLookupSummaryKey summaryKey -> summaryKey.argument().getConfigurationKey();
+          default -> throw new IllegalStateException("Unexpected key: " + key.getCanonicalName());
+        };
+    return configurationKey != null && configurationKey.getOptions().contains(TestOptions.class);
   }
 
   /**
@@ -242,9 +285,9 @@ public final class AnalysisCacheInvalidator {
    * provides a way to scope the lifetime of threads, i.e., so they don't cross over into the next
    * build.
    */
-  @Nullable // returns null if there was a timeout
   private List<ListenableFuture<Optional<SkyKey>>> submitInvalidationLookupsBatched(
-      ImmutableSet<SkyKey> keysToLookup) throws InterruptedException {
+      ImmutableSet<SkyKey> keysToLookup)
+      throws InterruptedException, ExecutionException, TimeoutException {
     int totalKeys = keysToLookup.size();
     @SuppressWarnings("unchecked") // exactly how other generic containers are implemented
     var futures =
@@ -258,6 +301,7 @@ public final class AnalysisCacheInvalidator {
       int batches = IntMath.divide(totalKeys, batchSize, RoundingMode.CEILING);
       var allSet = new CountDownLatch(batches);
       var submissionAborted = new AtomicBoolean(false);
+      var submissionFailure = new AtomicReference<Throwable>();
       for (int start = 0; start < totalKeys; start += batchSize) {
         final int begin = start;
         final int limit = min(start + batchSize, totalKeys);
@@ -279,6 +323,9 @@ public final class AnalysisCacheInvalidator {
                       break;
                     }
                   }
+                } catch (Throwable t) {
+                  submissionFailure.compareAndSet(null, t);
+                  submissionAborted.set(true);
                 } finally {
                   allSet.countDown();
                 }
@@ -286,6 +333,8 @@ public final class AnalysisCacheInvalidator {
 
               @Override
               public void handleRejection(Throwable t) {
+                submissionFailure.compareAndSet(null, t);
+                submissionAborted.set(true);
                 allSet.countDown();
               }
             });
@@ -296,15 +345,20 @@ public final class AnalysisCacheInvalidator {
       } finally {
         if (!allSubmitted) {
           submissionAborted.set(true);
+        }
+        if (submissionAborted.get()) {
           cancelFutures(futures);
         }
       }
+      Throwable failure = submissionFailure.get();
+      if (failure != null) {
+        throw new ExecutionException(failure);
+      }
       if (!allSubmitted) {
-        logger.atWarning().log(
-            "Skycache: Timeout waiting to submit (%d) analysis cache invalidation requests."
-                + " Invalidating everything.",
-            totalKeys);
-        return null;
+        throw new TimeoutException(
+            String.format(
+                "Timed out waiting to submit (%d) analysis cache invalidation requests.",
+                totalKeys));
       }
       return futures;
     }

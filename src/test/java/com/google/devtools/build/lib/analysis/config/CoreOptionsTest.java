@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.devtools.build.lib.analysis.util.OptionsTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -75,6 +77,16 @@ public final class CoreOptionsTest extends OptionsTestCase<CoreOptions> {
     CoreOptions one = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "c=//three", "b=//two");
     CoreOptions two = createWithPrefix(FLAG_ALIAS_PREFIX, "b=//two", "a=//one", "c=//three");
     assertSame(one, two);
+  }
+
+  @Test
+  public void testFlagAliasMap_returnsInternedMapInstance() throws Exception {
+    CoreOptions one = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "b=//two");
+    CoreOptions two = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "b=//two");
+    assertThat(one.getCommandLineFlagAliases())
+        .isNotSameInstanceAs(two.getCommandLineFlagAliases());
+    assertThat(one.getCommandLineFlagAliasesMap())
+        .isSameInstanceAs(two.getCommandLineFlagAliasesMap());
   }
 
   @Override

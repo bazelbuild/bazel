@@ -252,8 +252,19 @@ public class LegacyIncludeScanner implements IncludeScanner {
         // Construct the full framework path path/to/foo.framework.
         PathFragment fullFrameworkPath = includePath.getRelative(frameworkName);
 
-        if (onlyCheckGenerated && !isOutputFile(fullFrameworkPath)) {
-          return LocateOnPathResult.createNotFound(viewedIllegalOutput);
+        boolean isOutputDirectory = isOutputFile(fullFrameworkPath);
+        if (onlyCheckGenerated && !isOutputDirectory) {
+          continue;
+        }
+        // Mirror the directoryExists() optimization in isFile(): because isFile() is called below
+        // with relHeaderPath rather than the full framework-qualified include path, its loop only
+        // checks subdirectories within relHeaderPath and not fullFrameworkPath itself. Checking
+        // fullFrameworkPath once upfront avoids probing both Headers/ and PrivateHeaders/ when the
+        // source .framework directory does not exist under this search path.
+        if (!isOutputDirectory
+            && !fullFrameworkPath.isAbsolute()
+            && !pathCache.directoryExists(fullFrameworkPath)) {
+          continue;
         }
 
         // Look for header in path/to/foo.framework/Headers/
@@ -263,8 +274,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
         viewedIllegalOutput =
             viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
-        boolean isOutputDirectory = fullHeaderPath.startsWith(outputPathFragment);
-        if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, headerData)) {
+        if (isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)) {
           foundHeaderPath = fullHeaderPath;
         } else {
           // Look for header in path/to/foo.framework/PrivateHeaders/
@@ -272,7 +282,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
               fullFrameworkPath.getRelative("PrivateHeaders").getRelative(relHeaderPath);
           viewedIllegalOutput =
               viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
-          if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, headerData)) {
+          if (isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)) {
             foundHeaderPath = fullHeaderPath;
           } else {
             continue;

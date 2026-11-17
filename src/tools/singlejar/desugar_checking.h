@@ -15,6 +15,7 @@
 #ifndef SRC_TOOLS_SINGLEJAR_DESUGAR_CHECKING_H_
 #define SRC_TOOLS_SINGLEJAR_DESUGAR_CHECKING_H_ 1
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
@@ -26,6 +27,11 @@
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/transient_bytes.h"
 #include "src/tools/singlejar/zip_headers.h"
+
+enum class DesugarDepsFormat {
+  kProto,
+  kJson,
+};
 
 // Combiner that checks META-INF/desugar_deps files (b/65645388) to ensure
 // correct bytecode desugaring, specifically of default and static interface
@@ -41,8 +47,10 @@
 class Java8DesugarDepsChecker : public Combiner {
  public:
   Java8DesugarDepsChecker(std::function<bool(const std::string&)> known_member,
-                          bool verbose)
-      : Java8DesugarDepsChecker(std::move(known_member), verbose, true) {}
+                          bool verbose,
+                          DesugarDepsFormat format = DesugarDepsFormat::kProto)
+      : Java8DesugarDepsChecker(std::move(known_member), verbose, true,
+                                format) {}
   ~Java8DesugarDepsChecker() override {}
 
   bool Merge(const CDH* cdh, const LH* lh) override;
@@ -51,11 +59,16 @@ class Java8DesugarDepsChecker : public Combiner {
 
  private:
   Java8DesugarDepsChecker(std::function<bool(const std::string&)> known_member,
-                          bool verbose, bool fail_on_error)
+                          bool verbose, bool fail_on_error,
+                          DesugarDepsFormat format = DesugarDepsFormat::kProto)
       : known_member_(std::move(known_member)),
         verbose_(verbose),
         fail_on_error_(fail_on_error),
+        format_(format),
         error_(false) {}
+
+  bool MergeJson(const char* buf, size_t data_size);
+
   /// Computes and caches whether the given interface has default methods.
   /// \param interface_name interface name as it would appear in bytecode, e.g.,
   ///        "java/lang/Runnable"
@@ -64,6 +77,7 @@ class Java8DesugarDepsChecker : public Combiner {
   const std::function<bool(const std::string&)> known_member_;
   const bool verbose_;
   const bool fail_on_error_;  // For testing
+  const DesugarDepsFormat format_;
 
   std::unique_ptr<TransientBytes> buffer_;
   std::unique_ptr<Inflater> inflater_;

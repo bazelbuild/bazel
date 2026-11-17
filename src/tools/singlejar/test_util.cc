@@ -34,6 +34,7 @@
 #include "googletest/include/gtest/gtest.h"
 
 #ifdef _WIN32
+#include <share.h>
 #define popen _popen
 #define pclose _pclose
 #endif

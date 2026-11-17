@@ -133,10 +133,6 @@ public abstract class AbstractQueryTest<T> {
 
   protected abstract QueryHelper<T> createQueryHelper();
 
-  /**
-   * Used to disable configurable attribute queries on DepServerQueryEnvironment, which doesn't
-   * support them.
-   */
   protected boolean testConfigurableAttributes() {
     return true;
   }

@@ -141,11 +141,14 @@ public final class ProfilerTest {
   @Test
   public void testProfilerActivation() throws Exception {
     assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.isProfiling(ProfilerTask.LOCAL_PARSE)).isFalse();
     var unused = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
     assertThat(profiler.isActive()).isTrue();
+    assertThat(profiler.isProfiling(ProfilerTask.LOCAL_PARSE)).isTrue();
 
     profiler.stop();
     assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.isProfiling(ProfilerTask.LOCAL_PARSE)).isFalse();
   }
 
   @Test

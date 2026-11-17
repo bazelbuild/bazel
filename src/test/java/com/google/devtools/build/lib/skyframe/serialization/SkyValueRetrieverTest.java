@@ -215,6 +215,85 @@ public final class SkyValueRetrieverTest {
         .isEqualTo(MissReason.MISS_REASON_SKYVALUE_MISS);
   }
 
+  @Test
+  public void initialQueryState_fastFailsWhenSchedulingHashesExhausted() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var data = new HashMap<ByteString, ByteString>();
+    RemoteAnalysisCacheClient analysisCacheClient = createFakeAnalysisCacheClient(data);
+    SkycacheChannelStateAdvisor channelStateAdvisor = new SkycacheChannelStateAdvisor(5);
+    channelStateAdvisor.markSchedulingHashesExhausted();
+
+    var key = new TrivialKey("a");
+
+    RetrievalContext state = new RetrievalContext();
+    RetrievalResult result =
+        createSkyValueRetriever(
+                fingerprintValueService, codecs, CONSTANT_FOR_TESTING, channelStateAdvisor)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
+
+    assertThat(result).isInstanceOf(NoCachedData.class);
+    assertThat(((NoCachedData) result).reason())
+        .isEqualTo(MissReason.MISS_REASON_SCHEDULING_HASHES_EXHAUSTED);
+    assertThat(state.getState()).isInstanceOf(NoCachedData.class);
+    assertThat(((NoCachedData) state.getState()).reason())
+        .isEqualTo(MissReason.MISS_REASON_SCHEDULING_HASHES_EXHAUSTED);
+    // Verifies that no lookup was dispatched to the cache client
+    assertThat(data).isEmpty();
+  }
+
+  @Test
+  public void initialQueryState_schedulingHashesExhaustedDoesNotPersistAcrossInvocations()
+      throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+    codecs = codecs.withCodecOverridesForTesting(ImmutableList.of(new TrivialValueSharingCodec()));
+
+    var key = new TrivialKey("a");
+    var value = new TrivialValue("abc");
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
+
+    // Build invocation 1: scheduling hashes are exhausted due to a transient backend issue.
+    SkycacheChannelStateAdvisor firstInvocationAdvisor = new SkycacheChannelStateAdvisor(5);
+    firstInvocationAdvisor.markSchedulingHashesExhausted();
+    RetrievalContext firstInvocationState = new RetrievalContext();
+    RetrievalResult firstInvocationResult =
+        createSkyValueRetriever(
+                fingerprintValueService, codecs, CONSTANT_FOR_TESTING, firstInvocationAdvisor)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                firstInvocationState);
+    assertThat(firstInvocationResult).isInstanceOf(NoCachedData.class);
+    assertThat(((NoCachedData) firstInvocationResult).reason())
+        .isEqualTo(MissReason.MISS_REASON_SCHEDULING_HASHES_EXHAUSTED);
+
+    // Build invocation 2: a fresh SkycacheChannelStateAdvisor and SkyValueRetriever are created for
+    // the next build invocation, so lookups succeed once the transient issue clears.
+    SkycacheChannelStateAdvisor secondInvocationAdvisor = new SkycacheChannelStateAdvisor(5);
+    assertThat(secondInvocationAdvisor.isSchedulingHashesExhausted()).isFalse();
+    RetrievalContext secondInvocationState = new RetrievalContext();
+    RetrievalResult secondInvocationResult =
+        createSkyValueRetriever(
+                fingerprintValueService, codecs, CONSTANT_FOR_TESTING, secondInvocationAdvisor)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                secondInvocationState);
+    assertThat(((RetrievedValue) secondInvocationResult).value()).isEqualTo(value);
+  }
+
   private enum InitialQueryCases {
     IMMEDIATE_EMPTY_VALUE,
     IMMEDIATE_MISSING_VALUE,

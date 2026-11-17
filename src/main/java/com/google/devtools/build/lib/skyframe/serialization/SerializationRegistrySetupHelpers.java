@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -166,6 +167,7 @@ public final class SerializationRegistrySetupHelpers {
             PackageGroupConfiguredTarget.class,
             RuleConfiguredTarget.class,
             FeatureConfiguration.class,
+            FilesetOutputTree.class,
             RunfilesArtifactValue.class,
             AspectValue.class,
             AliasConfiguredTarget.class,

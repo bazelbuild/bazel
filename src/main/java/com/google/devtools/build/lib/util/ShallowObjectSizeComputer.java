@@ -63,19 +63,19 @@ public class ShallowObjectSizeComputer {
         throw new IllegalStateException("Only 64-bit JVMs are supported");
       }
 
+      // The layout computation below assumes compact object headers (JDK 24) and array element
+      // packing (JDK 23) exist.
+      if (Runtime.version().feature() < 25) {
+        throw new IllegalStateException("Only JDK 25 or later is supported");
+      }
+
       HotSpotDiagnosticMXBean diagnosticBean =
           ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class);
       boolean compressedOops =
           Boolean.parseBoolean(diagnosticBean.getVMOption("UseCompressedOops").getValue());
 
-      boolean compactObjectHeaders;
-      try {
-        compactObjectHeaders =
-            Boolean.parseBoolean(diagnosticBean.getVMOption("UseCompactObjectHeaders").getValue());
-      } catch (IllegalArgumentException e) {
-        // UseCompactObjectHeaders is available only in JDK 24 and later.
-        compactObjectHeaders = false;
-      }
+      boolean compactObjectHeaders =
+          Boolean.parseBoolean(diagnosticBean.getVMOption("UseCompactObjectHeaders").getValue());
 
       boolean compressedClassPointers;
       try {
@@ -90,12 +90,8 @@ public class ShallowObjectSizeComputer {
 
       long objectHeaderBytes = compactObjectHeaders ? 8 : compressedClassPointers ? 12 : 16;
 
-      // Since JDK 23 (JDK-8139457), array elements smaller than 8 bytes pack immediately after the
-      // 4-byte length field instead of aligning at 8 bytes.
-      long arrayHeaderBytes =
-          Runtime.version().feature() >= 23
-              ? objectHeaderBytes + Integer.BYTES
-              : roundUp(objectHeaderBytes + Integer.BYTES, Long.BYTES);
+      // Array elements pack immediately after the 4-byte length field (JDK-8139457).
+      long arrayHeaderBytes = objectHeaderBytes + Integer.BYTES;
 
       return new Layout(
           /* objectHeaderBytes= */ objectHeaderBytes,
@@ -181,12 +177,9 @@ public class ShallowObjectSizeComputer {
   /** Returns the size of an array of a given length containing the given type. */
   public static long getArraySize(long length, Class<?> componentType) {
     long componentSize = getStorageSize(componentType);
-    // Since JDK 23 (JDK-8139457), array elements smaller than 8 bytes pack immediately after the
-    // array header (which ends in a 4-byte length field); while 8-byte elements (e.g. long, double,
-    // uncompressed references) are aligned to an 8-byte boundary.
-    // Meanwhile, for JDK < 23, where the first array element is always aligned at 8 bytes
-    // regardless of the element type, Layout.getCurrentLayout() pre-rounds up arrayHeaderBytes to 8
-    // bytes, and both branches below will produce the same (aligned) baseOffset value.
+    // Array elements smaller than 8 bytes pack immediately after the array header (which ends in a
+    // 4-byte length field), while 8-byte elements (e.g. long, double, uncompressed references) are
+    // aligned to an 8-byte boundary (JDK-8139457).
     long baseOffset =
         componentSize == Long.BYTES
             ? roundUp(LAYOUT.arrayHeaderBytes, Long.BYTES)

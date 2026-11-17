@@ -209,13 +209,8 @@ public final class DigestUtilsTest {
       }
 
       @Override
-      public long getLastModifiedTime() throws IOException {
-        return stat.getLastModifiedTime();
-      }
-
-      @Override
-      public long getLastChangeTime() {
-        return Math.floorDiv(changeTimeNanos, 1_000_000);
+      public long getLastModifiedTimeNanos() throws IOException {
+        return stat.getLastModifiedTimeNanos();
       }
 
       @Override
