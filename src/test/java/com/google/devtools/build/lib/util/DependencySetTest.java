@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Collection;
@@ -40,6 +42,37 @@ public class DependencySetTest {
 
   private DependencySet newDependencySet() {
     return new DependencySet(root);
+  }
+
+  @Test
+  public void dotDParser_pathFragmentsAreRelativeToRootUnlessAbsoluteOrEscaping()
+      throws Exception {
+    Path execRoot = root.getRelative("execroot");
+    DependencySet depset =
+        new DependencySet(execRoot)
+            .process(
+                String.join(
+                        "\n",
+                        "bazel-out/k8-fastbuild/bin/pkg/_objs/foo/foo.o: \\",
+                        " pkg/foo.cc pkg/../pkg2/foo.h /usr/include/stdio.h \\",
+                        " ../external_repo/bar.h",
+                        "")
+                    .getBytes(ISO_8859_1));
+
+    assertThat(depset.getDependencyPathFragments())
+        .containsExactly(
+            PathFragment.create("pkg/foo.cc"),
+            PathFragment.create("pkg2/foo.h"),
+            PathFragment.create("/usr/include/stdio.h"),
+            PathFragment.create("/external_repo/bar.h"))
+        .inOrder();
+    assertThat(depset.getDependencies())
+        .containsExactly(
+            execRoot.getRelative("pkg/foo.cc"),
+            execRoot.getRelative("pkg2/foo.h"),
+            fileSystem.getPath("/usr/include/stdio.h"),
+            fileSystem.getPath("/external_repo/bar.h"))
+        .inOrder();
   }
 
   @Test
