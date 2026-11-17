@@ -17,7 +17,7 @@ An alias that cross-compiles its target for Windows with the hermetic LLVM
 toolchains, regardless of the host platform.
 
 This is equivalent to building the target with
-`--config=llvm --platforms=@llvm//platforms:windows_x86_64`.
+`--platforms=@llvm//platforms:windows_x86_64`.
 """
 
 load("@with_cfg.bzl", "with_cfg")

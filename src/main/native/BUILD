@@ -96,6 +96,13 @@ cc_binary(
             "-Wl,-framework,CoreServices",
             "-Wl,-framework,IOKit",
         ],
+        "//src/conditions:linux": [
+            # Do not export the symbols of a statically linked C++ runtime (the
+            # hermetic LLVM toolchains link libc++ statically). Java only needs
+            # the JNI functions and the BAZEL_EXPORT functions. Without this,
+            # the linker keeps most of the runtime in the library.
+            "-Wl,--exclude-libs,libc++.a:libc++abi.a:libunwind.a",
+        ],
         "//conditions:default": [],
     }),
     linkshared = 1,
