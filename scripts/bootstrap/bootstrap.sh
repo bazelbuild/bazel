@@ -55,6 +55,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --javacopt=-proc:full \
       --host_javacopt=-proc:full \
       --define=protobuf_allow_msvc=true \
+      --define=grpc_no_ares=true \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 
