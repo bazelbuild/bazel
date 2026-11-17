@@ -786,8 +786,9 @@ public class ExecutionGraphModule extends BlazeModule {
       this.thread.start();
     }
 
+    /** Returns false if the thread was interrupted before the entry reached the queue. */
     @SuppressWarnings("StopwatchElapsedMillis") // Avoids garbage from Duration objects.
-    void enqueueBytes(byte[] entry) {
+    boolean enqueueBytes(byte[] entry) {
       if (queuedBytesSemaphore != null && entry.length > 0) {
         int permits = numPermits(entry);
         if (!queuedBytesSemaphore.tryAcquire(permits)) {
@@ -798,7 +799,7 @@ public class ExecutionGraphModule extends BlazeModule {
             logger.atWarning().atMostEvery(10, SECONDS).withCause(e).log(
                 "Interrupted while trying to acquire queued bytes semaphore");
             Thread.currentThread().interrupt();
-            return;
+            return false;
           } finally {
             blockedMillis.addAndGet(sw.elapsed(MILLISECONDS));
           }
@@ -811,7 +812,7 @@ public class ExecutionGraphModule extends BlazeModule {
         maxQueuedBytes.accumulateAndGet(current, Math::max);
       }
       if (queue.offer(entry)) {
-        return;
+        return true;
       }
       Stopwatch sw = Stopwatch.createStarted();
       try {
@@ -821,8 +822,11 @@ public class ExecutionGraphModule extends BlazeModule {
             "Interrupted while trying to put to queue");
         releaseQueuedBytes(entry);
         Thread.currentThread().interrupt();
+        return false;
+      } finally {
+        blockedMillis.addAndGet(sw.elapsed().toMillis());
       }
-      blockedMillis.addAndGet(sw.elapsed().toMillis());
+      return true;
     }
 
     private void releaseQueuedBytes(byte[] entry) {
@@ -867,16 +871,18 @@ public class ExecutionGraphModule extends BlazeModule {
       }
       NodeWithCommit nodeWithCommit =
           actionToNode(action, inputMetadataProvider, startMillis, finishMillis);
-      enqueueBytes(nodeWithCommit.node().toByteArray());
-      nodeWithCommit.commitOutputs().run();
+      if (enqueueBytes(nodeWithCommit.node().toByteArray())) {
+        nodeWithCommit.commitOutputs().run();
+      }
     }
 
     void enqueue(SpawnExecutedEvent event) {
       NodeWithCommit nodeWithCommit = toProto(event);
-      enqueueBytes(nodeWithCommit.node().toByteArray());
-      // Register outputs after enqueue so no concurrent thread can record a dep on this node
-      // before its bytes are in the stream (which would produce a forward reference).
-      nodeWithCommit.commitOutputs().run();
+      // Register outputs only once the bytes are in the stream, so no concurrent thread can record
+      // a dep on a node that is missing or later in the stream.
+      if (enqueueBytes(nodeWithCommit.node().toByteArray())) {
+        nodeWithCommit.commitOutputs().run();
+      }
     }
 
     void shutdown(BuildToolLogCollection logs) throws InterruptedException {

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.ActionDumpWriter;
@@ -179,6 +180,7 @@ public final class ExecutionGraphModuleBenchmark {
 
   private static ActionDumpWriter newWriter() {
     return new ActionDumpWriter(
+        new CompressionServiceImpl(),
         BugReporter.defaultInstance(),
         new EventBus(),
         /* localLockFreeOutputEnabled= */ false,

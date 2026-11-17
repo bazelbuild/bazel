@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -952,15 +953,16 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
   }
 
   /**
-   * A spawn's outputs must not become visible in {@code outputToNode} until its own bytes have
-   * been handed to the write queue. Otherwise a concurrent spawn can write a 
-   * forward dependency that appears before it's node.
+   * A spawn's outputs must not become visible in {@code outputToNode} until its own bytes have been
+   * handed to the write queue. Otherwise a concurrent spawn can write a forward dependency that
+   * appears before its node.
    */
   @Test(timeout = 30_000)
   public void outputsPublishedAfterEnqueue_noForwardReferenceInStream() throws Exception {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     Artifact out1 = createOutputArtifact("foo/out1");
     Artifact out2 = createOutputArtifact("foo/out2");
+    Artifact out3 = createOutputArtifact("foo/out3");
     SpawnResult result = createRemoteSpawnResult(100);
 
     CountDownLatch aInEnqueueBytes = new CountDownLatch(1);
@@ -968,6 +970,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
 
     ActionDumpWriter writer =
         new ActionDumpWriter(
+            new CompressionServiceImpl(),
             BugReporter.defaultInstance(),
             new EventBus(),
             /* localLockFreeOutputEnabled= */ false,
@@ -980,17 +983,17 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
           protected void updateLogs(BuildToolLogCollection logs) {}
 
           @Override
-          void enqueueBytes(byte[] entry) {
+          boolean enqueueBytes(byte[] entry) {
             if (Thread.currentThread().getName().equals("spawn-a")) {
               aInEnqueueBytes.countDown();
               try {
                 bDone.await();
               } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                return;
+                return false;
               }
             }
-            super.enqueueBytes(entry);
+            return super.enqueueBytes(entry);
           }
         };
 
@@ -1035,10 +1038,29 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
     b.start();
     a.join();
     b.join();
+
+    // Spawn c consumes out1 after a's bytes are in the stream, so the dependency is recorded.
+    writer.enqueue(
+        new SpawnExecutedEvent(
+            new SpawnBuilder().withOwnerPrimaryOutput(out3).withInput(out1).build(),
+            new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
+            result,
+            Instant.ofEpochMilli(200),
+            /* spawnIdentifier= */ "c"));
     writer.shutdown(/* logs= */ null);
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
-    assertThat(nodes).hasSize(2);
+    assertThat(nodes).hasSize(3);
+
+    ExecutionGraph.Node nodeA = getOnlyNodeWithIdentifier(nodes, "a");
+    ExecutionGraph.Node nodeB = getOnlyNodeWithIdentifier(nodes, "b");
+    ExecutionGraph.Node nodeC = getOnlyNodeWithIdentifier(nodes, "c");
+
+    // b read out1 while a was still blocked in enqueueBytes, so out1 was not yet published.
+    assertThat(nodeB.getDependentIndexList()).isEmpty();
+    assertThat(nodeC.getDependentIndexList()).containsExactly(nodeA.getIndex());
 
     // Every dependent_index must resolve to a node at an earlier position in the stream.
     Map<Integer, Integer> streamPositionByIndex = new HashMap<>();
@@ -1051,6 +1073,11 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         assertThat(streamPositionByIndex.get(depIndex)).isLessThan(pos);
       }
     }
+  }
+
+  private static ExecutionGraph.Node getOnlyNodeWithIdentifier(
+      ImmutableList<ExecutionGraph.Node> nodes, String identifier) {
+    return nodes.stream().filter(n -> n.getIdentifier().equals(identifier)).collect(onlyElement());
   }
 
   private class FakeOwnerWithPrimaryOutput extends FakeOwner {
