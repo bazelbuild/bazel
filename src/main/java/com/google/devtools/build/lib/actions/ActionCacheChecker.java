@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -769,10 +770,21 @@ public class ActionCacheChecker {
     // Note that this method may trigger a violation of the desirable invariant that getInputs()
     // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
     // error message and the integration test test_crosstool_change_and_failure().
-    Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
-    for (Artifact derivedInput : action.getAllowedDerivedInputs().toList()) {
-      if (!derivedInput.isSourceArtifact()) {
-        allowedDerivedInputsMap.put(derivedInput.getExecPath(), derivedInput);
+    //
+    // The allowed derived inputs can be far more than the cached inputs, so rather than indexing
+    // all of them, only look for the cached ones: map each cached input path to null and fill in
+    // the matching artifacts.
+    Map<PathFragment, Artifact> allowedDerivedInputsMap =
+        Maps.newHashMapWithExpectedSize(inputExecPaths.size());
+    for (PathFragment execPath : inputExecPaths) {
+      allowedDerivedInputsMap.put(execPath, null);
+    }
+    if (!allowedDerivedInputsMap.isEmpty()) {
+      for (Artifact derivedInput : action.getAllowedDerivedInputs().toList()) {
+        if (!derivedInput.isSourceArtifact()) {
+          // Only sets the artifact for a cached input path. The last matching artifact wins.
+          allowedDerivedInputsMap.replace(derivedInput.getExecPath(), derivedInput);
+        }
       }
     }
 

@@ -368,6 +368,29 @@ public final class HeaderDiscoveryTest {
   }
 
   @Test
+  public void derivedArtifacts_onlyUsedOnesAreAdded() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    Artifact usedHeader =
+        ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("gen/used.h"));
+    Artifact unusedHeader =
+        ActionsTestUtil.createArtifact(
+            derivedArtifactRoot, derivedRoot.getRelative("gen/unused.h"));
+
+    NestedSet<Artifact> result =
+        discoverInputsFromPathFragments(
+            nonWindowsAction(),
+            artifactResolver,
+            ImmutableList.of(
+                PathFragment.create(DERIVED_SEGMENT + "/gen/used.h"),
+                PathFragment.create(DERIVED_SEGMENT + "/gen/used.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, unusedHeader, usedHeader));
+
+    assertThat(result.toList()).containsExactly(usedHeader);
+    verify(artifactResolver, never()).resolveSourceArtifact(any(), any());
+  }
+
+  @Test
   public void relativeDependency_belowSystemIncludePrefixBelowExecRoot_isIgnored()
       throws Exception {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
