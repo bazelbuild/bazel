@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
@@ -29,7 +28,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -61,7 +59,6 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
-import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -122,7 +119,6 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -135,9 +131,6 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final ThreadPoolExecutor executorService;
-  // TODO: Remove this set when whole-invocation retries no longer handle lost action inputs.
-  // RemoteExecutionService skips cache lookup for rewound actions instead.
-  private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
   private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;
 
@@ -287,8 +280,7 @@ public final class RemoteModule extends BlazeModule {
             /* retryScheduler= */ null,
             digestUtil,
             remoteOutputChecker,
-            outputService,
-            knownMissingCasDigests);
+            outputService);
     actionInputFetcher = createActionInputFetcher(combinedCache);
   }
 
@@ -396,7 +388,6 @@ public final class RemoteModule extends BlazeModule {
 
     if ("clean".equals(env.getCommandName())) {
       chunkLocationMap.clear();
-      knownMissingCasDigests.clear();
     }
 
     var cacheAvailable = setup(env);
@@ -518,8 +509,7 @@ public final class RemoteModule extends BlazeModule {
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
       // Quit if no remote caching or execution was enabled.
       actionContextProvider =
-          RemoteActionContextProvider.createForPlaceholder(
-              env, retryScheduler, digestUtil, knownMissingCasDigests);
+          RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
       return false;
     }
 
@@ -873,8 +863,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               logDir,
               remoteOutputChecker,
-              outputService,
-              knownMissingCasDigests);
+              outputService);
     } else {
       if (enableDiskCache) {
         try {
@@ -900,13 +889,7 @@ public final class RemoteModule extends BlazeModule {
               chunkLocationMap);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
-              env,
-              combinedCache,
-              retryScheduler,
-              digestUtil,
-              remoteOutputChecker,
-              outputService,
-              knownMissingCasDigests);
+              env, combinedCache, retryScheduler, digestUtil, remoteOutputChecker, outputService);
     }
 
     actionInputFetcher = createActionInputFetcher(actionContextProvider.getCombinedCache());
@@ -1267,51 +1250,10 @@ public final class RemoteModule extends BlazeModule {
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
-      BuildRequestOptions buildRequestOptions =
-          env.getOptions().getOptions(BuildRequestOptions.class);
-      boolean rewindLostInputs =
-          buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
-      LeaseService leaseService = null;
-      if (rewindLostInputs) {
-        // Action rewinding regenerates lost inputs within the build, so there is no need for the
-        // lease service to extend leases or to discard all remote metadata after a build that
-        // encountered lost inputs.
-        if (remoteOptions.getRemoteCacheLeaseExtension()) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "--experimental_remote_cache_lease_extension has no effect since"
-                          + " --rewind_lost_inputs is enabled, which recovers from lost remote"
-                          + " cache entries as they are encountered."));
-        }
-      } else {
-        LeaseExtension leaseExtension = null;
-        if (remoteOptions.getRemoteCacheLeaseExtension()) {
-          leaseExtension =
-              new RemoteLeaseExtension(
-                  env.getSkyframeExecutor().getEvaluator(),
-                  env.getBlazeWorkspace().getPersistentActionCache(),
-                  env.getBuildRequestId(),
-                  env.getCommandId().toString(),
-                  actionContextProvider.getCombinedCache(),
-                  remoteOptions.getRemoteCacheTtl());
-        }
-        leaseService =
-            new LeaseService(
-                env.getSkyframeExecutor().getEvaluator(),
-                () -> env.getBlazeWorkspace().getPersistentActionCache(),
-                leaseExtension);
-        env.getEventBus().register(leaseService);
-      }
-
       if (outputService instanceof RemoteOutputService remoteOutputService) {
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
         remoteOutputService.setActionInputFetcher(
             actionInputFetcher, env.getSkyframeExecutor().getWalkableGraph());
-        if (leaseService != null) {
-          remoteOutputService.setLeaseService(leaseService);
-        }
-        env.getEventBus().register(outputService);
       }
     }
 

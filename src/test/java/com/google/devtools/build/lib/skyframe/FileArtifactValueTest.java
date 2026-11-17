@@ -583,14 +583,5 @@ public final class FileArtifactValueTest {
             /* expirationTime= */ validTime,
             /* inMemoryOutput= */ false);
     assertThat(validExp.getExpirationTime()).isEqualTo(validTime);
-
-    // Mutating to EPOCH makes it null.
-    validExp.setExpirationTime(Instant.EPOCH);
-    assertThat(validExp.getExpirationTime()).isNull();
-
-    // Mutating to a new positive instant returns a valid time.
-    Instant newTime = Instant.ofEpochMilli(987654321L);
-    validExp.setExpirationTime(newTime);
-    assertThat(validExp.getExpirationTime()).isEqualTo(newTime);
   }
 }
