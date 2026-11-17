@@ -36,12 +36,15 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
+import java.net.JarURLConnection;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -266,7 +269,8 @@ public class JacocoCoverageRunner {
     }
   }
 
-  private static URL[] getUrls(ClassLoader classLoader, boolean jarIsWrapped, String wrappedJar) {
+  private static URL[] getUrls(ClassLoader classLoader, boolean jarIsWrapped, String wrappedJar)
+      throws IOException, URISyntaxException {
     // jarIsWrapped is a legacy parameter; it should be removed once we are sure Bazel will no
     // longer set JACOCO_IS_JAR_WRAPPED in java_stub_template
     URL[] urls = getClassLoaderUrls(classLoader);
@@ -310,23 +314,32 @@ public class JacocoCoverageRunner {
     return urls;
   }
 
-  private static URL[] getClassLoaderUrls(ClassLoader classLoader) {
+  private static URL[] getClassLoaderUrls(ClassLoader classLoader)
+      throws IOException, URISyntaxException {
     if (classLoader instanceof URLClassLoader) {
       return ((URLClassLoader) classLoader).getURLs();
     }
 
     // Java 9+ system classloader is BuiltinClassLoader/AppClassLoader, not URLClassLoader.
     if (classLoader == ClassLoader.getSystemClassLoader()) {
-      String classPath = System.getProperty("java.class.path");
-      if (Strings.isNullOrEmpty(classPath)) {
-        return new URL[0];
-      }
       List<URL> urls = new ArrayList<>();
+      Set<File> canonicalFiles = new HashSet<>();
+      String classPath = Strings.nullToEmpty(System.getProperty("java.class.path"));
       for (String entry : Splitter.on(File.pathSeparatorChar).omitEmptyStrings().split(classPath)) {
-        try {
-          urls.add(new File(entry).toURI().toURL());
-        } catch (MalformedURLException e) {
-          return null;
+        File file = new File(entry);
+        urls.add(file.toURI().toURL());
+        canonicalFiles.add(file.getCanonicalFile());
+      }
+      // Java agents and the jars they append via Instrumentation#appendToSystemClassLoaderSearch
+      // are on the system class loader's search path, but not on java.class.path.
+      Enumeration<URL> manifests = classLoader.getResources(JarFile.MANIFEST_NAME);
+      while (manifests.hasMoreElements()) {
+        URLConnection connection = manifests.nextElement().openConnection();
+        if (connection instanceof JarURLConnection) {
+          URL jarUrl = ((JarURLConnection) connection).getJarFileURL();
+          if (canonicalFiles.add(new File(jarUrl.toURI()).getCanonicalFile())) {
+            urls.add(jarUrl);
+          }
         }
       }
       return urls.toArray(new URL[0]);
