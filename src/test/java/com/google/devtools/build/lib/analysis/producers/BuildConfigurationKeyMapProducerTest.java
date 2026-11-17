@@ -357,6 +357,7 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
             sink,
             StateMachine.DONE,
             options,
+            /* platformChangedKeys= */ options.keySet(),
             /* forBaseline= */ false,
             StarlarkBuildSettingsDetailsValue.EMPTY,
             null);

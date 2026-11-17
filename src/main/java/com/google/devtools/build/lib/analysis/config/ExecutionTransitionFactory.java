@@ -125,6 +125,11 @@ public class ExecutionTransitionFactory
                 data.executionPlatform(), starlarkExecTransitionProvider.create(data)));
   }
 
+  /** Returns whether {@code transition} is the exec transition and not composed. */
+  static boolean isExecTransition(ConfigurationTransition transition) {
+    return transition instanceof ExecTransitionFinalizer;
+  }
+
   /**
    * Returns {@code transition} with {@code scopeDetails} added to the details of the Starlark flags
    * in its input if it is the exec transition, see {@link

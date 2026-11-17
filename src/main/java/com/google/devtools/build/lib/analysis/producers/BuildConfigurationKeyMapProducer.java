@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.Inva
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Creates the needed {@link BuildConfigurationKey} instances for the given options.
@@ -58,6 +59,7 @@ public class BuildConfigurationKeyMapProducer
   private final ResultSink sink;
   private final StateMachine runAfter;
   private final Map<String, BuildOptions> options;
+  private final Set<String> platformChangedKeys;
   private final boolean forBaseline;
   private final StarlarkBuildSettingsDetailsValue sourceFlagDetails;
   private final Label label;
@@ -66,18 +68,22 @@ public class BuildConfigurationKeyMapProducer
   private final BuildConfigurationKey[] results;
 
   /**
+   * @param platformChangedKeys the keys of the {@code options} that get the flags of their target
+   *     platform, see {@link BuildConfigurationKeyProducer}
    * @param sourceFlagDetails see {@link BuildConfigurationKeyProducer}
    */
   public BuildConfigurationKeyMapProducer(
       ResultSink sink,
       StateMachine runAfter,
       Map<String, BuildOptions> options,
+      Set<String> platformChangedKeys,
       boolean forBaseline,
       StarlarkBuildSettingsDetailsValue sourceFlagDetails,
       Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.options = options;
+    this.platformChangedKeys = platformChangedKeys;
     this.forBaseline = forBaseline;
     this.sourceFlagDetails = sourceFlagDetails;
     this.results = new BuildConfigurationKey[options.size()];
@@ -87,13 +93,14 @@ public class BuildConfigurationKeyMapProducer
   @Override
   public StateMachine step(Tasks tasks) {
     int index = 0;
-    for (BuildOptions buildOptions : options.values()) {
+    for (Map.Entry<String, BuildOptions> entry : options.entrySet()) {
       tasks.enqueue(
           new BuildConfigurationKeyProducer<>(
               this,
               StateMachine.DONE,
               index++,
-              buildOptions,
+              entry.getValue(),
+              platformChangedKeys.contains(entry.getKey()),
               forBaseline,
               sourceFlagDetails,
               label));

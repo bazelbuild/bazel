@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer.ResultSink;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
@@ -50,6 +51,7 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
                 sink,
                 /* runAfter= */ StateMachine.DONE,
                 ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, key.buildOptions()),
+                /* platformChangedKeys= */ ImmutableSet.of(BUILD_OPTIONS_MAP_SINGLETON_KEY),
                 key.forBaseline(),
                 StarlarkBuildSettingsDetailsValue.EMPTY,
                 null));

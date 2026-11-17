@@ -177,6 +177,29 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed).isEqualTo(patch);
   }
 
+  @Test
+  public void compose_createsNoTransition() throws Exception {
+    TransitionFactory<StubData> createsNoTransition =
+        new TransitionFactory<>() {
+          @Override
+          public ConfigurationTransition create(StubData data) {
+            return NoTransition.INSTANCE;
+          }
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.ANY;
+          }
+        };
+    TransitionFactory<StubData> patch = new StubPatchFactory(FLAG_1, "value");
+    StubData data = new StubData();
+
+    assertThat(ComposingTransitionFactory.of(createsNoTransition, patch).create(data))
+        .isInstanceOf(PatchTransition.class);
+    assertThat(ComposingTransitionFactory.of(patch, createsNoTransition).create(data))
+        .isInstanceOf(PatchTransition.class);
+  }
+
   private static final class StubData implements TransitionFactory.Data {}
 
   // Helper methods and classes for the tests.

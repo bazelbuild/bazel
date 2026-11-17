@@ -181,13 +181,17 @@ platform(
 <h3 id="platform_flags">Platform Flags</h3>
 <p>
   Platforms may use the <code>flags</code> attribute to specify a list of flags that will be added
-  to the configuration whenever the platform is used as the target platform (i.e., as the value of
-  the <code>--platforms</code> flag).
+  to the configuration whenever the platform becomes the target platform (i.e., the value of the
+  <code>--platforms</code> flag).
 </p>
 
 <p>
-  Flags set from the platform effectively have the highest precedence and overwrite any previous
-  value for that flag, from the command line, rc file, or transition.
+  Flags set from the platform overwrite any previous value for that flag, from the command line, rc
+  file, or the transition that changed the target platform to this one. They are applied whenever a
+  transition changes the target platform, as well as by the exec transition. A transition that
+  doesn't change the target platform can override flags set from the platform. If a transition
+  composed with <code>and_then</code> changes the target platform, the flags of the new platform are
+  applied before the next transition in the composition.
 </p>
 
 <h4 id="platform_flags_examples">Example</h4>

@@ -478,6 +478,79 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
+  public void createKey_platformFlags_platformNotChanged() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--internal_option=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--internal_option=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions, /* platformChanged= */ false, null);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
+        .isEqualTo("from_cli");
+  }
+
+  @Test
+  public void createKey_platformFlags_platformNotChanged_ignoresMapping() throws Exception {
+    scratch.file(
+        "/workspace/platform_mappings",
+        """
+        platforms:
+          //platforms:sample
+            --internal_option=from_mapping
+        """);
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--internal_option=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--internal_option=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions, /* platformChanged= */ false, null);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
+        .isEqualTo("from_cli");
+  }
+
+  @Test
+  public void createKey_platformMapping_platformNotChanged() throws Exception {
+    scratch.file(
+        "/workspace/platform_mappings",
+        """
+        platforms:
+          //platforms:sample
+            --internal_option=from_mapping
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--internal_option=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions, /* platformChanged= */ false, null);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
+        .isEqualTo("from_mapping");
+  }
+
+  @Test
   public void createKey_withScopedBuildOptions_outOfScopeFlag_flagNotSetInTheBaseline()
       throws Exception {
     createStarlarkFlagRule();
@@ -807,6 +880,15 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
           PlatformMappingException,
           InvalidPlatformException,
           TransitionException {
+    return fetch(options, /* platformChanged= */ true, label);
+  }
+
+  private BuildConfigurationKey fetch(BuildOptions options, boolean platformChanged, Label label)
+      throws InterruptedException,
+          OptionsParsingException,
+          PlatformMappingException,
+          InvalidPlatformException,
+          TransitionException {
     Sink sink = new Sink();
     BuildConfigurationKeyProducer<String> producer =
         new BuildConfigurationKeyProducer<>(
@@ -814,6 +896,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
             StateMachine.DONE,
             CONTEXT,
             options,
+            platformChanged,
             /* forBaseline= */ false,
             StarlarkBuildSettingsDetailsValue.EMPTY,
             label);

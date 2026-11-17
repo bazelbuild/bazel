@@ -192,6 +192,22 @@ java_test(
 )
 
 java_test(
+    name = "StarlarkTransitionPlatformFlagsTest",
+    srcs = ["StarlarkTransitionPlatformFlagsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "StarlarkTransitionTest",
     srcs = ["StarlarkTransitionTest.java"],
     deps = [

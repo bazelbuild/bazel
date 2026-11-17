@@ -51,7 +51,8 @@ import javax.annotation.Nullable;
  * <ul>
  *   <li>If {@link PlatformOptions#platforms} specifies a target platform, look up the {@link
  *       PlatformValue}. If it specifies {@linkplain PlatformValue#parsedFlags flags}, use {@link
- *       ParsedFlagsValue#mergeWith}.
+ *       ParsedFlagsValue#mergeWith} if the transition that resulted in the options changed the
+ *       target platform.
  *   <li>If {@link PlatformOptions#platforms} does not specify a target platform, or if the target
  *       platform does not specify {@linkplain PlatformValue#parsedFlags flags}, look up the {@link
  *       PlatformMappingValue} and use {@link PlatformMappingValue#map}.
@@ -100,6 +101,7 @@ public final class BuildConfigurationKeyProducer<C>
   private final StateMachine runAfter;
   private final C context;
   private final BuildOptions options;
+  private final boolean platformChanged;
   private final boolean forBaseline;
   private final StarlarkBuildSettingsDetailsValue sourceFlagDetails;
   private final Label label;
@@ -113,6 +115,9 @@ public final class BuildConfigurationKeyProducer<C>
   private BuildOptions baselineConfiguration;
 
   /**
+   * @param platformChanged whether the transition that resulted in {@code options} changed their
+   *     target platform, or {@code options} weren't produced by a transition. Platform-based flags
+   *     are only applied if so.
    * @param forBaseline whether {@code options} are the baseline configuration's options, which
    *     aren't scoped since that would create a cycle
    * @param sourceFlagDetails the details of the Starlark flags of the configuration {@code options}
@@ -124,6 +129,7 @@ public final class BuildConfigurationKeyProducer<C>
       StateMachine runAfter,
       C context,
       BuildOptions options,
+      boolean platformChanged,
       boolean forBaseline,
       StarlarkBuildSettingsDetailsValue sourceFlagDetails,
       Label label) {
@@ -131,6 +137,7 @@ public final class BuildConfigurationKeyProducer<C>
     this.runAfter = runAfter;
     this.context = context;
     this.options = options;
+    this.platformChanged = platformChanged;
     this.forBaseline = forBaseline;
     this.sourceFlagDetails = sourceFlagDetails;
     this.label = label;
@@ -178,6 +185,12 @@ public final class BuildConfigurationKeyProducer<C>
     }
     Optional<ParsedFlagsValue> parsedFlags = targetPlatformValue.parsedFlags();
     if (parsedFlags.isPresent()) {
+      if (!platformChanged) {
+        // The flags were applied when the platform changed. Transitions since then may have
+        // changed them.
+        this.postPlatformProcessedOptions = options;
+        return this::findFlagDetails;
+      }
       try {
         this.postPlatformProcessedOptions = parsedFlags.get().mergeWith(options).getOptions();
       } catch (OptionsParsingException e) {
