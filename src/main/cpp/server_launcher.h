@@ -77,7 +77,8 @@ void PrepareDirectories(StartupOptions* startup_options);
 // Prepares the environment to be suitable to start a JVM.
 // Changes made to the environment in this function *will not* be part
 // of '--client_env'.
-std::map<std::string, EnvVarValue> PrepareEnvironmentForJvm();
+std::map<std::string, EnvVarValue> PrepareEnvironmentForJvm(
+    const StartupOptions& startup_options);
 
 // Replace this process with the blaze server. Does not exit.
 void RunServerMode(const std::string& install_md5,

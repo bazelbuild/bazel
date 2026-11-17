@@ -1,0 +1,3 @@
+// The app manifest (RT_MANIFEST) of an executable has resource ID 1
+// (CREATEPROCESS_MANIFEST_RESOURCE_ID).
+1 24 "server_jvm_host.manifest"

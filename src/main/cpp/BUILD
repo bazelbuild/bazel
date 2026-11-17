@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("//tools/res:win_res.bzl", "windows_resources")
 
 # Description:
@@ -39,6 +40,7 @@ cc_library(
     hdrs = [
         "blaze_util.h",
         "blaze_util_platform.h",
+        "server_jvm_host.h",
     ],
     linkopts = select({
         "//src/conditions:darwin": [
@@ -118,6 +120,40 @@ windows_resources(
     name = "resources",
     rc_files = ["resources.rc"],
     resources = ["bazel.ico"],
+)
+
+# Runs the server JVM on Windows, see server_jvm_host.h.
+cc_binary(
+    name = "bazel-server",
+    srcs = [
+        "server_jvm_host.h",
+        "server_jvm_host_windows.cc",
+    ],
+    # Avoids loading the C++ runtime DLLs from the system before jli.dll loads
+    # those of the JDK.
+    features = ["static_link_msvcrt"],
+    target_compatible_with = ["@platforms//os:windows"],
+    deps = [
+        ":resources",
+        ":server_jvm_host_resources",
+        "@rules_java//toolchains:jni",
+    ],
+)
+
+windows_resources(
+    name = "server_jvm_host_resources",
+    rc_files = ["server_jvm_host.rc"],
+    resources = ["server_jvm_host.manifest"],
+    # The app manifest makes the server JVM use UTF-8.
+    required = True,
+    target_compatible_with = ["@platforms//os:windows"],
+)
+
+pkg_tar(
+    name = "server_jvm_host_tar",
+    srcs = [":bazel-server"],
+    package_dir = "jvm_host/bin",
+    visibility = ["//src:__pkg__"],
 )
 
 cc_library(
