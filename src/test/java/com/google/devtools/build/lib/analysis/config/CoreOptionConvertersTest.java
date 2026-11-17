@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelSetConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -30,8 +31,30 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CoreOptionConvertersTest {
 
+  private final LabelSetConverter labelSetConverter = new LabelSetConverter();
   private final LabelToStringEntryConverter labelToStringEntryConverter =
       new LabelToStringEntryConverter();
+
+  @Test
+  public void labelSetConverter_empty() throws Exception {
+    assertThat(labelSetConverter.convert("", /* conversionContext= */ null)).isEmpty();
+  }
+
+  @Test
+  public void labelSetConverter_commaSeparatedAndDeduplicated() throws Exception {
+    assertThat(
+            labelSetConverter.convert(
+                "//foo:bar,//foo:baz,//foo:bar,", /* conversionContext= */ null))
+        .containsExactly(Label.parseCanonical("//foo:bar"), Label.parseCanonical("//foo:baz"))
+        .inOrder();
+  }
+
+  @Test
+  public void labelSetConverter_invalidLabel() {
+    assertThrows(
+        OptionsParsingException.class,
+        () -> labelSetConverter.convert("//foo::bar", /* conversionContext= */ null));
+  }
 
   @Test
   public void labelToStringEntryConverter_reverseForStarlark() throws Exception {
