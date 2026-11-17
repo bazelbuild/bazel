@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
@@ -219,8 +218,8 @@ public final class PackageFactory {
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
       RootedPath filename,
-      Optional<String> associatedModuleName,
-      Optional<String> associatedModuleVersion,
+      String associatedModuleName,
+      String associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping,
@@ -291,8 +290,8 @@ public final class PackageFactory {
   public PackagePiece.ForBuildFile.Builder newPackagePieceForBuildFileBuilder(
       PackagePieceIdentifier.ForBuildFile packagePieceId,
       RootedPath filename,
-      Optional<String> associatedModuleName,
-      Optional<String> associatedModuleVersion,
+      String associatedModuleName,
+      String associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping,

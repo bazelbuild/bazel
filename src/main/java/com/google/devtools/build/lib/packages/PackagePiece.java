@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
@@ -209,8 +208,8 @@ public abstract sealed class PackagePiece extends Packageoid
         PackagePieceIdentifier.ForBuildFile identifier,
         RootedPath filename,
         String workspaceName,
-        Optional<String> associatedModuleName,
-        Optional<String> associatedModuleVersion,
+        String associatedModuleName,
+        String associatedModuleVersion,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
         boolean symbolicMacroStrictAttrs,

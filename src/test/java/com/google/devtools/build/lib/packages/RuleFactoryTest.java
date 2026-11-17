@@ -33,7 +33,6 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -57,8 +56,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             id,
             RootedPath.toRootedPath(root, filename),
-            Optional.empty(),
-            Optional.empty(),
+            /* associatedModuleName= */ "",
+            /* associatedModuleVersion= */ "",
             StarlarkSemantics.DEFAULT,
             /* repositoryMapping= */ RepositoryMapping.EMPTY,
             /* mainRepositoryMapping= */ null,

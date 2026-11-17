@@ -95,10 +95,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     verifyModuleDeps(ruleContext, module, repositoryMapping);
     Optional<String> mainRepoName = Optional.empty();
     if (ruleContext.attributes().get(RENDER_MAIN_REPO_NAME, BOOLEAN)) {
-      mainRepoName = mainRepositoryMappingValue.associatedModuleName();
-      if (mainRepoName.isEmpty()) {
-        mainRepoName = Optional.of(ruleContext.getWorkspaceName());
-      }
+      mainRepoName = Optional.of(mainRepositoryMappingValue.associatedModuleName().orElseThrow());
     }
     ModuleInfo moduleInfo =
         getModuleInfo(ruleContext, module, new LabelRenderer(repositoryMapping, mainRepoName));

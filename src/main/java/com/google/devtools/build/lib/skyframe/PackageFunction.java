@@ -1173,6 +1173,12 @@ public abstract class PackageFunction implements SkyFunction {
               threadStateReceiverFactoryForMetrics.apply(keyForMetrics));
       Globber globber = makeGlobber(nonSkyframeGlobber, packageId, packageRoot, env);
 
+      // Packages can only be loaded from repos backed by a Bazel module or a module extension,
+      // both of which have an associated module.
+      String associatedModuleName = repositoryMappingValue.associatedModuleName().orElseThrow();
+      String associatedModuleVersion =
+          repositoryMappingValue.associatedModuleVersion().orElseThrow();
+
       // Create the package,
       // even if it will be empty because we cannot attempt execution.
       Package.AbstractBuilder pkgBuilder =
@@ -1180,8 +1186,8 @@ public abstract class PackageFunction implements SkyFunction {
               ? packageFactory.newPackageBuilder(
                   packageId,
                   buildFileRootedPath,
-                  repositoryMappingValue.associatedModuleName(),
-                  repositoryMappingValue.associatedModuleVersion(),
+                  associatedModuleName,
+                  associatedModuleVersion,
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
                   mainRepositoryMapping,
@@ -1192,8 +1198,8 @@ public abstract class PackageFunction implements SkyFunction {
               : packageFactory.newPackagePieceForBuildFileBuilder(
                   packagePieceId,
                   buildFileRootedPath,
-                  repositoryMappingValue.associatedModuleName(),
-                  repositoryMappingValue.associatedModuleVersion(),
+                  associatedModuleName,
+                  associatedModuleVersion,
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
                   mainRepositoryMapping,
