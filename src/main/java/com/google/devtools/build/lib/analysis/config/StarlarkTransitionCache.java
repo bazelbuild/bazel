@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -30,8 +33,15 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -129,7 +139,7 @@ public final class StarlarkTransitionCache {
       }
     }
 
-    if (transition.getName().equals("exec")) {
+    if (ExecutionTransitionFactory.isExecTransition(transition)) {
       return getDefaultStarlarkOptionsForCustomExec(optionsWithDefaults, details, fromOptions);
     }
     return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
@@ -157,67 +167,233 @@ public final class StarlarkTransitionCache {
   }
 
   /**
+   * The flags of a target platform.
+   *
+   * @param flags the flags, which are empty for a platform without flags
+   * @param details the details of the Starlark flags in {@code flags} if the transition composes
+   *     the exec transition, which propagates them based on their scope, or {@link
+   *     StarlarkBuildSettingsDetailsValue#EMPTY}
+   */
+  public record PlatformFlags(
+      Optional<ParsedFlagsValue> flags, StarlarkBuildSettingsDetailsValue details) {}
+
+  /** The result of {@link #computeIfAbsent}. */
+  public sealed interface Result {}
+
+  /**
+   * The options a transition results in, by key.
+   *
+   * @param platformChangedKeys the keys of the options whose target platform changed since the
+   *     flags of a platform were last applied to them, see {@link #changesTargetPlatform}
+   */
+  public record Applied(
+      ImmutableMap<String, BuildOptions> options, ImmutableSet<String> platformChangedKeys)
+      implements Result {}
+
+  /**
+   * The platforms whose flags have to be looked up before the transition can be applied.
+   *
+   * @param events the events of the incomplete application of the transition, which callers replay
+   *     if they can't look up the platforms
+   */
+  public record MissingPlatforms(ImmutableSet<Label> platforms, @Nullable StoredEventHandler events)
+      implements Result {}
+
+  /**
    * Applies a Starlark transition, possibly returning a cached result.
+   *
+   * <p>If a transition in a composition changes the target platform, the flags of the new platform
+   * are applied to its output before the next transition is applied. Callers apply them to the
+   * output of the last transition, see {@link Applied#platformChangedKeys}.
    *
    * @param fromOptions source options before the transition
    * @param transition the transition itself
    * @param details information from packages about Starlark build settings needed by transition
+   * @param platformFlags the flags of the target platforms looked up so far
    * @param eventHandler handler for errors evaluating the transition.
-   * @return transition output
+   * @return the transition output or the platforms whose flags have to be added to {@code
+   *     platformFlags} first
    */
-  public Map<String, BuildOptions> computeIfAbsent(
+  public Result computeIfAbsent(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
       StarlarkBuildSettingsDetailsValue details,
+      Map<Label, PlatformFlags> platformFlags,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
     Key cacheKey = new Key(transition, fromOptions, details);
     Value cachedResult = cache.getIfPresent(cacheKey);
     if (cachedResult != null) {
-      if (cachedResult.nonErrorEvents != null) {
-        cachedResult.nonErrorEvents.replayOn(eventHandler);
+      // The result also depends on the flags of the platforms it records, which callers have to
+      // look up so that they depend on them too. They are checked in the order in which they were
+      // applied since the first one that differs may change which platforms follow.
+      boolean upToDate = true;
+      for (var entry : cachedResult.platformFlags.entrySet()) {
+        PlatformFlags flags = platformFlags.get(entry.getKey());
+        if (flags == null) {
+          return new MissingPlatforms(ImmutableSet.of(entry.getKey()), /* events= */ null);
+        }
+        if (!flags.equals(entry.getValue())) {
+          upToDate = false;
+          break;
+        }
       }
-      return cachedResult.result;
+      if (upToDate) {
+        if (cachedResult.nonErrorEvents != null) {
+          cachedResult.nonErrorEvents.replayOn(eventHandler);
+        }
+        return cachedResult.result;
+      }
     }
 
     ImmutableMap<String, Label> flagsAliases =
         fromOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
 
     // All code below here only executes on a cache miss and thus should rely only on values that
-    // are part of the above cache key or constants that exist throughout the lifetime of the
-    // Blaze server instance.
+    // are part of the above cache key, the platform flags recorded in the cached value or
+    // constants that exist throughout the lifetime of the Blaze server instance.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
-    Map<String, BuildOptions> result;
+    Map<Label, PlatformFlags> usedPlatformFlags = new LinkedHashMap<>();
+    Set<Label> missingPlatforms = new LinkedHashSet<>();
+    Map<String, TransitionedOptions> result;
+    boolean incomplete = false;
     try {
       // Each transition in a composition is applied and validated on its own. This is also
       // necessary since the exec transition drops the Starlark options it doesn't propagate.
       result =
           ComposingTransitionFactory.applyComposed(
               transition,
-              fromOptions,
-              (composedTransition, options) ->
-                  applyAndValidate(
-                      composedTransition == transition
-                          ? transition
-                          // The exec transition only has the details of the source configuration's
-                          // flags, but earlier transitions in the composition may set others.
-                          : ExecutionTransitionFactory.withAdditionalScopeDetails(
-                              composedTransition, details),
-                      options,
-                      flagsAliases,
-                      details,
-                      handlerWithErrorStatus));
+              new TransitionedOptions(
+                  fromOptions,
+                  /* platformChanged= */ false,
+                  StarlarkBuildSettingsDetailsValue.EMPTY),
+              (composedTransition, input) -> {
+                BuildOptions options = input.options();
+                StarlarkBuildSettingsDetailsValue platformFlagDetails = input.platformFlagDetails();
+                Label platform = input.platformChanged() ? targetPlatform(options) : null;
+                if (platform != null) {
+                  PlatformFlags flags = platformFlags.get(platform);
+                  if (flags == null) {
+                    missingPlatforms.add(platform);
+                    return null;
+                  }
+                  usedPlatformFlags.put(platform, flags);
+                  options = applyPlatformFlags(platform, flags, options);
+                  if (platformFlagDetails == StarlarkBuildSettingsDetailsValue.EMPTY) {
+                    platformFlagDetails = flags.details();
+                  } else if (flags.details() != StarlarkBuildSettingsDetailsValue.EMPTY) {
+                    platformFlagDetails = platformFlagDetails.union(flags.details());
+                  }
+                }
+                ConfigurationTransition transitionToApply = composedTransition;
+                if (composedTransition != transition
+                    && ExecutionTransitionFactory.isExecTransition(composedTransition)) {
+                  // The exec transition only has the details of the source configuration's flags,
+                  // but earlier transitions in the composition and the platforms they change to
+                  // may set others.
+                  transitionToApply =
+                      ExecutionTransitionFactory.withAdditionalScopeDetails(
+                          composedTransition,
+                          platformFlagDetails == StarlarkBuildSettingsDetailsValue.EMPTY
+                              ? details
+                              : details.union(platformFlagDetails));
+                }
+                Map<String, BuildOptions> outputs =
+                    applyAndValidate(
+                        transitionToApply, options, flagsAliases, details, handlerWithErrorStatus);
+                ImmutableMap.Builder<String, TransitionedOptions> transitionedOptions =
+                    ImmutableMap.builderWithExpectedSize(outputs.size());
+                for (Map.Entry<String, BuildOptions> output : outputs.entrySet()) {
+                  transitionedOptions.put(
+                      output.getKey(),
+                      new TransitionedOptions(
+                          output.getValue(),
+                          changesTargetPlatform(composedTransition, options, output.getValue()),
+                          platformFlagDetails));
+                }
+                return transitionedOptions.buildOrThrow();
+              });
+      incomplete = result == null;
     } finally {
-      handlerWithErrorStatus.replayOn(eventHandler);
+      if (!incomplete) {
+        handlerWithErrorStatus.replayOn(eventHandler);
+      }
     }
+    if (incomplete) {
+      return new MissingPlatforms(ImmutableSet.copyOf(missingPlatforms), handlerWithErrorStatus);
+    }
+    Applied applied =
+        new Applied(
+            ImmutableMap.copyOf(Maps.transformValues(result, TransitionedOptions::options)),
+            ImmutableSet.copyOf(
+                Maps.filterValues(result, TransitionedOptions::platformChanged).keySet()));
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.
     StoredEventHandler nonErrorEvents =
         !handlerWithErrorStatus.isEmpty() ? handlerWithErrorStatus : null;
-    cache.put(cacheKey, new Value(result, nonErrorEvents));
+    cache.put(cacheKey, new Value(applied, ImmutableMap.copyOf(usedPlatformFlags), nonErrorEvents));
+    return applied;
+  }
+
+  /**
+   * Returns whether {@code transition}, which isn't composed, changed the target platform from
+   * {@code fromOptions} to {@code toOptions}. This includes the exec transition, which resets
+   * options to their defaults.
+   */
+  public static boolean changesTargetPlatform(
+      ConfigurationTransition transition, BuildOptions fromOptions, BuildOptions toOptions) {
+    return ExecutionTransitionFactory.isExecTransition(transition)
+        || !targetPlatforms(fromOptions).equals(targetPlatforms(toOptions));
+  }
+
+  private static List<Label> targetPlatforms(BuildOptions options) {
+    PlatformOptions platformOptions = options.get(PlatformOptions.class);
+    return platformOptions == null ? ImmutableList.of() : platformOptions.getPlatforms();
+  }
+
+  /** Returns the single target platform of {@code options}, or null if there isn't one. */
+  @Nullable
+  private static Label targetPlatform(BuildOptions options) {
+    List<Label> platforms = targetPlatforms(options);
+    return platforms.size() == 1 ? platforms.getFirst() : null;
+  }
+
+  private static BuildOptions applyPlatformFlags(
+      Label platform, PlatformFlags flags, BuildOptions options) throws TransitionException {
+    if (flags.flags().isEmpty()) {
+      return options;
+    }
+    BuildOptions result;
+    try {
+      result = flags.flags().get().mergeWith(options).getOptions();
+    } catch (OptionsParsingException e) {
+      throw new TransitionException(e.getMessage(), e);
+    }
+    // Later transitions in the composition read flags through the aliases of the source options.
+    if (!result
+        .get(CoreOptions.class)
+        .getCommandLineFlagAliases()
+        .equals(options.get(CoreOptions.class).getCommandLineFlagAliases())) {
+      throw new TransitionException(
+          String.format(
+              "%s can't set --flag_alias since a transition changes the target platform to it"
+                  + " before applying another transition",
+              platform));
+    }
     return result;
   }
+
+  /**
+   * Options produced by a transition in a composition.
+   *
+   * @param platformFlagDetails the details of the Starlark flags set by the platforms whose flags
+   *     were applied to the options
+   */
+  private record TransitionedOptions(
+      BuildOptions options,
+      boolean platformChanged,
+      StarlarkBuildSettingsDetailsValue platformFlagDetails) {}
 
   private Map<String, BuildOptions> applyAndValidate(
       ConfigurationTransition transition,
@@ -291,7 +467,10 @@ public final class StarlarkTransitionCache {
   }
 
   private static final class Value {
-    private final Map<String, BuildOptions> result;
+    private final Applied result;
+
+    /** The flags of the platforms that transitions in the composition changed to. */
+    private final ImmutableMap<Label, PlatformFlags> platformFlags;
 
     /**
      * Stores events for successful transitions. Transitions that fail aren't added to the cache.
@@ -303,8 +482,12 @@ public final class StarlarkTransitionCache {
      */
     @Nullable private final StoredEventHandler nonErrorEvents;
 
-    Value(Map<String, BuildOptions> result, @Nullable StoredEventHandler nonErrorEvents) {
+    Value(
+        Applied result,
+        ImmutableMap<Label, PlatformFlags> platformFlags,
+        @Nullable StoredEventHandler nonErrorEvents) {
       this.result = result;
+      this.platformFlags = platformFlags;
       this.nonErrorEvents = nonErrorEvents;
     }
   }

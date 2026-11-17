@@ -13,22 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.StarlarkTransitionVisitor;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -61,6 +72,20 @@ final class TransitionApplier
   // -------------------- Internal State --------------------
   private boolean appliesExecTransition;
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
+
+  /**
+   * The flags of the platforms that transitions in a composition change to before another one is
+   * applied, or null if there are none.
+   */
+  @Nullable private Map<Label, StarlarkTransitionCache.PlatformFlags> platformFlags;
+
+  /** The platforms looked up for {@link #platformFlags} whose flag details are still missing. */
+  private final Map<Label, PlatformValue> lookedUpPlatforms = new HashMap<>();
+
+  private boolean platformLookupFailed;
+
+  /** The events of the last incomplete application of the transition, if any. */
+  @Nullable private StoredEventHandler incompleteTransitionEvents;
 
   /**
    * @param fromConfigurationFlagDetails the details of {@code fromConfiguration}'s Starlark flags
@@ -106,11 +131,19 @@ final class TransitionApplier
       return runAfter;
     }
     if (!doesStarlarkTransition.get()) {
+      BuildOptions fromOptions = fromConfiguration.getOptions();
+      Map<String, BuildOptions> transitionedOptions =
+          transition.apply(TransitionUtil.restrict(transition, fromOptions), eventHandler);
       return new BuildConfigurationKeyMapProducer(
           this.sink,
           this.runAfter,
-          transition.apply(
-              TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler),
+          transitionedOptions,
+          Maps.filterValues(
+                  transitionedOptions,
+                  toOptions ->
+                      StarlarkTransitionCache.changesTargetPlatform(
+                          transition, fromOptions, toOptions))
+              .keySet(),
           /* forBaseline= */ false,
           this.fromConfigurationFlagDetails,
           this.label);
@@ -166,15 +199,19 @@ final class TransitionApplier
   }
 
   private StateMachine applyStarlarkTransition(Tasks tasks) throws InterruptedException {
-    if (buildSettingsDetailsValue == null) {
+    if (buildSettingsDetailsValue == null || platformLookupFailed) {
       return runAfter; // There was an error.
     }
 
-    Map<String, BuildOptions> transitionedOptions;
+    StarlarkTransitionCache.Result result;
     try {
-      transitionedOptions =
+      result =
           transitionCache.computeIfAbsent(
-              fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, eventHandler);
+              fromConfiguration.getOptions(),
+              transition,
+              buildSettingsDetailsValue,
+              platformFlags == null ? ImmutableMap.of() : platformFlags,
+              eventHandler);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
       return runAfter;
@@ -184,12 +221,100 @@ final class TransitionApplier
       return runAfter;
     }
 
-    return new BuildConfigurationKeyMapProducer(
-        this.sink,
-        this.runAfter,
-        transitionedOptions,
-        /* forBaseline= */ false,
-        this.fromConfigurationFlagDetails,
-        this.label);
+    switch (result) {
+      case StarlarkTransitionCache.MissingPlatforms(var platforms, var events) -> {
+        incompleteTransitionEvents = events;
+        ImmutableMap<String, Label> flagAliases =
+            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap();
+        for (Label platform : platforms) {
+          tasks.lookUp(
+              PlatformValue.key(platform, flagAliases),
+              InvalidPlatformException.class,
+              OptionsParsingException.class,
+              (value, invalidPlatformException, optionsParsingException) ->
+                  acceptPlatformValue(
+                      platform, value, invalidPlatformException, optionsParsingException));
+        }
+        return this::lookUpPlatformFlagDetails;
+      }
+      case StarlarkTransitionCache.Applied(var options, var platformChangedKeys) -> {
+        return new BuildConfigurationKeyMapProducer(
+            this.sink,
+            this.runAfter,
+            options,
+            platformChangedKeys,
+            /* forBaseline= */ false,
+            this.fromConfigurationFlagDetails,
+            this.label);
+      }
+    }
+  }
+
+  private void acceptPlatformValue(
+      Label platform,
+      @Nullable SkyValue value,
+      @Nullable InvalidPlatformException invalidPlatformException,
+      @Nullable OptionsParsingException optionsParsingException) {
+    if (value != null) {
+      lookedUpPlatforms.put(platform, (PlatformValue) value);
+      return;
+    }
+    failPlatformLookup();
+    if (invalidPlatformException != null) {
+      sink.acceptPlatformFlagsError(invalidPlatformException);
+    } else {
+      sink.acceptOptionsParsingError(optionsParsingException);
+    }
+  }
+
+  private StateMachine lookUpPlatformFlagDetails(Tasks tasks) {
+    if (platformLookupFailed) {
+      return runAfter;
+    }
+    for (Map.Entry<Label, PlatformValue> entry : lookedUpPlatforms.entrySet()) {
+      Label platform = entry.getKey();
+      Optional<ParsedFlagsValue> flags = entry.getValue().parsedFlags();
+      ImmutableSet<Label> starlarkFlags =
+          appliesExecTransition && flags.isPresent()
+              ? flags.get().parsingResult().getStarlarkOptions().keySet().stream()
+                  .map(Label::parseCanonicalUnchecked)
+                  .collect(toImmutableSet())
+              : ImmutableSet.of();
+      if (starlarkFlags.isEmpty()) {
+        putPlatformFlags(platform, flags, StarlarkBuildSettingsDetailsValue.EMPTY);
+        continue;
+      }
+      tasks.lookUp(
+          StarlarkBuildSettingsDetailsValue.key(
+              starlarkFlags,
+              fromConfiguration.getOptions().get(CoreOptions.class).getHostFlagAliases()),
+          TransitionException.class,
+          (value, e) -> {
+            if (value != null) {
+              putPlatformFlags(platform, flags, (StarlarkBuildSettingsDetailsValue) value);
+            } else {
+              failPlatformLookup();
+              sink.acceptTransitionError(e);
+            }
+          });
+    }
+    lookedUpPlatforms.clear();
+    return this::applyStarlarkTransition;
+  }
+
+  private void putPlatformFlags(
+      Label platform, Optional<ParsedFlagsValue> flags, StarlarkBuildSettingsDetailsValue details) {
+    if (platformFlags == null) {
+      platformFlags = new HashMap<>();
+    }
+    platformFlags.put(platform, new StarlarkTransitionCache.PlatformFlags(flags, details));
+  }
+
+  private void failPlatformLookup() {
+    platformLookupFailed = true;
+    if (incompleteTransitionEvents != null) {
+      incompleteTransitionEvents.replayOn(eventHandler);
+      incompleteTransitionEvents = null;
+    }
   }
 }

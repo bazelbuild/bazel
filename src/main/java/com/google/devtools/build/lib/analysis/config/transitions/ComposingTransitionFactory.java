@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * A transition factory that composes two other transition factories in an ordered sequence.
@@ -88,22 +89,32 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
   }
 
   /**
-   * Applies {@code transition} to {@code options} by applying each transition it composes, or
-   * {@code transition} itself if it isn't composed, with {@code applier}.
+   * Applies {@code transition} to {@code input} by applying each transition it composes, or {@code
+   * transition} itself if it isn't composed, with {@code applier}.
+   *
+   * @param <T> the options a transition is applied to and results in, possibly along with
+   *     information that {@code applier} passes on to the next transition
+   * @return the outputs, or {@code null} if {@code applier} returned {@code null} for any input
    */
-  public static <E extends Exception> Map<String, BuildOptions> applyComposed(
-      ConfigurationTransition transition, BuildOptions options, Applier<E> applier)
+  @Nullable
+  public static <T, E extends Exception> Map<String, T> applyComposed(
+      ConfigurationTransition transition, T input, Applier<T, E> applier)
       throws E, InterruptedException {
     if (transition instanceof ComposingTransition composingTransition) {
-      return composingTransition.apply(options, applier);
+      return composingTransition.apply(input, applier);
     }
-    return applier.apply(transition, options);
+    return applier.apply(transition, input);
   }
 
   /** Applies a transition that isn't composed, see {@link #applyComposed}. */
   @FunctionalInterface
-  public interface Applier<E extends Exception> {
-    Map<String, BuildOptions> apply(ConfigurationTransition transition, BuildOptions options)
+  public interface Applier<T, E extends Exception> {
+    /**
+     * Returns {@code null} if {@code transition} can't be applied to {@code input} yet. The
+     * composition is still applied to the other outputs of earlier transitions.
+     */
+    @Nullable
+    Map<String, T> apply(ConfigurationTransition transition, T input)
         throws E, InterruptedException;
   }
 
@@ -123,6 +134,12 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
   public ConfigurationTransition create(T data) {
     ConfigurationTransition transition1 = transitionFactory1().create(data);
     ConfigurationTransition transition2 = transitionFactory2().create(data);
+    if (NoTransition.isInstance(transition1)) {
+      return transition2;
+    }
+    if (NoTransition.isInstance(transition2)) {
+      return transition1;
+    }
     return new ComposingTransition(transition1, transition2);
   }
 
@@ -194,19 +211,26 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
               transition.apply(TransitionUtil.restrict(transition, options), eventHandler));
     }
 
-    private <E extends Exception> ImmutableMap<String, BuildOptions> apply(
-        BuildOptions buildOptions, Applier<E> applier) throws E, InterruptedException {
-      ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
-      Map<String, BuildOptions> transition1Output =
-          applyComposed(transition1, buildOptions, applier);
-      for (Map.Entry<String, BuildOptions> entry1 : transition1Output.entrySet()) {
-        Map<String, BuildOptions> transition2Output =
-            applyComposed(transition2, entry1.getValue(), applier);
-        for (Map.Entry<String, BuildOptions> entry2 : transition2Output.entrySet()) {
+    @Nullable
+    private <T, E extends Exception> ImmutableMap<String, T> apply(T input, Applier<T, E> applier)
+        throws E, InterruptedException {
+      ImmutableMap.Builder<String, T> toOptions = ImmutableMap.builder();
+      Map<String, T> transition1Output = applyComposed(transition1, input, applier);
+      if (transition1Output == null) {
+        return null;
+      }
+      boolean incomplete = false;
+      for (Map.Entry<String, T> entry1 : transition1Output.entrySet()) {
+        Map<String, T> transition2Output = applyComposed(transition2, entry1.getValue(), applier);
+        if (transition2Output == null) {
+          incomplete = true;
+          continue;
+        }
+        for (Map.Entry<String, T> entry2 : transition2Output.entrySet()) {
           toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
         }
       }
-      return toOptions.buildOrThrow();
+      return incomplete ? null : toOptions.buildOrThrow();
     }
 
     @Override
