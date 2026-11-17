@@ -161,6 +161,64 @@ EOF
   expect_log "${wrong_integrity}"
 }
 
+function test_remote_downloader_failing_credential_helper() {
+  local archive_file="${TEST_TMPDIR}/dummy.tar.gz"
+  touch "${archive_file}"
+
+  # Serve something.
+  serve_file "${archive_file}"
+
+  # Set up the workspace
+  mkdir -p main
+  cd main
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "mylib",
+    url = "http://127.0.0.1:${nc_port}/served_file.$$",
+    sha256 = "0123456789012345678901234567890123456789012345678901234567890123",
+    type = "tar.gz",
+)
+EOF
+
+  cat > BUILD.bazel <<'EOF'
+filegroup(
+    name = "test",
+    srcs = ["@mylib//:files"],
+)
+EOF
+
+  cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
+#!/usr/bin/env python3
+import datetime
+import json
+import os
+import sys
+
+# Neither count nor add headers to requests to the BCR.
+uri = json.load(sys.stdin)["uri"]
+if uri.startswith("https://bcr.bazel.build/") or uri.startswith("https://localhost:"):
+  print("{}")
+  sys.exit(0)
+
+print(f"Credential helper is burning: {uri}", file=sys.stderr)
+sys.exit(1)
+EOF
+
+  chmod +x "${TEST_TMPDIR}/credhelper"
+
+  # Build using the remote downloader
+  bazel build \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_downloader=grpc://bad.localhost:${worker_port} \
+      //:test >& $TEST_log \
+      && fail "Succeeded unexpectedly: should have failed to build with remote downloader"
+
+  # Verify the content was downloaded correctly
+  assert_contains "Credential helper is burning" "${TEST_log}"
+}
+
 function test_remote_downloader_canonical_id() {
   # Test that the canonical_id qualifier is respected - same URL with different
   # canonical IDs should be treated as different entries

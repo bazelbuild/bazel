@@ -32,13 +32,22 @@ import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelper;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
@@ -147,6 +156,14 @@ public class GrpcRemoteDownloaderTest {
 
   private GrpcRemoteDownloader newDownloader(
       RemoteCacheClient cacheClient, Downloader httpDownloader) throws IOException {
+    return newDownloader(cacheClient, httpDownloader, Optional.empty());
+  }
+
+  private GrpcRemoteDownloader newDownloader(
+      RemoteCacheClient cacheClient,
+      Downloader httpDownloader,
+      Optional<CallCredentials> callCredentials)
+      throws IOException {
     final RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
@@ -173,7 +190,7 @@ public class GrpcRemoteDownloaderTest {
         "none",
         "none",
         channel.retain(),
-        Optional.<CallCredentials>empty(),
+        callCredentials,
         retrier,
         cacheClient,
         DIGEST_UTIL.getDigestFunction(),
@@ -624,6 +641,51 @@ public class GrpcRemoteDownloaderTest {
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
                 .build());
+  }
+
+  @Test
+  public void testFetchBlobRequest_credentialErrorsAreDisplayed() throws Exception {
+    CredentialHelper credentialHelper = mock(CredentialHelper.class);
+    when(credentialHelper.getCredentials(any(), any()))
+        .thenThrow(new CredentialHelperException("credential helper is burning"));
+    CredentialHelperProvider credentialHelperProvider = mock(CredentialHelperProvider.class);
+    when(credentialHelperProvider.findCredentialHelper(any()))
+        .thenReturn(Optional.of(credentialHelper));
+    CredentialHelperEnvironment credentialHelperEnvironment =
+        mock(CredentialHelperEnvironment.class);
+
+    Cache credentialCache = Caffeine.newBuilder().build();
+    Credentials credentials =
+        new CredentialHelperCredentials(
+            credentialHelperProvider,
+            credentialHelperEnvironment,
+            credentialCache,
+            /* fallbackCredentials */ Optional.empty());
+    CallCredentialsProvider callCredentialsProvider =
+        GoogleAuthUtils.newCallCredentialsProvider(credentials);
+    CallCredentials callCredentials = callCredentialsProvider.getCallCredentials();
+    remoteOptions.setRemoteDownloaderLocalFallback(true);
+    GrpcRemoteDownloader downloader =
+        newDownloader(
+            new InMemoryCacheClient(),
+            mock(Downloader.class),
+            Optional.of(callCredentials));
+
+    downloader.download(
+        ImmutableList.of(URI.create("http://example.com/a")),
+        ImmutableMap.of(),
+        StaticCredentials.EMPTY,
+        Optional.empty(),
+        "",
+        new Scratch().resolve("output"),
+        eventHandler,
+        ImmutableMap.of(),
+        Optional.empty(),
+        "context");
+
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    assertThat(eventHandler.getEvents().get(0).getMessage())
+        .contains("credential helper is burning");
   }
 
   @Test

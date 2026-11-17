@@ -221,14 +221,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
+      String errorMessage = e.getMessage();
+      if (e.getCause() != null) {
+        errorMessage += ": " + e.getCause().getMessage();
+      }
       if (!remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
-          throw new IOException(e);
+          throw new IOException(errorMessage, e);
         }
-        throw e;
+        throw new IOException(errorMessage, e);
       }
-      eventHandler.handle(
-          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      eventHandler.handle(Event.warn("Remote Cache: " + errorMessage));
       httpDownloader.download(
           urls,
           headers,
