@@ -368,7 +368,6 @@ final class RegularRunnableExtension implements RunnableExtension {
             .getRelative(LabelConstants.MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION)
             .getRelative(usagesValue.getExtensionUniqueName());
     ArrayList<StarlarkBazelModule> modules = new ArrayList<>();
-    @Nullable StarlarkBazelModule rootModule = null;
     @Nullable StarlarkBazelModule definingModule = null;
     RepositoryName definingRepo = extensionId.bzlFileLabel().getRepository();
     ImmutableList<AbridgedModule> abridgedModules = usagesValue.getAbridgedModules();
@@ -385,9 +384,6 @@ final class RegularRunnableExtension implements RunnableExtension {
               staticRepoMappingRecorder,
               i);
       modules.add(module);
-      if (moduleKey.equals(ModuleKey.ROOT)) {
-        rootModule = module;
-      }
       if (repoMapping.contextRepo().equals(definingRepo)) {
         definingModule = module;
       }
@@ -408,7 +404,6 @@ final class RegularRunnableExtension implements RunnableExtension {
         repositoryRemoteExecutor,
         extensionId,
         StarlarkList.immutableCopyOf(modules),
-        rootModule,
         definingModule,
         facts,
         rootModuleHasNonDevDependency,

@@ -51,7 +51,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
-  @Nullable private final StarlarkBazelModule rootModule;
   @Nullable private final StarlarkBazelModule definingModule;
   private final Facts facts;
   private final boolean rootModuleHasNonDevDependency;
@@ -69,7 +68,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
-      @Nullable StarlarkBazelModule rootModule,
       @Nullable StarlarkBazelModule definingModule,
       Facts facts,
       boolean rootModuleHasNonDevDependency,
@@ -90,7 +88,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
-    this.rootModule = rootModule;
     this.definingModule = definingModule;
     this.facts = facts;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
@@ -144,7 +141,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
           """)
   @Nullable
   public StarlarkBazelModule getRootModule() {
-    return rootModule;
+    if (modules.isEmpty() || !modules.get(0).isRoot()) {
+      return null;
+    }
+    return modules.get(0);
   }
 
   @StarlarkMethod(
