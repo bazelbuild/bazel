@@ -18,6 +18,7 @@ java_library(
         "BazelCompileContext.java",
         "BazelModuleContext.java",
         "BazelModuleKey.java",
+        "BranchedLabelConstants.java",
         "IgnoredSubdirectories.java",
         "Label.java",
         "LabelConstants.java",
