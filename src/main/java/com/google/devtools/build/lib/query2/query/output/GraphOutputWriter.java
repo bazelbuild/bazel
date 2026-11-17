@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.EquivalenceRelation;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
 import com.google.devtools.build.lib.graph.LabelSerializer;
@@ -42,6 +41,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import javax.annotation.Nullable;
 
 /**
@@ -253,30 +253,26 @@ public final class GraphOutputWriter<T> {
    */
   private ImmutableList<Set<Node<T>>> partitionFactored(Digraph<T> graph) {
     // Two nodes are equivalent iff they have the same successors and predecessors.
-    EquivalenceRelation<Node<T>> equivalenceRelation =
+    BiPredicate<Node<T>, Node<T>> equivalenceRelation =
         (x, y) -> {
           if (Objects.equals(x, y)) {
-            return 0;
+            return true;
           }
 
           if (x.numPredecessors() != y.numPredecessors()
               || x.numSuccessors() != y.numSuccessors()) {
-            return -1;
+            return false;
           }
 
           Set<Node<T>> xpred = new HashSet<>(x.getPredecessors());
           Set<Node<T>> ypred = new HashSet<>(y.getPredecessors());
           if (!xpred.equals(ypred)) {
-            return -1;
+            return false;
           }
 
           Set<Node<T>> xsucc = new HashSet<>(x.getSuccessors());
           Set<Node<T>> ysucc = new HashSet<>(y.getSuccessors());
-          if (!xsucc.equals(ysucc)) {
-            return -1;
-          }
-
-          return 0;
+          return xsucc.equals(ysucc);
         };
 
     // Keep a map of equivalence classes that each node belongs to, so that we know whether a node
@@ -307,7 +303,7 @@ public final class GraphOutputWriter<T> {
   private void processSuccessors(
       List<Node<T>> successors,
       Map<Node<T>, Set<Node<T>>> eqClasses,
-      EquivalenceRelation<Node<T>> equivalenceRelation) {
+      BiPredicate<Node<T>, Node<T>> equivalenceRelation) {
     int numSuccessors = successors.size();
 
     for (int i = 0; i < numSuccessors; i++) {
@@ -332,7 +328,7 @@ public final class GraphOutputWriter<T> {
         }
 
         // This is expensive, so we want to minimize this as much as possible.
-        if (equivalenceRelation.compare(child, sibling) == 0) {
+        if (equivalenceRelation.test(child, sibling)) {
           eqClass.add(sibling);
           eqClasses.put(sibling, eqClass);
         }
