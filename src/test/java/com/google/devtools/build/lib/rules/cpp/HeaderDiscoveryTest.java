@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -203,8 +204,8 @@ public final class HeaderDiscoveryTest {
             windowsAction(),
             ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
             /* shouldValidateInclusions= */ true,
-            ImmutableList.of(dep),
-            /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir),
+            ImmutableList.of(dep.asFragment()),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir.asFragment()),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             execRoot,
             artifactResolver,
@@ -227,8 +228,8 @@ public final class HeaderDiscoveryTest {
             windowsAction(),
             ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
             /* shouldValidateInclusions= */ true,
-            ImmutableList.of(dep),
-            /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir),
+            ImmutableList.of(dep.asFragment()),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir.asFragment()),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             execRoot,
             artifactResolver,
@@ -249,7 +250,7 @@ public final class HeaderDiscoveryTest {
             windowsAction(),
             sourceFile,
             /* shouldValidateInclusions= */ true,
-            ImmutableList.of(execRoot.getRelative("pkg/foo.cc")),
+            ImmutableList.of(execRoot.getRelative("pkg/foo.cc").asFragment()),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             execRoot,
@@ -342,6 +343,83 @@ public final class HeaderDiscoveryTest {
     assertThat(result.toList()).containsExactly(variant2);
   }
 
+  @Test
+  public void relativeDependencies_resolvedAsExecPaths() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    SourceArtifact sourceHeader = sourceArtifact("pkg/header.h");
+    Artifact derivedHeader =
+        ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("gen/foo.h"));
+    when(artifactResolver.resolveSourceArtifact(
+            eq(PathFragment.create("pkg/header.h")), eq(RepositoryName.MAIN)))
+        .thenReturn(sourceHeader);
+
+    NestedSet<Artifact> result =
+        discoverInputsFromPathFragments(
+            nonWindowsAction(),
+            artifactResolver,
+            ImmutableList.of(
+                PathFragment.create("pkg/header.h"),
+                PathFragment.create(DERIVED_SEGMENT + "/gen/foo.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(
+                PathFragment.create("/usr/include")),
+            NestedSetBuilder.create(Order.STABLE_ORDER, derivedHeader));
+
+    assertThat(result.toList()).containsExactly(sourceHeader, derivedHeader);
+  }
+
+  @Test
+  public void relativeDependency_belowSystemIncludePrefixBelowExecRoot_isIgnored()
+      throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+
+    NestedSet<Artifact> result =
+        discoverInputsFromPathFragments(
+            nonWindowsAction(),
+            artifactResolver,
+            ImmutableList.of(PathFragment.create("sysroot/include/stdio.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(
+                execRoot.getRelative("sysroot/include").asFragment()),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+
+    assertThat(result.toList()).isEmpty();
+    verify(artifactResolver, never()).resolveSourceArtifact(any(), any());
+  }
+
+  @Test
+  public void relativeDependency_belowSystemIncludePrefixAboveExecRoot_isIgnored()
+      throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+
+    NestedSet<Artifact> result =
+        discoverInputsFromPathFragments(
+            windowsAction(),
+            artifactResolver,
+            ImmutableList.of(PathFragment.create("pkg/header.h")),
+            // The exec root is "/execroot", but this is a case-insensitive file system.
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(
+                PathFragment.create("/EXECROOT")),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+
+    assertThat(result.toList()).isEmpty();
+    verify(artifactResolver, never()).resolveSourceArtifactsAsciiCaseInsensitively(any(), any());
+  }
+
+  @Test
+  public void absoluteDependency_outsideOfExecRootAndSystemIncludePrefixes_errors() {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+
+    assertThrows(
+        ActionExecutionException.class,
+        () ->
+            discoverInputsFromPathFragments(
+                nonWindowsAction(),
+                artifactResolver,
+                ImmutableList.of(PathFragment.create("/opt/include/header.h")),
+                /* permittedSystemIncludePrefixes= */ ImmutableList.of(
+                    PathFragment.create("/usr/include")),
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER)));
+  }
+
   // Helpers
 
   private void checkHeaderInclusion(
@@ -354,7 +432,7 @@ public final class HeaderDiscoveryTest {
             new ActionsTestUtil.NullAction(),
             ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
             /* shouldValidateInclusions= */ true,
-            dependencies,
+            dependencies.stream().map(Path::asFragment).collect(toImmutableList()),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             includedHeaders,
             execRoot,
@@ -368,12 +446,27 @@ public final class HeaderDiscoveryTest {
       List<Path> dependencies,
       NestedSet<Artifact> allowedDerivedInputs)
       throws ActionExecutionException {
+    return discoverInputsFromPathFragments(
+        action,
+        artifactResolver,
+        dependencies.stream().map(Path::asFragment).collect(toImmutableList()),
+        /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+        allowedDerivedInputs);
+  }
+
+  private NestedSet<Artifact> discoverInputsFromPathFragments(
+      ActionsTestUtil.NullAction action,
+      ArtifactResolver artifactResolver,
+      List<PathFragment> dependencies,
+      List<PathFragment> permittedSystemIncludePrefixes,
+      NestedSet<Artifact> allowedDerivedInputs)
+      throws ActionExecutionException {
     return HeaderDiscovery.discoverInputsFromDependencies(
         action,
         ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
         /* shouldValidateInclusions= */ true,
         dependencies,
-        /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+        permittedSystemIncludePrefixes,
         allowedDerivedInputs,
         execRoot,
         artifactResolver,

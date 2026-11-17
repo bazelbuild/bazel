@@ -1879,15 +1879,17 @@ public class CppCompileAction extends AbstractAction
       DetailedExitCode code = createDetailedExitCode(message, Code.FIND_USED_HEADERS_IO_EXCEPTION);
       throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
+    ImmutableList.Builder<PathFragment> dependencies =
+        ImmutableList.builderWithExpectedSize(stdoutDeps.size() + stderrDeps.size());
+    for (Path dep : Iterables.concat(stdoutDeps, stderrDeps)) {
+      dependencies.add(dep.asFragment());
+    }
     return HeaderDiscovery.discoverInputsFromDependencies(
         this,
         getSourceFile(),
         needsIncludeValidation,
-        ImmutableList.<Path>builderWithExpectedSize(stdoutDeps.size() + stderrDeps.size())
-            .addAll(stdoutDeps)
-            .addAll(stderrDeps)
-            .build(),
-        getPermittedSystemIncludePrefixes(execRoot),
+        dependencies.build(),
+        getPermittedSystemIncludePrefixes(),
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
@@ -1907,8 +1909,8 @@ public class CppCompileAction extends AbstractAction
         this,
         getSourceFile(),
         needsIncludeValidation,
-        processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies(),
-        getPermittedSystemIncludePrefixes(execRoot),
+        processDepset(actionExecutionContext, execRoot, dotDContents).getDependencyPathFragments(),
+        getPermittedSystemIncludePrefixes(),
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
@@ -1932,11 +1934,11 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
-  private List<Path> getPermittedSystemIncludePrefixes(Path execRoot) {
-    List<Path> systemIncludePrefixes = new ArrayList<>();
+  private List<PathFragment> getPermittedSystemIncludePrefixes() {
+    List<PathFragment> systemIncludePrefixes = new ArrayList<>();
     for (PathFragment includePath : getBuiltInIncludeDirectories()) {
       if (includePath.isAbsolute()) {
-        systemIncludePrefixes.add(execRoot.getFileSystem().getPath(includePath));
+        systemIncludePrefixes.add(includePath);
       }
     }
     return systemIncludePrefixes;

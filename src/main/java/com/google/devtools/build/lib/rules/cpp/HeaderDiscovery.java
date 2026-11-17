@@ -61,6 +61,10 @@ final class HeaderDiscovery {
    *
    * <p>Artifacts are considered inputs but not "mandatory" inputs.
    *
+   * @param dependencies the files used by the compilation, either as paths relative to {@code
+   *     execRoot} that don't start with an uplevel reference or as absolute paths
+   * @param permittedSystemIncludePrefixes absolute paths of directories whose headers are allowed
+   *     to be used without being declared
    * @throws ActionExecutionException iff the .d is missing (when required), malformed, or has
    *     unresolvable included artifacts.
    */
@@ -68,8 +72,8 @@ final class HeaderDiscovery {
       Action action,
       Artifact sourceFile,
       boolean shouldValidateInclusions,
-      Collection<Path> dependencies,
-      List<Path> permittedSystemIncludePrefixes,
+      Collection<PathFragment> dependencies,
+      List<PathFragment> permittedSystemIncludePrefixes,
       NestedSet<Artifact> allowedDerivedInputs,
       Path execRoot,
       ArtifactResolver artifactResolver,
@@ -116,8 +120,8 @@ final class HeaderDiscovery {
       Action action,
       Artifact sourceFile,
       boolean shouldValidateInclusions,
-      Collection<Path> dependencies,
-      List<Path> permittedSystemIncludePrefixes,
+      Collection<PathFragment> dependencies,
+      List<PathFragment> permittedSystemIncludePrefixes,
       Map<PathFragment, Artifact> regularDerivedArtifacts,
       Map<PathFragment, TreeArtifact> treeArtifacts,
       Path execRoot,
@@ -132,23 +136,41 @@ final class HeaderDiscovery {
     boolean possiblyCaseInsensitiveFileSystem =
         getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
     CompactHashSet<Artifact> sourceArtifactInputs = null;
-    for (Path execPath : dependencies) {
-      PathFragment execPathFragment = execPath.asFragment();
+    PathFragment execRootFragment = execRoot.asFragment();
+    // A relative dependency is below the exec root, so it can only be below a permitted system
+    // include prefix if that prefix is above or below the exec root. This is very unusual, but in
+    // that case, relative dependencies are checked against the prefixes as absolute paths.
+    boolean checkRelativeDependenciesAgainstSystemIncludePrefixes =
+        permittedSystemIncludePrefixes.stream()
+            .anyMatch(
+                prefix ->
+                    possiblyCaseInsensitiveFileSystem
+                        ? prefix.startsWithIgnoringCase(execRootFragment)
+                            || execRootFragment.startsWithIgnoringCase(prefix)
+                        : prefix.startsWith(execRootFragment)
+                            || execRootFragment.startsWith(prefix));
+    for (PathFragment dependency : dependencies) {
+      PathFragment execPathFragment = dependency;
+      if (checkRelativeDependenciesAgainstSystemIncludePrefixes
+          && !execPathFragment.isAbsolute()) {
+        execPathFragment = execRootFragment.getRelative(execPathFragment);
+      }
       if (execPathFragment.isAbsolute()) {
         if (possiblyCaseInsensitiveFileSystem) {
           // Absolute includes from system paths are ignored. With a case-insensitive file system,
           // the paths as reported by the compiler may differ in casing from those listed by the
           // toolchain.
-          if (FileSystemUtils.startsWithAnyIgnoringCase(execPath, permittedSystemIncludePrefixes)) {
+          if (FileSystemUtils.startsWithAnyIgnoringCase(
+              execPathFragment, permittedSystemIncludePrefixes)) {
             continue;
           }
         } else {
-          if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
+          if (FileSystemUtils.startsWithAny(execPathFragment, permittedSystemIncludePrefixes)) {
             continue;
           }
         }
-        if (execPath.startsWith(execRoot)) {
-          execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
+        if (execPathFragment.startsWith(execRootFragment)) {
+          execPathFragment = execPathFragment.relativeTo(execRootFragment); // funky but tolerable
         } else {
           // Since gcc is given only relative paths on the command line, non-builtin include paths
           // here should never be absolute. If they are, it's probably due to a non-hermetic

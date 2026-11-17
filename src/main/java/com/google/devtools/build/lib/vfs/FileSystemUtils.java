@@ -934,8 +934,9 @@ public class FileSystemUtils {
    * Returns whether the given path starts with any of the paths in the given list of prefixes,
    * ignoring case.
    */
-  public static boolean startsWithAnyIgnoringCase(Path path, Iterable<Path> prefixes) {
-    for (Path prefix : prefixes) {
+  public static boolean startsWithAnyIgnoringCase(
+      PathFragment path, Iterable<PathFragment> prefixes) {
+    for (PathFragment prefix : prefixes) {
       if (path.startsWithIgnoringCase(prefix)) {
         return true;
       }
