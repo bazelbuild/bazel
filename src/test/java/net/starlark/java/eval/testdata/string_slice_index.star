@@ -47,3 +47,7 @@ assert_fails(lambda: "123"[:3:0], "slice step cannot be zero")
 assert_fails(lambda: "123"[1:3:0], "slice step cannot be zero")
 assert_fails(lambda: "123"["a"::], "got string for start index, want int")
 assert_fails(lambda: "123"[:"b":], "got string for stop index, want int")
+
+# Non-ASCII length and slicing: UTF-8 byte strings vs UTF-16 code units.
+assert_eq(len("ä😊"), 6 if _utf8_byte_strings else 3)
+assert_eq("ä😊"[:2] if _utf8_byte_strings else "ä😊"[:1], "ä")
