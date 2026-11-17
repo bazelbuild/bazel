@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -79,7 +81,25 @@ final class HeaderDiscovery {
       ArtifactResolver artifactResolver,
       PathMapper pathMapper)
       throws ActionExecutionException {
-    Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
+    boolean possiblyCaseInsensitiveFileSystem =
+        getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
+    IncludeProblems absolutePathProblems = new IncludeProblems();
+    List<PathFragment> execPaths =
+        toExecPaths(
+            dependencies,
+            permittedSystemIncludePrefixes,
+            execRoot.asFragment(),
+            possiblyCaseInsensitiveFileSystem,
+            absolutePathProblems);
+
+    // The allowed derived inputs contain all transitively declared generated headers, which can be
+    // far more than the ones actually used. Rather than indexing all of them, only look for the
+    // used ones: map each used path to null and fill in the matching artifacts below.
+    Map<PathFragment, Artifact> regularDerivedArtifacts =
+        Maps.newHashMapWithExpectedSize(execPaths.size());
+    for (PathFragment execPath : execPaths) {
+      regularDerivedArtifacts.put(execPath, null);
+    }
     Map<PathFragment, TreeArtifact> treeArtifacts = new HashMap<>();
     for (Artifact a : allowedDerivedInputs.toList()) {
       if (a.isSourceArtifact()) {
@@ -99,7 +119,8 @@ final class HeaderDiscovery {
       if (a instanceof TreeArtifact treeArtifact) {
         treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), treeArtifact);
       } else {
-        regularDerivedArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), a);
+        // Only sets the artifact for a used path that hasn't been matched yet.
+        regularDerivedArtifacts.replace(pathMapper.map(a.getExecPath()), null, a);
       }
     }
 
@@ -107,36 +128,27 @@ final class HeaderDiscovery {
         action,
         sourceFile,
         shouldValidateInclusions,
-        dependencies,
-        permittedSystemIncludePrefixes,
+        execPaths,
+        absolutePathProblems,
         regularDerivedArtifacts,
         treeArtifacts,
-        execRoot,
+        possiblyCaseInsensitiveFileSystem,
         artifactResolver,
         pathMapper);
   }
 
-  private static NestedSet<Artifact> runDiscovery(
-      Action action,
-      Artifact sourceFile,
-      boolean shouldValidateInclusions,
+  /**
+   * Returns the exec paths of the given dependencies, in order. Dependencies below a permitted
+   * system include prefix are skipped and absolute paths outside the exec root are recorded in
+   * {@code absolutePathProblems}.
+   */
+  private static List<PathFragment> toExecPaths(
       Collection<PathFragment> dependencies,
       List<PathFragment> permittedSystemIncludePrefixes,
-      Map<PathFragment, Artifact> regularDerivedArtifacts,
-      Map<PathFragment, TreeArtifact> treeArtifacts,
-      Path execRoot,
-      ArtifactResolver artifactResolver,
-      PathMapper pathMapper)
-      throws ActionExecutionException {
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-
-    // Check inclusions.
-    IncludeProblems absolutePathProblems = new IncludeProblems();
-    IncludeProblems unresolvablePathProblems = new IncludeProblems();
-    boolean possiblyCaseInsensitiveFileSystem =
-        getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
-    CompactHashSet<Artifact> sourceArtifactInputs = null;
-    PathFragment execRootFragment = execRoot.asFragment();
+      PathFragment execRoot,
+      boolean possiblyCaseInsensitiveFileSystem,
+      IncludeProblems absolutePathProblems) {
+    List<PathFragment> execPaths = new ArrayList<>(dependencies.size());
     // A relative dependency is below the exec root, so it can only be below a permitted system
     // include prefix if that prefix is above or below the exec root. This is very unusual, but in
     // that case, relative dependencies are checked against the prefixes as absolute paths.
@@ -145,41 +157,61 @@ final class HeaderDiscovery {
             .anyMatch(
                 prefix ->
                     possiblyCaseInsensitiveFileSystem
-                        ? prefix.startsWithIgnoringCase(execRootFragment)
-                            || execRootFragment.startsWithIgnoringCase(prefix)
-                        : prefix.startsWith(execRootFragment)
-                            || execRootFragment.startsWith(prefix));
+                        ? prefix.startsWithIgnoringCase(execRoot)
+                            || execRoot.startsWithIgnoringCase(prefix)
+                        : prefix.startsWith(execRoot) || execRoot.startsWith(prefix));
     for (PathFragment dependency : dependencies) {
-      PathFragment execPathFragment = dependency;
-      if (checkRelativeDependenciesAgainstSystemIncludePrefixes
-          && !execPathFragment.isAbsolute()) {
-        execPathFragment = execRootFragment.getRelative(execPathFragment);
+      PathFragment execPath = dependency;
+      if (checkRelativeDependenciesAgainstSystemIncludePrefixes && !execPath.isAbsolute()) {
+        execPath = execRoot.getRelative(execPath);
       }
-      if (execPathFragment.isAbsolute()) {
+      if (execPath.isAbsolute()) {
         if (possiblyCaseInsensitiveFileSystem) {
           // Absolute includes from system paths are ignored. With a case-insensitive file system,
           // the paths as reported by the compiler may differ in casing from those listed by the
           // toolchain.
-          if (FileSystemUtils.startsWithAnyIgnoringCase(
-              execPathFragment, permittedSystemIncludePrefixes)) {
+          if (FileSystemUtils.startsWithAnyIgnoringCase(execPath, permittedSystemIncludePrefixes)) {
             continue;
           }
         } else {
-          if (FileSystemUtils.startsWithAny(execPathFragment, permittedSystemIncludePrefixes)) {
+          if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
             continue;
           }
         }
-        if (execPathFragment.startsWith(execRootFragment)) {
-          execPathFragment = execPathFragment.relativeTo(execRootFragment); // funky but tolerable
+        if (execPath.startsWith(execRoot)) {
+          execPath = execPath.relativeTo(execRoot); // funky but tolerable path
         } else {
           // Since gcc is given only relative paths on the command line, non-builtin include paths
           // here should never be absolute. If they are, it's probably due to a non-hermetic
           // #include,
           // and we should stop the build with an error.
-          absolutePathProblems.add(execPathFragment.getPathString());
+          absolutePathProblems.add(execPath.getPathString());
           continue;
         }
       }
+      execPaths.add(execPath);
+    }
+    return execPaths;
+  }
+
+  private static NestedSet<Artifact> runDiscovery(
+      Action action,
+      Artifact sourceFile,
+      boolean shouldValidateInclusions,
+      List<PathFragment> execPaths,
+      IncludeProblems absolutePathProblems,
+      Map<PathFragment, Artifact> regularDerivedArtifacts,
+      Map<PathFragment, TreeArtifact> treeArtifacts,
+      boolean possiblyCaseInsensitiveFileSystem,
+      ArtifactResolver artifactResolver,
+      PathMapper pathMapper)
+      throws ActionExecutionException {
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
+
+    // Check inclusions.
+    IncludeProblems unresolvablePathProblems = new IncludeProblems();
+    CompactHashSet<Artifact> sourceArtifactInputs = null;
+    for (PathFragment execPathFragment : execPaths) {
       Collection<? extends Artifact> resolvedArtifacts = ImmutableList.of();
       Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
       if (derivedArtifact == null) {
