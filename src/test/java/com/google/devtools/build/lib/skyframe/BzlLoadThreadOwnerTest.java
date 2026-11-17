@@ -209,7 +209,7 @@ public class BzlLoadThreadOwnerTest extends BuildViewTestCase {
         BazelModuleContext.create(
             key,
             RepositoryMapping.EMPTY,
-            /* moduleRepoName= */ null,
+            /* moduleRepoName= */ "",
             key.getLabel().toPathFragment().toString(),
             ImmutableList.of(),
             transitiveDigest,

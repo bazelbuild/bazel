@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuiltinRestriction.mainRepo
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -50,10 +49,13 @@ public final class BuiltinRestrictionTest {
   @TestParameters("{label: '@@other+//allowed:defs.bzl', moduleRepoName: '', allowed: false}")
   @TestParameters(
       "{label: '@@+ext+repo//allowed:defs.bzl', moduleRepoName: 'rules_cc', allowed: false}")
-  @TestParameters("{label: '@@bazel_tools//tools:defs.bzl', moduleRepoName: null, allowed: true}")
-  @TestParameters("{label: '@@bazel_tools//other:defs.bzl', moduleRepoName: null, allowed: false}")
-  @TestParameters("{label: '@@_builtins//other:defs.bzl', moduleRepoName: null, allowed: true}")
-  public void allowlistMatches(String label, @Nullable String moduleRepoName, boolean allowed)
+  @TestParameters(
+      "{label: '@@bazel_tools//tools:defs.bzl', moduleRepoName: '_builtins', allowed: true}")
+  @TestParameters(
+      "{label: '@@bazel_tools//other:defs.bzl', moduleRepoName: '_builtins', allowed: false}")
+  @TestParameters(
+      "{label: '@@_builtins//other:defs.bzl', moduleRepoName: '_builtins', allowed: true}")
+  public void allowlistMatches(String label, String moduleRepoName, boolean allowed)
       throws Exception {
     assertThat(
             BuiltinRestriction.isNotAllowed(Label.parseCanonical(label), moduleRepoName, ALLOWLIST))

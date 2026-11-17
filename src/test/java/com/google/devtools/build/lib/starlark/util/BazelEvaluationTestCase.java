@@ -204,7 +204,7 @@ public final class BazelEvaluationTestCase {
         BazelModuleContext.create(
             BazelModuleKey.createFakeModuleKeyForTesting(label),
             RepositoryMapping.EMPTY,
-            /* moduleRepoName= */ null,
+            /* moduleRepoName= */ "",
             this.label.toString(),
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0],
