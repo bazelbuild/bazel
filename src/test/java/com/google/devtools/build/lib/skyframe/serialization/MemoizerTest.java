@@ -94,12 +94,20 @@ public class MemoizerTest {
     }
   }
 
+  private static ObjectCodecRegistry dummyLinkedListRegistry() {
+    return AutoRegistry.get()
+        .getBuilder()
+        .addClassName(MutableDummy.class.getName())
+        .addClassName(ImmutableDummy.class.getName())
+        .build();
+  }
+
   @Test
   public void chainOfMutables() throws IOException, SerializationException {
     DummyLinkedList c = new MutableDummy("C", null);
     DummyLinkedList b = new MutableDummy("B", c);
     DummyLinkedList a = new MutableDummy("A", b);
-    assertABC(RoundTripping.roundTripMemoized(a));
+    assertABC(RoundTripping.roundTripMemoized(a, dummyLinkedListRegistry()));
   }
 
   @Test
@@ -107,7 +115,7 @@ public class MemoizerTest {
     DummyLinkedList c = new MutableDummy("C", null);
     DummyLinkedList b = new ImmutableDummy("B", c);
     DummyLinkedList a = new MutableDummy("A", b);
-    assertABC(RoundTripping.roundTripMemoized(a));
+    assertABC(RoundTripping.roundTripMemoized(a, dummyLinkedListRegistry()));
   }
 
   @Test
@@ -115,7 +123,7 @@ public class MemoizerTest {
     MutableDummy b = new MutableDummy("B", null);
     DummyLinkedList a = new MutableDummy("A", b);
     b.setNext(a);
-    assertABcycle(RoundTripping.roundTripMemoized(a));
+    assertABcycle(RoundTripping.roundTripMemoized(a, dummyLinkedListRegistry()));
   }
 
   @Test
@@ -123,7 +131,7 @@ public class MemoizerTest {
     MutableDummy a = new MutableDummy("A", null);
     DummyLinkedList b = new ImmutableDummy("B", a);
     a.setNext(b);
-    assertABcycle(RoundTripping.roundTripMemoized(a));
+    assertABcycle(RoundTripping.roundTripMemoized(a, dummyLinkedListRegistry()));
   }
 
   @Test
@@ -131,7 +139,7 @@ public class MemoizerTest {
     MutableDummy b = new MutableDummy("B", null);
     DummyLinkedList a = new ImmutableDummy("A", b);
     b.setNext(a);
-    assertABcycle(RoundTripping.roundTripMemoized(a));
+    assertABcycle(RoundTripping.roundTripMemoized(a, dummyLinkedListRegistry()));
   }
 
   // The following two tests verify that objects memoized using serialize can interoperate with
