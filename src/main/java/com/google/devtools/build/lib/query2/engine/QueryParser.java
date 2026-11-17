@@ -31,6 +31,7 @@ import java.util.List;
  *
  * <pre>
  * expr ::= WORD
+ *        | PLACEHOLDER
  *        | LET WORD = expr IN expr
  *        | '(' expr ')'
  *        | WORD '(' ( expr ( ',' expr ) * ) ? ')'
@@ -53,7 +54,16 @@ public final class QueryParser {
 
   /** Scans and parses the specified query expression into an unresolved {@link QueryAst}. */
   public static QueryAst parse(String query) throws QuerySyntaxException {
-    List<Lexer.Token> tokens = Lexer.scan(query);
+    return parse(query, /* allowPlaceholders= */ false);
+  }
+
+  /**
+   * Scans and parses the specified query expression into an unresolved {@link QueryAst}, optionally
+   * allowing unquoted {@code @(name)} parameter placeholders.
+   */
+  public static QueryAst parse(String query, boolean allowPlaceholders)
+      throws QuerySyntaxException {
+    List<Lexer.Token> tokens = Lexer.scan(query, allowPlaceholders);
     QueryParser parser = new QueryParser(tokens);
     QueryAst ast = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
@@ -171,6 +181,7 @@ public final class QueryParser {
    * <pre>
    * primary ::= WORD
    *           | WORD '(' ( arg ( ',' arg ) * ) ? ')'
+   *           | PLACEHOLDER
    *           | LET WORD = expr IN expr
    *           | '(' expr ')'
    *           | SET '(' WORD * ')'
@@ -186,6 +197,12 @@ public final class QueryParser {
         }
         validateTargetLiteral(word);
         yield new QueryAst.Word(word);
+      }
+      case PLACEHOLDER -> {
+        Lexer.Token placeholderToken = token;
+        nextToken();
+        yield new QueryAst.Placeholder(
+            placeholderToken.word, placeholderToken.startOffset, placeholderToken.endOffset);
       }
       case LET -> {
         consume(TokenKind.LET);

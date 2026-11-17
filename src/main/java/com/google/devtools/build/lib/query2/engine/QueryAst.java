@@ -30,16 +30,81 @@ import java.util.Objects;
  */
 public sealed interface QueryAst
     permits QueryAst.Word,
+        QueryAst.Placeholder,
         QueryAst.BinaryOperator,
         QueryAst.FunctionCall,
         QueryAst.Let,
         QueryAst.Set,
         QueryAst.Parenthesized {
 
+  /**
+   * Returns true if {@code name} is a valid C-style identifier ({@code [a-zA-Z_][a-zA-Z0-9_]*}), as
+   * required for {@code let} variable names and {@code @(placeholder)} names.
+   */
+  static boolean isValidIdentifier(String name) {
+    if (name.isEmpty()) {
+      return false;
+    }
+    char first = name.charAt(0);
+    if (!isAsciiAlpha(first) && first != '_') {
+      return false;
+    }
+    for (int i = 1; i < name.length(); i++) {
+      char c = name.charAt(i);
+      if (!isAsciiAlpha(c) && !isAsciiDigit(c) && c != '_') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean isAsciiAlpha(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
+  }
+
+  private static boolean isAsciiDigit(char c) {
+    return '0' <= c && c <= '9';
+  }
+
   /** A single word token (a target pattern, variable reference, or word/integer function arg). */
   record Word(String value) implements QueryAst {
     public Word {
       checkNotNull(value);
+    }
+
+    /**
+     * Returns true if this word has the syntax of a {@code let}-variable reference ({@code
+     * $<ident>}).
+     */
+    public boolean isVariableReference() {
+      return value.startsWith("$") && isValidIdentifier(value.substring(1));
+    }
+
+    /**
+     * Returns the referenced variable name without the leading {@code $}.
+     *
+     * @throws IllegalArgumentException if {@link #isVariableReference()} is false
+     */
+    public String variableName() {
+      checkArgument(isVariableReference(), "Not a variable reference: %s", value);
+      return value.substring(1);
+    }
+  }
+
+  /**
+   * An unquoted {@code @(name)} parameter placeholder, recording its {@code [startOffset,
+   * endOffset)} character span (including the surrounding {@code @(} and {@code )}) in the original
+   * query string.
+   */
+  record Placeholder(String name, int startOffset, int endOffset) implements QueryAst {
+    public Placeholder {
+      checkArgument(isValidIdentifier(name), "Invalid placeholder name: %s", name);
+      checkArgument(startOffset >= 0, "Invalid startOffset: %s", startOffset);
+      checkArgument(
+          endOffset > startOffset,
+          "Expected endOffset (%s) > startOffset (%s)",
+          endOffset,
+          startOffset);
     }
   }
 
