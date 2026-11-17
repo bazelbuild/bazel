@@ -92,18 +92,6 @@ public class MobileInstallCommand implements BlazeCommand {
     public abstract boolean getSplitApks();
 
     @Option(
-        name = "incremental",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-        help =
-            "Whether to do an incremental install. If true, try to avoid unnecessary additional"
-                + " work by reading the state of the device the code is to be installed on and"
-                + " using that information to avoid unnecessary work. If false (the default),"
-                + " always do a full install.")
-    public abstract boolean getIncremental();
-
-    @Option(
         name = "mobile_install_aspect",
         defaultValue = "@rules_android//mobile_install:mi.bzl",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

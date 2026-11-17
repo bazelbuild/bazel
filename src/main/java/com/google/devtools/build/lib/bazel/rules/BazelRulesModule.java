@@ -62,6 +62,32 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op flag. Only skylark mode is supported.")
     public abstract String getMode();
 
+    /**
+     * @deprecated Native mobile-install is no longer supported; this flag is a no-op.
+     */
+    @Deprecated
+    @Option(
+        name = "incremental",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getIncremental();
+
+    /**
+     * @deprecated Native mobile-install is no longer supported; this flag is a no-op.
+     */
+    @Deprecated
+    @Option(
+        name = "incremental_install_verbosity",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract String getIncrementalInstallVerbosity();
+
     @Deprecated
     @Option(
         name = "use_target_platform_for_tests",
