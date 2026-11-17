@@ -21,9 +21,7 @@ package(default_visibility = ["//visibility:public"])
 exports_files([
     "python_bootstrap_template.txt",
     "python_version.bzl",
-    "srcs_version.bzl",
     "toolchain.bzl",
-    "utils.bzl",
 ])
 
 filegroup(

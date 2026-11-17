@@ -39,9 +39,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
   @Override
   public void setup(MockToolsConfig config) throws IOException {
     addTool(config, "tools/python/python_version.bzl");
-    addTool(config, "tools/python/srcs_version.bzl");
     addTool(config, "tools/python/toolchain.bzl");
-    addTool(config, "tools/python/utils.bzl");
     addTool(config, "tools/python/python_bootstrap_template.txt");
 
     config.create(
