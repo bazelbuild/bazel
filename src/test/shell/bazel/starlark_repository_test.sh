@@ -4026,20 +4026,17 @@ with zipfile.ZipFile('non_readable.zip', 'w') as zf:
 function test_extract_non_readable_file_ar() {
   local archive_ar="${TEST_TMPDIR}/non_readable.ar"
 
-  # Create a valid AR file, then patch the permission field to 0000
-  pushd "${TEST_TMPDIR}"
-  echo "secret ar content" > non_readable.txt
-  ar rc non_readable.ar non_readable.txt
-  # Patch the mode field (bytes 40-47 after the 8-byte magic) to "0       "
+  # Write the AR file directly. Do not use the system "ar": on macOS with
+  # Xcode 26, "ar" runs ranlib, which drops members that are not Mach-O files.
   python3 -c "
-with open('non_readable.ar', 'r+b') as f:
-    # AR magic is 8 bytes, then header starts
-    # Header format: filename(16) + mtime(12) + owner(6) + group(6) + mode(8) + size(10) + magic(2)
-    # Mode is at offset 8 + 16 + 12 + 6 + 6 = 48
-    f.seek(48)
-    f.write(b'0       ')  # 8 bytes for mode 0000 in octal
+data = b'secret ar content\\n'
+# Header: name(16) mtime(12) uid(6) gid(6) mode(8, octal) size(10) magic(2).
+header = (b'non_readable.txt'.ljust(16) + b'0'.ljust(12) + b'0'.ljust(6) +
+          b'0'.ljust(6) + b'0'.ljust(8) + str(len(data)).encode().ljust(10) +
+          b'\\x60\\n')
+with open('${archive_ar}', 'wb') as f:
+    f.write(b'!<arch>\\n' + header + data + b'\\n' * (len(data) % 2))
 "
-  popd
 
   _run_extract_test "${archive_ar}" "non_readable.txt" "secret ar content"
 }
