@@ -34,7 +34,6 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 #   bazel build --platforms=@llvm//platforms:linux_x86_64 //src:bazel
 #   bazel build --platforms=@llvm//platforms:windows_x86_64 //src:bazel
 #   bazel build --platforms=@llvm//platforms:macos_aarch64 //src:bazel
-# Keep in sync with //src:windows_llvm_alias.bzl.
 common --extra_toolchains=@llvm//toolchain:all
 common --extra_toolchains=//src:llvm_rc_toolchain
 

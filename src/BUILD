@@ -374,7 +374,7 @@ genrule(
 windows_llvm_alias(
     name = "bazel_windows_llvm",
     actual = ":bazel.exe",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Keep wildcard builds from cross-compiling Bazel for Windows.
     tags = ["manual"],
 )
 
@@ -383,7 +383,7 @@ windows_llvm_alias(
 windows_resource_compiler_toolchain(
     name = "llvm_rc",
     rc_exe = "@llvm//tools:llvm-rc",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Only necessary for builds that target Windows.
     tags = ["manual"],
 )
 
