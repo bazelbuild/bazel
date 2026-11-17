@@ -27,9 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -156,12 +154,11 @@ public final class JavaCompileActionBuilder {
             .getActionEnvironment()
             .withAdditionalFixedVariables(utf8Environment);
 
-    boolean useUnstrippedOutputDepsProto =
-        PathMappers.getEffectiveOutputPathsMode(
-                PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
-                MNEMONIC,
-                ruleContext.getConfiguration().modifiedExecutionInfo(executionInfo, MNEMONIC))
-            != OutputPathsMode.OFF;
+    boolean separateSpawnOutputDepsProto =
+        JavaCompileAction.hasSeparateSpawnOutputDepsProto(
+            ruleContext.getConfiguration(),
+            MNEMONIC,
+            ruleContext.getConfiguration().modifiedExecutionInfo(executionInfo, MNEMONIC));
     return new JavaCompileAction(
         /* mnemonic= */ MNEMONIC,
         /* insertDependencies= */ false,
@@ -179,13 +176,12 @@ public final class JavaCompileActionBuilder {
         /* env= */ actionEnvironment,
         /* executionInfo= */ executionInfo,
         /* executableLine= */ executableLine,
-        /* flagLine= */ buildParamFileContents(javacOpts, useUnstrippedOutputDepsProto),
+        /* flagLine= */ buildParamFileContents(javacOpts, separateSpawnOutputDepsProto),
         /* extraCommandLineArgs= */ extraCommandLineArgs,
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* additionalArtifactsForPathMapping= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputDepsProto= */ outputs.depsProto(),
-        /* separateSpawnOutputDepsProto= */ true,
         /* classpathMode= */ classpathMode);
   }
 
@@ -199,7 +195,7 @@ public final class JavaCompileActionBuilder {
   }
 
   private CustomCommandLine buildParamFileContents(
-      ImmutableList<String> javacOpts, boolean useUnstrippedOutputDepsProto)
+      ImmutableList<String> javacOpts, boolean separateSpawnOutputDepsProto)
       throws RuleErrorException, InterruptedException {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
@@ -213,7 +209,9 @@ public final class JavaCompileActionBuilder {
     }
     result.addFormattedExecPath(
         "--output_deps_proto",
-        useUnstrippedOutputDepsProto ? "%s.unstripped" : "%s",
+        separateSpawnOutputDepsProto
+            ? JavaCompileAction.SEPARATE_SPAWN_OUTPUT_DEPS_PROTO_FORMAT
+            : "%s",
         outputs.depsProto());
     result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
     if (bootClassPath.systemPath().isPresent()) {

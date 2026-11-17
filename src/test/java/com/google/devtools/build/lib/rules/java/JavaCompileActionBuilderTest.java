@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -300,6 +301,148 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     }
     assertThat(action.getExecutionInfo().keySet().stream().filter(k -> k.startsWith("cpu:")))
         .isEmpty();
+  }
+
+  @Test
+  public void outputDepsProto_withoutPathMapping_writtenBySpawn() throws Exception {
+    useConfiguration("--java_header_compilation=true");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+        java_library(
+            name = "b",
+            srcs = ["b.java"],
+        )
+        """);
+    JavaCompileAction compileAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    CommandAction turbineAction = getTurbineAction(compileAction);
+
+    assertThat(getJavacArguments(compileAction))
+        .containsAtLeast(
+            "--output_deps_proto", getOutputDepsProto(compileAction).getExecPathString())
+        .inOrder();
+    assertThat(paramFileArgsForAction(turbineAction))
+        .containsAtLeast("--output_deps", getOutputDepsProto(turbineAction).getExecPathString())
+        .inOrder();
+    assertThat(turbineAction).isInstanceOf(JavaHeaderCompileAction.class);
+    assertThat(turbineAction.mayModifySpawnOutputsAfterExecution()).isFalse();
+  }
+
+  @Test
+  public void outputDepsProto_withRootRelativePaths_writtenByAction() throws Exception {
+    useConfiguration(
+        "--java_header_compilation=true", "--experimental_turbine_output_root_relative_path");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+        java_library(
+            name = "b",
+            srcs = ["b.java"],
+        )
+        """);
+    JavaCompileAction compileAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    CommandAction turbineAction = getTurbineAction(compileAction);
+
+    assertThat(getJavacArguments(compileAction))
+        .containsAtLeast(
+            "--output_deps_proto",
+            getOutputDepsProto(compileAction).getExecPathString() + ".unstripped")
+        .inOrder();
+    assertThat(paramFileArgsForAction(turbineAction))
+        .containsAtLeast(
+            "--output_deps", getOutputDepsProto(turbineAction).getExecPathString() + ".unstripped")
+        .inOrder();
+    assertThat(turbineAction).isInstanceOf(JavaHeaderCompileAction.class);
+    assertThat(turbineAction.mayModifySpawnOutputsAfterExecution()).isFalse();
+  }
+
+  @Test
+  public void createJvmCompileAction_addsOutputDepsProtoFlag() throws Exception {
+    scratch.file("bazel_internal/test_rules/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/rule.bzl",
+        """
+        internal_common = java_common.internal_DO_NOT_USE()
+        def _my_rule_impl(ctx):
+            output = ctx.actions.declare_file(ctx.label.name + ".jar")
+            jdeps = ctx.actions.declare_file(ctx.label.name + ".jdeps")
+            args = ctx.actions.args()
+            args.add("--output", output)
+            internal_common.create_jvm_compile_action(
+                ctx,
+                outputs = [output, jdeps],
+                mandatory_inputs = depset(),
+                transitive_inputs = depset(),
+                direct_jars = depset(),
+                executable = "/bin/compiler",
+                arguments = [args],
+                mnemonic = "MyCompile",
+                progress_message = "Compiling",
+                execution_requirements = {"supports-path-mapping": "1"},
+                toolchain = None,
+                output_deps_proto = jdeps,
+                output_deps_proto_flag = "--deps",
+                dependency_artifacts = depset(),
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            fragments = ["java"],
+        )
+        """);
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("//bazel_internal/test_rules:rule.bzl", "my_rule")
+        my_rule(name = "a")
+        """);
+
+    JavaCompileAction compileAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getBinArtifact("a.jar", getConfiguredTarget("//java/com/google/test:a")));
+    assertThat(compileAction.getArguments())
+        .containsAtLeast("--deps", getOutputDepsProto(compileAction).getExecPathString())
+        .inOrder();
+
+    useConfiguration("--experimental_output_paths=strip");
+    compileAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getBinArtifact("a.jar", getConfiguredTarget("//java/com/google/test:a")));
+    PathMapper pathMapper =
+        PathMappers.create(
+            compileAction,
+            PathMappers.getOutputPathsMode(targetConfig),
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
+    assertThat(pathMapper.isNoop()).isFalse();
+    assertThat(compileAction.getCommandLines().allArguments(pathMapper))
+        .containsAtLeast(
+            "--deps",
+            pathMapper.getMappedExecPathString(getOutputDepsProto(compileAction)) + ".unstripped")
+        .inOrder();
+  }
+
+  private static Artifact getOutputDepsProto(Action action) {
+    return action.getOutputs().stream()
+        .filter(output -> output.getFilename().endsWith(".jdeps"))
+        .collect(onlyElement());
   }
 
   private CommandAction getTurbineAction(JavaCompileAction compileAction) throws Exception {

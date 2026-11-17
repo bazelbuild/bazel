@@ -449,6 +449,7 @@ public class JavaStarlarkCommon
       Dict<?, ?> executionRequirementsUnchecked,
       Object toolchainUnchecked,
       Object outputDepsProto,
+      Object outputDepsProtoFlag,
       Depset dependencyArtifacts,
       boolean insertDependencies,
       boolean enableDirectClasspath,
@@ -505,6 +506,31 @@ public class JavaStarlarkCommon
     @Nullable
     Artifact outputDepsProtoArtifact =
         outputDepsProto instanceof Artifact artifact ? artifact : null;
+    if ((outputDepsProtoArtifact == null) != (outputDepsProtoFlag == Starlark.NONE)) {
+      throw Starlark.errorf("output_deps_proto and output_deps_proto_flag must be set together");
+    }
+    ImmutableMap<String, String> executionRequirements =
+        TargetUtils.getFilteredExecutionInfo(
+            executionRequirementsUnchecked,
+            ruleContext.getRule(),
+            configuration.allowUnresolvedSymlinks());
+    if (outputDepsProtoArtifact != null) {
+      if (arguments.isEmpty()) {
+        throw Starlark.errorf("output_deps_proto requires at least one element in arguments");
+      }
+      Sequence.cast(arguments, Args.class, "arguments")
+          .getFirst()
+          .addArgument(
+              outputDepsProtoFlag,
+              outputDepsProtoArtifact,
+              JavaCompileAction.hasSeparateSpawnOutputDepsProto(
+                      configuration,
+                      mnemonic,
+                      configuration.modifiedExecutionInfo(executionRequirements, mnemonic))
+                  ? JavaCompileAction.SEPARATE_SPAWN_OUTPUT_DEPS_PROTO_FORMAT
+                  : Starlark.NONE,
+              thread);
+    }
 
     NestedSet<Artifact> mandatoryInputsSet =
         Depset.cast(mandatoryInputs, Artifact.class, "mandatory_inputs");
@@ -577,12 +603,6 @@ public class JavaStarlarkCommon
     ActionEnvironment actionEnvironment =
         configuration.getActionEnvironment().withAdditionalFixedVariables(env);
 
-    ImmutableMap<String, String> executionRequirements =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked,
-            ruleContext.getRule(),
-            configuration.allowUnresolvedSymlinks());
-
     toolchainUnchecked = ctx.maybeOverrideToolchain(toolchainUnchecked);
     String execGroup =
         StarlarkActionFactory.determineExecGroup(ruleContext, Starlark.NONE, toolchainUnchecked);
@@ -620,8 +640,6 @@ public class JavaStarlarkCommon
             /* dependencyArtifacts= */ dependencyArtifactsSet,
             /* additionalArtifactsForPathMapping= */ additionalArtifactsForPathMapping,
             /* outputDepsProto= */ outputDepsProtoArtifact,
-            // The command line is constructed in Starlark and refers to the declared .jdeps output.
-            /* separateSpawnOutputDepsProto= */ false,
             /* classpathMode= */ classpathMode));
   }
 
