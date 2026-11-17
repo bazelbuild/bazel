@@ -1,4 +1,8 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//tools:build_defs.bzl", "IS_HOST_WINDOWS")
+load("//tools/res:win_res.bzl", "windows_resources")
 load(":default_test_toolchain.bzl", "bool_flag", "empty_toolchain")
 
 package(default_visibility = ["//visibility:public"])
@@ -114,6 +118,15 @@ alias(
     actual = "@remote_coverage_tools//:lcov_merger",
 )
 
+# The test wrapper and XML writer are only used when the test is executed on
+# Windows and are referenced through an exec transition, so the select below
+# matches on the exec platform of the test action. If Bazel itself doesn't run
+# on Windows (e.g. when using remote execution on Windows from a Linux or macOS
+# host), there are no prebuilt binaries and they are built from source instead.
+# This requires a C++ toolchain targeting Windows to be registered, e.g. a
+# MinGW-based cross-compilation toolchain or an MSVC toolchain that runs on the
+# remote executors.
+# See https://github.com/bazelbuild/bazel/issues/19209
 filegroup(
     name = "test_wrapper",
     # "tw" is the Windows-native test wrapper. It has a short name because paths
@@ -121,7 +134,7 @@ filegroup(
     # On other platforms this binary is a no-op.
     # See https://github.com/bazelbuild/bazel/issues/5508
     srcs = select({
-        "@bazel_tools//src/conditions:windows": ["tw.exe"],
+        "@bazel_tools//src/conditions:windows": ["tw.exe" if IS_HOST_WINDOWS else ":tw"],
         "//conditions:default": ["dummy.sh"],
     }),
 )
@@ -132,9 +145,86 @@ filegroup(
     # paths have short limits on Windows.
     # On other platforms this binary is a no-op.
     srcs = select({
-        "@bazel_tools//src/conditions:windows": ["xml.exe"],
+        "@bazel_tools//src/conditions:windows": ["xml.exe" if IS_HOST_WINDOWS else ":xml"],
         "//conditions:default": ["dummy.sh"],
     }),
+)
+
+# MinGW requires -municode to use wmain as the entry point. The binaries are
+# executed without runfiles, so the MinGW C++ runtime has to be linked
+# statically.
+_MINGW_LINKOPTS = select({
+    "@rules_cc//cc/compiler:clang": [
+        "-municode",
+        "-static",
+    ],
+    "@rules_cc//cc/compiler:gcc": [
+        "-municode",
+        "-static",
+    ],
+    "@rules_cc//cc/compiler:mingw-gcc": [
+        "-municode",
+        "-static",
+    ],
+    "//conditions:default": [],
+})
+
+cc_binary(
+    name = "tw",
+    srcs = ["windows/tw_main.cc"],
+    linkopts = _MINGW_LINKOPTS,
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":tw_lib",
+        ":tw_resources",
+    ],
+)
+
+cc_binary(
+    name = "xml",
+    srcs = ["windows/xml_main.cc"],
+    linkopts = _MINGW_LINKOPTS,
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":tw_lib",
+        ":tw_resources",
+    ],
+)
+
+cc_library(
+    name = "tw_lib",
+    srcs = ["windows/tw.cc"],
+    hdrs = ["windows/tw.h"],
+    # GetUserNameW
+    linkopts = select({
+        "@rules_cc//cc/compiler:clang": ["-ladvapi32"],
+        "@rules_cc//cc/compiler:gcc": ["-ladvapi32"],
+        "@rules_cc//cc/compiler:mingw-gcc": ["-ladvapi32"],
+        "//conditions:default": ["-DEFAULTLIB:advapi32.lib"],
+    }),
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/main/cpp/util:filesystem",
+        "//src/main/cpp/util:strings",
+        "//src/main/native/windows:lib-file",
+        "//src/main/native/windows:lib-process",
+        "//third_party/ijar:zip",
+        "@rules_cc//cc/runfiles",
+    ],
+)
+
+windows_resources(
+    name = "tw_resources",
+    rc_files = ["windows/tw_resources.rc"],
+    resources = ["windows/tw_manifest.xml"],
+    tags = ["manual"],
+    visibility = ["//visibility:private"],
 )
 
 filegroup(

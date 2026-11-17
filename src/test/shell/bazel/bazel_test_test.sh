@@ -1444,4 +1444,48 @@ EOF
   expect_not_log "my_rule is being analyzed"
 }
 
+function test_windows_test_tools_built_from_source() {
+  # If Bazel isn't running on Windows, there are no prebuilt binaries of the
+  # Windows test wrapper and XML writer, so tests executed on Windows (e.g. via
+  # remote execution) use binaries built from the sources embedded in
+  # @bazel_tools. Cross-compile them with a hermetic LLVM toolchain.
+  add_platforms "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "llvm", version = "0.8.21")
+register_toolchains("@llvm//toolchain:all")
+# The host platform comes first so that only test actions, which have to run on
+# a platform satisfying the target platform's constraints, run on Windows.
+register_execution_platforms(
+    "@platforms//host",
+    "@llvm//platforms:windows_x86_64",
+)
+EOF
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_test(
+    name = "test",
+    srcs = ["test.cc"],
+)
+EOF
+  echo "int main() { return 0; }" > "${pkg}/test.cc"
+
+  local -r platforms="--platforms=@llvm//platforms:windows_x86_64"
+  bazel aquery "${platforms}" "mnemonic(TestRunner, //${pkg}:test)" \
+    >$TEST_log 2>&1 || fail "expected aquery to pass"
+  # The test wrapper is an output rather than a source file.
+  expect_log '\\bin\\external\\bazel_tools\\tools\\test\\tw\.exe'
+
+  bazel build "${platforms}" @bazel_tools//tools/test:test_wrapper \
+    @bazel_tools//tools/test:xml_writer >$TEST_log 2>&1 \
+    || fail "expected build to pass"
+  for tool in tw xml; do
+    local exe="bazel-bin/external/bazel_tools/tools/test/${tool}.exe"
+    [[ "$(head -c 2 "${exe}")" == "MZ" ]] \
+      || fail "expected ${exe} to be a Windows executable"
+  done
+}
+
 run_suite "bazel test tests"
