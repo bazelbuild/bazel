@@ -517,6 +517,96 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual([sha for sha, _ in found_no_revert], [sha2])
 
+        # HTML comments in PR body (e.g. from .github/pull_request_template.md) must NOT trigger RELNOTES[INC]
+        pr_template_body = (
+            "### Release Notes\n"
+            "<!--\n"
+            "If this is a breaking change, please add 'RELNOTES[INC]: <reason>' here.\n"
+            "-->\n"
+            "RELNOTES: None\n"
+        )
+        self.assertEqual(
+            prepare_context.extract_breaking_change_signals(
+                mainline_commits_info=[],
+                pr_title="[8.9.0] Clean fix",
+                pr_body=pr_template_body,
+                pr_files=[],
+            ),
+            [],
+        )
+
+    def test_excludes_non_master_commits_from_clean_baseline_and_fails_without_master_ref(self):
+        # Commit A is on master
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 10; }\n  int b() { return 2; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", "src/Foo.java")
+        self._git("commit", "-m", "Master fix Foo.a")
+        master_sha = self._git_out("rev-parse", "master")
+
+        # Commit B is on an unmerged side branch (NOT an ancestor of master)
+        self._git("checkout", "-b", "unmerged-feature", "release-8.9.0")
+        (self.root / "src" / "Unmerged.java").write_text("class Unmerged {}\n", encoding="utf-8")
+        self._git("add", "src/Unmerged.java")
+        self._git("commit", "-m", "Unmerged side-branch commit")
+        unmerged_sha = self._git_out("rev-parse", "HEAD")
+
+        # PR branch combines master_sha + unmerged_sha
+        self._git("checkout", "-b", "pr-mixed", "release-8.9.0")
+        self._git("cherry-pick", master_sha)
+        self._git("cherry-pick", unmerged_sha)
+        head_sha = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        pr_files = [
+            {
+                "filename": "src/Foo.java",
+                "status": "modified",
+                "additions": 1,
+                "deletions": 1,
+                "patch": "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 10; }\n   int b() { return 2; }\n }",
+            },
+            {
+                "filename": "src/Unmerged.java",
+                "status": "added",
+                "additions": 1,
+                "deletions": 0,
+                "patch": "@@ -0,0 +1 @@\n+class Unmerged {}",
+            },
+        ]
+        stage_dir = self.root / "gemini-artifacts" / "pr"
+        _, head_root, base_root, _, pr_patches = prepare_context.stage_pr_and_base_files(
+            repo="bazelbuild/bazel",
+            base_sha=self.base_sha,
+            head_sha=head_sha,
+            pr_files=pr_files,
+            stage_dir=stage_dir,
+        )
+        mc_info, file_comps, overall, _ = prepare_context.analyze_mainline_and_compare(
+            candidates=[(master_sha, "trailer"), (unmerged_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files,
+            pr_patches_by_file=pr_patches,
+            head_root_path=head_root,
+            base_root_path=base_root,
+            stage_dir=stage_dir,
+        )
+        by_sha = {mc["sha"]: mc["is_on_master"] for mc in mc_info}
+        self.assertTrue(by_sha[master_sha])
+        self.assertFalse(by_sha[unmerged_sha])
+        by_path = {fc["path"]: fc["classification"] for fc in file_comps}
+        self.assertEqual(by_path["src/Foo.java"], "identical")
+        self.assertEqual(by_path["src/Unmerged.java"], "extra_in_pr")
+        self.assertEqual(overall, "MODIFIED_OR_EXTRA_CHANGES")
+
+        # detect_mainline_ref must raise RuntimeError rather than falling back to HEAD (release branch)
+        self._git("checkout", "release-8.9.0")
+        self._git("branch", "-D", "master")
+        with self.assertRaises(RuntimeError):
+            prepare_context.detect_mainline_ref()
+
 
 if __name__ == "__main__":
     unittest.main()

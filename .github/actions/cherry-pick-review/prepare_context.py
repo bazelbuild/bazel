@@ -311,12 +311,12 @@ def split_git_diff_by_file(diff_text):
 
 
 def detect_mainline_ref():
-    """Finds the local git ref representing master/mainline."""
-    for candidate in ("origin/master", "master", "origin/main", "main", "HEAD"):
+    """Finds the local git ref representing master/mainline (never falling back to HEAD)."""
+    for candidate in ("origin/master", "master", "origin/main", "main"):
         res = run_git(["rev-parse", "--verify", f"{candidate}^{{commit}}"])
         if res.returncode == 0:
             return candidate
-    return "HEAD"
+    raise RuntimeError("Could not resolve mainline ref (origin/master or master) in local git repository")
 
 
 def resolve_commit_sha(sha_prefix):
@@ -477,18 +477,19 @@ def extract_breaking_change_signals(mainline_commits_info, pr_title, pr_body, pr
         texts.append((f"mainline commit {mc['sha'][:10]}", mc.get("raw_message") or ""))
 
     for source_label, text in texts:
-        for m in re.finditer(r"RELNOTES\[INC\]:\s*(.+)", text):
+        cleaned_text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+        for m in re.finditer(r"RELNOTES\[INC\]:\s*(.+)", cleaned_text):
             note = sanitize_untrusted_str(m.group(1), max_len=200)
-            if note.lower() not in ("none", "none.", "n/a"):
+            if note and note.lower() not in ("none", "none.", "n/a"):
                 add_signal(f"Explicit breaking release note (`RELNOTES[INC]`) in {source_label}: {note}")
 
         m_api = re.search(
             r"###\s*Build API Changes\s*\n+(.+?)(?:\n###|\nPiperOrigin-RevId:|\nCloses #|\Z)",
-            text,
+            cleaned_text,
             re.DOTALL,
         )
         if m_api:
-            cleaned_api = re.sub(r"<!--.*?-->", "", m_api.group(1), flags=re.DOTALL).strip()
+            cleaned_api = m_api.group(1).strip()
             if cleaned_api and cleaned_api.lower() not in ("no", "none", "no.", "none.", "n/a"):
                 add_signal(
                     f"Non-empty 'Build API Changes' declared in {source_label}: "
@@ -609,6 +610,7 @@ def analyze_mainline_and_compare(
     pr_patches_by_file,
     head_root_path,
     base_root_path,
+    files_truncated=False,
     stage_dir=pathlib.Path("gemini-artifacts/pr"),
 ):
     """Inspects mainline commits, simulates cherry-picking onto base_sha, and compares per-file diffs."""
@@ -659,56 +661,62 @@ def analyze_mainline_and_compare(
 
             raw_diff = run_git(["diff-tree", "-p", "-M", "--no-commit-id", "-r", "-m", full_sha]).stdout
             file_patches = split_git_diff_by_file(raw_diff)
-            for fp, patch_body in file_patches.items():
-                if fp in mainline_patches_by_file:
-                    mainline_patches_by_file[fp] += "\n" + patch_body
-                else:
-                    mainline_patches_by_file[fp] = patch_body
 
             applied_cleanly = None
             conflicted_files = []
             conflict_diff_file_str = None
 
-            if worktree_created:
-                run_git(["reset", "--hard", base_sha], cwd=worktree_dir)
-                run_git(["clean", "-fd"], cwd=worktree_dir)
-                cp_res = run_git(["cherry-pick", "--no-commit", full_sha], cwd=worktree_dir)
-                if cp_res.returncode == 0:
-                    applied_cleanly = True
-                    for fp in file_patches:
-                        wt_file = resolve_path_within(worktree_dir, fp)
-                        if wt_file is not None and not wt_file.is_symlink():
-                            if wt_file.is_file():
-                                clean_cherry_pick_files[fp] = wt_file.read_text(encoding="utf-8", errors="replace")
-                            elif not wt_file.exists():
-                                clean_cherry_pick_files[fp] = "__DELETED__"
-                else:
-                    applied_cleanly = False
-                    unmerged = run_git(["diff", "--name-only", "--diff-filter=U"], cwd=worktree_dir).stdout
-                    conflicted_files = [
-                        line.strip() for line in unmerged.splitlines() if is_safe_repo_rel_path(line.strip())
-                    ]
-                    conflicted_set = set(conflicted_files)
-                    all_conflicted_files.update(conflicted_files)
-                    for fp in file_patches:
-                        if fp not in conflicted_set:
+            # Only include commits verified to be on master in the comparison baseline so unmerged
+            # branch commits can never masquerade as clean mainline changes.
+            if on_master:
+                for fp, patch_body in file_patches.items():
+                    if fp in mainline_patches_by_file:
+                        mainline_patches_by_file[fp] += "\n" + patch_body
+                    else:
+                        mainline_patches_by_file[fp] = patch_body
+
+                if worktree_created:
+                    run_git(["reset", "--hard", base_sha], cwd=worktree_dir)
+                    run_git(["clean", "-fd"], cwd=worktree_dir)
+                    cp_res = run_git(["cherry-pick", "--no-commit", full_sha], cwd=worktree_dir)
+                    if cp_res.returncode == 0:
+                        applied_cleanly = True
+                        for fp in file_patches:
                             wt_file = resolve_path_within(worktree_dir, fp)
                             if wt_file is not None and not wt_file.is_symlink():
                                 if wt_file.is_file():
                                     clean_cherry_pick_files[fp] = wt_file.read_text(encoding="utf-8", errors="replace")
                                 elif not wt_file.exists():
                                     clean_cherry_pick_files[fp] = "__DELETED__"
-                    conflict_diff = run_git(["diff"], cwd=worktree_dir).stdout
-                    if conflict_diff:
-                        c_file = mainline_dir / f"{full_sha}_conflicts.diff"
-                        c_file.write_text(conflict_diff, encoding="utf-8")
-                        conflict_diff_file_str = str(c_file.resolve())
-                        for fp, c_patch in split_git_diff_by_file(conflict_diff).items():
-                            conflict_diffs_by_file[fp] = c_patch
-                    run_git(["cherry-pick", "--abort"], cwd=worktree_dir)
+                    else:
+                        applied_cleanly = False
+                        unmerged = run_git(["diff", "--name-only", "--diff-filter=U"], cwd=worktree_dir).stdout
+                        conflicted_files = [
+                            line.strip() for line in unmerged.splitlines() if is_safe_repo_rel_path(line.strip())
+                        ]
+                        conflicted_set = set(conflicted_files)
+                        all_conflicted_files.update(conflicted_files)
+                        for fp in file_patches:
+                            if fp not in conflicted_set:
+                                wt_file = resolve_path_within(worktree_dir, fp)
+                                if wt_file is not None and not wt_file.is_symlink():
+                                    if wt_file.is_file():
+                                        clean_cherry_pick_files[fp] = wt_file.read_text(
+                                            encoding="utf-8", errors="replace"
+                                        )
+                                    elif not wt_file.exists():
+                                        clean_cherry_pick_files[fp] = "__DELETED__"
+                        conflict_diff = run_git(["diff"], cwd=worktree_dir).stdout
+                        if conflict_diff:
+                            c_file = mainline_dir / f"{full_sha}_conflicts.diff"
+                            c_file.write_text(conflict_diff, encoding="utf-8")
+                            conflict_diff_file_str = str(c_file.resolve())
+                            for fp, c_patch in split_git_diff_by_file(conflict_diff).items():
+                                conflict_diffs_by_file[fp] = c_patch
+                        run_git(["cherry-pick", "--abort"], cwd=worktree_dir)
 
-                run_git(["reset", "--hard", base_sha], cwd=worktree_dir)
-                run_git(["clean", "-fd"], cwd=worktree_dir)
+                    run_git(["reset", "--hard", base_sha], cwd=worktree_dir)
+                    run_git(["clean", "-fd"], cwd=worktree_dir)
 
             mainline_commits_info.append(
                 {
@@ -727,12 +735,13 @@ def analyze_mainline_and_compare(
                 }
             )
 
-        # If there are multiple mainline commits, apply them in chronological sequence on base_sha
-        if worktree_created and len(ordered_candidates) > 1:
+        # If there are multiple verified master commits, apply them in chronological sequence on base_sha
+        ordered_master_shas = [mc["sha"] for mc in mainline_commits_info if mc["is_on_master"]]
+        if worktree_created and len(ordered_master_shas) > 1:
             run_git(["reset", "--hard", base_sha], cwd=worktree_dir)
             run_git(["clean", "-fd"], cwd=worktree_dir)
             all_clean = True
-            for full_sha, _ in ordered_candidates:
+            for full_sha in ordered_master_shas:
                 if run_git(["cherry-pick", "--no-commit", full_sha], cwd=worktree_dir).returncode != 0:
                     run_git(["cherry-pick", "--abort"], cwd=worktree_dir)
                     all_clean = False
@@ -741,9 +750,10 @@ def analyze_mainline_and_compare(
                 all_conflicted_files.clear()
                 conflict_diffs_by_file.clear()
                 for mc in mainline_commits_info:
-                    mc["applied_cleanly_on_base"] = True
-                    mc["conflicted_files"] = []
-                    mc["conflict_diff_file"] = None
+                    if mc["is_on_master"]:
+                        mc["applied_cleanly_on_base"] = True
+                        mc["conflicted_files"] = []
+                        mc["conflict_diff_file"] = None
                 for fp in mainline_patches_by_file:
                     wt_file = resolve_path_within(worktree_dir, fp)
                     if wt_file is not None and not wt_file.is_symlink():
@@ -769,9 +779,11 @@ def analyze_mainline_and_compare(
     mainline_file_set = set(mainline_patches_by_file.keys())
     all_files = sorted(pr_file_set | mainline_file_set)
 
+    verified_mainline = [mc for mc in mainline_commits_info if mc["is_on_master"]]
+    has_unverified_mainline = any(not mc["is_on_master"] for mc in mainline_commits_info)
     file_comparisons = []
     vs_mainline_sections = []
-    last_mainline_sha = mainline_commits_info[-1]["sha"] if mainline_commits_info else None
+    last_mainline_sha = verified_mainline[-1]["sha"] if verified_mainline else None
 
     for fp in all_files:
         safe_fp = sanitize_untrusted_str(fp, max_len=200)
@@ -893,9 +905,10 @@ def analyze_mainline_and_compare(
 
             vs_mainline_sections.append("\n".join(sec))
 
-    verified_mainline = [mc for mc in mainline_commits_info if mc["is_on_master"]]
     if not verified_mainline:
         overall_classification = "NO_MAINLINE_COMMIT"
+    elif has_unverified_mainline or files_truncated or not pr_files:
+        overall_classification = "MODIFIED_OR_EXTRA_CHANGES"
     else:
         non_clean = [
             fc for fc in file_comparisons if fc["classification"] not in ("identical", "lockfile_regenerated")
@@ -1153,13 +1166,14 @@ def main():
     additional_context = input_context
     if not additional_context and comment_body:
         additional_context = re.sub(
-            r"^(@bazel-io\s+gemini-review|@gemini-cli\s+/review)\s*",
+            r"^@gemini-cli\s+/review\s*",
             "",
             comment_body,
         ).strip()
     additional_context = sanitize_untrusted_str(additional_context, max_len=500)
 
     pr_author = sanitize_untrusted_str((pr_info.get("user") or {}).get("login", ""), max_len=80)
+    pr_author_association = sanitize_untrusted_str(pr_info.get("author_association") or "", max_len=40).upper()
     pr_title = sanitize_untrusted_str(pr_info.get("title") or "", max_len=250)
     raw_pr_body = str(pr_info.get("body") or "")
     sanitized_pr_body = sanitize_untrusted_multiline(raw_pr_body, max_len=3000)
@@ -1169,11 +1183,9 @@ def main():
     pr_commits = [item for page in commit_pages for item in page] if isinstance(commit_pages, list) else []
 
     changed_files_count = int(pr_info.get("changed_files") or 0)
-    if changed_files_count > 500:
-        pr_files = gh_api(f"repos/{repo}/pulls/{pr_number}/files?per_page=100")
-    else:
-        file_pages = gh_api(f"repos/{repo}/pulls/{pr_number}/files?per_page=100", paginate=True, slurp=True)
-        pr_files = [item for page in file_pages for item in page] if isinstance(file_pages, list) else []
+    file_pages = gh_api(f"repos/{repo}/pulls/{pr_number}/files?per_page=100", paginate=True, slurp=True)
+    pr_files = [item for page in file_pages for item in page] if isinstance(file_pages, list) else []
+    files_truncated = changed_files_count > len(pr_files)
 
     try:
         comment_pages = gh_api(f"repos/{repo}/issues/{pr_number}/comments?per_page=100", paginate=True, slurp=True)
@@ -1193,14 +1205,32 @@ def main():
     except Exception:
         pr_inline_comments = []
 
-    # Ensure master, base_ref, and the PR head are fetched in the local git repository
-    for refspec in (
-        "+refs/heads/master:refs/remotes/origin/master",
-        f"+refs/heads/{base_ref}:refs/remotes/origin/{base_ref}",
-        f"refs/pull/{pr_number}/head",
-    ):
-        run_git(["fetch", "--filter=blob:none", "--no-tags", "origin", refspec])
+    # Ensure master, base_ref, and the PR head are fetched when an origin remote is configured,
+    # failing closed rather than silently falling back to the checked-out release branch.
+    has_origin = run_git(["remote", "get-url", "origin"]).returncode == 0
+    if has_origin:
+        master_fetch = run_git(
+            ["fetch", "--filter=blob:none", "--no-tags", "origin", "+refs/heads/master:refs/remotes/origin/master"]
+        )
+        if master_fetch.returncode != 0:
+            run_git(
+                ["fetch", "--filter=blob:none", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main"],
+                check=True,
+            )
+        run_git(
+            [
+                "fetch",
+                "--filter=blob:none",
+                "--no-tags",
+                "origin",
+                f"+refs/heads/{base_ref}:refs/remotes/origin/{base_ref}",
+            ],
+            check=True,
+        )
+        run_git(["fetch", "--filter=blob:none", "--no-tags", "origin", f"refs/pull/{pr_number}/head"], check=True)
     mainline_ref = detect_mainline_ref()
+    if not resolve_commit_sha(head_sha):
+        raise RuntimeError(f"Could not resolve PR head commit {head_sha} in local git repository")
     mb_res = run_git(["merge-base", base_sha, head_sha])
     effective_base_sha = (
         mb_res.stdout.strip()
@@ -1239,6 +1269,7 @@ def main():
         pr_patches_by_file=pr_patches_by_file,
         head_root_path=pr_head_root,
         base_root_path=pr_base_root,
+        files_truncated=files_truncated,
     )
 
     (
@@ -1307,8 +1338,10 @@ def main():
         "pr_title": pr_title,
         "pr_body": sanitized_pr_body,
         "pr_author": pr_author,
+        "pr_author_association": pr_author_association,
         "trigger_type": trigger_type,
         "additional_context": additional_context,
+        "files_truncated": files_truncated,
         "has_existing_gemini_review": has_existing_gemini_review,
         "last_gemini_review": last_gemini_review,
         "pr_patch_unchanged_since_last_review": pr_patch_unchanged_since_last_review,

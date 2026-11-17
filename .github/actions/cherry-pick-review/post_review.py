@@ -25,7 +25,18 @@ REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_INLINE_COMMENTS = 6
 ALLOWED_EVENTS = frozenset({"APPROVE", "COMMENT", "REQUEST_CHANGES"})
+TRUSTED_AUTHOR_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
 FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
+STRUCTURED_BLOCKER_RE = re.compile(
+    r"(?:\*\*Verdict:\*\*\s*❌|(?:^|\n)\s*(?:[-*+]|\d+\.|#+)\s*(?:🔴|\*\*[^*\n]*🔴[^*\n]*\*\*))"
+)
+
+
+def has_structured_blocker_in_body(body):
+    """Returns True if body contains a structured ❌ verdict or a line-leading 🔴 blocker item."""
+    if not isinstance(body, str) or not body:
+        return False
+    return bool(STRUCTURED_BLOCKER_RE.search(body))
 
 
 def gh_api_get(endpoint, paginate=False, slurp=False):
@@ -468,7 +479,7 @@ def main():
             if not path or not c_body:
                 continue
 
-            if "🔴" in c_body:
+            if c_body.lstrip().startswith("🔴"):
                 has_critical_comment = True
 
             valid_line = line is not None
@@ -497,10 +508,10 @@ def main():
                 )
 
     # Deterministic safety guardrails: enforce REQUEST_CHANGES whenever no mainline commit was found
-    # or when a critical finding (🔴 / ❌) was reported in inline comments or the summary body.
+    # or when a structured critical finding (🔴 / ❌) was reported in inline comments or the summary body.
     if decision != "REQUEST_CHANGES":
         no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
-        body_has_blocker = "🔴" in body or "**Verdict:** ❌" in body
+        body_has_blocker = has_structured_blocker_in_body(body)
         if no_mainline or has_critical_comment or body_has_blocker:
             if no_mainline:
                 reason = "no verified mainline commit on `master` was matched"
@@ -511,7 +522,7 @@ def main():
             print(f"Safety guardrail: overriding {decision} to REQUEST_CHANGES because {reason}.")
             decision = "REQUEST_CHANGES"
             body = re.sub(
-                r"\*\*Verdict:\*\*\s*(?:✅\s*Approved|💬\s*Commented[^\n]*)",
+                r"\*\*Verdict:\*\*\s*(?:✅\s*(?:\*\*Approved\*\*|Approved)|💬\s*(?:\*\*Commented\*\*|Commented)[^\n]*)",
                 "**Verdict:** ❌ Changes Requested",
                 body,
             )
@@ -519,6 +530,29 @@ def main():
                 f"> ⚠️ **Automated Guardrail:** Review decision set to `REQUEST_CHANGES` because {reason}."
             )
             body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
+
+    # Privilege guardrail: only allow formal GitHub APPROVE when the cherry-pick is deterministically
+    # CLEAN on master or authored by @bazel-io / a repository maintainer or collaborator.
+    if decision == "APPROVE":
+        is_clean = (
+            context.get("overall_cherry_pick_classification") == "CLEAN"
+            and not bool(context.get("files_truncated"))
+        )
+        raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
+        author_assoc = str(context.get("pr_author_association") or "").strip().upper()
+        is_trusted_author = raw_author == "bazel-io" or author_assoc in TRUSTED_AUTHOR_ASSOCIATIONS
+        if not (is_clean or is_trusted_author):
+            print(
+                "Privilege guardrail: capping APPROVE to COMMENT for non-clean cherry-pick from "
+                f"external author (classification={context.get('overall_cherry_pick_classification')!r}, "
+                f"author_association={author_assoc!r})."
+            )
+            decision = "COMMENT"
+            note = (
+                "> **Automated Review Decision: `APPROVE`** "
+                "*(posted as `COMMENT` so a maintainer can verify the release-branch adaptations before merging)*"
+            )
+            body = f"{note}\n\n{body}" if body else note
 
     final_body = append_fallback_comments(body, fallback_comments)
     if not final_body:

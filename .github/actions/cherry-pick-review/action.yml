@@ -28,19 +28,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Acknowledge manual comment request
-      if: github.event_name == 'issue_comment' && inputs.gemini_api_key != ''
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.review_token || inputs.github_token }}
-        REPOSITORY: ${{ github.repository }}
-        COMMENT_ID: ${{ github.event.comment.id }}
-      run: |-
-        if [[ "${REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "${COMMENT_ID}" =~ ^[1-9][0-9]*$ ]]; then
-          gh api "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
-            -f content='eyes' || true
-        fi
-
     - name: Prepare cherry-pick review context
       id: prepare_context
       shell: bash
@@ -64,6 +51,19 @@ runs:
         fi
         python3 "${{ github.action_path }}/prepare_context.py"
 
+    - name: Acknowledge manual comment request
+      if: steps.prepare_context.outputs.should_run == 'true' && github.event_name == 'issue_comment'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.review_token || inputs.github_token }}
+        REPOSITORY: ${{ github.repository }}
+        COMMENT_ID: ${{ github.event.comment.id }}
+      run: |-
+        if [[ "${REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "${COMMENT_ID}" =~ ^[1-9][0-9]*$ ]]; then
+          gh api "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content='eyes' || true
+        fi
+
     - name: Run Gemini pull request review
       if: steps.prepare_context.outputs.should_run == 'true'
       id: gemini_pr_review
@@ -75,8 +75,12 @@ runs:
         AGY_CLI_MODEL_API_MAX_RETRIES: '10'
       run: |-
         set -euo pipefail
-        curl -fsSL https://antigravity.google/cli/install.sh | bash
-        export PATH="${HOME}/.local/bin:${PATH}"
+        AGY_BIN_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/agy-bin.XXXXXX")"
+        SETTINGS_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/agy-settings.XXXXXX.json")"
+        trap 'rm -rf "${AGY_BIN_DIR}" "${SETTINGS_FILE}"' EXIT
+
+        curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir "${AGY_BIN_DIR}"
+        export PATH="${AGY_BIN_DIR}:${PATH}"
         agy --version
 
         if [[ ! "${GEMINI_MODEL}" =~ ^[A-Za-z0-9._-]+$ ]]; then
@@ -85,22 +89,37 @@ runs:
         fi
 
         mkdir -p gemini-artifacts
-        SETTINGS_FILE="$(mktemp /tmp/agy-settings.XXXXXX.json)"
-        trap 'rm -f "${SETTINGS_FILE}"' EXIT
-        cat <<'EOF' > "${SETTINGS_FILE}"
-        {
-          "modelProvider": "gemini",
-          "permissions": {
-            "allow": [
-              "read_file(*)"
-            ],
-            "deny": [
-              "write_file(*)",
-              "command(*)"
-            ]
-          }
+        python3 - "${SETTINGS_FILE}" <<'PY'
+        import json, os, sys
+        ws = os.path.realpath(os.getcwd())
+        settings = {
+            "modelProvider": "gemini",
+            "allowNonWorkspaceAccess": False,
+            "permissions": {
+                "allow": [
+                    f"read_file({ws})",
+                ],
+                "deny": [
+                    f"read_file({ws}/.git)",
+                    "read_file(/proc)",
+                    "read_file(/sys)",
+                    "read_file(/etc)",
+                    "read_file(/tmp)",
+                    "read_file(/var)",
+                    "read_file(/root)",
+                    "write_file(*)",
+                    "command(*)",
+                    "read_url(*)",
+                    "execute_url(*)",
+                    "download_url(*)",
+                    "mcp(*)",
+                    "escalate_admin(*)",
+                ],
+            },
         }
-        EOF
+        with open(sys.argv[1], "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+        PY
 
         if ! agy \
           --output-format json \
@@ -155,4 +174,4 @@ runs:
       if: always()
       shell: bash
       run: |-
-        rm -rf /tmp/agy-settings*.json .gemini/context.json .gemini/prompt.md gemini-artifacts
+        rm -rf "${RUNNER_TEMP:-/tmp}"/agy-bin.* "${RUNNER_TEMP:-/tmp}"/agy-settings*.json /tmp/agy-settings*.json .gemini/context.json .gemini/prompt.md gemini-artifacts

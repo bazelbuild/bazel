@@ -258,6 +258,87 @@ class PostReviewTest(unittest.TestCase):
         self.assertNotIn("file://", posted[0]["comments"][0]["body"])
         self.assertIn("`Bar.java`", posted[0]["comments"][0]["body"])
 
+    def test_structured_blocker_matching_and_privilege_guardrail_1a(self):
+        posted = []
+
+        def fake_post(endpoint, payload):
+            posted.append(payload)
+            res = MagicMock()
+            res.returncode = 0
+            res.stdout = json.dumps({"html_url": "https://github.com/bazelbuild/bazel/pull/42#pullrequestreview-6"})
+            res.stderr = ""
+            return res
+
+        # 1) Follow-up approval mentioning an earlier 🔴 blocker in prose must NOT be overridden to REQUEST_CHANGES
+        self._write_context(
+            has_existing_gemini_review=True,
+            overall_cherry_pick_classification="CLEAN",
+            pr_author="external-dev",
+            pr_author_association="CONTRIBUTOR",
+        )
+        followup_ok = {
+            "decision": "APPROVE",
+            "body": (
+                "## 📋 Gemini Cherry-Pick Review Summary\n\n"
+                "**Verdict:** ✅ Approved: Previous 🔴 blocker on `SolibSymlinkAction.java` was resolved."
+            ),
+            "comments": [],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(followup_ok)}),
+            encoding="utf-8",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(posted[-1]["event"], "APPROVE")
+
+        # 2) Structured bullet blocker (`- **Issue (`🔴` Blocker):**`) in body MUST override APPROVE -> REQUEST_CHANGES
+        bullet_blocker = {
+            "decision": "APPROVE",
+            "body": (
+                "## 📋 Gemini Cherry-Pick Review Summary\n\n"
+                "**Verdict:** ✅ Approved\n\n"
+                "- **Unrelated file (`🔴` Blocker):** Extra file included."
+            ),
+            "comments": [],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(bullet_blocker)}),
+            encoding="utf-8",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(posted[-1]["event"], "REQUEST_CHANGES")
+
+        # 3) Policy 1a: Non-CLEAN cherry-pick from CONTRIBUTOR is capped at COMMENT, whereas MEMBER stays APPROVE
+        adapted_approve = {
+            "decision": "APPROVE",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ✅ Approved: Minimal conflict adaptation.",
+            "comments": [],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(adapted_approve)}),
+            encoding="utf-8",
+        )
+        self._write_context(
+            overall_cherry_pick_classification="CONFLICT_RESOLVED",
+            pr_author="external-dev",
+            pr_author_association="CONTRIBUTOR",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(posted[-1]["event"], "COMMENT")
+        self.assertIn("Automated Review Decision: `APPROVE`", posted[-1]["body"])
+
+        self._write_context(
+            overall_cherry_pick_classification="CONFLICT_RESOLVED",
+            pr_author="wyv",
+            pr_author_association="MEMBER",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(posted[-1]["event"], "APPROVE")
+
 
 if __name__ == "__main__":
     unittest.main()
