@@ -768,7 +768,6 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
     assertThat(requiredFragments.defines()).containsExactly("x");
   }
-
   @Test
   public void provideTransitiveStarlarkOnlyMode() throws Exception {
     useConfiguration(
@@ -816,5 +815,176 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     assertThat(aFragments.fragmentClasses()).isEmpty();
     assertThat(aFragments.optionsClasses()).isEmpty();
     assertThat(aFragments.defines()).isEmpty();
+  }
+
+  @Test
+  public void toolchainTargetSettingsFlagsAreRequired(@TestParameter({"on", "off"}) String flag)
+      throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        """
+        def _flag_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _flag_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        def _toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        my_toolchain = rule(implementation = _toolchain_impl)
+
+        def _rule_impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _rule_impl,
+            toolchains = ["//a:toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "my_toolchain", "string_flag")
+
+        string_flag(
+            name = "flag",
+            build_setting_default = "off",
+        )
+
+        config_setting(
+            name = "flag_on",
+            flag_values = {":flag": "on"},
+        )
+
+        toolchain_type(name = "toolchain_type")
+
+        my_toolchain(name = "flagged_impl")
+
+        my_toolchain(name = "default_impl")
+
+        toolchain(
+            name = "flagged",
+            target_settings = [":flag_on"],
+            toolchain = ":flagged_impl",
+            toolchain_type = ":toolchain_type",
+        )
+
+        toolchain(
+            name = "default",
+            toolchain = ":default_impl",
+            toolchain_type = ":toolchain_type",
+        )
+
+        my_rule(name = "consumer")
+        """);
+
+    useConfiguration(
+        "--extra_toolchains=//a:flagged,//a:default",
+        "--include_config_fragments_provider=transitive",
+        "--//a:flag=" + flag);
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:consumer").getProvider(RequiredConfigFragmentsProvider.class);
+
+    // The flag picks the toolchain, so it's required whether or not the flagged toolchain matched.
+    assertThat(requiredFragments.starlarkOptions())
+        .contains(Label.parseCanonicalUnchecked("//a:flag"));
+  }
+
+  @Test
+  public void configFeatureFlagIncludedInRequiredFragments() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        config_feature_flag(
+            name = "flag_a",
+            allowed_values = ["on", "off"],
+            default_value = "off",
+        )
+
+        config_setting(
+            name = "flag_a_on",
+            flag_values = {":flag_a": "on"},
+        )
+
+        genrule(
+            name = "gen_from_src",
+            srcs = [":flag_a"],
+            outs = ["gen_from_src.out"],
+            cmd = "touch $@",
+        )
+
+        genrule(
+            name = "gen_from_select",
+            srcs = select({
+                ":flag_a_on": [],
+                "//conditions:default": [],
+            }),
+            outs = ["gen_from_select.out"],
+            cmd = "touch $@",
+        )
+        """);
+    useConfiguration("--include_config_fragments_provider=transitive");
+
+    RequiredConfigFragmentsProvider srcFragments =
+        getConfiguredTarget("//a:gen_from_src").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(srcFragments.starlarkOptions())
+        .contains(Label.parseCanonicalUnchecked("//a:flag_a"));
+
+    RequiredConfigFragmentsProvider selectFragments =
+        getConfiguredTarget("//a:gen_from_select")
+            .getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(selectFragments.starlarkOptions())
+        .contains(Label.parseCanonicalUnchecked("//a:flag_a"));
+  }
+
+  @Test
+  public void customExecScopePartnerFlagIncludedInRequiredFragments() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        """
+        def _flag_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _flag_impl,
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "string_flag")
+
+        string_flag(
+            name = "host_flag",
+            build_setting_default = "host_default",
+            scope = "universal",
+        )
+
+        string_flag(
+            name = "target_flag",
+            build_setting_default = "target_default",
+            scope = "exec:--//a:host_flag",
+        )
+
+        genrule(
+            name = "gen",
+            srcs = [":target_flag"],
+            outs = ["gen.out"],
+            cmd = "touch $@",
+        )
+        """);
+    useConfiguration("--include_config_fragments_provider=transitive");
+
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:gen").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.starlarkOptions())
+        .containsAtLeast(
+            Label.parseCanonicalUnchecked("//a:target_flag"),
+            Label.parseCanonicalUnchecked("//a:host_flag"));
   }
 }

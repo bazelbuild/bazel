@@ -112,7 +112,8 @@ public abstract class ResolvedToolchainContext
         unloadedToolchainContext.requestedLabelToToolchainType(),
         toolchains,
         templateVariableProviders.build(),
-        ImmutableSet.copyOf(toolchainTargets));
+        toolchainTargets,
+        unloadedToolchainContext.toolchainResolutionFlags());
   }
 
   public abstract ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains();
@@ -122,6 +123,9 @@ public abstract class ResolvedToolchainContext
 
   /** Returns the actual prerequisites for this context, for use in validation. */
   public abstract ImmutableSet<ConfiguredTargetAndData> prerequisiteTargets();
+
+  @Override
+  public abstract ImmutableSet<Label> toolchainResolutionFlags();
 
   /**
    * Returns the toolchain for the given type, or {@code null} if the toolchain type was not
