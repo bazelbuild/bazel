@@ -49,6 +49,7 @@ public class RegexUtilTest {
             "()",
             "+",
             "|",
+            "foobar",
           })
           String haystack,
       @TestParameter({
@@ -74,6 +75,9 @@ public class RegexUtilTest {
             ".*|",
             ".*^",
             ".*+",
+            ".*(?x)foo #comment",
+            ".*(?ix)foo",
+            ".*(?x:foo)#bar",
           })
           String needle) {
     Pattern originalPattern = Pattern.compile(needle, Pattern.DOTALL);
