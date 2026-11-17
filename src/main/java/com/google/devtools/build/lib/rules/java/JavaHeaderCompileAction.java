@@ -463,12 +463,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         classpathMode = JavaClasspathMode.OFF;
       }
 
-      ActionEnvironment actionEnvironment =
-          ruleContext
-              .getConfiguration()
-              .getActionEnvironment()
-              .withAdditionalFixedVariables(utf8Environment);
-
       OnDemandString progressMessage =
           new JavaHeaderCompileProgressMessage(
               /* output= */ outputJar,
@@ -563,6 +557,12 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           ruleContext.useAutoExecGroups()
               ? ruleContext.getActionOwner(execGroup)
               : ruleContext.getActionOwner();
+
+      ActionEnvironment actionEnvironment =
+          ruleContext
+              .getConfiguration()
+              .getActionEnvironment(actionOwner.getExecutionPlatform())
+              .withAdditionalFixedVariables(utf8Environment);
 
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
