@@ -425,6 +425,27 @@ public class AliasTest extends BuildViewTestCase {
   }
 
   @Test
+  public void assertNoAspectHints() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        filegroup(name = "hint")
+
+        filegroup(name = "a")
+
+        alias(
+            name = "b",
+            actual = ":a",
+            aspect_hints = [":hint"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:b");
+    assertContainsEvent("no such attribute 'aspect_hints' in 'alias' rule");
+  }
+
+  @Test
   public void passesTargetTypeCheck() throws Exception {
     scratch.file(
         "a/BUILD",

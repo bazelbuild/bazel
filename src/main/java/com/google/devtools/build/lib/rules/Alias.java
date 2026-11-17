@@ -71,6 +71,9 @@ public class Alias implements RuleConfiguredTargetFactory {
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .removeAttribute(":action_listener")
+          // Aspects propagate through an alias directly to its 'actual' target, so aspect_hints
+          // on the alias itself would be silently ignored.
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .add(
               attr(ACTUAL_ATTRIBUTE_NAME, LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
