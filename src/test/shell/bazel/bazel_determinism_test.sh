@@ -71,6 +71,15 @@ function test_determinism()  {
     # Set up the maven repository properly.
     cp derived/maven/BUILD.vendor derived/maven/BUILD
 
+    # .bazelrc enables the hermetic LLVM toolchains, which are not available
+    # offline. Build with the auto-configured C++ toolchain instead.
+    sed -i.bak \
+      -e '/^common.*@llvm\/\//d' \
+      -e '/^common.*\/\/src:llvm_rc_toolchain/d' \
+      -e '/^common.*\/\/:linux_host_platform/d' \
+      .bazelrc
+    rm .bazelrc.bak
+
     # Build Bazel once.
     #
     # Use an output base with spaces and non-ASCII characters to verify that
