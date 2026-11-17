@@ -3139,6 +3139,96 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testArgsTarget() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'ext', version = '1.0')");
+    registry.addModule(createModuleKey("ext", "1.0"), "module(name='ext', version='1.0')");
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/BUILD").getPathString(),
+        "filegroup(name = 'ext_target', visibility = ['//visibility:public'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        """
+        genrule(
+            name = 'foo',
+            cmd = 'dummy_cmd',
+            srcs = ['a.txt', ':dep', '@ext//:ext_target'],
+            tools = ['t.exe'],
+            outs = ['c.txt'],
+        )
+        filegroup(name = 'dep')
+        """);
+    invalidatePackages();
+
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        """
+        def target_name(t):
+          return t.label.name
+        actions = ruleContext.actions
+        a = []
+        [(
+            a.append(actions.args().add(src)),
+            a.append(actions.args().add('-flag', src)),
+            a.append(actions.args().add('-flag', src, format = '_%s_')),
+        ) for src in ruleContext.attr.srcs]
+        a.append(actions.args().add_all(ruleContext.attr.srcs))
+        a.append(actions.args().add_joined(ruleContext.attr.srcs, join_with = ','))
+        a.append(actions.args().add_all(depset(ruleContext.attr.srcs)))
+        a.append(actions.args().add_joined(depset(ruleContext.attr.srcs), join_with = ','))
+        a.append(actions.args().add_all(ruleContext.attr.srcs, map_each = target_name))
+        a.append(
+            actions.args().add_joined(
+                ruleContext.attr.srcs, join_with = ',', map_each = target_name
+            )
+        )
+        ruleContext.actions.run(
+          inputs = depset(ruleContext.files.srcs),
+          outputs = ruleContext.files.srcs,
+          arguments = a,
+          executable = ruleContext.files.tools[0],
+          toolchain = None
+        )
+        """);
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "//foo:a.txt",
+            "-flag",
+            "//foo:a.txt",
+            "-flag",
+            "_//foo:a.txt_",
+            "//foo:dep",
+            "-flag",
+            "//foo:dep",
+            "-flag",
+            "_//foo:dep_",
+            "@ext//:ext_target",
+            "-flag",
+            "@ext//:ext_target",
+            "-flag",
+            "_@ext//:ext_target_",
+            "//foo:a.txt",
+            "//foo:dep",
+            "@ext//:ext_target",
+            "//foo:a.txt,//foo:dep,@ext//:ext_target",
+            "//foo:a.txt",
+            "//foo:dep",
+            "@ext//:ext_target",
+            "//foo:a.txt,//foo:dep,@ext//:ext_target",
+            "a.txt",
+            "dep",
+            "ext_target",
+            "a.txt,dep,ext_target")
+        .inOrder();
+  }
+
+  @Test
   public void testConfigurationField_starlarkSplitTransitionProhibited() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
@@ -3942,6 +4032,60 @@ args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
         .isNotEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_target_repoMappingChanges() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'ext', version = '1.0')");
+    registry.addModule(createModuleKey("ext", "1.0"), "module(name='ext', version='1.0')");
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/BUILD").getPathString(),
+        "filegroup(name = 'ext_target', visibility = ['//visibility:public'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        """
+        genrule(
+            name = 'foo',
+            cmd = 'dummy_cmd',
+            srcs = ['a.txt', ':dep', '@ext//:ext_target'],
+            tools = ['t.exe'],
+            outs = ['c.txt'],
+        )
+        filegroup(name = 'dep')
+        """);
+    invalidatePackages();
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    var mainRepoMapping1 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent1", RepositoryName.createUnvalidated("ext+")),
+            RepositoryName.MAIN);
+    var mainRepoMapping2 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent2", RepositoryName.createUnvalidated("ext+")),
+            RepositoryName.MAIN);
+
+    for (String argsCode :
+        ImmutableList.of(
+            """
+            args = ruleContext.actions.args()
+            args.add(ruleContext.attr.srcs[2])
+            """,
+            """
+            args = ruleContext.actions.args()
+            args.add_all(ruleContext.attr.srcs)
+            """,
+            """
+            args = ruleContext.actions.args()
+            args.add_all(depset(ruleContext.attr.srcs))
+            """)) {
+      var commandLine1 = getCommandLine(mainRepoMapping1, argsCode);
+      var commandLine2 = getCommandLine(mainRepoMapping2, argsCode);
+      assertThat(ImmutableList.copyOf(commandLine1.arguments()))
+          .isNotEqualTo(ImmutableList.copyOf(commandLine2.arguments()));
+      assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    }
   }
 
   @Test

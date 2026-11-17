@@ -74,11 +74,14 @@ import net.starlark.java.eval.StarlarkValue;
             + " the representation is not guaranteed, typical examples are"
             + " <code>//foo:bar</code>, <code>@repo//foo:bar</code> and"
             + " <code>@@canonical_name+//foo:bar.bzl</code>."
-            + "<li>All other types are turned into strings in an <i>unspecified</i> manner. For "
-            + "    this reason, you should avoid passing values that are not of string or "
-            + "    <code>File</code> type to <code>add()</code>, and if you pass them to "
-            + "    <code>add_all()</code> or <code>add_joined()</code> then you should provide a "
-            + "    <code>map_each</code> function."
+            + "<li><a href='../builtins/Target.html'><code>Target</code></a> objects are turned"
+            + " into the string representation of their <code>Target.label</code> values."
+            + "<li>All other types are turned into strings in an <i>unspecified</i> manner. For"
+            + " this reason, you should avoid passing values that are not of string,"
+            + " <code>File</code>, <code>Label</code>, or <code>Target</code> type to"
+            + " <code>add()</code>, and if you pass them to <code>add_all()</code> or"
+            + " <code>add_joined()</code> then you should provide a <code>map_each</code>"
+            + " function."
             + "</ul>" //
             + ""
             + "<p>When using string formatting (<code>format</code>, <code>format_each</code>, and "
@@ -135,13 +138,13 @@ public interface CommandLineArgsApi extends StarlarkValue {
             name = "value",
             defaultValue = "unbound",
             doc =
-                "The object to append. It will be converted to a string using the standard "
-                    + "conversion mentioned above. Since there is no <code>map_each</code> "
-                    + "parameter for this function, <code>value</code> should be either a "
-                    + "string or a <code>File</code>. A list, tuple, depset, or directory "
-                    + "<code>File</code> must be passed to <a href='#add_all'><code>add_all()"
-                    + "</code> or <a href='#add_joined'><code>add_joined()</code></a> instead of "
-                    + "this method."),
+                "The object to append. It will be converted to a string using the standard"
+                    + " conversion mentioned above. Since there is no <code>map_each</code>"
+                    + " parameter for this function, <code>value</code> should be a string, a"
+                    + " <code>File</code>, a <code>Label</code>, or a <code>Target</code>. A list,"
+                    + " tuple, depset, or directory <code>File</code> must be passed to <a"
+                    + " href='#add_all'><code>add_all()</code> or <a"
+                    + " href='#add_joined'><code>add_joined()</code></a> instead of this method."),
         @Param(
             name = "format",
             allowedTypes = {
