@@ -105,25 +105,39 @@ public class BuildConfigurationValue
     String getRunfilesPrefix();
   }
 
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final OutputDirectories outputDirectories;
 
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
 
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
+
   private final String workspaceName;
+
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final ImmutableSet<String> reservedActionMnemonics;
+
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final CommandLineLimits commandLineLimits;
 
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
    * this configuration.
    */
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final ImmutableMap<String, String> globalMakeEnv;
 
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final ActionEnvironment actionEnv;
+
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final ActionEnvironment testEnv;
 
   private final BuildOptions buildOptions;
+
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final CoreOptions options;
 
   /** Details of this configuration's Starlark build settings, such as their scopes. */
@@ -144,13 +158,17 @@ public class BuildConfigurationValue
    * Whether {@link #mnemonic} depends on the baseline options rather than being a pure function of
    * {@link #buildOptions}.
    */
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final boolean mnemonicDependsOnBaseline;
 
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
   /** Data for introspecting the options used by this configuration. */
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final BuildOptionDetails buildOptionDetails;
 
+  @SuppressWarnings("SkyValueEqualsIgnoresField")
   private final FeatureSet defaultFeatures;
 
   @Nullable // lazily initialized

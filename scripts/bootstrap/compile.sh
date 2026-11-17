@@ -37,7 +37,7 @@ DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/ja
 EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java src/main/java/com/google/devtools/build/lib/skyframe/TreeArtifactValueCodec.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/build/skyframe/errorprone src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
