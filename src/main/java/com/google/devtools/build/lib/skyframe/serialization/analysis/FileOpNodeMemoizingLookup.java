@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFil
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.AccumulatingQuiescingFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
@@ -353,10 +353,16 @@ public final class FileOpNodeMemoizingLookup {
   }
 
   public void registerRemoteFingerprint(SkyKey key, ByteString fingerprint) {
-    FileOpNodeOrFuture old = nodes.put(key, new RemoteFileOpNode(fingerprint));
-    // Control only gets here for nodes that have been freshly downloaded. This means that there
-    // must be no corresponding entry in the map.
-    Verify.verify(old == null);
+    // The same key may be downloaded more than once because --discard_analysis_cache can remove a
+    // node that is fetched again on demand.
+    var old = nodes.put(key, new RemoteFileOpNode(fingerprint));
+    if (old instanceof RemoteFileOpNode oldNode && !oldNode.fingerprint().equals(fingerprint)) {
+      BugReport.sendNonFatalBugReport(
+          new IllegalStateException(
+              String.format(
+                  "Remote fingerprint for %s changed from %s to %s",
+                  key.getCanonicalName(), oldNode.fingerprint(), fingerprint)));
+    }
   }
 
   static ActionLookupKey getDependencyKey(SkyKey key) {

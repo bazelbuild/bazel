@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelSetConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -97,19 +98,18 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "bust_action_caches",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "null",
+      converter = LabelSetConverter.class,
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
-          If set to a target label, unconditionally executes all actions of this target,
-          circumventing the usual caching layers. Intended for debugging only; no guarantees are
-          made that every execution strategy will respect it.
+          If set to one or more comma-separated target labels, unconditionally executes all actions
+          of those targets, circumventing the usual caching layers. Intended for debugging only; no
+          guarantees are made that every execution strategy will respect it.
           """)
-  @Nullable
-  public abstract Label getBustActionCachesTarget();
+  public abstract ImmutableSet<Label> getBustActionCachesTargets();
 
   @Option(
       name = "progress_report_interval",

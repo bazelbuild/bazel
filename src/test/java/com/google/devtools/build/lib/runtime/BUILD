@@ -114,7 +114,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:gc_churning_detector",
         "//src/main/java/com/google/devtools/build/lib/runtime:instrumentation_output",
         "//src/main/java/com/google/devtools/build/lib/runtime:keep_state_after_build_option",
-        "//src/main/java/com/google/devtools/build/lib/runtime:line_buffered_output_stream",
         "//src/main/java/com/google/devtools/build/lib/runtime:loading_phase_threads_option",
         "//src/main/java/com/google/devtools/build/lib/runtime:location_printer",
         "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure",

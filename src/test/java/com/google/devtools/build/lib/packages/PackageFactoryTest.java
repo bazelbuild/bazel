@@ -630,6 +630,130 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testTargetSuggestionListsAvailableRulesWhenNoFuzzyMatch() throws Exception {
+    scratch.file(
+        "empty/BUILD",
+        """
+        exports_files(["only_source.cc"])
+        """);
+    scratch.file(
+        "small/foo_test.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_test = rule(implementation = _impl, test = True)
+        """);
+    scratch.file(
+        "small/BUILD",
+        """
+        load(":foo_test.bzl", "foo_test")
+
+        fake_cc_library(name = "_internal_helper")
+        fake_cc_library(name = "alpha_handler")
+        foo_test(name = "beta_handler_test")
+        fake_cc_library(name = "gamma_flow")
+        """);
+    StringBuilder largeBuild = new StringBuilder();
+    for (int i = 1; i <= 10; i++) {
+      largeBuild.append(String.format("fake_cc_library(name = \"_internal_%02d\")\n", i));
+    }
+    for (int i = 1; i <= 12; i++) {
+      largeBuild.append(String.format("fake_cc_library(name = \"rule_%02d\")\n", i));
+    }
+    scratch.file("large/BUILD", largeBuild.toString());
+
+    StringBuilder largeWithLateTestBuild =
+        new StringBuilder("load(\"//small:foo_test.bzl\", \"foo_test\")\n");
+    for (int i = 1; i <= 11; i++) {
+      largeWithLateTestBuild.append(String.format("fake_cc_library(name = \"rule_%02d\")\n", i));
+    }
+    largeWithLateTestBuild.append("foo_test(name = \"z_handler_test\")\n");
+    scratch.file("large_with_test/BUILD", largeWithLateTestBuild.toString());
+
+    Package emptyPkg = getPackage("empty");
+    Package smallPkg = getPackage("small");
+    Package largePkg = getPackage("large");
+    Package largeWithTestPkg = getPackage("large_with_test");
+
+    NoSuchTargetException e =
+        assertThrows(NoSuchTargetException.class, () -> emptyPkg.getTarget("completely_unrelated"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//empty:completely_unrelated': target 'completely_unrelated' not"
+                + " declared in package 'empty' defined by /workspace/empty/BUILD");
+
+    e =
+        assertThrows(
+            NoSuchTargetException.class, () -> smallPkg.getTarget("completely_unrelated_test"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//small:completely_unrelated_test': target"
+                + " 'completely_unrelated_test' not declared in package 'small' defined by"
+                + " /workspace/small/BUILD (available rules: \"beta_handler_test\" (foo_test),"
+                + " \"alpha_handler\" (fake_cc_library), \"gamma_flow\" (fake_cc_library))");
+
+    // '_'-prefixed internal macro helper rules are omitted completely.
+    e = assertThrows(NoSuchTargetException.class, () -> largePkg.getTarget("completely_unrelated"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//large:completely_unrelated': target 'completely_unrelated' not"
+                + " declared in package 'large' defined by /workspace/large/BUILD (available"
+                + " rules: \"rule_01\" (fake_cc_library), \"rule_02\" (fake_cc_library),"
+                + " \"rule_03\" (fake_cc_library), \"rule_04\" (fake_cc_library), \"rule_05\""
+                + " (fake_cc_library), \"rule_06\" (fake_cc_library), \"rule_07\""
+                + " (fake_cc_library), \"rule_08\" (fake_cc_library), \"rule_09\""
+                + " (fake_cc_library), \"rule_10\" (fake_cc_library), ... and 2 more)");
+
+    // Library-only full package explicitly notes "no test rules in package" on test-like target
+    // names, whereas a partial PackagePiece call (3-arg overload) does not.
+    e =
+        assertThrows(
+            NoSuchTargetException.class, () -> largePkg.getTarget("completely_unrelated_test"));
+    assertThat(e)
+        .hasMessageThat()
+        .startsWith(
+            "no such target '//large:completely_unrelated_test': target"
+                + " 'completely_unrelated_test' not declared in package 'large' defined by"
+                + " /workspace/large/BUILD (no test rules in package; available rules:"
+                + " \"rule_01\" (fake_cc_library),");
+    assertThat(e).hasMessageThat().endsWith(", ... and 2 more)");
+    assertThat(
+            Package.getAlternateTargetSuggestion(
+                largePkg.getMetadata(),
+                "completely_unrelated_test",
+                ImmutableList.copyOf(largePkg.getTargets())))
+        .startsWith(" (available rules: \"rule_01\" (fake_cc_library),");
+
+    // Test rule sorting after 11 libraries is still promoted into the 10-rule preview window.
+    e =
+        assertThrows(
+            NoSuchTargetException.class,
+            () -> largeWithTestPkg.getTarget("completely_unrelated_test"));
+    assertThat(e)
+        .hasMessageThat()
+        .startsWith(
+            "no such target '//large_with_test:completely_unrelated_test': target"
+                + " 'completely_unrelated_test' not declared in package 'large_with_test' defined"
+                + " by /workspace/large_with_test/BUILD (available rules: \"z_handler_test\""
+                + " (foo_test), \"rule_01\" (fake_cc_library),");
+    assertThat(e).hasMessageThat().endsWith(", ... and 2 more)");
+
+    // Unmatched target names with file extensions still list declared rules (with '_'-prefixed
+    // internal rules omitted).
+    e = assertThrows(NoSuchTargetException.class, () -> smallPkg.getTarget("missing_file.cc"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//small:missing_file.cc': target 'missing_file.cc' not declared in"
+                + " package 'small' defined by /workspace/small/BUILD (available rules:"
+                + " \"alpha_handler\" (fake_cc_library), \"beta_handler_test\" (foo_test),"
+                + " \"gamma_flow\" (fake_cc_library))");
+  }
+
+  @Test
   public void testTestSuitesImplicitlyDependOnAllRulesInPackage() throws Exception {
     scratch.file(
         "x/foo_test.bzl",

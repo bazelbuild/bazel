@@ -80,6 +80,7 @@ py_library(
 py_binary(
     name = "create_embedded_tools",
     srcs = ["create_embedded_tools.py"],
+    legacy_create_init = 0,
     deps = [":create_embedded_tools_lib"],
 )
 

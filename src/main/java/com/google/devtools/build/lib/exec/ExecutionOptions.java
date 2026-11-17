@@ -498,14 +498,6 @@ public abstract class ExecutionOptions extends OptionsBase {
   public abstract boolean getEnableCriticalPathProfiling();
 
   @Option(
-      name = "experimental_stats_summary",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      defaultValue = "false",
-      help = "Enable a modernized summary of the build stats.")
-  public abstract boolean getStatsSummary();
-
-  @Option(
       name = "execution_log_binary_file",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

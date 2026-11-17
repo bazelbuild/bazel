@@ -120,6 +120,15 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
    */
   @VisibleForTesting static final int RUNS_PER_TEST_LIMIT = 100000;
 
+  /**
+   * Maximum time stdout/stderr stays buffered before it is reported as a progress event.
+   *
+   * <p>Without this, buffered output is only reported once {@code --bes_outerr_buffer_size} bytes
+   * have accumulated or another build event is posted. Neither may happen for a long time, e.g.
+   * while a single long-running test is executing.
+   */
+  private static final Duration OUT_ERR_FLUSH_INTERVAL = Duration.ofSeconds(1);
+
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
@@ -158,6 +167,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   @Nullable private String prevInvocationId;
   @Nullable private Reporter reporter;
   @Nullable private BuildEventStreamer streamer;
+  @Nullable private ScheduledExecutorService outErrFlushExecutor;
   @Nullable private ConnectivityStatusProvider connectivityProvider;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
@@ -501,6 +511,37 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         });
     err.registerStreamer(streamer);
     out.registerStreamer(streamer);
+
+    BuildEventStreamer streamerToFlush = streamer;
+    outErrFlushExecutor =
+        Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder()
+                .setNameFormat("bep-outerr-flush-%d")
+                .setDaemon(true)
+                .build());
+    var unused =
+        outErrFlushExecutor.scheduleWithFixedDelay(
+            () -> {
+              try {
+                // A no-op if nothing has been buffered since the last flush.
+                streamerToFlush.flush();
+              } catch (RuntimeException e) {
+                BugReport.sendNonFatalBugReport(e);
+                // Rethrow to cancel further periodic flushes.
+                throw e;
+              }
+            },
+            OUT_ERR_FLUSH_INTERVAL.toMillis(),
+            OUT_ERR_FLUSH_INTERVAL.toMillis(),
+            MILLISECONDS);
+  }
+
+  private void stopPeriodicOutErrFlush() {
+    if (outErrFlushExecutor != null) {
+      // Cancels future flushes, but lets an in-progress one complete.
+      outErrFlushExecutor.shutdown();
+      outErrFlushExecutor = null;
+    }
   }
 
   @Override
@@ -509,6 +550,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   private void forceShutdownBuildEventStreamer(AbortReason reason) {
+    stopPeriodicOutErrFlush();
     streamer.closeOnAbort(reason);
     closeFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
@@ -696,6 +738,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   @Override
   public void afterCommand() throws AbruptExitException {
+    stopPeriodicOutErrFlush();
     if (streamer != null) {
       if (!streamer.isClosed()) {
         // This should not occur, but close with an internal error if a {@link BuildEventStreamer}

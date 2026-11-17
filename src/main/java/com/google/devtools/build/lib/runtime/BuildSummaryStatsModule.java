@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
-import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -39,13 +37,10 @@ import com.google.devtools.build.lib.metrics.criticalpath.CriticalPathComputer;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
-import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Blaze module for the build summary message that reports various stats to the user. */
 public class BuildSummaryStatsModule extends BlazeModule {
@@ -58,23 +53,16 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private Reporter reporter;
   private boolean enabled;
 
-  private boolean statsSummary;
-  private long commandStartMillis;
-  private long executionStartMillis;
-  private long executionEndMillis;
   private SpawnStats spawnStats;
   private ProfilerStartedEvent profileEvent;
-  private AtomicBoolean executionStarted;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
     this.actionKeyContext = env.getSkyframeExecutor().getActionKeyContext();
-    commandStartMillis = env.getCommandStartTime();
     this.spawnStats = new SpawnStats();
     eventBus.register(this);
-    executionStarted = new AtomicBoolean(false);
   }
 
   @Override
@@ -83,13 +71,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
     this.eventBus = null;
     this.reporter = null;
     this.spawnStats = null;
-    executionStarted.set(false);
   }
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).getEnableCriticalPathProfiling();
-    statsSummary = env.getOptions().getOptions(ExecutionOptions.class).getStatsSummary();
     if (enabled) {
       criticalPathComputer =
           new CriticalPathComputer(actionKeyContext, env.getSkyframeExecutor().getWalkableGraph());
@@ -98,36 +84,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   @Subscribe
-  public void executionPhaseStarting(ExecutionStartingEvent event) {
-    markExecutionPhaseStarted();
-  }
-
-  /**
-   * Skymeld-specific marking of the start of execution. Multiple instances of this event might be
-   * fired during the build, but we make sure to only mark the start of the execution phase when the
-   * first one is received.
-   */
-  @Subscribe
-  public void executionPhaseStarting(
-      @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
-    if (executionStarted.compareAndSet(/* expectedValue= */ false, /* newValue= */ true)) {
-      markExecutionPhaseStarted();
-    }
-  }
-
-  private void markExecutionPhaseStarted() {
-    // TODO(ulfjack): Make sure to use the same clock as for commandStartMillis.
-    executionStartMillis = BlazeClock.instance().currentTimeMillis();
-  }
-
-  @Subscribe
   public void profileStarting(ProfilerStartedEvent event) {
     this.profileEvent = event;
-  }
-
-  @Subscribe
-  public void executionPhaseFinish(@SuppressWarnings("unused") ExecutionFinishedEvent event) {
-    executionEndMillis = BlazeClock.instance().currentTimeMillis();
   }
 
   @Subscribe
@@ -215,30 +173,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
       ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
       String spawnSummaryString = SpawnStats.convertSummaryToString(spawnSummary);
-      if (statsSummary) {
-        reporter.handle(Event.info(spawnSummaryString));
-        reporter.handle(
-            Event.info(
-                String.format(
-                    "Total action wall time %.2fs", spawnStats.getTotalWallTimeMillis() / 1000.0)));
-        if (criticalPath != AggregatedCriticalPath.EMPTY) {
-          reporter.handle(Event.info(criticalPath.getNewStringSummary()));
-        }
-        long now = event.getResult().getStopTime();
-        long executionTime = executionEndMillis - executionStartMillis;
-        long overheadTime = now - commandStartMillis - executionTime;
-        reporter.handle(
-            Event.info(
-                String.format(
-                    "Elapsed time %.2fs (preparation %.2fs, execution %.2fs)",
-                    (now - commandStartMillis) / 1000.0,
-                    overheadTime / 1000.0,
-                    executionTime / 1000.0)));
-        logger.atInfo().log("Stats summary: %s", Joiner.on(", ").join(items));
-      } else {
-        reporter.handle(Event.info(Joiner.on(", ").join(items)));
-        reporter.handle(Event.info(spawnSummaryString));
-      }
+      reporter.handle(Event.info(Joiner.on(", ").join(items)));
+      reporter.handle(Event.info(spawnSummaryString));
 
       event
           .getResult()

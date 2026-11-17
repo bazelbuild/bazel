@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.metrics.criticalpath;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
-import com.google.devtools.build.lib.actions.SpawnMetrics;
 import java.time.Duration;
 import java.util.Locale;
 
@@ -55,20 +54,6 @@ public class AggregatedCriticalPath {
   /** Returns a list of all the component stats for the critical path. */
   public ImmutableList<CriticalPathComponent> components() {
     return criticalPathComponents;
-  }
-
-  public String getNewStringSummary() {
-    int executionWallTimeInMs =
-        aggregatedSpawnMetrics.getTotalDuration(SpawnMetrics::executionWallTimeInMs);
-    int overheadTimeInMs =
-        aggregatedSpawnMetrics.getTotalDuration(SpawnMetrics::totalTimeInMs)
-            - executionWallTimeInMs;
-    return String.format(
-        Locale.US,
-        "Execution critical path %.2fs (setup %.2fs, action wall time %.2fs)",
-        totalTime.toMillis() / 1000.0,
-        overheadTimeInMs / 1000.0,
-        executionWallTimeInMs / 1000.0);
   }
 
   @Override

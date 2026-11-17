@@ -499,23 +499,6 @@ public abstract sealed class Artifact
   public abstract PathFragment getRootRelativePath();
 
   /**
-   * Returns the fully-qualified package path to this artifact. By "fully-qualified", it means the
-   * returned path is prefixed with "external/<repository name>" if this artifact is in an external
-   * repository.
-   *
-   * <p>Do not call this method just because you need a path prefixed with the "external/<repository
-   * name>" fragment for external repository artifacts. {@link * Artifact#getOutputDirRelativePath}
-   * is the right one to use in almost all cases.
-   *
-   * @deprecated This method is only to be used for $(location) and getOutputDirRelativePath
-   *     implementations.
-   */
-  @Deprecated
-  public PathFragment getPathForLocationExpansion() {
-    return getRootRelativePath();
-  }
-
-  /**
    * Returns the path to this artifact relative to an output directory, e.g. the bin directory. Note
    * that this is available on every Artifact type, including source artifacts. As a matter of fact,
    * one of its most common use cases is to construct a derived artifact's output path out of a
@@ -783,11 +766,6 @@ public abstract sealed class Artifact
     @Override
     public PathFragment getRootRelativePath() {
       return getRoot().isExternal() ? getExecPath().subFragment(2) : getExecPath();
-    }
-
-    @Override
-    public PathFragment getPathForLocationExpansion() {
-      return getExecPath();
     }
 
     @Override

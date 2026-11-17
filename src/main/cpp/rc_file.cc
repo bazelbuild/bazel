@@ -274,18 +274,6 @@ RcFile::ParseError RcFile::ParseFile(
   return ParseError::NONE;
 }
 
-RcFile::ParseError RcFile::ParseFile(
-    const std::string& filename, const std::string& workspace,
-    const WorkspaceLayout& workspace_layout, ReadFileFn read_file,
-    CanonicalizePathFn canonicalize_path,
-    std::vector<std::string>& import_stack, std::string* error_text) {
-  return ParseFile(filename, workspace, workspace_layout, /*build_label=*/"",
-                   /*sem_ver=*/std::nullopt, read_file, canonicalize_path,
-                   import_stack, error_text,
-                   /*max_import_depth=*/RcFile::MaxImportDepth,
-                   /*current_depth=*/0);
-}
-
 bool RcFile::ReadFileDefault(const std::string& filename, std::string* contents,
                              std::string* error_msg) {
   return blaze_util::ReadFile(filename, contents, error_msg);

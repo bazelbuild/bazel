@@ -38,6 +38,11 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 common:llvm --extra_toolchains=@llvm//toolchain:all
 common:llvm --extra_toolchains=//src:llvm_rc_toolchain
 
+# The Bazel client only talks to the server via 127.0.0.1/[::1], so it never
+# needs a DNS resolver. Disable gRPC's c-ares based resolver to avoid building
+# c-ares.
+common --define=grpc_no_ares=true
+
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
 

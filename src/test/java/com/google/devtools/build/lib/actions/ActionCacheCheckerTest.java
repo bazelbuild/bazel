@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
@@ -123,11 +124,11 @@ public final class ActionCacheCheckerTest {
   }
 
   private ActionCacheChecker createActionCacheChecker(boolean storeOutputMetadata) {
-    return createActionCacheChecker(storeOutputMetadata, /* bustActionCachesTarget= */ null);
+    return createActionCacheChecker(storeOutputMetadata, ImmutableSet.of());
   }
 
   private ActionCacheChecker createActionCacheChecker(
-      boolean storeOutputMetadata, @Nullable Label bustActionCachesTarget) {
+      boolean storeOutputMetadata, ImmutableSet<Label> bustActionCachesTargets) {
     return new ActionCacheChecker(
         cache,
         new FakeArtifactResolverBase(),
@@ -137,7 +138,7 @@ public final class ActionCacheCheckerTest {
         ActionCacheChecker.CacheConfig.builder()
             .setEnabled(true)
             .setStoreOutputMetadata(storeOutputMetadata)
-            .setBustActionCachesTarget(bustActionCachesTarget)
+            .setBustActionCachesTargets(bustActionCachesTargets)
             .build());
   }
 
@@ -497,7 +498,8 @@ public final class ActionCacheCheckerTest {
   @Test
   public void bustActionCaches_skipsCacheHitForMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
-    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true, target);
+    cacheChecker =
+        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action = new WriteEmptyOutputAction(createActionOwner(target), output);
 
@@ -511,13 +513,47 @@ public final class ActionCacheCheckerTest {
   @Test
   public void bustActionCaches_acceptsCacheHitForNonMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
-    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true, target);
+    cacheChecker =
+        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action =
         new WriteEmptyOutputAction(
             createActionOwner(Label.parseCanonicalUnchecked("//pkg:other")), output);
 
     doTestCached(action, MissReason.NOT_CACHED);
+  }
+
+  @Test
+  public void bustActionCaches_multipleTargets() throws Exception {
+    Label target1 = Label.parseCanonicalUnchecked("//pkg:target1");
+    Label target2 = Label.parseCanonicalUnchecked("//pkg:target2");
+    Label other = Label.parseCanonicalUnchecked("//pkg:other");
+    cacheChecker =
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true, ImmutableSet.of(target1, target2));
+    Action action1 =
+        new WriteEmptyOutputAction(
+            createActionOwner(target1), createArtifact(artifactRoot, "bin/out1"));
+    Action action2 =
+        new WriteEmptyOutputAction(
+            createActionOwner(target2), createArtifact(artifactRoot, "bin/out2"));
+    Action otherAction =
+        new WriteEmptyOutputAction(
+            createActionOwner(other), createArtifact(artifactRoot, "bin/other"));
+
+    runAction(action1);
+    runAction(action1);
+    runAction(action2);
+    runAction(action2);
+    runAction(otherAction);
+    runAction(otherAction);
+
+    assertStatistics(
+        1,
+        new MissDetailsBuilder()
+            .set(MissReason.UNCONDITIONAL_EXECUTION, 4)
+            .set(MissReason.NOT_CACHED, 1)
+            .build());
   }
 
   @Test

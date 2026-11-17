@@ -85,8 +85,6 @@ StartupOptions::StartupOptions(const string& product_name,
       io_nice_level(-1),
       shutdown_on_low_sys_mem(false),
       delete_output_base_on_shutdown(false),
-      oom_more_eagerly(false),
-      oom_more_eagerly_threshold(100),
       write_command_log(true),
       fatal_event_bus_exceptions(false),
       command_port(0),
@@ -178,6 +176,7 @@ StartupOptions::StartupOptions(const string& product_name,
   RegisterUnaryStartupFlag("failure_detail_out");
   RegisterUnaryStartupFlag("experimental_cgroup_parent");
   RegisterUnaryStartupFlag("extra_classpath");
+  RegisterUnaryStartupFlag("redact_client_env");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -347,6 +346,18 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
   } else if ((value = GetUnaryOption(arg, next_arg, "--extra_classpath"))) {
     extra_classpath = value;
     option_sources["extra_classpath"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--redact_client_env")) !=
+             nullptr) {
+    if (*value == '\0' || strchr(value, '=') != nullptr) {
+      blaze_util::StringPrintf(
+          error,
+          "Invalid argument to --redact_client_env: '%s'. "
+          "Expected a non-empty variable name without '='.",
+          value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    redact_client_env.push_back(value);
+    option_sources["redact_client_env"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--io_nice_level")) !=
              nullptr) {
     if (!blaze_util::safe_strto32(value, &io_nice_level) || io_nice_level > 7) {

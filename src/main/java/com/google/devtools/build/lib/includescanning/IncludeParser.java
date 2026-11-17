@@ -411,11 +411,11 @@ class IncludeParser {
         if (hints == null) {
           hints = Sets.newTreeSet();
         }
-        String relativePath = m.replaceFirst(rule.findRoot);
-        if (!relativePath.startsWith(ALLOWED_PREFIX)) {
+        PathFragment relativePath = PathFragment.create(m.replaceFirst(rule.findRoot));
+        if (!relativePath.getPathString().startsWith(ALLOWED_PREFIX)) {
           logger.atWarning().log(
-              "Path %s to search after substitution does not start with %s",
-              relativePath, ALLOWED_PREFIX);
+              "Path %s to search after substitution and normalization does not start with %s",
+              relativePath.getPathString(), ALLOWED_PREFIX);
           continue;
         }
         Path root = sourceRoot.getRelative(relativePath);

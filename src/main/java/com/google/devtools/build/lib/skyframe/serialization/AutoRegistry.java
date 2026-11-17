@@ -46,6 +46,7 @@ public class AutoRegistry {
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
+          "com.google.devtools.build.lib.skyframe.serialization",
           "com.google.devtools.build.lib.vfs",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",

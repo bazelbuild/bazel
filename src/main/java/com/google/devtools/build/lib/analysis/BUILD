@@ -1526,16 +1526,6 @@ java_library(
 )
 
 java_library(
-    name = "starlark/starlark_error_reporter",
-    srcs = ["starlark/StarlarkErrorReporter.java"],
-    deps = [
-        ":rule_error_consumer",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/net/starlark/java/eval",
-    ],
-)
-
-java_library(
     name = "dormant_dependency",
     srcs = ["DormantDependency.java"],
     deps = [

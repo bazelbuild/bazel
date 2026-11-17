@@ -731,6 +731,18 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testWriteToDirectoryFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "for 'output', got a directory, want a regular file",
+        "directory = ruleContext.actions.declare_directory('dir')",
+        "ruleContext.actions.write(",
+        "  output = directory,",
+        "  content = 'hello world',",
+        "  is_executable = False)");
+  }
+
+  @Test
   public void testEmptyAction() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEmptyAction("mnemonic = 'test'");

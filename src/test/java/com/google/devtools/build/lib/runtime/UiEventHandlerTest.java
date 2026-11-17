@@ -120,7 +120,6 @@ public class UiEventHandlerTest {
             new EventBus(),
             /* workspacePathFragment= */ null,
             skymeldMode,
-            /* newStatsSummary= */ false,
             terminalSizeMonitor);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(

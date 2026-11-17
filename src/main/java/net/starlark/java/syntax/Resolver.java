@@ -669,7 +669,7 @@ public final class Resolver extends NodeVisitor {
         for (LoadStatement.Binding b : load.getBindings()) {
           // Reject load('...', '_private').
           Identifier orig = b.getOriginalName();
-          if (orig.isPrivate() && !options.allowLoadPrivateSymbols()) {
+          if (orig.isPrivate()) {
             errorf(orig, "symbol '%s' is private and cannot be imported", orig.getName());
           }
 

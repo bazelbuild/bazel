@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMess
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
@@ -58,16 +60,17 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** A {@link BuildEventArtifactUploader} backed by {@link CombinedCache}. */
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
-  private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
-  private static final Pattern BUILD_LOG_PATTERN =
-      Pattern.compile(".*/bazel-out/_tmp/actions/std(err|out)-.*");
+  // Exec paths of the files that --remote_build_event_upload=minimal still uploads.
+  private static final String OUTPUT_DIRECTORY_PREFIX = "bazel-out/";
+  private static final String TEST_LOG_DIRECTORY = "/testlogs/";
+  private static final String ACTION_STDOUT_PREFIX = "bazel-out/_tmp/actions/stdout-";
+  private static final String ACTION_STDERR_PREFIX = "bazel-out/_tmp/actions/stderr-";
 
   private final Executor executor;
   private final ExtendedEventHandler reporter;
@@ -82,6 +85,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final Scheduler scheduler;
 
   private final XattrProvider xattrProvider;
+  private final PathFragment execRoot;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
   private final int maximumOpenFiles;
 
@@ -95,6 +99,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       String buildRequestId,
       String commandId,
       XattrProvider xattrProvider,
+      PathFragment execRoot,
       RemoteBuildEventUploadMode remoteBuildEventUploadMode,
       int maximumOpenFiles) {
     this.executor = executor;
@@ -107,6 +112,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.remoteBytestreamUriPrefix = remoteBytestreamUriPrefix;
     this.scheduler = Schedulers.from(executor);
     this.xattrProvider = xattrProvider;
+    this.execRoot = execRoot;
     this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
     this.maximumOpenFiles = maximumOpenFiles;
   }
@@ -319,8 +325,23 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   private boolean isBuildOrTestLog(PathMetadata path) {
-    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
-        || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
+    PathFragment fragment = path.getPath().asFragment();
+    return fragment.startsWith(execRoot) && isBuildOrTestLog(fragment.relativeTo(execRoot));
+  }
+
+  /** Returns whether {@code execPath} is a test log or the stdout or stderr file of an action. */
+  @VisibleForTesting
+  static boolean isBuildOrTestLog(PathFragment execPath) {
+    String path = execPath.getPathString();
+    if (!path.startsWith(OUTPUT_DIRECTORY_PREFIX)) {
+      return false;
+    }
+    if (path.startsWith(ACTION_STDOUT_PREFIX) || path.startsWith(ACTION_STDERR_PREFIX)) {
+      return true;
+    }
+    // Test logs are in bazel-out/<configuration>/testlogs.
+    int configurationEnd = path.indexOf('/', OUTPUT_DIRECTORY_PREFIX.length());
+    return configurationEnd != -1 && path.startsWith(TEST_LOG_DIRECTORY, configurationEnd);
   }
 
   private Single<List<PathMetadata>> queryCombinedCache(
