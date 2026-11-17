@@ -146,11 +146,13 @@ default_java_toolchain(
 EOF
 
     # Ignore .bazelrc: it enables the hermetic LLVM toolchains, which are not
-    # available offline.
+    # available offline. Flags from .bazelrc that the offline build needs are
+    # set below, like in scripts/bootstrap/bootstrap.sh.
     ./output/bazel --ignore_all_rc_files \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       build --nobuild --repository_cache=derived/repository_cache --repo_contents_cache= \
       --deleted_packages=third_party/remoteapis \
+      --define=grpc_no_ares=true \
       --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0 \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \

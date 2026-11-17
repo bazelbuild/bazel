@@ -38,8 +38,12 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 common --extra_toolchains=@llvm//toolchain:all
 common --extra_toolchains=//src:llvm_rc_toolchain
 
-# Enables the `windows` config below on Windows hosts.
+# Enables the `linux` and `windows` configs below on these hosts.
 common --enable_platform_specific_config
+
+# On Linux, build against the oldest glibc that the LLVM toolchains support, so
+# that the binaries run on old distributions. See //:linux_host_platform.
+common:linux --host_platform=//:linux_host_platform
 
 # With the LLVM toolchains, layering_check reports errors for generated headers
 # of grpc when the build runs on a Windows host (still the case with llvm
