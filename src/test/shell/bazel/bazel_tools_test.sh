@@ -39,4 +39,30 @@ function test_bzl_srcs() {
   done
 }
 
+function test_toolchain_types_in_rules() {
+  local -r toolchain_types=(
+    tools/cpp:toolchain_type
+    tools/cpp:cc_runtimes_toolchain_type
+    tools/cpp:test_runner_toolchain_type
+    tools/jdk:toolchain_type
+    tools/jdk:runtime_toolchain_type
+    tools/jdk:bootstrap_runtime_toolchain_type
+    tools/python:toolchain_type
+  )
+  local -r query="set(${toolchain_types[*]/#/@bazel_tools//})"
+
+  bazel query --output=label_kind "$query" >& "$TEST_log" \
+    || fail "Expected query to succeed"
+  for toolchain_type in "${toolchain_types[@]}"; do
+    expect_log "^toolchain_type rule .*bazel_tools//$toolchain_type\$"
+  done
+
+  bazel query --repo_env=BAZEL_INCOMPATIBLE_TOOLCHAIN_TYPES_IN_RULES=1 \
+    --output=label_kind "$query" >& "$TEST_log" \
+    || fail "Expected query to succeed"
+  for toolchain_type in "${toolchain_types[@]}"; do
+    expect_log "^alias rule .*bazel_tools//$toolchain_type\$"
+  done
+}
+
 run_suite "bazel_tools test suite"

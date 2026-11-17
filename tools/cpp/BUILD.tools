@@ -11,20 +11,34 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+load("@bazel_features//:features.bzl", "bazel_features")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//tools:build_defs.bzl", "toolchain_type_or_alias")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
 # The toolchain type used to distinguish cc toolchains.
-toolchain_type(name = "toolchain_type")
+toolchain_type_or_alias(
+    name = "toolchain_type",
+    actual = "@rules_cc//cc:toolchain_type",
+    use_alias = bazel_features.cc._toolchain_type_in_rules_cc,
+)
 
-# The toolchain type used to for cc runtimes.
-toolchain_type(name = "cc_runtimes_toolchain_type")
+# The toolchain type used for cc runtimes.
+toolchain_type_or_alias(
+    name = "cc_runtimes_toolchain_type",
+    actual = "@rules_cc//cc:cc_runtimes_toolchain_type",
+    use_alias = bazel_features.cc._toolchain_type_in_rules_cc,
+)
 
-# The toolchain_type used for cc test runners.
-toolchain_type(name = "test_runner_toolchain_type")
+# The toolchain type used for cc test runners.
+toolchain_type_or_alias(
+    name = "test_runner_toolchain_type",
+    actual = "@rules_cc//cc:test_runner_toolchain_type",
+    use_alias = bazel_features.cc._toolchain_type_in_rules_cc,
+)
 
 # Aliases to @rules_cc
 [

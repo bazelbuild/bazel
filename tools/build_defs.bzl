@@ -86,6 +86,26 @@ def single_binary_toolchain(
         visibility = ["//visibility:private"],
     )
 
+def toolchain_type_or_alias(*, name, actual, use_alias):
+    """Declares a toolchain type or an alias of the same type defined by a ruleset.
+
+    Used for toolchain types that move from @bazel_tools into a ruleset. `use_alias` is obtained
+    from bazel_features, which the ruleset also uses to decide whether to define the toolchain type
+    itself or alias the one in @bazel_tools, so that both labels always refer to the same type.
+
+    Args:
+      name: The name of the target.
+      actual: The label of the toolchain type defined by the ruleset.
+      use_alias: Whether to alias `actual` instead of declaring a toolchain type.
+    """
+    if use_alias:
+        native.alias(
+            name = name,
+            actual = actual,
+        )
+    else:
+        native.toolchain_type(name = name)
+
 def _current_toolchain_base_impl(ctx, *, toolchain_type):
     executable = ctx.actions.declare_file(ctx.label.name)
     ctx.actions.symlink(

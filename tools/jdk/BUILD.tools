@@ -1,7 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@bazel_features//:features.bzl", "bazel_features")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_import")
+load("//tools:build_defs.bzl", "toolchain_type_or_alias")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 
 # A single binary distribution of a JDK (e.g., OpenJDK 17 for Windows arm64) provides three
@@ -16,7 +18,11 @@ load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 #
 # Obtain the associated JavaToolchainInfo via:
 #   ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"].java
-toolchain_type(name = "toolchain_type")
+toolchain_type_or_alias(
+    name = "toolchain_type",
+    actual = "@rules_java//toolchains:toolchain_type",
+    use_alias = bazel_features.java._toolchain_type_in_rules_java,
+)
 
 # The Java runtime that executable Java compilation outputs (e.g., java_binary with
 # create_executable = True) will run on.
@@ -27,7 +33,11 @@ toolchain_type(name = "toolchain_type")
 #
 # Obtain the associated JavaRuntimeInfo via:
 #   ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
-toolchain_type(name = "runtime_toolchain_type")
+toolchain_type_or_alias(
+    name = "runtime_toolchain_type",
+    actual = "@rules_java//toolchains:runtime_toolchain_type",
+    use_alias = bazel_features.java._toolchain_type_in_rules_java,
+)
 
 # The Java runtime to extract the bootclasspath from that is then used to compile Java sources.
 #
@@ -38,7 +48,11 @@ toolchain_type(name = "runtime_toolchain_type")
 #
 # Toolchains of this type are only consumed internally by the bootclasspath rule and should not be
 # accessed from Starlark.
-toolchain_type(name = "bootstrap_runtime_toolchain_type")
+toolchain_type_or_alias(
+    name = "bootstrap_runtime_toolchain_type",
+    actual = "@rules_java//toolchains:bootstrap_runtime_toolchain_type",
+    use_alias = bazel_features.java._toolchain_type_in_rules_java,
+)
 
 # Aliases value of --plugins flag as a JavaPluginInfo
 java_plugins_flag_alias(
