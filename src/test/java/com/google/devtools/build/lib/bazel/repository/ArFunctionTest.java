@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -24,17 +25,23 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests decompressing archives. */
 @RunWith(JUnit4.class)
 public class ArFunctionTest {
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
+
   /*
    * .ar archive created with ar cr test_files.ar archived_first.txt archived_second.md
    * The files contain short UTF-8 encoded strings.
@@ -81,6 +88,49 @@ public class ArFunctionTest {
 
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
     return new ArFunction().decompress(descriptor);
+  }
+
+  /**
+   * Test decompressing a BSD ar archive (as created by the macOS ar and ranlib) with long names
+   * ("#1/len") that are padded with NUL bytes.
+   */
+  @Test
+  public void testDecompressBsdLongNamesWithNulPadding() throws Exception {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File arFile = folder.newFile("bsd.ar");
+    try (FileOutputStream out = new FileOutputStream(arFile)) {
+      out.write("!<arch>\n".getBytes(UTF_8));
+      writeBsdLongNameMember(out, "__.SYMDEF SORTED\0\0\0\0", new byte[8]);
+      writeBsdLongNameMember(out, "a_long_object_name.o\0\0\0\0", "content".getBytes(UTF_8));
+    }
+    Path arPath = fs.getPath(arFile.getAbsolutePath());
+    Path outDir = arPath.getParentDirectory().getRelative("out");
+
+    Path outputDir =
+        decompress(
+            DecompressorDescriptor.builder()
+                .setArchivePath(arPath)
+                .setDestinationPath(outDir)
+                .build());
+
+    assertThat(outputDir.getRelative("__.SYMDEF SORTED").exists()).isTrue();
+    Path objectFile = outputDir.getRelative("a_long_object_name.o");
+    assertThat(objectFile.exists()).isTrue();
+    assertThat(objectFile.getFileSize()).isEqualTo(7);
+  }
+
+  private static void writeBsdLongNameMember(FileOutputStream out, String name, byte[] data)
+      throws IOException {
+    int size = name.length() + data.length;
+    String header =
+        String.format(
+            "%-16s%-12s%-6s%-6s%-8s%-10s`\n", "#1/" + name.length(), "0", "0", "0", "644", size);
+    out.write(header.getBytes(UTF_8));
+    out.write(name.getBytes(UTF_8));
+    out.write(data);
+    if (size % 2 != 0) {
+      out.write('\n');
+    }
   }
 
   private DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
