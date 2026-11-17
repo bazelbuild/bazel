@@ -28,6 +28,7 @@ java_library(
     name = "util_internal",
     testonly = 1,
     srcs = [
+        "CaseInsensitiveFileSystem.java",
         "FileSystems.java",
         "FsApparatus.java",
     ],
@@ -36,10 +37,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
     ],
 )
 
