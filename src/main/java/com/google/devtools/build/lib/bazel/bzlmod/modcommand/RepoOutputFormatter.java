@@ -81,13 +81,18 @@ public class RepoOutputFormatter {
   private void printStarlark(String key, RepoDefinitionValue repoDefinition) {
     if (repoDefinition instanceof RepoDefinitionValue.Found repoDefValue) {
       printer.printf("## %s:\n", key);
-      printer.printf("# Located at: %s\n", getRepoRoot(repoDefValue.repoDefinition()));
+      printer.printf(
+          "# Located at: %s\n",
+          Starlark.repr(
+              getRepoRoot(repoDefValue.repoDefinition()).getPathString(),
+              StarlarkSemantics.DEFAULT));
       printStarlark(repoDefValue.repoDefinition());
     }
     if (repoDefinition instanceof RepoDefinitionValue.RepoOverride repoOverrideValue) {
       printer.printf(
-          "## %s:\nBuiltin or overridden repo located at: %s\n\n",
-          key, repoOverrideValue.repoPath());
+          "## %s:\n# Builtin or overridden repo located at: %s\n\n",
+          key,
+          Starlark.repr(repoOverrideValue.repoPath().getPathString(), StarlarkSemantics.DEFAULT));
     }
   }
 

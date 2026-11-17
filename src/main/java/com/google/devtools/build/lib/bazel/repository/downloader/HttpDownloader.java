@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 
@@ -57,16 +58,29 @@ public class HttpDownloader implements Downloader {
   private static final Sleeper SLEEPER = new JavaSleeper();
   private static final Locale LOCALE = Locale.getDefault();
 
-  private final Semaphore semaphore;
+  /**
+   * Registry files are small, so fetching them is bound by latency rather than bandwidth and
+   * benefits from more parallelism than archive downloads do.
+   */
+  private static final int MIN_PARALLEL_REGISTRY_DOWNLOADS_PER_HOST = 32;
+
+  private final HostLimiter downloadLimiter;
+  private final HostLimiter registryLimiter;
   private final float timeoutScaling;
   private final int maxAttempts;
   private final Duration maxRetryTimeout;
 
   public HttpDownloader(
-      int maxAttempts, Duration maxRetryTimeout, int maxParallelDownloads, float timeoutScaling) {
+      int maxAttempts,
+      Duration maxRetryTimeout,
+      int maxParallelDownloadsPerHost,
+      float timeoutScaling) {
     this.maxAttempts = maxAttempts;
     this.maxRetryTimeout = maxRetryTimeout;
-    semaphore = new Semaphore(maxParallelDownloads, true);
+    downloadLimiter = new HostLimiter(maxParallelDownloadsPerHost);
+    registryLimiter =
+        new HostLimiter(
+            Math.max(MIN_PARALLEL_REGISTRY_DOWNLOADS_PER_HOST, maxParallelDownloadsPerHost));
     this.timeoutScaling = timeoutScaling;
   }
 
@@ -99,6 +113,7 @@ public class HttpDownloader implements Downloader {
             type,
             eventHandler,
             clientEnv,
+            downloadLimiter,
             /* reportProgressEvents= */ true,
             payload -> {
               try (OutputStream out = destination.getOutputStream()) {
@@ -137,6 +152,7 @@ public class HttpDownloader implements Downloader {
         Optional.empty(),
         eventHandler,
         clientEnv,
+        registryLimiter,
         /* reportProgressEvents= */ false, // TODO(wyv): Do we need to report any event here?
         payload -> {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -144,6 +160,28 @@ public class HttpDownloader implements Downloader {
           return out.toByteArray();
         },
         HttpDownloader::lastDownloadException);
+  }
+
+  /** Limits the number of parallel downloads from each host. */
+  private static final class HostLimiter {
+    private static final Semaphore UNLIMITED = new Semaphore(Integer.MAX_VALUE);
+
+    private final int maxParallelDownloadsPerHost;
+    private final ConcurrentHashMap<String, Semaphore> semaphores = new ConcurrentHashMap<>();
+
+    HostLimiter(int maxParallelDownloadsPerHost) {
+      this.maxParallelDownloadsPerHost = maxParallelDownloadsPerHost;
+    }
+
+    Semaphore semaphoreFor(URI url) {
+      String host = url.getHost();
+      if (host == null) {
+        // File URLs aren't limited.
+        return UNLIMITED;
+      }
+      return semaphores.computeIfAbsent(
+          host, unused -> new Semaphore(maxParallelDownloadsPerHost, /* fair= */ true));
+    }
   }
 
   /** Consumes a successfully connected {@link HttpStream}, producing the download's result. */
@@ -161,7 +199,8 @@ public class HttpDownloader implements Downloader {
    * <p>This is the shared engine behind {@link #download} (which streams the payload to a file) and
    * {@link #downloadAndRead} (which reads it into memory). They differ only in how the payload is
    * consumed ({@code processor}), what is thrown when every URL fails ({@code onAllUrlsFailed}),
-   * and whether per-URL progress is reported ({@code reportProgressEvents}).
+   * how many of them may run in parallel per host ({@code limiter}), and whether per-URL progress
+   * is reported ({@code reportProgressEvents}).
    */
   private <T> T downloadFromUrls(
       List<URI> urls,
@@ -171,6 +210,7 @@ public class HttpDownloader implements Downloader {
       Optional<String> type,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
+      HostLimiter limiter,
       boolean reportProgressEvents,
       StreamProcessor<T> processor,
       Function<List<IOException>, IOException> onAllUrlsFailed)
@@ -182,6 +222,7 @@ public class HttpDownloader implements Downloader {
     List<IOException> ioExceptions = ImmutableList.of();
 
     for (URI url : urls) {
+      Semaphore semaphore = limiter.semaphoreFor(url);
       semaphore.acquire();
       boolean success = false;
 

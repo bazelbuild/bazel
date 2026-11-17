@@ -456,7 +456,6 @@ public abstract class CppOptions extends FragmentOptions {
       name = "fdo_prefetch_hints",
       defaultValue = "null",
       converter = LabelConverter.class,
-      category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Use cache prefetch hints.")
@@ -470,7 +469,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "fdo_profile",
       defaultValue = "null",
-      category = "flags",
       converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -480,7 +478,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "cs_fdo_profile",
       defaultValue = "null",
-      category = "flags",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -527,7 +524,6 @@ public abstract class CppOptions extends FragmentOptions {
       name = "propeller_optimize",
       defaultValue = "null",
       converter = LabelConverter.class,
-      category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -554,7 +550,6 @@ public abstract class CppOptions extends FragmentOptions {
       name = "memprof_profile",
       defaultValue = "null",
       converter = LabelConverter.class,
-      category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Use memprof profile.")

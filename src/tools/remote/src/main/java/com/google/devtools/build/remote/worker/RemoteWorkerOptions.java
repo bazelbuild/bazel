@@ -48,7 +48,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "listen_port",
       defaultValue = "8080",
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Listening port for the netty server.")
@@ -58,7 +57,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
       name = "work_path",
       defaultValue = "null",
       converter = PathFragmentConverter.class,
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A directory for the build worker to do work.")
@@ -68,7 +66,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
       name = "cas_path",
       defaultValue = "null",
       converter = PathFragmentConverter.class,
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -79,7 +76,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "debug",
       defaultValue = "false",
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -90,7 +86,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "legacy_api",
       defaultValue = "false",
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Restrict worker to RemoteApi version 2.0 capabilities")
@@ -100,7 +95,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
       name = "pid_file",
       defaultValue = "null",
       converter = PathFragmentConverter.class,
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "File for writing the process id for this worker when it is fully started.")
@@ -109,7 +103,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "sandboxing",
       defaultValue = "false",
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If supported on this platform, use sandboxing for increased hermeticity.")
@@ -118,7 +111,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "sandboxing_writable_path",
       defaultValue = "null",
-      category = "build_worker",
       converter = PathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -129,7 +121,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "sandboxing_tmpfs_dir",
       defaultValue = "null",
-      category = "build_worker",
       converter = PathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -140,7 +131,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "sandboxing_block_network",
       defaultValue = "false",
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "When using sandboxing, block network access for running actions.")
@@ -150,7 +140,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
       name = "jobs",
       defaultValue = "auto",
       converter = JobsConverter.class,
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -166,7 +155,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "http_listen_port",
       defaultValue = "0",
-      category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

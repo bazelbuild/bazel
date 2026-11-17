@@ -27,7 +27,6 @@ public abstract class ParserOptions extends OptionsBase {
   @Option(
       name = "log_path",
       defaultValue = "null",
-      category = "logging",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
@@ -44,7 +43,6 @@ public abstract class ParserOptions extends OptionsBase {
   @Option(
       name = "output_path",
       defaultValue = "null",
-      category = "logging",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
@@ -57,7 +55,6 @@ public abstract class ParserOptions extends OptionsBase {
   @Option(
       name = "restrict_to_runner",
       defaultValue = "null",
-      category = "logging",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If set, only output the executions that used the given runner.")
