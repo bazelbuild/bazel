@@ -320,9 +320,9 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
             srcs = ["b.java"],
         )
         """);
-    JavaCompileAction compileAction =
+    var compileAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
-    CommandAction turbineAction = getTurbineAction(compileAction);
+    var turbineAction = getTurbineAction(compileAction);
 
     assertThat(getJavacArguments(compileAction))
         .containsAtLeast(
@@ -353,9 +353,9 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
             srcs = ["b.java"],
         )
         """);
-    JavaCompileAction compileAction =
+    var compileAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
-    CommandAction turbineAction = getTurbineAction(compileAction);
+    var turbineAction = getTurbineAction(compileAction);
 
     assertThat(getJavacArguments(compileAction))
         .containsAtLeast(
@@ -412,7 +412,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
         my_rule(name = "a")
         """);
 
-    JavaCompileAction compileAction =
+    var compileAction =
         (JavaCompileAction)
             getGeneratingAction(
                 getBinArtifact("a.jar", getConfiguredTarget("//java/com/google/test:a")));
@@ -425,7 +425,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
         (JavaCompileAction)
             getGeneratingAction(
                 getBinArtifact("a.jar", getConfiguredTarget("//java/com/google/test:a")));
-    PathMapper pathMapper =
+    var pathMapper =
         PathMappers.create(
             compileAction,
             PathMappers.getOutputPathsMode(targetConfig),

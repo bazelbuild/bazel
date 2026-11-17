@@ -1344,7 +1344,7 @@ public class RemoteExecutionService {
     ActionInput inMemoryOutput = null;
     AtomicReference<ByteString> inMemoryOutputData = new AtomicReference<>(null);
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
-    Set<PathFragment> spawnOnlyOutputs = new HashSet<>();
+    var spawnOnlyOutputs = new HashSet<PathFragment>();
     for (ActionInput output : action.getSpawn().getOutputFiles()) {
       if (output.getExecPath().equals(inMemoryOutputPath)) {
         inMemoryOutput = output;

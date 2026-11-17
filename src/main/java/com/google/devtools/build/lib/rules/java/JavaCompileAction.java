@@ -834,7 +834,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     if (spawnOutputDepsProto == outputDepsProto) {
       return outputs;
     }
-    ImmutableList.Builder<ActionInput> spawnOutputs = ImmutableList.builder();
+    var spawnOutputs = ImmutableList.<ActionInput>builder();
     for (Artifact output : outputs) {
       spawnOutputs.add(output.equals(outputDepsProto) ? spawnOutputDepsProto : output);
     }
@@ -894,7 +894,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
     ByteString executorJdeps =
         readExecutorJdeps(spawnResult, spawnOutputDepsProto, actionExecutionContext);
-    Deps.Dependencies executorDeps =
+    var executorDeps =
         Deps.Dependencies.parseFrom(executorJdeps, ExtensionRegistry.getEmptyRegistry());
     if (spawnOutputDepsProto == outputDepsProto) {
       return executorDeps;

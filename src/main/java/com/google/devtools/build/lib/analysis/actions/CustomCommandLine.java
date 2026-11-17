@@ -562,7 +562,7 @@ public class CustomCommandLine extends AbstractCommandLine {
         int argi,
         ImmutableList.Builder<String> builder,
         PathMapper pathMapper) {
-      Artifact artifact = (Artifact) arguments.get(argi++);
+      var artifact = (Artifact) arguments.get(argi++);
       builder.add(argName);
       builder.add(
           SingleStringArgFormatter.format(format, pathMapper.getMappedExecPathString(artifact)));

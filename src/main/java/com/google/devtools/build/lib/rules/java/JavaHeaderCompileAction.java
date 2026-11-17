@@ -164,7 +164,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   protected void afterExecute(
       ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper)
       throws ExecException {
-    JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
+    var javaContext = context.getContext(JavaCompileActionContext.class);
     boolean insert = insertDependencies && javaContext != null;
     if (!insert && !separateSpawnOutputDepsProto) {
       return;
