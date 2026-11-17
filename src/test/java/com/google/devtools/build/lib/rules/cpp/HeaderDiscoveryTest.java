@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,11 +77,13 @@ public final class HeaderDiscoveryTest {
     assertThrows(
         ActionExecutionException.class,
         () ->
-            checkHeaderInclusion(
+            discoverInputs(
+                new ActionsTestUtil.NullAction(),
                 artifactResolver,
                 ImmutableList.of(
-                    derivedRoot.getRelative("tree_artifact1/foo.h"),
-                    derivedRoot.getRelative("tree_artifact1/subdir/foo.h")),
+                    PathFragment.create(DERIVED_SEGMENT + "/tree_artifact1/foo.h"),
+                    PathFragment.create(DERIVED_SEGMENT + "/tree_artifact1/subdir/foo.h")),
+                /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
                 NestedSetBuilder.create(
                     Order.STABLE_ORDER, treeArtifact(derivedRoot.getRelative("tree_artifact2")))));
   }
@@ -100,7 +101,8 @@ public final class HeaderDiscoveryTest {
         discoverInputs(
             windowsAction(),
             artifactResolver,
-            ImmutableList.of(execRoot.getRelative("pkg/include/header.h")),
+            ImmutableList.of(PathFragment.create("pkg/include/header.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
     assertThat(result.toList()).containsExactly(resolvedArtifact);
@@ -119,7 +121,8 @@ public final class HeaderDiscoveryTest {
         discoverInputs(
             nonWindowsAction(),
             artifactResolver,
-            ImmutableList.of(execRoot.getRelative("pkg/header.h")),
+            ImmutableList.of(PathFragment.create("pkg/header.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
     assertThat(result.toList()).containsExactly(resolvedArtifact);
@@ -137,7 +140,8 @@ public final class HeaderDiscoveryTest {
         discoverInputs(
             windowsAction(),
             artifactResolver,
-            ImmutableList.of(execRoot.getRelative("pkg/include/basetsd.h")),
+            ImmutableList.of(PathFragment.create("pkg/include/basetsd.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
     assertThat(result.toList()).containsExactly(resolvedArtifact);
@@ -160,7 +164,8 @@ public final class HeaderDiscoveryTest {
         discoverInputs(
             windowsAction(actionInputs),
             artifactResolver,
-            ImmutableList.of(execRoot.getRelative("pkg/include/header.h")),
+            ImmutableList.of(PathFragment.create("pkg/include/header.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
     // Only the variant that matches the declared input should be used.
@@ -181,7 +186,8 @@ public final class HeaderDiscoveryTest {
         discoverInputs(
             windowsAction(),
             artifactResolver,
-            ImmutableList.of(execRoot.getRelative("pkg/INCLUDE/HEADER.H")),
+            ImmutableList.of(PathFragment.create("pkg/INCLUDE/HEADER.H")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
     // When none of the matches are in the action inputs, all variants are added.
@@ -271,7 +277,8 @@ public final class HeaderDiscoveryTest {
         discoverInputs(
             windowsAction(),
             artifactResolver,
-            ImmutableList.of(derivedRoot.getRelative("gen/foo.h")),
+            ImmutableList.of(PathFragment.create(DERIVED_SEGMENT + "/gen/foo.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.create(Order.STABLE_ORDER, derivedArtifact));
 
     // Derived artifacts should be matched by exact path, not going through
@@ -293,7 +300,8 @@ public final class HeaderDiscoveryTest {
             discoverInputs(
                 windowsAction(),
                 artifactResolver,
-                ImmutableList.of(execRoot.getRelative("pkg/missing.h")),
+                ImmutableList.of(PathFragment.create("pkg/missing.h")),
+                /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
                 NestedSetBuilder.emptySet(Order.STABLE_ORDER)));
   }
 
@@ -313,7 +321,9 @@ public final class HeaderDiscoveryTest {
             windowsAction(),
             artifactResolver,
             ImmutableList.of(
-                execRoot.getRelative("pkg/source.h"), derivedRoot.getRelative("gen/gen.h")),
+                PathFragment.create("pkg/source.h"),
+                PathFragment.create(DERIVED_SEGMENT + "/gen/gen.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.create(Order.STABLE_ORDER, derivedHeader));
 
     assertThat(result.toList()).containsExactly(sourceHeader, derivedHeader);
@@ -336,7 +346,8 @@ public final class HeaderDiscoveryTest {
         discoverInputs(
             windowsAction(actionInputs),
             artifactResolver,
-            ImmutableList.of(execRoot.getRelative("pkg/HEADER.h")),
+            ImmutableList.of(PathFragment.create("pkg/HEADER.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
     // Only variant2 is in the action inputs, so only it should be selected.
@@ -354,7 +365,7 @@ public final class HeaderDiscoveryTest {
         .thenReturn(sourceHeader);
 
     NestedSet<Artifact> result =
-        discoverInputsFromPathFragments(
+        discoverInputs(
             nonWindowsAction(),
             artifactResolver,
             ImmutableList.of(
@@ -377,7 +388,7 @@ public final class HeaderDiscoveryTest {
             derivedArtifactRoot, derivedRoot.getRelative("gen/unused.h"));
 
     NestedSet<Artifact> result =
-        discoverInputsFromPathFragments(
+        discoverInputs(
             nonWindowsAction(),
             artifactResolver,
             ImmutableList.of(
@@ -396,7 +407,7 @@ public final class HeaderDiscoveryTest {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
 
     NestedSet<Artifact> result =
-        discoverInputsFromPathFragments(
+        discoverInputs(
             nonWindowsAction(),
             artifactResolver,
             ImmutableList.of(PathFragment.create("sysroot/include/stdio.h")),
@@ -414,7 +425,7 @@ public final class HeaderDiscoveryTest {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
 
     NestedSet<Artifact> result =
-        discoverInputsFromPathFragments(
+        discoverInputs(
             windowsAction(),
             artifactResolver,
             ImmutableList.of(PathFragment.create("pkg/header.h")),
@@ -434,7 +445,7 @@ public final class HeaderDiscoveryTest {
     assertThrows(
         ActionExecutionException.class,
         () ->
-            discoverInputsFromPathFragments(
+            discoverInputs(
                 nonWindowsAction(),
                 artifactResolver,
                 ImmutableList.of(PathFragment.create("/opt/include/header.h")),
@@ -445,39 +456,7 @@ public final class HeaderDiscoveryTest {
 
   // Helpers
 
-  private void checkHeaderInclusion(
-      ArtifactResolver artifactResolver,
-      ImmutableList<Path> dependencies,
-      NestedSet<Artifact> includedHeaders)
-      throws ActionExecutionException {
-    var unused =
-        HeaderDiscovery.discoverInputsFromDependencies(
-            new ActionsTestUtil.NullAction(),
-            ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
-            /* shouldValidateInclusions= */ true,
-            dependencies.stream().map(Path::asFragment).collect(toImmutableList()),
-            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
-            includedHeaders,
-            execRoot,
-            artifactResolver,
-            PathMapper.NOOP);
-  }
-
   private NestedSet<Artifact> discoverInputs(
-      ActionsTestUtil.NullAction action,
-      ArtifactResolver artifactResolver,
-      List<Path> dependencies,
-      NestedSet<Artifact> allowedDerivedInputs)
-      throws ActionExecutionException {
-    return discoverInputsFromPathFragments(
-        action,
-        artifactResolver,
-        dependencies.stream().map(Path::asFragment).collect(toImmutableList()),
-        /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
-        allowedDerivedInputs);
-  }
-
-  private NestedSet<Artifact> discoverInputsFromPathFragments(
       ActionsTestUtil.NullAction action,
       ArtifactResolver artifactResolver,
       List<PathFragment> dependencies,

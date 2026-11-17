@@ -161,6 +161,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party/java/guava:collect",

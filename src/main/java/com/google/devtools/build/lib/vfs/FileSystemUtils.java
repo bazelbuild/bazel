@@ -920,16 +920,6 @@ public class FileSystemUtils {
     return path.getFileSystem().getFileSystemType(path.asFragment());
   }
 
-  /** Returns whether the given path starts with any of the paths in the given list of prefixes. */
-  public static boolean startsWithAny(Path path, Iterable<Path> prefixes) {
-    for (Path prefix : prefixes) {
-      if (path.startsWith(prefix)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /**
    * Returns whether the given path starts with any of the paths in the given list of prefixes,
    * ignoring case.

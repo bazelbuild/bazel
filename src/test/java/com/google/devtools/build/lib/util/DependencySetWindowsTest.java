@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import java.util.Set;
 import org.junit.Test;
@@ -48,13 +49,13 @@ public class DependencySetWindowsTest {
             " c:\\mingw\\include\\_mingw.h \\",
             " c:\\mingw\\lib\\gcc\\mingw32\\4.8.1\\include\\stdarg.h");
 
-    Set<Path> expected =
+    Set<PathFragment> expected =
         Sets.newHashSet(
-            root.getRelative("cpp/hello-lib.cc"),
-            root.getRelative("cpp/hello-lib.h"),
-            fileSystem.getPath("C:/mingw/include/stdio.h"),
-            fileSystem.getPath("C:/mingw/include/_mingw.h"),
-            fileSystem.getPath("C:/mingw/lib/gcc/mingw32/4.8.1/include/stdarg.h"));
+            PathFragment.create("cpp/hello-lib.cc"),
+            PathFragment.create("cpp/hello-lib.h"),
+            PathFragment.create("C:/mingw/include/stdio.h"),
+            PathFragment.create("C:/mingw/include/_mingw.h"),
+            PathFragment.create("C:/mingw/lib/gcc/mingw32/4.8.1/include/stdarg.h"));
 
     assertThat(newDependencySet().read(dotd).getDependencies()).containsExactlyElementsIn(expected);
   }
@@ -68,7 +69,7 @@ public class DependencySetWindowsTest {
             "C:\\Program\\ Files\\ (x86)\\LLVM\\stddef.h");
     assertThat(newDependencySet().read(dotd).getDependencies())
         .containsExactlyElementsIn(
-            Sets.newHashSet(fileSystem.getPath("C:/Program Files (x86)/LLVM/stddef.h")));
+            Sets.newHashSet(PathFragment.create("C:/Program Files (x86)/LLVM/stddef.h")));
   }
 
   @Test
@@ -85,14 +86,14 @@ public class DependencySetWindowsTest {
             "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stddef.h \\",
             "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stdarg.h");
 
-    Set<Path> expected =
+    Set<PathFragment> expected =
         Sets.newHashSet(
-            root.getRelative("cpp/hello-lib.cc"),
-            root.getRelative("cpp/hello-lib.h"),
-            fileSystem.getPath("C:/fake/msys/mingw/include/stdio.h"),
-            fileSystem.getPath("C:/fake/msys/mingw/include/_mingw.h"),
-            fileSystem.getPath("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stddef.h"),
-            fileSystem.getPath("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stdarg.h"));
+            PathFragment.create("cpp/hello-lib.cc"),
+            PathFragment.create("cpp/hello-lib.h"),
+            PathFragment.create("C:/fake/msys/mingw/include/stdio.h"),
+            PathFragment.create("C:/fake/msys/mingw/include/_mingw.h"),
+            PathFragment.create("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stddef.h"),
+            PathFragment.create("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stdarg.h"));
 
     assertThat(newDependencySet().read(dotd).getDependencies()).containsExactlyElementsIn(expected);
   }

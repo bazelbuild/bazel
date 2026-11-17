@@ -1905,7 +1905,7 @@ public class CppCompileAction extends AbstractAction
         this,
         getSourceFile(),
         needsIncludeValidation,
-        processDepset(actionExecutionContext, execRoot, dotDContents).getDependencyPathFragments(),
+        processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies(),
         getPermittedSystemIncludePrefixes(),
         getAllowedDerivedInputs(),
         execRoot,
