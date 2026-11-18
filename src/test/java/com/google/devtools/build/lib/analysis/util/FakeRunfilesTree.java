@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -90,7 +91,7 @@ public final class FakeRunfilesTree implements RunfilesTree {
 
   @Override
   public String getWorkspaceName() {
-    return runfiles.getPrefix();
+    return LabelConstants.MAIN_REPO_DIR_NAME;
   }
 
   @Override

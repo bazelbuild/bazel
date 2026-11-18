@@ -89,7 +89,7 @@ public final class Runfiles implements RunfilesApi {
   static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER = new DummyEmptyFilesSupplier();
 
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
-  public static final Runfiles EMPTY = new Builder("").build();
+  public static final Runfiles EMPTY = new Builder().build();
 
   private static final PathFragment REPO_MAPPING_PATH_FRAGMENT =
       PathFragment.create("_repo_mapping");
@@ -123,15 +123,6 @@ public final class Runfiles implements RunfilesApi {
 
   private static final Interner<PathFragment> workspacePathInterner =
       BlazeInterners.newWeakInterner();
-
-  /**
-   * The directory to put all runfiles under.
-   *
-   * <p>Using "foo" will put runfiles under &lt;target&gt;.runfiles/foo.
-   *
-   * <p>This is either set to the workspace name, or the empty string.
-   */
-  private final String prefix;
 
   /**
    * The artifacts that should be present in the runfiles directory.
@@ -200,13 +191,11 @@ public final class Runfiles implements RunfilesApi {
   private ConflictPolicy conflictPolicy;
 
   private Runfiles(
-      String prefix,
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       EmptyFilesSupplier emptyFilesSupplier,
       ConflictPolicy conflictPolicy) {
-    this.prefix = prefix;
     this.artifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
@@ -217,11 +206,6 @@ public final class Runfiles implements RunfilesApi {
   @Override
   public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
-  }
-
-  /** Returns the runfiles' prefix. This is the same as the workspace name. */
-  public String getPrefix() {
-    return prefix;
   }
 
   /** Returns the collection of runfiles as artifacts. */
@@ -381,7 +365,7 @@ public final class Runfiles implements RunfilesApi {
     // Copy manifest map to another manifest map, prepending the workspace name to every path.
     // E.g. for workspace "myworkspace", the runfile entry "mylib.so"->"/path/to/mylib.so" becomes
     // "myworkspace/mylib.so"->"/path/to/mylib.so".
-    PathFragment workspaceName = PathFragment.create(prefix);
+    PathFragment workspaceName = PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME);
     boolean sawWorkspaceName = false;
     SortedMap<PathFragment, Artifact> finalManifest = new TreeMap<>();
 
@@ -530,9 +514,6 @@ public final class Runfiles implements RunfilesApi {
   /** Builder for Runfiles objects. */
   public static final class Builder {
 
-    /** This is set to the workspace name */
-    private final String prefix;
-
     /**
      * This must be COMPILE_ORDER because {@link #getRunfilesInputs(RunfilesConflictReceiver,
      * Artifact)} overwrites earlier entries with later ones, so we want a post-order iteration.
@@ -547,26 +528,14 @@ public final class Runfiles implements RunfilesApi {
     /** Build the Runfiles object with this policy */
     private ConflictPolicy conflictPolicy = ConflictPolicy.WARN;
 
-    /** Creates a builder with the default workspace prefix. */
-    public Builder() {
-      this(LabelConstants.MAIN_REPO_DIR_NAME);
-    }
-
-    /**
-     * Creates a builder with the given suffix.
-     *
-     * @param workspace is the string specified in workspace() in the WORKSPACE file.
-     */
-    public Builder(String workspace) {
-      this.prefix = workspace;
-    }
+    /** Creates a builder. */
+    public Builder() {}
 
     /**
      * Builds a new Runfiles object.
      */
     public Runfiles build() {
       return new Runfiles(
-          prefix,
           artifactsBuilder.build(),
           symlinksBuilder.build(),
           rootSymlinksBuilder.build(),
@@ -665,10 +634,6 @@ public final class Runfiles implements RunfilesApi {
       if (runfiles.isEmpty()) {
         return this;
       }
-      // The prefix should be the same within any blaze build, except for the EMPTY runfiles, which
-      // may have an empty prefix, but that is covered above.
-      Preconditions.checkArgument(
-          prefix.equals(runfiles.prefix), "%s != %s", prefix, runfiles.prefix);
       artifactsBuilder.addTransitive(runfiles.getArtifacts());
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
@@ -714,14 +679,11 @@ public final class Runfiles implements RunfilesApi {
   public Runfiles merge(RunfilesApi other, StarlarkThread thread) throws EvalException {
     Runfiles o = (Runfiles) other;
     if (isEmpty()) {
-      // This is not just a memory / performance optimization. The Builder requires a valid suffix,
-      // but the {@code Runfiles.EMPTY} singleton has an invalid one, which must not be used to
-      // construct a Runfiles.Builder.
       return o;
     } else if (o.isEmpty()) {
       return this;
     }
-    return new Runfiles.Builder(prefix)
+    return new Runfiles.Builder()
         .merge(this)
         .merge(o)
         .build()
@@ -730,16 +692,13 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public Runfiles mergeAll(Sequence<?> sequence, StarlarkThread thread) throws EvalException {
-    // The delayed initialization of the Builder is not just a memory / performance optimization.
-    // The Builder requires a valid suffix, but the {@code Runfiles.EMPTY} singleton has an invalid
-    // one, which must not be used to construct a Runfiles.Builder.
     Builder builder = null;
     // When merging exactly one non-empty Runfiles object, we want to return that object and avoid a
     // Builder. This is a memory optimization and provides identical behavior for `x.merge_all([y])`
     // and `x.merge(y)` in Starlark.
     Runfiles uniqueNonEmptyMergee = null;
     if (!this.isEmpty()) {
-      builder = new Builder(prefix).merge(this);
+      builder = new Builder().merge(this);
       uniqueNonEmptyMergee = this;
     }
 
@@ -747,7 +706,7 @@ public final class Runfiles implements RunfilesApi {
     for (Runfiles runfiles : runfilesSequence) {
       if (!runfiles.isEmpty()) {
         if (builder == null) {
-          builder = new Builder(runfiles.prefix);
+          builder = new Builder();
           uniqueNonEmptyMergee = runfiles;
         } else {
           uniqueNonEmptyMergee = null;
@@ -784,7 +743,6 @@ public final class Runfiles implements RunfilesApi {
       boolean digestAbsolutePaths,
       @Nullable ArtifactRoot originatingTargetRoot) {
     fp.addInt(conflictPolicy.ordinal());
-    fp.addString(prefix);
     if (originatingTargetRoot != null) {
       fp.addString(originatingTargetRoot.getExecPathString());
     }
@@ -813,7 +771,6 @@ public final class Runfiles implements RunfilesApi {
   String describeFingerprint(
       boolean digestAbsolutePaths, @Nullable ArtifactRoot originatingTargetRoot) {
     return String.format("conflictPolicy: %s\n", conflictPolicy)
-        + String.format("prefix: %s\n", prefix)
         + String.format(
             "originatingTargetRoot: %s\n",
             originatingTargetRoot == null ? "null" : originatingTargetRoot.getExecPathString())

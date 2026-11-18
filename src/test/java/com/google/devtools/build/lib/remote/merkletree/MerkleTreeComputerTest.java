@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
@@ -403,7 +402,7 @@ public class MerkleTreeComputerTest {
         runfilesTreeArtifact,
         AnalysisTestUtil.createRunfilesTree(
             runfilesTreeArtifact.getExecPath(),
-            new Runfiles.Builder(LabelConstants.MAIN_REPO_DIR_NAME).addArtifact(runfile).build()));
+            new Runfiles.Builder().addArtifact(runfile).build()));
     var spawn = new SpawnBuilder().withInputs(runfilesTreeArtifact).build();
     var uploader = new CountingMerkleTreeUploader();
 

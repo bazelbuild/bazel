@@ -102,11 +102,7 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
     FileSystemUtils.ensureSymbolicLink(symlink.getPath(), "/path/to/target");
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
-            .addArtifact(file)
-            .addArtifact(tree)
-            .addArtifact(symlink)
-            .build();
+        new Runfiles.Builder().addArtifact(file).addArtifact(tree).addArtifact(symlink).build();
     SymlinkTreeAction action =
         new SymlinkTreeAction(
             ActionsTestUtil.NULL_ACTION_OWNER,
@@ -135,7 +131,11 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
             eq(Reason.INPUTS));
     assertThat(inputsCaptor.getValue().get()).containsExactly(file);
 
-    Path treeRoot = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir");
+    Path treeRoot =
+        outputManifest
+            .getPath()
+            .getParentDirectory()
+            .getRelative(LabelConstants.MAIN_REPO_DIR_NAME + "/dir");
     assertThat(treeRoot.getRelative("file").readSymbolicLink())
         .isEqualTo(file.getPath().asFragment());
     assertThat(treeRoot.getRelative("tree").readSymbolicLink())

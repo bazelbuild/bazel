@@ -86,7 +86,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
         .createSymlinkTree(any(), any());
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .setEmptyFilesSupplier(
                 new Runfiles.EmptyFilesSupplier() {
                   @Override
@@ -118,9 +118,9 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     verify(outputService, times(1)).createSymlinkTree(capture.capture(), any());
     assertThat(capture.getValue())
         .containsExactly(
-            PathFragment.create("TESTING/dir/runfile"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/runfile"),
             runfile.getPath().asFragment(),
-            PathFragment.create("TESTING/dir/empty"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/empty"),
             null);
   }
 
@@ -141,7 +141,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .setEmptyFilesSupplier(
                 new Runfiles.EmptyFilesSupplier() {
                   @Override
@@ -170,11 +170,19 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     // Check that the OutputService is not used.
     verify(outputService, never()).createSymlinkTree(any(), any());
 
-    Path p = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/runfile");
+    Path p =
+        outputManifest
+            .getPath()
+            .getParentDirectory()
+            .getRelative(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/runfile");
     assertWithMessage("Path %s expected to exist", p).that(p.exists(Symlinks.NOFOLLOW)).isTrue();
     assertWithMessage("Path %s expected to be a symlink", p).that(p.isSymbolicLink()).isTrue();
     assertThat(p.readSymbolicLink()).isEqualTo(runfile.getPath().asFragment());
-    Path q = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/empty");
+    Path q =
+        outputManifest
+            .getPath()
+            .getParentDirectory()
+            .getRelative(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/empty");
     assertWithMessage("Path %s expected to be a file", q).that(q.isFile()).isTrue();
     assertThat(FileSystemUtils.readContent(q)).isEmpty();
   }

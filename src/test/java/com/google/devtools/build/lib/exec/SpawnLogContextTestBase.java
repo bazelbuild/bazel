@@ -1306,10 +1306,10 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    Runfiles.Builder runfiles = new Runfiles.Builder(MAIN_REPO_DIR_NAME);
+    Runfiles.Builder runfiles = new Runfiles.Builder();
     if (rootSymlink) {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(MAIN_REPO_DIR_NAME)
+          new Runfiles.Builder()
               .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), sourceFile)
               .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), genFile)
               .build();
@@ -1318,7 +1318,7 @@ public abstract class SpawnLogContextTestBase {
       runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
     } else {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(MAIN_REPO_DIR_NAME)
+          new Runfiles.Builder()
               .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
               .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
               .build();
@@ -1366,12 +1366,12 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    Runfiles.Builder runfiles = new Runfiles.Builder(MAIN_REPO_DIR_NAME);
+    Runfiles.Builder runfiles = new Runfiles.Builder();
     // Arrange for (reference) equal SymlinkEntry instances to appear twice in the runfiles, both
     // first and last in compile order.
     if (rootSymlink) {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(MAIN_REPO_DIR_NAME)
+          new Runfiles.Builder()
               .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), sourceFile)
               .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), genFile)
               .build();
@@ -1381,7 +1381,7 @@ public abstract class SpawnLogContextTestBase {
       runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
     } else {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(MAIN_REPO_DIR_NAME)
+          new Runfiles.Builder()
               .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
               .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
               .build();
@@ -2138,7 +2138,7 @@ public abstract class SpawnLogContextTestBase {
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
       NestedSet<Artifact> artifacts) {
-    Runfiles.Builder runfiles = new Runfiles.Builder(MAIN_REPO_DIR_NAME);
+    Runfiles.Builder runfiles = new Runfiles.Builder();
     runfiles.addTransitiveArtifacts(artifacts);
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
       runfiles.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
