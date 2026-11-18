@@ -386,7 +386,29 @@ public class DownloadManager {
     // repeats its entire backoff sequence.
     return e instanceof ContentLengthMismatchException
         || (e instanceof SocketException && !(e instanceof ConnectException))
-        || e instanceof UnknownHostException;
+        || isUnknownHost(e);
+  }
+
+  /**
+   * HttpConnector reports an unknown host as an {@link UnrecoverableHttpException} with the {@link
+   * UnknownHostException} suppressed, and {@link HttpDownloader#download} nests that one level
+   * deeper when it aggregates the per-URL failures, so the wrapper has to be looked through.
+   *
+   * <p>Only this wrapper is: the suppressed exceptions of HttpConnector's other failures are its
+   * own earlier attempts, which it has already retried with backoff.
+   */
+  private static boolean isUnknownHost(Throwable e) {
+    if (e instanceof UnknownHostException) {
+      return true;
+    }
+    if (e instanceof UnrecoverableHttpException) {
+      for (var suppressed : e.getSuppressed()) {
+        if (suppressed instanceof UnknownHostException) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
