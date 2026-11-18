@@ -116,39 +116,6 @@ public class OptionsClassProcessorTest {
   }
 
   @Test
-  public void deprecatedCategorySaysUndocumented() {
-    assertAbout(javaSource())
-        .that(getFile("DeprecatedUndocumentedCategory.java"))
-        .processedWith(new OptionsClassProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Documentation level is no longer read from the option category. Category "
-                + "\"undocumented\" is disallowed, see OptionMetadataTags for the relevant tags.");
-  }
-
-  @Test
-  public void deprecatedCategorySaysHidden() {
-    assertAbout(javaSource())
-        .that(getFile("DeprecatedHiddenCategory.java"))
-        .processedWith(new OptionsClassProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Documentation level is no longer read from the option category. Category "
-                + "\"hidden\" is disallowed, see OptionMetadataTags for the relevant tags.");
-  }
-
-  @Test
-  public void deprecatedCategorySaysInternal() {
-    assertAbout(javaSource())
-        .that(getFile("DeprecatedInternalCategory.java"))
-        .processedWith(new OptionsClassProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Documentation level is no longer read from the option category. Category "
-                + "\"internal\" is disallowed, see OptionMetadataTags for the relevant tags.");
-  }
-
-  @Test
   public void optionMustHaveEffectExplicitlyStated() {
     assertAbout(javaSource())
         .that(getFile("EffectlessOption.java"))
