@@ -14,6 +14,25 @@ filegroup(
 )
 
 java_test(
+    name = "AllowedLocalActionsTest",
+    srcs = ["AllowedLocalActionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/exec/local",
+        "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/sandbox:testutil",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "LocalSpawnRunnerTest",
     srcs = ["LocalSpawnRunnerTest.java"],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -86,6 +105,7 @@ java_test(
 test_suite(
     name = "ExecLocalTests",
     tests = [
+        ":AllowedLocalActionsTest",
         ":LocalSpawnRunnerTest",
         ":PosixLocalEnvProviderTest",
         ":WindowsLocalEnvProviderTest",

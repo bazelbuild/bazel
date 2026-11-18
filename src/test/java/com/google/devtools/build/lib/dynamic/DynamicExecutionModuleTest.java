@@ -21,11 +21,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.ExecutionPolicy;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -99,6 +102,52 @@ public class DynamicExecutionModuleTest {
     options.setDynamicLocalStrategy(parseStrategiesToOptions("Foo=local,worker", "worker"));
     assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
         .isEqualTo(parseStrategies("Foo=local,worker", "worker"));
+  }
+
+  @Test
+  public void getEffectiveExecutionPolicy_respectsAllowedLocalActionsRegex() throws Exception {
+    setupRuntime();
+    CommandEnvironment mockCommandEnvironment = mock(CommandEnvironment.class);
+    OptionsParsingResult mockOptions = mock(OptionsParsingResult.class);
+    when(mockCommandEnvironment.getOptions()).thenReturn(mockOptions);
+    when(mockCommandEnvironment.getEventBus()).thenReturn(mock(EventBus.class));
+    when(mockCommandEnvironment.getBlazeWorkspace()).thenReturn(blazeRuntime.getWorkspace());
+    module.beforeCommand(mockCommandEnvironment);
+
+    Spawn allowedSpawn = new SpawnBuilder("javac").withMnemonic("Javac").build();
+    Spawn disallowedRemotableSpawn = new SpawnBuilder("cmd").withMnemonic("Genrule").build();
+    Spawn disallowedLocalOnlySpawn =
+        new SpawnBuilder("cmd")
+            .withMnemonic("Genrule")
+            .withExecutionInfo(ExecutionRequirements.NO_REMOTE, "")
+            .build();
+
+    // Null LocalExecutionOptions leaves normal scheduling untouched.
+    assertThat(module.getEffectiveExecutionPolicy(disallowedRemotableSpawn))
+        .isEqualTo(ExecutionPolicy.ANYWHERE);
+
+    LocalExecutionOptions localOptions = Options.getDefaults(LocalExecutionOptions.class);
+    localOptions.setAllowedLocalAction(new Converters.RegexPatternConverter().convert("Javac"));
+    when(mockOptions.getOptions(LocalExecutionOptions.class)).thenReturn(localOptions);
+    module.beforeCommand(mockCommandEnvironment);
+
+    assertThat(module.getEffectiveExecutionPolicy(allowedSpawn))
+        .isEqualTo(ExecutionPolicy.ANYWHERE);
+    assertThat(module.getEffectiveExecutionPolicy(disallowedRemotableSpawn))
+        .isEqualTo(ExecutionPolicy.REMOTE_EXECUTION_ONLY);
+    assertThat(module.getEffectiveExecutionPolicy(disallowedLocalOnlySpawn))
+        .isEqualTo(ExecutionPolicy.LOCAL_EXECUTION_ONLY);
+
+    DynamicExecutionModule customModule =
+        new DynamicExecutionModule() {
+          @Override
+          protected ExecutionPolicy getExecutionPolicy(Spawn spawn) {
+            return ExecutionPolicy.ANYWHERE;
+          }
+        };
+    customModule.beforeCommand(mockCommandEnvironment);
+    assertThat(customModule.getEffectiveExecutionPolicy(disallowedRemotableSpawn))
+        .isEqualTo(ExecutionPolicy.REMOTE_EXECUTION_ONLY);
   }
 
   @Test
