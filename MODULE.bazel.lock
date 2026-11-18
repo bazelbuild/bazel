@@ -370,7 +370,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "Khe3vjt8QSVghTe8+Un6bBP3+uKw762rIiZhxmf8O84=",
+        "bzlTransitiveDigest": "0TSjlFxBRAhztBAybfUAaqaWzyDPc90mCDI9zugI+Pc=",
         "usagesDigest": "7jreou9WV8qOgoUM+8bYvk7WC5dIlxvYXDi24CckXQQ=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools",
