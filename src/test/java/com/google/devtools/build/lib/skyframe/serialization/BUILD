@@ -482,7 +482,6 @@ java_library(
             "StarlarkSetCodecTest.java",
             "TupleCodecTest.java",
             "TransitiveTraversalValueCodecTest.java",
-            "WorkspaceNameValueCodecTest.java",
             "MemoizerTest.java",
             "FileSymlinkExceptionCodecTest.java",
             "DirectoryListingValueCodecTest.java",
