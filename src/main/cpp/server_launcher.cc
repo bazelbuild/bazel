@@ -605,15 +605,6 @@ map<string, EnvVarValue> PrepareEnvironmentForJvm() {
     result[var] = EnvVarValue(EnvVarAction::SET, value);
   }
 
-  if (blaze::ExistsEnv("LD_ASSUME_KERNEL")) {
-    // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
-    // specified, the JVM fails to create threads.  See thread_stack_regtest.
-    // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
-    // or anything else that causes the JVM to use LinuxThreads.
-    BAZEL_LOG(WARNING) << "ignoring LD_ASSUME_KERNEL in environment.";
-    result["LD_ASSUME_KERNEL"] = EnvVarValue(EnvVarAction::UNSET, "");
-  }
-
   if (blaze::ExistsEnv("LD_PRELOAD")) {
     BAZEL_LOG(WARNING) << "ignoring LD_PRELOAD in environment.";
     result["LD_PRELOAD"] = EnvVarValue(EnvVarAction::UNSET, "");
