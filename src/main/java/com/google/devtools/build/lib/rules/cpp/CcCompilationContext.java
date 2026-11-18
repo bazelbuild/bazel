@@ -408,7 +408,8 @@ public final class CcCompilationContext {
   /**
    * Returns the modules that a compilation in this context could use directly: the modules of its
    * direct dependencies as well as the separate module of this context (except for the compile of
-   * the separate module itself, which is indicated by {@code separate}).
+   * the separate module itself, which is indicated by {@code separate}). Dependencies without a
+   * module contribute the modules of their own dependencies instead.
    *
    * <p>Just like in {@link #computeUsedModules}, the main module of this context is never included:
    * it is either the output of the compilation or, for other compiles of the same rule, its headers
@@ -420,8 +421,9 @@ public final class CcCompilationContext {
   NestedSet<Artifact> getDirectModules(boolean usePic, boolean separate) {
     HeaderInfo headerInfo = getHeaderInfo();
     CompactHashSet<Artifact> modules = CompactHashSet.create();
+    CompactHashSet<HeaderInfo> visited = CompactHashSet.create();
     for (HeaderInfo dep : headerInfo.deps) {
-      collectModules(dep, usePic, modules);
+      collectModules(dep, usePic, modules, visited);
     }
     // The separate module can be used by all compiles of this context except for its own compile.
     DerivedArtifact separateModule = headerInfo.getSeparateModule(usePic);
@@ -431,11 +433,19 @@ public final class CcCompilationContext {
     return NestedSetBuilder.wrap(Order.STABLE_ORDER, modules);
   }
 
-  private static void collectModules(HeaderInfo headerInfo, boolean usePic, Set<Artifact> modules) {
+  private static void collectModules(
+      HeaderInfo headerInfo, boolean usePic, Set<Artifact> modules, Set<HeaderInfo> visited) {
+    if (!visited.add(headerInfo)) {
+      return;
+    }
     DerivedArtifact module = headerInfo.getModule(usePic);
     if (module == null) {
       // If we don't have a main module, there is also not going to be a separate module. This is
-      // verified when constructing HeaderInfo instances.
+      // verified when constructing HeaderInfo instances. The compiler only finds modules through
+      // the .pcm files passed to it, so look through this dependency.
+      for (HeaderInfo dep : headerInfo.deps) {
+        collectModules(dep, usePic, modules, visited);
+      }
       return;
     }
     modules.add(module);

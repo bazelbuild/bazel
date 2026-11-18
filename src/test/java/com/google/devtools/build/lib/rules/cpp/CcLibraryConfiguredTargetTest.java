@@ -732,6 +732,60 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testModuleUpperBoundsWithoutIncludeScanning_depWithoutModule() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    scratch.file(
+        "module/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        package(features = ['header_modules', 'use_header_modules'])
+        cc_library(
+            name = 'a',
+            srcs = ['a.h'],
+        )
+        cc_library(
+            name = 'b',
+            srcs = ['b.h'],
+            deps = [':a'],
+            features = ['-header_modules'],
+        )
+        cc_library(
+            name = 'c',
+            srcs = ['c.h'],
+            deps = [':b'],
+        )
+        cc_library(
+            name = 'd',
+            srcs = ['d.cc'],
+            deps = [':b', ':c'],
+        )
+        """);
+    Artifact aModuleArtifact =
+        getBinArtifact("_objs/a/a.pic.pcm", getConfiguredTarget("//module:a"));
+    Artifact cModuleArtifact =
+        getBinArtifact("_objs/c/c.pic.pcm", getConfiguredTarget("//module:c"));
+
+    // b has no module that could reference a's module, so a's module is passed directly.
+    CppCompileAction cModuleAction = (CppCompileAction) getGeneratingAction(cModuleArtifact);
+    assertThat(getHeaderModules(cModuleAction.getInputs())).containsExactly(aModuleArtifact);
+    assertThat(getHeaderModuleFlags(cModuleAction.getArguments())).contains("a.pic.pcm");
+
+    Artifact dObjectArtifact = getBinArtifact("_objs/d/d.pic.o", getConfiguredTarget("//module:d"));
+    CppCompileAction dObjectAction = (CppCompileAction) getGeneratingAction(dObjectArtifact);
+    assertThat(getHeaderModules(dObjectAction.getInputs()))
+        .containsExactly(aModuleArtifact, cModuleArtifact);
+    assertThat(getHeaderModuleFlags(dObjectAction.getArguments()))
+        .containsExactly("a.pic.pcm", "c.pic.pcm");
+    assertNoEvents();
+  }
+
+  @Test
   public void testModuleCodegenInputsWithoutIncludeScanning() throws Exception {
     AnalysisMock.get()
         .ccSupport()
