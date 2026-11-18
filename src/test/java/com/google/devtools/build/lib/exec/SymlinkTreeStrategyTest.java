@@ -68,7 +68,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, LabelConstants.MAIN_REPO_DIR_NAME));
+        .thenReturn(new SymlinkTreeStrategy(outputService));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
     when(context.getEventHandler()).thenReturn(eventHandler);
@@ -131,7 +131,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, LabelConstants.MAIN_REPO_DIR_NAME));
+        .thenReturn(new SymlinkTreeStrategy(outputService));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getEventHandler()).thenReturn(eventHandler);
     when(outputService.canCreateSymlinkTree()).thenReturn(false);

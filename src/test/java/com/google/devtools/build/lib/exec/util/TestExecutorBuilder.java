@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
@@ -69,9 +68,7 @@ public class TestExecutorBuilder {
     addContext(FileWriteActionContext.class, fileWriteStrategy);
     addContext(
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(fileWriteStrategy));
-    addContext(
-        SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(null, LabelConstants.MAIN_REPO_DIR_NAME));
+    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 

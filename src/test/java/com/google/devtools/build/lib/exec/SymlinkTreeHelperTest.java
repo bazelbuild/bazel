@@ -90,7 +90,7 @@ public final class SymlinkTreeHelperTest {
     Path inputManifestPath = execRoot.getRelative("foo.runfiles_manifest");
     Path outputManifestPath = execRoot.getRelative("foo.runfiles/MANIFEST");
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot, MAIN_REPO_DIR_NAME);
+        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot);
 
     Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
     Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "symlink");
@@ -180,7 +180,7 @@ public final class SymlinkTreeHelperTest {
     Path inputManifestPath = execRoot.getRelative("foo.runfiles_manifest");
     Path outputManifestPath = execRoot.getRelative("foo.runfiles/MANIFEST");
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot, MAIN_REPO_DIR_NAME);
+        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot);
     assertThat(helper.requiresExistingFileTargets()).isEqualTo(!supportsSymlinks);
 
     Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
@@ -219,8 +219,7 @@ public final class SymlinkTreeHelperTest {
       root.getChild("parent").createSymbolicLink(target.asFragment());
     }
     var helper =
-        new SymlinkTreeHelper(
-            execRoot.getChild("manifest"), root.getChild("MANIFEST"), root, MAIN_REPO_DIR_NAME);
+        new SymlinkTreeHelper(execRoot.getChild("manifest"), root.getChild("MANIFEST"), root);
     Map<PathFragment, PathFragment> links = new LinkedHashMap<>();
     if (parentFirst) {
       links.put(PathFragment.create("parent"), target.asFragment());
@@ -253,8 +252,7 @@ public final class SymlinkTreeHelperTest {
     FileSystemUtils.writeContent(preserved, UTF_8, "preserved");
     root.createSymbolicLink(target.asFragment());
     var helper =
-        new SymlinkTreeHelper(
-            execRoot.getChild("manifest"), root.getChild("MANIFEST"), root, MAIN_REPO_DIR_NAME);
+        new SymlinkTreeHelper(execRoot.getChild("manifest"), root.getChild("MANIFEST"), root);
     helper.createFilesetSymlinks(Map.of(PathFragment.create("link"), preserved.asFragment()));
 
     assertThat(root.isDirectory(Symlinks.NOFOLLOW)).isTrue();
