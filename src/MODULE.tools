@@ -9,7 +9,6 @@ bazel_dep(name = "buildozer", version = "10.1.0.bcr.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 
 # Minimum versions required for compatibility.
-bazel_dep(name = "bazel_features", version = "1.50.0", repo_name = None)  # version bump (https://github.com/bazel-contrib/bazel_features/issues/82)
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None)  # version bump, older versions contribute lockfile entries
 bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None)  # version bump, older versions don't load CcInfo
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None)  # version bump, fixes errors with older compilers
@@ -32,6 +31,9 @@ use_repo(buildozer_binary, "buildozer_binary")
 # Needed by module extensions and labels in BUILD and .bzl files in bazel_tools.
 # Don't bump these dependencies, they should be removed over time.
 # The locations below include subpackages and sources bundled in bazel_tools.
+
+# //tools/{cpp,jdk,python} (whether the toolchain types are defined by the rulesets).
+bazel_dep(name = "bazel_features", version = "1.56.0")
 
 # //tools/proto (defaults of --proto_compiler etc.), //src/main/protobuf.
 bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
