@@ -343,6 +343,13 @@ bool UnlimitCoredumps();
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 std::string DetectBashAndExportBazelSh();
+
+// Returns the first bash.exe on `path_list` that is not under `windir` or
+// `local_app_data`\Microsoft\WindowsApps, or an empty string. Exposed for
+// testing.
+std::string FindBashInPath(const std::string& path_list,
+                           const std::string& windir,
+                           const std::string& local_app_data);
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze
