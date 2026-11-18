@@ -728,7 +728,6 @@ public final class RunfilesSupport {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName(),
                 ruleContext
                     .getConfiguration()
                     .getOptions()

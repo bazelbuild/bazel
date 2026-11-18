@@ -459,7 +459,6 @@ public final class TestActionBuilder {
                 shard,
                 run,
                 config,
-                ruleContext.getWorkspaceName(),
                 (!isExecutedOnWindows || executionSettings.needsShell())
                     ? ShToolchain.getPathForPlatform(
                         ruleContext.getConfiguration(), actionOwner.getExecutionPlatform())

@@ -391,11 +391,6 @@ public class RuleContext extends TargetContext
     return null;
   }
 
-  /** Returns the workspace name for the rule. */
-  public String getWorkspaceName() {
-    return rule.getPackageMetadata().workspaceName();
-  }
-
   /** The configuration conditions that trigger this rule's configurable attributes. */
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;

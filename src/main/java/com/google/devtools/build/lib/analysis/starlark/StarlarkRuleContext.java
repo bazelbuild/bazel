@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -731,7 +732,7 @@ public final class StarlarkRuleContext
   @Override
   public String getWorkspaceName() throws EvalException {
     checkMutable("workspace_name");
-    return ruleContext.getWorkspaceName();
+    return LabelConstants.MAIN_REPO_DIR_NAME;
   }
 
   @Override

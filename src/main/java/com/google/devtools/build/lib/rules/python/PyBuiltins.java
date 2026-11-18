@@ -223,7 +223,6 @@ public abstract class PyBuiltins implements StarlarkValue {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName(),
                 ruleContext
                     .getConfiguration()
                     .getOptions()
