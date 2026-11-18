@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -103,6 +104,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -215,6 +217,7 @@ public class RemoteSpawnRunnerTest {
     doReturn(remoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
     when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
     when(cache.remoteActionCacheSupportsUpdate()).thenReturn(true);
+    when(localRunner.canExec(any())).thenReturn(true);
   }
 
   @After
@@ -341,6 +344,7 @@ public class RemoteSpawnRunnerTest {
 
     runner.exec(spawn, policy);
 
+    verify(localRunner).canExec(spawn);
     verify(localRunner).exec(spawn, policy);
     verify(cache).getRemoteServerCapabilities();
     verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean());
@@ -686,6 +690,41 @@ public class RemoteSpawnRunnerTest {
     // second attempt forcibly re-executes the action.
     verify(service).executeRemotely(any(), eq(true), any());
     verify(service).executeRemotely(any(), eq(false), any());
+  }
+
+  @Test
+  public void unsupportedLocalFallbackAfterRemoteExecutionFailure() throws Exception {
+    remoteOptions.setRemoteLocalFallback(true);
+    when(executor.executeRemotely(any(), any(), any()))
+        .thenThrow(new IOException("remote execution unavailable"));
+
+    assertUnsupportedLocalFallback();
+  }
+
+  @Test
+  public void unsupportedLocalFallbackAfterRemoteCacheFailure() throws Exception {
+    remoteOptions.setRemoteLocalFallback(true);
+    when(cache.downloadActionResult(any(), any(), anyBoolean(), any()))
+        .thenThrow(new IOException("remote cache unavailable"));
+
+    assertUnsupportedLocalFallback();
+  }
+
+  private void assertUnsupportedLocalFallback() throws Exception {
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext context = getSpawnContext(spawn);
+    when(localRunner.canExec(spawn)).thenReturn(false);
+    when(localRunner.getName()).thenReturn("local");
+    RemoteSpawnRunner runner = newSpawnRunner();
+
+    UserExecException error =
+        assertThrows(UserExecException.class, () -> runner.exec(spawn, context));
+
+    assertThat(error.getFailureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.NO_USABLE_STRATEGY_FOUND);
+    assertThat(error).hasMessageThat().contains("fallback strategy 'local'");
+    verify(localRunner, never()).exec(any(), any());
+    verify(runner.getRemoteExecutionService(), never()).uploadOutputs(any(), any(), any(), any());
   }
 
   @Test

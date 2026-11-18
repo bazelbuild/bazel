@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
@@ -571,7 +572,23 @@ public class RemoteSpawnRunner implements SpawnRunner {
     checkNotNull(
         remoteLocalFallbackStrategy,
         "A remote local fallback strategy must be set if using remote fallback.");
-    return remoteLocalFallbackStrategy.getSpawnRunner().exec(spawn, context);
+    SpawnRunner fallbackRunner = remoteLocalFallbackStrategy.getSpawnRunner();
+    if (!fallbackRunner.canExec(spawn)) {
+      throw new UserExecException(
+          FailureDetail.newBuilder()
+              .setMessage(
+                  String.format(
+                      "Remote execution failed and the remote local fallback strategy '%s' cannot"
+                          + " execute this %s spawn. Path-mapped actions require a strategy that"
+                          + " supports path mapping. Disable --remote_local_fallback to report the"
+                          + " original remote error.",
+                      fallbackRunner.getName(), spawn.getMnemonic()))
+              .setSpawn(
+                  FailureDetails.Spawn.newBuilder()
+                      .setCode(FailureDetails.Spawn.Code.NO_USABLE_STRATEGY_FOUND))
+              .build());
+    }
+    return fallbackRunner.exec(spawn, context);
   }
 
   private SpawnResult execLocallyAndUploadOrFail(
