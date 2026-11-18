@@ -87,7 +87,7 @@ public final class TransitiveHashes {
   public static Result compute(
       Collection<Label> roots, Evaluator evaluator, Consumer<String> progress)
       throws InterruptedException {
-    Map<Label, Node<Label>> graph = new HashMap<>();
+    Map<Label, State<Label>> graph = HashMap.newHashMap(roots.size());
     Set<Label> failed = new HashSet<>();
     Map<Label, ErrorInfo> errors = new TreeMap<>();
     ImmutableSet<Label> rootSet = ImmutableSet.copyOf(roots);
@@ -101,8 +101,8 @@ public final class TransitiveHashes {
           frontier.stream().map(DirectTargetHashFunction::key).collect(toImmutableSet());
       EvaluationResult<SkyValue> result = evaluator.evaluate(keys);
       List<Label> next = new ArrayList<>();
-      for (Label label : frontier) {
-        SkyKey key = DirectTargetHashFunction.key(label);
+      for (SkyKey key : keys) {
+        Label label = (Label) key.argument();
         DirectTargetHashFunction.Value value = (DirectTargetHashFunction.Value) result.get(key);
         if (value == null) {
           ErrorInfo error = result.getError(key);
@@ -123,7 +123,7 @@ public final class TransitiveHashes {
             continue;
           }
         }
-        graph.put(label, new Node<>(value.getDirectHash(), value.getDeps()));
+        graph.put(label, new State<>(label, new Node<>(value.getDirectHash(), value.getDeps()), false));
         for (Label dep : value.getDeps()) {
           if (visited.add(dep)) {
             next.add(dep);
@@ -138,13 +138,12 @@ public final class TransitiveHashes {
     }
 
     progress.accept(String.format("Hashing: combining hashes of %d targets", graph.size()));
-    Map<Label, byte[]> hashes =
-        combine(graph, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm, failed);
-    ImmutableMap.Builder<Label, String> rootHashes = ImmutableMap.builder();
+    combineStates(graph, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm, failed);
+    ImmutableMap.Builder<Label, String> rootHashes = ImmutableMap.builderWithExpectedSize(roots.size());
     for (Label root : rootSet) {
-      byte[] hash = hashes.get(root);
-      if (hash != null) {
-        rootHashes.put(root, BaseEncoding.base16().lowerCase().encode(hash));
+      State<Label> state = graph.get(root);
+      if (state != null && state.hash != null) {
+        rootHashes.put(root, BaseEncoding.base16().lowerCase().encode(state.hash));
       }
     }
     return new Result(rootHashes.buildOrThrow(), ImmutableMap.copyOf(errors));
@@ -231,142 +230,153 @@ public final class TransitiveHashes {
       Comparator<? super K> order,
       Function<? super K, String> name,
       Set<K> failedKeys) {
-    Set<K> failed = new HashSet<>(failedKeys);
-    Map<K, byte[]> hashes = new HashMap<>(graph.size());
-    Map<K, Integer> index = new HashMap<>(graph.size());
-    Map<K, Integer> lowLink = new HashMap<>(graph.size());
-    Deque<K> stack = new ArrayDeque<>();
-    Set<K> onStack = new HashSet<>();
-    Deque<Frame<K>> work = new ArrayDeque<>();
-    List<K> component = new ArrayList<>();
-    Fingerprint fp = new Fingerprint();
-
-    for (K root : graph.keySet()) {
-      if (index.containsKey(root)) {
-        continue;
-      }
-      push(root, graph, index, lowLink, stack, onStack, work);
-      while (!work.isEmpty()) {
-        Frame<K> frame = work.peek();
-        if (frame.next()[0] < frame.deps().size()) {
-          K dep = frame.deps().get(frame.next()[0]++);
-          if (!graph.containsKey(dep)) {
-            continue; // A missing leaf.
+    Map<K, State<K>> states = HashMap.newHashMap(graph.size());
+    graph.forEach((key, node) -> states.put(key, new State<>(key, node, failedKeys.contains(key))));
+    combineStates(states, order, name, failedKeys);
+    Map<K, byte[]> hashes = HashMap.newHashMap(states.size());
+    states.forEach(
+        (key, state) -> {
+          if (state.hash != null) {
+            hashes.put(key, state.hash);
           }
-          if (!index.containsKey(dep)) {
-            push(dep, graph, index, lowLink, stack, onStack, work);
-          } else if (onStack.contains(dep)) {
-            lowLink.merge(frame.node(), index.get(dep), Math::min);
-          }
-          continue;
-        }
-        work.pop();
-        K node = frame.node();
-        if (lowLink.get(node).equals(index.get(node))) {
-          component.clear();
-          K member;
-          do {
-            member = stack.pop();
-            onStack.remove(member);
-            component.add(member);
-          } while (!member.equals(node));
-          // Tarjan emits dependencies first, so propagating failures here needs no reverse graph.
-          if (!failed.isEmpty() && hasFailedInput(component, graph, failed)) {
-            failed.addAll(component);
-          } else {
-            hashComponent(component, graph, order, name, hashes, fp);
-          }
-        }
-        if (!work.isEmpty()) {
-          lowLink.merge(work.peek().node(), lowLink.get(node), Math::min);
-        }
-      }
-    }
+        });
     return hashes;
   }
 
-  private static <K> boolean hasFailedInput(
-      List<K> component, Map<K, Node<K>> graph, Set<K> failed) {
-    for (K member : component) {
-      if (failed.contains(member)) {
-        return true;
+  private static <K> void combineStates(
+      Map<K, State<K>> states,
+      Comparator<? super K> order,
+      Function<? super K, String> name,
+      Set<K> failedKeys) {
+    Deque<State<K>> stack = new ArrayDeque<>();
+    Deque<State<K>> work = new ArrayDeque<>();
+    List<State<K>> component = new ArrayList<>();
+    Fingerprint fp = new Fingerprint();
+    int nextIndex = 0;
+
+    for (State<K> root : states.values()) {
+      if (root.index >= 0) {
+        continue;
       }
-      for (K dep : graph.get(member).deps()) {
-        if (failed.contains(dep)) {
-          return true;
+      push(root, nextIndex++, stack, work);
+      while (!work.isEmpty()) {
+        State<K> state = work.peek();
+        if (state.nextDep < state.node.deps().size()) {
+          K depKey = state.node.deps().get(state.nextDep++);
+          State<K> dep = states.get(depKey);
+          if (dep == null) {
+            state.failed |= failedKeys.contains(depKey);
+          } else if (dep.index < 0) {
+            push(dep, nextIndex++, stack, work);
+          } else if (dep.component < 0) {
+            state.lowLink = Math.min(state.lowLink, dep.index);
+            state.selfEdge |= state == dep;
+          } else {
+            state.failed |= dep.failed;
+          }
+          continue;
+        }
+
+        work.pop();
+        if (state.lowLink == state.index) {
+          component.clear();
+          State<K> member;
+          boolean failed = false;
+          do {
+            member = stack.pop();
+            member.component = state.index;
+            component.add(member);
+            failed |= member.failed;
+          } while (member != state);
+          if (failed) {
+            for (State<K> failedMember : component) {
+              failedMember.failed = true;
+            }
+          } else {
+            hashComponent(component, states, order, name, fp);
+          }
+        }
+        if (!work.isEmpty()) {
+          State<K> parent = work.peek();
+          parent.lowLink = Math.min(parent.lowLink, state.lowLink);
+          parent.failed |= state.failed;
         }
       }
     }
-    return false;
+
   }
 
-  /** An explicit DFS frame, to avoid overflowing the Java stack on deep graphs. */
-  private record Frame<K>(K node, List<K> deps, int[] next) {}
+  private static final class State<K> {
+    final K key;
+    final Node<K> node;
+    int index = -1;
+    int lowLink;
+    int component = -1;
+    int nextDep;
+    boolean selfEdge;
+    boolean failed;
+    byte[] hash;
+    @Nullable String displayName;
+
+    State(K key, Node<K> node, boolean failed) {
+      this.key = key;
+      this.node = node;
+      this.failed = failed;
+    }
+
+    String displayName(Function<? super K, String> name) {
+      if (displayName == null) {
+        displayName = name.apply(key);
+      }
+      return displayName;
+    }
+  }
 
   private static <K> void push(
-      K node,
-      Map<K, Node<K>> graph,
-      Map<K, Integer> index,
-      Map<K, Integer> lowLink,
-      Deque<K> stack,
-      Set<K> onStack,
-      Deque<Frame<K>> work) {
-    int i = index.size();
-    index.put(node, i);
-    lowLink.put(node, i);
-    stack.push(node);
-    onStack.add(node);
-    work.push(new Frame<>(node, graph.get(node).deps(), new int[] {0}));
+      State<K> state, int index, Deque<State<K>> stack, Deque<State<K>> work) {
+    state.index = state.lowLink = index;
+    stack.push(state);
+    work.push(state);
   }
 
-  /**
-   * Hashes one strongly connected component. All deps outside of it have already been hashed,
-   * because Tarjan's algorithm emits components in reverse topological order.
-   */
   private static <K> void hashComponent(
-      List<K> component,
-      Map<K, Node<K>> graph,
+      List<State<K>> component,
+      Map<K, State<K>> states,
       Comparator<? super K> order,
       Function<? super K, String> name,
-      Map<K, byte[]> hashes,
       Fingerprint fp) {
-    if (component.size() == 1 && !graph.get(component.get(0)).deps().contains(component.get(0))) {
-      // Not part of a cycle.
-      K node = component.get(0);
-      fp.addBytes(graph.get(node).directHash());
-      addDeps(fp, graph.get(node), /* component= */ Set.of(), name, hashes);
-      hashes.put(node, fp.digestAndReset());
+    State<K> first = component.getFirst();
+    if (component.size() == 1 && !first.selfEdge) {
+      fp.addBytes(first.node.directHash());
+      addDeps(fp, first, states, name);
+      first.hash = fp.digestAndReset();
       return;
     }
-    List<K> members = new ArrayList<>(component);
-    members.sort(order);
-    Set<K> memberSet = new HashSet<>(members);
+    component.sort((a, b) -> order.compare(a.key, b.key));
     fp.addString("<cycle>");
-    for (K member : members) {
-      fp.addString(name.apply(member));
-      fp.addBytes(graph.get(member).directHash());
-      addDeps(fp, graph.get(member), memberSet, name, hashes);
+    for (State<K> member : component) {
+      fp.addString(member.displayName(name));
+      fp.addBytes(member.node.directHash());
+      addDeps(fp, member, states, name);
     }
     byte[] componentHash = fp.digestAndReset();
-    for (K member : members) {
-      hashes.put(member, fp.addBytes(componentHash).addString(name.apply(member)).digestAndReset());
+    for (State<K> member : component) {
+      member.hash = fp.addBytes(componentHash).addString(member.displayName(name)).digestAndReset();
     }
   }
 
   private static <K> void addDeps(
       Fingerprint fp,
-      Node<K> node,
-      Set<K> component,
-      Function<? super K, String> name,
-      Map<K, byte[]> hashes) {
-    for (K dep : node.deps()) {
-      fp.addString(name.apply(dep));
-      if (component.contains(dep)) {
+      State<K> state,
+      Map<K, State<K>> states,
+      Function<? super K, String> name) {
+    for (K key : state.node.deps()) {
+      State<K> dep = states.get(key);
+      fp.addString(dep == null ? name.apply(key) : dep.displayName(name));
+      if (dep != null && dep.component == state.component) {
         continue; // Edges within a cycle are covered by the component hash.
       }
-      byte[] depHash = hashes.get(dep);
-      // A dep that could not be loaded contributes deterministically, so that it turning into an
-      // existing target is detected.
+      byte[] depHash = dep == null ? null : dep.hash;
       fp.addString(depHash == null ? "<missing>" : "");
       if (depHash != null) {
         fp.addBytes(depHash);
