@@ -161,13 +161,21 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final ExtendedEventHandler reporter;
   private final AtomicBoolean outputLoggingFailed = new AtomicBoolean(false);
 
-  /** Stands in for the ID of an entry in {@link #entryMap} while the entry is being computed. */
-  private static final class PendingEntry {
-    // Counted down once the entry has been written to the log or has failed to be computed.
-    private final CountDownLatch done = new CountDownLatch(1);
-    // The entry ID, or 0 if the entry failed to be computed. Must only be read after waiting for
-    // the latch.
+  /**
+   * Stands in for the ID of an entry in {@link #entryMap} while the entry is being computed.
+   *
+   * <p>Counted down once the entry has been written to the log or has failed to be computed.
+   * Extends {@link CountDownLatch} instead of holding one to avoid allocating an additional object
+   * per entry.
+   */
+  private static final class PendingEntry extends CountDownLatch {
+    // The entry ID, or 0 if the entry failed to be computed. Must only be written before counting
+    // down and only be read after awaiting.
     private int id;
+
+    PendingEntry() {
+      super(1);
+    }
   }
 
   // Maps a key identifying an entry into its ID, as an Integer.
@@ -809,11 +817,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         // This can't deadlock: a thread only waits for entries referenced by the entry it is
         // computing, and an entry never transitively references itself.
         PendingEntry pending = (PendingEntry) existing;
-        pending.done.await();
+        pending.await();
         if (pending.id != 0) {
           return pending.id;
         }
-        // The other thread failed to compute the entry, so it is up to this thread to try.
+        // The other thread failed to compute the entry (e.g. because it was interrupted), so it is
+        // up to this thread to try.
       }
     }
   }
@@ -839,7 +848,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         entryMap.remove(key, pending);
       }
       pending.id = id;
-      pending.done.countDown();
+      pending.countDown();
     }
   }
 
