@@ -40,7 +40,10 @@ public class SystemSuspensionEvent implements ExtendedEventHandler.Postable {
       return logString;
     }
 
-    /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
+    /**
+     * These constants are mapped to enum in
+     * third_party/bazel/src/main/native/darwin/system_suspension_monitor_jni.cc.
+     */
     static Reason fromInt(int number) {
       return switch (number) {
         case 0 -> SIGTSTP;
