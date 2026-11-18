@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.IOException;
@@ -54,8 +53,7 @@ public class RepositoryFunctionException extends SkyFunctionException {
       checkState(
           e instanceof NoSuchPackageException
               || e instanceof IOException
-              || e instanceof EvalException
-              || e instanceof ExternalPackageException,
+              || e instanceof EvalException,
           e);
     }
   }

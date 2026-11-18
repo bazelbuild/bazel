@@ -12,16 +12,6 @@ filegroup(
 )
 
 java_library(
-    name = "external_package_exception",
-    srcs = ["ExternalPackageException.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
-    ],
-)
-
-java_library(
     name = "repository_events",
     srcs = [
         "RepositoryFailedEvent.java",
