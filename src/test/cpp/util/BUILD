@@ -86,17 +86,6 @@ cc_test(
 )
 
 cc_test(
-    name = "numbers_test",
-    srcs = ["numbers_test.cc"],
-    deps = [
-        "//src/main/cpp/util:numbers",
-        "//src/main/cpp/util:port",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
     name = "strings_test",
     srcs = ["strings_test.cc"] + select({
         "//src/conditions:windows": ["strings_windows_test.cc"],

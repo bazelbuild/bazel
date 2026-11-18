@@ -48,13 +48,13 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
-#include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "absl/strings/numbers.h"
 #include "absl/time/time.h"
 
 namespace blaze {
@@ -1347,9 +1347,8 @@ bool IsStandardTerminal() {
 int GetTerminalColumns() {
   string columns_env = GetEnv("COLUMNS");
   if (!columns_env.empty()) {
-    char* endptr;
-    int columns = blaze_util::strto32(columns_env.c_str(), &endptr, 10);
-    if (*endptr == '\0') {  // $COLUMNS is a valid number
+    int columns;
+    if (absl::SimpleAtoi(columns_env, &columns)) {
       return columns;
     }
   }

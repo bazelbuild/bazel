@@ -33,9 +33,9 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
-#include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "absl/strings/numbers.h"
 #include "absl/time/time.h"
 
 namespace blaze {
@@ -360,7 +360,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     option_sources["redact_client_env"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--io_nice_level")) !=
              nullptr) {
-    if (!blaze_util::safe_strto32(value, &io_nice_level) || io_nice_level > 7) {
+    if (!absl::SimpleAtoi(value, &io_nice_level) || io_nice_level > 7) {
       blaze_util::StringPrintf(
           error,
           "Invalid argument to --io_nice_level: '%s'. Must not exceed 7.",
@@ -370,7 +370,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     option_sources["io_nice_level"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--max_idle_secs")) !=
              nullptr) {
-    if (!blaze_util::safe_strto32(value, &max_idle_secs) || max_idle_secs < 0) {
+    if (!absl::SimpleAtoi(value, &max_idle_secs) || max_idle_secs < 0) {
       blaze_util::StringPrintf(
           error, "Invalid argument to --max_idle_secs: '%s'.", value);
       return blaze_exit_code::BAD_ARGV;
@@ -402,7 +402,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     option_sources["macos_qos_class"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--connect_timeout_secs")) != nullptr) {
-    if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
+    if (!absl::SimpleAtoi(value, &connect_timeout_secs) ||
         connect_timeout_secs < 1 || connect_timeout_secs > 3600) {
       blaze_util::StringPrintf(
           error,
@@ -414,7 +414,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     option_sources["connect_timeout_secs"] = rcfile;
   } else if ((value = GetUnaryOption(
                   arg, next_arg, "--local_startup_timeout_secs")) != nullptr) {
-    if (!blaze_util::safe_strto32(value, &local_startup_timeout_secs) ||
+    if (!absl::SimpleAtoi(value, &local_startup_timeout_secs) ||
         local_startup_timeout_secs < 1) {
       blaze_util::StringPrintf(
           error,
@@ -435,7 +435,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     option_sources["unix_digest_hash_attribute_name"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--command_port")) !=
              nullptr) {
-    if (!blaze_util::safe_strto32(value, &command_port) || command_port < 0 ||
+    if (!absl::SimpleAtoi(value, &command_port) || command_port < 0 ||
         command_port > 65535) {
       blaze_util::StringPrintf(error,
                                "Invalid argument to --command_port: '%s'.\n"

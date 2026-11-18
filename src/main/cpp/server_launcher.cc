@@ -33,10 +33,10 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
-#include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
+#include "absl/strings/numbers.h"
 #include "absl/time/time.h"
 
 using blaze_util::GetLastErrorString;
@@ -477,7 +477,8 @@ int GetServerPid(const blaze_util::Path& server_dir) {
   string bufstr;
   int result;
   if (!blaze_util::ReadFile(pid_file, &bufstr, 32) ||
-      !blaze_util::safe_strto32(bufstr, &result)) {
+      bufstr.find_first_not_of("0123456789") != std::string::npos ||
+      !absl::SimpleAtoi(bufstr, &result)) {
     return -1;
   }
 

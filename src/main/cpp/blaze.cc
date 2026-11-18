@@ -75,13 +75,13 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
-#include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/main/protobuf/command_server.grpc.pb.h"
+#include "absl/strings/numbers.h"
 #include "absl/time/time.h"
 
 using blaze_util::GetLastErrorString;
@@ -832,7 +832,7 @@ static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
       return blaze_exit_code::INTERNAL_ERROR;
     }
     int custom_exit_code;
-    if (!blaze_util::safe_strto32(content, &custom_exit_code)) {
+    if (!absl::SimpleAtoi(content, &custom_exit_code)) {
       BAZEL_LOG(INFO) << "Content of custom exit-code file not an int: "
                       << content << "Exiting with an INTERNAL_ERROR.";
       return blaze_exit_code::INTERNAL_ERROR;
