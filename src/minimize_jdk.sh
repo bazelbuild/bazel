@@ -32,10 +32,8 @@ fulljdk=$1
 out=$3
 ARCH=`uname -p`
 if [[ "${ARCH}" == 'ppc64le'  ]] || [[ "${ARCH}" == 's390x' ]]; then
-  FULL_JDK_DIR="jdk*"
   DOCS=""
 else
-  FULL_JDK_DIR="zulu*"
   DOCS="DISCLAIMER readme.txt"
 fi
 
@@ -70,12 +68,34 @@ remove_distrusted_certs() {
   done
 }
 
+# Strips an extracted JDK archive to its home directory.
+# Some JDK archives (e.g., macOS .jdk bundles) nest the JDK home inside
+# additional directories like Contents/Home/. This function detects the
+# actual JDK home by locating the 'release' file and moves it to the
+# expected top-level directory.
+strip_to_jdk_home() {
+  local dir=$1
+  local release
+  release=$(find "$dir" -name release -maxdepth 4 -print -quit)
+  if [[ -z "$release" ]]; then
+    echo "ERROR: could not find 'release' file in $dir" >&2
+    exit 1
+  fi
+  local jdk_home
+  jdk_home=$(dirname "$release")
+  if [[ "$jdk_home" != "$dir" ]]; then
+    local tmp="${dir}_tmp"
+    mv "$jdk_home" "$tmp"
+    rm -rf "$dir"
+    mv "$tmp" "$dir"
+  fi
+}
+
 if [[ "$UNAME" =~ msys_nt* ]]; then
   set -x
-  mkdir "tmp.$$"
+  unzip -q "$fulljdk" -d "tmp.$$"
+  strip_to_jdk_home "tmp.$$"
   cd "tmp.$$"
-  unzip -q "../$fulljdk"
-  cd $FULL_JDK_DIR
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore
   # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
@@ -89,15 +109,17 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
   zip -q -X -r ../reduced.zip reduced/
-  cd ../..
-  mv "tmp.$$/reduced.zip" "$out"
+  cd ..
+  mv reduced.zip "$out"
   rm -rf "tmp.$$"
 else
   # The --no-same-owner flag instructs tar to not try to chown extracted files
   # to the owner stored in the archive - it will try to do that when running as
   # root, but fail when running inside Docker, so we explicitly disable it.
-  tar xf "$fulljdk" --no-same-owner
-  cd $FULL_JDK_DIR
+  mkdir "target_jdk.$$"
+  tar xf "$fulljdk" --no-same-owner -C "target_jdk.$$"
+  strip_to_jdk_home "target_jdk.$$"
+  cd "target_jdk.$$"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
@@ -114,4 +136,5 @@ else
   zip -q -X -r ../reduced.zip reduced/
   cd ..
   mv reduced.zip "$out"
+  rm -rf "target_jdk.$$"
 fi
