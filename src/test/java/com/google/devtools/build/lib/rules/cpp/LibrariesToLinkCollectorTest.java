@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
@@ -127,7 +128,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     SpawnAction linkAction = (SpawnAction) getGeneratingAction(binary);
     assertThat(linkAction).isNotNull();
 
-    String workspace = getTarget("//toolchain:toolchain").getPackageMetadata().workspaceName();
+    String workspace = LabelConstants.MAIN_REPO_DIR_NAME;
     List<String> linkArgs = linkAction.getArguments();
     assertThat(linkArgs).contains("--runtime_library=../../../_solib__toolchain_Cc_Utoolchain/");
     assertThat(linkArgs)
@@ -237,7 +238,10 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     List<String> linkArgs = linkAction.getArguments();
     assertThat(linkArgs).contains("--runtime_library=../../_solib__toolchain+_A_Cc_Utoolchain/");
     assertThat(linkArgs)
-        .contains("--runtime_library=foo.runfiles/_main/_solib__toolchain+_A_Cc_Utoolchain/");
+        .contains(
+            "--runtime_library=foo.runfiles/"
+                + LabelConstants.MAIN_REPO_DIR_NAME
+                + "/_solib__toolchain+_A_Cc_Utoolchain/");
     assertThat(linkArgs).contains("--runtime_library=_solib__toolchain+_A_Cc_Utoolchain/");
   }
 }
