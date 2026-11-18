@@ -3,7 +3,7 @@ check_docs: 0
 tasks:
   rockylinux8:
     shell_commands:
-      - rm -rf $HOME/bazeltest/install_base
+      - rm -rf $HOME/bazeltest/install_base*
       - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
@@ -33,7 +33,7 @@ tasks:
       - test
   rockylinux8_arm64:
     shell_commands:
-      - rm -rf $HOME/bazeltest/install_base
+      - rm -rf $HOME/bazeltest/install_base*
       - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
@@ -54,7 +54,7 @@ tasks:
       - test
   fedora43:
     shell_commands:
-      - rm -rf $HOME/bazeltest/install_base
+      - rm -rf $HOME/bazeltest/install_base*
       - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
@@ -68,7 +68,7 @@ tasks:
   ubuntu2404:
     shards: 8
     shell_commands:
-      - rm -rf $HOME/bazeltest/install_base
+      - rm -rf $HOME/bazeltest/install_base*
       - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
@@ -92,7 +92,7 @@ tasks:
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
     shell_commands:
-      - rm -rf $HOME/bazeltest/install_base
+      - rm -rf $HOME/bazeltest/install_base*
       - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
@@ -112,7 +112,7 @@ tasks:
       - test
   ubuntu2204:
     shell_commands:
-      - rm -rf $HOME/bazeltest/install_base
+      - rm -rf $HOME/bazeltest/install_base*
       - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
