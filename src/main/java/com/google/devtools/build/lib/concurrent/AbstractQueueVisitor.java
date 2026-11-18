@@ -99,7 +99,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   /**
    * Set (under the <em>write</em> lock of {@link #outstandingFuturesLock}) once {@link
-   * #cancelAllFutures} has swept {@link #outstandingFutures}. Only ever transitions from {@code
+   * #cancelAllFutures} has committed to the set of {@link #outstandingFutures} to cancel. Only ever transitions from {@code
    * false} to {@code true}.
    *
    * <p>A future registered after the sweep would never be cancelled. If nothing else completes it
