@@ -618,11 +618,30 @@ public class RemoteActionFileSystem extends FileSystem {
       throws IOException {
     linkPath = resolveSymbolicLinksForParent(linkPath);
 
-    if (isOutput(linkPath)) {
-      remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment, type);
-    }
+    Path localLink = localFs.getPath(linkPath);
+    localLink.createSymbolicLink(targetFragment, type);
 
-    localFs.getPath(linkPath).createSymbolicLink(targetFragment, type);
+    if (isOutput(linkPath)) {
+      // Record the target as it was materialized on the local filesystem, which may differ from
+      // the requested one: on Windows, a link to a directory is created as a junction, which always
+      // stores an absolute target. The output metadata is computed from the remote output tree,
+      // while subsequent builds check it against the local filesystem; a mismatch would cause the
+      // generating action to be needlessly rerun on every build.
+      remoteOutputTree
+          .getPath(linkPath)
+          .createSymbolicLink(getMaterializedSymlinkTarget(localLink, targetFragment), type);
+    }
+  }
+
+  private static PathFragment getMaterializedSymlinkTarget(
+      Path localLink, PathFragment targetFragment) throws IOException {
+    try {
+      return localLink.readSymbolicLink();
+    } catch (NotASymlinkException e) {
+      // The local filesystem may fall back to a copy if it doesn't support symlinks (e.g. on
+      // Windows without --windows_enable_symlinks).
+      return targetFragment;
+    }
   }
 
   @Override

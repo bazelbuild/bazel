@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
+import javax.annotation.Nullable;
 
 /** File operations on Windows. */
 public class WindowsFileOperations {
@@ -97,7 +98,8 @@ public class WindowsFileOperations {
   private static native int nativeGetChangeTime(
       String path, boolean followReparsePoints, long[] result, String[] error);
 
-  private static native int nativeCreateJunction(String name, String target, String[] error);
+  private static native int nativeCreateJunction(
+      String name, String target, @Nullable String printName, String[] error);
 
   private static native int nativeCreateSymlink(String name, String target, String[] error);
 
@@ -160,10 +162,28 @@ public class WindowsFileOperations {
    * @throws IOException if some error occurs
    */
   public static void createJunction(String name, String target) throws IOException {
+    createJunction(name, target, /* displayName= */ null);
+  }
+
+  /**
+   * Creates a junction at `name`, pointing to `target`, with the given display name.
+   *
+   * <p>A junction's display name (the "print name" in its reparse data) doesn't affect where it
+   * points to. By default, it's the same as the target. A different display name, such as the
+   * relative path from which `target` was computed, can be read back with {@link
+   * #readSymlinkOrJunctionTarget}. It is silently ignored if it doesn't fit next to the target. If
+   * the junction already exists and points to `target`, its display name is not changed.
+   *
+   * @param displayName the display name, or null to use the target
+   * @throws IOException if some error occurs
+   */
+  public static void createJunction(String name, String target, @Nullable String displayName)
+      throws IOException {
     String[] error = new String[] {null};
     switch (nativeCreateJunction(
         WindowsPathOperations.addUncPrefixAndUseBackslashes(name),
         WindowsPathOperations.addUncPrefixAndUseBackslashes(target),
+        displayName != null ? displayName.replace('/', '\\') : null,
         error)) {
       case CREATE_JUNCTION_SUCCESS:
         return;
@@ -212,13 +232,33 @@ public class WindowsFileOperations {
         String.format("Cannot create symlink (name=%s, target=%s): %s", name, target, error[0]));
   }
 
+  /**
+   * The target of a symlink or junction.
+   *
+   * @param target the target, without UNC prefix and with forward slashes. Always absolute for a
+   *     junction.
+   * @param junctionDisplayName the display name of a junction (see {@link #createJunction(String,
+   *     String, String)}) with forward slashes, or null if the link is not a junction or has no
+   *     display name
+   */
+  public record SymlinkOrJunctionTarget(String target, @Nullable String junctionDisplayName) {}
+
   public static String readSymlinkOrJunction(String name) throws IOException {
-    String[] target = new String[] {null};
+    return readSymlinkOrJunctionTarget(name).target();
+  }
+
+  public static SymlinkOrJunctionTarget readSymlinkOrJunctionTarget(String name)
+      throws IOException {
+    // The native code stores the target in the first element and, for a junction, its display name
+    // in the second.
+    String[] target = new String[] {null, null};
     String[] error = new String[] {null};
     switch (nativeReadSymlinkOrJunction(
         WindowsPathOperations.addUncPrefixAndUseBackslashes(name), target, error)) {
       case READ_SYMLINK_OR_JUNCTION_SUCCESS:
-        return WindowsPathOperations.removeUncPrefixAndUseSlashes(target[0]);
+        return new SymlinkOrJunctionTarget(
+            WindowsPathOperations.removeUncPrefixAndUseSlashes(target[0]),
+            target[1] != null ? target[1].replace('\\', '/') : null);
       case READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED:
         throw new AccessDeniedException(name);
       case READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:

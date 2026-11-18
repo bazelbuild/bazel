@@ -67,6 +67,35 @@ public class WindowsFileOperationsTest {
   }
 
   @Test
+  public void testJunctionCreationWithDisplayName() throws Exception {
+    testUtil.scratchFile("dir/file.txt", "hello");
+    testUtil.scratchDir("parent");
+    String target = scratchRoot + "\\dir";
+    String junction = scratchRoot + "\\parent\\junc";
+
+    WindowsFileOperations.createJunction(junction, target, "../dir");
+
+    assertThat(new File(junction, "file.txt").exists()).isTrue();
+    WindowsFileOperations.SymlinkOrJunctionTarget actual =
+        WindowsFileOperations.readSymlinkOrJunctionTarget(junction);
+    assertThat(actual.target()).isEqualTo(target.replace('\\', '/'));
+    assertThat(actual.junctionDisplayName()).isEqualTo("../dir");
+    assertThat(WindowsFileOperations.readSymlinkOrJunction(junction))
+        .isEqualTo(target.replace('\\', '/'));
+  }
+
+  @Test
+  public void testSymlinkHasNoJunctionDisplayName() throws Exception {
+    testUtil.scratchFile("file.txt", "hello");
+    testUtil.createSymlinks(ImmutableMap.of("symlink", "file.txt"));
+
+    WindowsFileOperations.SymlinkOrJunctionTarget actual =
+        WindowsFileOperations.readSymlinkOrJunctionTarget(scratchRoot + "\\symlink");
+    assertThat(actual.target()).isEqualTo((scratchRoot + "\\file.txt").replace('\\', '/'));
+    assertThat(actual.junctionDisplayName()).isNull();
+  }
+
+  @Test
   public void testSymlinkCreation() throws Exception {
     File helloFile = testUtil.scratchFile("file.txt", "hello").toFile();
     File symlinkFile = new File(scratchRoot, "symlink");

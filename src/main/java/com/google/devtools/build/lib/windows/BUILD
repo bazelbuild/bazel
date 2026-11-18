@@ -24,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

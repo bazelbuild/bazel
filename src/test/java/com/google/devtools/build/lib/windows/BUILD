@@ -35,6 +35,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
         "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
@@ -42,6 +43,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/build/lib/windows:file",
         "//src/main/java/com/google/devtools/build/lib/windows:processes",
