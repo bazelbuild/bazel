@@ -84,7 +84,7 @@ public class ConsistencyTest {
    */
   @Test
   public void serializationRoundTrip() throws Exception {
-    DynamicCodec codec = new DynamicCodec(buildRandomSemantics(new Random(2)).getClass());
+    DynamicCodec codec = DynamicCodec.create(buildRandomSemantics(new Random(2)).getClass());
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       StarlarkSemantics semantics = buildRandomSemantics(new Random(i));
       StarlarkSemantics deserialized =

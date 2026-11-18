@@ -43,14 +43,15 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
   private final Class<?> type;
   private final FieldHandler[] handlers;
 
-  public DynamicCodec(Class<?> type) {
-    this(type, getFieldHandlers(type));
-  }
-
   @SuppressWarnings("AvoidObjectArrays") // less overhead
   private DynamicCodec(Class<?> type, FieldHandler[] handlers) {
     this.type = type;
     this.handlers = handlers;
+  }
+
+  /** Creates a codec instance for {@code type}. */
+  public static DynamicCodec create(Class<?> type) {
+    return new DynamicCodec(type, getFieldHandlers(type));
   }
 
   /** Creates a codec instance with custom handlers for specified fields. */

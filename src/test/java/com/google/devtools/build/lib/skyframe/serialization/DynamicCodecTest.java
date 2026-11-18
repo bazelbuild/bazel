@@ -60,7 +60,7 @@ public final class DynamicCodecTest {
   @Test
   public void testExample() throws Exception {
     new SerializationTester(new SimpleExample("a", "b", -5), new SimpleExample("a", null, 10))
-        .addCodec(new DynamicCodec(SimpleExample.class))
+        .addCodec(DynamicCodec.create(SimpleExample.class))
         .makeMemoizing()
         .runTests();
   }
@@ -90,7 +90,7 @@ public final class DynamicCodecTest {
   public void testExampleSubclass() throws Exception {
     new SerializationTester(
             new ExampleSubclass("a", "b", "c", 0), new ExampleSubclass("a", null, null, 15))
-        .addCodec(new DynamicCodec(ExampleSubclass.class))
+        .addCodec(DynamicCodec.create(ExampleSubclass.class))
         .makeMemoizing()
         .runTests();
   }
@@ -127,7 +127,7 @@ public final class DynamicCodecTest {
             new ExampleSmallPrimitives(false, (byte) 120, (short) 18000, 'x'),
             new ExampleSmallPrimitives(true, Byte.MIN_VALUE, Short.MIN_VALUE, Character.MIN_VALUE),
             new ExampleSmallPrimitives(true, Byte.MAX_VALUE, Short.MAX_VALUE, Character.MAX_VALUE))
-        .addCodec(new DynamicCodec(ExampleSmallPrimitives.class))
+        .addCodec(DynamicCodec.create(ExampleSmallPrimitives.class))
         .makeMemoizing()
         .runTests();
   }
@@ -158,7 +158,7 @@ public final class DynamicCodecTest {
             new ExampleMediumPrimitives(67890, -6e9f),
             new ExampleMediumPrimitives(Integer.MIN_VALUE, Float.MIN_VALUE),
             new ExampleMediumPrimitives(Integer.MAX_VALUE, Float.MAX_VALUE))
-        .addCodec(new DynamicCodec(ExampleMediumPrimitives.class))
+        .addCodec(DynamicCodec.create(ExampleMediumPrimitives.class))
         .makeMemoizing()
         .runTests();
   }
@@ -189,7 +189,7 @@ public final class DynamicCodecTest {
             new ExampleLargePrimitives(678900093045L, -9e180),
             new ExampleLargePrimitives(Long.MIN_VALUE, Double.MIN_VALUE),
             new ExampleLargePrimitives(Long.MAX_VALUE, Double.MAX_VALUE))
-        .addCodec(new DynamicCodec(ExampleLargePrimitives.class))
+        .addCodec(DynamicCodec.create(ExampleLargePrimitives.class))
         .makeMemoizing()
         .runTests();
   }
@@ -230,7 +230,7 @@ public final class DynamicCodecTest {
                 new byte[] {-1, 0, 1},
                 new char[] {'a', 'b', 'c', 'x', 'y', 'z'},
                 new long[] {Long.MAX_VALUE, Long.MIN_VALUE, 27983741982341L, 52893748523495834L}))
-        .addCodec(new DynamicCodec(ArrayExample.class))
+        .addCodec(DynamicCodec.create(ArrayExample.class))
         .runTests();
   }
 
@@ -262,7 +262,7 @@ public final class DynamicCodecTest {
                   {7}
                 }),
             new NestedArrayExample(new int[][] {{1, 2, 3}, null, {7}}))
-        .addCodec(new DynamicCodec(NestedArrayExample.class))
+        .addCodec(DynamicCodec.create(NestedArrayExample.class))
         .runTests();
   }
 
@@ -311,8 +311,8 @@ public final class DynamicCodecTest {
   @Test
   public void testCyclic() throws Exception {
     new SerializationTester(createCycle(1, 2), createCycle(3, 4))
-        .addCodec(new DynamicCodec(CycleA.class))
-        .addCodec(new DynamicCodec(CycleB.class))
+        .addCodec(DynamicCodec.create(CycleA.class))
+        .addCodec(DynamicCodec.create(CycleB.class))
         .makeMemoizing()
         .runTests();
   }
@@ -366,7 +366,7 @@ public final class DynamicCodecTest {
             new PrimitiveExample(false, -1, -5.5, EnumExample.ONE, "bar"),
             new PrimitiveExample(true, 5, 20.0, EnumExample.THREE, null),
             new PrimitiveExample(true, 100, 100, null, "hello"))
-        .addCodec(new DynamicCodec(PrimitiveExample.class))
+        .addCodec(DynamicCodec.create(PrimitiveExample.class))
         .addCodec(new EnumCodec<>(EnumExample.class))
         .setRepetitions(100000)
         .runTests();
@@ -437,7 +437,7 @@ public final class DynamicCodecTest {
     }
     ObjectCodecRegistry registry =
         ObjectCodecRegistry.newBuilder()
-            .add(new DynamicCodec(SpecificObjectWrapper.class))
+            .add(DynamicCodec.create(SpecificObjectWrapper.class))
             .add(new OverGeneralCodec())
             .build();
     ObjectCodecs codecs = new ObjectCodecs(registry);
@@ -471,7 +471,7 @@ public final class DynamicCodecTest {
     }
     ObjectCodecRegistry registry =
         ObjectCodecRegistry.newBuilder()
-            .add(new DynamicCodec(SpecificObjectWrapper.class))
+            .add(DynamicCodec.create(SpecificObjectWrapper.class))
             .add(new OverGeneralCodec())
             .build();
     ObjectCodecs codecs = new ObjectCodecs(registry);
@@ -515,7 +515,7 @@ public final class DynamicCodecTest {
     ObjectCodecs codecs =
         new ObjectCodecs(
             ObjectCodecRegistry.newBuilder()
-                .add(new DynamicCodec(CustomHandlerExample.class))
+                .add(DynamicCodec.create(CustomHandlerExample.class))
                 .build());
     SerializationException expected =
         assertThrows(
