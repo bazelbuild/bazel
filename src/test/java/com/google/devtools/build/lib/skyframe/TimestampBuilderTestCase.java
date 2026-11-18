@@ -256,7 +256,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(() -> tsgm, SyscallCache.NO_CACHE, externalFilesHelper))
-                .put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories))
+                .put(
+                    SkyFunctions.FILE,
+                    new FileFunction(pkgLocator, directories, externalFilesHelper))
                 .put(
                     Artifact.ARTIFACT,
                     new ArtifactFunction(
