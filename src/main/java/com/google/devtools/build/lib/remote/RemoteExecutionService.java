@@ -218,7 +218,6 @@ public class RemoteExecutionService {
       RemotePathResolver remotePathResolver,
       String buildRequestId,
       String commandId,
-      String workspaceName,
       DigestUtil digestUtil,
       RemoteOptions remoteOptions,
       ExecutionOptions executionOptions,
@@ -249,8 +248,7 @@ public class RemoteExecutionService {
                 ? remoteExecutionCache
                 : null,
             buildRequestId,
-            commandId,
-            workspaceName);
+            commandId);
 
     this.scrubber = remoteOptions.getScrubber();
 

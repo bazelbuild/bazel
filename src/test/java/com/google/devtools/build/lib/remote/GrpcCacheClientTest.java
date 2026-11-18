@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -347,8 +346,7 @@ public class GrpcCacheClientTest {
           }
         };
     var merkleTreeComputer =
-        new MerkleTreeComputer(
-            DIGEST_UTIL, client, "buildRequestId", "commandId", LabelConstants.MAIN_REPO_DIR_NAME);
+        new MerkleTreeComputer(DIGEST_UTIL, client, "buildRequestId", "commandId");
     var spawn = new SpawnBuilder().withInput(virtualActionInput).build();
     var merkleTree =
         (MerkleTree.Uploadable)

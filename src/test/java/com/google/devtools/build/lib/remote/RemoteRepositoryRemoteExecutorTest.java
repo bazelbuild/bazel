@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -67,7 +66,6 @@ public class RemoteRepositoryRemoteExecutorTest {
             DIGEST_UTIL,
             "none",
             "none",
-            LabelConstants.MAIN_REPO_DIR_NAME,
             /* remoteInstanceName= */ "foo",
             /* acceptCached= */ true);
   }

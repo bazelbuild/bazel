@@ -84,8 +84,6 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public class MerkleTreeComputerTest {
-  private static final String WORKSPACE_NAME = "_main";
-
   private Path execRoot;
   private ArtifactRoot artifactRoot;
 
@@ -731,8 +729,7 @@ public class MerkleTreeComputerTest {
         new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256),
         uploader,
         "buildRequestId",
-        "commandId",
-        WORKSPACE_NAME);
+        "commandId");
   }
 
   private FakeSpawnExecutionContext createSpawnExecutionContext(

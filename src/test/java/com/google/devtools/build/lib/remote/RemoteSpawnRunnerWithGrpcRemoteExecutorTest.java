@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -357,7 +356,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
             "command-id",
-            LabelConstants.MAIN_REPO_DIR_NAME,
             DIGEST_UTIL,
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),

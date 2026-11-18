@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -140,11 +139,7 @@ public class CombinedCacheTest {
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private final MerkleTreeComputer merkleTreeComputer =
       new MerkleTreeComputer(
-          digestUtil,
-          /* remoteExecutionCache= */ null,
-          "buildRequestId",
-          "commandId",
-          LabelConstants.MAIN_REPO_DIR_NAME);
+          digestUtil, /* remoteExecutionCache= */ null, "buildRequestId", "commandId");
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;

@@ -336,7 +336,6 @@ public final class RemoteModule extends BlazeModule {
             actionContextProvider.getRemoteExecutionClient(),
             buildRequestId,
             invocationId,
-            LabelConstants.MAIN_REPO_DIR_NAME,
             remoteOptions.getRemoteInstanceName(),
             remoteOptions.getRemoteAcceptCached(),
             remoteOptions.getRemoteUploadLocalResults(),

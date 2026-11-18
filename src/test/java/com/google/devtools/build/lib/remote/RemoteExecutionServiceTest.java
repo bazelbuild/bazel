@@ -3434,7 +3434,6 @@ public class RemoteExecutionServiceTest {
         remotePathResolver,
         "none",
         "none",
-        LabelConstants.MAIN_REPO_DIR_NAME,
         digestUtil,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),

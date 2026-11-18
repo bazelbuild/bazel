@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -361,7 +360,6 @@ public class RemoteSpawnCacheTest {
                 remotePathResolver,
                 BUILD_REQUEST_ID,
                 COMMAND_ID,
-                LabelConstants.MAIN_REPO_DIR_NAME,
                 digestUtil,
                 options,
                 executionOptions,
