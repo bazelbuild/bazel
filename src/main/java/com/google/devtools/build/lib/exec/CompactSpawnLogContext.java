@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CheckReturnValue;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -68,10 +69,10 @@ import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -178,7 +179,91 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     }
   }
 
-  // Maps a key identifying an entry into its ID, as an Integer.
+  /**
+   * Maps the key of an entry to its ID, or to a {@link PendingEntry} while the entry is being
+   * computed.
+   *
+   * <p>The map holds an entry for every file, directory, symlink, runfiles tree and shared nested
+   * set mentioned in the build, which is millions of entries for a large build, so its memory
+   * footprint matters. IDs are therefore kept in open-addressing maps with primitive values, which
+   * take about a third of the memory of a {@link java.util.concurrent.ConcurrentHashMap} with
+   * boxed values.
+   *
+   * <p>Lookups are made by every thread that logs a spawn, so they must not all contend for the
+   * same lock. Keys are spread over stripes, each guarded by its own monitor, which is only held
+   * for the duration of a single map operation.
+   */
+  private static final class EntryIdMap {
+    private static final int STRIPE_BITS = 10;
+
+    // The IDs of the entries that have been written to the log.
+    private final Object2IntOpenHashMap<Object>[] ids;
+    // The entries that are being computed. Each map is guarded by the monitor of the element of
+    // ids with the same index.
+    private final HashMap<Object, PendingEntry>[] pending;
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    EntryIdMap() {
+      ids = new Object2IntOpenHashMap[1 << STRIPE_BITS];
+      pending = new HashMap[1 << STRIPE_BITS];
+      for (int i = 0; i < ids.length; i++) {
+        ids[i] = new Object2IntOpenHashMap<>();
+        pending[i] = new HashMap<>(4);
+      }
+    }
+
+    private static int stripe(Object key) {
+      // Use the upper bits of a multiplicative hash, so that the stripe is independent of the
+      // position of the key within the stripe's map, which is derived from the lower bits.
+      return (key.hashCode() * 0x9E3779B9) >>> (Integer.SIZE - STRIPE_BITS);
+    }
+
+    /** Returns the ID recorded for the key, or 0 if there is none. */
+    int get(Object key) {
+      int stripe = stripe(key);
+      synchronized (ids[stripe]) {
+        return ids[stripe].getInt(key);
+      }
+    }
+
+    /**
+     * Registers the calling thread as the one computing the entry for the key, unless the entry
+     * has been written or is being computed by another thread.
+     *
+     * @return null if {@code mine} was registered; otherwise the Integer ID recorded for the key
+     *     in the meantime, or the PendingEntry of the thread that is computing the entry
+     */
+    @Nullable
+    Object reserve(Object key, PendingEntry mine) {
+      int stripe = stripe(key);
+      synchronized (ids[stripe]) {
+        int id = ids[stripe].getInt(key);
+        if (id != 0) {
+          return id;
+        }
+        return pending[stripe].putIfAbsent(key, mine);
+      }
+    }
+
+    /** Records the ID of an entry that has been written to the log. */
+    void complete(Object key, int id) {
+      int stripe = stripe(key);
+      synchronized (ids[stripe]) {
+        ids[stripe].put(key, id);
+        pending[stripe].remove(key);
+      }
+    }
+
+    /** Unregisters an entry that failed to be computed. */
+    void fail(Object key, PendingEntry mine) {
+      int stripe = stripe(key);
+      synchronized (ids[stripe]) {
+        pending[stripe].remove(key, mine);
+      }
+    }
+  }
+
+  // Maps a key identifying an entry into its ID.
   // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
   // runfiles tree.
   // Only entries that are likely to be referenced by future entries are stored.
@@ -186,9 +271,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   // other threads that need the same entry wait for it. The ID is only stored after the entry has
   // been handed to the output stream, so that an ID obtained from this map always identifies an
   // entry that precedes every entry written afterwards.
-  // Lookups vastly outnumber insertions and are made by every thread that logs a spawn, so they
-  // must not require a lock.
-  private final ConcurrentHashMap<Object, Object> entryMap = new ConcurrentHashMap<>();
+  private final EntryIdMap entryMap = new EntryIdMap();
 
   // The next available entry ID.
   // Guarded by the lock that is held while an entry with an ID is handed to the output stream, so
@@ -800,16 +883,18 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
       while (true) {
         // Check for a previously added entry.
-        Object existing = entryMap.get(key);
+        int recordedId = entryMap.get(key);
+        if (recordedId != 0) {
+          return recordedId;
+        }
+        PendingEntry mine = new PendingEntry();
+        Object existing = entryMap.reserve(key, mine);
         if (existing == null) {
-          PendingEntry pending = new PendingEntry();
-          existing = entryMap.putIfAbsent(key, pending);
-          if (existing == null) {
-            // This thread is the first to request the entry and thus has to log it.
-            return computeAndWriteEntry(key, pending, supplier);
-          }
+          // This thread is the first to request the entry and thus has to log it.
+          return computeAndWriteEntry(key, mine, supplier);
         }
         if (existing instanceof Integer id) {
+          // The entry was written between the two calls above.
           return id;
         }
 
@@ -840,12 +925,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       // entry is written after the supplier has obtained an ID for every entry it references, and
       // its own ID is made available to other threads after it has been written.
       id = writeEntryWithNewId(supplier.get());
-      entryMap.put(key, id);
+      entryMap.complete(key, id);
       return id;
     } finally {
       if (id == 0) {
         // Let the threads waiting for the entry, if any, attempt to compute it themselves.
-        entryMap.remove(key, pending);
+        entryMap.fail(key, pending);
       }
       pending.id = id;
       pending.countDown();
