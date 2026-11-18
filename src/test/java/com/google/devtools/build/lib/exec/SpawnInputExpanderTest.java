@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -276,7 +276,7 @@ public final class SpawnInputExpanderTest {
           String runfilesPathHash =
               DigestHashFunction.SHA256
                   .getHashFunction()
-                  .hashString(runfilesPath.getPathString(), UTF_8)
+                  .hashBytes(StringUnsafe.getInternalStringBytes(runfilesPath.getPathString()))
                   .toString();
           return execPath
               .subFragment(0, 1)

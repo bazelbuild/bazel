@@ -141,7 +141,6 @@ sh_test(
         "@rules_java//toolchains:" + runtime,
     ],
 ) for (jdk, runtime) in [
-    (8, "jdk_8"),
     (11, "remote_jdk11"),
     (17, "remotejdk_17"),
     (21, "remotejdk_21"),

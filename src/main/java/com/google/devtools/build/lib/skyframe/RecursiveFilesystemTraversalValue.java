@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -580,7 +580,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       byte[] digest =
           DigestHashFunction.SHA256
               .getHashFunction()
-              .hashString(linkValue.getPathString(), ISO_8859_1)
+              .hashBytes(StringUnsafe.getInternalStringBytes(linkValue.getPathString()))
               .asBytes();
       // Ensure that the digest does not collide with that of a regular file.
       digest[0] ^= 1;

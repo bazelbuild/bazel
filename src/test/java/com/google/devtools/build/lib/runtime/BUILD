@@ -132,6 +132,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:test_summary",
         "//src/main/java/com/google/devtools/build/lib/runtime:test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/runtime:test_summary_printer",
+        "//src/main/java/com/google/devtools/build/lib/runtime:thread_dump_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:ui_event_handler",
         "//src/main/java/com/google/devtools/build/lib/runtime:ui_options",
         "//src/main/java/com/google/devtools/build/lib/runtime:ui_state_tracker",
