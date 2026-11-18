@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -103,7 +104,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -1469,7 +1469,7 @@ public class RemoteSpawnRunnerTest {
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
             "command-id",
-            TestConstants.WORKSPACE_NAME,
+            LabelConstants.MAIN_REPO_DIR_NAME,
             digestUtil,
             remoteOptions,
             executionOptions,
@@ -2003,7 +2003,7 @@ public class RemoteSpawnRunnerTest {
                 remotePathResolver,
                 "build-req-id",
                 "command-id",
-                TestConstants.WORKSPACE_NAME,
+                LabelConstants.MAIN_REPO_DIR_NAME,
                 digestUtil,
                 remoteOptions,
                 Options.getDefaults(ExecutionOptions.class),

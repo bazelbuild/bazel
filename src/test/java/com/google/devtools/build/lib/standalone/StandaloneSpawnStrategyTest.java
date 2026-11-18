@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -138,7 +138,7 @@ public class StandaloneSpawnStrategyTest {
     ResourceManager resourceManager = new ResourceManager();
     resourceManager.setAvailableResources(
         ResourceSet.create(/* memoryMb= */ 1, /* cpu= */ 1, /* localTestCount= */ 1));
-    Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
+    Path execRoot = directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME);
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
         new StandaloneSpawnStrategy(

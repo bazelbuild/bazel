@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,7 +59,7 @@ public class TestExecutorBuilder {
       SpawnStrategyRegistry.builder();
 
   public TestExecutorBuilder(FileSystem fileSystem, BlazeDirectories directories) {
-    this(fileSystem, directories.getExecRoot(TestConstants.WORKSPACE_NAME));
+    this(fileSystem, directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME));
   }
 
   public TestExecutorBuilder(FileSystem fileSystem, Path execRoot) {
@@ -71,7 +71,7 @@ public class TestExecutorBuilder {
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(fileWriteStrategy));
     addContext(
         SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(null, TestConstants.WORKSPACE_NAME));
+        new SymlinkTreeStrategy(null, LabelConstants.MAIN_REPO_DIR_NAME));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 

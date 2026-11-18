@@ -108,6 +108,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -183,7 +183,7 @@ public final class RemoteModuleTest {
                 new BlazeModule() {
                   @Override
                   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-                    builder.setRunfilesPrefix(TestConstants.WORKSPACE_NAME);
+                    builder.setRunfilesPrefix(LabelConstants.MAIN_REPO_DIR_NAME);
                   }
                 })
             .build();

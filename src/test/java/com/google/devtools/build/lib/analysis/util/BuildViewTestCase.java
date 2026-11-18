@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -2153,7 +2154,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 com.google.devtools.build.runfiles.Runfiles.preload()
                     .withSourceRepository("")
                     .rlocation(
-                        TestConstants.WORKSPACE_NAME
+                        LabelConstants.MAIN_REPO_DIR_NAME
                             + "/"
                             + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
   }

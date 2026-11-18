@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -83,7 +83,7 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
     StaticInputMetadataProvider metadataProvider = StaticInputMetadataProvider.empty();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
+        .thenReturn(new SymlinkTreeStrategy(outputService, LabelConstants.MAIN_REPO_DIR_NAME));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getEventHandler()).thenReturn(new StoredEventHandler());
     when(context.getActionInputPrefetcher()).thenReturn(prefetcher);

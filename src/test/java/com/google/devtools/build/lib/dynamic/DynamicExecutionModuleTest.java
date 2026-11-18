@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
@@ -201,7 +202,7 @@ public class DynamicExecutionModuleTest {
     blazeRuntime.initWorkspace(
         new BlazeDirectories(
             serverDirectories,
-            scratch.dir(TestConstants.WORKSPACE_NAME),
+            scratch.dir(LabelConstants.MAIN_REPO_DIR_NAME),
             TestConstants.PRODUCT_NAME),
         binTools);
   }

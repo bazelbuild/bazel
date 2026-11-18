@@ -34,13 +34,13 @@ import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -79,7 +79,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
     Artifact inputArtifact = getSourceArtifact("input");
     Artifact outputArtifact = getBinArtifactWithNoOwner("output");
 
-    Path inputPath = directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("input");
+    Path inputPath =
+        directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME).getRelative("input");
     inputPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(inputPath);
     inputArtifact.getPath().createSymbolicLink(inputPath);
@@ -106,7 +107,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
     Artifact inputArtifact = getSourceArtifact("input");
     Artifact outputArtifact = getBinArtifactWithNoOwner("output");
 
-    Path inputPath = directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("input");
+    Path inputPath =
+        directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME).getRelative("input");
     inputPath.createDirectoryAndParents();
     inputArtifact.getPath().createSymbolicLink(inputPath);
     outputArtifact.getPath().getParentDirectory().createDirectoryAndParents();

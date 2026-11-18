@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1406,7 +1406,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         )
         """
             .formatted(
-                TestConstants.WORKSPACE_NAME, consumerMayBeCached ? "[]" : "[\"no-cache\"]"));
+                LabelConstants.MAIN_REPO_DIR_NAME, consumerMayBeCached ? "[]" : "[\"no-cache\"]"));
 
     // Populate the disk cache, but not the remote cache.
     buildTarget("//a:local_consumer");
