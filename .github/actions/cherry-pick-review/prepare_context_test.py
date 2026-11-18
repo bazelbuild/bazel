@@ -948,6 +948,111 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual([sha for sha, _ in found_orig], [orig_feat_sha])
 
+    def test_reverted_mainline_detection_long_and_at_paths_and_review_auth(self):
+        long_rel_path = (
+            "src/test/java/com/google/devtools/build/lib/analysis/testdata/bzlmod/pkg@1.2.3/"
+            + "deep_nested_package_directory/" * 5
+            + "VeryLongCherryPickTest.java"
+        )
+        self.assertGreater(len(long_rel_path), 210)
+        full_long_file = self.root / long_rel_path
+        full_long_file.parent.mkdir(parents=True, exist_ok=True)
+        full_long_file.write_text("class VeryLongCherryPickTest {}\n", encoding="utf-8")
+        self._git("add", long_rel_path)
+        self._git("commit", "-m", "Add long @-containing test file")
+        c1_sha = self._git_out("rev-parse", "master")
+
+        # Roll back c1 on master using Copybara rollback format
+        self._git("rm", long_rel_path)
+        self._git(
+            "commit",
+            "-m",
+            f"Automated rollback of commit {c1_sha}.\n\n*** Reason for rollback ***\n\nBroke postsubmit",
+        )
+        r1_sha = self._git_out("rev-parse", "master")
+        self.assertEqual(prepare_context.find_revert_on_master(c1_sha, "master"), r1_sha)
+
+        #Cherry-pick c1 onto release-8.9.0 and verify exact >200-char @ path preservation + reverted_by_on_master
+        self._git("checkout", "-b", "pr-long-reverted", "release-8.9.0")
+        self._git("cherry-pick", c1_sha)
+        pr_head = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        pr_files = [
+            {
+                "filename": long_rel_path,
+                "status": "added",
+                "additions": 1,
+                "deletions": 0,
+                "patch": "@@ -0,0 +1 @@\n+class VeryLongCherryPickTest {}",
+            }
+        ]
+        stage_dir = self.root / "stage_long"
+        _, hr, br, changed_info, patches = prepare_context.stage_pr_and_base_files(
+            repo="bazelbuild/bazel",
+            base_sha=self.base_sha,
+            head_sha=pr_head,
+            pr_files=pr_files,
+            stage_dir=stage_dir,
+        )
+        self.assertEqual(changed_info[0]["path"], long_rel_path)
+        self.assertNotIn("\u200b", changed_info[0]["path"])
+
+        mc_info, comps, overall, vs_path = prepare_context.analyze_mainline_and_compare(
+            candidates=[(c1_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files,
+            pr_patches_by_file=patches,
+            head_root_path=hr,
+            base_root_path=br,
+            head_sha=pr_head,
+            stage_dir=stage_dir,
+        )
+        self.assertEqual(overall, "CLEAN")
+        self.assertEqual(mc_info[0]["reverted_by_on_master"], r1_sha)
+        self.assertEqual(comps[0]["path"], long_rel_path)
+        self.assertIn("REVERTED OR ROLLED BACK ON MASTER", pathlib.Path(vs_path).read_text(encoding="utf-8"))
+
+        # Rolling back r1 itself (re-landing c1 via rollback-of-rollback) clears active revert status
+        full_long_file.parent.mkdir(parents=True, exist_ok=True)
+        full_long_file.write_text("class VeryLongCherryPickTest {}\n", encoding="utf-8")
+        self._git("add", long_rel_path)
+        self._git(
+            "commit",
+            "-m",
+            (
+                f"Automated rollback of commit {r1_sha}.\n\n"
+                "*** Original change description ***\n\n"
+                f"Automated rollback of commit {c1_sha}."
+            ),
+        )
+        self.assertIsNone(prepare_context.find_revert_on_master(c1_sha, "master"))
+
+        # Non-bot login with empty author_association must be rejected by is_authentic_gemini_review
+        self.assertFalse(
+            prepare_context.is_authentic_gemini_review(
+                {
+                    "state": "COMMENTED",
+                    "user": {"login": "random-user"},
+                    "author_association": "",
+                    "body": "## 📋 Gemini Cherry-Pick Review Summary",
+                },
+                pr_author="other-user",
+            )
+        )
+        self.assertTrue(
+            prepare_context.is_authentic_gemini_review(
+                {
+                    "state": "COMMENTED",
+                    "user": {"login": "maintainer-user"},
+                    "author_association": "MEMBER",
+                    "body": "## 📋 Gemini Cherry-Pick Review Summary",
+                },
+                pr_author="other-user",
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

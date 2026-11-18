@@ -426,6 +426,42 @@ def get_commit_parents(commit_sha):
     return parts[1:] if len(parts) > 1 else []
 
 
+def find_revert_on_master(commit_sha, mainline_ref, excluded_shas=None, _depth=0):
+    """Returns the SHA of an active revert or rollback of `commit_sha` on `mainline_ref`, or None."""
+    if _depth > 2 or not isinstance(commit_sha, str) or not SHA_RE.fullmatch(commit_sha):
+        return None
+    short_prefix = commit_sha[:12]
+    res = run_git(
+        [
+            "log",
+            f"{commit_sha}..{mainline_ref}",
+            "-i",
+            "-E",
+            f"--grep=((Automated )?rollback of commit {short_prefix}[0-9a-f]*|This reverts commit {short_prefix}[0-9a-f]*)",
+            "--format=%H",
+            "-n",
+            "5",
+        ]
+    )
+    if res.returncode != 0 or not res.stdout.strip():
+        return None
+    excluded = excluded_shas or set()
+    pattern = re.compile(
+        rf"(?:(?:Automated\s+)?rollback\s+of\s+commit\s+{re.escape(short_prefix)}[0-9a-f]*|This\s+reverts\s+commit\s+{re.escape(short_prefix)}[0-9a-f]*)",
+        re.IGNORECASE,
+    )
+    for line in res.stdout.splitlines():
+        rev_sha = line.strip()
+        if not SHA_RE.fullmatch(rev_sha) or rev_sha in excluded:
+            continue
+        msg = run_git(["show", "-s", "--format=%B", rev_sha]).stdout
+        header_part = msg.split("*** Original change description ***", 1)[0]
+        if pattern.search(header_part):
+            if find_revert_on_master(rev_sha, mainline_ref, excluded_shas=excluded, _depth=_depth + 1) is None:
+                return rev_sha
+    return None
+
+
 def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author, mainline_ref, base_sha):
     """Identifies mainline commits on master referenced by or matching the cherry-pick PR."""
     pr_commit_shas = {str(c.get("sha") or "").strip() for c in pr_commits}
@@ -662,24 +698,31 @@ def stage_pr_and_base_files(repo, base_sha, head_sha, pr_files, stage_dir=pathli
 
     for idx, f in enumerate(pr_files):
         raw_filename = str(f.get("filename") or "")
-        safe_path = sanitize_untrusted_str(raw_filename, max_len=200)
+        is_safe_path = is_safe_repo_rel_path(raw_filename)
+        record_path = raw_filename if is_safe_path else sanitize_untrusted_str(raw_filename, max_len=1024)
+        header_path = raw_filename.replace("`", "'") if is_safe_path else record_path
         status = sanitize_untrusted_str(f.get("status") or "", max_len=40)
         additions = int(f.get("additions") or 0)
         deletions = int(f.get("deletions") or 0)
         patch_text = f.get("patch")
-        if is_safe_repo_rel_path(raw_filename):
+        if is_safe_path:
             pr_patches_by_file[raw_filename] = patch_text or ""
 
-        prev_name = sanitize_untrusted_str(f.get("previous_filename") or raw_filename, max_len=200)
-        header = f"diff --git a/{prev_name} b/{safe_path}\nstatus: {status} (+{additions}/-{deletions})"
+        raw_prev_header = str(f.get("previous_filename") or raw_filename)
+        prev_name = (
+            raw_prev_header.replace("`", "'")
+            if is_safe_repo_rel_path(raw_prev_header)
+            else sanitize_untrusted_str(raw_prev_header, max_len=1024)
+        )
+        header = f"diff --git a/{prev_name} b/{header_path}\nstatus: {status} (+{additions}/-{deletions})"
         if isinstance(patch_text, str) and patch_text:
-            diff_chunks.append(f"{header}\n--- a/{prev_name}\n+++ b/{safe_path}\n{patch_text}")
+            diff_chunks.append(f"{header}\n--- a/{prev_name}\n+++ b/{header_path}\n{patch_text}")
         else:
             diff_chunks.append(f"{header}\n(no text patch returned by GitHub API)")
 
         head_file_path_str = None
         base_file_path_str = None
-        if idx < 100 and is_safe_repo_rel_path(raw_filename):
+        if idx < 100 and is_safe_path:
             # Stage base file from local git base_sha if present and regular blob
             if status != "added" and base_sha:
                 raw_prev = str(f.get("previous_filename") or raw_filename)
@@ -713,16 +756,17 @@ def stage_pr_and_base_files(repo, base_sha, head_sha, pr_files, stage_dir=pathli
                 if content_str is not None:
                     head_file_path_str = safe_write_staged_file(head_root, raw_filename, content_str)
 
-        changed_files_info.append(
-            {
-                "path": safe_path,
-                "status": status,
-                "additions": additions,
-                "deletions": deletions,
-                "head_file_path": head_file_path_str,
-                "base_file_path": base_file_path_str,
-            }
-        )
+        entry_info = {
+            "path": record_path,
+            "status": status,
+            "additions": additions,
+            "deletions": deletions,
+            "head_file_path": head_file_path_str,
+            "base_file_path": base_file_path_str,
+        }
+        if not is_safe_path:
+            entry_info["unsafe_path"] = True
+        changed_files_info.append(entry_info)
 
     diff_path.write_text("\n\n".join(diff_chunks) + ("\n" if diff_chunks else ""), encoding="utf-8")
     return str(diff_path.resolve()), str(head_root.resolve()), str(base_root.resolve()), changed_files_info, pr_patches_by_file
@@ -764,6 +808,7 @@ def analyze_mainline_and_compare(
                 if is_ancestor(ordered_candidates[j][0], ordered_candidates[i][0]):
                     ordered_candidates[i], ordered_candidates[j] = ordered_candidates[j], ordered_candidates[i]
 
+        candidate_sha_set = {full_sha for full_sha, _ in ordered_candidates}
         mainline_commits_info = []
         mainline_patches_by_file = {}
         master_file_commit_counts = {}
@@ -860,6 +905,11 @@ def analyze_mainline_and_compare(
                     run_git(["reset", "--hard", base_sha], cwd=worktree_dir)
                     run_git(["clean", "-fd"], cwd=worktree_dir)
 
+            reverted_by = (
+                find_revert_on_master(full_sha, mainline_ref, excluded_shas=candidate_sha_set)
+                if on_master
+                else None
+            )
             mainline_commits_info.append(
                 {
                     "sha": full_sha,
@@ -868,6 +918,7 @@ def analyze_mainline_and_compare(
                     "date": sanitize_untrusted_str(date, max_len=60),
                     "matched_by": matched_by,
                     "is_on_master": on_master,
+                    "reverted_by_on_master": reverted_by,
                     "files_modified": sorted(file_patches.keys()),
                     "patch_file": str(patch_file.resolve()),
                     "applied_cleanly_on_base": applied_cleanly,
@@ -952,7 +1003,7 @@ def analyze_mainline_and_compare(
     base_sha_valid = bool(base_sha and SHA_RE.fullmatch(base_sha) and resolve_commit_sha(base_sha))
 
     for fp in all_files:
-        safe_fp = sanitize_untrusted_str(fp, max_len=200)
+        safe_fp = fp.replace("`", "'")
         in_pr = fp in pr_file_set
         in_mainline = fp in mainline_file_set
         pr_patch = pr_patches_by_file.get(fp, "")
@@ -1030,7 +1081,7 @@ def analyze_mainline_and_compare(
 
         file_comparisons.append(
             {
-                "path": safe_fp,
+                "path": fp,
                 "classification": classification,
                 "in_pr": in_pr,
                 "in_mainline": in_mainline,
@@ -1139,6 +1190,18 @@ def analyze_mainline_and_compare(
             "================================================================================"
         )
 
+    reverted_mainline_pairs = [
+        f"{mc['sha'][:12]} (reverted by {mc['reverted_by_on_master'][:12]})"
+        for mc in verified_mainline
+        if mc.get("reverted_by_on_master")
+    ]
+    if reverted_mainline_pairs:
+        vs_mainline_sections.append(
+            "================================================================================\n"
+            "NOTE: MAINLINE COMMIT WAS REVERTED OR ROLLED BACK ON MASTER\n"
+            f"The following mainline commit(s) were later reverted/rolled back on {mainline_ref}: {', '.join(reverted_mainline_pairs)}\n"
+            "================================================================================"
+        )
     if has_unverified_mainline:
         unverified_shas = ", ".join(mc["sha"][:12] for mc in mainline_commits_info if not mc["is_on_master"])
         vs_mainline_sections.append(
@@ -1218,7 +1281,7 @@ def is_authentic_gemini_review(review_obj, pr_author=""):
         return True
     if pr_author and login == pr_author.strip().lower() and not has_self_review_banner and state == "COMMENTED":
         return False
-    if assoc in ("OWNER", "MEMBER", "COLLABORATOR", ""):
+    if assoc in ("OWNER", "MEMBER", "COLLABORATOR"):
         return True
     return False
 
@@ -1581,6 +1644,15 @@ def main():
         for c in pr_comments[-10:]
     ]
 
+    non_lockfile_line_changes = sum(
+        int(f.get("additions") or 0) + int(f.get("deletions") or 0)
+        for f in pr_files
+        if str(f.get("filename") or "") not in LOCKFILE_PATHS
+    )
+    has_reverted_mainline = any(
+        bool(mc.get("reverted_by_on_master")) for mc in mainline_commits_info if mc.get("is_on_master")
+    )
+
     context_data = {
         "repository": repo,
         "workspace_root": str(pathlib.Path.cwd().resolve()),
@@ -1597,6 +1669,7 @@ def main():
         "trigger_type": trigger_type,
         "additional_context": additional_context,
         "files_truncated": files_truncated,
+        "non_lockfile_line_changes": non_lockfile_line_changes,
         "has_existing_gemini_review": has_existing_gemini_review,
         "last_gemini_review": last_gemini_review,
         "pr_patch_unchanged_since_last_review": pr_patch_unchanged_since_last_review,
@@ -1605,6 +1678,7 @@ def main():
         "pr_commits": serialized_pr_commits,
         "pr_comments": serialized_pr_comments,
         "mainline_commits": serialized_mainline_commits,
+        "has_reverted_mainline": has_reverted_mainline,
         "overall_cherry_pick_classification": overall_classification,
         "has_lockfile_changes": any(
             fc.get("classification") == "lockfile_regenerated" for fc in file_comparisons
@@ -1623,7 +1697,8 @@ def main():
     with open(".gemini/context.json", "w", encoding="utf-8") as f:
         f.write(context_json_str)
 
-    render_review_prompt(context_json_str)
+    if not render_review_prompt(context_json_str):
+        raise FileNotFoundError("Could not locate prompt_template.md to render .gemini/prompt.md")
 
     print("Generated .gemini/context.json:")
     print(context_json_str)

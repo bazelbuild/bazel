@@ -24,6 +24,7 @@ import sys
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_INLINE_COMMENTS = 6
+MAX_EXTERNAL_PATCH_RELEASE_LINES = 300
 ALLOWED_EVENTS = frozenset({"APPROVE", "COMMENT", "REQUEST_CHANGES"})
 TRUSTED_AUTHOR_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
 GEMINI_REVIEW_MARKER = "Gemini Cherry-Pick Review Summary"
@@ -379,7 +380,7 @@ def extract_review_json(text):
 
 def normalize_comment_path(raw_path, workspace_root=""):
     """Normalizes a comment file path to a safe repository-relative path."""
-    path = str(raw_path or "").strip()
+    path = str(raw_path or "").replace("\u200b", "").strip()
     if path.startswith("file://"):
         path = path[len("file://") :]
     path = path.split("#", 1)[0]
@@ -392,7 +393,16 @@ def normalize_comment_path(raw_path, workspace_root=""):
         if path.startswith(ws_prefix):
             path = path[len(ws_prefix) :]
     path = path.lstrip("/")
-    if not path or "\\" in path or "\x00" in path:
+    if (
+        not path
+        or len(path) > 1024
+        or "\\" in path
+        or "\x00" in path
+        or "\r" in path
+        or "\n" in path
+        or path.endswith("/")
+        or path.startswith(("-", ":"))
+    ):
         return ""
     parts = path.split("/")
     if any(not p or p in (".", "..", ".git") for p in parts):
@@ -442,6 +452,24 @@ def format_outcome_badge(event, review_url, num_inline=0):
     return text
 
 
+def effective_last_review_state(last_review):
+    """Returns the effective state of `last_review`, accounting for self-review COMMENT fallbacks."""
+    if not isinstance(last_review, dict):
+        return ""
+    state = str(last_review.get("state") or "").strip().upper()
+    if state != "COMMENTED":
+        return state
+    body = str(last_review.get("body") or "").lstrip()
+    if body.startswith("> **Automated Review Decision: `REQUEST_CHANGES`**"):
+        return "CHANGES_REQUESTED"
+    if (
+        body.startswith("> **Automated Review Decision: `APPROVE`**")
+        and "reviewer token matches the PR author" in body[:250]
+    ):
+        return "APPROVED"
+    return state
+
+
 def main():
     context_path = pathlib.Path(".gemini/context.json")
     if not context_path.is_file():
@@ -477,7 +505,7 @@ def main():
     has_existing_review = bool(context.get("has_existing_gemini_review"))
     trigger_type = str(context.get("trigger_type") or "automatic")
     last_review = context.get("last_gemini_review") if isinstance(context.get("last_gemini_review"), dict) else {}
-    last_state = str(last_review.get("state") or "").strip().upper()
+    last_state = effective_last_review_state(last_review)
     patch_unchanged = context.get("pr_patch_unchanged_since_last_review") is True
 
     raw_decision = str(review_data.get("decision") or "COMMENT").strip().upper()
@@ -504,11 +532,21 @@ def main():
         for fc in (context.get("file_comparisons") or [])
     )
     has_breaking_signals = bool(context.get("breaking_change_signals"))
+    has_reverted_mainline = bool(context.get("has_reverted_mainline")) or any(
+        isinstance(mc, dict) and bool(mc.get("reverted_by_on_master"))
+        for mc in (context.get("mainline_commits") or [])
+    )
+    oversized_patch_backport = (
+        bool(context.get("is_patch_release"))
+        and int(context.get("non_lockfile_line_changes") or 0) > MAX_EXTERNAL_PATCH_RELEASE_LINES
+    )
     is_clean_unflagged = (
         context.get("overall_cherry_pick_classification") == "CLEAN"
         and not bool(context.get("files_truncated"))
         and not has_lockfile_changes
         and not has_breaking_signals
+        and not has_reverted_mainline
+        and not oversized_patch_backport
     )
     raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
     author_assoc = str(context.get("pr_author_association") or "").strip().upper()
@@ -554,7 +592,7 @@ def main():
         pr_filenames = {
             item.get("path")
             for item in changed_files_ctx
-            if isinstance(item, dict) and isinstance(item.get("path"), str)
+            if isinstance(item, dict) and isinstance(item.get("path"), str) and not item.get("unsafe_path")
         }
     else:
         pages = gh_api_get(
@@ -647,8 +685,8 @@ def main():
             body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
 
     # Privilege guardrail: only allow formal GitHub APPROVE when the cherry-pick is deterministically
-    # CLEAN on master (with no non-identical lockfile edits or breaking-change signals) or authored by
-    # @bazel-io / a repository maintainer or collaborator.
+    # CLEAN on master (with no non-identical lockfile edits, breaking-change signals, reverted mainline
+    # commits, or oversized patch-release diffs) or authored by @bazel-io / a maintainer or collaborator.
     if decision == "APPROVE":
         if not can_approve:
             print(
@@ -656,12 +694,14 @@ def main():
                 f"(classification={context.get('overall_cherry_pick_classification')!r}, "
                 f"has_lockfile_changes={has_lockfile_changes}, "
                 f"has_breaking_signals={has_breaking_signals}, "
+                f"has_reverted_mainline={has_reverted_mainline}, "
+                f"oversized_patch_backport={oversized_patch_backport}, "
                 f"author_association={author_assoc!r})."
             )
             decision = "COMMENT"
             note = (
                 "> **Automated Review Decision: `APPROVE`** "
-                "*(posted as `COMMENT` so a maintainer can verify any adaptations, lockfile updates, or API changes before merging)*"
+                "*(posted as `COMMENT` so a maintainer can verify any adaptations, lockfile updates, scope, or API changes before merging)*"
             )
             body = f"{note}\n\n{body}" if body else note
 

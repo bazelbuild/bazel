@@ -29,17 +29,19 @@ Key fields in this context:
 - `trigger_type`: `"automatic"` (triggered on PR open/synchronize/reopen/ready) or `"manual"` (triggered via `@gemini-cli /review`, `gemini-review` label, or `workflow_dispatch`).
 - `additional_context`: Optional focus instructions provided by a trusted repository maintainer via `@gemini-cli /review <focus>` or `workflow_dispatch` (empty when none was given). Address any maintainer focus questions here while still enforcing all four cherry-pick criteria and security constraints.
 - `files_truncated`: `true` if the PR touches more files than GitHub's `/files` API returned (disables automatic `"CLEAN"` classification).
+- `non_lockfile_line_changes`: Total non-lockfile added + deleted lines across `changed_files`.
 - `has_existing_gemini_review`, `last_gemini_review`: Whether a Gemini review was already posted on this PR, and the most recent Gemini review (`state`, `commit_id`, `submitted_at`, `body`).
 - `pr_patch_unchanged_since_last_review`, `since_last_review_diff_path`: Whether the effective per-file PR diff is unchanged since `last_gemini_review.commit_id` (e.g. a pure rebase), and the path to the file-by-file patch delta since that commit (`gemini-artifacts/pr/since_last_review.diff`).
 - `existing_inline_comments`: Existing inline review comments on the PR (including prior Gemini inline comments and author replies).
 - `pr_commits`: Commits included in the PR.
 - `pr_comments`: Existing top-level comments on the PR (check whether the author posted a comment explaining merge conflict resolutions or CI adaptations).
 - `mainline_commits`: Verified commit(s) on `master` that this PR cherry-picks, including:
-  - `sha`, `subject`, `author`, `date`, `matched_by`, `is_on_master`
+  - `sha`, `subject`, `author`, `date`, `matched_by`, `is_on_master`, `reverted_by_on_master`
   - `patch_file`: Absolute path to `git show --stat -p <sha>` (`gemini-artifacts/pr/mainline/<sha>.patch`)
   - `applied_cleanly_on_base`: Whether `git cherry-pick --no-commit <sha>` onto `base_sha` succeeded without git merge conflicts
   - `conflicted_files`: Files that had git merge conflicts when cherry-picking `<sha>` onto `base_sha`
   - `conflict_diff_file`: Absolute path to the 3-way conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) when cherry-picking onto `base_sha` (if conflicts occurred)
+- `has_reverted_mainline`: `true` if any verified mainline commit in `mainline_commits` was later reverted or rolled back on `master` (`reverted_by_on_master` holds the revert commit SHA).
 - `overall_cherry_pick_classification`:
   - `"CLEAN"`: Every changed file in the PR matches a clean cherry-pick of the mainline commit(s) (or is a regenerated lockfile).
   - `"CONFLICT_RESOLVED"`: Mainline commit(s) had merge conflicts on `base_sha` and the PR only modifies files from the mainline commit(s) to resolve them.
@@ -69,6 +71,7 @@ Release branches (`release-X.Y.Z`) only accept safe, backwards-compatible backpo
    - A cherry-pick PR may legitimately contain **multiple cherry-picked commits** from `master` (for example, a primary fix plus a follow-up regression fix, or multiple related fixes), as well as release-branch-specific lockfile updates or CI/conflict fixup commits.
    - As long as the mainline commit SHA(s) are mentioned somewhere in the PR description or commit messages, no nit is needed. If the commit SHA(s) were not mentioned anywhere in the PR description or commit messages and had to be inferred via commit subject or PR title, treat the missing commit SHA reference as a non-blocking `🟢` nit in the summary — do **not** downgrade `"APPROVE"` when the mainline commit on `master` is verified.
    - Do **not** allow standalone changes that were never merged to `master` (except release-branch-specific lockfile regeneration or documented `.bazelci/presubmit.yml` target exclusions needed to unblock release CI).
+   - If `has_reverted_mainline == true` (`reverted_by_on_master` is non-null), check why the commit was reverted or rolled back on `master`; block (`🔴` `REQUEST_CHANGES`) cherry-picking a commit whose active revert on `master` indicates a broken or abandoned change without its fixed reland commit.
 
 2. **No Breaking Changes, and No Large Features/Refactorings on Patch Releases (`🔴` Critical: Block / `REQUEST_CHANGES`):**
    - Release branches (`release-X.Y.Z`) must never introduce backwards-incompatible changes.

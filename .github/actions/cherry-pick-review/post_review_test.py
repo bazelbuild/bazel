@@ -486,6 +486,91 @@ class PostReviewTest(unittest.TestCase):
         self.assertIn("  @Override\n", c_body)
         self.assertNotIn("@\u200bOverride", c_body)
 
+    def test_self_review_comment_effective_state_and_2a_revert_and_size_guardrails(self):
+        posted = []
+
+        def fake_post(endpoint, payload):
+            posted.append(payload)
+            res = MagicMock()
+            res.returncode = 0
+            res.stdout = json.dumps({"html_url": "https://github.com/bazelbuild/bazel/pull/42#pullrequestreview-10"})
+            res.stderr = ""
+            return res
+
+        # 1) On a @bazel-io PR where the previous review fell back to COMMENT from REQUEST_CHANGES due to self-review,
+        # should_post=False must NOT be overridden into duplicate review spam when the blocker remains unresolved.
+        self._write_context(
+            has_existing_gemini_review=True,
+            last_gemini_review={
+                "state": "COMMENTED",
+                "commit_id": "a" * 40,
+                "body": (
+                    "> **Automated Review Decision: `REQUEST_CHANGES`** "
+                    "*(posted as `COMMENT` because the reviewer token matches the PR author)*\n\n"
+                    "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ❌ Changes Requested"
+                ),
+            },
+            pr_patch_unchanged_since_last_review=False,
+            overall_cherry_pick_classification="CLEAN",
+            pr_author="bazel-io",
+            pr_author_association="NONE",
+        )
+        skip_unresolved = {
+            "should_post": False,
+            "skip_reason": "Previous breaking-change blocker is still unresolved.",
+            "decision": "REQUEST_CHANGES",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ❌ Changes Requested",
+            "comments": [],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(skip_unresolved)}),
+            encoding="utf-8",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(len(posted), 0)
+
+        # 2) Policy 2a: External CONTRIBUTOR clean cherry-pick of a reverted mainline commit OR >300-line patch-release
+        # diff is capped at COMMENT, while inline comments on >200-char paths with `@` stay inline.
+        long_at_path = (
+            "src/test/java/com/google/devtools/build/lib/analysis/testdata/bzlmod/pkg@1.2.3/"
+            + "deep_nested_package_directory/" * 5
+            + "VeryLongCherryPickTest.java"
+        )
+        approve_with_long_comment = {
+            "should_post": True,
+            "decision": "APPROVE",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ✅ Approved",
+            "comments": [
+                {
+                    "path": long_at_path,
+                    "line": 1,
+                    "side": "RIGHT",
+                    "body": "🟡 Minor note on long path.",
+                }
+            ],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(approve_with_long_comment)}),
+            encoding="utf-8",
+        )
+        for extra_ctx in (
+            {"has_reverted_mainline": True},
+            {"is_patch_release": True, "non_lockfile_line_changes": 450},
+        ):
+            self._write_context(
+                pr_author="external-dev",
+                pr_author_association="CONTRIBUTOR",
+                overall_cherry_pick_classification="CLEAN",
+                changed_files=[{"path": long_at_path, "status": "added"}],
+                **extra_ctx,
+            )
+            with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+                self.assertEqual(post_review.main(), 0)
+            self.assertEqual(posted[-1]["event"], "COMMENT")
+            self.assertEqual(len(posted[-1]["comments"]), 1)
+            self.assertEqual(posted[-1]["comments"][0]["path"], long_at_path)
+
 
 if __name__ == "__main__":
     unittest.main()
