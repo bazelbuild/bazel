@@ -369,10 +369,12 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "fxXDPlzAlVf06vcjzen68wCDnOkjdmPYu1Z5SMZK3ZE=",
+        "bzlTransitiveDigest": "Khe3vjt8QSVghTe8+Un6bBP3+uKw762rIiZhxmf8O84=",
         "usagesDigest": "7jreou9WV8qOgoUM+8bYvk7WC5dIlxvYXDi24CckXQQ=",
         "recordedInputs": [
-          "REPO_MAPPING:,bazel_tools bazel_tools"
+          "REPO_MAPPING:,bazel_tools bazel_tools",
+          "REPO_MAPPING:,rules_java rules_java+",
+          "REPO_MAPPING:rules_java+,bazel_tools bazel_tools"
         ],
         "generatedRepoSpecs": {
           "async_profiler": {
