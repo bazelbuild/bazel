@@ -18,21 +18,20 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
+import com.google.devtools.build.lib.analysis.LocationExpander.LabelLocationFunction;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link LocationExpander.LocationFunction}. */
+/** Unit tests for {@link LabelLocationFunction}s. */
 @RunWith(JUnit4.class)
-public class LocationFunctionTest {
+public class LabelLocationFunctionTest {
 
   @Test
   public void absoluteAndRelativeLabels() throws Exception {
-    LocationFunction func =
-        new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/src/bar").build();
+    var func = new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/src/bar").build();
     assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("src/bar");
     assertThat(func.apply(":foo", RepositoryMapping.EMPTY, null)).isEqualTo("src/bar");
     assertThat(func.apply("foo", RepositoryMapping.EMPTY, null)).isEqualTo("src/bar");
@@ -40,14 +39,13 @@ public class LocationFunctionTest {
 
   @Test
   public void pathUnderExecRootUsesDotSlash() throws Exception {
-    LocationFunction func =
-        new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/bar").build();
+    var func = new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/bar").build();
     assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("./bar");
   }
 
   @Test
   public void noSuchLabel() throws Exception {
-    LocationFunction func = new LocationFunctionBuilder("//foo", false).build();
+    var func = new LocationFunctionBuilder("//foo", false).build();
     IllegalStateException expected =
         assertThrows(
             IllegalStateException.class, () -> func.apply("//bar", RepositoryMapping.EMPTY, null));
@@ -60,7 +58,7 @@ public class LocationFunctionTest {
 
   @Test
   public void emptyList() throws Exception {
-    LocationFunction func = new LocationFunctionBuilder("//foo", false).add("//foo").build();
+    var func = new LocationFunctionBuilder("//foo", false).add("//foo").build();
     IllegalStateException expected =
         assertThrows(
             IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY, null));
@@ -71,7 +69,7 @@ public class LocationFunctionTest {
 
   @Test
   public void tooMany() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/1", "/exec/2").build();
     IllegalStateException expected =
         assertThrows(
@@ -86,9 +84,9 @@ public class LocationFunctionTest {
 
   @Test
   public void tooManyExecpath() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", false)
-            .setPathType(LocationFunction.PathType.EXEC)
+            .setPathType(LabelLocationFunction.PathType.EXEC)
             .add("//foo", "/exec/1", "/exec/2")
             .build();
     IllegalStateException expected =
@@ -104,7 +102,7 @@ public class LocationFunctionTest {
 
   @Test
   public void tooManyRootpath() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", false)
             .setName("rootpath")
             .add("//foo", "/exec/1", "/exec/2")
@@ -122,9 +120,9 @@ public class LocationFunctionTest {
 
   @Test
   public void tooManyRlocationpath() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", false)
-            .setPathType(LocationFunction.PathType.RLOCATION)
+            .setPathType(LabelLocationFunction.PathType.RLOCATION)
             .add("//foo", "/exec/1", "/exec/2")
             .build();
     IllegalStateException expected =
@@ -141,7 +139,7 @@ public class LocationFunctionTest {
 
   @Test
   public void noSuchLabelMultiple() throws Exception {
-    LocationFunction func = new LocationFunctionBuilder("//foo", true).build();
+    var func = new LocationFunctionBuilder("//foo", true).build();
     IllegalStateException expected =
         assertThrows(
             IllegalStateException.class, () -> func.apply("//bar", RepositoryMapping.EMPTY, null));
@@ -154,14 +152,14 @@ public class LocationFunctionTest {
 
   @Test
   public void fileWithSpace() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/file/with space").build();
     assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("'file/with space'");
   }
 
   @Test
   public void multipleFiles() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", true)
             .add("//foo", "/exec/foo/bar", "/exec/out/foo/foobar")
             .build();
@@ -170,7 +168,7 @@ public class LocationFunctionTest {
 
   @Test
   public void filesWithSpace() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", true)
             .add("//foo", "/exec/file/with space", "/exec/file/with spaces ")
             .build();
@@ -180,9 +178,9 @@ public class LocationFunctionTest {
 
   @Test
   public void execPath() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", true)
-            .setPathType(LocationFunction.PathType.EXEC)
+            .setPathType(LabelLocationFunction.PathType.EXEC)
             .add("//foo", "/exec/bar", "/exec/out/foobar")
             .build();
     assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("./bar out/foobar");
@@ -190,9 +188,9 @@ public class LocationFunctionTest {
 
   @Test
   public void rlocationPath() throws Exception {
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", true)
-            .setPathType(LocationFunction.PathType.RLOCATION)
+            .setPathType(LabelLocationFunction.PathType.RLOCATION)
             .add("//foo", "/exec/bar", "/exec/out/foobar")
             .build();
     assertThat(func.apply("//foo", RepositoryMapping.EMPTY, "workspace"))
@@ -203,8 +201,7 @@ public class LocationFunctionTest {
   public void locationFunctionWithMappingReplace() throws Exception {
     RepositoryName b = RepositoryName.create("b");
     var repositoryMapping = RepositoryMapping.create(ImmutableMap.of("a", b), RepositoryName.MAIN);
-    LocationFunction func =
-        new LocationFunctionBuilder("//foo", false).add("@b//foo", "/exec/src/bar").build();
+    var func = new LocationFunctionBuilder("//foo", false).add("@b//foo", "/exec/src/bar").build();
     assertThat(func.apply("@a//foo", repositoryMapping, null)).isEqualTo("src/bar");
   }
 
@@ -212,7 +209,7 @@ public class LocationFunctionTest {
   public void locationFunctionWithMappingIgnoreRepo() throws Exception {
     RepositoryName b = RepositoryName.create("b");
     var repositoryMapping = RepositoryMapping.create(ImmutableMap.of("a", b), RepositoryName.MAIN);
-    LocationFunction func =
+    var func =
         new LocationFunctionBuilder("//foo", false).add("@@potato//foo", "/exec/src/bar").build();
     assertThat(func.apply("@@potato//foo", repositoryMapping, null)).isEqualTo("src/bar");
   }
