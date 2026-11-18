@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Optional;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -236,8 +235,8 @@ def fail_impl(name, visibility, **kwargs):
                 Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
                 PathFragment.create(name + "/BUILD")),
             "workspace",
-            /* associatedModuleName= */ Optional.empty(),
-            /* associatedModuleVersion= */ Optional.empty(),
+            /* associatedModuleName= */ "",
+            /* associatedModuleVersion= */ "",
             /* noImplicitFileExport= */ true,
             /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
                 BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),

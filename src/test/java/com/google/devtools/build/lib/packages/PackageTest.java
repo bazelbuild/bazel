@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.List;
-import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -199,8 +198,8 @@ public class PackageTest {
                 Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
                 PathFragment.create(name + "/BUILD")),
             "workspace",
-            Optional.empty(),
-            Optional.empty(),
+            /* associatedModuleName= */ "",
+            /* associatedModuleVersion= */ "",
             /* noImplicitFileExport= */ true,
             /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
                 BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),

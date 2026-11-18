@@ -79,7 +79,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
                   BazelModuleKey.createFakeModuleKeyForTesting(
                       Label.parseCanonicalUnchecked("//test:label")),
                   RepositoryMapping.EMPTY,
-                  /* moduleRepoName= */ null,
+                  /* moduleRepoName= */ "",
                   "test/label.bzl",
                   /* loads= */ ImmutableList.of(),
                   /* bzlTransitiveDigest= */ new byte[0],

@@ -735,19 +735,17 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   }
 
   @Override
-  @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
         TargetDefinitionContext.fromOrFail(thread, "module_name()");
-    return targetDefinitionContext.getAssociatedModuleName().orElse(null);
+    return targetDefinitionContext.getAssociatedModuleName();
   }
 
   @Override
-  @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
         TargetDefinitionContext.fromOrFail(thread, "module_version()");
-    return targetDefinitionContext.getAssociatedModuleVersion().orElse(null);
+    return targetDefinitionContext.getAssociatedModuleVersion();
   }
 
   /**

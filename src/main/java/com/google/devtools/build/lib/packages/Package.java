@@ -72,7 +72,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.regex.Pattern;
@@ -825,8 +824,8 @@ public class Package extends Packageoid {
       PackageIdentifier id,
       RootedPath filename,
       String workspaceName,
-      Optional<String> associatedModuleName,
-      Optional<String> associatedModuleVersion,
+      String associatedModuleName,
+      String associatedModuleVersion,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
       boolean symbolicMacroStrictAttrs,
@@ -1673,8 +1672,8 @@ public class Package extends Packageoid {
        */
       String workspaceName,
       RepositoryMapping repositoryMapping,
-      Optional<String> associatedModuleName,
-      Optional<String> associatedModuleVersion,
+      String associatedModuleName,
+      String associatedModuleVersion,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       boolean succinctTargetNotFoundErrors,
       Root sourceRoot)
@@ -1702,9 +1701,9 @@ public class Package extends Packageoid {
 
       Builder repositoryMapping(RepositoryMapping repositoryMapping);
 
-      Builder associatedModuleName(Optional<String> associatedModuleName);
+      Builder associatedModuleName(String associatedModuleName);
 
-      Builder associatedModuleVersion(Optional<String> associatedModuleVersion);
+      Builder associatedModuleVersion(String associatedModuleVersion);
 
       Builder configSettingVisibilityPolicy(
           @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy);
@@ -1719,8 +1718,8 @@ public class Package extends Packageoid {
         RootedPath buildFilename,
         String workspaceName,
         RepositoryMapping repositoryMapping,
-        Optional<String> associatedModuleName,
-        Optional<String> associatedModuleVersion,
+        String associatedModuleName,
+        String associatedModuleVersion,
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         boolean succinctTargetNotFoundErrors) {
       Label buildFileLabel;

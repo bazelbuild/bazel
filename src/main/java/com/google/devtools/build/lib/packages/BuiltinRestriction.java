@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.IdentityHashMap;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -88,7 +87,7 @@ public final class BuiltinRestriction {
               .build());
     }
 
-    private boolean allows(Label label, @Nullable String moduleRepoName) {
+    private boolean allows(Label label, String moduleRepoName) {
       // Hot code path, avoid iterator garbage.
       for (int i = 0; i < entries.size(); i++) {
         if (entries.get(i).allows(label, moduleRepoName)) {
@@ -176,12 +175,12 @@ public final class BuiltinRestriction {
       checkNotNull(packagePrefix);
     }
 
-    private boolean allows(Label label, @Nullable String moduleRepoName) {
+    private boolean allows(Label label, String moduleRepoName) {
       return matchesRepository(label.getRepository(), moduleRepoName)
           && label.getPackageFragment().startsWith(packagePrefix);
     }
 
-    private boolean matchesRepository(RepositoryName repository, @Nullable String moduleRepoName) {
+    private boolean matchesRepository(RepositoryName repository, String moduleRepoName) {
       if (repoName.isEmpty()) {
         return repository.isMain();
       }
@@ -261,7 +260,7 @@ public final class BuiltinRestriction {
    * repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
   public static void failIfLabelOutsideAllowlist(
-      Label label, @Nullable String moduleRepoName, Allowlist allowlist) throws EvalException {
+      Label label, String moduleRepoName, Allowlist allowlist) throws EvalException {
     if (isNotAllowed(label, moduleRepoName, allowlist)) {
       throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
@@ -271,8 +270,7 @@ public final class BuiltinRestriction {
    * Returns true if the given {@link Label} is not within either 1) the builtins repository, or 2)
    * a package or subpackage of an entry in the given allowlist.
    */
-  public static boolean isNotAllowed(
-      Label label, @Nullable String moduleRepoName, Allowlist allowlist) {
+  public static boolean isNotAllowed(Label label, String moduleRepoName, Allowlist allowlist) {
     if (label.getRepository().equals(RepositoryName.BUILTINS)) {
       return false;
     }

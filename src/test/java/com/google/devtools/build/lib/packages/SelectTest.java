@@ -167,7 +167,7 @@ public class SelectTest {
                     "other_repo",
                     RepositoryName.createUnvalidated("other_repo+")),
                 RepositoryName.MAIN),
-            /* moduleRepoName= */ null,
+            /* moduleRepoName= */ "",
             "other/pkg/def.bzl",
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0],
