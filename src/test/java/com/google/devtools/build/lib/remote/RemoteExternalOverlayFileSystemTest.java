@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -480,6 +481,27 @@ public final class RemoteExternalOverlayFileSystemTest {
   }
 
   @Test
+  public void injectRemoteRepo_usesHostPathSeparators() throws Exception {
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var name = "run-kata\\x2dcontainers.mount";
+    var file = FileNode.newBuilder().setName(name).setDigest(digestUtil.compute(new byte[0]));
+    var tree = Tree.newBuilder().setRoot(Directory.newBuilder().addFiles(file)).build();
+    var overlay = newOverlay(digestUtil);
+    var repo = RepositoryName.create("systemd_unit");
+    try {
+      if (OS.getCurrent() == OS.WINDOWS) {
+        var error = assertThrows(IOException.class, () -> overlay.injectRemoteRepo(repo, tree, ""));
+        assertThat(error).hasMessageThat().contains("invalid remote repo tree node name: " + name);
+      } else {
+        assertThat(overlay.injectRemoteRepo(repo, tree, "marker")).isTrue();
+        assertThat(overlay.getPath("/output/external/systemd_unit").getChild(name).isFile()).isTrue();
+      }
+    } finally {
+      overlay.afterCommand();
+    }
+  }
+
+  @Test
   public void injectRemoteRepo_rejectsUnsafeNodeNames() throws Exception {
     var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
     var child = Directory.getDefaultInstance();
@@ -495,7 +517,6 @@ public final class RemoteExternalOverlayFileSystemTest {
             "../outside",
             "/outside",
             "nested/file",
-            "nested\\file",
             "../../../../../.bashrc.bzl",
             "/etc/cron.d/evil.bzl"
           }) {

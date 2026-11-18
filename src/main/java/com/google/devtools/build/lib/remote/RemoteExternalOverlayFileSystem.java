@@ -302,11 +302,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   private static boolean isValidName(String name) {
-    return !name.isEmpty()
-        && !PathFragment.containsSeparator(name)
-        && name.indexOf('\\') == -1
-        && !PathFragment.isAbsolute(name)
-        && PathFragment.isNormalized(name);
+    try {
+      PathFragment.checkSeparators(name);
+    } catch (PathFragment.InvalidBaseNameException e) {
+      return false;
+    }
+    return !name.isEmpty() && !PathFragment.isAbsolute(name) && PathFragment.isNormalized(name);
   }
 
   private static void injectRecursively(
