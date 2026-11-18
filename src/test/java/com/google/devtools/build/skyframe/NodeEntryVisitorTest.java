@@ -62,7 +62,7 @@ public class NodeEntryVisitorTest {
     nodeEntryVisitor.enqueueEvaluation(
         nonCpuHeavyKey, /* signalingDep= */ null, /* alreadyStarted= */ false);
 
-    verify(executor).execute((Runnable) any(), eq(ThreadPoolType.REGULAR), anyBoolean());
+    verify(executor).execute((Runnable) any(), eq(ThreadPoolType.REGULAR));
   }
 
   @Test
@@ -74,7 +74,7 @@ public class NodeEntryVisitorTest {
     nodeEntryVisitor.enqueueEvaluation(
         cpuHeavyKey, /* signalingDep= */ null, /* alreadyStarted= */ false);
 
-    verify(executor).execute((Runnable) any(), eq(ThreadPoolType.CPU_HEAVY), anyBoolean());
+    verify(executor).execute((Runnable) any(), eq(ThreadPoolType.CPU_HEAVY));
   }
 
   @Test
@@ -88,7 +88,7 @@ public class NodeEntryVisitorTest {
     nodeEntryVisitor.enqueueEvaluation(
         nonCpuHeavyKey, /* signalingDep= */ null, /* alreadyStarted= */ false);
 
-    verify(executor).execute(eq(task), eq(ThreadPoolType.REGULAR), anyBoolean());
+    verify(executor).execute(eq(task), eq(ThreadPoolType.REGULAR));
   }
 
   @Test
@@ -102,7 +102,7 @@ public class NodeEntryVisitorTest {
     nodeEntryVisitor.enqueueEvaluation(
         cpuHeavyKey, /* signalingDep= */ null, /* alreadyStarted= */ false);
 
-    verify(executor).execute(eq(task), eq(ThreadPoolType.CPU_HEAVY), anyBoolean());
+    verify(executor).execute(eq(task), eq(ThreadPoolType.CPU_HEAVY));
   }
 
   @Test

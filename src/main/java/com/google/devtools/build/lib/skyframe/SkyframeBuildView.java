@@ -706,7 +706,6 @@ public final class SkyframeBuildView {
             : NONE;
     skyframeExecutor.setConflictCheckingModeInThisBuild(conflictCheckingMode);
 
-    executor.launchQueuedUpExecutionPhaseTasks();
     try (AnalysisOperationWatcher autoCloseableWatcher =
         AnalysisOperationWatcher.createAndRegisterWithEventBus(
             topLevelKeys,
