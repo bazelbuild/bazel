@@ -698,6 +698,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled();
   }
 
+  /**
+   * Returns the last known value of the given node, or null if it has none, even while the node is
+   * being rewound.
+   */
+  @Nullable
+  private SkyValue getLastKnownValue(SkyKey key) {
+    InMemoryNodeEntry entry = getEvaluator().getInMemoryGraph().getIfPresent(key);
+    return entry == null ? null : entry.toValue();
+  }
+
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public ArtifactPathResolver createPathResolverForArtifactValues(ActionInputMap actionInputMap) {
@@ -951,6 +961,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.TARGET_COMPLETION,
         TargetCompletor.targetCompletionFunction(
             pathResolverFactory,
+            this::getLastKnownValue,
             skyframeActionExecutor,
             topLevelArtifactsMetric,
             actionRewindStrategy,
@@ -959,6 +970,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.ASPECT_COMPLETION,
         AspectCompletor.aspectCompletionFunction(
             pathResolverFactory,
+            this::getLastKnownValue,
             skyframeActionExecutor,
             topLevelArtifactsMetric,
             actionRewindStrategy,
