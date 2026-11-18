@@ -336,7 +336,7 @@ public final class RemoteModule extends BlazeModule {
             actionContextProvider.getRemoteExecutionClient(),
             buildRequestId,
             invocationId,
-            env.getWorkspaceName(),
+            LabelConstants.MAIN_REPO_DIR_NAME,
             remoteOptions.getRemoteInstanceName(),
             remoteOptions.getRemoteAcceptCached(),
             remoteOptions.getRemoteUploadLocalResults(),
@@ -674,7 +674,7 @@ public final class RemoteModule extends BlazeModule {
           new BazelOutputService(
               env.getOutputBase(),
               env::getExecRoot,
-              () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
+              () -> env.getDirectories().getOutputPath(),
               digestUtil,
               remoteOptions.getRemoteCache(),
               remoteOptions.getRemoteInstanceName(),

@@ -110,6 +110,7 @@ java_library(
         ":sandboxed_spawns",
         ":tree_deleter",
         ":windows_sandbox",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",

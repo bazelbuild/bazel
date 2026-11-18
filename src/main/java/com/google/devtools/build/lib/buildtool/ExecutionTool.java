@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIde
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -187,7 +188,7 @@ public class ExecutionTool {
     }
     actionContextRegistryBuilder.register(
         SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(env.getOutputService(), env.getWorkspaceName()));
+        new SymlinkTreeStrategy(env.getOutputService(), LabelConstants.MAIN_REPO_DIR_NAME));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
@@ -517,7 +518,7 @@ public class ExecutionTool {
       modifiedOutputFiles =
           outputService.startBuild(
               buildId,
-              env.getWorkspaceName(),
+              LabelConstants.MAIN_REPO_DIR_NAME,
               env.getReporter(),
               request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
@@ -809,7 +810,6 @@ public class ExecutionTool {
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
       return OutputDirectoryLinksUtils.createOutputDirectoryLinks(
           buildRequestOptions,
-          env.getWorkspaceName(),
           env.getWorkspace(),
           env.getDirectories(),
           getReporter(),

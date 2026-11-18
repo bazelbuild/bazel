@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.CompactSpawnLogContext;
@@ -195,7 +196,7 @@ public final class SpawnLogModule extends BlazeModule {
                 outputStream,
                 displayName,
                 env.getExecRoot().asFragment(),
-                env.getWorkspaceName(),
+                LabelConstants.MAIN_REPO_DIR_NAME,
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 xattrProvider,

@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -167,7 +168,7 @@ final class RemoteActionContextProvider {
               createRemotePathResolver(),
               env.getBuildRequestId(),
               env.getCommandId().toString(),
-              env.getWorkspaceName(),
+              LabelConstants.MAIN_REPO_DIR_NAME,
               digestUtil,
               checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
               checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)),
