@@ -233,41 +233,29 @@ public final class DirectTargetHashFunction implements SkyFunction {
     }
 
     var deps = skyKey instanceof Key ? collectQueryDependencies(target) : null;
-    // The implementations of a toolchain() and the digests of the definitions of the repos they
-    // come from.
-    TreeMap<Label, byte[]> toolchainImplementationDigests = new TreeMap<>();
+    Map<Label, byte[]> toolchainImplementationDigests = Map.of();
     if (target instanceof Rule rule && rule.getRuleClass().equals("toolchain")) {
-      // The implementation of a toolchain() is a nodep label, because only the toolchain that
-      // resolution picks is analyzed. Follow it: toolchain types depend on all their toolchains.
       AggregatingAttributeMapper attributes = AggregatingAttributeMapper.of(rule);
-      ImmutableSet<Label> implementations =
-          attributes.getReachableLabels("toolchain", /* includeSelectKeys= */ false);
       if (deps != null) {
-        for (Label selectKey :
-            attributes.getReachableLabels("toolchain", /* includeSelectKeys= */ true)) {
-          if (!implementations.contains(selectKey)) {
-            deps.add(selectKey);
+        // These are non-dependency labels during ordinary analysis. Query hashes every registered
+        // candidate, following its actual dependencies and the labels in select() conditions.
+        deps.addAll(attributes.getReachableLabels("toolchain", /* includeSelectKeys= */ true));
+      } else {
+        toolchainImplementationDigests = new TreeMap<>();
+        for (Label implementation :
+            attributes.getReachableLabels("toolchain", /* includeSelectKeys= */ false)) {
+          byte[] digest;
+          try {
+            digest = repoClosureDefinitionDigest(env, implementation.getRepository());
+          } catch (IOException e) {
+            throw new DirectTargetHashFunctionException(e);
           }
-        }
-      }
-      for (Label implementation : implementations) {
-        // Toolchain implementations usually live in external repos with very large file sets
-        // (compilers, sysroots), for every platform. Loading their packages would require fetching
-        // all of those repos. Instead, hash the definitions of the implementation's repo and of
-        // every repo it can see.
-        byte[] digest;
-        try {
-          digest = repoClosureDefinitionDigest(env, implementation.getRepository());
-        } catch (IOException e) {
-          throw new DirectTargetHashFunctionException(e);
-        }
-        if (env.valuesMissing()) {
-          return null;
-        }
-        if (digest != null) {
-          toolchainImplementationDigests.put(implementation, digest);
-        } else if (deps != null) {
-          deps.add(implementation);
+          if (env.valuesMissing()) {
+            return null;
+          }
+          if (digest != null) {
+            toolchainImplementationDigests.put(implementation, digest);
+          }
         }
       }
     }
