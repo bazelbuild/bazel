@@ -24,9 +24,9 @@
 
 namespace devtools_ijar {
 // Try to compress a file entry in memory using the deflate algorithm.
-// It will compress buf (of size length) unless the compressed size is bigger
-// than the input size. The result will overwrite the content of buf and the
-// final size is returned.
+// It will compress buf (of size length) unless the compressed size is greater
+// than or equal to the input size, in which case buf is left untouched. The
+// result will overwrite the content of buf and the final size is returned.
 size_t TryDeflate(u1* buf, size_t length);
 
 u4 ComputeCrcChecksum(u1* buf, size_t length);
