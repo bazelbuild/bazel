@@ -346,6 +346,7 @@ public class ExecutionTool {
           skyframeBuilder.getActionOutputDirectoryHelper());
     }
 
+    env.getBuildResultListener().setExecutionTimer(executionTimer);
     env.getEventBus()
         .register(
             new ExecutionProgressReceiverSetup(

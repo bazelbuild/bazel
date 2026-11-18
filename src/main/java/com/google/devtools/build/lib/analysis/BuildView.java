@@ -415,8 +415,7 @@ public class BuildView {
                 /* shouldClearSyscallCache= */ !remoteAnalysisCachingDependenciesProvider
                     .mode()
                     .isSyncUpload(),
-                buildDriverKeyTestContext,
-                buildRequestOptions.getSkymeldAnalysisOverlapPercentage());
+                buildDriverKeyTestContext);
       } else {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(

@@ -966,41 +966,6 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError("cycle in dependency graph");
   }
 
-  @Test
-  public void analysisOverlapPercentageSanityCheck_success() throws Exception {
-    writeMyRuleBzl();
-    write(
-        "foo/BUILD",
-        """
-        load("//foo:my_rule.bzl", "my_rule")
-
-        my_rule(
-            name = "bar",
-            srcs = ["bar.in"],
-        )
-
-        my_rule(
-            name = "foo",
-            srcs = ["foo.in"],
-        )
-        """);
-    write("foo/foo.in");
-    write("foo/bar.in");
-
-    addOptions("--experimental_skymeld_analysis_overlap_percentage=5");
-    BuildResult result = buildTarget("//foo:foo", "//foo:bar");
-
-    assertThat(result.getSuccess()).isTrue();
-    assertSingleOutputBuilt("//foo:foo");
-    assertSingleOutputBuilt("//foo:bar");
-
-    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo", "//foo:bar");
-    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo", "//foo:bar");
-
-    assertThat(eventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
-    assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
-  }
-
   // Regression test for b/277783687.
   @Test
   public void targetAnalysisFailureNullBuild_correctErrorsPropagated(
