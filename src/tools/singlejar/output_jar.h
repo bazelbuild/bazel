@@ -123,8 +123,10 @@ class OutputJar {
   std::unique_ptr<char[]> buffer_;
   int entries_;
   int duplicate_entries_;
+#ifdef __linux__
   size_t fallocated_;
   bool fallocate_failed_;
+#endif
   uint8_t* cen_;
   size_t cen_size_;
   size_t cen_capacity_;
