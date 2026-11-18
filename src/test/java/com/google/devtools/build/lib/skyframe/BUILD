@@ -488,7 +488,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_nested_set_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_creation_exception",
