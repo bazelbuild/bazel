@@ -108,8 +108,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.CREATE,
-            "workspace");
+            RunfileSymlinksMode.CREATE);
 
     action.execute(context);
 
@@ -163,8 +162,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.CREATE,
-            "workspace");
+            RunfileSymlinksMode.CREATE);
 
     action.execute(context);
     // Check that the OutputService is not used.

@@ -207,11 +207,12 @@ public final class SymlinkTreeHelper {
    * Processes a list of fileset symlinks into a map that can be passed to {@link
    * com.google.devtools.build.lib.vfs.OutputService#createSymlinkTree}.
    *
-   * <p>By convention, all symlinks are placed under a directory with the given workspace name.
+   * <p>By convention, all symlinks are placed under a directory named {@link
+   * LabelConstants#MAIN_REPO_DIR_NAME}.
    */
   static ImmutableMap<PathFragment, PathFragment> processFilesetLinks(
-      ImmutableList<FilesetOutputSymlink> links, String workspaceName) {
-    PathFragment root = PathFragment.create(workspaceName);
+      ImmutableList<FilesetOutputSymlink> links) {
+    PathFragment root = PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME);
     var symlinks = ImmutableMap.<PathFragment, PathFragment>builderWithExpectedSize(links.size());
     for (FilesetOutputSymlink symlink : links) {
       symlinks.put(root.getRelative(symlink.name()), symlink.target().getPath().asFragment());

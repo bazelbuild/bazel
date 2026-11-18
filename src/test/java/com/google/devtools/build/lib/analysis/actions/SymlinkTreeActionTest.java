@@ -74,7 +74,6 @@ public final class SymlinkTreeActionTest extends BuildViewTestCase {
                           attributesToFlip.contains(RunfilesActionAttributes.FIXED_ENVIRONMENT),
                           attributesToFlip.contains(RunfilesActionAttributes.VARIABLE_ENVIRONMENT)),
                       runfileSymlinksMode,
-                      "workspace",
                       attributesToFlip.contains(
                           RunfilesActionAttributes.PREFER_TARGET_CONFIGURATION_RUNFILES)));
 
@@ -91,8 +90,7 @@ public final class SymlinkTreeActionTest extends BuildViewTestCase {
                       createActionEnvironment(
                           attributesToFlip.contains(FilesetActionAttributes.FIXED_ENVIRONMENT),
                           attributesToFlip.contains(FilesetActionAttributes.VARIABLE_ENVIRONMENT)),
-                      runfileSymlinksMode,
-                      "workspace"));
+                      runfileSymlinksMode));
     }
 
     tester.runTest();
@@ -118,7 +116,6 @@ public final class SymlinkTreeActionTest extends BuildViewTestCase {
                 outputManifest,
                 /* repoMappingManifest= */ null,
                 createActionEnvironment(false, false),
-                RunfileSymlinksMode.SKIP,
-                "workspace"));
+                RunfileSymlinksMode.SKIP));
   }
 }

@@ -164,7 +164,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             .getInputMetadataProvider()
             .getFileset(action.getInputManifest())
             .symlinks();
-    return SymlinkTreeHelper.processFilesetLinks(filesetLinks, action.getWorkspaceNameForFileset());
+    return SymlinkTreeHelper.processFilesetLinks(filesetLinks);
   }
 
   private static Map<PathFragment, Artifact> getRunfilesMap(SymlinkTreeAction action) {
