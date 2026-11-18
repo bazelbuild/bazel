@@ -87,6 +87,11 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
+    public boolean isBuildRunfileManifests() {
+      return wrapped.isBuildRunfileManifests();
+    }
+
+    @Override
     public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
       return wrapped.getArtifactsAtCanonicalLocationsForLogging();
     }

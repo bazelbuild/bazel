@@ -170,10 +170,28 @@ EOF
 }
 
 function test_run_with_no_build_runfile_manifests {
+  if is_windows; then
+    # Runfiles trees are disabled on Windows.
+    return
+  fi
   write_cc_source_files
 
-  bazel run --nobuild_runfile_manifests //cc:kitty >& $TEST_log && fail "should have failed"
-  expect_log_once "--nobuild_runfile_manifests is incompatible with the \"run\" command"
+  cat > cc/hello_kitty.txt <<EOF
+Hello, kitty.
+EOF
+
+  bazel run --nobuild_runfile_manifests //cc:kitty > output \
+    || fail "${PRODUCT_NAME} run failed."
+  assert_contains "Hello, kitty" output || fail "Output is not OK."
+
+  # The tree is materialized from a manifest written on demand, and kept up to date with it.
+  rm cc/hello_kitty.txt
+  cat > cc/pussycat.txt <<EOF
+A pussycat.
+EOF
+  bazel run --nobuild_runfile_manifests //cc:kitty > output \
+    || fail "${PRODUCT_NAME} run failed."
+  assert_contains "pussycat" output || fail "Output is not OK."
 }
 
 function test_script_file_generation {

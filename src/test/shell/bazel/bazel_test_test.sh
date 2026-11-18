@@ -1290,20 +1290,29 @@ function test_test_with_nobuild_runfile_manifests() {
   mkdir -p dir
   add_rules_shell "MODULE.bazel"
 
-  touch dir/test.sh
+  echo "hello runfile" > dir/data.txt
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+grep -q "hello runfile" "$TEST_SRCDIR/$TEST_WORKSPACE/dir/data.txt"
+EOF
   chmod u+x dir/test.sh
   cat <<'EOF' > dir/BUILD
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'test',
     srcs = ['test.sh'],
+    data = ['data.txt'],
 )
 EOF
-  bazel test --nobuild_runfile_manifests --spawn_strategy=local --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
-  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
-  bazel test --nobuild_runfile_manifests --spawn_strategy=standalone --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
-  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
-  bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "should have succeeded"
+  # The strategy is not part of the test's cache key, so every run has to be forced to execute.
+  for strategy in local standalone sandboxed; do
+    bazel test --nobuild_runfile_manifests --spawn_strategy=$strategy --nocache_test_results \
+      --test_output=errors //dir:test >& $TEST_log || fail "should have succeeded with $strategy"
+  done
+
+  # A runfiles manifest is never written outside of the runfiles tree.
+  local manifest="$(bazel info bazel-bin --nobuild_runfile_manifests)/dir/test.runfiles_manifest"
+  [[ ! -e "$manifest" ]] || fail "$manifest should not exist"
 }
 
 function test_test_with_reserved_env_variable() {

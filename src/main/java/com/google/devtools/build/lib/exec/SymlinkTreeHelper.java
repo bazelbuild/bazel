@@ -171,6 +171,16 @@ public final class SymlinkTreeHelper {
     createWorkspaceSubdirectory();
   }
 
+  /**
+   * Like {@link #createMinimalRunfilesDirectory()}, but writes {@code manifest} as the output
+   * manifest instead of linking it to an input manifest.
+   */
+  public void createMinimalRunfilesDirectory(byte[] manifest) throws ExecException {
+    clearRunfilesDirectory();
+    writeManifest(manifest);
+    createWorkspaceSubdirectory();
+  }
+
   /** Deletes the contents of the runfiles directory. */
   private void clearRunfilesDirectory() throws ExecException {
     try (SilentCloseable c = Profiler.instance().profile("Clear symlink tree")) {
@@ -186,6 +196,21 @@ public final class SymlinkTreeHelper {
     try {
       outputManifest.delete();
       outputManifest.createSymbolicLink(inputManifest);
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
+    }
+  }
+
+  /**
+   * Replaces the output manifest with a regular file holding {@code manifest}. The rename keeps
+   * readers of the manifest from seeing a missing or partially written file.
+   */
+  public void writeManifest(byte[] manifest) throws ExecException {
+    Path tmpManifest =
+        outputManifest.getParentDirectory().getChild(outputManifest.getBaseName() + ".tmp");
+    try {
+      FileSystemUtils.writeContent(tmpManifest, manifest);
+      tmpManifest.renameTo(outputManifest);
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
     }

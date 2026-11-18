@@ -120,6 +120,7 @@ public final class RunfilesSupport {
     @Nullable private volatile WeakReference<SortedMap<PathFragment, Artifact>> cachedMapping;
 
     private final boolean buildRunfileLinks;
+    private final boolean buildRunfileManifests;
     private final RunfileSymlinksMode runfileSymlinksMode;
 
     private RunfilesTreeImpl(
@@ -128,6 +129,7 @@ public final class RunfilesSupport {
         @Nullable Artifact repoMappingManifest,
         @Nullable ArtifactRoot originatingTargetRoot,
         boolean buildRunfileLinks,
+        boolean buildRunfileManifests,
         boolean cacheMapping,
         RunfileSymlinksMode runfileSymlinksMode) {
       this.execPath = execPath;
@@ -135,6 +137,7 @@ public final class RunfilesSupport {
       this.repoMappingManifest = repoMappingManifest;
       this.originatingTargetRoot = originatingTargetRoot;
       this.buildRunfileLinks = buildRunfileLinks;
+      this.buildRunfileManifests = buildRunfileManifests;
       this.runfileSymlinksMode = runfileSymlinksMode;
       this.cachedMapping = cacheMapping ? NOT_YET_COMPUTED : null;
     }
@@ -147,6 +150,7 @@ public final class RunfilesSupport {
           /* repoMappingManifest= */ null,
           /* originatingTargetRoot= */ null,
           /* buildRunfileLinks= */ false,
+          /* buildRunfileManifests= */ true,
           /* cacheMapping= */ false,
           RunfileSymlinksMode.CREATE);
     }
@@ -229,6 +233,11 @@ public final class RunfilesSupport {
     @Override
     public boolean isBuildRunfileLinks() {
       return buildRunfileLinks;
+    }
+
+    @Override
+    public boolean isBuildRunfileManifests() {
+      return buildRunfileManifests;
     }
 
     @Override
@@ -337,7 +346,10 @@ public final class RunfilesSupport {
             runfiles,
             repoMappingManifest,
             preferTargetConfigurationRunfiles ? runfilesTreeArtifact.getRoot() : null,
-            buildRunfileLinks,
+            // Without a manifest there is no SymlinkTreeAction to build the links, so the tree is
+            // only ever materialized on demand.
+            buildRunfileLinks && buildRunfileManifests,
+            buildRunfileManifests,
             cacheRunfilesMappings(ruleContext),
             runfileSymlinksMode);
 
@@ -579,6 +591,7 @@ public final class RunfilesSupport {
             null,
             preferTargetConfigurationRunfiles ? runfilesTreeArtifact.getRoot() : null,
             buildRunfilesLinks,
+            /* buildRunfileManifests= */ true,
             false,
             ruleContext.getConfiguration().getRunfileSymlinksMode());
     PathFragment rootRelativePath = runfilesTreeArtifact.getRootRelativePath();

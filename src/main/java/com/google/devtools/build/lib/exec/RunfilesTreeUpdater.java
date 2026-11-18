@@ -20,14 +20,17 @@ import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
@@ -106,9 +109,15 @@ public class RunfilesTreeUpdater {
     Path runfilesDir = execRoot.getRelative(tree.getExecPath());
     Path inputManifest =
         execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
-    var inputManifestStat = inputManifest.statIfFound();
-    if (inputManifestStat == null) {
-      return;
+    // Without an action that writes the input manifest, its path next to the runfiles directory is
+    // not reserved, so the manifest is generated here and only written into the runfiles directory.
+    byte[] generatedManifest = tree.isBuildRunfileManifests() ? null : generateManifest(tree);
+    FileStatus inputManifestStat = null;
+    if (generatedManifest == null) {
+      inputManifestStat = inputManifest.statIfFound();
+      if (inputManifestStat == null) {
+        return;
+      }
     }
     Path outputManifest =
         execRoot.getRelative(RunfilesSupport.outputManifestExecPath(tree.getExecPath()));
@@ -131,8 +140,15 @@ public class RunfilesTreeUpdater {
             && Arrays.equals(
                 DigestUtils.getDigestWithManualFallback(
                     outputManifest, xattrProvider, outputManifestStat),
-                DigestUtils.getDigestWithManualFallback(
-                    inputManifest, xattrProvider, inputManifestStat))
+                generatedManifest != null
+                    ? outputManifest
+                        .getFileSystem()
+                        .getDigestFunction()
+                        .getHashFunction()
+                        .hashBytes(generatedManifest)
+                        .asBytes()
+                    : DigestUtils.getDigestWithManualFallback(
+                        inputManifest, xattrProvider, inputManifestStat))
             && (OS.getCurrent() != OS.WINDOWS
                 || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
           return;
@@ -151,10 +167,27 @@ public class RunfilesTreeUpdater {
     switch (tree.getSymlinksMode()) {
       case CREATE -> {
         helper.createRunfilesSymlinks(tree.getMapping());
-        helper.linkManifest();
+        if (generatedManifest != null) {
+          helper.writeManifest(generatedManifest);
+        } else {
+          helper.linkManifest();
+        }
       }
-      case SKIP -> helper.createMinimalRunfilesDirectory();
+      case SKIP -> {
+        if (generatedManifest != null) {
+          helper.createMinimalRunfilesDirectory(generatedManifest);
+        } else {
+          helper.createMinimalRunfilesDirectory();
+        }
+      }
     }
+  }
+
+  /** Returns the manifest a source manifest action would have written for {@code tree}. */
+  private static byte[] generateManifest(RunfilesTree tree) throws IOException {
+    ByteArrayOutputStream manifest = new ByteArrayOutputStream();
+    SourceManifestAction.writeSourceSymlinksManifest(manifest, tree.getMapping());
+    return manifest.toByteArray();
   }
 
   private static boolean isRunfilesDirectoryPopulated(Path runfilesDir, Path outputManifest) {

@@ -3483,6 +3483,11 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
+      public boolean isBuildRunfileManifests() {
+        return true;
+      }
+
+      @Override
       public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
       }
