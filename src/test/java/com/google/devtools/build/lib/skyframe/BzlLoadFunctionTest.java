@@ -1297,6 +1297,26 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStaticTypeChecker_transitiveDepsReferencedInFunction() throws Exception {
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: list[int] | list[str] = [1, 2, 3]");
+    scratch.file(
+        "a/bar.bzl",
+        """
+        load(":foo.bzl", "x")
+        def f() -> list[int]:
+            return x
+        """);
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:bar.bzl");
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent(
+        "f() declares return type 'list[int]' but may return 'list[int] | list[str]'");
+  }
+
+  @Test
   public void testStaticTypeChecker_notRun_ifDisabledByFlag() throws Exception {
     setBuildLanguageOptions("--noexperimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
