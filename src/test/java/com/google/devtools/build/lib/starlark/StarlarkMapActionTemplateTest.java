@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -1578,7 +1577,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   private void assertTreeContainsFileWithContents(
       TreeArtifact tree, String relativeFilePath, String... expectedContents) throws Exception {
-    Path execRoot = directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME);
+    Path execRoot = directories.getExecRoot();
     Path path = execRoot.getRelative(tree.getExecPath().getChild(relativeFilePath));
     assertThat(path.exists()).isTrue();
     String actualContents = FileSystemUtils.readContentAsLatin1(path);

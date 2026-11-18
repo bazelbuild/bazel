@@ -59,7 +59,7 @@ public class TestExecutorBuilder {
       SpawnStrategyRegistry.builder();
 
   public TestExecutorBuilder(FileSystem fileSystem, BlazeDirectories directories) {
-    this(fileSystem, directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME));
+    this(fileSystem, directories.getExecRoot());
   }
 
   public TestExecutorBuilder(FileSystem fileSystem, Path execRoot) {

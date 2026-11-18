@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.remote.RemoteModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
@@ -136,9 +135,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
       // Necessary due to the RepositoryHelpersHolder nulling above, simulates the effect of
       // TopLevelTargetReadyForSymlinkPlanting.
       FileSystemUtils.ensureSymbolicLink(
-          directories
-              .getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME)
-              .getRelative("external/bazel_tools"),
+          directories.getExecRoot().getRelative("external/bazel_tools"),
           getOutputBase().getRelative("external/bazel_tools"));
     }
   }

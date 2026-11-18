@@ -59,7 +59,7 @@ public class LocalOutputService implements OutputService {
   public ModifiedFileSet startBuild(
       UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
       throws AbruptExitException {
-    Path outputPath = directories.getOutputPath(workspaceName);
+    Path outputPath = directories.getOutputPath();
     Path localOutputPath = directories.getLocalOutputPath();
     try {
       if (outputPath.isSymbolicLink()) {

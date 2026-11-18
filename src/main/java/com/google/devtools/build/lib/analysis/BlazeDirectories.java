@@ -175,12 +175,7 @@ public final class BlazeDirectories {
    * specified with --package_path.
    */
   public Path getExecRoot() {
-    return getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME);
-  }
-
-  /** Returns the execution root for the given workspace name. */
-  public Path getExecRoot(String workspaceName) {
-    return getExecRootBase().getRelative(workspaceName);
+    return getExecRootBase().getRelative(LabelConstants.MAIN_REPO_DIR_NAME);
   }
 
   /**
@@ -195,12 +190,7 @@ public final class BlazeDirectories {
 
   /** Returns the output path used by this Blaze instance. */
   public Path getOutputPath() {
-    return getOutputPath(LabelConstants.MAIN_REPO_DIR_NAME);
-  }
-
-  /** Returns the output path used by this Blaze instance for the given workspace name. */
-  public Path getOutputPath(String workspaceName) {
-    return getExecRoot(workspaceName).getRelative(getRelativeOutputPath());
+    return getExecRoot().getRelative(getRelativeOutputPath());
   }
 
   /** Returns the local output path used by this Blaze instance. */
@@ -229,13 +219,8 @@ public final class BlazeDirectories {
    * ("_coverage") should be stored.
    */
   public ArtifactRoot getBuildDataDirectory() {
-    return getBuildDataDirectory(LabelConstants.MAIN_REPO_DIR_NAME);
-  }
-
-  /** Returns the build data directory for the given workspace name. */
-  public ArtifactRoot getBuildDataDirectory(String workspaceName) {
     return ArtifactRoot.asDerivedRoot(
-        getExecRoot(workspaceName), RootType.OUTPUT, getRelativeOutputPath(productName));
+        getExecRoot(), RootType.OUTPUT, getRelativeOutputPath(productName));
   }
 
   /**

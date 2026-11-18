@@ -129,7 +129,7 @@ public class RemoteOutputService implements OutputService {
     // One of the responsibilities of OutputService.startBuild() is that it ensures the output path
     // is valid. If the previous OutputService redirected the output path to a remote location, we
     // must undo this.
-    Path outputPath = directories.getOutputPath(workspaceName);
+    Path outputPath = directories.getOutputPath();
     try {
       if (outputPath.isSymbolicLink()) {
         outputPath.delete();

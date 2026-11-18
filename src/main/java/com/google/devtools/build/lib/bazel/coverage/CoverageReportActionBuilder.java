@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
@@ -247,7 +246,7 @@ public final class CoverageReportActionBuilder {
         Artifact baselineLcovArtifact =
             factory.getDerivedArtifact(
                 TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
-                directories.getBuildDataDirectory(LabelConstants.MAIN_REPO_DIR_NAME),
+                directories.getBuildDataDirectory(),
                 artifactOwner);
         Action baselineLcovFileAction =
             generateLcovFileWriteAction(
@@ -269,7 +268,7 @@ public final class CoverageReportActionBuilder {
         Artifact coverageLcovArtifact =
             factory.getDerivedArtifact(
                 TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
-                directories.getBuildDataDirectory(LabelConstants.MAIN_REPO_DIR_NAME),
+                directories.getBuildDataDirectory(),
                 artifactOwner);
         Action coverageLcovFileAction =
             generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
@@ -342,7 +341,7 @@ public final class CoverageReportActionBuilder {
       CoverageHelper coverageHelper,
       Collection<ConfiguredTarget> configuredTargets,
       String basename) {
-    ArtifactRoot root = args.directories().getBuildDataDirectory(LabelConstants.MAIN_REPO_DIR_NAME);
+    ArtifactRoot root = args.directories().getBuildDataDirectory();
     Artifact lcovOutput =
         args.factory()
             .getDerivedArtifact(

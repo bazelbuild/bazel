@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -79,8 +78,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
     Artifact inputArtifact = getSourceArtifact("input");
     Artifact outputArtifact = getBinArtifactWithNoOwner("output");
 
-    Path inputPath =
-        directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME).getRelative("input");
+    Path inputPath = directories.getExecRoot().getRelative("input");
     inputPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(inputPath);
     inputArtifact.getPath().createSymbolicLink(inputPath);
@@ -107,8 +105,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
     Artifact inputArtifact = getSourceArtifact("input");
     Artifact outputArtifact = getBinArtifactWithNoOwner("output");
 
-    Path inputPath =
-        directories.getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME).getRelative("input");
+    Path inputPath = directories.getExecRoot().getRelative("input");
     inputPath.createDirectoryAndParents();
     inputArtifact.getPath().createSymbolicLink(inputPath);
     outputArtifact.getPath().getParentDirectory().createDirectoryAndParents();

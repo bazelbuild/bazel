@@ -276,11 +276,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
   }
 
   private Path getExecRoot() {
-    return getBlazeWorkspace().getDirectories().getExecRoot(LabelConstants.MAIN_REPO_DIR_NAME);
+    return getBlazeWorkspace().getDirectories().getExecRoot();
   }
 
   private Path getOutputPath() {
-    return getBlazeWorkspace().getDirectories().getOutputPath(LabelConstants.MAIN_REPO_DIR_NAME);
+    return getBlazeWorkspace().getDirectories().getOutputPath();
   }
 
   /** Gets a mapping from the workspace-relative paths of symlinks to the paths they point to. */

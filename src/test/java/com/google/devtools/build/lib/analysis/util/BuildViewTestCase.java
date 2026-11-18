@@ -1726,7 +1726,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Path getOutputPath() {
-    return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
+    return directories.getOutputPath();
   }
 
   protected String getRelativeOutputPath() {
@@ -2420,7 +2420,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   public Path getExecRoot() {
-    return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
+    return directories.getExecRoot();
   }
 
   /** Returns true iff commandLine contains the option --flagName followed by arg. */
