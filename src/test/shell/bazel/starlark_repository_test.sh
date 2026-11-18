@@ -3030,6 +3030,65 @@ EOF
   expect_log "I see: a directory"
 }
 
+function test_copy_directory() {
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  mkdir -p ${outside_dir}/tree/sub
+  echo one > ${outside_dir}/tree/sub/data.txt
+  echo '#!/bin/sh' > ${outside_dir}/tree/tool.sh
+  chmod +x ${outside_dir}/tree/tool.sh
+  echo linked > ${outside_dir}/linked.txt
+  ln -s ../linked.txt ${outside_dir}/tree/link.txt
+  ln -s sub ${outside_dir}/tree/sub_link
+
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  rctx.file("copy/sub/kept.txt", "kept")
+  rctx.copy("${outside_dir}/tree", "copy", executable = False)
+  rctx.copy("${outside_dir}/tree/tool.sh", "copy/tool.sh")
+  print("I see: " + rctx.read("copy/sub/data.txt").strip())
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: one"
+  local repo_dir="$(bazel info output_base)/external/+r+r"
+  assert_equals "kept" "$(cat ${repo_dir}/copy/sub/kept.txt)"
+  assert_equals "linked" "$(cat ${repo_dir}/copy/link.txt)"
+  assert_equals "one" "$(cat ${repo_dir}/copy/sub_link/data.txt)"
+  [[ ! -L ${repo_dir}/copy/link.txt ]] || fail "expected link.txt to be a copy"
+  [[ ! -L ${repo_dir}/copy/sub_link ]] || fail "expected sub_link to be a copy"
+  if ! is_windows; then
+    [[ -x ${repo_dir}/copy/tool.sh ]] || fail "expected tool.sh to be executable"
+    [[ ! -x ${repo_dir}/copy/sub/data.txt ]] \
+      || fail "expected data.txt to not be executable"
+  fi
+
+  # the copied directory tree is watched by default.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+
+  echo two > ${outside_dir}/tree/sub/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: two"
+
+  if is_windows; then
+    # The symlinks created above may be copies.
+    return 0
+  fi
+
+  # the targets of symlinks are also watched.
+  echo relinked > ${outside_dir}/linked.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: two"
+  assert_equals "relinked" "$(cat ${repo_dir}/copy/link.txt)"
+}
+
 # Documents the current behavior when a directory whose entries are recorded
 # as a repo or module extension input becomes non-readable between builds: the
 # build fails. This is not necessarily the desired behavior.
@@ -3898,20 +3957,17 @@ with zipfile.ZipFile('non_readable.zip', 'w') as zf:
 function test_extract_non_readable_file_ar() {
   local archive_ar="${TEST_TMPDIR}/non_readable.ar"
 
-  # Create a valid AR file, then patch the permission field to 0000
-  pushd "${TEST_TMPDIR}"
-  echo "secret ar content" > non_readable.txt
-  ar rc non_readable.ar non_readable.txt
-  # Patch the mode field (bytes 40-47 after the 8-byte magic) to "0       "
+  # Write the AR file directly. Do not use the system "ar": on macOS with
+  # Xcode 26, "ar" runs ranlib, which drops members that are not Mach-O files.
   python3 -c "
-with open('non_readable.ar', 'r+b') as f:
-    # AR magic is 8 bytes, then header starts
-    # Header format: filename(16) + mtime(12) + owner(6) + group(6) + mode(8) + size(10) + magic(2)
-    # Mode is at offset 8 + 16 + 12 + 6 + 6 = 48
-    f.seek(48)
-    f.write(b'0       ')  # 8 bytes for mode 0000 in octal
+data = b'secret ar content\\n'
+# Header: name(16) mtime(12) uid(6) gid(6) mode(8, octal) size(10) magic(2).
+header = (b'non_readable.txt'.ljust(16) + b'0'.ljust(12) + b'0'.ljust(6) +
+          b'0'.ljust(6) + b'0'.ljust(8) + str(len(data)).encode().ljust(10) +
+          b'\\x60\\n')
+with open('${archive_ar}', 'wb') as f:
+    f.write(b'!<arch>\\n' + header + data + b'\\n' * (len(data) % 2))
 "
-  popd
 
   _run_extract_test "${archive_ar}" "non_readable.txt" "secret ar content"
 }

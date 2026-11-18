@@ -131,7 +131,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   // Default list of registries.
   public static final ImmutableSet<String> DEFAULT_REGISTRIES =
-      ImmutableSet.of("https://bcr.bazel.build/");
+      ImmutableSet.of("https://bcr.bazel.build");
   public static final ImmutableMap<String, ImmutableSet<String>> DEFAULT_MODULE_MIRRORS =
       ImmutableMap.of();
 

@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
+import static java.util.Comparator.comparing;
+import static java.util.Comparator.naturalOrder;
+import static java.util.Comparator.nullsFirst;
 
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -34,6 +37,7 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -63,6 +67,13 @@ public class ConfiguredTargetKey implements ActionLookupKey {
    * not {@code O(edges between configured targets)}.
    */
   private static final SkyKey.SkyKeyInterner<ConfiguredTargetKey> interner = SkyKey.newInterner();
+
+  public static final Comparator<ConfiguredTargetKey> ORDERING =
+      comparing(ConfiguredTargetKey::getLabel)
+          .thenComparing(ConfiguredTargetKey::getExecutionPlatformLabel, nullsFirst(naturalOrder()))
+          .thenComparing(
+              ConfiguredTargetKey::getConfigurationKey,
+              nullsFirst(comparing(BuildConfigurationKey::getOptionsChecksum)));
 
   private final Label label;
   @Nullable private final BuildConfigurationKey configurationKey;

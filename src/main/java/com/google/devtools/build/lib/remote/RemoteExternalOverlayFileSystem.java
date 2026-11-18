@@ -324,11 +324,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
               /* locationIndex= */ 1,
               expirationTime,
               /* inMemoryOutput= */ false));
-      fs.setExecutable(filePath, file.getIsExecutable());
       // The RE API does not track whether a file is readable or writable. We choose to make all
       // files readable and not writable to ensure that other repo rules can't accidentally modify
       // the cached repo.
-      fs.setWritable(filePath, false);
+      fs.chmod(filePath, file.getIsExecutable() ? 0555 : 0444);
     }
     for (var symlink : dir.getSymlinksList()) {
       String name = unicodeToInternal(symlink.getName());
@@ -459,6 +458,20 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     var reposToDiscard = ImmutableSet.copyOf(markerFileContents.keySet());
     reposToDiscard.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposToDiscard);
+  }
+
+  @Override
+  public int getMaterializationPermissions(PathFragment path, int defaultPermissions)
+      throws IOException {
+    if (path.startsWith(externalDirectory)) {
+      // injectRemoteRepo prefetches before setting markerFileContents, so fsForPath would select
+      // nativeFs. Read externalFs directly so prefetched files preserve the cached executable bit.
+      var stat = externalFs.statIfFound(path, /* followSymlinks= */ true);
+      if (stat != null && stat.isFile()) {
+        return (stat.getPermissions() & 0100) != 0 ? 0555 : 0444;
+      }
+    }
+    return defaultPermissions;
   }
 
   /**

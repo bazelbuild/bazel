@@ -1034,6 +1034,38 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "cc_test(name = 'some_test')");
   }
 
+  @Test
+  public void testCollectCoverageScriptOnlyDependedOnWithCoverage(
+      @TestParameter boolean collectCodeCoverage) throws Exception {
+    if (collectCodeCoverage) {
+      useConfiguration("--collect_code_coverage");
+    }
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [DefaultInfo(executable = script)]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
+    scratch.file("BUILD", "load(':some_test.bzl', 'some_test')", "some_test(name = 'some_test')");
+
+    ConfiguredTarget collectCoverageScript =
+        getDirectPrerequisite(
+            getConfiguredTarget("//:some_test"),
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm() + "//tools/test:collect_coverage");
+    if (collectCodeCoverage) {
+      assertThat(collectCoverageScript).isNotNull();
+    } else {
+      assertThat(collectCoverageScript).isNull();
+    }
+  }
+
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(String label)
       throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
