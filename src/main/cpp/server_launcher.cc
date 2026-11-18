@@ -34,9 +34,12 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path_platform.h"
-#include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 
 using blaze_util::GetLastErrorString;
@@ -116,10 +119,7 @@ void ReleaseClientLocks(bool lock_install_base, ClientLocks* locks) {
 // Escapes colons by replacing them with '_C' and underscores by replacing
 // them with '_U'. E.g. "name:foo_bar" becomes "name_Cfoo_Ubar"
 static string EscapeForOptionSource(const string& input) {
-  string result = input;
-  blaze_util::Replace("_", "_U", &result);
-  blaze_util::Replace(":", "_C", &result);
-  return result;
+  return absl::StrReplaceAll(input, {{"_", "_U"}, {":", "_C"}});
 }
 
 // Returns the JVM command argument array.
@@ -236,8 +236,8 @@ vector<string> GetServerExeArgs(const blaze_util::Path& jvm_path,
   // TODO(b/152047869): Test that whatever the list constructed after this
   // line is actually a list of parseable startup options.
   if (!startup_options.batch) {
-    result.push_back("--max_idle_secs=" +
-                     blaze_util::ToString(startup_options.max_idle_secs));
+    result.push_back(
+        absl::StrCat("--max_idle_secs=", startup_options.max_idle_secs));
     if (startup_options.shutdown_on_low_sys_mem) {
       result.push_back("--shutdown_on_low_sys_mem");
     } else {
@@ -250,12 +250,12 @@ vector<string> GetServerExeArgs(const blaze_util::Path& jvm_path,
   }
 
   if (startup_options.command_port != 0) {
-    result.push_back("--command_port=" +
-                     blaze_util::ToString(startup_options.command_port));
+    result.push_back(
+        absl::StrCat("--command_port=", startup_options.command_port));
   }
 
-  result.push_back("--connect_timeout_secs=" +
-                   blaze_util::ToString(startup_options.connect_timeout_secs));
+  result.push_back(absl::StrCat("--connect_timeout_secs=",
+                                startup_options.connect_timeout_secs));
 
   result.push_back("--output_user_root=" +
                    startup_options.output_user_root.AsCommandLineArgument());
@@ -428,9 +428,7 @@ vector<string> GetServerExeArgs(const blaze_util::Path& jvm_path,
 // Join the elements of the specified array with NUL's (\0's), akin to the
 // format of /proc/$PID/cmdline.
 string GetArgumentString(const vector<string>& argument_array) {
-  string result;
-  blaze_util::JoinStrings(argument_array, '\0', &result);
-  return result;
+  return absl::StrJoin(argument_array, absl::string_view("\0", 1));
 }
 
 void EnsureServerDir(const blaze_util::Path& server_dir) {

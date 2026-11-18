@@ -613,9 +613,9 @@ bool MakeDirectories(const Path& path, unsigned int mode) {
 }
 
 Path CreateSiblingTempDir(const Path& other_path) {
-  Path path = other_path.GetParent().GetRelative(
-      other_path.GetBaseName() + ".tmp." +
-      blaze_util::ToString(GetCurrentProcessId()));
+  Path path =
+      other_path.GetParent().GetRelative(other_path.GetBaseName() + ".tmp." +
+                                         std::to_string(GetCurrentProcessId()));
   if (!blaze_util::MakeDirectories(path, 0777)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "couldn't create '" << path.AsPrintablePath()

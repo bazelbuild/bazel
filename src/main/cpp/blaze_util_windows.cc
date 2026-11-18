@@ -54,7 +54,10 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 
 namespace blaze {
@@ -368,9 +371,7 @@ void SigPrintf(const char* format, ...) {
 
 void WarnFilesystemType(const blaze_util::Path& output_base) {}
 
-string GetProcessIdAsString() {
-  return blaze_util::ToString(GetCurrentProcessId());
-}
+string GetProcessIdAsString() { return absl::StrCat(GetCurrentProcessId()); }
 
 string GetSelfPath(const char* argv0) {
   WCHAR buffer[kWindowsPathBufferSize] = {0};
@@ -459,8 +460,7 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
 }
 
 bool IsSharedLibrary(const string& filename) {
-  return (blaze_util::ends_with(filename, ".dll") ||
-          blaze_util::ends_with(filename, ".pyd"));
+  return (absl::EndsWith(filename, ".dll") || absl::EndsWith(filename, ".pyd"));
 }
 
 string GetSystemJavabase() {
@@ -554,8 +554,7 @@ static void WriteProcessStartupTime(const blaze_util::Path& server_dir,
   }
 
   blaze_util::Path start_time_file = server_dir.GetRelative("server.starttime");
-  if (!blaze_util::WriteFile(blaze_util::ToString(start_time),
-                             start_time_file)) {
+  if (!blaze_util::WriteFile(absl::StrCat(start_time), start_time_file)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "WriteProcessStartupTime(" << server_dir.AsPrintablePath()
         << "): WriteFile(" << start_time_file.AsPrintablePath()
@@ -728,7 +727,7 @@ int ExecuteDaemon(
   // Pass ownership of processInfo.hProcess
   *server_startup = new ProcessHandleBlazeServerStartup(processInfo.hProcess);
 
-  string pid_string = blaze_util::ToString(processInfo.dwProcessId);
+  string pid_string = absl::StrCat(processInfo.dwProcessId);
   blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
   if (!blaze_util::WriteFile(pid_string, pid_file)) {
     // Not a lot we can do if this fails
@@ -898,8 +897,7 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base) {
 
   // If start time file got deleted, but PID file didn't, assume that this is an
   // old Bazel process that doesn't know how to write start time files yet.
-  return !file_present ||
-         recorded_start_time == blaze_util::ToString(start_time);
+  return !file_present || recorded_start_time == absl::StrCat(start_time);
 }
 
 std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
@@ -1541,7 +1539,9 @@ string FindBashInPath(const string& path_list, const string& windir,
   // We do not fully replicate all the quirks of search in PATH.
   // There is no system function to do so, and that way lies madness.
   // This ignores possibly quoted semicolons in PATH etc.
-  for (string dir : blaze_util::Split(path_list, ';')) {
+  const std::vector<string> dirs =
+      absl::StrSplit(path_list, ';', absl::SkipEmpty());
+  for (string dir : dirs) {
     // Handle one typical way of quoting (where.exe does not handle this, but
     // CreateProcess does).
     if (dir.size() > 1 && dir.front() == '"' && dir.back() == '"') {
