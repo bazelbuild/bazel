@@ -404,13 +404,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread) {
-    return thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY);
-  }
-
-  @Override
   public Sequence<?> expandJavaOpts(
       StarlarkRuleContext ctx, String attr, boolean tokenize, boolean execPaths)
       throws InterruptedException {
