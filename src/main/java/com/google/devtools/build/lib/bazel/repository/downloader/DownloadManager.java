@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.JavaSleeper;
+import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,6 +65,17 @@ import javax.annotation.Nullable;
  * to disk.
  */
 public class DownloadManager {
+  /**
+   * The delay before the first retry; each later one waits twice as long, up to {@link
+   * #MAX_RETRY_DELAY_MS}. Retrying an unknown host only helps once the JDK's cached failure for it
+   * has expired ({@code networkaddress.cache.negative.ttl}, ten seconds by default), and with the
+   * default number of retries the later ones come after that.
+   */
+  private static final long INITIAL_RETRY_DELAY_MS = 1_000;
+
+  /** The default negative DNS cache time, so that every capped retry makes a fresh lookup. */
+  private static final long MAX_RETRY_DELAY_MS = 10_000;
+
   private final DownloadCache downloadCache;
   private ImmutableList<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
@@ -71,6 +84,7 @@ public class DownloadManager {
   private final ExtendedEventHandler eventHandler;
   private boolean disableDownload = false;
   private int retries = 0;
+  private Sleeper sleeper = new JavaSleeper();
   @Nullable private Credentials netrcCreds;
   private CredentialFactory credentialFactory = StaticCredentials::new;
 
@@ -113,6 +127,11 @@ public class DownloadManager {
   public void setRetries(int retries) {
     checkArgument(retries >= 0, "Invalid retries");
     this.retries = retries;
+  }
+
+  @VisibleForTesting
+  void setSleeper(Sleeper sleeper) {
+    this.sleeper = sleeper;
   }
 
   public void setNetrcCreds(Credentials netrcCreds) {
@@ -350,6 +369,7 @@ public class DownloadManager {
         if (!shouldRetryDownload(e, attempt)) {
           throw e;
         }
+        sleeper.sleepMillis(retryDelayMillis(attempt));
       }
     }
 
@@ -379,6 +399,11 @@ public class DownloadManager {
     }
 
     return false;
+  }
+
+  private static long retryDelayMillis(int attempt) {
+    return (long)
+        Math.min(Math.scalb((double) INITIAL_RETRY_DELAY_MS, attempt), MAX_RETRY_DELAY_MS);
   }
 
   private boolean isRetryableException(Throwable e) {
@@ -498,6 +523,7 @@ public class DownloadManager {
         if (!shouldRetryDownload(e, attempt)) {
           throw e;
         }
+        sleeper.sleepMillis(retryDelayMillis(attempt));
       }
     }
     if (content == null) {

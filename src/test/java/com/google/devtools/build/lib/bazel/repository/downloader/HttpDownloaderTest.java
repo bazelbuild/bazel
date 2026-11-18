@@ -1096,6 +1096,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1140,6 +1141,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1224,6 +1226,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1268,6 +1271,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1308,21 +1312,24 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void download_unknownHost_retries() throws Exception {
+  public void download_unknownHost_retriesWithBackoff() throws Exception {
     // The nesting HttpDownloader.download produces when HttpConnector fails to resolve the host
-    // of the only URL; the UnknownHostException is two levels below the thrown exception.
+    // of the only URL; the UnknownHostException is two levels below the thrown exception. The
+    // retries have to be spread out, or they all hit the JDK's cached lookup failure.
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
-    int retries = 5;
+    int retries = 6;
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    List<Long> delays = new ArrayList<>();
+    downloadManager.setSleeper(delays::add);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
             (Answer<Void>)
                 invocationOnMock -> {
-                  if (times.getAndIncrement() < 3) {
+                  if (times.getAndIncrement() < 6) {
                     IOException unknownHost =
                         new UnrecoverableHttpException("Unknown host: example.com");
                     unknownHost.addSuppressed(new UnknownHostException("example.com"));
@@ -1353,7 +1360,8 @@ public class HttpDownloaderTest {
             ImmutableMap.of(),
             "testRepo");
 
-    assertThat(times.get()).isEqualTo(4);
+    assertThat(times.get()).isEqualTo(7);
+    assertThat(delays).containsExactly(1000L, 2000L, 4000L, 8000L, 10000L, 10000L).inOrder();
     String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
     assertThat(content).isEqualTo("content");
   }

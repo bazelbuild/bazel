@@ -199,7 +199,8 @@ public abstract class RepositoryOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "The maximum number of attempts to retry a download error. If set to 0, retries are"
-              + " disabled.")
+              + " disabled. Retries wait between attempts, starting at one second and doubling up"
+              + " to ten seconds.")
   public abstract int getRepositoryDownloaderRetries();
 
   @Option(
