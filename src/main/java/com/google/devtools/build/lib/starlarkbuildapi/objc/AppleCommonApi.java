@@ -80,7 +80,9 @@ public interface AppleCommonApi<
               + "<a href='../providers/XcodeVersionConfig.html#sdk_version_for_platform'>"
               + "XcodeVersionConfig.sdk_version_for_platform</a>.",
       structField = true)
-  StructApi getPlatformStruct();
+  default StructApi getPlatformStruct() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "XcodeProperties",
