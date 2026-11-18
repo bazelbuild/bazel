@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
@@ -74,7 +75,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
 
       try {
         CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
-        return computeCcFlags(ruleContext, toolchain);
+        return computeCcFlags(toolchain);
       } catch (RuleErrorException | EvalException e) {
         throw new ExpansionException(e.getMessage());
       }
@@ -91,8 +92,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
      * Computes the appropriate value of the {@code $(CC_FLAGS)} Make variable based on the given
      * toolchain.
      */
-    public static String computeCcFlags(
-        RuleContext ruleContext, CcToolchainProvider toolchainProvider)
+    public static String computeCcFlags(CcToolchainProvider toolchainProvider)
         throws RuleErrorException, EvalException {
 
       // Determine the original value of CC_FLAGS.
@@ -103,8 +103,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
       }
 
       // Fetch additional flags from the FeatureConfiguration.
-      List<String> featureConfigCcFlags =
-          computeCcFlagsFromFeatureConfig(ruleContext, toolchainProvider);
+      List<String> featureConfigCcFlags = computeCcFlagsFromFeatureConfig(toolchainProvider);
 
       // Combine the different flag sources.
       ImmutableList.Builder<String> ccFlags = new ImmutableList.Builder<>();
@@ -126,20 +125,15 @@ public final class CppSysrootTest extends BuildViewTestCase {
     }
 
     private static List<String> computeCcFlagsFromFeatureConfig(
-        RuleContext ruleContext, CcToolchainProvider toolchainProvider) throws RuleErrorException {
-      FeatureConfiguration featureConfiguration = null;
-      CppConfiguration cppConfiguration;
-      cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+        CcToolchainProvider toolchainProvider) throws RuleErrorException {
+      FeatureConfiguration featureConfiguration;
       try {
         featureConfiguration =
-            CcCommon.configureFeaturesOrThrowEvalException(
-                ruleContext.getFeatures(),
-                ruleContext.getDisabledFeatures(),
-                Language.CPP,
-                toolchainProvider,
-                cppConfiguration);
-      } catch (EvalException e) {
-        ruleContext.ruleError(e.getMessage());
+            toolchainProvider
+                .getFeatures()
+                .getFeatureConfiguration(ImmutableSet.of(CppActionNames.CC_FLAGS_MAKE_VARIABLE));
+      } catch (CollidingProvidesException | EvalException e) {
+        throw new RuleErrorException(e.getMessage());
       }
       if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
         try {
