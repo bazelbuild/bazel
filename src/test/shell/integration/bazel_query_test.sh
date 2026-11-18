@@ -1648,13 +1648,26 @@ def _impl(rctx):
     fail("unavailable repository")
 
 broken_repo = repository_rule(implementation = _impl)
+
+def _aspect_impl(target, ctx):
+    return []
+
+_a = aspect(implementation = _aspect_impl, attrs = {"_tool": attr.label(default = "//hashed_catalog:tool")})
+
+def _rule_impl(ctx):
+    return []
+
+with_aspect = rule(implementation = _rule_impl, attrs = {"dep": attr.label(aspects = [_a])})
 EOF
   cat >> MODULE.bazel <<'EOF'
 broken_repo = use_repo_rule("//hashed_catalog:repo.bzl", "broken_repo")
 broken_repo(name = "unavailable_catalog_repo")
 EOF
   cat > hashed_catalog/BUILD <<'EOF'
-filegroup(name = "known", tags = ["catalog-tag"])
+load(":repo.bzl", "with_aspect")
+filegroup(name = "tool")
+filegroup(name = "leaf")
+with_aspect(name = "known", dep = ":leaf", tags = ["catalog-tag"])
 filegroup(name = "unknown", srcs = ["@unavailable_catalog_repo//:target"])
 EOF
   local -a flags=(--experimental_generate_hashes --output=streamed_jsonproto --keep_going)
@@ -1705,6 +1718,22 @@ def records(path):
 known, = records("known.pb")
 unknown, = records("unknown.pb")
 assert sorted(records("snapshot.pb")) == sorted([known + b"\x3a\x20" + bytes.fromhex(sys.argv[1]), unknown])
+PYTHON
+
+  # Restricting the catalog does not change the target hash or drop requested derived attributes.
+  bazel query "${flags[@]}" --proto:output_rule_attrs=tags //hashed_catalog:known > filtered \
+    2> "$TEST_log" || fail "Expected a filtered catalog"
+  bazel query "${flags[@]}" '--proto:output_rule_attrs=tags,$tool,$rule_implementation_hash' \
+    //hashed_catalog:known > with_extra 2> "$TEST_log" || fail "Expected explicit attributes"
+  python3 - "$digest" <<'PYTHON' || fail "Unexpected hash or attributes"
+import json
+import sys
+
+for path, names in [("filtered", {"tags"}), ("with_extra", {"tags", "$tool", "$rule_implementation_hash"})]:
+    with open(path) as f:
+        row = json.load(f)
+    assert row["hash"] == sys.argv[1]
+    assert {a["name"] for a in row["target"]["rule"]["attribute"]} == names
 PYTHON
 
   # An incomplete target enumeration cannot serve as a snapshot of the requested scope.
