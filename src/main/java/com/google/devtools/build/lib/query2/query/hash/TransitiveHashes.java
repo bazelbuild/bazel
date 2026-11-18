@@ -237,12 +237,14 @@ public final class TransitiveHashes {
     Map<K, Integer> lowLink = new HashMap<>(graph.size());
     Deque<K> stack = new ArrayDeque<>();
     Set<K> onStack = new HashSet<>();
+    Deque<Frame<K>> work = new ArrayDeque<>();
+    List<K> component = new ArrayList<>();
+    Fingerprint fp = new Fingerprint();
 
     for (K root : graph.keySet()) {
       if (index.containsKey(root)) {
         continue;
       }
-      Deque<Frame<K>> work = new ArrayDeque<>();
       push(root, graph, index, lowLink, stack, onStack, work);
       while (!work.isEmpty()) {
         Frame<K> frame = work.peek();
@@ -261,7 +263,7 @@ public final class TransitiveHashes {
         work.pop();
         K node = frame.node();
         if (lowLink.get(node).equals(index.get(node))) {
-          List<K> component = new ArrayList<>();
+          component.clear();
           K member;
           do {
             member = stack.pop();
@@ -272,7 +274,7 @@ public final class TransitiveHashes {
           if (!failed.isEmpty() && hasFailedInput(component, graph, failed)) {
             failed.addAll(component);
           } else {
-            hashComponent(component, graph, order, name, hashes);
+            hashComponent(component, graph, order, name, hashes, fp);
           }
         }
         if (!work.isEmpty()) {
@@ -326,11 +328,11 @@ public final class TransitiveHashes {
       Map<K, Node<K>> graph,
       Comparator<? super K> order,
       Function<? super K, String> name,
-      Map<K, byte[]> hashes) {
+      Map<K, byte[]> hashes,
+      Fingerprint fp) {
     if (component.size() == 1 && !graph.get(component.get(0)).deps().contains(component.get(0))) {
       // Not part of a cycle.
       K node = component.get(0);
-      Fingerprint fp = new Fingerprint();
       fp.addBytes(graph.get(node).directHash());
       addDeps(fp, graph.get(node), /* component= */ Set.of(), name, hashes);
       hashes.put(node, fp.digestAndReset());
@@ -339,7 +341,6 @@ public final class TransitiveHashes {
     List<K> members = new ArrayList<>(component);
     members.sort(order);
     Set<K> memberSet = new HashSet<>(members);
-    Fingerprint fp = new Fingerprint();
     fp.addString("<cycle>");
     for (K member : members) {
       fp.addString(name.apply(member));
@@ -348,9 +349,7 @@ public final class TransitiveHashes {
     }
     byte[] componentHash = fp.digestAndReset();
     for (K member : members) {
-      hashes.put(
-          member,
-          new Fingerprint().addBytes(componentHash).addString(name.apply(member)).digestAndReset());
+      hashes.put(member, fp.addBytes(componentHash).addString(name.apply(member)).digestAndReset());
     }
   }
 
