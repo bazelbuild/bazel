@@ -71,15 +71,15 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-UyCjNxT1jAEEGR0kR1napqbUaBnURzR7qQAxMuVInZI=",
+        integrity = "sha256-UQaW99p5Xgi0hDImgXOwYKSaajsFQwaQ53a1893srF4=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.54.201-ca-jdk21.0.13.1-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-i9OHMVYgu2aoSUWlG867kBY1S1V8dH6U1IN+aOpAd+w=",
+        integrity = "sha256-ekaDQS9e7ukCYax+2o16lgdteUZWy1B42PD7OL8ttVQ=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.54.201-ca-jdk21.0.13.1-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_s390x_vanilla",
@@ -95,27 +95,27 @@ def embedded_jdk_repositories():
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-zXTl63OMkUWdS45eEOrJGK4qBdIan8fKXcLaZOZbzr0=",
+        integrity = "sha256-GnC7osXB1HdSz/+0FJ1CYAmUTe5r7OrBv9bVwT+JqC8=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.54.201-ca-jdk21.0.13.1-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-gP/CXfeblVZTGNv8gwnFFXJv9C6b21MwYe3HrSbxPfI=",
+        integrity = "sha256-9kIglesNIbbZdMta+FwSFyjf5LvaAQixQgl455NXWtw=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.54.201-ca-jdk21.0.13.1-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-jepE/TpvetD0LzirwTcQdXELWL7ZvY8JPC7y1FDdJnI=",
+        integrity = "sha256-FOegOV308JtQjVCqZahYZQ1Z640iId9XtHQtCDDzo6A=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.54.201-ca-jdk21.0.13.1-win_x64.zip",
     )
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-9a1/U5900StiSMD9n0tBZFXc9oA5ALKOjRkFTz3Mbpg=",
+        integrity = "sha256-kE6UXINidka0TgCnpxUuX+UNM90Ad19g5hZ+mRb42kA=",
         downloaded_file_path = "zulu-win-arm64.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-win_aarch64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.54.201-ca-jdk21.0.13.1-win_aarch64.zip",
     )
 
 def bazelci_rules_repo():
