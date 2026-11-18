@@ -1413,7 +1413,6 @@ unsigned int BlazeServer::Communicate(
   for (const auto &startup_option : original_startup_options) {
     command_server::StartupOption *proto_option_field =
         request.add_startup_options();
-    request.add_startup_options();
     proto_option_field->set_source(startup_option.source);
     proto_option_field->set_option(startup_option.value);
   }
