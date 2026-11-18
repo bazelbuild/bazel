@@ -675,6 +675,279 @@ class PrepareContextTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             prepare_context.detect_mainline_ref()
 
+    def test_renamed_file_deletion_bypass_caught_while_legitimate_rename_stays_clean(self):
+        # Case A: Mainline adds src/NewHelper.java; PR adds src/NewHelper.java AND deletes src/Foo.java,
+        # which GitHub's /files API collapses into a single status="renamed" entry.
+        (self.root / "src" / "NewHelper.java").write_text(
+            "class Foo {\n  int a() { return 1; }\n  int b() { return 3; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", "src/NewHelper.java")
+        self._git("commit", "-m", "Add NewHelper")
+        add_sha = self._git_out("rev-parse", "master")
+
+        self._git("checkout", "-b", "pr-sneaky-rename", "release-8.9.0")
+        (self.root / "src" / "Foo.java").unlink()
+        (self.root / "src" / "NewHelper.java").write_text(
+            "class Foo {\n  int a() { return 1; }\n  int b() { return 3; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", "-A")
+        self._git("commit", "-m", "Sneaky delete disguised as rename")
+        sneaky_head_sha = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        pr_files_sneaky = [
+            {
+                "filename": "src/NewHelper.java",
+                "previous_filename": "src/Foo.java",
+                "status": "renamed",
+                "additions": 1,
+                "deletions": 1,
+                "patch": "@@ -1,4 +1,4 @@\n class Foo {\n   int a() { return 1; }\n-  int b() { return 2; }\n+  int b() { return 3; }\n }",
+            }
+        ]
+        stage_dir_a = self.root / "stage_rename_a"
+        _, head_root_a, base_root_a, _, pr_patches_a = prepare_context.stage_pr_and_base_files(
+            repo="bazelbuild/bazel",
+            base_sha=self.base_sha,
+            head_sha=sneaky_head_sha,
+            pr_files=pr_files_sneaky,
+            stage_dir=stage_dir_a,
+        )
+        _, comps_a, overall_a, _ = prepare_context.analyze_mainline_and_compare(
+            candidates=[(add_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files_sneaky,
+            pr_patches_by_file=pr_patches_a,
+            head_root_path=head_root_a,
+            base_root_path=base_root_a,
+            head_sha=sneaky_head_sha,
+            stage_dir=stage_dir_a,
+        )
+        self.assertEqual(overall_a, "MODIFIED_OR_EXTRA_CHANGES")
+        by_path_a = {fc["path"]: fc["classification"] for fc in comps_a}
+        self.assertEqual(by_path_a["src/Foo.java"], "extra_in_pr")
+        self.assertEqual(by_path_a["src/NewHelper.java"], "identical")
+
+        # Case B: Mainline legitimately renames src/Foo.java -> src/FooRenamed.java and PR cherry-picks cleanly.
+        self._git("mv", "src/Foo.java", "src/FooRenamed.java")
+        self._git("commit", "-m", "Rename Foo to FooRenamed")
+        rename_sha = self._git_out("rev-parse", "master")
+
+        self._git("checkout", "-b", "pr-legit-rename", "release-8.9.0")
+        self._git("cherry-pick", rename_sha)
+        legit_head_sha = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        pr_files_legit = [
+            {
+                "filename": "src/FooRenamed.java",
+                "previous_filename": "src/Foo.java",
+                "status": "renamed",
+                "additions": 0,
+                "deletions": 0,
+                "patch": "",
+            }
+        ]
+        stage_dir_b = self.root / "stage_rename_b"
+        _, head_root_b, base_root_b, _, pr_patches_b = prepare_context.stage_pr_and_base_files(
+            repo="bazelbuild/bazel",
+            base_sha=self.base_sha,
+            head_sha=legit_head_sha,
+            pr_files=pr_files_legit,
+            stage_dir=stage_dir_b,
+        )
+        _, comps_b, overall_b, _ = prepare_context.analyze_mainline_and_compare(
+            candidates=[(rename_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files_legit,
+            pr_patches_by_file=pr_patches_b,
+            head_root_path=head_root_b,
+            base_root_path=base_root_b,
+            head_sha=legit_head_sha,
+            stage_dir=stage_dir_b,
+        )
+        self.assertEqual(overall_b, "CLEAN")
+        by_path_b = {fc["path"]: fc["classification"] for fc in comps_b}
+        self.assertEqual(by_path_b["src/Foo.java"], "identical")
+        self.assertEqual(by_path_b["src/FooRenamed.java"], "identical")
+
+    def test_binary_files_and_executable_mode_flip_detected_via_head_tree(self):
+        bin_path = self.root / "src" / "tool.bin"
+        bin_path.write_bytes(b"\x89PNG\r\n\x1a\n\x00\xff\xfe\xfd")
+        sh_path = self.root / "src" / "run.sh"
+        sh_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        sh_path.chmod(0o644)
+        self._git("add", "src/tool.bin", "src/run.sh")
+        self._git("commit", "-m", "Add binary asset and helper script")
+        master_sha = self._git_out("rev-parse", "master")
+
+        # Binary blob must not crash with UnicodeDecodeError and returns None for text staging
+        self.assertIsNone(prepare_context.read_git_regular_file_blob(master_sha, "src/tool.bin"))
+
+        # Clean cherry-pick of binary + script is CLEAN via Git tree comparison
+        self._git("checkout", "-b", "pr-bin-clean", "release-8.9.0")
+        self._git("cherry-pick", master_sha)
+        clean_head = self._git_out("rev-parse", "HEAD")
+
+        # Flip executable mode (+x: 100644 -> 100755) without changing text content
+        self._git("checkout", "-b", "pr-mode-flip", clean_head)
+        sh_path.chmod(0o755)
+        self._git("add", "--chmod=+x", "src/run.sh")
+        self._git("commit", "-m", "Flip +x on run.sh")
+        mode_flip_head = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        pr_files = [
+            {"filename": "src/tool.bin", "status": "added", "additions": 0, "deletions": 0, "patch": ""},
+            {
+                "filename": "src/run.sh",
+                "status": "added",
+                "additions": 2,
+                "deletions": 0,
+                "patch": "@@ -0,0 +1,2 @@\n+#!/bin/sh\n+echo ok",
+            },
+        ]
+        stage_clean = self.root / "stage_bin_clean"
+        with patch.object(prepare_context, "gh_api", side_effect=RuntimeError("no network")):
+            _, hr_clean, br_clean, _, patches_clean = prepare_context.stage_pr_and_base_files(
+                repo="bazelbuild/bazel",
+                base_sha=self.base_sha,
+                head_sha=clean_head,
+                pr_files=pr_files,
+                stage_dir=stage_clean,
+            )
+        _, _, overall_clean, _ = prepare_context.analyze_mainline_and_compare(
+            candidates=[(master_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files,
+            pr_patches_by_file=patches_clean,
+            head_root_path=hr_clean,
+            base_root_path=br_clean,
+            head_sha=clean_head,
+            stage_dir=stage_clean,
+        )
+        self.assertEqual(overall_clean, "CLEAN")
+
+        stage_flip = self.root / "stage_mode_flip"
+        with patch.object(prepare_context, "gh_api", side_effect=RuntimeError("no network")):
+            _, hr_flip, br_flip, _, patches_flip = prepare_context.stage_pr_and_base_files(
+                repo="bazelbuild/bazel",
+                base_sha=self.base_sha,
+                head_sha=mode_flip_head,
+                pr_files=pr_files,
+                stage_dir=stage_flip,
+            )
+        _, comps_flip, overall_flip, vs_flip = prepare_context.analyze_mainline_and_compare(
+            candidates=[(master_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files,
+            pr_patches_by_file=patches_flip,
+            head_root_path=hr_flip,
+            base_root_path=br_flip,
+            head_sha=mode_flip_head,
+            stage_dir=stage_flip,
+        )
+        self.assertEqual(overall_flip, "MODIFIED_OR_EXTRA_CHANGES")
+        by_path_flip = {fc["path"]: fc["classification"] for fc in comps_flip}
+        self.assertEqual(by_path_flip["src/tool.bin"], "identical")
+        self.assertEqual(by_path_flip["src/run.sh"], "adapted_without_conflict")
+        vs_text = pathlib.Path(vs_flip).read_text(encoding="utf-8")
+        self.assertIn("mode 100644", vs_text)
+        self.assertIn("mode 100755", vs_text)
+
+    def test_merge_commit_on_master_and_anchored_discovery(self):
+        # Advance master with an unrelated file first
+        (self.root / "src" / "MasterOnly.java").write_text("class MasterOnly {}\n", encoding="utf-8")
+        self._git("add", "src/MasterOnly.java")
+        self._git("commit", "-m", "Unrelated master commit\n\nCloses #602.")
+
+        # Create a feature branch from release-8.9.0 and merge it (--no-ff) into master
+        self._git("checkout", "-b", "feat-branch", "release-8.9.0")
+        (self.root / "src" / "MergedFix.java").write_text("class MergedFix {}\n", encoding="utf-8")
+        self._git("add", "src/MergedFix.java")
+        self._git("commit", "-m", "Merged feature fix")
+        self._git("checkout", "master")
+        self._git("merge", "--no-ff", "feat-branch", "-m", "Merge pull request #700 from user/feat-branch")
+        merge_sha = self._git_out("rev-parse", "master")
+
+        # Also commit a Copybara-style automated rollback so we verify revert filtering
+        (self.root / "src" / "RolledBack.java").write_text("class RolledBack {}\n", encoding="utf-8")
+        self._git("add", "src/RolledBack.java")
+        self._git("commit", "-m", "Add important feature for test")
+        orig_feat_sha = self._git_out("rev-parse", "master")
+        self._git("rm", "src/RolledBack.java")
+        self._git("commit", "-m", "Automated rollback of commit Add important feature for test.")
+
+        # Cherry-pick merge_sha (-m 1) onto release-8.9.0
+        self._git("checkout", "-b", "pr-merge-cp", "release-8.9.0")
+        self._git("cherry-pick", "-m", "1", merge_sha)
+        pr_head = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        pr_files = [
+            {
+                "filename": "src/MergedFix.java",
+                "status": "added",
+                "additions": 1,
+                "deletions": 0,
+                "patch": "@@ -0,0 +1 @@\n+class MergedFix {}",
+            }
+        ]
+        stage_dir = self.root / "stage_merge"
+        _, hr, br, _, patches = prepare_context.stage_pr_and_base_files(
+            repo="bazelbuild/bazel",
+            base_sha=self.base_sha,
+            head_sha=pr_head,
+            pr_files=pr_files,
+            stage_dir=stage_dir,
+        )
+        mc_info, comps, overall, _ = prepare_context.analyze_mainline_and_compare(
+            candidates=[(merge_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files,
+            pr_patches_by_file=patches,
+            head_root_path=hr,
+            base_root_path=br,
+            head_sha=pr_head,
+            stage_dir=stage_dir,
+        )
+        self.assertEqual(overall, "CLEAN")
+        self.assertEqual(mc_info[0]["files_modified"], ["src/MergedFix.java"])
+        self.assertTrue(mc_info[0]["applied_cleanly_on_base"])
+        self.assertEqual(len(comps), 1)
+        self.assertEqual(comps[0]["classification"], "identical")
+
+        # Anchored PR number: (#60) must NOT match Closes #602 on master
+        no_prefix_match = prepare_context.find_mainline_commits(
+            pr_title="[8.9.0] Unmatched PR (#60)",
+            pr_body="",
+            pr_commits=[{"sha": "5" * 40, "commit": {"message": "[8.9.0] Unmatched PR (#60)"}}],
+            pr_comments=[],
+            pr_author="wyv",
+            mainline_ref="master",
+            base_sha=self.base_sha,
+        )
+        self.assertEqual(no_prefix_match, [])
+
+        # Automated rollback commit must be skipped when matching forward commit by exact subject
+        found_orig = prepare_context.find_mainline_commits(
+            pr_title="[8.9.0] Add important feature for test",
+            pr_body="",
+            pr_commits=[{"sha": "6" * 40, "commit": {"message": "[8.9.0] Add important feature for test"}}],
+            pr_comments=[],
+            pr_author="wyv",
+            mainline_ref="master",
+            base_sha=self.base_sha,
+        )
+        self.assertEqual([sha for sha, _ in found_orig], [orig_feat_sha])
+
 
 if __name__ == "__main__":
     unittest.main()

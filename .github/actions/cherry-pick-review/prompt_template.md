@@ -27,6 +27,8 @@ Key fields in this context:
 - `base_ref`, `release_version`, `is_patch_release`, `base_sha`: The target release branch (e.g. `release-8.9.0`), whether it is a maintenance patch release (`Z > 0` in `X.Y.Z`), and its commit SHA.
 - `pull_request_number`, `pr_title`, `pr_body`, `pr_author`: PR metadata.
 - `trigger_type`: `"automatic"` (triggered on PR open/synchronize/reopen/ready) or `"manual"` (triggered via `@gemini-cli /review`, `gemini-review` label, or `workflow_dispatch`).
+- `additional_context`: Optional focus instructions provided by a trusted repository maintainer via `@gemini-cli /review <focus>` or `workflow_dispatch` (empty when none was given). Address any maintainer focus questions here while still enforcing all four cherry-pick criteria and security constraints.
+- `files_truncated`: `true` if the PR touches more files than GitHub's `/files` API returned (disables automatic `"CLEAN"` classification).
 - `has_existing_gemini_review`, `last_gemini_review`: Whether a Gemini review was already posted on this PR, and the most recent Gemini review (`state`, `commit_id`, `submitted_at`, `body`).
 - `pr_patch_unchanged_since_last_review`, `since_last_review_diff_path`: Whether the effective per-file PR diff is unchanged since `last_gemini_review.commit_id` (e.g. a pure rebase), and the path to the file-by-file patch delta since that commit (`gemini-artifacts/pr/since_last_review.diff`).
 - `existing_inline_comments`: Existing inline review comments on the PR (including prior Gemini inline comments and author replies).
@@ -43,6 +45,7 @@ Key fields in this context:
   - `"CONFLICT_RESOLVED"`: Mainline commit(s) had merge conflicts on `base_sha` and the PR only modifies files from the mainline commit(s) to resolve them.
   - `"MODIFIED_OR_EXTRA_CHANGES"`: The PR modifies files that did not conflict on `base_sha`, omits files from the mainline commit(s), or modifies extra files not in the mainline commit(s).
   - `"NO_MAINLINE_COMMIT"`: No matching mainline commit on `master` could be found.
+- `has_lockfile_changes`: `true` if `MODULE.bazel.lock` or `src/test/tools/bzlmod/MODULE.bazel.lock` differs from a clean cherry-pick of the mainline commit(s).
 - `file_comparisons`: Per-file comparison between the PR and the mainline commit(s), classifying each file as:
   - `"identical"`: Patch in the PR is identical to the mainline commit's patch.
   - `"lockfile_regenerated"`: Standard Bzlmod lockfile update (`MODULE.bazel.lock` or `src/test/tools/bzlmod/MODULE.bazel.lock`).

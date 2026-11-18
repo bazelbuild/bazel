@@ -26,9 +26,23 @@ SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_INLINE_COMMENTS = 6
 ALLOWED_EVENTS = frozenset({"APPROVE", "COMMENT", "REQUEST_CHANGES"})
 TRUSTED_AUTHOR_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
+GEMINI_REVIEW_MARKER = "Gemini Cherry-Pick Review Summary"
 FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
+MARKDOWN_CODE_SPAN_RE = re.compile(
+    r"((?:^|\n)[ \t]*`{3,}.*?\n[ \t]*`{3,}|(?:^|\n)[ \t]*~{3,}.*?\n[ \t]*~{3,}|`+[^`]*`+)",
+    re.DOTALL,
+)
+BARE_AT_MENTION_RE = re.compile(r"(?<![A-Za-z0-9_.\-/])@(?=[A-Za-z0-9])")
+FENCED_JSON_BLOCK_RE = re.compile(
+    r"(?:^|\n)[ \t]*(`{3,}|~{3,})(?:json|JSON)?[ \t]*\r?\n(.*?)\r?\n[ \t]*\1[ \t]*(?=\r?\n|$)",
+    re.DOTALL,
+)
 STRUCTURED_BLOCKER_RE = re.compile(
-    r"(?:\*\*Verdict:\*\*\s*❌|(?:^|\n)\s*(?:[-*+]|\d+\.|#+)\s*(?:🔴|\*\*[^*\n]*🔴[^*\n]*\*\*))"
+    r"(?:"
+    r"\*\*Verdict:\*\*\s*[`*_]*❌"
+    r"|(?:^|\n)\s*(?:[-*+]|\d+\.|#+)\s*(?:[`*_]*🔴|\*\*[^*\n]*🔴[^*\n]*\*\*)"
+    r"|(?:^|\n)\s*\|[^|\n]+\|\s*[`*_]*❌"
+    r")"
 )
 
 
@@ -68,6 +82,16 @@ def strip_runner_file_links(markdown_text):
     return FILE_LINK_RE.sub(lambda m: f"`{m.group(1).strip('`')}`", markdown_text)
 
 
+def neutralize_at_mentions(markdown_text):
+    """Inserts a zero-width space after bare @mentions outside fenced or inline code spans."""
+    if not isinstance(markdown_text, str) or "@" not in markdown_text:
+        return markdown_text
+    parts = MARKDOWN_CODE_SPAN_RE.split(markdown_text)
+    for idx in range(0, len(parts), 2):
+        parts[idx] = BARE_AT_MENTION_RE.sub("@\u200b", parts[idx])
+    return "".join(parts)
+
+
 def load_gemini_output():
     """Returns (response_text, envelope_dict) from gemini-artifacts/stdout.log."""
     stdout_log = pathlib.Path("gemini-artifacts/stdout.log")
@@ -85,8 +109,12 @@ def load_gemini_output():
         for idx in range(len(raw) - 1, -1, -1):
             if raw[idx] == "{":
                 try:
-                    parsed, _ = decoder.raw_decode(raw[idx:])
-                    if isinstance(parsed, dict) and isinstance(parsed.get("response"), str):
+                    parsed, end_pos = decoder.raw_decode(raw[idx:])
+                    if (
+                        raw[idx + end_pos :].strip() == ""
+                        and isinstance(parsed, dict)
+                        and isinstance(parsed.get("response"), str)
+                    ):
                         return parsed["response"], parsed
                 except json.JSONDecodeError:
                     continue
@@ -301,16 +329,49 @@ def extract_review_json(text):
         raise ValueError("Gemini response text is empty")
 
     decoder = json.JSONDecoder(strict=False)
-    for idx in range(len(text) - 1, -1, -1):
-        if text[idx] == "{":
-            candidate = text[idx:]
-            for attempt in (candidate, repair_unescaped_json_quotes(candidate)):
-                try:
-                    parsed, _ = decoder.raw_decode(attempt)
-                    if isinstance(parsed, dict) and ("decision" in parsed or "should_post" in parsed):
-                        return parsed
-                except json.JSONDecodeError:
-                    continue
+
+    def try_parse_full(candidate_str, allow_repair=False):
+        attempts = (candidate_str, repair_unescaped_json_quotes(candidate_str)) if allow_repair else (candidate_str,)
+        for attempt in attempts:
+            try:
+                parsed, end_pos = decoder.raw_decode(attempt)
+                if (
+                    attempt[end_pos:].strip() == ""
+                    and isinstance(parsed, dict)
+                    and ("decision" in parsed or "should_post" in parsed)
+                ):
+                    return parsed
+            except json.JSONDecodeError:
+                continue
+        return None
+
+    # 1. Prefer fenced ```json ... ``` blocks from last to first, requiring the JSON object to span
+    # the entire fenced block so inner JSON snippets quoted inside `body` cannot hijack parsing.
+    for match in reversed(list(FENCED_JSON_BLOCK_RE.finditer(text))):
+        block = match.group(2).strip()
+        if block.startswith("{"):
+            parsed = try_parse_full(block, allow_repair=True)
+            if parsed is not None:
+                return parsed
+
+    # 2. Fallback for unfenced JSON responses (or fenced JSON whose string values contain raw fences):
+    # first try strict end-anchored parsing without quote repair, then outer-to-inner (left-to-right)
+    # quote repair preferring line-leading `{` so inner `{` snippets inside `body` cannot fuse with
+    # trailing fields.
+    trimmed = re.sub(r"\s*(?:`{3,}|~{3,})\s*$", "", text)
+    brace_indices = [idx for idx, ch in enumerate(trimmed) if ch == "{"]
+    for idx in brace_indices:
+        parsed = try_parse_full(trimmed[idx:], allow_repair=False)
+        if parsed is not None:
+            return parsed
+
+    line_leading_indices = [m.end() - 1 for m in re.finditer(r"(?:^|\n)[ \t]*\{", trimmed)]
+    seen_indices = set(line_leading_indices)
+    ordered_repair_indices = line_leading_indices + [idx for idx in brace_indices if idx not in seen_indices]
+    for idx in ordered_repair_indices:
+        parsed = try_parse_full(trimmed[idx:], allow_repair=True)
+        if parsed is not None:
+            return parsed
 
     dump_gemini_diagnostics(text)
     raise ValueError("Could not find valid review JSON object with 'decision' or 'should_post' in Gemini output")
@@ -350,7 +411,7 @@ def coerce_positive_int(val):
 
 
 def format_fallback_comment(comment):
-    path = normalize_comment_path(comment.get("path")) or "<unknown>"
+    path = normalize_comment_path(comment.get("path")) or "General"
     line = comment.get("line")
     start_line = comment.get("start_line")
     loc = f"`{path}`"
@@ -415,19 +476,67 @@ def main():
     skip_reason = str(review_data.get("skip_reason") or "").strip()
     has_existing_review = bool(context.get("has_existing_gemini_review"))
     trigger_type = str(context.get("trigger_type") or "automatic")
-
-    # Guardrail: initial reviews on a PR and manually triggered reviews must always post.
-    if not should_post and (not has_existing_review or trigger_type == "manual"):
-        print(
-            f"Overriding should_post=false -> true (has_existing_gemini_review={has_existing_review}, "
-            f"trigger_type={trigger_type})."
-        )
-        should_post = True
+    last_review = context.get("last_gemini_review") if isinstance(context.get("last_gemini_review"), dict) else {}
+    last_state = str(last_review.get("state") or "").strip().upper()
+    patch_unchanged = context.get("pr_patch_unchanged_since_last_review") is True
 
     raw_decision = str(review_data.get("decision") or "COMMENT").strip().upper()
     decision = raw_decision if raw_decision in ALLOWED_EVENTS else "COMMENT"
-    body = strip_runner_file_links(str(review_data.get("body") or "").strip())
+    body = neutralize_at_mentions(strip_runner_file_links(str(review_data.get("body") or "").strip()))
     raw_comments = review_data.get("comments") or []
+
+    has_critical_comment = False
+    if isinstance(raw_comments, list):
+        for item in raw_comments:
+            if not isinstance(item, dict):
+                continue
+            c_preview = str(item.get("body") or "").strip()
+            if c_preview.lstrip(" \t`*_").startswith("🔴"):
+                has_critical_comment = True
+                break
+
+    no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
+    body_has_blocker = has_structured_blocker_in_body(body)
+    would_request_changes = decision == "REQUEST_CHANGES" or no_mainline or has_critical_comment or body_has_blocker
+
+    has_lockfile_changes = bool(context.get("has_lockfile_changes")) or any(
+        isinstance(fc, dict) and fc.get("classification") == "lockfile_regenerated"
+        for fc in (context.get("file_comparisons") or [])
+    )
+    has_breaking_signals = bool(context.get("breaking_change_signals"))
+    is_clean_unflagged = (
+        context.get("overall_cherry_pick_classification") == "CLEAN"
+        and not bool(context.get("files_truncated"))
+        and not has_lockfile_changes
+        and not has_breaking_signals
+    )
+    raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
+    author_assoc = str(context.get("pr_author_association") or "").strip().upper()
+    is_trusted_author = raw_author == "bazel-io" or author_assoc in TRUSTED_AUTHOR_ASSOCIATIONS
+    can_approve = is_clean_unflagged or is_trusted_author
+
+    # Guardrail: always post on initial or manual reviews, when a new blocker has not yet been posted as
+    # CHANGES_REQUESTED, or when a previously APPROVED PR had diff changes that no longer qualify for APPROVE.
+    if not should_post:
+        stale_approval_after_diff_change = (
+            last_state == "APPROVED"
+            and not patch_unchanged
+            and (decision != "APPROVE" or would_request_changes or not can_approve)
+        )
+        unposted_blocker = would_request_changes and last_state != "CHANGES_REQUESTED"
+        if (
+            not has_existing_review
+            or trigger_type == "manual"
+            or stale_approval_after_diff_change
+            or unposted_blocker
+        ):
+            print(
+                f"Overriding should_post=false -> true (has_existing_gemini_review={has_existing_review}, "
+                f"trigger_type={trigger_type}, last_state={last_state!r}, "
+                f"patch_unchanged={patch_unchanged}, would_request_changes={would_request_changes}, "
+                f"can_approve={can_approve})."
+            )
+            should_post = True
 
     if not should_post:
         print(f"Skipping duplicate review on PR #{pr_number} (skip_reason={skip_reason or 'none'}).")
@@ -462,30 +571,33 @@ def main():
 
     valid_inline_comments = []
     fallback_comments = []
-    has_critical_comment = False
 
     if isinstance(raw_comments, list):
         for item in raw_comments:
             if not isinstance(item, dict):
                 continue
-            path = normalize_comment_path(item.get("path"), workspace_root=workspace_root)
-            c_body = strip_runner_file_links(str(item.get("body") or "").strip())
+            raw_path_str = str(item.get("path") or "").strip()
+            path = normalize_comment_path(raw_path_str, workspace_root=workspace_root)
+            c_body = neutralize_at_mentions(strip_runner_file_links(str(item.get("body") or "").strip()))
             line = coerce_positive_int(item.get("line"))
             start_line = coerce_positive_int(item.get("start_line"))
             side = str(item.get("side") or "RIGHT").strip().upper()
             if side not in ("LEFT", "RIGHT"):
                 side = "RIGHT"
 
-            if not path or not c_body:
+            if not c_body:
                 continue
 
-            if c_body.lstrip().startswith("🔴"):
+            if c_body.lstrip(" \t`*_").startswith("🔴"):
                 has_critical_comment = True
+
+            if raw_path_str and not path:
+                continue
 
             valid_line = line is not None
             valid_start = start_line is not None and valid_line and start_line < line
 
-            if path in pr_filenames and valid_line and len(valid_inline_comments) < MAX_INLINE_COMMENTS:
+            if path and path in pr_filenames and valid_line and len(valid_inline_comments) < MAX_INLINE_COMMENTS:
                 comment_obj = {
                     "path": path,
                     "line": line,
@@ -507,11 +619,14 @@ def main():
                     }
                 )
 
+    if body and not (
+        body.startswith(f"## 📋 {GEMINI_REVIEW_MARKER}") or body.startswith(f"## {GEMINI_REVIEW_MARKER}")
+    ):
+        body = f"## 📋 {GEMINI_REVIEW_MARKER}\n\n{body}"
+
     # Deterministic safety guardrails: enforce REQUEST_CHANGES whenever no mainline commit was found
     # or when a structured critical finding (🔴 / ❌) was reported in inline comments or the summary body.
     if decision != "REQUEST_CHANGES":
-        no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
-        body_has_blocker = has_structured_blocker_in_body(body)
         if no_mainline or has_critical_comment or body_has_blocker:
             if no_mainline:
                 reason = "no verified mainline commit on `master` was matched"
@@ -522,7 +637,7 @@ def main():
             print(f"Safety guardrail: overriding {decision} to REQUEST_CHANGES because {reason}.")
             decision = "REQUEST_CHANGES"
             body = re.sub(
-                r"\*\*Verdict:\*\*\s*(?:✅\s*(?:\*\*Approved\*\*|Approved)|💬\s*(?:\*\*Commented\*\*|Commented))[^\n]*",
+                r"\*\*Verdict:\*\*\s*[`*_]*(?:✅|💬)[^\n]*",
                 "**Verdict:** ❌ Changes Requested",
                 body,
             )
@@ -535,21 +650,7 @@ def main():
     # CLEAN on master (with no non-identical lockfile edits or breaking-change signals) or authored by
     # @bazel-io / a repository maintainer or collaborator.
     if decision == "APPROVE":
-        has_lockfile_changes = bool(context.get("has_lockfile_changes")) or any(
-            isinstance(fc, dict) and fc.get("classification") == "lockfile_regenerated"
-            for fc in (context.get("file_comparisons") or [])
-        )
-        has_breaking_signals = bool(context.get("breaking_change_signals"))
-        is_clean_unflagged = (
-            context.get("overall_cherry_pick_classification") == "CLEAN"
-            and not bool(context.get("files_truncated"))
-            and not has_lockfile_changes
-            and not has_breaking_signals
-        )
-        raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
-        author_assoc = str(context.get("pr_author_association") or "").strip().upper()
-        is_trusted_author = raw_author == "bazel-io" or author_assoc in TRUSTED_AUTHOR_ASSOCIATIONS
-        if not (is_clean_unflagged or is_trusted_author):
+        if not can_approve:
             print(
                 "Privilege guardrail: capping APPROVE to COMMENT for external PR "
                 f"(classification={context.get('overall_cherry_pick_classification')!r}, "
