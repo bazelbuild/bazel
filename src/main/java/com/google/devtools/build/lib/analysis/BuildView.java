@@ -1058,8 +1058,7 @@ public class BuildView {
             allTargetsToTest,
             getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
-            CoverageReportValue.COVERAGE_REPORT_KEY,
-            ruleClassProvider.getRunfilesPrefix());
+            CoverageReportValue.COVERAGE_REPORT_KEY);
     if (actionsWrapper == null) {
       return ImmutableSet.of();
     }
