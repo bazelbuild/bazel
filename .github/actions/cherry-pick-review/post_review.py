@@ -267,7 +267,7 @@ def repair_unescaped_json_quotes(s):
                         continue
                 else:
                     if re.match(
-                        r'^\s*(?:,\s*"(?:decision|should_post|skip_reason|body|comments|path|line|side|start_line|start_side)"\s*:|\}\s*(?:,\s*\{|\]\s*[,}]|\}\s*(?:```|~~~|$)|$))',
+                        r'^\s*(?:,\s*"(?:decision|should_post|skip_reason|body|comments|path|line|side|start_line|start_side)"\s*:|\}\s*(?:,\s*\{|\]\s*[,}]|\}\s*(?:```|~~~|$)|```|~~~|$))',
                         rest,
                     ):
                         in_string = False
@@ -522,7 +522,7 @@ def main():
             print(f"Safety guardrail: overriding {decision} to REQUEST_CHANGES because {reason}.")
             decision = "REQUEST_CHANGES"
             body = re.sub(
-                r"\*\*Verdict:\*\*\s*(?:✅\s*(?:\*\*Approved\*\*|Approved)|💬\s*(?:\*\*Commented\*\*|Commented)[^\n]*)",
+                r"\*\*Verdict:\*\*\s*(?:✅\s*(?:\*\*Approved\*\*|Approved)|💬\s*(?:\*\*Commented\*\*|Commented))[^\n]*",
                 "**Verdict:** ❌ Changes Requested",
                 body,
             )
@@ -532,25 +532,35 @@ def main():
             body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
 
     # Privilege guardrail: only allow formal GitHub APPROVE when the cherry-pick is deterministically
-    # CLEAN on master or authored by @bazel-io / a repository maintainer or collaborator.
+    # CLEAN on master (with no non-identical lockfile edits or breaking-change signals) or authored by
+    # @bazel-io / a repository maintainer or collaborator.
     if decision == "APPROVE":
-        is_clean = (
+        has_lockfile_changes = bool(context.get("has_lockfile_changes")) or any(
+            isinstance(fc, dict) and fc.get("classification") == "lockfile_regenerated"
+            for fc in (context.get("file_comparisons") or [])
+        )
+        has_breaking_signals = bool(context.get("breaking_change_signals"))
+        is_clean_unflagged = (
             context.get("overall_cherry_pick_classification") == "CLEAN"
             and not bool(context.get("files_truncated"))
+            and not has_lockfile_changes
+            and not has_breaking_signals
         )
         raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
         author_assoc = str(context.get("pr_author_association") or "").strip().upper()
         is_trusted_author = raw_author == "bazel-io" or author_assoc in TRUSTED_AUTHOR_ASSOCIATIONS
-        if not (is_clean or is_trusted_author):
+        if not (is_clean_unflagged or is_trusted_author):
             print(
-                "Privilege guardrail: capping APPROVE to COMMENT for non-clean cherry-pick from "
-                f"external author (classification={context.get('overall_cherry_pick_classification')!r}, "
+                "Privilege guardrail: capping APPROVE to COMMENT for external PR "
+                f"(classification={context.get('overall_cherry_pick_classification')!r}, "
+                f"has_lockfile_changes={has_lockfile_changes}, "
+                f"has_breaking_signals={has_breaking_signals}, "
                 f"author_association={author_assoc!r})."
             )
             decision = "COMMENT"
             note = (
                 "> **Automated Review Decision: `APPROVE`** "
-                "*(posted as `COMMENT` so a maintainer can verify the release-branch adaptations before merging)*"
+                "*(posted as `COMMENT` so a maintainer can verify any adaptations, lockfile updates, or API changes before merging)*"
             )
             body = f"{note}\n\n{body}" if body else note
 

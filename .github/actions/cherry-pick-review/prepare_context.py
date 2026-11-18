@@ -364,10 +364,8 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
         for m in CHERRY_PICK_TRAILER_RE.finditer(text):
             if add_candidate(m.group(1), f"cherry-pick trailer ({m.group(1)[:10]})"):
                 found = True
-        if allow_commit_url:
-            for m in GITHUB_COMMIT_URL_RE.finditer(text):
-                if add_candidate(m.group(1), f"GitHub commit URL ({m.group(1)[:10]})"):
-                    found = True
+        if found:
+            return True
         if allow_rev_id:
             for m in PIPER_REV_ID_RE.finditer(text):
                 rev_id = m.group(1)
@@ -377,6 +375,12 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
                         if add_candidate(line.strip(), f"PiperOrigin-RevId: {rev_id}"):
                             found = True
                             break
+            if found:
+                return True
+        if allow_commit_url:
+            for m in GITHUB_COMMIT_URL_RE.finditer(text):
+                if add_candidate(m.group(1), f"GitHub commit URL ({m.group(1)[:10]})"):
+                    found = True
         return found
 
     def extract_fallback_from_text(text, subject_line=""):
@@ -768,6 +772,9 @@ def analyze_mainline_and_compare(
             run_git(["worktree", "remove", "--force", str(worktree_dir)])
         shutil.rmtree(tmp_wt_parent, ignore_errors=True)
 
+    unsafe_pr_files = [
+        f for f in pr_files if not is_safe_repo_rel_path(str(f.get("filename") or ""))
+    ]
     pr_file_set = {
         str(f.get("filename") or "") for f in pr_files if is_safe_repo_rel_path(str(f.get("filename") or ""))
     }
@@ -808,12 +815,12 @@ def analyze_mainline_and_compare(
         norm_pr_patch = normalize_patch_changes(pr_patch)
         norm_ml_patch = normalize_patch_changes(ml_patch)
 
-        if fp in LOCKFILE_PATHS and in_pr:
-            classification = "lockfile_regenerated"
-        elif in_pr and in_mainline:
+        if in_pr and in_mainline:
             if clean_cp_content == "__DELETED__":
                 if pr_file_status.get(fp) == "removed" and head_content is None:
                     classification = "identical"
+                elif fp in LOCKFILE_PATHS:
+                    classification = "lockfile_regenerated"
                 elif fp in all_conflicted_files:
                     classification = "adapted_with_conflict"
                 else:
@@ -821,16 +828,22 @@ def analyze_mainline_and_compare(
             elif clean_cp_content is not None and head_content is not None:
                 if clean_cp_content == head_content:
                     classification = "identical"
+                elif fp in LOCKFILE_PATHS:
+                    classification = "lockfile_regenerated"
                 elif fp in all_conflicted_files:
                     classification = "adapted_with_conflict"
                 else:
                     classification = "adapted_without_conflict"
             elif fp not in all_conflicted_files and norm_pr_patch and norm_pr_patch == norm_ml_patch:
                 classification = "identical"
+            elif fp in LOCKFILE_PATHS:
+                classification = "lockfile_regenerated"
             elif fp in all_conflicted_files:
                 classification = "adapted_with_conflict"
             else:
                 classification = "adapted_without_conflict"
+        elif fp in LOCKFILE_PATHS and in_pr:
+            classification = "lockfile_regenerated"
         elif in_mainline and not in_pr:
             classification = "omitted_from_pr"
         else:
@@ -846,13 +859,14 @@ def analyze_mainline_and_compare(
             }
         )
 
-        if classification not in ("identical", "lockfile_regenerated"):
+        if classification != "identical":
+            is_lockfile_regen = classification == "lockfile_regenerated"
             sec = ["================================================================================"]
             sec.append(f"FILE: {safe_fp}")
             sec.append(f"CLASSIFICATION: {classification}")
             sec.append("================================================================================")
 
-            if base_sha and last_mainline_sha and is_safe_repo_rel_path(fp):
+            if not is_lockfile_regen and base_sha and last_mainline_sha and is_safe_repo_rel_path(fp):
                 hist_res = run_git(
                     [
                         "--literal-pathspecs",
@@ -871,20 +885,28 @@ def analyze_mainline_and_compare(
                     )
                     sec.append(hist_res.stdout.strip())
 
-            if in_mainline:
+            if in_mainline and not is_lockfile_regen:
                 sec.append(f"\n--- Mainline commit patch for {safe_fp} ---")
                 sec.append(ml_patch or "(empty patch)")
 
-            if fp in conflict_diffs_by_file:
+            if fp in conflict_diffs_by_file and not is_lockfile_regen:
                 sec.append(f"\n--- 3-way git cherry-pick conflict markers on {base_sha[:10]} for {safe_fp} ---")
                 sec.append(conflict_diffs_by_file[fp])
 
             if in_pr:
                 sec.append(f"\n--- PR patch for {safe_fp} ---")
-                sec.append(pr_patch or "(empty patch)")
+                if is_lockfile_regen and pr_patch:
+                    patch_lines = pr_patch.splitlines()
+                    if len(patch_lines) > 200:
+                        sec.append("\n".join(patch_lines[:200]) + "\n... (lockfile patch truncated; see pr_diff_path)")
+                    else:
+                        sec.append(pr_patch)
+                else:
+                    sec.append(pr_patch or "(empty patch)")
 
             if (
-                clean_cp_content is not None
+                not is_lockfile_regen
+                and clean_cp_content is not None
                 and clean_cp_content != "__DELETED__"
                 and head_content is not None
                 and clean_cp_content != head_content
@@ -905,9 +927,30 @@ def analyze_mainline_and_compare(
 
             vs_mainline_sections.append("\n".join(sec))
 
+    # Surface any PR files with unsafe/non-standard paths (e.g. leading `-` or `:`) without ever
+    # passing them to Git or filesystem path operations, so they can never be silently ignored.
+    for uf in unsafe_pr_files:
+        safe_uf_path = sanitize_untrusted_str(uf.get("filename") or "<invalid-path>", max_len=200)
+        file_comparisons.append(
+            {
+                "path": safe_uf_path,
+                "classification": "extra_in_pr",
+                "in_pr": True,
+                "in_mainline": False,
+                "had_merge_conflict": False,
+                "unsafe_path": True,
+            }
+        )
+        vs_mainline_sections.append(
+            "================================================================================\n"
+            f"FILE: {safe_uf_path}\n"
+            "CLASSIFICATION: extra_in_pr (rejected by repository-relative path validator)\n"
+            "================================================================================"
+        )
+
     if not verified_mainline:
         overall_classification = "NO_MAINLINE_COMMIT"
-    elif has_unverified_mainline or files_truncated or not pr_files:
+    elif has_unverified_mainline or files_truncated or unsafe_pr_files or not pr_files:
         overall_classification = "MODIFIED_OR_EXTRA_CHANGES"
     else:
         non_clean = [
@@ -1351,6 +1394,9 @@ def main():
         "pr_comments": serialized_pr_comments,
         "mainline_commits": serialized_mainline_commits,
         "overall_cherry_pick_classification": overall_classification,
+        "has_lockfile_changes": any(
+            fc.get("classification") == "lockfile_regenerated" for fc in file_comparisons
+        ),
         "file_comparisons": file_comparisons,
         "breaking_change_signals": breaking_change_signals,
         "pr_diff_path": pr_diff_path,

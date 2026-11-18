@@ -45,7 +45,7 @@ jobs:
         github.event.issue.pull_request &&
         github.event.sender.type == 'User' &&
         startsWith(github.event.comment.body, '@gemini-cli /review') &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"]'), github.event.comment.author_association)
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
       )
     permissions:
       contents: read

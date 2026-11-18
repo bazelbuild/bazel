@@ -601,6 +601,74 @@ class PrepareContextTest(unittest.TestCase):
         self.assertEqual(by_path["src/Unmerged.java"], "extra_in_pr")
         self.assertEqual(overall, "MODIFIED_OR_EXTRA_CHANGES")
 
+        # Unsafe PR file paths (e.g. leading `-` or `:`) must NEVER be silently dropped into CLEAN
+        pr_files_with_unsafe = [
+            pr_files[0],
+            {"filename": "-sneaky.sh", "status": "added", "additions": 1, "deletions": 0, "patch": "@@ -0,0 +1 @@\n+echo pwn"},
+        ]
+        _, file_comps_unsafe, overall_unsafe, vs_path_unsafe = prepare_context.analyze_mainline_and_compare(
+            candidates=[(master_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files_with_unsafe,
+            pr_patches_by_file={"src/Foo.java": pr_patches["src/Foo.java"]},
+            head_root_path=head_root,
+            base_root_path=base_root,
+            stage_dir=stage_dir,
+        )
+        self.assertEqual(overall_unsafe, "MODIFIED_OR_EXTRA_CHANGES")
+        self.assertTrue(any(fc.get("unsafe_path") and fc["classification"] == "extra_in_pr" for fc in file_comps_unsafe))
+        self.assertIn("-sneaky.sh", pathlib.Path(vs_path_unsafe).read_text(encoding="utf-8"))
+
+        # Lockfile added/modified relative to mainline is classified as lockfile_regenerated (not identical)
+        pr_files_with_lock = [
+            pr_files[0],
+            {"filename": "MODULE.bazel.lock", "status": "modified", "additions": 2, "deletions": 2, "patch": "@@ -1 +1 @@\n-old\n+new"},
+        ]
+        _, file_comps_lock, overall_lock, vs_path_lock = prepare_context.analyze_mainline_and_compare(
+            candidates=[(master_sha, "trailer")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=pr_files_with_lock,
+            pr_patches_by_file={"src/Foo.java": pr_patches["src/Foo.java"], "MODULE.bazel.lock": "@@ -1 +1 @@\n-old\n+new"},
+            head_root_path=head_root,
+            base_root_path=base_root,
+            stage_dir=stage_dir,
+        )
+        self.assertEqual(overall_lock, "CLEAN")
+        by_lock_path = {fc["path"]: fc["classification"] for fc in file_comps_lock}
+        self.assertEqual(by_lock_path["MODULE.bazel.lock"], "lockfile_regenerated")
+        self.assertIn("MODULE.bazel.lock", pathlib.Path(vs_path_lock).read_text(encoding="utf-8"))
+
+        # Commit message with a cherry-pick trailer must NOT also extract an earlier regression commit URL
+        self._git("checkout", "master")
+        (self.root / "src" / "Regression.java").write_text("class Regression {}\n", encoding="utf-8")
+        self._git("add", "src/Regression.java")
+        self._git("commit", "-m", "Earlier regression commit")
+        regression_sha = self._git_out("rev-parse", "HEAD")
+
+        found_trailer_only = prepare_context.find_mainline_commits(
+            pr_title="[8.9.0] Master fix Foo.a",
+            pr_body="",
+            pr_commits=[
+                {
+                    "sha": "4444444444444444444444444444444444444444",
+                    "commit": {
+                        "message": (
+                            f"Master fix Foo.a\n\n"
+                            f"Fixes regression from https://github.com/bazelbuild/bazel/commit/{regression_sha}\n\n"
+                            f"(cherry picked from commit {master_sha})"
+                        )
+                    },
+                }
+            ],
+            pr_comments=[],
+            pr_author="wyv",
+            mainline_ref="master",
+            base_sha=self.base_sha,
+        )
+        self.assertEqual([sha for sha, _ in found_trailer_only], [master_sha])
+
         # detect_mainline_ref must raise RuntimeError rather than falling back to HEAD (release branch)
         self._git("checkout", "release-8.9.0")
         self._git("branch", "-D", "master")

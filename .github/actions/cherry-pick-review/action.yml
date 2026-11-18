@@ -64,24 +64,41 @@ runs:
             -f content='eyes' || true
         fi
 
+    - name: Install Antigravity CLI
+      if: steps.prepare_context.outputs.should_run == 'true'
+      id: install_agy
+      shell: bash
+      env:
+        AGY_TARBALL_URL: 'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.11-6132547114106880/linux-x64/cli_linux_x64.tar.gz'
+        AGY_TARBALL_SHA512: 'dad3c015e8964fcdc1639b13b7152f4cb84cb1bde385707e2bcdf095d6f1831f4f6521199aec499cc052f9e99906b7fdbc52c273df064d5cb7c84b068ba3ce50'
+      run: |-
+        set -euo pipefail
+        AGY_BIN_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/agy-bin.XXXXXX")"
+        TARBALL_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/agy.XXXXXX.tar.gz")"
+        trap 'rm -f "${TARBALL_FILE}"' EXIT
+
+        curl -fsSL -o "${TARBALL_FILE}" "${AGY_TARBALL_URL}"
+        echo "${AGY_TARBALL_SHA512}  ${TARBALL_FILE}" | sha512sum -c -
+        tar -xzf "${TARBALL_FILE}" -C "${AGY_BIN_DIR}" antigravity
+        mv "${AGY_BIN_DIR}/antigravity" "${AGY_BIN_DIR}/agy"
+        chmod +x "${AGY_BIN_DIR}/agy"
+        "${AGY_BIN_DIR}/agy" --version
+        echo "agy_bin=${AGY_BIN_DIR}/agy" >> "${GITHUB_OUTPUT}"
+
     - name: Run Gemini pull request review
       if: steps.prepare_context.outputs.should_run == 'true'
       id: gemini_pr_review
       shell: bash
       env:
+        AGY_BIN: ${{ steps.install_agy.outputs.agy_bin }}
         GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
         GEMINI_MODEL: ${{ inputs.gemini_model }}
         AGY_CLI_NONINTERACTIVE_HEADLESS: '1'
         AGY_CLI_MODEL_API_MAX_RETRIES: '10'
       run: |-
         set -euo pipefail
-        AGY_BIN_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/agy-bin.XXXXXX")"
         SETTINGS_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/agy-settings.XXXXXX.json")"
-        trap 'rm -rf "${AGY_BIN_DIR}" "${SETTINGS_FILE}"' EXIT
-
-        curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir "${AGY_BIN_DIR}"
-        export PATH="${AGY_BIN_DIR}:${PATH}"
-        agy --version
+        trap 'rm -f "${SETTINGS_FILE}"' EXIT
 
         if [[ ! "${GEMINI_MODEL}" =~ ^[A-Za-z0-9._-]+$ ]]; then
           echo "::error::Invalid GEMINI_MODEL value."
@@ -121,7 +138,7 @@ runs:
             json.dump(settings, f, indent=2)
         PY
 
-        if ! agy \
+        if ! "${AGY_BIN}" \
           --output-format json \
           --model "${GEMINI_MODEL}" \
           --disable-slash-commands \

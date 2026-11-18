@@ -310,7 +310,27 @@ class PostReviewTest(unittest.TestCase):
             self.assertEqual(post_review.main(), 0)
         self.assertEqual(posted[-1]["event"], "REQUEST_CHANGES")
 
-        # 3) Policy 1a: Non-CLEAN cherry-pick from CONTRIBUTOR is capped at COMMENT, whereas MEMBER stays APPROVE
+        # Rewriting an Approved verdict line with trailing text replaces the entire line cleanly
+        trailing_verdict = {
+            "decision": "APPROVE",
+            "body": (
+                "## 📋 Gemini Cherry-Pick Review Summary\n\n"
+                "**Verdict:** ✅ Approved: Clean cherry-pick of `184d012436` from `master`.\n\n"
+                "- 🔴 **Unrelated change:** Sneaked in."
+            ),
+            "comments": [],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(trailing_verdict)}),
+            encoding="utf-8",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertNotIn("Clean cherry-pick of", posted[-1]["body"])
+        self.assertIn("**Verdict:** ❌ Changes Requested\n", posted[-1]["body"])
+
+        # 3) Policy 1a: Non-CLEAN, lockfile-modifying, or breaking-signal PRs from CONTRIBUTOR are capped at COMMENT,
+        # whereas MEMBER stays APPROVE
         adapted_approve = {
             "decision": "APPROVE",
             "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ✅ Approved: Minimal conflict adaptation.",
@@ -320,24 +340,44 @@ class PostReviewTest(unittest.TestCase):
             json.dumps({"response": json.dumps(adapted_approve)}),
             encoding="utf-8",
         )
-        self._write_context(
-            overall_cherry_pick_classification="CONFLICT_RESOLVED",
-            pr_author="external-dev",
-            pr_author_association="CONTRIBUTOR",
-        )
-        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
-            self.assertEqual(post_review.main(), 0)
-        self.assertEqual(posted[-1]["event"], "COMMENT")
-        self.assertIn("Automated Review Decision: `APPROVE`", posted[-1]["body"])
+        for ctx_kwargs in (
+            {"overall_cherry_pick_classification": "CONFLICT_RESOLVED"},
+            {"overall_cherry_pick_classification": "CLEAN", "has_lockfile_changes": True},
+            {"overall_cherry_pick_classification": "CLEAN", "breaking_change_signals": ["RELNOTES[INC]: break"]},
+        ):
+            self._write_context(
+                pr_author="external-dev",
+                pr_author_association="CONTRIBUTOR",
+                **ctx_kwargs,
+            )
+            with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+                self.assertEqual(post_review.main(), 0)
+            self.assertEqual(posted[-1]["event"], "COMMENT")
+            self.assertIn("Automated Review Decision: `APPROVE`", posted[-1]["body"])
 
         self._write_context(
             overall_cherry_pick_classification="CONFLICT_RESOLVED",
+            has_lockfile_changes=True,
             pr_author="wyv",
             pr_author_association="MEMBER",
         )
         with patch.object(post_review, "gh_api_post", side_effect=fake_post):
             self.assertEqual(post_review.main(), 0)
         self.assertEqual(posted[-1]["event"], "APPROVE")
+
+        # 4) repair_unescaped_json_quotes handles unescaped quotes when final object field is inside ```json fences
+        fenced_malformed = (
+            '```json\n'
+            '{\n'
+            '  "decision": "APPROVE",\n'
+            '  "comments": [],\n'
+            '  "body": "Summary mentioning "unescaped" token"\n'
+            '}\n'
+            '```'
+        )
+        parsed_fenced = post_review.extract_review_json(fenced_malformed)
+        self.assertEqual(parsed_fenced["decision"], "APPROVE")
+        self.assertIn('"unescaped"', parsed_fenced["body"])
 
 
 if __name__ == "__main__":
