@@ -32,6 +32,7 @@ import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -2987,6 +2988,54 @@ public class RemoteExecutionServiceTest {
     futureDone.await();
 
     assertThat(future.isCancelled()).isTrue();
+  }
+
+  @Test
+  public void buildRemoteAction_duringInputUploads_doesNotWait() throws Exception {
+    int uploadCount = Runtime.getRuntime().availableProcessors();
+    CountDownLatch uploadsStarted = new CountDownLatch(uploadCount);
+    CountDownLatch uploadsMayFinish = new CountDownLatch(1);
+    doAnswer(
+            invocationOnMock -> {
+              uploadsStarted.countDown();
+              uploadsMayFinish.await();
+              return null;
+            })
+        .when(cache)
+        .ensureInputsPresent(any(), any(), any(), anyBoolean());
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+
+    try (ExecutorService executorService = Executors.newFixedThreadPool(uploadCount)) {
+      for (int i = 0; i < uploadCount; ++i) {
+        executorService.execute(
+            () -> {
+              try {
+                service.uploadInputsIfNotPresent(action, /* force= */ false);
+              } catch (Throwable e) {
+                error.set(e);
+              }
+            });
+      }
+      uploadsStarted.await();
+      try {
+        // Hangs if the ongoing uploads hold all permits needed to build a remote action.
+        service.buildRemoteAction(spawn, context);
+      } finally {
+        uploadsMayFinish.countDown();
+      }
+    }
+
+    assertThat(error.get()).isNull();
   }
 
   @Test

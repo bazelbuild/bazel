@@ -343,7 +343,6 @@ public final class MerkleTreeComputer {
       }
     }
     PathMapper pathMapper = spawn.getPathMapper();
-    SpawnInputs inputFiles = spawn.getInputFiles();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
@@ -356,18 +355,10 @@ public final class MerkleTreeComputer {
         outputDirectories.add(new EmptyInputDirectory(artifact));
       }
     }
-    if (outputDirectories != null) {
-      inputFiles = inputFiles.plus(outputDirectories);
-    }
-    // Reduce peak memory usage by avoiding the allocation of intermediate arrays and sorted map, as
-    // well as the prolonged retention of mapped paths. All of these can be reconstructed on-the-fly
-    // while iterating over the inputs, only the sorted order has to be retained.
-    var allInputs =
-        ImmutableList.sortedCopyOf(
-            pathMapper.isNoop()
-                ? EXEC_PATH_COMPARATOR
-                : comparing(input -> pathMapper.map(input.getExecPath()), HIERARCHICAL_COMPARATOR),
-            inputFiles.flatten());
+    SpawnInputs inputFiles =
+        outputDirectories != null
+            ? spawn.getInputFiles().plus(outputDirectories)
+            : spawn.getInputFiles();
     ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
     var metadata =
         TracingMetadataUtils.buildMetadata(
@@ -388,19 +379,41 @@ public final class MerkleTreeComputer {
             // Inputs missing from the remote cache may be uploaded from the disk cache.
             CachePolicy.DISK_CACHE_ONLY);
     try {
+      // Sorting the inputs and building the tree are CPU-bound, so they run on the build pool
+      // rather than on the potentially many threads that call this method.
       return getFromFuture(
-          build(
-              allInputs,
-              pathMapper.isNoop()
-                  ? ActionInput::getExecPath
-                  : input -> pathMapper.map(input.getExecPath()),
-              Function.identity(),
-              toolInputs.isEmpty() ? alwaysFalse() : toolInputs::contains,
-              scrubber != null ? scrubber.forSpawn(spawn) : null,
-              spawnExecutionContext.getInputMetadataProvider(),
-              spawnExecutionContext.getPathResolver(),
-              remoteActionExecutionContext,
-              blobPolicy));
+          Futures.submitAsync(
+              () -> {
+                // Reduce peak memory usage by avoiding the allocation of intermediate arrays and
+                // sorted map, as well as the prolonged retention of mapped paths. All of these can
+                // be reconstructed on-the-fly while iterating over the inputs, only the sorted
+                // order has to be retained.
+                var allInputs =
+                    ImmutableList.sortedCopyOf(
+                        pathMapper.isNoop()
+                            ? EXEC_PATH_COMPARATOR
+                            : comparing(
+                                input -> pathMapper.map(input.getExecPath()),
+                                HIERARCHICAL_COMPARATOR),
+                        inputFiles.flatten());
+                try {
+                  return build(
+                      allInputs,
+                      pathMapper.isNoop()
+                          ? ActionInput::getExecPath
+                          : input -> pathMapper.map(input.getExecPath()),
+                      Function.identity(),
+                      toolInputs.isEmpty() ? alwaysFalse() : toolInputs::contains,
+                      scrubber != null ? scrubber.forSpawn(spawn) : null,
+                      spawnExecutionContext.getInputMetadataProvider(),
+                      spawnExecutionContext.getPathResolver(),
+                      remoteActionExecutionContext,
+                      blobPolicy);
+                } catch (IOException e) {
+                  throw new WrappedException(e);
+                }
+              },
+              MERKLE_TREE_BUILD_POOL));
     } catch (BulkTransferException e) {
       e.getLostArtifacts(spawnExecutionContext.getInputMetadataProvider()::getInput)
           .throwIfNotEmpty();
