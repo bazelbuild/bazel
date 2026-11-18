@@ -111,8 +111,7 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.CREATE,
-            "workspace");
+            RunfileSymlinksMode.CREATE);
 
     action.execute(context);
 

@@ -74,12 +74,12 @@ public final class SymlinkTreeHelperTest {
         new FilesetOutputSymlink(PathFragment.create("from2"), target2, metadata);
 
     Map<PathFragment, PathFragment> symlinks =
-        SymlinkTreeHelper.processFilesetLinks(ImmutableList.of(link1, link2), "workspace");
+        SymlinkTreeHelper.processFilesetLinks(ImmutableList.of(link1, link2));
     assertThat(symlinks)
         .containsExactly(
-            PathFragment.create("workspace/from1"),
+            PathFragment.create(MAIN_REPO_DIR_NAME + "/from1"),
             target1.getPath().asFragment(),
-            PathFragment.create("workspace/from2"),
+            PathFragment.create(MAIN_REPO_DIR_NAME + "/from2"),
             target2.getPath().asFragment());
   }
 
