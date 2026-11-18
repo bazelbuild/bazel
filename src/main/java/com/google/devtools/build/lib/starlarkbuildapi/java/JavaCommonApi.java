@@ -804,6 +804,20 @@ public interface JavaCommonApi<
             named = true,
             positional = false),
         @Param(
+            name = "output_deps_proto_flag",
+            doc =
+                "The flag with which the executable receives the path to write"
+                    + " <code>output_deps_proto</code> to. It is added to the first element of"
+                    + " <code>arguments</code> and must be set if and only if"
+                    + " <code>output_deps_proto</code> is set.",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false),
+        @Param(
             name = "dependency_artifacts",
             allowedTypes = {@ParamType(type = Depset.class)},
             named = true,
@@ -849,6 +863,7 @@ public interface JavaCommonApi<
       Dict<?, ?> executionRequirementsUnchecked,
       Object toolchainUnchecked,
       Object outputDepsProto,
+      Object outputDepsProtoFlag,
       Depset dependencyArtifacts,
       boolean insertDependencies,
       boolean enableDirectClasspath,
