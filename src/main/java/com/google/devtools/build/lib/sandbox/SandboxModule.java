@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -231,7 +230,7 @@ public final class SandboxModule extends BlazeModule {
       asyncTreeDeleter.setThreads(1);
     }
     try (SilentCloseable c = Profiler.instance().profile("SandboxStash.initialize")) {
-      SandboxStash.initialize(LabelConstants.MAIN_REPO_DIR_NAME, sandboxBase, options, treeDeleter);
+      SandboxStash.initialize(sandboxBase, options, treeDeleter);
     }
 
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
