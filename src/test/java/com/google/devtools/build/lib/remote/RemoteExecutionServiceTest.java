@@ -3483,11 +3483,6 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public String getWorkspaceName() {
-        return LabelConstants.MAIN_REPO_DIR_NAME;
-      }
-
-      @Override
       public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
       }

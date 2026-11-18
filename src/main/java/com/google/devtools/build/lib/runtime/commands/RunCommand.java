@@ -1027,7 +1027,7 @@ public class RunCommand implements BlazeCommand {
     try {
       runfilesSupport
           .getRunfilesDirectory()
-          .getRelative(runfilesSupport.getRunfilesTree().getWorkspaceName())
+          .getRelative(LabelConstants.MAIN_REPO_DIR_NAME)
           .createDirectoryAndParents();
     } catch (IOException e) {
       throw new RunfilesException(

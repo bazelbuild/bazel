@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
@@ -573,9 +572,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     return logEntry(
         shared ? runfilesTree.getExecPath().getPathString() : null,
         () -> {
-          Preconditions.checkState(
-              LabelConstants.MAIN_REPO_DIR_NAME.equals(runfilesTree.getWorkspaceName()));
-
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
                   .setPath(internalToUnicode(runfilesTree.getExecPath().getPathString()));
