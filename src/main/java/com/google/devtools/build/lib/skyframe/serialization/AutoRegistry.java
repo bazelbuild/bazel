@@ -59,12 +59,10 @@ public class AutoRegistry {
           "java.io.IOException",
           "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
-          "java.lang.ref.SoftReference",
           "java.time.Instant",
           "com.google.common.base.Predicates$InPredicate",
           // Implementation class for com.google.common.base.Optional.
           "com.google.common.base.Present",
-          "com.google.common.collect.ImmutableEntry",
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.
