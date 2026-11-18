@@ -1136,7 +1136,7 @@ public final class StarlarkRuleContext
       checkPrivateAccess(thread);
     }
     checkMutable("runfiles");
-    Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
+    Runfiles.Builder builder = new Runfiles.Builder();
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
       RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DATA_RUNFILES);

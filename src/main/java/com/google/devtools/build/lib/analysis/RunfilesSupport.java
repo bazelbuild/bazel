@@ -304,11 +304,7 @@ public final class RunfilesSupport {
     RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
     if (runUnder instanceof LabelRunUnder && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
-      runfiles =
-          new Runfiles.Builder(ruleContext.getWorkspaceName())
-              .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
-              .merge(runfiles)
-              .build();
+      runfiles = new Runfiles.Builder().merge(getRunfiles(runUnderTarget)).merge(runfiles).build();
     }
     checkState(!runfiles.isEmpty(), "Empty runfiles");
 
@@ -396,12 +392,12 @@ public final class RunfilesSupport {
    *
    * @return the Runfiles object
    */
-  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
+  private static Runfiles getRunfiles(TransitiveInfoCollection target) {
     RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
     if (runfilesProvider != null) {
       return runfilesProvider.getDefaultRunfiles();
     } else {
-      return new Runfiles.Builder(workspaceName)
+      return new Runfiles.Builder()
           .addTransitiveArtifacts(target.getProvider(FileProvider.class).getFilesToBuild())
           .build();
     }

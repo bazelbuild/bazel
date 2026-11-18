@@ -116,9 +116,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
             RunfilesProvider.class,
             RunfilesProvider.simple(
                 RunfilesSupport.addRunfiles(
-                        new Runfiles.Builder(ruleContext.getWorkspaceName()),
-                        ruleContext,
-                        RunfilesProvider.DEFAULT_RUNFILES)
+                        new Runfiles.Builder(), ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
         .build();

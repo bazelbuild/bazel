@@ -89,7 +89,7 @@ public final class Runfiles implements RunfilesApi {
   static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER = new DummyEmptyFilesSupplier();
 
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
-  public static final Runfiles EMPTY = new Builder().build();
+  public static final Runfiles EMPTY = new Builder("").build();
 
   private static final PathFragment REPO_MAPPING_PATH_FRAGMENT =
       PathFragment.create("_repo_mapping");
@@ -547,11 +547,9 @@ public final class Runfiles implements RunfilesApi {
     /** Build the Runfiles object with this policy */
     private ConflictPolicy conflictPolicy = ConflictPolicy.WARN;
 
-    /**
-     * Only used for Runfiles.EMPTY.
-     */
-    private Builder() {
-      this.prefix = "";
+    /** Creates a builder with the default workspace prefix. */
+    public Builder() {
+      this(LabelConstants.MAIN_REPO_DIR_NAME);
     }
 
     /**
