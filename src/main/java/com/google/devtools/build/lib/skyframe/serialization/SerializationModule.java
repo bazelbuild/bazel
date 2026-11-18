@@ -73,9 +73,7 @@ public class SerializationModule extends BlazeModule {
         SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder(
                 runtime.getRuleClassProvider(),
                 SerializationRegistrySetupHelpers.makeReferenceConstants(
-                    directories,
-                    runtime.getRuleClassProvider(),
-                    directories.getWorkspace().getBaseName()))
+                    directories, runtime.getRuleClassProvider()))
             .build();
   }
 

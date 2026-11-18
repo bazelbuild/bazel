@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -87,7 +88,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
         repoMappingManifest,
         config.getActionEnvironment(),
         config.getRunfileSymlinksMode(),
-        config.getWorkspaceName(),
+        LabelConstants.MAIN_REPO_DIR_NAME,
         config.getOptions().get(CoreOptions.class).getPreferDependingConfigurationRunfiles());
   }
 

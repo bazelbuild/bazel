@@ -146,15 +146,10 @@ public abstract class SpawnLogContextTestBase {
               public ImmutableSet<String> getReservedActionMnemonics() {
                 return ImmutableSet.of();
               }
-
-              @Override
-              public String getRunfilesPrefix() {
-                return MAIN_REPO_DIR_NAME;
-              }
             },
             new FragmentFactory());
     outputDir = configuration.getBinDirectory();
-    execRoot = configuration.getDirectories().getExecRoot(MAIN_REPO_DIR_NAME);
+    execRoot = configuration.getDirectories().getExecRoot();
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
 
     externalSourceRoot =
