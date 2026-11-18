@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -73,10 +74,13 @@ import java.util.function.Predicate;
  *   <li><b>Owned keys</b>, in selection order. These are the keys that are not themselves {@link
  *       ActionLookupKey}s and so take their file dependencies from an owner (see {@link
  *       FileOpNodeMemoizingLookup#getDependencyKey}): execution keys ({@link ActionLookupData} and
- *       {@link DerivedArtifact}) and {@link ActionLookupSummaryKey}s. Their serialized values are
- *       small and share little with each other, so their relative order does not matter, and
- *       appending them after every analysis key places each after its owner.
+ *       {@link DerivedArtifact}). Their serialized values are small and share little with each
+ *       other, so their relative order does not matter, and appending them after every analysis key
+ *       places each after its owner.
  * </ol>
+ *
+ * <p>Each {@link ActionLookupSummaryKey} is emitted immediately before its owner, since readers
+ * cannot compute it locally if its owner is a cache hit.
  *
  * <p>The only inversions this admits are within the unranked bucket and among ties.
  *
@@ -104,8 +108,11 @@ final class UploadLayout {
 
   private final ArrayList<AbstractNestedFileOpNodes> rankedNodes = new ArrayList<>();
 
-  /** Execution keys and {@link ActionLookupSummaryKey}s; see the class comment. */
+  /** Execution keys; see the class comment. */
   private final ArrayList<SkyKey> ownedKeys = new ArrayList<>();
+
+  /** {@link ActionLookupSummaryKey}s by owner. */
+  private final Map<ActionLookupKey, ActionLookupSummaryKey> summaryKeysByOwner = new HashMap<>();
 
   private UploadLayout() {}
 
@@ -114,8 +121,9 @@ final class UploadLayout {
    *
    * @param leafIds the dense leaf numbering
    * @param uploadOrder every selected key that will be uploaded: analysis keys without a nested
-   *     node, then analysis keys by the longest-path depth of their node, deepest first, then owned
-   *     keys (execution keys and {@link ActionLookupSummaryKey}s). See {@link UploadLayout}.
+   *     node, then analysis keys by the longest-path depth of their node, deepest first, each
+   *     preceded by its {@link ActionLookupSummaryKey}, if any, then owned keys (execution keys and
+   *     summary keys whose owner is not uploaded). See {@link UploadLayout}.
    */
   public record DenseLeafIdsAndUploadOrder(
       LeafIdAssignment leafIds, ImmutableList<SkyKey> uploadOrder) {}
@@ -188,14 +196,18 @@ final class UploadLayout {
       } else {
         unrankedAnalysisKeys.add(lookupKey);
       }
+    } else if (key instanceof ActionLookupSummaryKey summaryKey) {
+      // node is its owner's.
+      ActionLookupSummaryKey previous = summaryKeysByOwner.put(summaryKey.argument(), summaryKey);
+      checkState(previous == null, "%s and %s summarize the same key", previous, summaryKey);
     } else {
-      // An execution key or an ActionLookupSummaryKey; node is its owner's.
+      // An execution key; node is its owner's.
       ownedKeys.add(key);
     }
   }
 
   /**
-   * Assembles the upload order. Must run after the leaf walk has assigned depths.
+   * Assembles the upload order. Must run after the leaf walk has assigned depths, and at most once.
    *
    * <p>A counting sort: every ranked node's depth is a small integer in {@code [TOP_DEPTH,
    * maxDepth]}, so an array indexed by depth can hold one chain of keys per depth. Each ranked key
@@ -229,14 +241,25 @@ final class UploadLayout {
 
     var order =
         ImmutableList.<SkyKey>builderWithExpectedSize(
-            unrankedAnalysisKeys.size() + ranked + ownedKeys.size());
-    order.addAll(unrankedAnalysisKeys);
+            unrankedAnalysisKeys.size() + ranked + ownedKeys.size() + summaryKeysByOwner.size());
+    for (ActionLookupKey key : unrankedAnalysisKeys) {
+      addWithSummaryKey(order, key);
+    }
     for (int depth = maxDepth; depth >= AbstractNestedFileOpNodes.TOP_DEPTH; depth--) {
       for (int i = head[depth]; i >= 0; i = next[i]) {
-        order.add(rankedAnalysisKeys.get(i));
+        addWithSummaryKey(order, rankedAnalysisKeys.get(i));
       }
     }
-    return order.addAll(ownedKeys).build();
+    // Whatever summary keys remain have no owner in the layout.
+    return order.addAll(summaryKeysByOwner.values()).addAll(ownedKeys).build();
+  }
+
+  private void addWithSummaryKey(ImmutableList.Builder<SkyKey> order, ActionLookupKey key) {
+    ActionLookupSummaryKey summaryKey = summaryKeysByOwner.remove(key);
+    if (summaryKey != null) {
+      order.add(summaryKey);
+    }
+    order.add(key);
   }
 
   /** The leaf numbering, and the greatest depth assigned to any node. */

@@ -375,17 +375,16 @@ genrule(
 windows_llvm_alias(
     name = "bazel_windows_llvm",
     actual = ":bazel.exe",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Keep wildcard builds from cross-compiling Bazel for Windows.
     tags = ["manual"],
 )
 
 # Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
-# Not registered by default; it is only used with the `llvm` config in .bazelrc
-# and by :bazel_windows_llvm.
+# Enabled by default in .bazelrc and used by :bazel_windows_llvm.
 windows_resource_compiler_toolchain(
     name = "llvm_rc",
     rc_exe = "@llvm//tools:llvm-rc",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Only necessary for builds that target Windows.
     tags = ["manual"],
 )
 

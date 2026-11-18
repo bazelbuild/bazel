@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -28,13 +27,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import org.junit.Test;
@@ -174,13 +177,39 @@ public final class CcToolchainTest extends BuildViewTestCase {
         .collect(ImmutableList.toImmutableList());
   }
 
+  // Verifies that usePicForBinaries() returns true only when the toolchain has
+  // SUPPORTS_PIC enabled and the compilation mode is not -c opt.
   @Test
-  public void testPic() throws Exception {
+  public void testUsePicForBinaries_requiresSupportsPicAndDisabledInOpt() throws Exception {
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+    scratch.file("myinfo/BUILD");
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "def _impl(ctx):",
+        "  toolchain = find_cc_toolchain(ctx)",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  return [MyInfo(feature_configuration = feature_configuration)]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = {'_cc_toolchain': attr.label(default = Label('//a:b'))},",
+        "  fragments = ['cpp'],",
+        "  toolchains = use_cc_toolchain(),",
+        ")");
     scratch.file(
         "a/BUILD",
         "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
             + " 'cc_toolchain_alias')",
-        "cc_toolchain_alias(name = 'b')");
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name = 'b')",
+        "crule(name = 'r')");
 
     assertThat(usePicForBinariesWithConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL))
         .isFalse();
@@ -205,16 +234,15 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   private boolean usePicForBinariesWithConfiguration(String... configuration) throws Exception {
     useConfiguration(configuration);
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
-    CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
+    ConfiguredTarget target = getConfiguredTarget("//a:r");
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            BzlLoadValue.keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
+    StructImpl myInfo = (StructImpl) target.get(key);
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrThrowEvalException(
-            /* requestedFeatures= */ ImmutableSet.of(),
-            /* unsupportedFeatures= */ ImmutableSet.of(),
-            Language.CPP,
-            toolchainProvider,
-            cppConfiguration);
+        ((FeatureConfigurationForStarlark) myInfo.getValue("feature_configuration"))
+            .getFeatureConfiguration();
+    CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     return CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration);
   }
 

@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,18 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef BAZEL_SRC_MAIN_CPP_UTIL_NUMBERS_H_
-#define BAZEL_SRC_MAIN_CPP_UTIL_NUMBERS_H_
+package com.google.devtools.build.lib.cmdline;
 
-#include <cstdint>
-#include <string>
+/** Values of {@link LabelConstants} that differ between Bazel and Blaze. */
+final class BranchedLabelConstants {
 
-namespace blaze_util {
+  static final String MAIN_REPO_DIR_NAME = "_main";
 
-bool safe_strto32(const std::string &text, int *value);
-
-int32_t strto32(const char *str, char **endptr, int base);
-
-}  // namespace blaze_util
-
-#endif  // BAZEL_SRC_MAIN_CPP_UTIL_NUMBERS_H_
+  private BranchedLabelConstants() {}
+}

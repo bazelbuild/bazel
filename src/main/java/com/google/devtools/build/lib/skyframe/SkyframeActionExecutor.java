@@ -92,6 +92,8 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -705,7 +707,7 @@ public final class SkyframeActionExecutor {
       ActionLookupData actionLookupData,
       @Nullable FileSystem actionFileSystem,
       ActionPostprocessing postprocessing,
-      boolean hasDiscoveredInputs,
+      @Nullable NestedSet<Artifact> discoveredInputs,
       @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
@@ -749,10 +751,14 @@ public final class SkyframeActionExecutor {
                         actionExecutionContext,
                         actionLookupData,
                         postprocessing,
+                        discoveredInputs == null
+                            ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+                            : discoveredInputs,
                         previousOutputs)));
 
     SharedActionCallback callback =
-        getSharedActionCallback(env.getListener(), hasDiscoveredInputs, action, actionLookupData);
+        getSharedActionCallback(
+            env.getListener(), discoveredInputs != null, action, actionLookupData);
 
     ActionExecutionValue result = null;
     ActionExecutionException finalException = null;
@@ -1176,6 +1182,9 @@ public final class SkyframeActionExecutor {
     private final ActionLookupData actionLookupData;
     @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
+    // The inputs returned by Action#discoverInputs, which the action may read during execution
+    // even if they aren't part of Action#getInputs yet.
+    private final NestedSet<Artifact> discoveredInputs;
     @Nullable private final ActionExecutionValue previousOutputs;
     // True if the action was successfully registered with the statusReporter.
     // This ensures we only attempt to remove it during cleanup, avoiding
@@ -1190,6 +1199,7 @@ public final class SkyframeActionExecutor {
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
         ActionPostprocessing postprocessing,
+        NestedSet<Artifact> discoveredInputs,
         @Nullable ActionExecutionValue previousOutputs) {
       this.action = action;
       this.inputMetadataProvider = inputMetadataProvider;
@@ -1199,6 +1209,7 @@ public final class SkyframeActionExecutor {
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
       this.postprocessing = postprocessing;
+      this.discoveredInputs = discoveredInputs;
       this.previousOutputs = previousOutputs;
     }
 
@@ -1281,7 +1292,10 @@ public final class SkyframeActionExecutor {
 
             try (SilentCloseable innerLock =
                 rewoundActionSynchronizer.enterActionExecution(
-                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
+                    action,
+                    wasRewound,
+                    discoveredInputs,
+                    actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }

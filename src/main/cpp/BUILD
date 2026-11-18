@@ -77,12 +77,12 @@ cc_library(
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/base:log_severity",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [
@@ -142,9 +142,9 @@ cc_library(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -208,12 +208,12 @@ cc_binary(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [":resources"],
@@ -305,8 +305,8 @@ cc_library(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ],
 )

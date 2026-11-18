@@ -208,6 +208,54 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testActionsCreatedForIndividualMnemonicsDoNotAccumulateAcrossBuilds()
+      throws Exception {
+    write(
+        "bar/BUILD",
+        """
+        load(":bar.bzl", "bar")
+        bar(name = "bar")
+        """);
+    write(
+        "bar/bar.bzl",
+        """
+        def _impl(ctx):
+            output1 = ctx.actions.declare_file(ctx.attr.name + ".out1")
+            output2 = ctx.actions.declare_file(ctx.attr.name + ".out2")
+            ctx.actions.write(output1, "foo")
+            ctx.actions.write(output2, "bar")
+            return [DefaultInfo(files = depset([output1, output2]))]
+
+        bar = rule(
+            implementation = _impl,
+        )
+        """);
+    buildTarget("//bar:bar");
+
+    // Building a different target must not report the first build's FileWrite actions, and the
+    // per-mnemonic counts must add up to this build's total.
+    buildTarget("//foo:foo");
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    List<ActionData> actionData = buildMetrics.getActionSummary().getActionDataList();
+    assertThat(actionData.stream().map(ActionData::getMnemonic).collect(toImmutableList()))
+        .doesNotContain("FileWrite");
+    ImmutableList<ActionData> genruleActions =
+        actionData.stream()
+            .filter(a -> a.getMnemonic().equals("Genrule"))
+            .collect(toImmutableList());
+    assertThat(genruleActions).hasSize(1);
+    assertThat(genruleActions.get(0).getActionsCreated()).isEqualTo(1);
+    assertThat(actionData.stream().mapToLong(ActionData::getActionsCreated).sum())
+        .isEqualTo(buildMetrics.getActionSummary().getActionsCreated());
+
+    // A null build creates and executes no actions, so no per-mnemonic data is reported.
+    buildTarget("//foo:foo");
+    buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getActionSummary().getActionsCreated()).isEqualTo(0);
+    assertThat(buildMetrics.getActionSummary().getActionDataList()).isEmpty();
+  }
+
+  @Test
   public void testAspectActionsCreatedNotOverCountedForAlias() throws Exception {
     write(
         "pkg/BUILD",

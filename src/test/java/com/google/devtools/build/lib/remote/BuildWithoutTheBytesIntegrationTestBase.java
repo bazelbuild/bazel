@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetComple
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -2625,7 +2626,11 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(metadata.isRemote()).isTrue();
     assertThat(metadata.getSize()).isEqualTo(content.length());
     assertThat(metadata.getDigest())
-        .isEqualTo(getDigestHashFunction().getHashFunction().hashString(content, UTF_8).asBytes());
+        .isEqualTo(
+            getDigestHashFunction()
+                .getHashFunction()
+                .hashBytes(StringUnsafe.getInternalStringBytes(content))
+                .asBytes());
   }
 
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {

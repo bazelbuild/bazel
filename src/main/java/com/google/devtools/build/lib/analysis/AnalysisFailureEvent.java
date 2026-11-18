@@ -95,7 +95,6 @@ public class AnalysisFailureEvent implements BuildEvent {
         .add("failedAspect", failedAspect)
         .add("failedTarget", failedTarget)
         .add("isConfigured", isConfigured)
-        .add("legacyFailureReason", getLegacyFailureReason())
         .toString();
   }
 
@@ -112,16 +111,6 @@ public class AnalysisFailureEvent implements BuildEvent {
   @Nullable
   BuildEventId getConfigurationId() {
     return isConfigured ? configurationId(failedTarget.getConfigurationKey()) : null;
-  }
-
-  /**
-   * Returns the label of a single root cause. Use {@link #getRootCauses} to report all root causes.
-   */
-  @Nullable public Label getLegacyFailureReason() {
-    if (rootCauses.isEmpty()) {
-      return null;
-    }
-    return rootCauses.toList().get(0).getLabel();
   }
 
   public NestedSet<Cause> getRootCauses() {

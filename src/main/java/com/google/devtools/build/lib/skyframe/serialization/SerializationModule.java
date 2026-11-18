@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
+import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
@@ -44,7 +45,7 @@ public class SerializationModule extends BlazeModule {
     // This is injected as a callback instead of evaluated eagerly to avoid forcing the somewhat
     // expensive AutoRegistry.get call on clients that don't require it.
     builder.setAnalysisCodecRegistrySupplier(
-        getAnalysisCodecRegistrySupplier(runtime, directories));
+        Suppliers.memoize(getAnalysisCodecRegistrySupplier(runtime, directories)::get));
 
     remoteAnalysisCachingServicesSupplier = getAnalysisCachingServicesSupplier(runtime);
     builder.setRemoteAnalysisCachingServicesSupplier(remoteAnalysisCachingServicesSupplier);

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.UploadPhaseTimings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -324,7 +326,8 @@ public final class FrontierSerializer {
           }
         }
         case ActionLookupSummaryKey summaryKey -> {
-          if (summaryKey.argument().getLabel() != null) {
+          if (summaryKey.argument().getLabel() != null
+              && !summarizesSourceFile(graph, summaryKey)) {
             selection.add(summaryKey);
           }
         }
@@ -351,6 +354,18 @@ public final class FrontierSerializer {
         .sorted()
         .forEach(k -> out.println("FRONTIER_CANDIDATE: " + k));
     out.flush();
+  }
+
+  /**
+   * Whether {@code summaryKey} summarizes a source file's configured target.
+   *
+   * <p>These summaries are not uploaded because readers can compute them locally.
+   */
+  private static boolean summarizesSourceFile(
+      InMemoryGraph graph, ActionLookupSummaryKey summaryKey) {
+    var node = checkNotNull(graph.getIfPresent(summaryKey.argument()), summaryKey);
+    return node.getValue() instanceof ConfiguredTargetValue ctVal
+        && ctVal.getConfiguredTarget() instanceof InputFileConfiguredTarget;
   }
 
   private static boolean shouldUpload(ActionLookupData data, InMemoryNodeEntry node) {

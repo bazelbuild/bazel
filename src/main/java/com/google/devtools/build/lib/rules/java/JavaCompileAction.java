@@ -24,6 +24,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -115,6 +117,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   static final String SEPARATE_SPAWN_OUTPUT_DEPS_PROTO_FORMAT =
       "%s" + SPAWN_OUTPUT_DEPS_PROTO_SUFFIX;
 
+  private static final Interner<ImmutableMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
+
   private final NestedSet<Artifact> tools;
   private final String mnemonic;
   private final boolean insertDependencies;
@@ -124,7 +129,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private final CommandLine flagLine;
   private final ImmutableList<CommandLine> extraCommandLineArgs;
   private final BuildConfigurationValue configuration;
-  private final OnDemandString progressMessage;
+  private final CharSequence progressMessage;
 
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -139,7 +144,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       boolean insertDependencies,
       ActionOwner owner,
       NestedSet<Artifact> tools,
-      OnDemandString progressMessage,
+      CharSequence progressMessage,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
@@ -159,7 +164,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     this.mnemonic = mnemonic;
     this.insertDependencies = insertDependencies;
     this.env = env;
-    this.executionInfo = configuration.modifiedExecutionInfo(executionInfo, mnemonic);
+    this.executionInfo =
+        executionInfoInterner.intern(configuration.modifiedExecutionInfo(executionInfo, mnemonic));
     this.executableLine = executableLine;
     this.flagLine = flagLine;
     this.extraCommandLineArgs = extraCommandLineArgs;

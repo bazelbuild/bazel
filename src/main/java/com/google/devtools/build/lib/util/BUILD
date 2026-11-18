@@ -297,7 +297,6 @@ java_library(
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
-        "FileHandlerQuerier.java",
         "Fingerprint.java",
         "JavaSleeper.java",
         "LatestObjectMetricExporter.java",

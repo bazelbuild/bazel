@@ -78,6 +78,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
         "//third_party/java/guava:concurrent",
     ],
 )

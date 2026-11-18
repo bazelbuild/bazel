@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
@@ -1226,7 +1227,8 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   private static Checksum sha256(String content) throws Checksum.InvalidChecksumException {
     return Checksum.fromString(
-        DownloadCache.KeyType.SHA256, Hashing.sha256().hashString(content, UTF_8).toString());
+        DownloadCache.KeyType.SHA256,
+        Hashing.sha256().hashBytes(StringUnsafe.getInternalStringBytes(content)).toString());
   }
 
   @Test

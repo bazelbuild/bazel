@@ -645,7 +645,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([binary, '--classpath_limit=0', print_cmd])
     self.assertIn('-classpath', stdout)
     classpath = stdout[stdout.index('-classpath') + 1]
-    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.(jar|txt)$')
+    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath\.txt$')
 
   def testWindowsShBinaryLauncherWithoutRunfilesManifest(self):
     # Without a runfiles manifest, e.g. in a remotely executed action, the

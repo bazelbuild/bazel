@@ -88,19 +88,31 @@ public final class QueryParserTest {
   }
 
   // Asserts that 'query' parses, and that when pretty-printed, yields
-  // 'expectedPrettyPrintOutput'.
+  // 'expectedPrettyPrintOutput' (both with and without placeholder parsing enabled).
   private static String checkPrettyPrint(String expectedPrettyPrintOutput, String query)
       throws Exception {
-    assertThat(QueryExpression.parse(query, mockEnvironment()).toString())
+    QueryEnvironment<?> env = mockEnvironment();
+    assertThat(QueryExpression.parse(query, env).toString()).isEqualTo(expectedPrettyPrintOutput);
+    QueryAst astWithoutPlaceholders = QueryParser.parse(query, /* allowPlaceholders= */ false);
+    QueryAst astWithPlaceholders = QueryParser.parse(query, /* allowPlaceholders= */ true);
+    assertThat(astWithPlaceholders).isEqualTo(astWithoutPlaceholders);
+    assertThat(QueryExpressionResolver.resolve(astWithPlaceholders, env).toString())
         .isEqualTo(expectedPrettyPrintOutput);
     return expectedPrettyPrintOutput;
   }
 
   public static void checkParseFails(String query, String expectedError) {
+    QueryEnvironment<?> env = mockEnvironment();
     QuerySyntaxException e =
-        assertThrows(
-            QuerySyntaxException.class, () -> QueryExpression.parse(query, mockEnvironment()));
+        assertThrows(QuerySyntaxException.class, () -> QueryExpression.parse(query, env));
     assertThat(e).hasMessageThat().isEqualTo(expectedError);
+    QuerySyntaxException eWithPlaceholders =
+        assertThrows(
+            QuerySyntaxException.class,
+            () ->
+                QueryExpressionResolver.resolve(
+                    QueryParser.parse(query, /* allowPlaceholders= */ true), env));
+    assertThat(eWithPlaceholders).hasMessageThat().isEqualTo(expectedError);
   }
 
   @Test
@@ -348,7 +360,9 @@ public final class QueryParserTest {
 
   @Test
   public void testAstParsesUnresolvedFunctions() throws Exception {
-    QueryAst ast = QueryParser.parse("custom_func('*pattern', //foo + //bar, 3)");
+    String query = "custom_func('*pattern', //foo + //bar, 3)";
+    QueryAst ast = QueryParser.parse(query);
+    assertThat(QueryParser.parse(query, /* allowPlaceholders= */ true)).isEqualTo(ast);
     assertThat(ast).isInstanceOf(QueryAst.FunctionCall.class);
     QueryAst.FunctionCall call = (QueryAst.FunctionCall) ast;
     assertThat(call.functionName()).isEqualTo("custom_func");
@@ -364,7 +378,9 @@ public final class QueryParserTest {
 
   @Test
   public void testAstStructureForLetSetAndParenthesized() throws Exception {
-    QueryAst ast = QueryParser.parse("let x = set(//a //b) in ($x intersect //c)");
+    String query = "let x = set(//a //b) in ($x intersect //c)";
+    QueryAst ast = QueryParser.parse(query);
+    assertThat(QueryParser.parse(query, /* allowPlaceholders= */ true)).isEqualTo(ast);
     assertThat(ast)
         .isEqualTo(
             new QueryAst.Let(
@@ -429,11 +445,159 @@ public final class QueryParserTest {
   @Test
   public void testResolverValidatesWordAndIntegerArguments() throws Exception {
     QueryAst resolvedWord = QueryParser.parse("filter('*_test', //foo)");
+    assertThat(QueryParser.parse("filter('*_test', //foo)", /* allowPlaceholders= */ true))
+        .isEqualTo(resolvedWord);
     assertThat(QueryExpressionResolver.resolve(resolvedWord, mockEnvironment()).toString())
         .isEqualTo("filter('*_test', //foo)");
 
     checkParseFails("deps('*_test')", "target literal must not begin with (*): *_test");
     checkParseFails("kind(('rule'), //foo)", "syntax error at '( rule )'");
     checkParseFails("deps(//foo, (1))", "syntax error at '( 1 )'");
+  }
+
+  @Test
+  public void testAtTargetLiteralsUnchangedWhenPlaceholdersEnabled() throws Exception {
+    checkPrettyPrint("@foo");
+    checkPrettyPrint("@foo//:bar");
+    checkPrettyPrint("@//pkg:target");
+    checkPrettyPrint("@@foo");
+    checkPrettyPrint(
+        "\"@@rules_jvm_external++maven+maven//:bar\"", "@@rules_jvm_external++maven+maven//:bar");
+    checkPrettyPrint("(@foo + @bar)", "@foo+@bar");
+    checkPrettyPrint("set(@foo @bar)");
+    checkPrettyPrint("\"@(foo)\"", "'@(foo)'");
+    checkPrettyPrint("\"@(foo)\"");
+    checkPrettyPrint("@");
+  }
+
+  @Test
+  public void testPlaceholdersParsedWhenEnabled() throws Exception {
+    assertThat(QueryParser.parse("@(foo)", /* allowPlaceholders= */ false))
+        .isEqualTo(
+            new QueryAst.FunctionCall(
+                "@",
+                ImmutableList.of(new QueryAst.FunctionArgument(new QueryAst.Word("foo"), "", "")),
+                "",
+                ""));
+
+    String query =
+        "let x = @(init) in rdeps(@(universe), $x) intersect (@(filter) + '@(literal)' + @repo"
+            + " + @//a:b)";
+    QueryAst ast = QueryParser.parse(query, /* allowPlaceholders= */ true);
+
+    QueryAst.Let letAst = (QueryAst.Let) ast;
+    assertThat(letAst.varName()).isEqualTo("x");
+    assertThat(letAst.varExpr()).isEqualTo(new QueryAst.Placeholder("init", 8, 15));
+    assertThat(query.substring(8, 15)).isEqualTo("@(init)");
+
+    QueryAst.BinaryOperator intersect = (QueryAst.BinaryOperator) letAst.bodyExpr();
+    assertThat(intersect.operator()).isEqualTo(Lexer.TokenKind.INTERSECT);
+    assertThat(intersect.operands()).hasSize(2);
+
+    QueryAst.FunctionCall rdepsCall = (QueryAst.FunctionCall) intersect.operands().get(0);
+    assertThat(rdepsCall.functionName()).isEqualTo("rdeps");
+    assertThat(rdepsCall.arguments()).hasSize(2);
+    QueryAst.Placeholder universe = (QueryAst.Placeholder) rdepsCall.arguments().get(0).expr();
+    assertThat(universe).isEqualTo(new QueryAst.Placeholder("universe", 25, 36));
+    assertThat(query.substring(universe.startOffset(), universe.endOffset()))
+        .isEqualTo("@(universe)");
+    assertThat(rdepsCall.arguments().get(1).expr()).isEqualTo(new QueryAst.Word("$x"));
+
+    assertThat(intersect.operands().get(1))
+        .isEqualTo(
+            new QueryAst.Parenthesized(
+                new QueryAst.BinaryOperator(
+                    Lexer.TokenKind.PLUS,
+                    ImmutableList.of(
+                        new QueryAst.Placeholder("filter", 53, 62),
+                        new QueryAst.Word("@(literal)"),
+                        new QueryAst.Word("@repo"),
+                        new QueryAst.Word("@//a:b")))));
+    assertThat(query.substring(53, 62)).isEqualTo("@(filter)");
+
+    // Reserved words inside '@(...)' are valid identifier-shaped placeholder names.
+    assertThat(QueryParser.parse("@(union) + @(in) + @(set)", /* allowPlaceholders= */ true))
+        .isEqualTo(
+            new QueryAst.BinaryOperator(
+                Lexer.TokenKind.PLUS,
+                ImmutableList.of(
+                    new QueryAst.Placeholder("union", 0, 8),
+                    new QueryAst.Placeholder("in", 11, 16),
+                    new QueryAst.Placeholder("set", 19, 25))));
+  }
+
+  @Test
+  public void testPlaceholdersRejectedInInvalidGrammarPositions() {
+    QuerySyntaxException inSet =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryParser.parse("set(@(foo))", /* allowPlaceholders= */ true));
+    assertThat(inSet).hasMessageThat().isEqualTo("syntax error at '@(foo) )'");
+
+    QuerySyntaxException inLetVarName =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryParser.parse("let @(x) = //a in //b", /* allowPlaceholders= */ true));
+    assertThat(inLetVarName).hasMessageThat().isEqualTo("syntax error at '@(x) = //a'");
+
+    QuerySyntaxException asFunctionName =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryParser.parse("@(foo)(//a)", /* allowPlaceholders= */ true));
+    assertThat(asFunctionName)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '(' after query expression '@(foo)'");
+
+    QuerySyntaxException trailingPlaceholder =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryParser.parse("//a @(b)", /* allowPlaceholders= */ true));
+    assertThat(trailingPlaceholder)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '@(b)' after query expression '//a'");
+
+    QuerySyntaxException attachedAfterWord =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryParser.parse("a@(b)", /* allowPlaceholders= */ true));
+    assertThat(attachedAfterWord)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '@(b)' after query expression 'a'");
+
+    QuerySyntaxException doubleAtBeforeParens =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryParser.parse("@@(b)", /* allowPlaceholders= */ true));
+    assertThat(doubleAtBeforeParens)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '@(b)' after query expression '@'");
+  }
+
+  @Test
+  public void testResolverRejectsPlaceholders() throws Exception {
+    QueryAst ast = QueryParser.parse("deps(@(targets))", /* allowPlaceholders= */ true);
+    QuerySyntaxException e =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryExpressionResolver.resolve(ast, mockEnvironment()));
+    assertThat(e).hasMessageThat().isEqualTo("placeholders are not supported: '@(targets)'");
+  }
+
+  @Test
+  public void testIdentifierAndVariableReferenceHelpers() {
+    assertThat(QueryAst.isValidIdentifier("foo")).isTrue();
+    assertThat(QueryAst.isValidIdentifier("_foo_123")).isTrue();
+    assertThat(QueryAst.isValidIdentifier("")).isFalse();
+    assertThat(QueryAst.isValidIdentifier("1foo")).isFalse();
+    assertThat(QueryAst.isValidIdentifier("foo-bar")).isFalse();
+
+    QueryAst.Word varRef = new QueryAst.Word("$my_var");
+    assertThat(varRef.isVariableReference()).isTrue();
+    assertThat(varRef.variableName()).isEqualTo("my_var");
+
+    assertThat(new QueryAst.Word("$").isVariableReference()).isFalse();
+    assertThat(new QueryAst.Word("$1").isVariableReference()).isFalse();
+    assertThat(new QueryAst.Word("jar$").isVariableReference()).isFalse();
+    assertThat(new QueryAst.Word("//pkg:target").isVariableReference()).isFalse();
   }
 }

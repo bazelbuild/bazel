@@ -229,6 +229,9 @@ public class ToolchainResolutionFunction implements SkyFunction {
         HashBasedTable.create();
     SequencedSet<ToolchainTypeInfo> missingMandatoryToolchains = new LinkedHashSet<>();
     Map<ToolchainTypeInfo, String> missingToolchainDiagnostics = new LinkedHashMap<>();
+    // Flags read by toolchain target_settings. Resolution depends on them whether or not a
+    // toolchain matched, so collect them for every requested type.
+    ImmutableSet.Builder<Label> toolchainResolutionFlags = ImmutableSet.builder();
     for (SingleToolchainResolutionKey key : registeredToolchainKeys) {
       SingleToolchainResolutionValue singleToolchainResolutionValue =
           (SingleToolchainResolutionValue)
@@ -240,6 +243,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
         valuesMissing = true;
         continue;
       }
+      toolchainResolutionFlags.addAll(singleToolchainResolutionValue.toolchainResolutionFlags());
 
       if (!singleToolchainResolutionValue.availableToolchainLabels().isEmpty()) {
         ToolchainTypeInfo requiredToolchainType = singleToolchainResolutionValue.toolchainType();
@@ -267,6 +271,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
     if (valuesMissing) {
       throw new ValueMissingException();
     }
+
+    builder.setToolchainResolutionFlags(toolchainResolutionFlags.build());
 
     // Find and return the first execution platform which has all mandatory toolchains.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =

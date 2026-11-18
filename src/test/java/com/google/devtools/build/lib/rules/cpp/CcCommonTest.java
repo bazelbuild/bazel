@@ -52,7 +52,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** A test for {@link CcCommon}. */
+/** Tests for C++ rules. */
 @RunWith(JUnit4.class)
 public class CcCommonTest extends BuildViewTestCase {
 

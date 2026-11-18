@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Ascii;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ public final class Lexer {
    */
   public enum TokenKind {
     WORD("word"),
+    PLACEHOLDER("placeholder"),
     EOF("EOF"),
 
     COMMA(","),
@@ -111,16 +113,29 @@ public final class Lexer {
 
     @Override
     public String toString() {
-      return kind == TokenKind.WORD ? word : kind.getPrettyName();
+      return switch (kind) {
+        case WORD -> word;
+        case PLACEHOLDER -> "@(" + word + ")";
+        default -> kind.getPrettyName();
+      };
     }
   }
 
   /**
    * Entry point to the lexer. Returns the list of tokens for the specified input, or throws
-   * QueryException.
+   * QuerySyntaxException.
    */
   static List<Token> scan(String input) throws QuerySyntaxException {
-    Lexer lexer = new Lexer(input);
+    return scan(input, /* allowPlaceholders= */ false);
+  }
+
+  /**
+   * Entry point to the lexer. When {@code allowPlaceholders} is true, unquoted {@code @(<ident>)}
+   * tokens are tokenized as {@link TokenKind#PLACEHOLDER}, and malformed or unclosed unquoted
+   * {@code @(...)} tokens throw {@link QuerySyntaxException}.
+   */
+  static List<Token> scan(String input, boolean allowPlaceholders) throws QuerySyntaxException {
+    Lexer lexer = new Lexer(input, allowPlaceholders);
     lexer.tokenize();
     return lexer.tokens;
   }
@@ -128,12 +143,14 @@ public final class Lexer {
   // Input buffer and position
   private String input;
   private int pos;
+  private final boolean allowPlaceholders;
 
   private final List<Token> tokens = new ArrayList<>();
 
-  private Lexer(String input) {
+  private Lexer(String input, boolean allowPlaceholders) {
     this.input = input;
     this.pos = 0;
+    this.allowPlaceholders = allowPlaceholders;
   }
 
   private void addToken(Token s) {
@@ -241,7 +258,6 @@ public final class Lexer {
             '9',
             '*',
             '/',
-            '@',
             '.',
             '-',
             '_',
@@ -251,6 +267,12 @@ public final class Lexer {
             '[',
             ']' ->
             pos++;
+        case '@' -> {
+          if (allowPlaceholders && pos + 1 < input.length() && input.charAt(pos + 1) == '(') {
+            return bufferSlice(oldPos, pos);
+          }
+          pos++;
+        }
         case '+' -> {
           if (startsWithDoubleAt) {
             // Allow unquoted canonical labels such as
@@ -292,6 +314,39 @@ public final class Lexer {
         : new Token(kind, startOffset, pos);
   }
 
+  /**
+   * Scans an unquoted {@code @(<ident>)} placeholder token.
+   *
+   * <p>ON ENTRY: {@code startOffset} is the index of {@code '@'}, {@code pos == startOffset + 1},
+   * and {@code input.charAt(pos) == '('}. ON EXIT: {@code pos} is 1 + the index of {@code ')'}.
+   */
+  private Token scanPlaceholder(int startOffset) throws QuerySyntaxException {
+    pos++; // consume '('
+    int nameStart = pos;
+    while (pos < input.length()) {
+      char c = input.charAt(pos);
+      if (c == ')') {
+        String placeholderName = bufferSlice(nameStart, pos);
+        pos++; // consume ')'
+        if (!QueryAst.isValidIdentifier(placeholderName)) {
+          throw new QuerySyntaxException(
+              "invalid placeholder '"
+                  + Ascii.truncate(bufferSlice(startOffset, pos), 100, "[truncated]")
+                  + "'");
+        }
+        return new Token(TokenKind.PLACEHOLDER, placeholderName, startOffset, pos);
+      }
+      if (c == '(' || c == '\'' || c == '"' || c == '\n' || c == '\r') {
+        break;
+      }
+      pos++;
+    }
+    throw new QuerySyntaxException(
+        "unclosed placeholder '"
+            + Ascii.truncate(bufferSlice(startOffset, pos), 100, "[truncated]")
+            + "'");
+  }
+
   /** Performs tokenization of the character buffer of file contents provided to the constructor. */
   private void tokenize() throws QuerySyntaxException {
     while (pos < input.length()) {
@@ -310,7 +365,13 @@ public final class Lexer {
           /* ignore */
         }
         case '\'', '\"' -> addToken(quotedWord(c));
-        default -> addToken(wordOrKeyword(c));
+        default -> {
+          if (allowPlaceholders && c == '@' && pos < input.length() && input.charAt(pos) == '(') {
+            addToken(scanPlaceholder(startOffset));
+          } else {
+            addToken(wordOrKeyword(c));
+          }
+        }
       }
     }
 

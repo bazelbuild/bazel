@@ -31,7 +31,6 @@ java_library(
     srcs = ["RepositoryFunctionException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/repository:external_package_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",

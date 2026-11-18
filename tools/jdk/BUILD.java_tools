@@ -225,7 +225,6 @@ cc_library(
         "java_tools/src/main/cpp/util/file.h",
         "java_tools/src/main/cpp/util/file_platform.h",
         "java_tools/src/main/cpp/util/md5.h",
-        "java_tools/src/main/cpp/util/numbers.h",
         "java_tools/src/main/cpp/util/path.h",
         "java_tools/src/main/cpp/util/path_platform.h",
         "java_tools/src/main/cpp/util/port.h",
@@ -237,7 +236,6 @@ cc_library(
         ":errors",
         ":filesystem",
         ":md5",
-        ":numbers",
         ":port",
         ":strings",
     ],
@@ -248,14 +246,6 @@ cc_library(
     srcs = ["java_tools/src/main/cpp/util/md5.cc"],
     hdrs = ["java_tools/src/main/cpp/util/md5.h"],
     strip_include_prefix = "java_tools",
-)
-
-cc_library(
-    name = "numbers",
-    srcs = ["java_tools/src/main/cpp/util/numbers.cc"],
-    hdrs = ["java_tools/src/main/cpp/util/numbers.h"],
-    strip_include_prefix = "java_tools",
-    deps = [":strings"],
 )
 
 cc_library(

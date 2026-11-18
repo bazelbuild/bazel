@@ -1584,6 +1584,7 @@ public final class SkyframeBuildView {
       actionCount.set(0);
       configuredTargetCount.set(0);
       configuredTargetActionCount.set(0);
+      actionCountByMnemonic.clear();
     }
   }
 

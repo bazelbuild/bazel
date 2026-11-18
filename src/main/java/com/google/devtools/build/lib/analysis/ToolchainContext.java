@@ -35,4 +35,13 @@ public interface ToolchainContext {
 
   /** Returns the labels of the specific toolchains being used. */
   ImmutableSet<Label> resolvedToolchainLabels();
+
+  /**
+   * Returns the build settings read by the {@code target_settings} of the toolchains considered
+   * during resolution. Resolution depends on their values, so targets using this context depend on
+   * them too.
+   */
+  default ImmutableSet<Label> toolchainResolutionFlags() {
+    return ImmutableSet.of();
+  }
 }

@@ -18,7 +18,6 @@
 
 #include "src/main/native/windows/process.h"
 
-#include <versionhelpers.h>
 #include <windows.h>
 
 #include <cstddef>
@@ -181,17 +180,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           /* lpStartupInfo */ &info.StartupInfo,
           /* lpProcessInformation */ &process_info)) {
     DWORD err = GetLastError();
-
-    std::wstring errmsg;
-    if (err == ERROR_NO_SYSTEM_RESOURCES && !IsWindows8OrGreater() &&
-        attr_list->HasConsoleHandle()) {
-      errmsg =
-          L"Unrecoverable error: host OS is Windows 7 and subprocess"
-          " got an inheritable console handle";
-    } else {
-      errmsg = GetLastErrorString(err) + L" (error: " + ToString(err) + L")";
-    }
-
+    std::wstring errmsg =
+        GetLastErrorString(err) + L" (error: " + ToString(err) + L")";
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateProcessW",
                               cmd_sample, errmsg);
     return false;
@@ -202,22 +192,10 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   AutoHandle thread(process_info.hThread);
 
   if (!AssignProcessToJobObject(job_, process_)) {
-    BOOL is_in_job = false;
-    if (IsProcessInJob(process_, nullptr, &is_in_job) && is_in_job &&
-        !IsWindows8OrGreater()) {
-      // Pre-Windows 8 systems don't support nested jobs, and Bazel is already
-      // in a job.  We can't create nested jobs, so just revert to
-      // TerminateProcess() and hope for the best. In batch mode, the launcher
-      // puts Bazel in a job so that will take care of cleanup once the
-      // command finishes.
-      job_ = INVALID_HANDLE_VALUE;
-      ioport_ = INVALID_HANDLE_VALUE;
-    } else {
-      DWORD err_code = GetLastError();
-      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"WaitableProcess::Create", argv0, err_code);
-      return false;
-    }
+    DWORD err_code = GetLastError();
+    *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                              L"WaitableProcess::Create", argv0, err_code);
+    return false;
   }
 
   // Now that we put the process in a new job object, we can start executing
@@ -328,34 +306,6 @@ bool WaitableProcess::Terminate(std::wstring* error) {
 
   if (job_.IsValid()) {
     if (!TerminateJobObject(job_, exit_code)) {
-      DWORD err_code = GetLastError();
-      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"WaitableProcess::Terminate", ToString(pid_),
-                                err_code);
-      return false;
-    }
-  } else if (process_.IsValid()) {
-    if (!TerminateProcess(process_, exit_code)) {
-      DWORD err_code = GetLastError();
-      std::wstring our_error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                                L"WaitableProcess::Terminate",
-                                                ToString(pid_), err_code);
-
-      // If the process exited, despite TerminateProcess having failed, we're
-      // still happy and just ignore the error. It might have been a race
-      // where the process exited by itself just before we tried to kill it.
-      // However, if the process is *still* running at this point (evidenced
-      // by its exit code still being STILL_ACTIVE) then something went
-      // really unexpectedly wrong and we should report that error.
-      if (GetExitCode(error) == STILL_ACTIVE) {
-        // Restore the error message from TerminateProcess - it will be much
-        // more helpful for debugging in case something goes wrong here.
-        *error = our_error;
-        return false;
-      }
-    }
-
-    if (WaitForSingleObject(process_, INFINITE) != WAIT_OBJECT_0) {
       DWORD err_code = GetLastError();
       *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                 L"WaitableProcess::Terminate", ToString(pid_),

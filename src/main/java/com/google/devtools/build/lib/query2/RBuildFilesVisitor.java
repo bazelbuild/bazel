@@ -78,7 +78,6 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERNS);
 
-  private static final SkyKey EXTERNAL_PACKAGE_KEY = LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
   private final SkyQueryEnvironment env;
   private final QueryExpressionContext<Target> context;
   private final Uniquifier<SkyKey> visitUniquifier;
@@ -116,13 +115,6 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
       if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
         if (resultUniquifier.unique(rdep)) {
           keysToUseForResult.add((PackageIdentifier) rdep.argument());
-        }
-        // PackageValue(//p) has a transitive dep on the PackageValue(//external), so we need to
-        // make sure these dep paths are traversed. These dep paths go through the singleton
-        // WorkspaceNameValue(), and that node has a direct dep on PackageValue(//external), so it
-        // suffices to ensure we visit PackageValue(//external).
-        if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
-          keysToVisitNext.add(rdep);
         }
       } else if (!NODES_TO_PRUNE_TRAVERSAL.contains(rdep.functionName())) {
         processNonPackageRdepAndDetermineVisitations(rdep, keysToVisitNext, keysToUseForResult);

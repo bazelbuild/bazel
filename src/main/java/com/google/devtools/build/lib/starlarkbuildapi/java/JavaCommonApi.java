@@ -686,12 +686,6 @@ public interface JavaCommonApi<
   boolean isJavaInfoMergeRuntimeModuleFlagsEnabled(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "incompatible_disable_non_executable_java_binary",
-      useStarlarkThread = true,
-      documented = false)
-  boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread);
-
-  @StarlarkMethod(
       name = "expand_java_opts",
       documented = false,
       parameters = {

@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import static java.util.Comparator.comparing;
-
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.ParameterizedType;
@@ -37,13 +35,6 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   /** An ordering relation for options that orders by the option name. */
   public static final Comparator<OptionDefinition> BY_OPTION_NAME =
       Comparator.comparing(OptionDefinition::getOptionName);
-
-  /**
-   * An ordering relation for options that first groups together options of the same category, then
-   * sorts by name within the category.
-   */
-  public static final Comparator<OptionDefinition> BY_CATEGORY =
-      comparing(OptionDefinition::getOptionCategory).thenComparing(BY_OPTION_NAME);
 
   /** Returns all options fields of the given options class, in alphabetic order. */
   public static ImmutableList<? extends OptionDefinition> getOptionDefinitions(
@@ -150,16 +141,6 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
    */
   public String getUnparsedDefaultValue() {
     return optionAnnotation.defaultValue();
-  }
-
-  /**
-   * Returns the deprecated option category.
-   *
-   * @deprecated Use {@link #getDocumentationCategory} instead
-   */
-  @Deprecated
-  public String getOptionCategory() {
-    return optionAnnotation.category();
   }
 
   /** Returns the option category. */

@@ -385,7 +385,8 @@ public final class MerkleTreeComputer {
             spawnExecutionContext,
             metadata,
             CachePolicy.REMOTE_CACHE_ONLY,
-            CachePolicy.NO_CACHE);
+            // Inputs missing from the remote cache may be uploaded from the disk cache.
+            CachePolicy.DISK_CACHE_ONLY);
     try {
       return getFromFuture(
           build(
