@@ -138,15 +138,13 @@ public interface OutputService {
    * Starts the build.
    *
    * @param buildId the build identifier
-   * @param workspaceName the name of the workspace in which the build is running
    * @param eventHandler an {@link EventHandler} to inform of events
    * @param finalizeActions whether this build is finalizing actions so that the output service can
    *     track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
    */
-  ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
+  ModifiedFileSet startBuild(UUID buildId, EventHandler eventHandler, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /** Flush and wait for in-progress downloads. */

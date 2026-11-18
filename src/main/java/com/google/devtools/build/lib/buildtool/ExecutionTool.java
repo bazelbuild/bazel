@@ -517,10 +517,7 @@ public class ExecutionTool {
     try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
       modifiedOutputFiles =
           outputService.startBuild(
-              buildId,
-              LabelConstants.MAIN_REPO_DIR_NAME,
-              env.getReporter(),
-              request.getBuildOptions().getFinalizeActions());
+              buildId, env.getReporter(), request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().getCheckOutputFiles()) {

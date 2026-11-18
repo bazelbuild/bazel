@@ -124,8 +124,7 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
-      throws AbruptExitException {
+      UUID buildId, EventHandler eventHandler, boolean finalizeActions) throws AbruptExitException {
     // One of the responsibilities of OutputService.startBuild() is that it ensures the output path
     // is valid. If the previous OutputService redirected the output path to a remote location, we
     // must undo this.

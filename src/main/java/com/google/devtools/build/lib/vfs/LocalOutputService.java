@@ -57,8 +57,7 @@ public class LocalOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
-      throws AbruptExitException {
+      UUID buildId, EventHandler eventHandler, boolean finalizeActions) throws AbruptExitException {
     Path outputPath = directories.getOutputPath();
     Path localOutputPath = directories.getLocalOutputPath();
     try {
