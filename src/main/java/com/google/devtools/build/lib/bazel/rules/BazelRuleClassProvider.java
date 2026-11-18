@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
@@ -247,7 +246,7 @@ public class BazelRuleClassProvider {
               BazelRuleClassProvider::getDefaultPathFromOptions, SHELL_EXECUTABLES);
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
-              .setRunfilesPrefix(LabelConstants.MAIN_REPO_DIR_NAME)
+              .setRunfilesPrefix("_main")
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
               .addUniversalConfigurationFragment(ShellConfiguration.class)
