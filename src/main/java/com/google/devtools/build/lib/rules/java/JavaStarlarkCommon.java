@@ -581,7 +581,9 @@ public class JavaStarlarkCommon
         TargetUtils.getFilteredExecutionInfo(
             executionRequirementsUnchecked,
             ruleContext.getRule(),
-            configuration.allowUnresolvedSymlinks());
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
 
     toolchainUnchecked = ctx.maybeOverrideToolchain(toolchainUnchecked);
     String execGroup =
