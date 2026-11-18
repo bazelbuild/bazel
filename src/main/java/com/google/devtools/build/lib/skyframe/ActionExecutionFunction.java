@@ -520,12 +520,9 @@ public class ActionExecutionFunction implements SkyFunction {
    * requests for its {@code schedulingDependencies}.
    *
    * <p>Requesting the {@link Artifact#key} of such an artifact individually would only add a
-   * redundant edge: since {@link ArtifactNestedSetValue} is not subject to change pruning, the
-   * action is already invalidated when any artifact beneath it changes, and the value of the
-   * artifact can be obtained with {@link #lookupIndirectInput} once the nested set key is done.
-   * These redundant edges add up for actions that discover many of their scheduling dependencies as
-   * inputs, such as C++ compilations without include scanning, which "discover" every declared
-   * header.
+   * redundant edge: the {@link ArtifactNestedSetValue} dependency ensures that the action is
+   * already invalidated when any artifact beneath it changes, and the value of the artifact can be
+   * obtained with {@link #lookupIndirectInput} once the nested set key is done.
    */
   private static Set<Artifact> getArtifactsBeneathSchedulingDependencies(
       NestedSet<Artifact> schedulingDependencies, Collection<Artifact> artifacts) {
@@ -574,9 +571,7 @@ public class ActionExecutionFunction implements SkyFunction {
         e);
 
     // inputDepKeys only contains keys in the initial, pre-input-discovery Skyframe request. If the
-    // action discovers inputs, we must combine them with discovered input keys. Discovered inputs
-    // beneath the scheduling dependencies are not direct dependencies, but ActionRewindStrategy
-    // tolerates that and finds them beneath the ArtifactNestedSetKey in inputDepKeys.
+    // action discovers inputs, we must combine them with discovered input keys.
     ImmutableSet<SkyKey> failedActionDeps;
     if (e.isFromInputDiscovery()) {
       // The action failed during input discovery. We don't know the discovered inputs, so just add
