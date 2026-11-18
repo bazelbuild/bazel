@@ -1,5 +1,3 @@
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-
 package(default_visibility = ["//visibility:public"])
 
 exports_files(
@@ -79,12 +77,6 @@ filegroup(
         "//tools/osx:bzl_srcs",
         "//tools/python:bzl_srcs",
         "//tools/res:bzl_srcs",
-        "//tools/sh:bzl_srcs",
         "//tools/test:bzl_srcs",
     ],
-)
-
-sh_binary(
-    name = "upload_bazel_mirror",
-    srcs = ["upload_bazel_mirror.sh"],
 )
