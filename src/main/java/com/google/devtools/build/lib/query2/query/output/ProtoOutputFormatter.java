@@ -21,8 +21,6 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -107,7 +105,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private boolean includeDefaultValues = true;
-  private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
+
+  /** Null when all rule attributes are eligible for output. */
+  @Nullable private ImmutableSet<String> ruleAttributes;
+  @Nullable private ImmutableSet<String> hashCatalogAttributes;
+
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
@@ -131,14 +133,25 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
-    this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.packageGroupIncludesDoubleSlash = options.getIncompatiblePackageGroupIncludesDoubleSlash();
     this.relativeLocations = options.getRelativeLocations();
     this.includeDefaultValues = options.getProtoIncludeDefaultValues();
-    this.ruleAttributePredicate = newAttributePredicate(options.getProtoOutputRuleAttributes());
+    List<String> outputAttributes = options.getProtoOutputRuleAttributes();
+    this.ruleAttributes =
+        outputAttributes.equals(ImmutableList.of("all"))
+            ? null
+            : ImmutableSet.copyOf(outputAttributes);
     this.flattenSelects = options.getProtoFlattenSelects();
     this.includeLocations = options.getProtoIncludeLocations();
     this.includeRuleInputsAndOutputs = options.getProtoIncludeRuleInputsAndOutputs();
+    this.hashCatalogAttributes =
+        options instanceof QueryOptions query && query.getGenerateHashes() ? ruleAttributes : null;
+    DependencyFilter deps = FormatUtils.getDependencyFilter(options);
+    this.dependencyFilter =
+        hashCatalogAttributes != null && !includeRuleInputsAndOutputs
+            ? (aspect, attr) ->
+                hashCatalogAttributes.contains(attr.getName()) && deps.test(aspect, attr)
+            : deps;
     this.includeSyntheticAttributeHash = options.getProtoIncludeSyntheticAttributeHash();
     this.includeInstantiationStack = options.getProtoIncludeInstantiationStack();
     this.includeDefinitionStack = options.getProtoIncludeDefinitionStack();
@@ -147,16 +160,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.hashFunction = hashFunction;
     this.ruleClassInfoFormatter =
         options.getProtoRuleClasses() ? new RuleClassInfoFormatter() : null;
-  }
-
-  private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
-    if (outputAttributes.equals(ImmutableList.of("all"))) {
-      return Predicates.alwaysTrue();
-    } else if (outputAttributes.isEmpty()) {
-      return Predicates.alwaysFalse();
-    } else {
-      return Predicates.in(ImmutableSet.copyOf(outputAttributes));
-    }
   }
 
   @Override
@@ -448,7 +451,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   protected boolean shouldIncludeAttribute(Rule rule, Attribute attr) {
     return (includeDefaultValues || rule.isAttributeValueExplicitlySpecified(attr))
-        && ruleAttributePredicate.apply(attr.getName());
+        && (ruleAttributes == null || ruleAttributes.contains(attr.getName()));
   }
 
   private Object getAspectAttributeValue(
@@ -485,11 +488,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Allow filtering of aspect attributes. */
   protected boolean includeAspectAttribute(Attribute attr, Collection<Label> value) {
-    return ruleAttributePredicate.apply(attr.getName());
+    return ruleAttributes == null || ruleAttributes.contains(attr.getName());
   }
 
   protected boolean includeRuleDefinitionEnvironment() {
-    return true;
+    return hashCatalogAttributes == null
+        || hashCatalogAttributes.contains(RULE_IMPLEMENTATION_HASH_ATTR_NAME);
   }
 
   /**
