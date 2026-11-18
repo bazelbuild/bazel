@@ -81,15 +81,15 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-8XUtAFG2yiM2Jd2ywYyRcO2+VcXuZRW/79jqAZfuHCA=",
+        integrity = "sha256-/Ho9k5a0QxNGZrnPfNlGtTLcF4H1NQxyWEmsUNFqcZg=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-9ylaux3ssvbg6p92CnCRfy1HNW20Nm1hXHq5sBw8aGY=",
+        integrity = "sha256-fww1aBPeMV26xE0aKi1hpcq51qyPLN/24yyZS+XALaE=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
@@ -111,41 +111,27 @@ def embedded_jdk_repositories():
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-/iI0bBkpIMW4SyP0qiTj3rsLuU/EKAFvfCssd5DIJ4A=",
+        integrity = "sha256-P3O3ynBCXXn7nFxpe5IkhzGhPUP/ltQbx0pWd44l6EY=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-U3rHT6HKLE3Y9gY93t4BOK5KiW8Si/4QtCin3MSqkp8=",
+        integrity = "sha256-JJ1WDVBwP3GufE+QyHKm6caR5iB4RXhtWxj9KNMLj6M=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-kLy7y+L7euxDzo/S76Ak/MSPALvc16drWPkS1rl+bVY=",
+        integrity = "sha256-AcHEz+jA4EoipG080d3Ri525+yobCoj/2Q4KpXQghF4=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-win_x64.zip",
     )
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-zhWbTuPBCc1RNXrPhCZBQsHdsOGHjSBGbqxQsBU0cVQ=",
+        integrity = "sha256-w3d43p5LuwWqU1clGzZDDjccPtABeE83kv5M1N78790=",
         downloaded_file_path = "zulu-win-arm64.zip",
-        # Use an EA release of 25.0.3 here since versions <= 25.0.2 are affected by a severe JDK bug
-        # that causes virtual threads (and thus repo rules) to hang indefinitely on Windows ARM64.
-        # https://github.com/bazelbuild/bazel/issues/28520
-        # https://mail.openjdk.org/pipermail/loom-dev/2026-February/008286.html
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B1-ea-beta/OpenJDK25U-jdk_aarch64_windows_hotspot_25.0.3_1-ea.zip",
-    )
-
-    # The Adoptium Temurin JDK above has JEP 493 enabled, which means it does not ship with jmods.
-    # These are needed for cross-jlinking (minimizing the JDK on a different platform).
-    # https://adoptium.net/news/2025/08/eclipse-temurin-jdk24-JEP493-enabled
-    http_file(
-        name = "openjdk_win_arm64_jmods",
-        integrity = "sha256-2rjwZCoUIYD7L9nLwLJindsYPkDMvpI4km5a9UlxFtg=",
-        downloaded_file_path = "temurin-win-arm64-jmods.zip",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B1-ea-beta/OpenJDK25U-jmods_aarch64_windows_hotspot_25.0.3_1-ea.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-win_aarch64.zip",
     )
 
 def _async_profiler_repos(ctx):
