@@ -86,15 +86,15 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-zLwVxO2+39zAPC0poqosba+eb/tM2n3V7OD8uzc1Amc=",
+        integrity = "sha256-xNe/TICiHpNRh+zcsRHksvFOH90YNkl0/n99pUsSvqA=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-n6W/hleDxDhAEB/Nw6UiK2Da9P4R8mgGJHv4B8CKujg=",
+        integrity = "sha256-GIdbkq0lNSMKExdfcYkz98wFk7Sv+i2rRCgV7CRdrLs=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
@@ -138,29 +138,29 @@ def embedded_jdk_repositories():
 
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-tdZDk6IorYaA5ZNssRQkMRjT9th7Zo8CgO+MFdZ0Q5w=",
+        integrity = "sha256-Jx+NG7L2kr3JgXmejyURM8hUzFwe2vqAKYpGG7iQnew=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-DY8dGRL6k469lUmeseiiqYdyX+QqoN2YSXu2BHSKjQc=",
+        integrity = "sha256-HShDChPSVySIVnkuATHYRcvjJBRZcd98lxbsKpKsD8o=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-mTlbZAScJ1QAV0bE9LZv24DJjDyrqhTUslp/iBXJl7g=",
+        integrity = "sha256-9UJOo2+DKqKKBEGlf/sd/izT2QOALAo20iV2sazEMOw=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-win_x64.zip",
     )
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-Jgx7T/C02teSQWdCYqVEX4eiOEnRkfgaoRjx2/eGZvw=",
+        integrity = "sha256-P0Jz+ezqm6F849dGPLVcq0RG/xzqJeNXdXTMimRJ0kU=",
         downloaded_file_path = "bellsoft-win-arm64.zip",
         # Use BellSoft Liberica for Windows ARM64 as it ships with jmods, which are
         # required for cross-jlinking the minimized JDK.
-        url = "https://github.com/bell-sw/Liberica/releases/download/27%2B36/bellsoft-jdk27%2B36-windows-aarch64.zip",
+        url = "https://github.com/bell-sw/Liberica/releases/download/27.0.1.1%2B5/bellsoft-jdk27.0.1.1%2B5-windows-aarch64.zip",
     )
 
     # The Windows arm64 runtime above is cross-jlinked on a Windows x64 host. Since
@@ -171,9 +171,9 @@ def embedded_jdk_repositories():
     # Windows x64 runtime itself is still Azul Zulu (openjdk_win_vanilla).
     http_file(
         name = "openjdk_win_arm64_jlink_tool",
-        integrity = "sha256-v69LLjE9ZcpZSXTDPB2XQh0A83qOosG0DIZDrRgvnAI=",
+        integrity = "sha256-hk5stmY5nqQFRHEAPDHUFDcI1xo4DQe53Zq2QMdOnek=",
         downloaded_file_path = "bellsoft-win-x64-jlink-tool.zip",
-        url = "https://github.com/bell-sw/Liberica/releases/download/27%2B36/bellsoft-jdk27%2B36-windows-amd64.zip",
+        url = "https://github.com/bell-sw/Liberica/releases/download/27.0.1.1%2B5/bellsoft-jdk27.0.1.1%2B5-windows-amd64.zip",
     )
 
 def bats_core_deps():
