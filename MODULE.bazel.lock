@@ -247,7 +247,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "6Wfad+bH4h61GGrIlsdDTm2NuuD9ZFw97sH5uB5AzwU=",
+        "bzlTransitiveDigest": "moSFkUwcWIHLMiVSeNUTtr+h3x8MsV7aAPlbBW05RLg=",
         "usagesDigest": "7E4ajPe57HNsFiWMvrwxZ2yZ9nKkcBub4hrKWAVZtoE=",
         "recordedInputs": [
           "REPO_MAPPING:,abseil-cpp abseil-cpp+",
