@@ -22,7 +22,6 @@ import static java.util.Comparator.comparing;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -74,6 +73,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -2257,9 +2257,10 @@ public abstract class SpawnLogContextTestBase {
       ImmutableMap<String, String> platformProperties) throws IOException, InterruptedException;
 
   protected Digest getDigest(String content) {
+    byte[] bytes = StringUnsafe.getInternalStringBytes(content);
     return Digest.newBuilder()
-        .setHash(digestHashFunction.getHashFunction().hashString(content, UTF_8).toString())
-        .setSizeBytes(Utf8.encodedLength(content))
+        .setHash(digestHashFunction.getHashFunction().hashBytes(bytes).toString())
+        .setSizeBytes(bytes.length)
         .setHashFunctionName(digestHashFunction.toString())
         .build();
   }
