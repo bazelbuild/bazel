@@ -819,6 +819,117 @@ LF:2"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
+function test_java_coverage_with_javaagent() {
+  # Verifies that JacocoCoverageRunner collects coverage for a Java agent and a
+  # jar it appends to the system class loader's search path, neither of which
+  # is on java.class.path.
+  cat <<EOF > BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_test.bzl", "java_test")
+
+java_binary(
+    name = "agent",
+    srcs = ["src/main/java/agent/Agent.java"],
+    create_executable = False,
+    deploy_manifest_lines = ["Premain-Class: agent.Agent"],
+)
+
+java_binary(
+    name = "appended",
+    srcs = ["src/main/java/appended/Appended.java"],
+    create_executable = False,
+)
+
+java_test(
+    name = "test",
+    srcs = ["src/test/java/test/AgentTest.java"],
+    data = [
+        ":agent_deploy.jar",
+        ":appended_deploy.jar",
+    ],
+    jvm_flags = ["-javaagent:\$(rootpath :agent_deploy.jar)=\$(rootpath :appended_deploy.jar)"],
+    test_class = "test.AgentTest",
+)
+EOF
+
+  mkdir -p src/main/java/agent
+  cat <<EOF > src/main/java/agent/Agent.java
+package agent;
+
+import java.lang.instrument.Instrumentation;
+import java.util.jar.JarFile;
+
+public class Agent {
+  public static void premain(String args, Instrumentation instrumentation) throws Exception {
+    instrumentation.appendToSystemClassLoaderSearch(new JarFile(args));
+  }
+}
+EOF
+
+  mkdir -p src/main/java/appended
+  cat <<EOF > src/main/java/appended/Appended.java
+package appended;
+
+public class Appended {
+  public static String hello() {
+    return "Hello from an appended jar";
+  }
+}
+EOF
+
+  mkdir -p src/test/java/test
+  cat <<EOF > src/test/java/test/AgentTest.java
+package test;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class AgentTest {
+  @Test
+  public void testAppended() throws Exception {
+    assertEquals(
+        "Hello from an appended jar",
+        Class.forName("appended.Appended").getMethod("hello").invoke(null));
+  }
+}
+EOF
+
+  bazel coverage \
+    --test_output=all \
+    --combined_report=lcov \
+    --instrumentation_filter=//:agent,//:appended \
+    //:test &>$TEST_log \
+      || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_result_agent="SF:src/main/java/agent/Agent.java
+FN:6,agent/Agent::<init> ()V
+FN:8,agent/Agent::premain (Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V
+FNDA:0,agent/Agent::<init> ()V
+FNDA:1,agent/Agent::premain (Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V
+FNF:2
+FNH:1
+DA:6,0
+DA:8,1
+DA:9,1
+LH:2
+LF:3"
+  local expected_result_appended="SF:src/main/java/appended/Appended.java
+FN:3,appended/Appended::<init> ()V
+FN:5,appended/Appended::hello ()Ljava/lang/String;
+FNDA:0,appended/Appended::<init> ()V
+FNDA:1,appended/Appended::hello ()Ljava/lang/String;
+FNF:2
+FNH:1
+DA:3,0
+DA:5,1
+LH:1
+LF:2"
+
+  assert_coverage_result "$expected_result_agent" "$coverage_file_path"
+  assert_coverage_result "$expected_result_appended" "$coverage_file_path"
+}
+
 function test_java_string_switch_coverage() {
   if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
       # TODO: Enable test after the next java_tools release.
