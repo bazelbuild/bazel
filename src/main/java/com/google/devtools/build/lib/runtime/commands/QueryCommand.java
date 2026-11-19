@@ -281,7 +281,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         TransitiveHashes.compute(
             labels,
             keys -> env.getSkyframeExecutor().prepareAndGet(keys, evaluationContext),
-            message -> env.getReporter().handle(Event.progress(message)));
+            message -> env.getReporter().handle(Event.progress(message)),
+            queryOptions.getQueryHashFailureImpact());
     CountingOutputStream binary = null;
     if (catalog instanceof StreamedProtoOutputFormatter) {
       binary = new CountingOutputStream(out);
@@ -324,6 +325,23 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
     if (omitted == 0 && result.errors().isEmpty()) {
       return null;
+    }
+    result
+        .failureImpact()
+        .forEach(
+            (label, impact) ->
+                env.getReporter()
+                    .handle(
+                        Event.info(
+                            String.format(
+                                "Unknown hash impact of %s: %d affected, %d exclusive",
+                                label, impact.affected(), impact.exclusive()))));
+    if (result.unlistedFailureImpact() != 0) {
+      env.getReporter().handle(
+          Event.info(
+              String.format(
+                  "Unknown hash impact of remaining failures: %d affected",
+                  result.unlistedFailureImpact())));
     }
     String message =
         String.format(

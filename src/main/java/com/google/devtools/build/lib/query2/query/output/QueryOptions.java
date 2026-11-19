@@ -69,6 +69,18 @@ public abstract class QueryOptions extends CommonQueryOptions {
   public abstract boolean getGenerateHashes();
 
   @Option(
+      name = "experimental_query_hash_failure_impact",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "With --experimental_generate_hashes, report how many requested targets reach each"
+              + " failed repository or main-repository dependency, and how many reach only that"
+              + " failure group.")
+  public abstract boolean getQueryHashFailureImpact();
+
+  @Option(
       name = "output:display_full_kind",
       defaultValue = "False",
       documentationCategory = OptionDocumentationCategory.QUERY,
