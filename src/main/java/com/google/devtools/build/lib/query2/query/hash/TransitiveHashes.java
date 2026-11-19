@@ -107,8 +107,8 @@ public final class TransitiveHashes {
     Set<Label> failed = new HashSet<>();
     Map<Label, ErrorInfo> errors = new TreeMap<>();
     ImmutableSet<Label> rootSet = ImmutableSet.copyOf(roots);
-    Set<Label> visited = new HashSet<>(roots);
-    List<Label> frontier = new ArrayList<>(rootSet);
+    Set<Label> discovered = new HashSet<>();
+    Collection<Label> frontier = rootSet;
     // Breadth-first so that each Skyframe evaluation covers a whole level of the graph.
     int level = 0;
     RegisteredToolchains registeredToolchains = new RegisteredToolchains(evaluator);
@@ -145,7 +145,7 @@ public final class TransitiveHashes {
         }
         graph.put(label, new State<>(label, new Node<>(value.getDirectHash(), value.getDeps()), false));
         for (Label dep : value.getDeps()) {
-          if (visited.add(dep)) {
+          if (!rootSet.contains(dep) && discovered.add(dep)) {
             next.add(dep);
           }
         }
