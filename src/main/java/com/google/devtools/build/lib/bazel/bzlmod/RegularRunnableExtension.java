@@ -322,8 +322,10 @@ final class RegularRunnableExtension implements RunnableExtension {
       }
       moduleContext.markSuccessful();
       env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
+      var repoSpecs =
+          threadContext.createRepos(thread.getThreadLocal(Label.RepoMappingRecorder.class));
       return new RunModuleExtensionResult(
-          moduleContext.getRecordedInputs(), threadContext.createRepos(), moduleExtensionMetadata);
+          moduleContext.getRecordedInputs(), repoSpecs, moduleExtensionMetadata);
     } catch (EvalException e) {
       if (!(e.getCause() instanceof ExternalDepsException)) {
         // ExternalDepsException events should already have been reported.
