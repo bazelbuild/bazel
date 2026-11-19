@@ -885,6 +885,54 @@ public class UploadManifestTest {
   }
 
   @Test
+  public void actionResult_directoryEntriesSortedByCodePoint() throws Exception {
+    // U+E000 sorts after U+10000 in UTF-16 (whose surrogates start at U+D800), but before it by
+    // code point, which is the order REAPI requires.
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path bmpFile = dir.getRelative(unicodeToInternal("\uE000.txt"));
+    FileSystemUtils.writeContent(bmpFile, new byte[] {1});
+    Path supplementaryFile = dir.getRelative(unicodeToInternal("\uD800\uDC00.txt"));
+    FileSystemUtils.writeContent(supplementaryFile, new byte[] {2});
+    dir.getRelative(unicodeToInternal("\uE000"))
+        .createSymbolicLink(PathFragment.create(unicodeToInternal("\uE000.txt")));
+    dir.getRelative(unicodeToInternal("\uD800\uDC00"))
+        .createSymbolicLink(PathFragment.create(unicodeToInternal("\uD800\uDC00.txt")));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
+    um.addFiles(ImmutableList.of(dir));
+
+    Directory rootDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("\uE000.txt")
+                    .setDigest(digestUtil.compute(bmpFile))
+                    .setIsExecutable(true))
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("\uD800\uDC00.txt")
+                    .setDigest(digestUtil.compute(supplementaryFile))
+                    .setIsExecutable(true))
+            .addSymlinks(SymlinkNode.newBuilder().setName("\uE000").setTarget("\uE000.txt"))
+            .addSymlinks(
+                SymlinkNode.newBuilder().setName("\uD800\uDC00").setTarget("\uD800\uDC00.txt"))
+            .build();
+    Tree tree = Tree.newBuilder().setRoot(rootDir).build();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(digestUtil.compute(tree))
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
   public void actionResult_unicodeDirectoryTree() throws Exception {
     // Verify that non-ASCII names in directory trees are converted from Bazel's internal
     // encoding to Unicode in the protobuf messages (FileNode, DirectoryNode, SymlinkNode).
