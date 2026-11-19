@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -74,6 +76,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -263,6 +266,61 @@ public class CcStarlarkInternal implements StarlarkValue {
     return new CcToolchainFeatures(
         CcToolchainConfigInfo.PROVIDER.wrap(ccToolchainConfigInfo),
         PathFragment.create(toolsDirectoryPathString));
+  }
+
+  @StarlarkMethod(
+      name = "is_package_headers_checking_mode_set",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public boolean isPackageHeadersCheckingModeSetForStarlark(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackageDeclarations()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
+  }
+
+  @StarlarkMethod(
+      name = "package_headers_checking_mode",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackageDeclarations()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
+  }
+
+  @StarlarkMethod(
+      name = "is_package_headers_checking_mode_set_for_aspect",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackageDeclarations()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
+  }
+
+  @StarlarkMethod(
+      name = "package_headers_checking_mode_for_aspect",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public String getPackageHeadersCheckingModeForStarlarkAspect(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackageDeclarations()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   /**
@@ -472,6 +530,16 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "exec_group_execution_platform",
+      documented = false,
+      parameters = {@Param(name = "ctx"), @Param(name = "exec_group")},
+      allowReturnNones = true)
+  @Nullable
+  public PlatformInfo getExecGroupExecutionPlatform(StarlarkRuleContext ctx, String execGroup) {
+    return ctx.getRuleContext().getExecutionPlatform(execGroup);
+  }
+
+  @StarlarkMethod(
       name = "rule_class",
       documented = false,
       parameters = {@Param(name = "ctx")})
@@ -521,6 +589,28 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public boolean isTreeArtifact(Artifact artifact) {
     return artifact.isTreeArtifact();
+  }
+
+  @StarlarkMethod(
+      name = "compute_output_name_prefix_dir",
+      documented = false,
+      parameters = {
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "purpose", positional = false, named = true),
+      })
+  public String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
+    String outputNamePrefixDir = null;
+    // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
+    // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
+    // dir with "non_arc" or "arc".
+    String mnemonic = configuration.getMnemonic();
+    if (purpose != null) {
+      mnemonic = purpose;
+    }
+    if (mnemonic.endsWith("_objc_arc")) {
+      outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
+    }
+    return Objects.requireNonNullElse(outputNamePrefixDir, "");
   }
 
   @StarlarkMethod(
@@ -985,6 +1075,16 @@ public class CcStarlarkInternal implements StarlarkValue {
       case Iterable<?> iterable -> StarlarkList.immutableCopyOf(iterable);
       case Object val -> val;
     };
+  }
+
+  @StarlarkMethod(
+      name = "check_toplevel",
+      documented = false,
+      parameters = {@Param(name = "fn")})
+  public void checkToplevel(StarlarkFunction fn) throws EvalException {
+    if (!Objects.equals(fn.getModule().getGlobal(fn.getName()), fn)) {
+      throw Starlark.errorf("Passed function must be top-level functions.");
+    }
   }
 
   @StarlarkMethod(

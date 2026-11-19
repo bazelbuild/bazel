@@ -787,6 +787,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getSaveFeatureState();
   }
 
+  @StarlarkMethod(
+      name = "incompatible_use_specific_tool_files",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useSpecificToolFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return true;
+  }
+
   public boolean disableNoCopts() {
     return true;
   }
@@ -854,10 +863,24 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getObjcEnableBinaryStripping();
   }
 
+  @StarlarkMethod(
+      name = "experimental_cc_implementation_deps",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcImplementationDeps();
+  }
+
   @StarlarkMethod(name = "experimental_cpp_modules", documented = false, useStarlarkThread = true)
   public boolean experimentalCppModulesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalCppModules();
+  }
+
+  public boolean experimentalCcImplementationDeps() {
+    return true;
   }
 
   public boolean experimentalCppModules() {
