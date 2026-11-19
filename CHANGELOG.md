@@ -1,3 +1,19 @@
+## Release 9.3.3 (2026-11-19)
+
+```
+
+Release Notes:
+
+General:
++ Release 9.3.2 (2026-11-04)
++ Update the embedded JDK to 25.0.5.1. (#32792)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Xùdōng Yáng.
+```
+
 ## Release 7.7.3 (2026-11-19)
 
 ```
