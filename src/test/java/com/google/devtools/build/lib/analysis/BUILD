@@ -1169,8 +1169,13 @@ java_test(
     name = "VisibilityTest",
     srcs = ["VisibilityTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party/java/guava:base",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],
