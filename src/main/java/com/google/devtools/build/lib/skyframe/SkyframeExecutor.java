@@ -4183,7 +4183,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (externalDirtinessChecker != null) {
         recordingDiffer.invalidate(
             externalFilesHelper.getExtraKeysToInvalidate(
-                externalDirtinessChecker.getDirtyExternalRepos(), eventHandler));
+                externalDirtinessChecker.getDirtyExternalRepos(),
+                externalDirtinessChecker.getDirtyLinkedRepos(),
+                eventHandler));
       }
       handleChangedFiles(
           diffPackageRootsUnderWhichToCheck,

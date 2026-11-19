@@ -231,6 +231,21 @@ function test_cache_computed_file_digests_ui() {
       "Digests cache not reenabled"
 }
 
+function test_cache_computed_file_digests_without_executor() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+  echo 'filegroup(name = "foo")' >"$pkg/BUILD"
+
+  # A query digests BUILD files, but never creates an executor.
+  bazel shutdown >>"${TEST_log}" 2>&1 || fail "Should shut down"
+  bazel query "//$pkg:foo" >>"${TEST_log}" 2>&1 || fail "Should query"
+
+  local java_log
+  java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
+  assert_last_log "CacheFileDigestsModule" "Reconfiguring cache" "${java_log}" \
+      "Digests cache not enabled without an executor"
+}
+
 function test_max_open_file_descriptors() {
   echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
 
