@@ -22,6 +22,7 @@ java_library(
     name = "query_parser",
     srcs = QUERY_PARSER_SRCS,
     deps = [
+        "//third_party/java/auto:auto_value",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

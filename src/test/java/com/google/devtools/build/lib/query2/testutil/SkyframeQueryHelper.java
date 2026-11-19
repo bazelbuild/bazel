@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
@@ -272,7 +273,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       queryEvalResult =
           env.evaluateQuery(
               env.transformParsedQuery(
-                  QueryExpressionResolver.resolve(QueryParser.parse(query), env)),
+                  QueryExpressionResolver.resolve(
+                      QueryParser.parse(query, ParserOptions.DEFAULT), env)),
               callback);
     } catch (IOException e) {
       // Should be impossible since AggregateAllOutputFormatterCallback doesn't throw IOException.
@@ -299,7 +301,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       try {
         env.evaluateQuery(
             env.transformParsedQuery(
-                QueryExpressionResolver.resolve(QueryParser.parse(query), env)),
+                QueryExpressionResolver.resolve(
+                    QueryParser.parse(query, ParserOptions.DEFAULT), env)),
             callback);
       } catch (IOException e) {
         // Should be impossible since the callback we passed in above doesn't throw IOException.

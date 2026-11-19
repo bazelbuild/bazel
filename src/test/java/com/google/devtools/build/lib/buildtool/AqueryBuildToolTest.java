@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
@@ -69,7 +70,8 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   @Test
   public void testConstructor_wrongAqueryFilterFormat_throwsError() throws Exception {
     QueryExpression expr =
-        QueryExpressionResolver.resolve(QueryParser.parse("deps(inputs('abc', //abc))"), functions);
+        QueryExpressionResolver.resolve(
+            QueryParser.parse("deps(inputs('abc', //abc))", ParserOptions.DEFAULT), functions);
 
     assertThrows(
         AqueryActionFilterException.class,
@@ -79,7 +81,8 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   @Test
   public void testConstructor_wrongPatternSyntax_throwsError() throws Exception {
     QueryExpression expr =
-        QueryExpressionResolver.resolve(QueryParser.parse("inputs('*abc', //abc)"), functions);
+        QueryExpressionResolver.resolve(
+            QueryParser.parse("inputs('*abc', //abc)", ParserOptions.DEFAULT), functions);
 
     AqueryActionFilterException thrown =
         assertThrows(
