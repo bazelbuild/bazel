@@ -28,7 +28,6 @@ load(
 load(":git_worker.bzl", "git_repo")
 load(
     ":utils.bzl",
-    "get_auth",
     "patch",
     "update_attrs",
     "workspace_and_buildfile",
@@ -280,18 +279,6 @@ def _git_repository_implementation(ctx):
     update = _clone_or_update_repo(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
-
-    # Download the module file after applying patches since modules may decide
-    # to patch their packaged module and the patch may not apply to the file
-    # checked in to the registry. This overrides the file if it exists.
-    if ctx.attr.remote_module_file_urls:
-        ctx.download(
-            ctx.attr.remote_module_file_urls,
-            "MODULE.bazel",
-            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
-            integrity = ctx.attr.remote_module_file_integrity,
-        )
-
     ctx.delete(_checkout_path(ctx).get_child(".git"))
 
     if ctx.attr.commit:
