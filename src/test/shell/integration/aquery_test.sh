@@ -258,6 +258,11 @@ cc_binary(
   srcs = ["foo.cc"],
   deps = [":bar"],
 )
+cc_binary(
+  name = "foo_pruned",
+  srcs = ["foo_pruned.cc"],
+  deps = [":bar"],
+)
 cc_library(
   name = "bar",
   hdrs = ["used.h", "useless.h"],
@@ -267,6 +272,7 @@ EOF
 #include "used.h"
 int main() { used(); return 0; }
 EOF
+  cp "$pkg/foo.cc" "$pkg/foo_pruned.cc"
   cat > "$pkg/used.h" <<'EOF'
 inline void used() {}
 EOF
@@ -319,13 +325,11 @@ EOF
     return 0
   fi
 
-  bazel clean
-
   # Test --noinclude_pruned_inputs before build.
   # Expect used.h and useless.h to be considered inputs.
 
   bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
+    "mnemonic(CppCompile,//$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -333,13 +337,13 @@ EOF
   assert_contains "Inputs:.*useless.h" output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*used.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_nonempty_file output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*useless.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_nonempty_file output
@@ -347,10 +351,10 @@ EOF
   # Test --noinclude_pruned_inputs after build.
   # Expect used.h to be considered an input, but not useless.h.
 
-  bazel build "//$pkg:foo" || fail "Expected success"
+  bazel build "//$pkg:foo_pruned" || fail "Expected success"
 
   bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
+    "mnemonic(CppCompile,//$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -358,13 +362,13 @@ EOF
   assert_not_contains "Inputs:.*useless.h" output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*used.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_nonempty_file output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*useless.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_empty_file output
