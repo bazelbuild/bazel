@@ -3904,6 +3904,7 @@ java_library(
         "LoadAspectsFunction.java",
         "SkyframeBuildView.java",
         "SkyframeExecutor.java",
+        "SkyframeTransitiveTargetCounter.java",
     ],
     deps = [
         ":about_to_clear_analysis_cache_event",
@@ -4080,6 +4081,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_attribute_transition_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",

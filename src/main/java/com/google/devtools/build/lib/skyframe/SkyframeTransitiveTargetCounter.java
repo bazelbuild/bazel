@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.buildtool;
+package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -22,9 +22,7 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.ActionLookupValuesTraversal;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -65,10 +63,10 @@ import javax.annotation.Nullable;
  *       separate sorting pass. Processing a node adds its counts to every root in its mask.
  * </ol>
  */
-final class TransitiveTargetCounter {
+public final class SkyframeTransitiveTargetCounter {
 
   /** Transitive analysis node and action counts for a single root target. */
-  record Counts(long targetCount, long actionCount) {}
+  public record Counts(long targetCount, long actionCount) {}
 
   /** Atomic element access on {@link Propagation#state} ({@code long[]}). */
   private static final VarHandle LONG_ARRAY = MethodHandles.arrayElementVarHandle(long[].class);
@@ -95,7 +93,7 @@ final class TransitiveTargetCounter {
 
   private static final int[] NO_DEPS = new int[0];
 
-  private TransitiveTargetCounter() {}
+  private SkyframeTransitiveTargetCounter() {}
 
   /** A node of the compact subgraph. */
   private static final class Node {
@@ -427,7 +425,7 @@ final class TransitiveTargetCounter {
     return byId;
   }
 
-  static ImmutableMap<ConfiguredTargetKey, Counts> count(
+  public static ImmutableMap<ConfiguredTargetKey, Counts> count(
       InMemoryGraph graph, Set<ConfiguredTargetKey> roots) throws InterruptedException {
     return count(graph, roots, MAX_MASK_BYTES);
   }
@@ -468,7 +466,8 @@ final class TransitiveTargetCounter {
     // so that the key -> Node map is unreachable (and collectable) during propagation.
     Node[] rootNodes = new Node[numRoots];
     Node[] byId;
-    try (SilentCloseable c = Profiler.instance().profile("TransitiveTargetCounter.discovery")) {
+    try (SilentCloseable c =
+        Profiler.instance().profile("SkyframeTransitiveTargetCounter.discovery")) {
       byId = discover(graph, rootKeys, rootNodes, pool);
     }
 
@@ -484,7 +483,8 @@ final class TransitiveTargetCounter {
     //           +---------+-----+-----------+-----+---------+-----+-----------+-----+
     //
     //   totals: |<--- targetCount[0..numRoots) --->|<--- actionCount[0..numRoots) --->|
-    try (SilentCloseable c = Profiler.instance().profile("TransitiveTargetCounter.propagation")) {
+    try (SilentCloseable c =
+        Profiler.instance().profile("SkyframeTransitiveTargetCounter.propagation")) {
       int nodeCount = byId.length;
       int maxWordsPerPass =
           (int) Math.max(1, Math.min(1 << 20, maxMaskBytes / (8L * Math.max(1, nodeCount))));
