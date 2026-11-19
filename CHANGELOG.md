@@ -1,3 +1,136 @@
+## Release 11.0.0-pre.20261114.1 (2026-11-19)
+
+```
+Baseline: 88c9fc464a967c973ae64c7cb251a4c31094e703
+```
+
+Incompatible changes:
+
+  - `kind()` and the `Kind` enum have been removed from `Expression`
+    and `Statement` types in the Starlark interpreter.
+
+Important changes:
+
+  - On Windows, the end of a test's output is no longer sometimes
+    missing from its test log and `test.xml`.
+  - Fixed exclusive-if-local tag limiting concurrency on remote exec
+  - On Windows,
+    [`--experimental_strict_repo_env`](https://bazel.build/reference/c
+    ommand-line-reference#flag--experimental_strict_repo_env) now
+    keeps `SYSTEMROOT` and `SYSTEMDRIVE` in the repository
+    environment.
+  - `bazel info` now resolves label-typed options such as
+    `--platforms` with the main repository mapping and applies
+    `flag_alias()`es and Starlark flags when it prints
+    configuration-dependent keys such as `bazel-bin`.
+  - Fixed the handling of non-ASCII characters in query, aquery and
+    cquery output, the Starlark debugger and Starlark CPU and memory
+    profiles.
+
+This release contains contributions from many people at Google, as well as Alex Scott, armandomontanez, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, gztong666, Ivan Verevkin, John Cater, Justin, Keith Smiley, Martin Kuntz Jacobsen, Michael Tänzer, Mikhail Filippov, Son Luong Ngoc, Tamir Duberstein, UebelAndre, Vanja Pejovic, Wade Carpenter.
+
+## Release 9.3.3 (2026-11-19)
+
+```
+
+Release Notes:
+
+General:
++ Release 9.3.2 (2026-11-04)
++ Update the embedded JDK to 25.0.5.1. (#32792)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Xùdōng Yáng.
+```
+
+## Release 7.7.3 (2026-11-19)
+
+```
+
+Release Notes:
+
+General:
++ Release 7.7.2 (2026-10-23)
++ Update the embedded JDK to 21.0.13.1. (#32791)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Xùdōng Yáng.
+```
+
+## Release 8.9.0 (2026-11-19)
+
+```
+
+Release Notes:
+
+```
+
+## Release 11.0.0-pre.20261103.3 (2026-11-17)
+
+```
+Baseline: 7f1a880ae06600dabf6b852de43a7ae6f6b68a82
+
+Cherry picks:
+
+   + b0c96ba57af49deeb04cd6756bbdd9ab3b4b1777:
+     Avoid stream and temporary allocations in Starlark type
+     construction.
+   + 7018f4a84126fe4b238fa628e82705aabbc071e7:
+     Compute StarlarkProvider types lazily.
+   + 47576679786898ffb5cf28789a1fe86b2eee24bc:
+     Handle GitHub API errors and skip rolling releases in
+     relnotes.py.
+   + 0310b164abe1f967771b77fbdf33f301b1840600:
+     Automated rollback of commit
+     3d1925ba871174d82b0a50a94c467eb0cb9b024b.
+   + 01595c124be99235c0c99ded6bafddc1ef5b0b5d:
+     Fix `.ar` extraction of BSD long names with NUL padding (#32592)
+```
+
+Incompatible changes:
+
+  - The `files` of `http_archive` and `archive_override` are now
+    copied instead of symlinked, which allows the repo contents cache
+    to store these repos. The `symlink_files` method in
+    `@bazel_tools//tools/build_defs/repo:utils.bzl` has been removed.
+  - Exec properties that are execution requirements only interpreted
+    by Bazel (keys starting with `no-`, `supports-` or `disable-` as
+    well as `local` and `worker-key-mnemonic`) are no longer sent to
+    remote executors and no longer affect remote cache keys.
+
+New features:
+
+  - [`ActionExecuted`](https://bazel.build/remote/bep-glossary#actione
+    xecuted) events now report the runner of each spawn and whether
+    it was a cache hit in `strategy_details`.
+  - `--file_write_strategy=remote` and
+    `--template_expansion_strategy=remote` keep the outputs of
+    `ctx.actions.write` and `ctx.actions.expand_template` in the
+    remote and/or disk cache instead of writing them to disk when
+    building without the bytes.
+  - add omit_macro_internals parameter to native.existing_rules()
+
+Important changes:
+
+  - Target counts of 10,000 or more in the "Found" summaries for
+    builds and tests now include comma separators, matching other CLI
+    messages.
+  - `--experimental_use_hermetic_linux_sandbox` now fails the build
+    on Linux when `linux-sandbox` is not supported, instead of
+    silently falling back to `processwrapper-sandbox`; making it
+    consistent with experimental_use_windows_sandbox.
+  - `--expand_param_files` now also expands the arguments persisted
+    in the execution log.
+  - --experimental_starlark_static_type_checking is enabled by default
+  - Tests on Windows no longer require Bash unless coverage is
+    collected.
+
+This release contains contributions from many people at Google, as well as alex-the-third, bazel.build machine account, Cy Cheng, David Zbarsky, dependabot[bot], Dmitry Spikhalsky, Fabian Meumertzheim, Fabian Meumertzheim, gztong666, iMostfa, Jordan, Joseph Gette, Lalita Hegade, Sarad Pant, Yossi Eliaz.
+
 ## Release 11.0.0-pre.20261028.2 (2026-11-06)
 
 ```
