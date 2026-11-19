@@ -3556,6 +3556,35 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void executeRemotely_retryAfterFailureWithoutResult_keepsStreaming() throws Exception {
+    executionOptions.setTestOutput(TestOutputFormat.STREAMED);
+    whenLiveOutputStreamIsRead(STDOUT_STREAM, "live output\n");
+    doAnswer(
+            invocation -> {
+              OperationObserver observer = invocation.getArgument(2);
+              observer.onNext(executingOperationWithLiveOutput());
+              throw new IOException("connection lost");
+            })
+        .when(executor)
+        .executeRemotely(any(), any(), any());
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = new SpawnBuilder("dummy").withMnemonic("TestRunner").build();
+    RemoteAction action = service.buildRemoteAction(spawn, newSpawnExecutionContext(spawn));
+    assertThrows(
+        IOException.class,
+        () ->
+            service.executeRemotely(
+                action, /* acceptCachedResult= */ false, OperationObserver.NO_OP));
+
+    // Like RemoteSpawnRunner retrying the execution.
+    String stdoutDuringRetry = executeWithLiveOutput(service, spawn, "live output\nfinal output\n");
+
+    assertThat(stdoutDuringRetry).isEqualTo("live output\nlive output\n");
+    assertThat(readContent(outErr.getOutputPath(), UTF_8)).isEqualTo("live output\nfinal output\n");
+    verify(executor, times(2)).readOutputStream(any(), eq(STDOUT_STREAM), any());
+  }
+
+  @Test
   public void executeRemotely_executionFailsWithResult_discardsLiveOutput() throws Exception {
     executionOptions.setTestOutput(TestOutputFormat.STREAMED);
     whenLiveOutputStreamIsRead(STDOUT_STREAM, "partial output\n");

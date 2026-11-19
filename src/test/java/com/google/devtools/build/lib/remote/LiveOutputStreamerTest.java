@@ -218,17 +218,38 @@ public final class LiveOutputStreamerTest {
   }
 
   @Test
-  public void create_returnsNullIfStdoutFileHasContent() throws Exception {
-    FileSystemUtils.writeContent(stdout, UTF_8, "existing");
+  public void newStream_afterClose_tailerSkipsAsManyBytesOfFinalOutputAsFirstExecutionWrote()
+      throws Exception {
+    LiveOutputStreamer streamer = createStreamer();
+    streamer.onNext(operation("first/stdout"));
+    reads.get(0).write("first, ");
+    streamer.onNext(operation("second/stdout"));
+    reads.get(1).write("second ");
 
-    assertThat(createStreamer()).isNull();
+    try (InputStream tail = stdout.getInputStream()) {
+      assertThat(new String(tail.readNBytes(14), UTF_8)).isEqualTo("first, second ");
+
+      streamer.close(/* discardOutput= */ true);
+      try (OutputStream out = stdout.getOutputStream()) {
+        out.write("second execution\n".getBytes(UTF_8));
+      }
+
+      // The known limitation: the tailer is as far ahead as the first execution's output is long,
+      // so that many bytes of the final output never reach it.
+      assertThat(new String(tail.readAllBytes(), UTF_8)).isEqualTo("on\n");
+    }
   }
 
   @Test
-  public void create_returnsNullIfStderrFileHasContent() throws Exception {
-    FileSystemUtils.writeContent(stderr, UTF_8, "existing");
+  public void create_appendsToOutputOfPreviousAttempt() throws Exception {
+    // Like a retry of the spawn after an attempt that failed without a result.
+    FileSystemUtils.writeContent(stdout, UTF_8, "first attempt, ");
+    LiveOutputStreamer streamer = createStreamer();
 
-    assertThat(createStreamer()).isNull();
+    streamer.onNext(operation("retry/stdout"));
+    reads.get(0).write("second attempt");
+
+    assertThat(stdoutContent()).isEqualTo("first attempt, second attempt");
   }
 
   @Test

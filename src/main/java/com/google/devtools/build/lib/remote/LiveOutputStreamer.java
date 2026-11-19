@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.longrunning.Operation;
@@ -50,6 +49,11 @@ import javax.annotation.Nullable;
  * the final output continue where the live output left off, as long as the live output was a prefix
  * of it. If the action produced no result, e.g. because the build was interrupted, the live output
  * is kept, since it is all the output there is.
+ *
+ * <p>If the server starts a new execution of the action, or the spawn runner retries it, the new
+ * output is appended to the previous one, since a reader tailing the file can't go back. The live
+ * output is then no longer a prefix of the final output, and such a reader skips as many bytes of
+ * the final output as the earlier executions wrote. This is a known limitation.
  */
 final class LiveOutputStreamer implements OperationObserver {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -64,9 +68,8 @@ final class LiveOutputStreamer implements OperationObserver {
   private final LiveOutput stderr;
 
   /**
-   * Returns a streamer that writes to the files of the given {@link FileOutErr}, or null if either
-   * file already has content: live output can only be reconciled with the final output in an
-   * initially empty file.
+   * Returns a streamer that appends to the files of the given {@link FileOutErr}, or null if it has
+   * none.
    *
    * @param readFailureHandler called with the stream name and the cause if reading a stream fails
    *     for any reason other than the streamer being closed
@@ -79,22 +82,9 @@ final class LiveOutputStreamer implements OperationObserver {
     if (stdoutPath == null || stderrPath == null) {
       return null;
     }
-    try {
-      if (hasContent(stdoutPath) || hasContent(stderrPath)) {
-        return null;
-      }
-    } catch (IOException e) {
-      logger.atInfo().withCause(e).log("Not streaming live output to %s", stdoutPath);
-      return null;
-    }
     return new LiveOutputStreamer(
         new LiveOutput(reader, stdoutPath, readFailureHandler),
         new LiveOutput(reader, stderrPath, readFailureHandler));
-  }
-
-  private static boolean hasContent(Path path) throws IOException {
-    FileStatus status = path.statIfFound();
-    return status != null && status.getSize() > 0;
   }
 
   private LiveOutputStreamer(LiveOutput stdout, LiveOutput stderr) {
@@ -177,8 +167,7 @@ final class LiveOutputStreamer implements OperationObserver {
           return;
         }
         // A different stream means that the server started a new execution, e.g. after losing the
-        // previous one. Its output is appended to that of the previous one rather than replacing
-        // it, since readers following the file can't go back. Discarding the output drops both.
+        // previous one. Its output is appended to that of the previous one, see the class comment.
         previousRead = read;
         read = null;
         streamName = name;
