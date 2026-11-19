@@ -361,6 +361,15 @@ sh_test(
 )
 
 sh_test(
+    name = "configured_attr_integ_test",
+    srcs = ["configured_attr_integ_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "configured_query_test",
     size = "large",
     srcs = ["configured_query_test.sh"],
