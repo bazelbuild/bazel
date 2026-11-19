@@ -213,7 +213,9 @@ cc_static_library(
 )
 EOF
 
-  bazel build --experimental_cc_static_library //pkg:protobuf \
+  bazel build --experimental_cc_static_library \
+    --cxxopt=-Wno-deprecated-builtins --host_cxxopt=-Wno-deprecated-builtins \
+    //pkg:protobuf \
     &> $TEST_log || fail "Expected build to fail"
 }
 

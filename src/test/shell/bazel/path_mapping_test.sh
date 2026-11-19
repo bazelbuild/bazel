@@ -385,6 +385,11 @@ EOF
 # Verifies that path mapping results in cache hits for CppCompile actions
 # subject to transitions that don't affect their inputs.
 function test_path_stripping_cc_remote() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    # apple_support 1.15.1 (pinned below by #27113) links wrapped_clang_pp with
+    # -Wl,-no_uuid, which macOS 26 dyld rejects ("missing LC_UUID load command").
+    return 0
+  fi
   local -r pkg="${FUNCNAME[0]}"
 
   cat > MODULE.bazel <<EOF
