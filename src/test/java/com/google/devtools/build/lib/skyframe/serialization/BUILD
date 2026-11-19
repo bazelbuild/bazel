@@ -484,6 +484,7 @@ java_library(
             "TransitiveTraversalValueCodecTest.java",
             "MemoizerTest.java",
             "FileSymlinkExceptionCodecTest.java",
+            "FrontierNodeVersionTest.java",
             "DirectoryListingValueCodecTest.java",
             "NoSuchTargetExceptionCodecTest.java",
             "NoSuchPackageExceptionCodecTest.java",
@@ -573,8 +574,10 @@ java_test(
     size = "small",
     srcs = ["FrontierNodeVersionTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:collect",
         "//third_party/java/guava:hash",
         "//third_party/java/junit",
         "//third_party/java/truth",

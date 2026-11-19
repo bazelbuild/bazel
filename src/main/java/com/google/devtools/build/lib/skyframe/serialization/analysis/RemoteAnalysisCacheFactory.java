@@ -164,7 +164,6 @@ public final class RemoteAnalysisCacheFactory {
             nullToEmpty(options.getAnalysisCacheKeyDistinguisherForTesting()),
             env.getUseFakeStampData(),
             workspaceInfoFromDiff.getSnapshot());
-    env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
     env.getRemoteAnalysisCachingEventListener().setClientId(clientId);
     env.getRemoteAnalysisCachingEventListener()
         .setUntrimmedConfigurationChecksum(untrimmedConfigurationChecksum);
@@ -203,10 +202,7 @@ public final class RemoteAnalysisCacheFactory {
     if (skycacheMetadataParams != null) {
       skycacheMetadataParams.init(
           frontierNodeVersion.getEvaluatingVersion(),
-          String.format(
-              "%s-%s",
-              BlazeVersionInfo.instance().getReleaseName(),
-              frontierNodeVersion.getBlazeInstallMD5()),
+          frontierNodeVersion.getReleaseVersionAndInstallationHash(BlazeVersionInfo.instance()),
           topLevelTargets.stream().map(Label::toString).collect(toImmutableList()),
           frontierNodeVersion.getUseFakeStampData(),
           userOptions,
@@ -281,12 +277,12 @@ public final class RemoteAnalysisCacheFactory {
             RemoteAnalysisCacheDeps.createDisabled(),
             RemoteAnalysisCacheDeps.createDisabled());
       }
-      return new AnalysisDeps(manager, deps, deps);
-    } else if (options.getMode().serializesValues()) {
-      return new AnalysisDeps(manager, deps, deps);
-    } else {
+    } else if (!options.getMode().serializesValues()) {
       throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
     }
+
+    env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
+    return new AnalysisDeps(manager, deps, deps);
   }
 
   private static ObjectCodecs initAnalysisObjectCodecs(

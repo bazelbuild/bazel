@@ -97,6 +97,7 @@ java_library(
     name = "frontier_node_version",
     srcs = ["FrontierNodeVersion.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:base",

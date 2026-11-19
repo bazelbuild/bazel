@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
@@ -81,6 +82,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
@@ -502,6 +504,18 @@ class MetricsCollector {
     UploadPhaseTimings uploadPhaseTimings = listener.getUploadPhaseTimings();
     if (uploadPhaseTimings != null) {
       result.setUploadPhaseTimings(uploadPhaseTimings);
+    }
+
+    FrontierNodeVersion skyValueVersion = listener.getSkyValueVersion();
+    if (skyValueVersion != null) {
+      result.setNodeVersion(
+          RemoteAnalysisCacheStatistics.NodeVersion.newBuilder()
+              .setEvaluatingVersion(skyValueVersion.getEvaluatingVersion())
+              .setConfigurationHash(skyValueVersion.getConfigAndStarlarkSemanticsHash())
+              .setBazelVersion(
+                  skyValueVersion.getReleaseVersionAndInstallationHash(BlazeVersionInfo.instance()))
+              .setUseFakeStampData(skyValueVersion.getUseFakeStampData())
+              .build());
     }
 
     RemoteAnalysisCachingServicesSupplier supplier =
