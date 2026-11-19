@@ -12,8 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Shared constants and path/string sanitizers for Bazel cherry-pick PR review scripts."""
+"""Shared constants, sanitizers, and review-state helpers for Bazel cherry-pick PR reviews."""
 
+import os
 import re
 
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -27,6 +28,7 @@ GEMINI_REVIEW_MARKER = "Gemini Cherry-Pick Review Summary"
 AUTOMATED_DECISION_PREFIX = "> **Automated Review Decision:"
 SELF_REVIEW_REASON_SNIPPET = "reviewer token matches the PR author"
 GUARDRAIL_BANNER_PREFIX = "> ⚠️ **Automated Guardrail:**"
+STEP_SUMMARY_HEADER = "### 🤖 Gemini Cherry-Pick PR Review"
 
 
 def is_safe_repo_rel_path(path):
@@ -74,3 +76,27 @@ def sanitize_untrusted_multiline(value, max_len=2000):
     if len(text) > max_len:
         return text[:max_len] + "\n..."
     return text
+
+
+def effective_review_state(review_obj):
+    """Returns the effective review state, decoding self-review COMMENT fallbacks."""
+    if not isinstance(review_obj, dict):
+        return ""
+    state = str(review_obj.get("state") or "").strip().upper()
+    if state != "COMMENTED":
+        return state
+    body = str(review_obj.get("body") or "").lstrip()
+    if body.startswith(f"{AUTOMATED_DECISION_PREFIX} `REQUEST_CHANGES`**"):
+        return "CHANGES_REQUESTED"
+    if body.startswith(f"{AUTOMATED_DECISION_PREFIX} `APPROVE`**") and SELF_REVIEW_REASON_SNIPPET in body[:250]:
+        return "APPROVED"
+    return state
+
+
+def append_step_summary(lines):
+    """Appends markdown lines under STEP_SUMMARY_HEADER to $GITHUB_STEP_SUMMARY if set."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "").strip()
+    if not summary_path:
+        return
+    with open(summary_path, "a", encoding="utf-8") as sf:
+        sf.write("\n".join([STEP_SUMMARY_HEADER, "", *lines]) + "\n")

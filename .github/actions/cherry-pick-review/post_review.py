@@ -15,7 +15,6 @@
 """Deterministically validates and posts Gemini's Bazel cherry-pick PR review output."""
 
 import json
-import os
 import pathlib
 import re
 import subprocess
@@ -29,6 +28,8 @@ from review_common import (
     SELF_REVIEW_REASON_SNIPPET,
     SHA_RE,
     TRUSTED_AUTHOR_ASSOCIATIONS,
+    append_step_summary,
+    effective_review_state,
     is_safe_repo_rel_path,
     sanitize_untrusted_str,
 )
@@ -36,6 +37,11 @@ from review_common import (
 MAX_INLINE_COMMENTS = 6
 MAX_EXTERNAL_PATCH_RELEASE_LINES = 300
 ALLOWED_EVENTS = frozenset({"APPROVE", "COMMENT", "REQUEST_CHANGES"})
+CLI_LOG_FILES = (
+    ("gemini-artifacts/stderr.log", "Antigravity CLI stderr.log"),
+    ("gemini-artifacts/cli.log", "Antigravity CLI cli.log (tail)"),
+)
+
 FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
 MARKDOWN_CODE_SPAN_RE = re.compile(
     r"((?:^|\n)[ \t]*`{3,}.*?\n[ \t]*`{3,}|(?:^|\n)[ \t]*~{3,}.*?\n[ \t]*~{3,}|`+[^`]*`+)",
@@ -62,9 +68,8 @@ def has_structured_blocker_in_body(body):
 
 
 def gh_api_post(endpoint, payload):
-    cmd = ["gh", "api", "--method", "POST", endpoint, "--input", "-"]
     return subprocess.run(
-        cmd,
+        ["gh", "api", "--method", "POST", endpoint, "--input", "-"],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
@@ -91,32 +96,31 @@ def neutralize_at_mentions(markdown_text):
     return "".join(parts)
 
 
+def _decode_trailing_json_dict(text):
+    """Parses `text` if it consists of a single JSON dict followed only by whitespace, else None."""
+    try:
+        parsed, end_pos = json.JSONDecoder(strict=False).raw_decode(text)
+    except json.JSONDecodeError:
+        return None
+    return parsed if (text[end_pos:].strip() == "" and isinstance(parsed, dict)) else None
+
+
 def load_gemini_output():
-    """Returns (response_text, envelope_dict) from gemini-artifacts/stdout.log."""
+    """Returns `(response_text, envelope_dict)` from `gemini-artifacts/stdout.log`."""
     stdout_log = pathlib.Path("gemini-artifacts/stdout.log")
     if not stdout_log.is_file():
         raise FileNotFoundError("gemini-artifacts/stdout.log not found")
     raw = stdout_log.read_text(encoding="utf-8", errors="replace").strip()
     if not raw:
         return "", {}
-    try:
-        data = json.loads(raw, strict=False)
-        if isinstance(data, dict) and isinstance(data.get("response"), str):
-            return data["response"], data
-    except json.JSONDecodeError:
-        decoder = json.JSONDecoder(strict=False)
-        for idx in range(len(raw) - 1, -1, -1):
-            if raw[idx] == "{":
-                try:
-                    parsed, end_pos = decoder.raw_decode(raw[idx:])
-                    if (
-                        raw[idx + end_pos :].strip() == ""
-                        and isinstance(parsed, dict)
-                        and isinstance(parsed.get("response"), str)
-                    ):
-                        return parsed["response"], parsed
-                except json.JSONDecodeError:
-                    continue
+    parsed = _decode_trailing_json_dict(raw)
+    if parsed and isinstance(parsed.get("response"), str):
+        return parsed["response"], parsed
+    for idx in range(len(raw) - 1, -1, -1):
+        if raw[idx] == "{":
+            parsed = _decode_trailing_json_dict(raw[idx:])
+            if parsed and isinstance(parsed.get("response"), str):
+                return parsed["response"], parsed
     return raw, {}
 
 
@@ -125,9 +129,8 @@ def format_cli_stats(envelope):
     if not isinstance(envelope, dict) or not envelope:
         return ""
     parts = []
-    status = envelope.get("status")
-    if status:
-        parts.append(f"status={status}")
+    if envelope.get("status"):
+        parts.append(f"status={envelope['status']}")
     duration = envelope.get("duration_seconds")
     if isinstance(duration, (int, float)) and not isinstance(duration, bool):
         parts.append(f"duration={duration:.1f}s")
@@ -135,18 +138,19 @@ def format_cli_stats(envelope):
     if isinstance(num_turns, int) and not isinstance(num_turns, bool):
         parts.append(f"turns={num_turns}")
     usage = envelope.get("usage")
-    if isinstance(usage, dict) and usage:
-        token_parts = []
-        for key, label in (
+    if isinstance(usage, dict):
+        token_keys = (
             ("input_tokens", "in"),
             ("output_tokens", "out"),
             ("thinking_tokens", "thinking"),
             ("cache_read_tokens", "cached"),
             ("total_tokens", "total"),
-        ):
-            val = usage.get(key)
-            if isinstance(val, int) and not isinstance(val, bool):
-                token_parts.append(f"{label}={val}")
+        )
+        token_parts = [
+            f"{label}={usage[k]}"
+            for k, label in token_keys
+            if isinstance(usage.get(k), int) and not isinstance(usage.get(k), bool)
+        ]
         if token_parts:
             parts.append(f"tokens({', '.join(token_parts)})")
     denied = envelope.get("denied_actions")
@@ -155,29 +159,37 @@ def format_cli_stats(envelope):
     return ", ".join(parts)
 
 
+def _read_log_file(log_name):
+    log_path = pathlib.Path(log_name)
+    return log_path.read_text(encoding="utf-8", errors="replace").strip() if log_path.is_file() else ""
+
+
 def print_cli_debug_logs(envelope, response_text):
     """Prints CLI stats and collapsible debug groups to stdout for GitHub Actions logs."""
     stats_line = format_cli_stats(envelope)
     if stats_line:
         print(f"Antigravity CLI stats: {stats_line}")
-
     if response_text:
-        print("::group::Gemini model response")
-        print(response_text)
-        print("::endgroup::")
+        print(f"::group::Gemini model response\n{response_text}\n::endgroup::")
+    for log_name, title in CLI_LOG_FILES:
+        log_text = _read_log_file(log_name)
+        if log_text:
+            tail = "\n".join(log_text.splitlines()[-100:])
+            print(f"::group::{title}\n{tail}\n::endgroup::")
 
-    for log_name, title in (
-        ("gemini-artifacts/stderr.log", "Antigravity CLI stderr.log"),
-        ("gemini-artifacts/cli.log", "Antigravity CLI cli.log (tail)"),
-    ):
-        log_path = pathlib.Path(log_name)
-        if log_path.is_file():
-            log_text = log_path.read_text(encoding="utf-8", errors="replace").strip()
-            if log_text:
-                lines = log_text.splitlines()
-                print(f"::group::{title}")
-                print("\n".join(lines[-100:]))
-                print("::endgroup::")
+
+def dump_gemini_diagnostics(response_text):
+    """Logs CLI stderr/log tails and response tail when review JSON parsing fails."""
+    for log_name, _ in CLI_LOG_FILES:
+        log_text = _read_log_file(log_name)
+        if log_text:
+            sys.stderr.write(f"=== {log_name} ===\n{log_text[-4000:]}\n")
+    sys.stderr.write(f"=== Gemini response_text (len={len(response_text)}) ===\n{response_text[-4000:]}\n")
+
+
+def _details_section(title, body_text, *, open_by_default=False):
+    tag = "<details open>" if open_by_default else "<details>"
+    return [tag, f"<summary><strong>{title}</strong></summary>", "", body_text, "", "</details>", ""]
 
 
 def write_step_summary(
@@ -191,11 +203,7 @@ def write_step_summary(
     response_text="",
 ):
     """Appends a Markdown summary of the Gemini review run to GITHUB_STEP_SUMMARY."""
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "").strip()
-    if not summary_path:
-        return
-
-    lines = ["### 🤖 Gemini Cherry-Pick PR Review", "", f"- **Outcome:** {outcome_line}"]
+    lines = [f"- **Outcome:** {outcome_line}"]
     if decision:
         lines.append(f"- **Review Decision:** `{decision}`")
     if skip_reason:
@@ -206,116 +214,55 @@ def write_step_summary(
     lines.append("")
 
     if review_body:
-        lines.extend(
-            [
-                "<details open>",
-                "<summary><strong>Review Summary</strong></summary>",
-                "",
-                review_body,
-                "",
-                "</details>",
-                "",
-            ]
-        )
-
+        lines.extend(_details_section("Review Summary", review_body, open_by_default=True))
     if inline_comments:
         lines.extend(
-            [
-                "<details>",
-                f"<summary><strong>Inline Comments ({len(inline_comments)})</strong></summary>",
-                "",
+            _details_section(
+                f"Inline Comments ({len(inline_comments)})",
                 "\n\n".join(format_fallback_comment(c) for c in inline_comments),
-                "",
-                "</details>",
-                "",
-            ]
+            )
         )
-
     if response_text:
         fence = "````"
         while fence in response_text:
             fence += "`"
-        lines.extend(
-            [
-                "<details>",
-                "<summary><strong>Raw Model Output</strong></summary>",
-                "",
-                f"{fence}text",
-                response_text,
-                fence,
-                "",
-                "</details>",
-                "",
-            ]
-        )
+        lines.extend(_details_section("Raw Model Output", f"{fence}text\n{response_text}\n{fence}"))
 
-    with open(summary_path, "a", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
-
-
-def dump_gemini_diagnostics(response_text):
-    """Logs Gemini stdout/stderr/CLI log diagnostics to stderr when output parsing fails."""
-    for log_name in ("gemini-artifacts/stderr.log", "gemini-artifacts/cli.log"):
-        log_path = pathlib.Path(log_name)
-        if log_path.is_file():
-            log_text = log_path.read_text(encoding="utf-8", errors="replace").strip()
-            if log_text:
-                sys.stderr.write(f"=== {log_name} ===\n{log_text[-4000:]}\n")
-    sys.stderr.write(f"=== Gemini response_text (len={len(response_text)}) ===\n{response_text[-4000:]}\n")
+    append_step_summary(lines)
 
 
 def repair_unescaped_json_quotes(s):
     """Escapes unescaped double quotes inside JSON string values."""
+    closing_value_re = re.compile(
+        r'^\s*(?:,\s*"(?:decision|should_post|skip_reason|body|comments|path|line|side|start_line|start_side)"\s*:|\}\s*(?:,\s*\{|\]\s*[,}]|\}\s*(?:```|~~~|$)|```|~~~|$))'
+    )
     out = []
     in_string = False
     is_key = False
-    i = 0
-    n = len(s)
+    i, n = 0, len(s)
     while i < n:
         ch = s[i]
         if in_string:
             if ch == "\\":
-                if i + 1 < n:
-                    out.append(ch)
-                    out.append(s[i + 1])
-                    i += 2
-                    continue
-                out.append(ch)
-                i += 1
+                out.append(s[i : i + 2])
+                i += 2
                 continue
             if ch == '"':
                 rest = s[i + 1 :]
-                if is_key:
-                    if re.match(r"^\s*:", rest):
-                        in_string = False
-                        out.append(ch)
-                        i += 1
-                        continue
+                is_end = bool(re.match(r"^\s*:", rest)) if is_key else bool(closing_value_re.match(rest))
+                if is_end:
+                    in_string = False
+                    out.append(ch)
                 else:
-                    if re.match(
-                        r'^\s*(?:,\s*"(?:decision|should_post|skip_reason|body|comments|path|line|side|start_line|start_side)"\s*:|\}\s*(?:,\s*\{|\]\s*[,}]|\}\s*(?:```|~~~|$)|```|~~~|$))',
-                        rest,
-                    ):
-                        in_string = False
-                        out.append(ch)
-                        i += 1
-                        continue
-                out.append('\\"')
+                    out.append('\\"')
                 i += 1
                 continue
-            out.append(ch)
-            i += 1
-        else:
-            if ch == '"':
-                prev_non_ws = ""
-                for k in range(len(out) - 1, -1, -1):
-                    if not out[k].isspace():
-                        prev_non_ws = out[k]
-                        break
-                in_string = True
-                is_key = prev_non_ws in ("{", ",")
-            out.append(ch)
-            i += 1
+        elif ch == '"':
+            prev_non_ws = next((tok[-1] for tok in reversed(out) if not tok.isspace()), "")
+            in_string = True
+            is_key = prev_non_ws in ("{", ",")
+        out.append(ch)
+        i += 1
     return "".join(out)
 
 
@@ -326,42 +273,32 @@ def extract_review_json(text):
         dump_gemini_diagnostics(text)
         raise ValueError("Gemini response text is empty")
 
-    decoder = json.JSONDecoder(strict=False)
-
-    def try_parse_full(candidate_str, allow_repair=False):
+    def try_parse_review(candidate_str, *, allow_repair=False):
         attempts = (candidate_str, repair_unescaped_json_quotes(candidate_str)) if allow_repair else (candidate_str,)
         for attempt in attempts:
-            try:
-                parsed, end_pos = decoder.raw_decode(attempt)
-                if (
-                    attempt[end_pos:].strip() == ""
-                    and isinstance(parsed, dict)
-                    and ("decision" in parsed or "should_post" in parsed)
-                ):
-                    return parsed
-            except json.JSONDecodeError:
-                continue
+            parsed = _decode_trailing_json_dict(attempt)
+            if parsed and ("decision" in parsed or "should_post" in parsed):
+                return parsed
         return None
 
     for match in reversed(list(FENCED_JSON_BLOCK_RE.finditer(text))):
         block = match.group(2).strip()
         if block.startswith("{"):
-            parsed = try_parse_full(block, allow_repair=True)
+            parsed = try_parse_review(block, allow_repair=True)
             if parsed is not None:
                 return parsed
 
     trimmed = re.sub(r"\s*(?:`{3,}|~{3,})\s*$", "", text)
     brace_indices = [idx for idx, ch in enumerate(trimmed) if ch == "{"]
     for idx in brace_indices:
-        parsed = try_parse_full(trimmed[idx:], allow_repair=False)
+        parsed = try_parse_review(trimmed[idx:], allow_repair=False)
         if parsed is not None:
             return parsed
 
-    line_leading_indices = [m.end() - 1 for m in re.finditer(r"(?:^|\n)[ \t]*\{", trimmed)]
-    seen_indices = set(line_leading_indices)
-    ordered_repair_indices = line_leading_indices + [idx for idx in brace_indices if idx not in seen_indices]
-    for idx in ordered_repair_indices:
-        parsed = try_parse_full(trimmed[idx:], allow_repair=True)
+    line_leading = [m.end() - 1 for m in re.finditer(r"(?:^|\n)[ \t]*\{", trimmed)]
+    seen = set(line_leading)
+    for idx in line_leading + [i for i in brace_indices if i not in seen]:
+        parsed = try_parse_review(trimmed[idx:], allow_repair=True)
         if parsed is not None:
             return parsed
 
@@ -397,9 +334,7 @@ def parse_diff_hunk_lines(diff_path_str):
     result = {}
     current_file = None
     in_hunk = False
-    hunk_id = 0
-    old_ln = 0
-    new_ln = 0
+    hunk_id = old_ln = new_ln = 0
     for line in diff_path.read_text(encoding="utf-8", errors="replace").splitlines():
         if line.startswith("diff --git "):
             current_file = None
@@ -414,8 +349,7 @@ def parse_diff_hunk_lines(diff_path_str):
         m_hunk = HUNK_HEADER_RE.match(line)
         if m_hunk and current_file is not None:
             hunk_id += 1
-            old_ln = int(m_hunk.group(1))
-            new_ln = int(m_hunk.group(2))
+            old_ln, new_ln = int(m_hunk.group(1)), int(m_hunk.group(2))
             in_hunk = True
             continue
         if in_hunk and current_file is not None:
@@ -427,13 +361,10 @@ def parse_diff_hunk_lines(diff_path_str):
                 f_map[("LEFT", old_ln)] = hunk_id
                 old_ln += 1
             elif line.startswith(" "):
-                f_map[("LEFT", old_ln)] = hunk_id
-                f_map[("RIGHT", new_ln)] = hunk_id
+                f_map[("LEFT", old_ln)] = f_map[("RIGHT", new_ln)] = hunk_id
                 old_ln += 1
                 new_ln += 1
-            elif line.startswith("\\"):
-                continue
-            else:
+            elif not line.startswith("\\"):
                 in_hunk = False
     return result
 
@@ -442,32 +373,26 @@ def coerce_positive_int(val):
     if isinstance(val, int) and not isinstance(val, bool) and val > 0:
         return val
     if isinstance(val, str) and val.strip().isdigit():
-        parsed = int(val.strip())
-        if parsed > 0:
-            return parsed
+        return int(val.strip()) or None
     return None
 
 
 def format_fallback_comment(comment):
     path = comment.get("display_path") or normalize_comment_path(comment.get("path")) or "General"
-    line = comment.get("line")
-    start_line = comment.get("start_line")
+    line, start_line = comment.get("line"), comment.get("start_line")
     loc = f"`{path}`"
     if start_line and line and start_line != line:
         loc += f" (lines {start_line}–{line})"
     elif line:
         loc += f" (line {line})"
-    body = str(comment.get("body") or "").strip()
-    return f"#### {loc}\n\n{body}"
+    return f"#### {loc}\n\n{str(comment.get('body') or '').strip()}"
 
 
 def append_fallback_comments(body, fallback_comments):
     if not fallback_comments:
         return body
-    sections = "\n\n".join(format_fallback_comment(c) for c in fallback_comments)
-    if body:
-        return f"{body.rstrip()}\n\n---\n\n### Inline Review Comments\n\n{sections}"
-    return f"### Inline Review Comments\n\n{sections}"
+    sections = f"### Inline Review Comments\n\n" + "\n\n".join(format_fallback_comment(c) for c in fallback_comments)
+    return f"{body.rstrip()}\n\n---\n\n{sections}" if body else sections
 
 
 def format_outcome_badge(event, review_url, num_inline=0):
@@ -475,27 +400,111 @@ def format_outcome_badge(event, review_url, num_inline=0):
         event, "💬 Commented on PR"
     )
     text = f"{icon} ([view review]({review_url}))" if review_url else icon
-    if num_inline:
-        text += f" with {num_inline} inline comment(s)"
-    return text
+    return f"{text} with {num_inline} inline comment(s)" if num_inline else text
 
 
-def effective_last_review_state(last_review):
-    """Returns the effective state of `last_review`, accounting for self-review COMMENT fallbacks."""
-    if not isinstance(last_review, dict):
-        return ""
-    state = str(last_review.get("state") or "").strip().upper()
-    if state != "COMMENTED":
-        return state
-    body = str(last_review.get("body") or "").lstrip()
-    if body.startswith(f"{AUTOMATED_DECISION_PREFIX} `REQUEST_CHANGES`**"):
-        return "CHANGES_REQUESTED"
-    if (
-        body.startswith(f"{AUTOMATED_DECISION_PREFIX} `APPROVE`**")
-        and SELF_REVIEW_REASON_SNIPPET in body[:250]
-    ):
-        return "APPROVED"
-    return state
+def validate_review_comments(raw_comments, pr_filenames, unsafe_pr_paths, diff_hunk_lines, workspace_root):
+    """Splits raw model comments into `(valid_inline_comments, fallback_comments, has_critical_comment)`."""
+    valid_inline = []
+    fallbacks = []
+    has_critical = False
+    if not isinstance(raw_comments, list):
+        return valid_inline, fallbacks, has_critical
+
+    for item in raw_comments:
+        if not isinstance(item, dict):
+            continue
+        c_body = neutralize_at_mentions(strip_runner_file_links(str(item.get("body") or "").strip()))
+        if not c_body:
+            continue
+        if c_body.lstrip(" \t`*_").startswith("🔴"):
+            has_critical = True
+
+        raw_path_str = str(item.get("path") or "").strip()
+        path = normalize_comment_path(raw_path_str, workspace_root=workspace_root)
+        line = coerce_positive_int(item.get("line"))
+        start_line = coerce_positive_int(item.get("start_line"))
+        side = str(item.get("side") or "RIGHT").strip().upper()
+        side = side if side in ("LEFT", "RIGHT") else "RIGHT"
+        start_side = str(item.get("start_side") or side).strip().upper()
+        start_side = start_side if start_side in ("LEFT", "RIGHT") else side
+
+        if raw_path_str and not path:
+            sanitized_unsafe = sanitize_untrusted_str(raw_path_str, max_len=200)
+            if sanitized_unsafe in unsafe_pr_paths:
+                fallbacks.append({"display_path": sanitized_unsafe, "line": line, "start_line": None, "body": c_body})
+            continue
+
+        valid_line = line is not None
+        valid_start = start_line is not None and valid_line and start_line < line
+        hunk_ok = True
+        if valid_line and diff_hunk_lines is not None:
+            f_hunks = diff_hunk_lines.get(path)
+            end_hunk = f_hunks.get((side, line)) if f_hunks is not None else None
+            if end_hunk is None:
+                hunk_ok = False
+            elif valid_start and f_hunks.get((start_side, start_line)) != end_hunk:
+                valid_start = False
+
+        if path and path in pr_filenames and valid_line and hunk_ok and len(valid_inline) < MAX_INLINE_COMMENTS:
+            comment_obj = {"path": path, "line": line, "side": side, "body": c_body}
+            if valid_start:
+                comment_obj["start_line"] = start_line
+                comment_obj["start_side"] = start_side
+            valid_inline.append(comment_obj)
+        else:
+            fallbacks.append(
+                {
+                    "path": path,
+                    "line": line if valid_line else None,
+                    "start_line": start_line if valid_start else None,
+                    "body": c_body,
+                }
+            )
+
+    return valid_inline, fallbacks, has_critical
+
+
+def submit_review_with_fallbacks(endpoint, head_sha, decision, body, inline_comments):
+    """Posts the review via `gh api`, falling back on HTTP 422 for out-of-diff positions or self-reviews."""
+    def post(event, review_body, comments):
+        return gh_api_post(endpoint, {"commit_id": head_sha, "event": event, "body": review_body, "comments": comments})
+
+    def err_text(res):
+        return f"{res.stderr}\n{res.stdout}".strip()
+
+    def is_422(res):
+        text = err_text(res)
+        return "422" in text or "Unprocessable" in text
+
+    cur_event, cur_body, cur_comments = decision, body, list(inline_comments)
+    res = post(cur_event, cur_body, cur_comments)
+
+    if res.returncode != 0 and cur_comments and is_422(res) and "own pull request" not in err_text(res).lower():
+        print(
+            f"Warning: GitHub rejected inline comment position(s) ({err_text(res)}); "
+            "retrying with inline comments folded into the top-level review body."
+        )
+        cur_body = append_fallback_comments(cur_body, cur_comments)
+        cur_comments = []
+        res = post(cur_event, cur_body, cur_comments)
+
+    if res.returncode != 0 and cur_event in ("APPROVE", "REQUEST_CHANGES") and is_422(res):
+        print(f"Warning: GitHub rejected event={cur_event} ({err_text(res)}); falling back directly to event=COMMENT.")
+        cur_body = (
+            f"{AUTOMATED_DECISION_PREFIX} `{decision}`** "
+            f"*(posted as `COMMENT` because the {SELF_REVIEW_REASON_SNIPPET})*\n\n"
+            f"{cur_body}"
+        )
+        cur_event = "COMMENT"
+        res = post(cur_event, cur_body, cur_comments)
+        if res.returncode != 0 and cur_comments:
+            folded = append_fallback_comments(cur_body, cur_comments)
+            res_folded = post(cur_event, folded, [])
+            if res_folded.returncode == 0:
+                return res_folded, cur_event, folded, []
+
+    return res, cur_event, cur_body, cur_comments
 
 
 def main():
@@ -533,136 +542,71 @@ def main():
     has_existing_review = bool(context.get("has_existing_gemini_review"))
     trigger_type = str(context.get("trigger_type") or "automatic")
     last_review = context.get("last_gemini_review") if isinstance(context.get("last_gemini_review"), dict) else {}
-    last_state = effective_last_review_state(last_review)
+    last_state = effective_review_state(last_review)
     patch_unchanged = context.get("pr_patch_unchanged_since_last_review") is True
 
     raw_decision = str(review_data.get("decision") or "COMMENT").strip().upper()
     decision = raw_decision if raw_decision in ALLOWED_EVENTS else "COMMENT"
     body = neutralize_at_mentions(strip_runner_file_links(str(review_data.get("body") or "").strip()))
-    raw_comments = review_data.get("comments") or []
 
     changed_files_ctx = context.get("changed_files") or []
     pr_filenames = {
-        item.get("path")
+        item["path"]
         for item in changed_files_ctx
         if isinstance(item, dict) and isinstance(item.get("path"), str) and not item.get("unsafe_path")
     }
     unsafe_pr_paths = {
-        item.get("path")
-        for item in list(changed_files_ctx) + list(context.get("file_comparisons") or [])
+        item["path"]
+        for item in [*changed_files_ctx, *(context.get("file_comparisons") or [])]
         if isinstance(item, dict) and item.get("unsafe_path") and isinstance(item.get("path"), str)
     }
     diff_hunk_lines = parse_diff_hunk_lines(str(context.get("pr_diff_path") or "").strip())
-
-    valid_inline_comments = []
-    fallback_comments = []
-    has_critical_comment = False
-
-    if isinstance(raw_comments, list):
-        for item in raw_comments:
-            if not isinstance(item, dict):
-                continue
-            c_body = neutralize_at_mentions(strip_runner_file_links(str(item.get("body") or "").strip()))
-            if not c_body:
-                continue
-            if c_body.lstrip(" \t`*_").startswith("🔴"):
-                has_critical_comment = True
-
-            raw_path_str = str(item.get("path") or "").strip()
-            path = normalize_comment_path(raw_path_str, workspace_root=workspace_root)
-            line = coerce_positive_int(item.get("line"))
-            start_line = coerce_positive_int(item.get("start_line"))
-            side = str(item.get("side") or "RIGHT").strip().upper()
-            if side not in ("LEFT", "RIGHT"):
-                side = "RIGHT"
-            start_side = str(item.get("start_side") or side).strip().upper()
-            if start_side not in ("LEFT", "RIGHT"):
-                start_side = side
-
-            if raw_path_str and not path:
-                sanitized_unsafe = sanitize_untrusted_str(raw_path_str, max_len=200)
-                if sanitized_unsafe in unsafe_pr_paths or sanitize_untrusted_str(raw_path_str, max_len=1024) in unsafe_pr_paths:
-                    fallback_comments.append(
-                        {"display_path": sanitized_unsafe, "line": line, "start_line": None, "body": c_body}
-                    )
-                continue
-
-            valid_line = line is not None
-            valid_start = start_line is not None and valid_line and start_line < line
-            hunk_ok = True
-            if valid_line and diff_hunk_lines is not None:
-                f_hunks = diff_hunk_lines.get(path)
-                end_hunk = f_hunks.get((side, line)) if f_hunks is not None else None
-                if end_hunk is None:
-                    hunk_ok = False
-                elif valid_start and f_hunks.get((start_side, start_line)) != end_hunk:
-                    valid_start = False
-
-            if path and path in pr_filenames and valid_line and hunk_ok and len(valid_inline_comments) < MAX_INLINE_COMMENTS:
-                comment_obj = {
-                    "path": path,
-                    "line": line,
-                    "side": side,
-                    "body": c_body,
-                }
-                if valid_start:
-                    comment_obj["start_line"] = start_line
-                    comment_obj["start_side"] = start_side
-                valid_inline_comments.append(comment_obj)
-            else:
-                fallback_comments.append(
-                    {
-                        "path": path,
-                        "line": line if valid_line else None,
-                        "start_line": start_line if valid_start else None,
-                        "body": c_body,
-                    }
-                )
+    valid_inline_comments, fallback_comments, has_critical_comment = validate_review_comments(
+        review_data.get("comments") or [],
+        pr_filenames=pr_filenames,
+        unsafe_pr_paths=unsafe_pr_paths,
+        diff_hunk_lines=diff_hunk_lines,
+        workspace_root=workspace_root,
+    )
 
     raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
     author_assoc = str(context.get("pr_author_association") or "").strip().upper()
     is_trusted_author = raw_author == "bazel-io" or author_assoc in TRUSTED_AUTHOR_ASSOCIATIONS
 
-    no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
+    classification = context.get("overall_cherry_pick_classification")
+    no_mainline = classification == "NO_MAINLINE_COMMIT"
     force_no_mainline_block = no_mainline and not is_trusted_author
     body_has_blocker = has_structured_blocker_in_body(body)
     would_request_changes = (
         decision == "REQUEST_CHANGES" or force_no_mainline_block or has_critical_comment or body_has_blocker
     )
 
-    has_lockfile_changes = bool(context.get("has_lockfile_changes"))
-    has_breaking_signals = bool(context.get("breaking_change_signals"))
-    has_reverted_mainline = bool(context.get("has_reverted_mainline"))
     oversized_patch_backport = (
         bool(context.get("is_patch_release"))
         and int(context.get("non_lockfile_line_changes") or 0) > MAX_EXTERNAL_PATCH_RELEASE_LINES
     )
     is_clean_unflagged = (
-        context.get("overall_cherry_pick_classification") == "CLEAN"
+        classification == "CLEAN"
         and not bool(context.get("files_truncated"))
-        and not has_lockfile_changes
-        and not has_breaking_signals
-        and not has_reverted_mainline
+        and not bool(context.get("has_lockfile_changes"))
+        and not bool(context.get("breaking_change_signals"))
+        and not bool(context.get("has_reverted_mainline"))
         and not oversized_patch_backport
     )
     can_approve = not no_mainline and (is_clean_unflagged or is_trusted_author)
 
     if not should_post:
         had_active_approval = last_state == "APPROVED" or bool(context.get("has_prior_active_approval"))
+        # Covers external PRs where an earlier APPROVE was capped to COMMENT with an Automated Review Decision banner.
         had_approve_banner = str(last_review.get("body") or "").lstrip().startswith(
             f"{AUTOMATED_DECISION_PREFIX} `APPROVE`**"
         )
-        stale_approval_after_diff_change = not patch_unchanged and (
+        stale_approval = not patch_unchanged and (
             (had_active_approval and (decision != "APPROVE" or would_request_changes or not can_approve))
             or (had_approve_banner and (decision != "APPROVE" or would_request_changes))
         )
         unposted_blocker = would_request_changes and last_state != "CHANGES_REQUESTED"
-        if (
-            not has_existing_review
-            or trigger_type == "manual"
-            or stale_approval_after_diff_change
-            or unposted_blocker
-        ):
+        if not has_existing_review or trigger_type == "manual" or stale_approval or unposted_blocker:
             print(
                 f"Overriding should_post=false -> true (has_existing_gemini_review={has_existing_review}, "
                 f"trigger_type={trigger_type}, last_state={last_state!r}, "
@@ -682,162 +626,60 @@ def main():
         )
         return 0
 
-    if body and not (
-        body.startswith(f"## 📋 {GEMINI_REVIEW_MARKER}") or body.startswith(f"## {GEMINI_REVIEW_MARKER}")
-    ):
+    if body and not body.startswith((f"## 📋 {GEMINI_REVIEW_MARKER}", f"## {GEMINI_REVIEW_MARKER}")):
         body = f"## 📋 {GEMINI_REVIEW_MARKER}\n\n{body}"
 
-    # Safety guardrail: enforce REQUEST_CHANGES when an external PR has no mainline commit on master
-    # or when a structured critical finding (🔴 / ❌) was reported in inline comments or the summary body.
-    if decision != "REQUEST_CHANGES":
-        if force_no_mainline_block or has_critical_comment or body_has_blocker:
-            if force_no_mainline_block:
-                reason = "no verified mainline commit on `master` was matched"
-            elif has_critical_comment:
-                reason = "a critical (`🔴`) inline comment was included"
-            else:
-                reason = "a critical blocker (`🔴` / `❌`) was reported in the review body"
-            print(f"Safety guardrail: overriding {decision} to REQUEST_CHANGES because {reason}.")
-            decision = "REQUEST_CHANGES"
-            body = re.sub(
-                r"\*\*Verdict:\*\*\s*[`*_]*(?:✅|💬|⚠️)[^\n]*",
-                "**Verdict:** ❌ Changes Requested",
-                body,
-            )
-            guardrail_note = f"{GUARDRAIL_BANNER_PREFIX} Review decision set to `REQUEST_CHANGES` because {reason}."
-            body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
+    if decision != "REQUEST_CHANGES" and (force_no_mainline_block or has_critical_comment or body_has_blocker):
+        if force_no_mainline_block:
+            reason = "no verified mainline commit on `master` was matched"
+        elif has_critical_comment:
+            reason = "a critical (`🔴`) inline comment was included"
+        else:
+            reason = "a critical blocker (`🔴` / `❌`) was reported in the review body"
+        print(f"Safety guardrail: overriding {decision} to REQUEST_CHANGES because {reason}.")
+        decision = "REQUEST_CHANGES"
+        body = re.sub(r"\*\*Verdict:\*\*\s*[`*_]*(?:✅|💬|⚠️)[^\n]*", "**Verdict:** ❌ Changes Requested", body)
+        guardrail_note = f"{GUARDRAIL_BANNER_PREFIX} Review decision set to `REQUEST_CHANGES` because {reason}."
+        body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
 
-    # Privilege / provenance guardrail: cap APPROVE to COMMENT when no mainline commit was matched
-    # (e.g. maintainer release-branch version bumps) or when an external PR is non-CLEAN / flagged.
     if decision == "APPROVE" and not can_approve:
         print(
-            "Privilege guardrail: capping APPROVE to COMMENT "
-            f"(classification={context.get('overall_cherry_pick_classification')!r}, "
-            f"no_mainline={no_mainline}, "
-            f"has_lockfile_changes={has_lockfile_changes}, "
-            f"has_breaking_signals={has_breaking_signals}, "
-            f"has_reverted_mainline={has_reverted_mainline}, "
-            f"oversized_patch_backport={oversized_patch_backport}, "
-            f"author_association={author_assoc!r})."
+            f"Privilege guardrail: capping APPROVE to COMMENT "
+            f"(classification={classification!r}, no_mainline={no_mainline}, author_association={author_assoc!r})."
         )
         decision = "COMMENT"
-        if no_mainline:
-            note = (
-                f"{AUTOMATED_DECISION_PREFIX} `APPROVE`** "
-                "*(posted as `COMMENT` because no matching mainline commit on `master` was found; "
-                "please verify this release-branch change before merging)*"
-            )
-        else:
-            note = (
-                f"{AUTOMATED_DECISION_PREFIX} `APPROVE`** "
-                "*(posted as `COMMENT` so a maintainer can verify any adaptations, lockfile updates, scope, or API changes before merging)*"
-            )
+        detail = (
+            "because no matching mainline commit on `master` was found; please verify this release-branch change before merging"
+            if no_mainline
+            else "so a maintainer can verify any adaptations, lockfile updates, scope, or API changes before merging"
+        )
+        note = f"{AUTOMATED_DECISION_PREFIX} `APPROVE`** *(posted as `COMMENT` {detail})*"
         body = f"{note}\n\n{body}" if body else note
 
     final_body = append_fallback_comments(body, fallback_comments)
     if not final_body:
         final_body = f"## 📋 {GEMINI_REVIEW_MARKER}\n\n**Decision:** `{decision}`"
 
-    payload = {
-        "commit_id": head_sha,
-        "event": decision,
-        "body": final_body,
-        "comments": valid_inline_comments,
-    }
-
     endpoint = f"repos/{repo}/pulls/{pr_number}/reviews"
-    res = gh_api_post(endpoint, payload)
+    res, posted_event, posted_body, posted_comments = submit_review_with_fallbacks(
+        endpoint, head_sha, decision, final_body, valid_inline_comments
+    )
     if res.returncode == 0:
-        review_resp = json.loads(res.stdout)
-        review_url = review_resp.get("html_url")
+        review_url = json.loads(res.stdout).get("html_url")
+        decision_label = decision if posted_event == decision else f"{decision} (posted as {posted_event})"
         print(
             f"Posted Gemini review on PR #{pr_number} "
-            f"(event={decision}, inline_comments={len(valid_inline_comments)}, url={review_url})"
+            f"(event={posted_event}, inline_comments={len(posted_comments)}, url={review_url})"
         )
         write_step_summary(
-            outcome_line=format_outcome_badge(decision, review_url, len(valid_inline_comments)),
-            decision=decision,
-            review_body=final_body,
-            inline_comments=valid_inline_comments,
+            outcome_line=format_outcome_badge(posted_event, review_url, len(posted_comments)),
+            decision=decision_label,
+            review_body=posted_body,
+            inline_comments=posted_comments,
             envelope=envelope,
             response_text=response_text,
         )
         return 0
-
-    err_output = f"{res.stderr}\n{res.stdout}".strip()
-    is_self_review_err = "own pull request" in err_output.lower()
-
-    if valid_inline_comments and ("422" in err_output or "Unprocessable" in err_output) and not is_self_review_err:
-        print(
-            f"Warning: GitHub rejected inline comment position(s) ({err_output}); "
-            "retrying with inline comments folded into the top-level review body."
-        )
-        final_body = append_fallback_comments(final_body, valid_inline_comments)
-        valid_inline_comments = []
-        payload = {
-            "commit_id": head_sha,
-            "event": decision,
-            "body": final_body,
-            "comments": [],
-        }
-        res = gh_api_post(endpoint, payload)
-        if res.returncode == 0:
-            review_resp = json.loads(res.stdout)
-            review_url = review_resp.get("html_url")
-            print(f"Posted folded Gemini review on PR #{pr_number} (event={decision}, url={review_url})")
-            write_step_summary(
-                outcome_line=format_outcome_badge(decision, review_url, 0),
-                decision=decision,
-                review_body=final_body,
-                envelope=envelope,
-                response_text=response_text,
-            )
-            return 0
-        err_output = f"{res.stderr}\n{res.stdout}".strip()
-
-    if decision in ("APPROVE", "REQUEST_CHANGES") and ("422" in err_output or "Unprocessable" in err_output):
-        print(
-            f"Warning: GitHub rejected event={decision} ({err_output}); "
-            "falling back directly to event=COMMENT."
-        )
-        comment_body = (
-            f"{AUTOMATED_DECISION_PREFIX} `{decision}`** "
-            f"*(posted as `COMMENT` because the {SELF_REVIEW_REASON_SNIPPET})*\n\n"
-            f"{final_body}"
-        )
-        comment_payload = {
-            "commit_id": head_sha,
-            "event": "COMMENT",
-            "body": comment_body,
-            "comments": valid_inline_comments,
-        }
-        res_comment = gh_api_post(endpoint, comment_payload)
-        if res_comment.returncode != 0 and valid_inline_comments:
-            folded_comment_body = append_fallback_comments(comment_body, valid_inline_comments)
-            comment_payload = {
-                "commit_id": head_sha,
-                "event": "COMMENT",
-                "body": folded_comment_body,
-                "comments": [],
-            }
-            res_comment = gh_api_post(endpoint, comment_payload)
-            if res_comment.returncode == 0:
-                comment_body = folded_comment_body
-                valid_inline_comments = []
-        if res_comment.returncode == 0:
-            review_resp = json.loads(res_comment.stdout)
-            review_url = review_resp.get("html_url")
-            print(f"Posted fallback COMMENT review on PR #{pr_number} (url={review_url})")
-            write_step_summary(
-                outcome_line=format_outcome_badge("COMMENT", review_url, len(valid_inline_comments)),
-                decision=f"{decision} (posted as COMMENT)",
-                review_body=comment_body,
-                inline_comments=valid_inline_comments,
-                envelope=envelope,
-                response_text=response_text,
-            )
-            return 0
-        res = res_comment
 
     sys.stderr.write(f"{res.stderr}\n{res.stdout}")
     write_step_summary(

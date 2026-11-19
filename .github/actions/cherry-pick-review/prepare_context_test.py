@@ -40,12 +40,10 @@ class PrepareContextTest(unittest.TestCase):
         self.tmp_dir.cleanup()
 
     def _git(self, *args):
-        subprocess.run(["git"] + list(args), cwd=self.root, check=True, capture_output=True, text=True)
+        subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True, text=True)
 
     def _git_out(self, *args):
-        return subprocess.run(
-            ["git"] + list(args), cwd=self.root, check=True, capture_output=True, text=True
-        ).stdout.strip()
+        return subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True, text=True).stdout.strip()
 
     def _init_git_repo(self):
         self._git("init", "-b", "master")
@@ -59,7 +57,6 @@ class PrepareContextTest(unittest.TestCase):
         )
         self._git("add", ".")
         self._git("commit", "-m", "Initial commit")
-        # Create release-8.9.0 branch
         self._git("branch", "release-8.9.0")
         self.base_sha = self._git_out("rev-parse", "release-8.9.0")
 
@@ -84,7 +81,6 @@ class PrepareContextTest(unittest.TestCase):
             self.assertIn("should_run=false", out_file.read_text(encoding="utf-8"))
 
     def test_clean_cherry_pick_classification(self):
-        # Commit a fix on master
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 10; }\n  int b() { return 2; }\n}\n",
             encoding="utf-8",
@@ -93,12 +89,9 @@ class PrepareContextTest(unittest.TestCase):
         self._git("commit", "-m", "Fix Foo.a return value (#500)\n\nRELNOTES: None\nPiperOrigin-RevId: 123456789")
         mainline_sha = self._git_out("rev-parse", "master")
 
-        # Cherry-pick cleanly onto a PR branch off release-8.9.0
         self._git("checkout", "-b", "cp-clean", "release-8.9.0")
         self._git("cherry-pick", "-x", mainline_sha)
         head_sha = self._git_out("rev-parse", "cp-clean")
-        commit_msg = self._git_out("show", "-s", "--format=%B", head_sha)
-        patch_text = "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 10; }\n   int b() { return 2; }\n }"
         self._git("checkout", "master")
 
         def fake_gh_api(endpoint, paginate=False, slurp=False):
@@ -108,26 +101,11 @@ class PrepareContextTest(unittest.TestCase):
                     "draft": False,
                     "title": "[8.9.0] Fix Foo.a return value",
                     "body": f"Fixes Foo.a\n(cherry picked from commit {mainline_sha})",
-                    "changed_files": 1,
                     "user": {"login": "wyv"},
                     "base": {"ref": "release-8.9.0", "sha": self.base_sha},
                     "head": {"ref": "cp-clean", "sha": head_sha},
                 }
-            if "pulls/101/commits" in endpoint:
-                return [[{"sha": head_sha, "commit": {"message": commit_msg}, "author": {"login": "wyv"}}]]
-            if "pulls/101/files" in endpoint:
-                return [
-                    [
-                        {
-                            "filename": "src/Foo.java",
-                            "status": "modified",
-                            "additions": 1,
-                            "deletions": 1,
-                            "patch": patch_text,
-                        }
-                    ]
-                ]
-            if "issues/101/comments" in endpoint or "pulls/101/reviews" in endpoint or "pulls/101/comments" in endpoint:
+            if any(p in endpoint for p in ("issues/101/comments", "pulls/101/reviews", "pulls/101/comments")):
                 return [[]]
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
@@ -153,7 +131,6 @@ class PrepareContextTest(unittest.TestCase):
         self.assertFalse(ctx["has_existing_gemini_review"])
 
     def test_conflict_and_extra_file_and_breaking_signal_detection(self):
-        # First make an intermediate change on master that is NOT on release-8.9.0
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a(String ctx) { return 1; }\n  int b() { return 2; }\n}\n",
             encoding="utf-8",
@@ -161,7 +138,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("add", ".")
         self._git("commit", "-m", "Refactor Foo.a signature on master")
 
-        # Now make the target commit on master touching the refactored line with RELNOTES[INC]
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a(String ctx) { return 42; }\n  int b() { return 2; }\n}\n",
             encoding="utf-8",
@@ -174,7 +150,6 @@ class PrepareContextTest(unittest.TestCase):
         )
         mainline_sha = self._git_out("rev-parse", "master")
 
-        # Create a PR branch on release-8.9.0 that resolves the conflict in Foo.java AND adds an unrelated file
         self._git("checkout", "-b", "cp-conflict-extra", "release-8.9.0")
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 42; }\n  int b() { return 2; }\n}\n",
@@ -184,7 +159,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("add", ".")
         self._git("commit", "-m", f"[8.9.0] Change Foo.a behavior\n\n(cherry picked from commit {mainline_sha})")
         head_sha = self._git_out("rev-parse", "cp-conflict-extra")
-        commit_msg = self._git_out("show", "-s", "--format=%B", head_sha)
         self._git("checkout", "master")
 
         def fake_gh_api(endpoint, paginate=False, slurp=False):
@@ -194,33 +168,11 @@ class PrepareContextTest(unittest.TestCase):
                     "draft": False,
                     "title": "[8.9.0] Change Foo.a behavior",
                     "body": f"(cherry picked from commit {mainline_sha})",
-                    "changed_files": 2,
                     "user": {"login": "wyv"},
                     "base": {"ref": "release-8.9.0", "sha": self.base_sha},
                     "head": {"ref": "cp-conflict-extra", "sha": head_sha},
                 }
-            if "pulls/102/commits" in endpoint:
-                return [[{"sha": head_sha, "commit": {"message": commit_msg}, "author": {"login": "wyv"}}]]
-            if "pulls/102/files" in endpoint:
-                return [
-                    [
-                        {
-                            "filename": "src/Foo.java",
-                            "status": "modified",
-                            "additions": 1,
-                            "deletions": 1,
-                            "patch": "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 42; }\n   int b() { return 2; }\n }",
-                        },
-                        {
-                            "filename": "src/Sneaky.java",
-                            "status": "added",
-                            "additions": 1,
-                            "deletions": 0,
-                            "patch": "@@ -0,0 +1 @@\n+class Sneaky {}",
-                        },
-                    ]
-                ]
-            if "issues/102/comments" in endpoint or "pulls/102/reviews" in endpoint or "pulls/102/comments" in endpoint:
+            if any(p in endpoint for p in ("issues/102/comments", "pulls/102/reviews", "pulls/102/comments")):
                 return [[]]
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
@@ -272,14 +224,12 @@ class PrepareContextTest(unittest.TestCase):
         self.assertIsNone(prepare_context.is_valid_release_branch("release-8.9.0.lock"))
         self.assertEqual(prepare_context.is_valid_release_branch("release-8.9.0"), "8.9.0")
 
-        # Symlink inside base_dir must be rejected by resolve_path_within and safe_write_staged_file
         stage_dir = self.root / "stage_test"
         stage_dir.mkdir()
         (stage_dir / "link_dir").symlink_to("/tmp")
         self.assertIsNone(prepare_context.resolve_path_within(stage_dir, "link_dir/escape.txt"))
         self.assertIsNone(prepare_context.safe_write_staged_file(stage_dir, "link_dir/escape.txt", "pwn"))
 
-        # Git symlink (mode 120000) must be rejected by read_git_regular_file_blob
         (self.root / "src" / "evil_link").symlink_to("/etc/hosts")
         self._git("add", "src/evil_link")
         self._git("commit", "-m", "Add symlink")
@@ -288,7 +238,6 @@ class PrepareContextTest(unittest.TestCase):
         self.assertIsNotNone(prepare_context.read_git_regular_file_blob(sha_with_link, "src/Foo.java"))
 
     def test_prior_review_delta_detects_unchanged_rebase_and_modified_followup(self):
-        # Commit 1 on PR branch
         self._git("checkout", "-b", "pr-branch", "release-8.9.0")
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 10; }\n  int b() { return 2; }\n}\n",
@@ -297,7 +246,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("add", ".")
         self._git("commit", "-m", "PR commit 1")
         rev1_sha = self._git_out("rev-parse", "HEAD")
-        pr_patches_v1 = {"src/Foo.java": "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 10; }\n   int b() { return 2; }\n }"}
 
         reviews = [
             {
@@ -320,11 +268,7 @@ class PrepareContextTest(unittest.TestCase):
             }
         ]
 
-        # Case 1: Rebase with identical patch changes
-        (self.root / "src" / "Foo.java").write_text(
-            "class Foo {\n  int a() { return 10; }\n  int b() { return 2; }\n}\n",
-            encoding="utf-8",
-        )
+        # Case 1: Amend/rebase with identical patch changes
         self._git("commit", "--amend", "-m", "PR commit 1 (rebased)")
         rev1_rebased_sha = self._git_out("rev-parse", "HEAD")
 
@@ -334,7 +278,6 @@ class PrepareContextTest(unittest.TestCase):
             base_ref="release-8.9.0",
             base_sha=self.base_sha,
             head_sha=rev1_rebased_sha,
-            pr_patches_by_file=pr_patches_v1,
             stage_dir=self.root / "gemini-artifacts" / "pr",
         )
         self.assertTrue(has_existing)
@@ -351,7 +294,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("add", ".")
         self._git("commit", "-m", "PR commit 2")
         rev2_sha = self._git_out("rev-parse", "HEAD")
-        pr_patches_v2 = {"src/Foo.java": "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 20; }\n   int b() { return 2; }\n }"}
 
         _, _, unchanged2, since_path2, _ = prepare_context.analyze_prior_review_delta(
             pr_reviews=reviews,
@@ -359,7 +301,6 @@ class PrepareContextTest(unittest.TestCase):
             base_ref="release-8.9.0",
             base_sha=self.base_sha,
             head_sha=rev2_sha,
-            pr_patches_by_file=pr_patches_v2,
             stage_dir=self.root / "gemini-artifacts" / "pr",
         )
         self.assertFalse(unchanged2)
@@ -370,7 +311,6 @@ class PrepareContextTest(unittest.TestCase):
         self.assertTrue(prepare_context.is_patch_release_version("8.5.1"))
         self.assertTrue(prepare_context.is_patch_release_version("7.7.2"))
 
-        # Create two commits on master
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 11; }\n  int b() { return 2; }\n}\n",
             encoding="utf-8",
@@ -384,19 +324,14 @@ class PrepareContextTest(unittest.TestCase):
         self._git("commit", "-m", "Second mainline fix for Bar.x (#602)")
         sha2 = self._git_out("rev-parse", "HEAD")
 
-        # Create PR branch with two commits: first has trailer, second omits trailer (subject only)
         pr_commits = [
             {
-                "sha": "1111111111111111111111111111111111111111",
-                "commit": {
-                    "message": f"First mainline fix for Foo.a (#601)\n\n(cherry picked from commit {sha1})"
-                },
+                "sha": "1" * 40,
+                "commit": {"message": f"First mainline fix for Foo.a (#601)\n\n(cherry picked from commit {sha1})"},
             },
             {
-                "sha": "2222222222222222222222222222222222222222",
-                "commit": {
-                    "message": "[8.9.0] Second mainline fix for Bar.x"
-                },
+                "sha": "2" * 40,
+                "commit": {"message": "[8.9.0] Second mainline fix for Bar.x"},
             },
         ]
         found = prepare_context.find_mainline_commits(
@@ -410,48 +345,39 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual([sha for sha, _ in found], [sha1, sha2])
 
-        # Adding a new default-off incompatible flag should NOT trigger a breaking signal
         signals_add_flag = prepare_context.extract_breaking_change_signals(
             mainline_commits_info=[],
             pr_title="[8.9.0] Add stub incompatible flag",
             pr_body="",
-            pr_files=[
-                {
-                    "filename": "src/Options.java",
-                    "patch": (
-                        '@@ -10,0 +11,5 @@\n'
-                        '+  @Option(\n'
-                        '+      name = "incompatible_new_stub",\n'
-                        '+      defaultValue = "false",\n'
-                        '+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE})\n'
-                    ),
-                }
-            ],
+            pr_patches_by_file={
+                "src/Options.java": (
+                    '@@ -10,0 +11,5 @@\n'
+                    '+  @Option(\n'
+                    '+      name = "incompatible_new_stub",\n'
+                    '+      defaultValue = "false",\n'
+                    '+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE})\n'
+                )
+            },
         )
         self.assertEqual(signals_add_flag, [])
 
-        # Flipping an existing incompatible flag's defaultValue SHOULD trigger a breaking signal
         signals_flip_flag = prepare_context.extract_breaking_change_signals(
             mainline_commits_info=[],
             pr_title="[8.9.0] Flip incompatible flag",
             pr_body="",
-            pr_files=[
-                {
-                    "filename": "src/Options.java",
-                    "patch": (
-                        '@@ -10,5 +10,5 @@\n'
-                        '   @Option(\n'
-                        '       name = "incompatible_existing_flag",\n'
-                        '-      defaultValue = "false",\n'
-                        '+      defaultValue = "true",\n'
-                        '       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE})\n'
-                    ),
-                }
-            ],
+            pr_patches_by_file={
+                "src/Options.java": (
+                    '@@ -10,5 +10,5 @@\n'
+                    '   @Option(\n'
+                    '       name = "incompatible_existing_flag",\n'
+                    '-      defaultValue = "false",\n'
+                    '+      defaultValue = "true",\n'
+                    '       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE})\n'
+                )
+            },
         )
         self.assertEqual(len(signals_flip_flag), 1)
 
-        # normalize_patch_changes preserves context lines so moving a change to another method is detected
         p_method_a = "@@ -1,3 +1,3 @@\n void methodA() {\n-  return 1;\n+  return 2;\n }"
         p_method_b = "@@ -10,3 +10,3 @@\n void methodB() {\n-  return 1;\n+  return 2;\n }"
         self.assertNotEqual(
@@ -459,7 +385,6 @@ class PrepareContextTest(unittest.TestCase):
             prepare_context.normalize_patch_changes(p_method_b),
         )
 
-        # Dismissed prior reviews, spoofed author COMMENT reviews, or quoted replies should not count as active Gemini reviews
         has_existing, last_review, _, _, _ = prepare_context.analyze_prior_review_delta(
             pr_reviews=[
                 {
@@ -492,26 +417,19 @@ class PrepareContextTest(unittest.TestCase):
             base_ref="release-8.9.0",
             base_sha=self.base_sha,
             head_sha=sha2,
-            pr_patches_by_file={},
             pr_author="untrusted-author",
             stage_dir=self.root / "gemini-artifacts" / "pr",
         )
         self.assertFalse(has_existing)
         self.assertIsNone(last_review)
 
-        # Revert commits on master should be skipped when matching a forward cherry-pick by subject/PR number
         self._git("revert", "--no-edit", sha2)
         revert_sha = self._git_out("rev-parse", "HEAD")
         self.assertNotEqual(revert_sha, sha2)
         found_no_revert = prepare_context.find_mainline_commits(
             pr_title="[8.9.0] Second mainline fix for Bar.x (#602)",
             pr_body="",
-            pr_commits=[
-                {
-                    "sha": "3333333333333333333333333333333333333333",
-                    "commit": {"message": "[8.9.0] Second mainline fix for Bar.x (#602)"},
-                }
-            ],
+            pr_commits=[{"sha": "3" * 40, "commit": {"message": "[8.9.0] Second mainline fix for Bar.x (#602)"}}],
             pr_comments=[],
             pr_author="wyv",
             mainline_ref="master",
@@ -519,7 +437,6 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual([sha for sha, _ in found_no_revert], [sha2])
 
-        # HTML comments in PR body (e.g. from .github/pull_request_template.md) must NOT trigger RELNOTES[INC]
         pr_template_body = (
             "### Release Notes\n"
             "<!--\n"
@@ -532,12 +449,12 @@ class PrepareContextTest(unittest.TestCase):
                 mainline_commits_info=[],
                 pr_title="[8.9.0] Clean fix",
                 pr_body=pr_template_body,
-                pr_files=[],
+                pr_patches_by_file={},
             ),
             [],
         )
 
-    def test_excludes_non_master_commits_from_clean_baseline_and_fails_without_master_ref(self):
+    def test_excludes_non_master_commits_unsafe_paths_and_lockfile_regeneration(self):
         # Commit A is on master
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 10; }\n  int b() { return 2; }\n}\n",
@@ -554,44 +471,24 @@ class PrepareContextTest(unittest.TestCase):
         self._git("commit", "-m", "Unmerged side-branch commit")
         unmerged_sha = self._git_out("rev-parse", "HEAD")
 
-        # PR branch combines master_sha + unmerged_sha
+        # 1) PR branch combines master_sha + unmerged_sha
         self._git("checkout", "-b", "pr-mixed", "release-8.9.0")
         self._git("cherry-pick", master_sha)
         self._git("cherry-pick", unmerged_sha)
         head_sha = self._git_out("rev-parse", "HEAD")
-        self._git("checkout", "master")
 
-        pr_files = [
-            {
-                "filename": "src/Foo.java",
-                "status": "modified",
-                "additions": 1,
-                "deletions": 1,
-                "patch": "@@ -1,4 +1,4 @@\n class Foo {\n-  int a() { return 1; }\n+  int a() { return 10; }\n   int b() { return 2; }\n }",
-            },
-            {
-                "filename": "src/Unmerged.java",
-                "status": "added",
-                "additions": 1,
-                "deletions": 0,
-                "patch": "@@ -0,0 +1 @@\n+class Unmerged {}",
-            },
-        ]
         stage_dir = self.root / "gemini-artifacts" / "pr"
-        _, head_root, base_root, _, pr_patches = prepare_context.stage_pr_and_base_files(
-            repo="bazelbuild/bazel",
+        _, _, base_root, _, pr_patches = prepare_context.stage_pr_and_base_files(
             base_sha=self.base_sha,
             head_sha=head_sha,
-            pr_files=pr_files,
             stage_dir=stage_dir,
         )
-        mc_info, file_comps, overall, _ = prepare_context.analyze_mainline_and_compare(
+        mc_info, file_comps, overall, _, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(master_sha, "trailer"), (unmerged_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files,
+            head_sha=head_sha,
             pr_patches_by_file=pr_patches,
-            head_root_path=head_root,
             base_root_path=base_root,
             stage_dir=stage_dir,
         )
@@ -603,46 +500,63 @@ class PrepareContextTest(unittest.TestCase):
         self.assertEqual(by_path["src/Unmerged.java"], "extra_in_pr")
         self.assertEqual(overall, "MODIFIED_OR_EXTRA_CHANGES")
 
-        # Unsafe PR file paths (e.g. leading `-` or `:`) must NEVER be silently dropped into CLEAN
-        pr_files_with_unsafe = [
-            pr_files[0],
-            {"filename": "-sneaky.sh", "status": "added", "additions": 1, "deletions": 0, "patch": "@@ -0,0 +1 @@\n+echo pwn"},
-        ]
-        _, file_comps_unsafe, overall_unsafe, vs_path_unsafe = prepare_context.analyze_mainline_and_compare(
+        # 2) Unsafe PR file paths (e.g. leading `-`) committed in Git must NEVER be silently dropped into CLEAN
+        self._git("checkout", "-b", "pr-unsafe-path", "release-8.9.0")
+        self._git("cherry-pick", master_sha)
+        (self.root / "-sneaky.sh").write_text("echo pwn\n", encoding="utf-8")
+        self._git("add", "--", "-sneaky.sh")
+        self._git("commit", "-m", "Add leading-dash file")
+        unsafe_head_sha = self._git_out("rev-parse", "HEAD")
+
+        stage_unsafe = self.root / "stage_unsafe"
+        _, _, br_unsafe, changed_unsafe, patches_unsafe = prepare_context.stage_pr_and_base_files(
+            base_sha=self.base_sha,
+            head_sha=unsafe_head_sha,
+            stage_dir=stage_unsafe,
+        )
+        self.assertTrue(any(f.get("unsafe_path") and f["path"] == "-sneaky.sh" for f in changed_unsafe))
+        _, file_comps_unsafe, overall_unsafe, vs_path_unsafe, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(master_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files_with_unsafe,
-            pr_patches_by_file={"src/Foo.java": pr_patches["src/Foo.java"]},
-            head_root_path=head_root,
-            base_root_path=base_root,
-            stage_dir=stage_dir,
+            head_sha=unsafe_head_sha,
+            pr_patches_by_file=patches_unsafe,
+            base_root_path=br_unsafe,
+            stage_dir=stage_unsafe,
         )
         self.assertEqual(overall_unsafe, "MODIFIED_OR_EXTRA_CHANGES")
         self.assertTrue(any(fc.get("unsafe_path") and fc["classification"] == "extra_in_pr" for fc in file_comps_unsafe))
         self.assertIn("-sneaky.sh", pathlib.Path(vs_path_unsafe).read_text(encoding="utf-8"))
 
-        # Lockfile added/modified relative to mainline is classified as lockfile_regenerated (not identical)
-        pr_files_with_lock = [
-            pr_files[0],
-            {"filename": "MODULE.bazel.lock", "status": "modified", "additions": 2, "deletions": 2, "patch": "@@ -1 +1 @@\n-old\n+new"},
-        ]
-        _, file_comps_lock, overall_lock, vs_path_lock = prepare_context.analyze_mainline_and_compare(
+        # 3) Lockfile added/modified relative to mainline is classified as lockfile_regenerated (CLEAN overall)
+        self._git("checkout", "-b", "pr-with-lockfile", "release-8.9.0")
+        self._git("cherry-pick", master_sha)
+        (self.root / "MODULE.bazel.lock").write_text('{"lockFileVersion": 1}\n', encoding="utf-8")
+        self._git("add", "MODULE.bazel.lock")
+        self._git("commit", "-m", "Update lockfile")
+        lock_head_sha = self._git_out("rev-parse", "HEAD")
+
+        stage_lock = self.root / "stage_lock"
+        _, _, br_lock, _, patches_lock = prepare_context.stage_pr_and_base_files(
+            base_sha=self.base_sha,
+            head_sha=lock_head_sha,
+            stage_dir=stage_lock,
+        )
+        _, file_comps_lock, overall_lock, vs_path_lock, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(master_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files_with_lock,
-            pr_patches_by_file={"src/Foo.java": pr_patches["src/Foo.java"], "MODULE.bazel.lock": "@@ -1 +1 @@\n-old\n+new"},
-            head_root_path=head_root,
-            base_root_path=base_root,
-            stage_dir=stage_dir,
+            head_sha=lock_head_sha,
+            pr_patches_by_file=patches_lock,
+            base_root_path=br_lock,
+            stage_dir=stage_lock,
         )
         self.assertEqual(overall_lock, "CLEAN")
         by_lock_path = {fc["path"]: fc["classification"] for fc in file_comps_lock}
         self.assertEqual(by_lock_path["MODULE.bazel.lock"], "lockfile_regenerated")
         self.assertIn("MODULE.bazel.lock", pathlib.Path(vs_path_lock).read_text(encoding="utf-8"))
 
-        # Commit message with a cherry-pick trailer must NOT also extract an earlier regression commit URL
+        # 4) Commit message with a cherry-pick trailer must NOT also extract an earlier regression commit URL
         self._git("checkout", "master")
         (self.root / "src" / "Regression.java").write_text("class Regression {}\n", encoding="utf-8")
         self._git("add", "src/Regression.java")
@@ -654,7 +568,7 @@ class PrepareContextTest(unittest.TestCase):
             pr_body="",
             pr_commits=[
                 {
-                    "sha": "4444444444444444444444444444444444444444",
+                    "sha": "4" * 40,
                     "commit": {
                         "message": (
                             f"Master fix Foo.a\n\n"
@@ -671,15 +585,14 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual([sha for sha, _ in found_trailer_only], [master_sha])
 
-        # detect_mainline_ref must raise RuntimeError rather than falling back to HEAD (release branch)
+        # 5) detect_mainline_ref must raise RuntimeError rather than falling back to HEAD (release branch)
         self._git("checkout", "release-8.9.0")
         self._git("branch", "-D", "master")
         with self.assertRaises(RuntimeError):
             prepare_context.detect_mainline_ref()
 
     def test_renamed_file_deletion_bypass_caught_while_legitimate_rename_stays_clean(self):
-        # Case A: Mainline adds src/NewHelper.java; PR adds src/NewHelper.java AND deletes src/Foo.java,
-        # which GitHub's /files API collapses into a single status="renamed" entry.
+        # Case A: Mainline adds src/NewHelper.java; PR adds src/NewHelper.java AND deletes src/Foo.java
         (self.root / "src" / "NewHelper.java").write_text(
             "class Foo {\n  int a() { return 1; }\n  int b() { return 3; }\n}\n",
             encoding="utf-8",
@@ -699,33 +612,19 @@ class PrepareContextTest(unittest.TestCase):
         sneaky_head_sha = self._git_out("rev-parse", "HEAD")
         self._git("checkout", "master")
 
-        pr_files_sneaky = [
-            {
-                "filename": "src/NewHelper.java",
-                "previous_filename": "src/Foo.java",
-                "status": "renamed",
-                "additions": 1,
-                "deletions": 1,
-                "patch": "@@ -1,4 +1,4 @@\n class Foo {\n   int a() { return 1; }\n-  int b() { return 2; }\n+  int b() { return 3; }\n }",
-            }
-        ]
         stage_dir_a = self.root / "stage_rename_a"
-        _, head_root_a, base_root_a, _, pr_patches_a = prepare_context.stage_pr_and_base_files(
-            repo="bazelbuild/bazel",
+        _, _, base_root_a, _, pr_patches_a = prepare_context.stage_pr_and_base_files(
             base_sha=self.base_sha,
             head_sha=sneaky_head_sha,
-            pr_files=pr_files_sneaky,
             stage_dir=stage_dir_a,
         )
-        _, comps_a, overall_a, _ = prepare_context.analyze_mainline_and_compare(
+        _, comps_a, overall_a, _, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(add_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files_sneaky,
-            pr_patches_by_file=pr_patches_a,
-            head_root_path=head_root_a,
-            base_root_path=base_root_a,
             head_sha=sneaky_head_sha,
+            pr_patches_by_file=pr_patches_a,
+            base_root_path=base_root_a,
             stage_dir=stage_dir_a,
         )
         self.assertEqual(overall_a, "MODIFIED_OR_EXTRA_CHANGES")
@@ -733,7 +632,7 @@ class PrepareContextTest(unittest.TestCase):
         self.assertEqual(by_path_a["src/Foo.java"], "extra_in_pr")
         self.assertEqual(by_path_a["src/NewHelper.java"], "identical")
 
-        # Case B: Mainline legitimately renames src/Foo.java -> src/FooRenamed.java and PR cherry-picks cleanly.
+        # Case B: Mainline legitimately renames src/Foo.java -> src/FooRenamed.java and PR cherry-picks cleanly
         self._git("mv", "src/Foo.java", "src/FooRenamed.java")
         self._git("commit", "-m", "Rename Foo to FooRenamed")
         rename_sha = self._git_out("rev-parse", "master")
@@ -743,33 +642,19 @@ class PrepareContextTest(unittest.TestCase):
         legit_head_sha = self._git_out("rev-parse", "HEAD")
         self._git("checkout", "master")
 
-        pr_files_legit = [
-            {
-                "filename": "src/FooRenamed.java",
-                "previous_filename": "src/Foo.java",
-                "status": "renamed",
-                "additions": 0,
-                "deletions": 0,
-                "patch": "",
-            }
-        ]
         stage_dir_b = self.root / "stage_rename_b"
-        _, head_root_b, base_root_b, _, pr_patches_b = prepare_context.stage_pr_and_base_files(
-            repo="bazelbuild/bazel",
+        _, _, base_root_b, _, pr_patches_b = prepare_context.stage_pr_and_base_files(
             base_sha=self.base_sha,
             head_sha=legit_head_sha,
-            pr_files=pr_files_legit,
             stage_dir=stage_dir_b,
         )
-        _, comps_b, overall_b, _ = prepare_context.analyze_mainline_and_compare(
+        _, comps_b, overall_b, _, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(rename_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files_legit,
-            pr_patches_by_file=pr_patches_b,
-            head_root_path=head_root_b,
-            base_root_path=base_root_b,
             head_sha=legit_head_sha,
+            pr_patches_by_file=pr_patches_b,
+            base_root_path=base_root_b,
             stage_dir=stage_dir_b,
         )
         self.assertEqual(overall_b, "CLEAN")
@@ -787,15 +672,12 @@ class PrepareContextTest(unittest.TestCase):
         self._git("commit", "-m", "Add binary asset and helper script")
         master_sha = self._git_out("rev-parse", "master")
 
-        # Binary blob must not crash with UnicodeDecodeError and returns None for text staging
         self.assertIsNone(prepare_context.read_git_regular_file_blob(master_sha, "src/tool.bin"))
 
-        # Clean cherry-pick of binary + script is CLEAN via Git tree comparison
         self._git("checkout", "-b", "pr-bin-clean", "release-8.9.0")
         self._git("cherry-pick", master_sha)
         clean_head = self._git_out("rev-parse", "HEAD")
 
-        # Flip executable mode (+x: 100644 -> 100755) without changing text content
         self._git("checkout", "-b", "pr-mode-flip", clean_head)
         sh_path.chmod(0o755)
         self._git("add", "--chmod=+x", "src/run.sh")
@@ -803,56 +685,36 @@ class PrepareContextTest(unittest.TestCase):
         mode_flip_head = self._git_out("rev-parse", "HEAD")
         self._git("checkout", "master")
 
-        pr_files = [
-            {"filename": "src/tool.bin", "status": "added", "additions": 0, "deletions": 0, "patch": ""},
-            {
-                "filename": "src/run.sh",
-                "status": "added",
-                "additions": 2,
-                "deletions": 0,
-                "patch": "@@ -0,0 +1,2 @@\n+#!/bin/sh\n+echo ok",
-            },
-        ]
         stage_clean = self.root / "stage_bin_clean"
-        with patch.object(prepare_context, "gh_api", side_effect=RuntimeError("no network")):
-            _, hr_clean, br_clean, _, patches_clean = prepare_context.stage_pr_and_base_files(
-                repo="bazelbuild/bazel",
-                base_sha=self.base_sha,
-                head_sha=clean_head,
-                pr_files=pr_files,
-                stage_dir=stage_clean,
-            )
-        _, _, overall_clean, _ = prepare_context.analyze_mainline_and_compare(
+        _, _, br_clean, _, patches_clean = prepare_context.stage_pr_and_base_files(
+            base_sha=self.base_sha,
+            head_sha=clean_head,
+            stage_dir=stage_clean,
+        )
+        _, _, overall_clean, _, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(master_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files,
-            pr_patches_by_file=patches_clean,
-            head_root_path=hr_clean,
-            base_root_path=br_clean,
             head_sha=clean_head,
+            pr_patches_by_file=patches_clean,
+            base_root_path=br_clean,
             stage_dir=stage_clean,
         )
         self.assertEqual(overall_clean, "CLEAN")
 
         stage_flip = self.root / "stage_mode_flip"
-        with patch.object(prepare_context, "gh_api", side_effect=RuntimeError("no network")):
-            _, hr_flip, br_flip, _, patches_flip = prepare_context.stage_pr_and_base_files(
-                repo="bazelbuild/bazel",
-                base_sha=self.base_sha,
-                head_sha=mode_flip_head,
-                pr_files=pr_files,
-                stage_dir=stage_flip,
-            )
-        _, comps_flip, overall_flip, vs_flip = prepare_context.analyze_mainline_and_compare(
+        _, _, br_flip, _, patches_flip = prepare_context.stage_pr_and_base_files(
+            base_sha=self.base_sha,
+            head_sha=mode_flip_head,
+            stage_dir=stage_flip,
+        )
+        _, comps_flip, overall_flip, vs_flip, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(master_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files,
-            pr_patches_by_file=patches_flip,
-            head_root_path=hr_flip,
-            base_root_path=br_flip,
             head_sha=mode_flip_head,
+            pr_patches_by_file=patches_flip,
+            base_root_path=br_flip,
             stage_dir=stage_flip,
         )
         self.assertEqual(overall_flip, "MODIFIED_OR_EXTRA_CHANGES")
@@ -864,12 +726,10 @@ class PrepareContextTest(unittest.TestCase):
         self.assertIn("mode 100755", vs_text)
 
     def test_merge_commit_on_master_and_anchored_discovery(self):
-        # Advance master with an unrelated file first
         (self.root / "src" / "MasterOnly.java").write_text("class MasterOnly {}\n", encoding="utf-8")
         self._git("add", "src/MasterOnly.java")
         self._git("commit", "-m", "Unrelated master commit\n\nCloses #602.")
 
-        # Create a feature branch from release-8.9.0 and merge it (--no-ff) into master
         self._git("checkout", "-b", "feat-branch", "release-8.9.0")
         (self.root / "src" / "MergedFix.java").write_text("class MergedFix {}\n", encoding="utf-8")
         self._git("add", "src/MergedFix.java")
@@ -878,7 +738,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("merge", "--no-ff", "feat-branch", "-m", "Merge pull request #700 from user/feat-branch")
         merge_sha = self._git_out("rev-parse", "master")
 
-        # Also commit a Copybara-style automated rollback so we verify revert filtering
         (self.root / "src" / "RolledBack.java").write_text("class RolledBack {}\n", encoding="utf-8")
         self._git("add", "src/RolledBack.java")
         self._git("commit", "-m", "Add important feature for test")
@@ -886,38 +745,24 @@ class PrepareContextTest(unittest.TestCase):
         self._git("rm", "src/RolledBack.java")
         self._git("commit", "-m", "Automated rollback of commit Add important feature for test.")
 
-        # Cherry-pick merge_sha (-m 1) onto release-8.9.0
         self._git("checkout", "-b", "pr-merge-cp", "release-8.9.0")
         self._git("cherry-pick", "-m", "1", merge_sha)
         pr_head = self._git_out("rev-parse", "HEAD")
         self._git("checkout", "master")
 
-        pr_files = [
-            {
-                "filename": "src/MergedFix.java",
-                "status": "added",
-                "additions": 1,
-                "deletions": 0,
-                "patch": "@@ -0,0 +1 @@\n+class MergedFix {}",
-            }
-        ]
         stage_dir = self.root / "stage_merge"
-        _, hr, br, _, patches = prepare_context.stage_pr_and_base_files(
-            repo="bazelbuild/bazel",
+        _, _, br, _, patches = prepare_context.stage_pr_and_base_files(
             base_sha=self.base_sha,
             head_sha=pr_head,
-            pr_files=pr_files,
             stage_dir=stage_dir,
         )
-        mc_info, comps, overall, _ = prepare_context.analyze_mainline_and_compare(
+        mc_info, comps, overall, _, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(merge_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files,
-            pr_patches_by_file=patches,
-            head_root_path=hr,
-            base_root_path=br,
             head_sha=pr_head,
+            pr_patches_by_file=patches,
+            base_root_path=br,
             stage_dir=stage_dir,
         )
         self.assertEqual(overall, "CLEAN")
@@ -926,7 +771,6 @@ class PrepareContextTest(unittest.TestCase):
         self.assertEqual(len(comps), 1)
         self.assertEqual(comps[0]["classification"], "identical")
 
-        # Anchored PR number: (#60) must NOT match Closes #602 on master
         no_prefix_match = prepare_context.find_mainline_commits(
             pr_title="[8.9.0] Unmatched PR (#60)",
             pr_body="",
@@ -938,7 +782,6 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual(no_prefix_match, [])
 
-        # Automated rollback commit must be skipped when matching forward commit by exact subject
         found_orig = prepare_context.find_mainline_commits(
             pr_title="[8.9.0] Add important feature for test",
             pr_body="",
@@ -964,7 +807,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("commit", "-m", "Add long @-containing test file")
         c1_sha = self._git_out("rev-parse", "master")
 
-        # Roll back c1 on master using Copybara rollback format
         self._git("rm", long_rel_path)
         self._git(
             "commit",
@@ -974,41 +816,27 @@ class PrepareContextTest(unittest.TestCase):
         r1_sha = self._git_out("rev-parse", "master")
         self.assertEqual(prepare_context.find_revert_on_master(c1_sha, "master"), r1_sha)
 
-        #Cherry-pick c1 onto release-8.9.0 and verify exact >200-char @ path preservation + reverted_by_on_master
         self._git("checkout", "-b", "pr-long-reverted", "release-8.9.0")
         self._git("cherry-pick", c1_sha)
         pr_head = self._git_out("rev-parse", "HEAD")
         self._git("checkout", "master")
 
-        pr_files = [
-            {
-                "filename": long_rel_path,
-                "status": "added",
-                "additions": 1,
-                "deletions": 0,
-                "patch": "@@ -0,0 +1 @@\n+class VeryLongCherryPickTest {}",
-            }
-        ]
         stage_dir = self.root / "stage_long"
-        _, hr, br, changed_info, patches = prepare_context.stage_pr_and_base_files(
-            repo="bazelbuild/bazel",
+        _, _, br, changed_info, patches = prepare_context.stage_pr_and_base_files(
             base_sha=self.base_sha,
             head_sha=pr_head,
-            pr_files=pr_files,
             stage_dir=stage_dir,
         )
         self.assertEqual(changed_info[0]["path"], long_rel_path)
         self.assertNotIn("\u200b", changed_info[0]["path"])
 
-        mc_info, comps, overall, vs_path = prepare_context.analyze_mainline_and_compare(
+        mc_info, comps, overall, vs_path, _ = prepare_context.analyze_mainline_and_compare(
             candidates=[(c1_sha, "trailer")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=pr_files,
-            pr_patches_by_file=patches,
-            head_root_path=hr,
-            base_root_path=br,
             head_sha=pr_head,
+            pr_patches_by_file=patches,
+            base_root_path=br,
             stage_dir=stage_dir,
         )
         self.assertEqual(overall, "CLEAN")
@@ -1016,7 +844,6 @@ class PrepareContextTest(unittest.TestCase):
         self.assertEqual(comps[0]["path"], long_rel_path)
         self.assertIn("REVERTED OR ROLLED BACK ON MASTER", pathlib.Path(vs_path).read_text(encoding="utf-8"))
 
-        # Rolling back r1 itself (re-landing c1 via rollback-of-rollback) clears active revert status
         full_long_file.parent.mkdir(parents=True, exist_ok=True)
         full_long_file.write_text("class VeryLongCherryPickTest {}\n", encoding="utf-8")
         self._git("add", long_rel_path)
@@ -1031,7 +858,6 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertIsNone(prepare_context.find_revert_on_master(c1_sha, "master"))
 
-        # Non-bot login with empty author_association must be rejected by is_authentic_gemini_review
         self.assertFalse(
             prepare_context.is_authentic_gemini_review(
                 {
@@ -1054,7 +880,6 @@ class PrepareContextTest(unittest.TestCase):
                 pr_author="other-user",
             )
         )
-        # Deleted/ghost accounts (user=None) must be rejected by is_authentic_gemini_review
         self.assertFalse(
             prepare_context.is_authentic_gemini_review(
                 {
@@ -1067,8 +892,7 @@ class PrepareContextTest(unittest.TestCase):
             )
         )
 
-    def test_git_reconciliation_multi_commit_merge_tree_and_real_bazel_provenance_formats(self):
-        # Diverge BUILD on master so M1 conflicts on BUILD while M1 and M2 both cleanly edit src/Foo.java
+    def test_multi_commit_merge_tree_and_real_bazel_provenance_formats(self):
         (self.root / "src" / "BUILD").write_text("java_library(name = 'base')\n", encoding="utf-8")
         self._git("add", "src/BUILD")
         self._git("commit", "-m", "Add src/BUILD")
@@ -1079,7 +903,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("add", "src/BUILD")
         self._git("commit", "-m", "Refactor src/BUILD on master")
 
-        # M1 conflicts on src/BUILD and updates Foo.a
         (self.root / "src" / "BUILD").write_text("java_library(name = 'm1_target')\n", encoding="utf-8")
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 100; }\n  int b() { return 2; }\n}\n",
@@ -1089,7 +912,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("commit", "-m", "Primary fix M1 (#801)")
         m1_sha = self._git_out("rev-parse", "HEAD")
 
-        # M2 builds directly on M1 in Foo.java
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 101; }\n  int b() { return 20; }\n}\n",
             encoding="utf-8",
@@ -1098,7 +920,6 @@ class PrepareContextTest(unittest.TestCase):
         self._git("commit", "-m", "Follow-up fix M2 (#802)")
         m2_sha = self._git_out("rev-parse", "HEAD")
 
-        # Rolling-release changelog commit mentioning M1 as an indented note must NOT mark M1 as reverted
         (self.root / "CHANGELOG.md").write_text("notes\n", encoding="utf-8")
         self._git("add", "CHANGELOG.md")
         self._git(
@@ -1108,7 +929,6 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertIsNone(prepare_context.find_revert_on_master(m1_sha, "master"))
 
-        # PR branch resolves src/BUILD conflict and cleanly includes M1 + M2 in src/Foo.java
         self._git("checkout", "-b", "pr-multi-merge-tree", "release-8.9.0")
         (self.root / "src" / "BUILD").write_text("java_library(name = 'm1_target_890')\n", encoding="utf-8")
         (self.root / "src" / "Foo.java").write_text(
@@ -1120,7 +940,6 @@ class PrepareContextTest(unittest.TestCase):
         pr_head = self._git_out("rev-parse", "HEAD")
         self._git("checkout", "master")
 
-        # Bare 40-char SHAs in bullet list (#31974 format), @bazel-io Commit trailer, and Backport of #num
         found_bullets = prepare_context.find_mainline_commits(
             pr_title="[8.9.0] Cherry-pick fixes",
             pr_body=f"Cherry-picks:\n- {m1_sha}\n- {m2_sha}\n",
@@ -1143,37 +962,25 @@ class PrepareContextTest(unittest.TestCase):
         )
         self.assertEqual([s for s, _ in found_backport_prose], [m2_sha])
 
-        # Verify reconcile_pr_files_with_git catches an uncached file missing from api_pr_files and backfills omitted patches
-        reconciled, truncated = prepare_context.reconcile_pr_files_with_git(
-            self.base_sha,
-            pr_head,
-            [{"filename": "src/BUILD", "status": "modified", "additions": 0, "deletions": 0, "patch": ""}],
-        )
-        self.assertFalse(truncated)
-        rec_by_name = {f["filename"]: f for f in reconciled}
-        self.assertIn("src/Foo.java", rec_by_name)
-        self.assertIn("return 101;", rec_by_name["src/Foo.java"]["patch"])
-        self.assertIn("m1_target_890", rec_by_name["src/BUILD"]["patch"])
-
         stage_dir = self.root / "stage_mt"
-        _, hr, br, _, patches = prepare_context.stage_pr_and_base_files(
-            repo="bazelbuild/bazel",
+        _, _, br, _, patches = prepare_context.stage_pr_and_base_files(
             base_sha=self.base_sha,
             head_sha=pr_head,
-            pr_files=reconciled,
             stage_dir=stage_dir,
         )
-        _, comps, overall, _ = prepare_context.analyze_mainline_and_compare(
+        self.assertIn("return 101;", patches["src/Foo.java"])
+        self.assertIn("m1_target_890", patches["src/BUILD"])
+
+        _, comps, overall, _, truncated = prepare_context.analyze_mainline_and_compare(
             candidates=[(m1_sha, "bullet"), (m2_sha, "bullet")],
             mainline_ref="master",
             base_sha=self.base_sha,
-            pr_files=reconciled,
-            pr_patches_by_file=patches,
-            head_root_path=hr,
-            base_root_path=br,
             head_sha=pr_head,
+            pr_patches_by_file=patches,
+            base_root_path=br,
             stage_dir=stage_dir,
         )
+        self.assertFalse(truncated)
         by_path = {fc["path"]: fc["classification"] for fc in comps}
         self.assertEqual(by_path["src/Foo.java"], "identical")
         self.assertEqual(by_path["src/BUILD"], "adapted_with_conflict")
@@ -1206,7 +1013,6 @@ class PrepareContextTest(unittest.TestCase):
             base_ref="release-8.9.0",
             base_sha=self.base_sha,
             head_sha=bin_v2,
-            pr_patches_by_file={},
             stage_dir=self.root / "stage_bin_delta",
         )
         self.assertFalse(bin_unchanged)
