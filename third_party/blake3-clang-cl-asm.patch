@@ -1,0 +1,38 @@
+--- a/c/BUILD.bazel
++++ b/c/BUILD.bazel
+@@ -183,7 +183,7 @@ cc_library(
+     name = "blake3_internal_sse2_x86-64_asm",
+     srcs = select({
+         ":is_x86_64_windows_clang_mingw": ["blake3_sse2_x86-64_windows_gnu.S"],
+-        ":is_windows_clang_cl": ["blake3_sse2_x86-64_windows_msvc.asm"],
++        ":is_windows_clang_cl": ["blake3_sse2_x86-64_windows_gnu.S"],
+         ":is_windows_msvc": ["blake3_sse2_x86-64_windows_msvc.asm"],
+         "//conditions:default": ["blake3_sse2_x86-64_unix.S"],
+     }),
+@@ -193,7 +193,7 @@ cc_library(
+     name = "blake3_internal_sse41_x86-64_asm",
+     srcs = select({
+         ":is_x86_64_windows_clang_mingw": ["blake3_sse41_x86-64_windows_gnu.S"],
+-        ":is_windows_clang_cl": ["blake3_sse41_x86-64_windows_msvc.asm"],
++        ":is_windows_clang_cl": ["blake3_sse41_x86-64_windows_gnu.S"],
+         ":is_windows_msvc": ["blake3_sse41_x86-64_windows_msvc.asm"],
+         "//conditions:default": ["blake3_sse41_x86-64_unix.S"],
+     }),
+@@ -203,7 +203,7 @@ cc_library(
+     name = "blake3_internal_avx2_x86-64_asm",
+     srcs = select({
+         ":is_x86_64_windows_clang_mingw": ["blake3_avx2_x86-64_windows_gnu.S"],
+-        ":is_windows_clang_cl": ["blake3_avx2_x86-64_windows_msvc.asm"],
++        ":is_windows_clang_cl": ["blake3_avx2_x86-64_windows_gnu.S"],
+         ":is_windows_msvc": ["blake3_avx2_x86-64_windows_msvc.asm"],
+         "//conditions:default": ["blake3_avx2_x86-64_unix.S"],
+     }),
+@@ -213,7 +213,7 @@ cc_library(
+     name = "blake3_internal_avx512_x86-64_asm",
+     srcs = select({
+         ":is_x86_64_windows_clang_mingw": ["blake3_avx512_x86-64_windows_gnu.S"],
+-        ":is_windows_clang_cl": ["blake3_avx512_x86-64_windows_msvc.asm"],
++        ":is_windows_clang_cl": ["blake3_avx512_x86-64_windows_gnu.S"],
+         ":is_windows_msvc": ["blake3_avx512_x86-64_windows_msvc.asm"],
+         "//conditions:default": ["blake3_avx512_x86-64_unix.S"],
+     }),

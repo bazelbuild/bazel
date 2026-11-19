@@ -317,6 +317,31 @@ platform(
     parents = [":default_host_platform"],
 )
 
+# Default Windows host/execution platform: uses the hermetic LLVM MSVC ABI
+# toolchain with Microsoft STL while inheriting host capabilities from
+# `:default_host_platform`.
+platform(
+    name = "windows_host_platform",
+    constraint_values = [
+        "@llvm//constraints/windows/abi:msvc",
+        "@llvm//constraints/cxxstdlib:msvcstl",
+    ],
+    parents = [":default_host_platform"],
+)
+
+# Standalone Windows x86_64 target platform (MSVC ABI + Microsoft STL) for
+# cross-compiling //src:bazel_windows_llvm from any host OS.
+platform(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+        "@llvm//constraints/windows/abi:msvc",
+        "@llvm//constraints/cxxstdlib:msvcstl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 platform(
     name = "windows_arm64",
     constraint_values = [
