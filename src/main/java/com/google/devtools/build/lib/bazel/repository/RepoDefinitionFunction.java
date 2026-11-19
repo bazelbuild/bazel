@@ -43,7 +43,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -75,12 +74,6 @@ public final class RepoDefinitionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    var root = (RepoDefinitionInputs.Root) env.getValue(RepoDefinitionInputs.ROOT_KEY);
-    if (root == null) {
-      return null;
-    }
-    RepositoryMapping basicMainRepoMapping = root.basicMainRepoMapping();
-
     RepositoryName repositoryName = ((RepoDefinitionValue.Key) skyKey).argument();
 
     // Step 0: Look for repository overrides via canonical names. Requesting the main repo mapping
@@ -95,22 +88,27 @@ public final class RepoDefinitionFunction implements SkyFunction {
           directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").asFragment());
     }
 
-    // Step 1: Look for repositories defined by non-registry overrides.
-    Optional<RepoDefinitionValue> nonRegistryOverride =
-        checkRepoFromNonRegistryOverrides(
-            root, repositoryName, overrides, basicMainRepoMapping, env);
-    if (env.valuesMissing()) {
+    var lookup =
+        (RepoDefinitionInputs.Lookup)
+            env.getValue(RepoDefinitionInputs.ResolvedRepoKey.create(repositoryName));
+    if (lookup == null) {
       return null;
     }
-    if (nonRegistryOverride.isPresent()) {
-      return nonRegistryOverride.get();
-    }
+    RepositoryMapping basicMainRepoMapping = lookup.basicMainRepoMapping();
 
-    // The resolved graph can depend on repos found in Step 1.
-    var resolved =
-        (ResolvedRepo) env.getValue(RepoDefinitionInputs.ResolvedRepoKey.create(repositoryName));
-    if (resolved == null) {
-      return null;
+    // Step 1: Non-registry overrides may be needed before the module graph is available.
+    ResolvedRepo resolved = lookup.repo();
+    if (resolved instanceof ResolvedRepo.NonRegistry override) {
+      if (override.apparentName() != null) {
+        PathFragment commandLineOverride = overrides.get(override.apparentName());
+        if (commandLineOverride != null) {
+          return new RepoDefinitionValue.RepoOverride(commandLineOverride);
+        }
+      }
+      var definition =
+          createRepoDefinitionFromSpec(
+              override.spec(), repositoryName, /* originalName= */ null, basicMainRepoMapping, env);
+      return env.valuesMissing() ? null : definition;
     }
 
     // Step 2: Look for repository overrides via apparent names.
@@ -131,6 +129,7 @@ public final class RepoDefinitionFunction implements SkyFunction {
       case ResolvedRepo.Extension(ModuleExtensionId extensionId) ->
           checkRepoFromExtension(extensionId, repositoryName, basicMainRepoMapping, env);
       case ResolvedRepo.Missing unused -> RepoDefinitionValue.NOT_FOUND;
+      case ResolvedRepo.NonRegistry unused -> throw new AssertionError("already handled");
     };
   }
 
@@ -151,31 +150,6 @@ public final class RepoDefinitionFunction implements SkyFunction {
       case ExtensionRepoSpecFunction.Found(String internalName, RepoSpec spec) ->
           createRepoDefinitionFromSpec(spec, repositoryName, internalName, basicMainRepoMapping, env);
     };
-  }
-
-  // Callers must check env.valuesMissing() and ignore the result if true.
-  private Optional<RepoDefinitionValue> checkRepoFromNonRegistryOverrides(
-      RepoDefinitionInputs.Root root,
-      RepositoryName repositoryName,
-      Map<String, PathFragment> overrides,
-      RepositoryMapping basicMainRepoMapping,
-      Environment env)
-      throws RepoDefinitionFunctionException, InterruptedException {
-    var override = root.nonRegistryOverrides().get(repositoryName);
-    if (override == null) {
-      return Optional.empty();
-    }
-    // If this module is a direct dep of the root module, its apparent name may be named by the
-    // --override_repository flag, which takes precedence over the non-registry override.
-    if (override.apparentName() != null) {
-      PathFragment commandLineOverride = overrides.get(override.apparentName());
-      if (commandLineOverride != null) {
-        return Optional.of(new RepoDefinitionValue.RepoOverride(commandLineOverride));
-      }
-    }
-    return Optional.ofNullable(
-        createRepoDefinitionFromSpec(
-            override.spec(), repositoryName, /* originalName= */ null, basicMainRepoMapping, env));
   }
 
   @Nullable

@@ -40,11 +40,9 @@ final class RepoDefinitionInputs {
   @SerializationConstant
   static final SkyKey RESOLVED_KEY = () -> SkyFunctions.RESOLVED_REPO_DEFINITION_INPUTS;
 
-  record NonRegistryRepo(@Nullable String apparentName, RepoSpec spec) {}
-
   record Root(
       RepositoryMapping basicMainRepoMapping,
-      ImmutableMap<RepositoryName, NonRegistryRepo> nonRegistryOverrides)
+      ImmutableMap<RepositoryName, ResolvedRepo.NonRegistry> nonRegistryOverrides)
       implements SkyValue {}
 
   record Resolved(
@@ -52,8 +50,14 @@ final class RepoDefinitionInputs {
       ImmutableMap<ModuleExtensionId, String> extensionUniqueNames)
       implements SkyValue {}
 
-  /** Which entry in the resolved graph supplies this repository's definition. */
-  sealed interface ResolvedRepo extends SkyValue {
+  @AutoCodec
+  record Lookup(RepositoryMapping basicMainRepoMapping, ResolvedRepo repo) implements SkyValue {}
+
+  /** Which entry supplies this repository's definition. */
+  sealed interface ResolvedRepo {
+    @AutoCodec
+    record NonRegistry(@Nullable String apparentName, RepoSpec spec) implements ResolvedRepo {}
+
     @AutoCodec
     record Module(RepoSpec spec) implements ResolvedRepo {}
 
@@ -102,7 +106,7 @@ final class RepoDefinitionInputs {
                 .put(root.module().getRepoName(), RepositoryName.MAIN)
                 .buildKeepingLast(),
             RepositoryName.MAIN);
-    var overrides = ImmutableMap.<RepositoryName, NonRegistryRepo>builder();
+    var overrides = ImmutableMap.<RepositoryName, ResolvedRepo.NonRegistry>builder();
     root.nonRegistryOverrideCanonicalRepoToModuleName()
         .forEach(
             (canonicalName, moduleName) -> {
@@ -113,7 +117,7 @@ final class RepoDefinitionInputs {
               var override = (NonRegistryOverride) root.overrides().get(moduleName);
               overrides.put(
                   canonicalName,
-                  new NonRegistryRepo(
+                  new ResolvedRepo.NonRegistry(
                       root.nonRegistryOverrideModuleToRepoName().get(moduleName),
                       override.repoSpec()));
             });
@@ -142,23 +146,32 @@ final class RepoDefinitionInputs {
 
   // A change to one module's spec should not recreate unrelated repository definitions.
   @Nullable
-  static ResolvedRepo computeResolvedRepo(SkyKey key, SkyFunction.Environment env)
+  static Lookup computeResolvedRepo(SkyKey key, SkyFunction.Environment env)
       throws InterruptedException {
+    var root = (Root) env.getValue(ROOT_KEY);
+    if (root == null) {
+      return null;
+    }
+    RepositoryName name = ((ResolvedRepoKey) key).name();
+    ResolvedRepo.NonRegistry override = root.nonRegistryOverrides().get(name);
+    if (override != null) {
+      // Fetching non-registry overrides can be required to resolve the module graph.
+      return new Lookup(root.basicMainRepoMapping(), override);
+    }
     var resolved = (Resolved) env.getValue(RESOLVED_KEY);
     if (resolved == null) {
       return null;
     }
-    RepositoryName name = ((ResolvedRepoKey) key).name();
     RepoSpec spec = resolved.moduleSpecs().get(name);
     if (spec != null) {
-      return new ResolvedRepo.Module(spec);
+      return new Lookup(root.basicMainRepoMapping(), new ResolvedRepo.Module(spec));
     }
     for (var entry : resolved.extensionUniqueNames().entrySet()) {
       if (name.getName().startsWith(entry.getValue() + "+")) {
-        return new ResolvedRepo.Extension(entry.getKey());
+        return new Lookup(root.basicMainRepoMapping(), new ResolvedRepo.Extension(entry.getKey()));
       }
     }
-    return ResolvedRepo.Missing.INSTANCE;
+    return new Lookup(root.basicMainRepoMapping(), ResolvedRepo.Missing.INSTANCE);
   }
 
   private RepoDefinitionInputs() {}
