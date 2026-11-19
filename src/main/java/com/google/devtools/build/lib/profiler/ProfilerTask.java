@@ -102,6 +102,8 @@ public enum ProfilerTask {
   WASM_LOAD("load WebAssembly module"),
   WASM_EXEC("execute WebAssembly function"),
 
+  REPO_CONTENTS_CACHE("Repository contents cache"),
+
   UNKNOWN("Unknown event");
 
   private static class Threshold {

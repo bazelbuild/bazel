@@ -316,7 +316,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
       // repository as valid even though it is in an inconsistent state. Clear the marker file and
       // only recreate it after fetching is done to prevent this scenario.
       DigestWriter.clearMarkerFile(directories, repositoryName);
-      FetchResult result = fetchAndHandleEvents(repoDefinition, repoRoot, env, repositoryName);
+      FetchResult result;
+      try (var span =
+          Profiler.instance()
+              .profile(
+                  ProfilerTask.REPO_CONTENTS_CACHE, () -> "Run repository rule: " + repositoryName)) {
+        result = fetchAndHandleEvents(repoDefinition, repoRoot, env, repositoryName);
+      }
       if (result == null) {
         return null;
       }
