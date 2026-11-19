@@ -108,6 +108,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
@@ -1241,6 +1242,8 @@ public class RemoteExecutionServiceTest {
   @Test
   public void downloadOutputs_outputDirectoriesWithUnicodeFilenames_works() throws Exception {
     // arrange
+    String unicodeFilename = "Iñtërnâtiônàlizætiøn＊";
+    String internalPath = unicodeToInternal("outputs/dir/" + unicodeFilename);
     Digest internationalizationDigest = cache.addContents(remoteActionExecutionContext, "hello");
     Tree tree =
         Tree.newBuilder()
@@ -1248,7 +1251,7 @@ public class RemoteExecutionServiceTest {
                 Directory.newBuilder()
                     .addFiles(
                         FileNode.newBuilder()
-                            .setName("Iñtërnâtiônàlizætiøn")
+                            .setName(unicodeFilename)
                             .setDigest(internationalizationDigest))
                     .addSymlinks(SymlinkNode.newBuilder().setName("東京都").setTarget("京都市")))
             .build();
@@ -1258,7 +1261,7 @@ public class RemoteExecutionServiceTest {
     RemoteActionResult result =
         RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    FakeSpawnExecutionContext context = spy(newSpawnExecutionContext(spawn));
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
@@ -1269,10 +1272,9 @@ public class RemoteExecutionServiceTest {
     service.downloadOutputs(action, result);
 
     // assert
-    assertThat(
-            readContent(
-                execRoot.getRelative(unicodeToInternal("outputs/dir/Iñtërnâtiônàlizætiøn")), UTF_8))
-        .isEqualTo("hello");
+    assertThat(readContent(execRoot.getRelative(internalPath), UTF_8)).isEqualTo("hello");
+    verify(context)
+        .report(SpawnProgressEvent.create(internalPath, "Downloading " + internalPath, false));
     assertThat(execRoot.getRelative(unicodeToInternal("outputs/dir/東京都")).readSymbolicLink())
         .isEqualTo(PathFragment.create(unicodeToInternal("京都市")));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
