@@ -93,6 +93,13 @@ single_version_override(
     patches = ["//third_party:blake3-clang-cl-asm.patch"],
 )
 
+# Add clang-cl to WABT_CXXOPTS select().
+single_version_override(
+    module_name = "wabt",
+    patch_strip = 1,
+    patches = ["//third_party:wabt-clang-cl.patch"],
+)
+
 # bazel_dep overrides
 single_version_override(
     module_name = "rules_jvm_external",
