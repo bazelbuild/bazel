@@ -137,9 +137,13 @@ java_library(
         ],
     ),
     add_opens = [
+        "java.base/java.io",
+        "java.base/java.lang",
         "java.base/java.lang.invoke",
+        "java.base/java.time",
         # For VarHandle access to private fields of ArrayList and EnumMap.
         "java.base/java.util",
+        "java.base/java.util.concurrent.atomic",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__subpackages__",
