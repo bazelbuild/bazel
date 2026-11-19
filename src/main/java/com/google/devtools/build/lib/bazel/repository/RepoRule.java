@@ -115,6 +115,19 @@ public record RepoRule(
     }
   }
 
+  // Compared by identity since the implementation function may use the repo mapping of the .bzl
+  // file that defines it, which doesn't affect the function's equality. Evaluating the .bzl file
+  // again yields a new instance.
+  @Override
+  public boolean equals(Object o) {
+    return this == o;
+  }
+
+  @Override
+  public int hashCode() {
+    return System.identityHashCode(this);
+  }
+
   public static Builder builder() {
     return new AutoBuilder_RepoRule_Builder();
   }
