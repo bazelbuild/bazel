@@ -20,6 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote:ReferenceCountedChannel",
         "//src/main/java/com/google/devtools/build/lib/remote:Retrier",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
