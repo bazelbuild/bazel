@@ -93,7 +93,11 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "4",
       converter = PositiveIntegerConverter.class,
-      help = "Target concurrency for remote analysis caching RPCs.")
+      help =
+          "Target concurrency for remote analysis caching read RPCs. Partial batches dispatch"
+              + " eagerly below this target; once reached, requests buffer until a full batch"
+              + " (--experimental_remote_analysis_cache_reader_max_batch_size) is ready and then"
+              + " dispatch immediately, so in-flight batches are not capped at this value.")
   public abstract int getConcurrency();
 
   @Option(
