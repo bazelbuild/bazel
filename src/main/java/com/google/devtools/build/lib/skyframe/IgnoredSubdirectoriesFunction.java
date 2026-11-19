@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.VENDOR_DIRECTORY;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
@@ -98,7 +99,8 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
                   + ". Was it modified mid-build?"));
     } catch (InvalidPathException e) {
       throw new IgnoredSubdirectoriesFunctionException(
-          new InvalidIgnorePathException(patternFile.asPath().toString(), e.getMessage()));
+          new InvalidIgnorePathException(
+              patternFile.asPath().toString(), platformToInternal(e.getMessage())));
     }
   }
 

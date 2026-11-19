@@ -227,7 +227,9 @@ public class WindowsSubprocess implements Subprocess {
         // Error. There isn't a lot we can do -- the process is still alive but
         // WaitForSingleObject() failed for some odd reason. This should
         // basically never happen, but if it does... let's get a stack trace.
-        String errorMessage = WindowsProcesses.processGetLastError(nativeState.nativeProcess);
+        String errorMessage =
+            StringEncoding.platformToInternal(
+                WindowsProcesses.processGetLastError(nativeState.nativeProcess));
         throw new IllegalStateException(
             "Waiting for process "
                 + WindowsProcesses.getProcessPid(nativeState.nativeProcess)
@@ -247,7 +249,9 @@ public class WindowsSubprocess implements Subprocess {
     checkLiveness();
 
     int result = WindowsProcesses.getExitCode(nativeState.nativeProcess);
-    String error = WindowsProcesses.processGetLastError(nativeState.nativeProcess);
+    String error =
+        StringEncoding.platformToInternal(
+            WindowsProcesses.processGetLastError(nativeState.nativeProcess));
     if (!error.isEmpty()) {
       throw new IllegalStateException(error);
     }
