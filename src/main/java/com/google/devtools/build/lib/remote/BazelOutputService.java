@@ -214,8 +214,8 @@ public class BazelOutputService implements OutputService {
               FailureDetail.newBuilder()
                   .setMessage(
                       String.format(
-                          "--experimental_remote_output_service_path_prefix must be an absolute"
-                              + " path, got '%s'",
+                          "--experimental_remote_output_service_output_path_prefix must be an"
+                              + " absolute path, got '%s'",
                           outputPathPrefix))
                   .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
                   .build()));
