@@ -26,9 +26,9 @@ import javax.annotation.Nullable;
  * tasks.
  *
  * <p>With merged analysis and execution phases, this QueueVisitor is responsible for all 3 phases:
- * loading, analysis and execution. There's an additional 3rd pool for execution tasks. This is done
- * for performance reason: each of these phases has an optimal number of threads for its thread
- * pool.
+ * loading, analysis and execution. There's an additional 3rd pool for execution tasks, and an
+ * optional 4th non-priority pool for post-analysis tasks. This is done for performance reasons:
+ * each of these phases has an optimal number of threads and scheduling policy for its thread pool.
  *
  * <p>Created anew each build.
  */
@@ -37,11 +37,13 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   private final ExecutorService regularPoolExecutorService;
   private final ExecutorService cpuHeavyPoolExecutorService;
   @Nullable private final ExecutorService executionPhaseExecutorService;
+  @Nullable private final ExecutorService postAnalysisPhaseExecutorService;
 
   private MultiExecutorQueueVisitor(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
       @Nullable ExecutorService executionPhaseExecutorService,
+      @Nullable ExecutorService postAnalysisPhaseExecutorService,
       ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     super(
@@ -52,6 +54,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     this.regularPoolExecutorService = super.getExecutorService();
     this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
     this.executionPhaseExecutorService = executionPhaseExecutorService;
+    this.postAnalysisPhaseExecutorService = postAnalysisPhaseExecutorService;
     Preconditions.checkArgument(
         ordersTasksByPriority() == ordersTasksByPriority(this.cpuHeavyPoolExecutorService),
         "regular and CPU-heavy pools must agree on priority ordering");
@@ -59,6 +62,10 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         executionPhaseExecutorService == null
             || !ordersTasksByPriority(executionPhaseExecutorService),
         "execution-phase pool must not use priority ordering");
+    Preconditions.checkArgument(
+        postAnalysisPhaseExecutorService == null
+            || !ordersTasksByPriority(postAnalysisPhaseExecutorService),
+        "post-analysis pool must not use priority ordering");
   }
 
   public static MultiExecutorQueueVisitor createWithExecutorServices(
@@ -70,6 +77,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
         /* executionPhaseExecutorService= */ null,
+        /* postAnalysisPhaseExecutorService= */ null,
         exceptionHandlingMode,
         errorClassifier);
   }
@@ -77,13 +85,15 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   public static MultiExecutorQueueVisitor createWithExecutorServices(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
-      ExecutorService executionPhaseExecutorService,
+      @Nullable ExecutorService executionPhaseExecutorService,
+      @Nullable ExecutorService postAnalysisPhaseExecutorService,
       ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     return new MultiExecutorQueueVisitor(
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
         executionPhaseExecutorService,
+        postAnalysisPhaseExecutorService,
         exceptionHandlingMode,
         errorClassifier);
   }
@@ -109,6 +119,10 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         Preconditions.checkNotNull(executionPhaseExecutorService);
         yield executionPhaseExecutorService;
       }
+      case POST_ANALYSIS -> {
+        Preconditions.checkNotNull(postAnalysisPhaseExecutorService);
+        yield postAnalysisPhaseExecutorService;
+      }
     };
   }
 
@@ -121,6 +135,9 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     internalShutdownExecutorService(cpuHeavyPoolExecutorService);
     if (executionPhaseExecutorService != null) {
       internalShutdownExecutorService(executionPhaseExecutorService);
+    }
+    if (postAnalysisPhaseExecutorService != null) {
+      internalShutdownExecutorService(postAnalysisPhaseExecutorService);
     }
   }
 
@@ -139,5 +156,10 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   @Override
   public boolean hasSeparatePoolForExecutionTasks() {
     return executionPhaseExecutorService != null;
+  }
+
+  @Override
+  public boolean hasSeparatePoolForPostAnalysisTasks() {
+    return postAnalysisPhaseExecutorService != null;
   }
 }
