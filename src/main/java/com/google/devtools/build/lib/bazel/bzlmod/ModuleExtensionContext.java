@@ -91,7 +91,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     // Record inputs to the extension that are known prior to evaluation.
     RepoRecordedInput.EnvVar.wrap(staticEnvVars)
         .forEach((input, value) -> recordInputWithValue(input, value.orElse(null)));
-    repoMappingRecorder.record(staticRepoMappingEntries);
+    staticRepoMappingEntries
+        .cellSet()
+        .forEach(
+            cell -> recordRepoMappingEntry(cell.getRowKey(), cell.getColumnKey(), cell.getValue()));
   }
 
   @Override

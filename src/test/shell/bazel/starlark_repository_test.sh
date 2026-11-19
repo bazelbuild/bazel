@@ -2458,6 +2458,51 @@ EOF
   expect_log "I see: @@bar+//:data"
 }
 
+function test_repo_mapping_change_in_attr_default() {
+  # same as above, but tests label attribute defaults
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo", repo_name="data")
+local_path_override(module_name="foo", path="foo")
+bazel_dep(name="bar")
+local_path_override(module_name="bar", path="bar")
+EOF
+  touch BUILD
+  echo 'load("@r//:r.bzl", "pi"); print(pi)' > WORKSPACE.bzlmod
+  cat > r.bzl <<EOF
+def _r(rctx):
+  print("I see: " + str(rctx.attr.data))
+  rctx.file("BUILD", "filegroup(name='r')")
+  rctx.file("r.bzl", "pi=3.14")
+r=repository_rule(_r, attrs={"data": attr.label(default="@data")})
+EOF
+  mkdir foo
+  cat > foo/MODULE.bazel <<EOF
+module(name="foo")
+EOF
+  mkdir bar
+  cat > bar/MODULE.bazel <<EOF
+module(name="bar")
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@foo+//:data"
+
+  # So far, so good. Now we make `@data` point to bar instead!
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo")
+local_path_override(module_name="foo", path="foo")
+bazel_dep(name="bar", repo_name="data")
+local_path_override(module_name="bar", path="bar")
+EOF
+  # for the repo `r`, nothing except the repo mapping has changed.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@bar+//:data"
+}
+
 function test_file_watching_inside_working_dir() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it.

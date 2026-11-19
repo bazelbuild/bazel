@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -45,33 +44,14 @@ public class LabelConverter {
 
   private final Label.PackageContext packageContext;
   private final Map<String, Label> labelCache = new HashMap<>();
-  @Nullable private final Label.RepoMappingRecorder repoMappingRecorder;
-
-  private LabelConverter(
-      Label.PackageContext packageContext,
-      @Nullable Label.RepoMappingRecorder repoMappingRecorder) {
-    this.packageContext = packageContext;
-    this.repoMappingRecorder = repoMappingRecorder;
-  }
 
   public LabelConverter(Label.PackageContext packageContext) {
-    this(packageContext, null);
+    this.packageContext = packageContext;
   }
 
   /** Creates a label converter using the given base package and repo mapping. */
   public LabelConverter(PackageIdentifier base, RepositoryMapping repositoryMapping) {
     this(Label.PackageContext.of(base, repositoryMapping));
-  }
-
-  /**
-   * Creates a label converter using the given base package and repo mapping, recording all repo
-   * mapping lookups in the given recorder.
-   */
-  public LabelConverter(
-      PackageIdentifier base,
-      RepositoryMapping repositoryMapping,
-      Label.RepoMappingRecorder repoMappingRecorder) {
-    this(Label.PackageContext.of(base, repositoryMapping), repoMappingRecorder);
   }
 
   /** Returns the base package identifier that relative labels will be resolved against. */
@@ -87,7 +67,7 @@ public class LabelConverter {
     // label-strings across all their attribute values.
     Label converted = labelCache.get(input);
     if (converted == null) {
-      converted = Label.parseWithPackageContext(input, packageContext, repoMappingRecorder);
+      converted = Label.parseWithPackageContext(input, packageContext);
       labelCache.put(input, converted);
     }
     return converted;

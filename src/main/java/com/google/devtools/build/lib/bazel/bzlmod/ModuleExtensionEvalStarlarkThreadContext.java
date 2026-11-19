@@ -130,15 +130,13 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
     // Make it possible to refer to extension repos in the label attributes of another extension
     // repo. Wrapping a label in Label(...) ensures that it is evaluated with respect to the
     // containing module's repo mapping instead.
-    ImmutableMap.Builder<String, RepositoryName> entries = ImmutableMap.builder();
-    entries.putAll(baseRepoMapping.entries());
-    entries.putAll(
+    ImmutableMap.Builder<String, RepositoryName> overrides = ImmutableMap.builder();
+    overrides.putAll(
         Maps.asMap(
             deferredRepos.keySet(),
             apparentName -> RepositoryName.createUnvalidated(repoPrefix + apparentName)));
-    entries.putAll(repoOverrides);
-    RepositoryMapping fullRepoMapping =
-        RepositoryMapping.create(entries.buildKeepingLast(), baseRepoMapping.contextRepo());
+    overrides.putAll(repoOverrides);
+    RepositoryMapping fullRepoMapping = baseRepoMapping.withOverrides(overrides.buildKeepingLast());
     // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/ModuleExtensionRepoMappingEntriesFunction.java)
 
     LabelConverter labelConverter = new LabelConverter(basePackageId, fullRepoMapping);

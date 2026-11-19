@@ -140,6 +140,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName REPOSITORY_MAPPING =
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
+  public static final SkyFunctionName REPOSITORY_MAPPING_ENTRY =
+      SkyFunctionName.createHermetic("REPOSITORY_MAPPING_ENTRY");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
   public static final SkyFunctionName REPO_PACKAGE_ARGS =

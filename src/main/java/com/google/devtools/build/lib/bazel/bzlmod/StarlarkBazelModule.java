@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.LabelConverter;
@@ -111,14 +110,12 @@ public class StarlarkBazelModule implements StarlarkValue {
       ModuleExtension extension,
       RepositoryMapping repoMapping,
       @Nullable ModuleExtensionUsage usage,
-      Label.RepoMappingRecorder repoMappingRecorder,
       int moduleIndex)
       throws ExternalDepsException {
     LabelConverter labelConverter =
         new LabelConverter(
             PackageIdentifier.create(repoMapping.contextRepo(), PathFragment.EMPTY_FRAGMENT),
-            repoMapping,
-            repoMappingRecorder);
+            repoMapping);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     LinkedHashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new LinkedHashMap<>();
     for (String tagClassName : extension.tagClasses().keySet()) {

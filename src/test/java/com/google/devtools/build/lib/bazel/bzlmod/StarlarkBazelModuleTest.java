@@ -26,7 +26,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepoMappingRecorder;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.SimpleRepoMappingRecorder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
@@ -97,18 +99,22 @@ public class StarlarkBazelModuleTest {
             .build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
-    var repoMappingRecorder = new Label.SimpleRepoMappingRecorder();
-    StarlarkBazelModule moduleProxy =
-        StarlarkBazelModule.create(
-            abridgedModule,
-            extension,
-            module.getRepoMappingWithBazelDepsOnly(
-                ImmutableMap.of(
-                    fooKey, fooKey.getCanonicalRepoNameWithoutVersion(),
-                    barKey, barKey.getCanonicalRepoNameWithoutVersion())),
-            usage,
-            repoMappingRecorder,
-            /* moduleIndex= */ 0);
+    var repoMappingRecorder = new SimpleRepoMappingRecorder();
+    StarlarkBazelModule moduleProxy;
+    try (var unused = RepoMappingRecorder.install(repoMappingRecorder)) {
+      moduleProxy =
+          StarlarkBazelModule.create(
+              abridgedModule,
+              extension,
+              module
+                  .getRepoMappingWithBazelDepsOnly(
+                      ImmutableMap.of(
+                          fooKey, fooKey.getCanonicalRepoNameWithoutVersion(),
+                          barKey, barKey.getCanonicalRepoNameWithoutVersion()))
+                  .withRecordedLookups(),
+              usage,
+              /* moduleIndex= */ 0);
+    }
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
@@ -162,7 +168,6 @@ public class StarlarkBazelModuleTest {
                     module.getRepoMappingWithBazelDepsOnly(
                         ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
                     usage,
-                    new Label.SimpleRepoMappingRecorder(),
                     /* moduleIndex= */ 0));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
@@ -184,7 +189,6 @@ public class StarlarkBazelModuleTest {
             module.getRepoMappingWithBazelDepsOnly(
                 ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
             /* usage= */ null,
-            new Label.SimpleRepoMappingRecorder(),
             /* moduleIndex= */ 0);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");

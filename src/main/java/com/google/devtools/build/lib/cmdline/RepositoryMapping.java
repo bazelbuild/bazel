@@ -40,16 +40,36 @@ public class RepositoryMapping {
   private final RepositoryName contextRepo;
   // entries has an expensive hashCode() method that isn't cached.
   private final int hashCode;
+  private final boolean recordsLookups;
 
   private RepositoryMapping(
-      Map<String, RepositoryName> entries, int entriesHashCode, RepositoryName contextRepo) {
+      Map<String, RepositoryName> entries,
+      int entriesHashCode,
+      RepositoryName contextRepo,
+      boolean recordsLookups) {
     this.entries = ImmutableMap.copyOf(entries);
     this.contextRepo = contextRepo;
     this.hashCode = 31 * entriesHashCode + contextRepo.hashCode();
+    this.recordsLookups = recordsLookups;
+  }
+
+  /**
+   * Creates a mapping with the same entries and context repo as {@code other} that reports its
+   * lookups to the current {@link RepoMappingRecorder}.
+   */
+  protected RepositoryMapping(RepositoryMapping other) {
+    this(other, /* recordsLookups= */ true);
+  }
+
+  private RepositoryMapping(RepositoryMapping other, boolean recordsLookups) {
+    this.entries = other.entries;
+    this.contextRepo = other.contextRepo;
+    this.hashCode = other.hashCode;
+    this.recordsLookups = recordsLookups;
   }
 
   /** Returns all the entries in this repo mapping. */
-  public final ImmutableMap<String, RepositoryName> entries() {
+  public ImmutableMap<String, RepositoryName> entries() {
     return entries;
   }
 
@@ -98,7 +118,44 @@ public class RepositoryMapping {
     return new RepositoryMapping(
         Preconditions.checkNotNull(entries),
         entriesHashCode,
-        Preconditions.checkNotNull(contextRepo));
+        Preconditions.checkNotNull(contextRepo),
+        /* recordsLookups= */ false);
+  }
+
+  /**
+   * Returns a mapping with the same entries and context repo as this one that reports its lookups
+   * to the current {@link RepoMappingRecorder}. This is meant for the mapping of a repo as computed
+   * by Skyframe, so that recorded lookups can be checked against it later.
+   */
+  public RepositoryMapping withRecordedLookups() {
+    return recordsLookups ? this : new RepositoryMapping(this, /* recordsLookups= */ true);
+  }
+
+  /**
+   * Returns a mapping that resolves the names in {@code overrides} to their values and all other
+   * names through this mapping, so that only lookups of the latter are recorded.
+   */
+  public RepositoryMapping withOverrides(ImmutableMap<String, RepositoryName> overrides) {
+    RepositoryMapping base = this;
+    ImmutableMap<String, RepositoryName> allEntries =
+        ImmutableMap.<String, RepositoryName>builderWithExpectedSize(
+                entries.size() + overrides.size())
+            .putAll(entries)
+            .putAll(overrides)
+            .buildKeepingLast();
+    return new RepositoryMapping(
+        allEntries, allEntries.hashCode(), contextRepo, /* recordsLookups= */ false) {
+      @Override
+      public RepositoryName get(String preMappingName) {
+        RepositoryName override = overrides.get(preMappingName);
+        if (override != null) {
+          return override;
+        }
+        RepositoryName canonicalName = base.get(preMappingName);
+        // Suggest the overridden names as well.
+        return canonicalName.isVisible() ? canonicalName : getUnrecorded(preMappingName);
+      }
+    };
   }
 
   /**
@@ -131,6 +188,19 @@ public class RepositoryMapping {
    * provided apparent repo name is assumed to be valid.
    */
   public RepositoryName get(String preMappingName) {
+    if (recordsLookups) {
+      RepoMappingRecorder recorder = RepoMappingRecorder.current();
+      if (recorder != null) {
+        return recorder.get(this, preMappingName);
+      }
+    }
+    return getUnrecorded(preMappingName);
+  }
+
+  /**
+   * Like {@link #get}, but doesn't report the lookup to the current {@link RepoMappingRecorder}.
+   */
+  public RepositoryName getUnrecorded(String preMappingName) {
     RepositoryName canonicalRepoName = entries().get(preMappingName);
     if (canonicalRepoName != null) {
       return canonicalRepoName;
@@ -143,6 +213,20 @@ public class RepositoryMapping {
    * Returns the first apparent name in this mapping that maps to the given canonical name, if any.
    */
   public Optional<String> getInverse(RepositoryName postMappingName) {
+    if (recordsLookups) {
+      RepoMappingRecorder recorder = RepoMappingRecorder.current();
+      if (recorder != null) {
+        return recorder.getInverse(this, postMappingName);
+      }
+    }
+    return getInverseUnrecorded(postMappingName);
+  }
+
+  /**
+   * Like {@link #getInverse}, but doesn't report the lookup to the current {@link
+   * RepoMappingRecorder}.
+   */
+  public Optional<String> getInverseUnrecorded(RepositoryName postMappingName) {
     return entries().entrySet().stream()
         .filter(e -> e.getValue().equals(postMappingName))
         .map(Entry::getKey)
@@ -161,9 +245,9 @@ public class RepositoryMapping {
       inverse.putIfAbsent(entry.getValue(), entry.getKey());
     }
     var inverseCopy = ImmutableMap.copyOf(inverse);
-    return new RepositoryMapping(entries, entries.hashCode(), contextRepo) {
+    return new RepositoryMapping(entries, entries.hashCode(), contextRepo, recordsLookups) {
       @Override
-      public Optional<String> getInverse(RepositoryName postMappingName) {
+      public Optional<String> getInverseUnrecorded(RepositoryName postMappingName) {
         return Optional.ofNullable(inverseCopy.get(postMappingName));
       }
     };

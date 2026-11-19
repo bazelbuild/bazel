@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.SimpleRepoMappingRecorder;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
@@ -49,6 +50,8 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
   // Used for `configuration_field`.
   private final ImmutableMap<String, Class<?>> fragmentNameToClass;
 
+  private final SimpleRepoMappingRecorder repoMappingRecorder;
+
   /**
    * Constructs a new context for initializing a .bzl file.
    *
@@ -59,6 +62,7 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
    * @param mainRepoMapping the repository mapping of the main repository
+   * @param repoMappingRecorder records the repo mapping lookups of the .bzl file and its loads
    */
   public BzlInitThreadContext(
       Label bzlFile,
@@ -66,13 +70,15 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
       RepositoryName toolsRepository,
       Optional<Label> noExplicitMnemonicAllowlist,
       ImmutableMap<String, Class<?>> fragmentNameToClass,
-      RepositoryMapping mainRepoMapping) {
+      RepositoryMapping mainRepoMapping,
+      SimpleRepoMappingRecorder repoMappingRecorder) {
     super(() -> mainRepoMapping);
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;
     this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
     this.fragmentNameToClass = fragmentNameToClass;
+    this.repoMappingRecorder = repoMappingRecorder;
   }
 
   /**
@@ -114,6 +120,11 @@ public final class BzlInitThreadContext extends StarlarkThreadContext
   /** Returns the transitive digest of the .bzl module being initialized. */
   public byte[] getTransitiveDigest() {
     return transitiveDigest;
+  }
+
+  /** Returns the recorder of the repo mapping lookups of the .bzl module being initialized. */
+  public SimpleRepoMappingRecorder getRepoMappingRecorder() {
+    return repoMappingRecorder;
   }
 
   /**

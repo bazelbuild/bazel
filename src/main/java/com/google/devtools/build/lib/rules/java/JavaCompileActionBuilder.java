@@ -29,6 +29,10 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TrackedRepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -223,8 +227,7 @@ public final class JavaCompileActionBuilder {
       } else {
         // @-prefixed strings will be assumed to be filenames and expanded by
         // {@link JavaLibraryBuildRequest}, so add an extra &at; to escape it.
-        result.addPrefixedLabel(
-            "@", targetLabel, ruleContext.getAnalysisEnvironment().getMainRepoMapping());
+        addExternalTargetLabel(result, targetLabel, ruleContext);
       }
     }
     result.add("--injecting_rule_kind", injectingRuleKind);
@@ -425,6 +428,27 @@ public final class JavaCompileActionBuilder {
     @Override
     String prefix() {
       return PROGRESS_MESSAGE_PREFIX;
+    }
+  }
+
+  /**
+   * Adds the display form of a label in an external repo, prefixed with {@code @}.
+   *
+   * <p>The display form is computed during analysis so that the configured target only depends on
+   * the main repo's apparent name for the label's repo.
+   */
+  static void addExternalTargetLabel(
+      CustomCommandLine.Builder commandLine, Label targetLabel, RuleContext ruleContext)
+      throws InterruptedException {
+    RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
+    if (RepoMappingLookups.ENABLED && latestMain != null) {
+      commandLine.addDynamicString(
+          "@"
+              + targetLabel.getDisplayForm(
+                  TrackedRepositoryMapping.shared(latestMain, RepositoryName.MAIN)));
+    } else {
+      commandLine.addPrefixedLabel(
+          "@", targetLabel, ruleContext.getAnalysisEnvironment().getMainRepoMapping());
     }
   }
 }

@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction;
 import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingEntryFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -586,6 +587,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 Root.fromPath(directories.getWorkspace())))
         .put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE)
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction(ruleClassProvider))
+        .put(SkyFunctions.REPOSITORY_MAPPING_ENTRY, new RepositoryMappingEntryFunction())
         .put(
             SkyFunctions.PACKAGE,
             PackageFunction.newBuilder()

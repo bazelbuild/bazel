@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.SimpleRepoMappingRecorder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -171,7 +172,8 @@ public final class BazelEvaluationTestCase {
             TestConstants.TOOLS_REPOSITORY,
             noExplicitMnemonicAllowlist,
             fragmentNameToClass,
-            /* mainRepoMapping= */ null)
+            /* mainRepoMapping= */ null,
+            new SimpleRepoMappingRecorder())
         .storeInThread(thread);
   }
 
