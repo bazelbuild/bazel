@@ -146,7 +146,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     boolean generateHashes = queryOptions.getGenerateHashes();
     if (generateHashes) {
       // Hashes are computed after evaluation, so aggregate the results instead of streaming them.
-      callback = QueryUtil.newLexicographicallySortedTargetAggregator();
+      callback = QueryUtil.newLexicographicallySortedTargetAggregator(/* parallelSort= */ true);
     } else if (streamResults) {
       disableAnsiCharactersFiltering(env);
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
