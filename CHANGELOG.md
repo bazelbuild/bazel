@@ -2,6 +2,11 @@
 
 ```
 Baseline: 88c9fc464a967c973ae64c7cb251a4c31094e703
+
+Cherry picks:
+
+   + caddbfc7e1da6df83072c9aa5c0b44e7ad8de077:
+     Release 11.0.0-pre.20261114.1 (2026-11-19)
 ```
 
 Incompatible changes:
