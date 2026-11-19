@@ -24,6 +24,7 @@ import time
 
 from absl.testing import absltest
 from src.test.py.bazel import test_base
+from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 
 
 class RepoContentsCacheTest(test_base.TestBase):
@@ -349,6 +350,58 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.RunBazel(['clean', '--expunge'], cwd=dir_a)
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_a)
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testCacheHitAcrossWorkspacesWithWorkspaceRegistry(self):
+    # Two checkouts of a workspace that contains a registry.
+    dir_a = self.ScratchDir('a')
+    patch_file = self.ScratchFile(
+        'aaa.patch',
+        [
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0"',
+            '+    lib_name="aaa@1.0 (remotely patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
+            ' }',
+        ],
+    )
+    overlay_file = self.ScratchFile('overlay.txt', ['overlaid'])
+    BazelRegistry(os.path.join(dir_a, 'registry')).createShModule(
+        'aaa',
+        '1.0',
+        patches=[patch_file],
+        patch_strip=1,
+        overlay={'overlay.txt': overlay_file},
+    )
+    self.ScratchFile(
+        'a/MODULE.bazel', ['bazel_dep(name = "aaa", version = "1.0")']
+    )
+    self.ScratchFile('a/BUILD.bazel')
+    # On Windows, %workspace% is C:/..., so file:///%workspace% is
+    # file:///C:/...
+    self.ScratchFile(
+        'a/.bazelrc',
+        [
+            'common --registry=file:///%workspace%/registry',
+            'common --registry=https://bcr.bazel.build',
+        ],
+    )
+    dir_b = self.Path('b')
+    shutil.copytree(dir_a, dir_b)
+
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_a)
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_b)
+
+    repo_dir_a = self.repoDir('aaa', cwd=dir_a)
+    repo_dir_b = self.repoDir('aaa', cwd=dir_b)
+    self.assertRepoCached(repo_dir_a)
+    self.assertEqual(os.path.realpath(repo_dir_a), os.path.realpath(repo_dir_b))
+    with open(os.path.join(repo_dir_b, 'aaa.sh')) as f:
+      self.assertIn('(remotely patched)', f.read())
+    self.assertTrue(os.path.exists(os.path.join(repo_dir_b, 'overlay.txt')))
 
   def testGc_singleServer_gcAfterCacheHit(self):
     self.ScratchFile(

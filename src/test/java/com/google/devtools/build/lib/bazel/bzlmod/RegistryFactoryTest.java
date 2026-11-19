@@ -22,6 +22,8 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import org.junit.Test;
@@ -35,7 +37,9 @@ public class RegistryFactoryTest {
   @Test
   public void badSchemes() {
     RegistryFactory registryFactory =
-        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+        new RegistryFactoryImpl(
+            Suppliers.ofInstance(ImmutableMap.of()),
+            new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/workspace"));
     Throwable exception =
         assertThrows(
             URISyntaxException.class,
@@ -65,7 +69,9 @@ public class RegistryFactoryTest {
   @Test
   public void badPath() {
     RegistryFactory registryFactory =
-        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+        new RegistryFactoryImpl(
+            Suppliers.ofInstance(ImmutableMap.of()),
+            new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/workspace"));
     Throwable exception =
         assertThrows(
             URISyntaxException.class,
