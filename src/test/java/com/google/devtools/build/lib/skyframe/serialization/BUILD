@@ -477,7 +477,9 @@ java_library(
             "MutableListCodecTest.java",
             "SingletonCodecTest.java",
             "StarlarkListCodecTest.java",
+            "StarlarkProviderIdentifierCodecTest.java",
             "StarlarkSetCodecTest.java",
+            "StarlarkValueCodecTest.java",
             "TupleCodecTest.java",
             "TransitiveTraversalValueCodecTest.java",
             "MemoizerTest.java",
@@ -606,6 +608,34 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "StarlarkProviderIdentifierCodecTest",
+    size = "small",
+    srcs = ["StarlarkProviderIdentifierCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/junit",
+    ],
+)
+
+java_test(
+    name = "StarlarkValueCodecTest",
+    size = "small",
+    srcs = ["StarlarkValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/truth",
     ],
 )
