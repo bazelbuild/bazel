@@ -1749,6 +1749,45 @@ PYTHON
   expect_log "Streamed 1 query hash records (0 unknown, $(wc -c < snapshot.pb | tr -d ' ') bytes)"
 }
 
+function test_generate_hashes_report_overlapping_failures() {
+  mkdir -p hash_failures
+  cat > hash_failures/repos.bzl <<'EOF'
+def _impl(rctx):
+    fail("unavailable repository")
+
+broken = repository_rule(implementation = _impl)
+EOF
+  cat >> MODULE.bazel <<'EOF'
+broken = use_repo_rule("//hash_failures:repos.bzl", "broken")
+broken(name = "alpha")
+broken(name = "beta")
+EOF
+  cat > hash_failures/BUILD <<'EOF'
+filegroup(name = "known")
+filegroup(name = "a", srcs = ["@alpha//:first", "@alpha//:second"])
+filegroup(name = "b", srcs = ["@beta//:first"])
+filegroup(name = "cycle_a", srcs = [":cycle_b", ":a"])
+filegroup(name = "cycle_b", srcs = [":cycle_a"])
+filegroup(name = "both", srcs = [":cycle_b", ":b"])
+EOF
+  local -a query=(query --experimental_generate_hashes --keep_going --noshow_progress
+    --output=streamed_proto "kind('filegroup rule', //hash_failures:*)")
+  local status=0
+  bazel "${query[@]}" > snapshot-default.pb 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  expect_log "Streamed 6 query hash records (5 unknown"
+  expect_not_log "Unknown hash impact of"
+
+  status=0
+  bazel "${query[@]}" --experimental_query_hash_failure_impact \
+    > snapshot-impact.pb 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  expect_log "Streamed 6 query hash records (5 unknown"
+  expect_log "Unknown hash impact of @@.*alpha: 4 affected, 3 exclusive"
+  expect_log "Unknown hash impact of @@.*beta: 2 affected, 1 exclusive"
+  cmp snapshot-default.pb snapshot-impact.pb || fail "Failure impact changed the catalog"
+}
+
 function test_generate_hashes_source_directory_children() {
   mkdir -p directory_hashes/tree
   cat > directory_hashes/BUILD.bazel <<'EOF'
