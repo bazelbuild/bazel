@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ImmutableDiff;
@@ -146,7 +147,7 @@ public final class FileSystemValueCheckerInferringAncestors {
             Collections.unmodifiableMap(nodeStates),
             syscallCache,
             skyValueDirtinessChecker)
-        .processEntries(nThreads);
+        .processEntries(modifiedKeys, nThreads);
   }
 
   private static Map<RootedPath, NodeVisitState> makeNodeVisitStates(
@@ -180,7 +181,8 @@ public final class FileSystemValueCheckerInferringAncestors {
     return nodeStates;
   }
 
-  private ImmutableDiff processEntries(int nThreads) throws InterruptedException {
+  private ImmutableDiff processEntries(Iterable<FileStateKey> modifiedKeys, int nThreads)
+      throws InterruptedException {
     ExecutorService executor = Executors.newFixedThreadPool(nThreads);
 
     // Materialize all leaves before scheduling them -- otherwise, we could race with the
@@ -208,6 +210,10 @@ public final class FileSystemValueCheckerInferringAncestors {
       } catch (ExecutionException e) {
         throw new IllegalStateException(e);
       }
+    }
+
+    for (FileStateKey key : modifiedKeys) {
+      invalidateParentListingIfMissingExistingEntry(key.argument());
     }
 
     // If any directory was deleted, invalidate all FSVs and DLSVs under it since the diff may only
@@ -446,6 +452,41 @@ public final class FileSystemValueCheckerInferringAncestors {
       }
     }
     return false;
+  }
+
+  /**
+   * Invalidates the parent listing of a reported path that exists but isn't listed.
+   *
+   * <p>On a case-insensitive or normalization-insensitive file system, a rename that only changes
+   * the spelling of an entry doesn't change the file state of either spelling, so {@link
+   * #visitEntry} doesn't notice that the listing changed.
+   */
+  private void invalidateParentListingIfMissingExistingEntry(RootedPath path) {
+    if (!path.getRoot().getFileSystem().mayBeCaseOrNormalizationInsensitive()) {
+      return;
+    }
+    Optional<DirectoryListingStateValue.Key> parentListingKey = parentListingKey(path);
+    if (parentListingKey.isEmpty() || valuesToInvalidate.contains(parentListingKey.get())) {
+      return;
+    }
+    @Nullable InMemoryNodeEntry entry = inMemoryGraph.getIfPresent(parentListingKey.get());
+    if (entry == null || !entry.isDone()) {
+      return;
+    }
+    var parentListing = (DirectoryListingStateValue) entry.getValue();
+    if (parentListing == null
+        || parentListing.getDirents().maybeGetDirent(path.getRootRelativePath().getBaseName())
+            != null) {
+      return;
+    }
+    try {
+      if (syscallCache.statIfFound(path.asPath(), Symlinks.NOFOLLOW) == null) {
+        return;
+      }
+    } catch (IOException e) {
+      // Let the listing surface the error.
+    }
+    valuesToInvalidate.add(parentListingKey.get());
   }
 
   private static Optional<DirectoryListingStateValue.Key> parentListingKey(RootedPath path) {

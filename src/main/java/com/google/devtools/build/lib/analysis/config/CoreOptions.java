@@ -24,6 +24,8 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
@@ -582,6 +584,8 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           - `valgrind --quiet --num-callers=20`
           - `//package:target`
           - `//package:target --options`
+          Using --run_under= resets Bazel to its default behavior when --run_under has not
+          been supplied at all.
           """)
   public abstract RunUnder getRunUnder();
 
@@ -916,7 +920,9 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           RequiredConfigFragmentsProvider with the configuration fragments they directly
           require.
           If `transitive`, they do the same but also include the fragments their
-          transitive dependencies require. If `off`, the provider is omitted.
+          transitive dependencies require. If `transitive_starlark_only`, they only include the
+          Starlark options they and their transitive dependencies require (omitting native
+          options, fragments, and `--define`s). If `off`, the provider is omitted.
 
           Be careful using this feature: it adds memory to every configured target in the
           build.
@@ -1017,8 +1023,17 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
         || getLimitOutputDirToPlatforms().contains(platform);
   }
 
+  // ALIAS_MAP_CACHE avoids rebuilding the map on repeated calls with the same List instance, while
+  // ALIAS_MAP_INTERNER canonicalizes equal maps across distinct List instances (e.g. after
+  // getNormalized() or deserialization) so map equality checks hit the reference fast path.
+  private static final Interner<ImmutableMap<String, Label>> ALIAS_MAP_INTERNER =
+      Interners.newWeakInterner();
+
   private static final LoadingCache<List<Map.Entry<String, Label>>, ImmutableMap<String, Label>>
-      ALIAS_MAP_CACHE = Caffeine.newBuilder().weakKeys().build(ImmutableMap::copyOf);
+      ALIAS_MAP_CACHE =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(list -> ALIAS_MAP_INTERNER.intern(ImmutableMap.copyOf(list)));
 
   public final ImmutableMap<String, Label> getCommandLineFlagAliasesMap() {
     return ALIAS_MAP_CACHE.get(getCommandLineFlagAliases());
@@ -1050,7 +1065,12 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
     /** Provide the fragments required <em>directly</em> by this rule. */
     DIRECT,
     /** Provide the fragments required by this rule and its transitive dependencies. */
-    TRANSITIVE
+    TRANSITIVE,
+    /**
+     * Provide only the Starlark options required by this rule and its transitive dependencies,
+     * omitting native options, fragments, and {@code --define}s.
+     */
+    TRANSITIVE_STARLARK_ONLY
   }
 
   /** Enum converter for --include_config_fragments_provider. */

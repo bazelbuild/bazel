@@ -37,6 +37,7 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
         .setToolchainTypes(ImmutableSet.of())
         .setRequestedLabelToToolchainType(ImmutableMap.of())
         .setToolchainTypeToResolved(ImmutableSetMultimap.of())
+        .setToolchainResolutionFlags(ImmutableSet.of())
         .setErrorData(null);
   }
 
@@ -71,6 +72,9 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
     Builder setRequestedLabelToToolchainType(
         ImmutableMap<Label, ToolchainTypeInfo> requestedLabelToToolchainType);
 
+    /** Sets the build settings read by the target_settings of the considered toolchains. */
+    Builder setToolchainResolutionFlags(ImmutableSet<Label> toolchainResolutionFlags);
+
     /** Stores an exception that occurred during resolution of this toolchain. */
     Builder setErrorData(NoMatchingPlatformData errorData);
 
@@ -81,6 +85,9 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
   public ImmutableSet<Label> resolvedToolchainLabels() {
     return toolchainTypeToResolved().inverse().keySet();
   }
+
+  @Override
+  public abstract ImmutableSet<Label> toolchainResolutionFlags();
 
   protected abstract Builder toBuilder();
 }

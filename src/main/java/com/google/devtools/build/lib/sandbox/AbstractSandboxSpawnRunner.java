@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.exec.local.AllowedLocalActions;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -80,6 +82,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       Path statisticsPath) {}
 
   private final SandboxOptions sandboxOptions;
+  private final LocalExecutionOptions localExecutionOptions;
   private final boolean verboseFailures;
   private final boolean expandParamFiles;
   private final ImmutableSet<Path> inaccessiblePaths;
@@ -91,6 +94,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
+    this.localExecutionOptions = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ExecutionOptions executionOptions = cmdEnv.getOptions().getOptions(ExecutionOptions.class);
     this.verboseFailures = executionOptions.getVerboseFailures();
     this.expandParamFiles = executionOptions.getExpandParamFiles();
@@ -107,12 +111,18 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    context.report(SpawnSchedulingEvent.create(getName()));
 
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
 
     try {
+      SpawnResult denied =
+          AllowedLocalActions.denyIfNotAllowed(
+              localExecutionOptions, this, owner.getMnemonic(), context);
+      if (denied != null) {
+        return denied;
+      }
+      context.report(SpawnSchedulingEvent.create(getName()));
       Stopwatch prefetchStopwatch = Stopwatch.createStarted();
       try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
         context.prefetchInputsAndWait();

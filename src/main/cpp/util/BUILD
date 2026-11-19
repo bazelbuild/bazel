@@ -82,17 +82,6 @@ cc_library(
 )
 
 cc_library(
-    name = "numbers",
-    srcs = ["numbers.cc"],
-    hdrs = ["numbers.h"],
-    visibility = [
-        "//src/main/cpp:__subpackages__",
-        "//src/test/cpp/util:__pkg__",
-    ],
-    deps = [":strings"],
-)
-
-cc_library(
     name = "logging",
     srcs = ["logging.cc"],
     hdrs = ["logging.h"],

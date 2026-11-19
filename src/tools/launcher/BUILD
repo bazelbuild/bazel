@@ -51,7 +51,6 @@ win_cc_library(
     hdrs = ["java_launcher.h"],
     deps = [
         ":launcher_base",
-        "//src/main/native/windows:lib-process",
         "//src/tools/launcher/util",
     ],
 )

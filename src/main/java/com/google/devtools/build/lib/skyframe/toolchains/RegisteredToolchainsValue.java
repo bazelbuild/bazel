@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.toolchains;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -37,14 +38,19 @@ import javax.annotation.Nullable;
  *     are the toolchain type labels, column keys are toolchain target (not implementation) labels,
  *     and cells are the reason. Only non-null if {@link RegisteredToolchainsValue.Key#debug} is
  *     {@code true}.
+ * @param toolchainResolutionFlags Maps each toolchain type label to the Starlark flags read by the
+ *     {@code target_settings} of every registered toolchain of that type, including rejected ones.
+ *     Toolchain resolution for the type depends on these flags.
  */
 @AutoCodec
 public record RegisteredToolchainsValue(
     ImmutableList<DeclaredToolchainInfo> registeredToolchains,
-    @Nullable ImmutableTable<Label, Label, String> rejectedToolchains)
+    @Nullable ImmutableTable<Label, Label, String> rejectedToolchains,
+    ImmutableSetMultimap<Label, Label> toolchainResolutionFlags)
     implements SkyValue {
   public RegisteredToolchainsValue {
     requireNonNull(registeredToolchains, "registeredToolchains");
+    requireNonNull(toolchainResolutionFlags, "toolchainResolutionFlags");
   }
 
   /** Returns the {@link SkyKey} for {@link RegisteredToolchainsValue}s. */
@@ -121,7 +127,15 @@ public record RegisteredToolchainsValue(
   public static RegisteredToolchainsValue create(
       ImmutableList<DeclaredToolchainInfo> registeredToolchains,
       @Nullable ImmutableTable<Label, Label, String> rejectedToolchains) {
-    return new RegisteredToolchainsValue(registeredToolchains, rejectedToolchains);
+    return create(registeredToolchains, rejectedToolchains, ImmutableSetMultimap.of());
+  }
+
+  public static RegisteredToolchainsValue create(
+      ImmutableList<DeclaredToolchainInfo> registeredToolchains,
+      @Nullable ImmutableTable<Label, Label, String> rejectedToolchains,
+      ImmutableSetMultimap<Label, Label> toolchainResolutionFlags) {
+    return new RegisteredToolchainsValue(
+        registeredToolchains, rejectedToolchains, toolchainResolutionFlags);
   }
 
 }

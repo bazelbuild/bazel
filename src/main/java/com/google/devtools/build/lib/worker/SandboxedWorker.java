@@ -82,6 +82,7 @@ final class SandboxedWorker extends SingleplexWorker {
     this.workerExecRoot =
         new WorkerExecRoot(
             workDir,
+            workerKey.getExecRoot(),
             hardenedSandboxOptions != null
                 ? ImmutableList.of(PathFragment.create(tmpDirPath.getPathString()))
                 : ImmutableList.of(),

@@ -26,6 +26,7 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -91,6 +92,8 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -256,7 +259,7 @@ public final class SkyframeActionExecutor {
   private boolean rewindingEnabled;
   private boolean checkRewoundActionOutputs;
   private int maxRepeatedLostInputs;
-  @Nullable private Label bustActionCachesTarget;
+  private ImmutableSet<Label> bustActionCachesTargets = ImmutableSet.of();
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -374,7 +377,7 @@ public final class SkyframeActionExecutor {
     this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
     this.checkRewoundActionOutputs = buildRequestOptions.getCheckRewoundActionOutputs();
     this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
-    this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
+    this.bustActionCachesTargets = buildRequestOptions.getBustActionCachesTargets();
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
@@ -531,7 +534,7 @@ public final class SkyframeActionExecutor {
     this.rewoundActions = null;
     this.actionsWithLostOutputs = null;
     this.actionCacheChecker = null;
-    this.bustActionCachesTarget = null;
+    this.bustActionCachesTargets = ImmutableSet.of();
     this.outputDirectoryHelper = null;
     this.actionConcurrencyMeter.stop();
     this.actionConcurrencyMeter = null;
@@ -591,8 +594,8 @@ public final class SkyframeActionExecutor {
    * is inaccessible.
    */
   public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
-    if (bustActionCachesTarget != null) {
-      // Ideally we'd only return true if the target matches or is an rdep of the cache buster
+    if (!bustActionCachesTargets.isEmpty()) {
+      // Ideally we'd only return true if the target matches or is an rdep of a cache buster
       // target, but it's not easy to determine that.
       return true;
     }
@@ -704,7 +707,7 @@ public final class SkyframeActionExecutor {
       ActionLookupData actionLookupData,
       @Nullable FileSystem actionFileSystem,
       ActionPostprocessing postprocessing,
-      boolean hasDiscoveredInputs,
+      @Nullable NestedSet<Artifact> discoveredInputs,
       @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
@@ -748,10 +751,14 @@ public final class SkyframeActionExecutor {
                         actionExecutionContext,
                         actionLookupData,
                         postprocessing,
+                        discoveredInputs == null
+                            ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+                            : discoveredInputs,
                         previousOutputs)));
 
     SharedActionCallback callback =
-        getSharedActionCallback(env.getListener(), hasDiscoveredInputs, action, actionLookupData);
+        getSharedActionCallback(
+            env.getListener(), discoveredInputs != null, action, actionLookupData);
 
     ActionExecutionValue result = null;
     ActionExecutionException finalException = null;
@@ -812,9 +819,6 @@ public final class SkyframeActionExecutor {
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
-    boolean bustActionCache =
-        bustActionCachesTarget != null
-            && bustActionCachesTarget.equals(actionLookupData.getLabel());
     return new ActionExecutionContext(
         executorEngine,
         compositeInputMetadataProvider,
@@ -830,7 +834,7 @@ public final class SkyframeActionExecutor {
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverFactory.apply(actionLookupData),
-        bustActionCache);
+        bustActionCachesTargets.contains(actionLookupData.getLabel()));
   }
 
   private static void closeContext(
@@ -1178,6 +1182,9 @@ public final class SkyframeActionExecutor {
     private final ActionLookupData actionLookupData;
     @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
+    // The inputs returned by Action#discoverInputs, which the action may read during execution
+    // even if they aren't part of Action#getInputs yet.
+    private final NestedSet<Artifact> discoveredInputs;
     @Nullable private final ActionExecutionValue previousOutputs;
     // True if the action was successfully registered with the statusReporter.
     // This ensures we only attempt to remove it during cleanup, avoiding
@@ -1192,6 +1199,7 @@ public final class SkyframeActionExecutor {
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
         ActionPostprocessing postprocessing,
+        NestedSet<Artifact> discoveredInputs,
         @Nullable ActionExecutionValue previousOutputs) {
       this.action = action;
       this.inputMetadataProvider = inputMetadataProvider;
@@ -1201,6 +1209,7 @@ public final class SkyframeActionExecutor {
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
       this.postprocessing = postprocessing;
+      this.discoveredInputs = discoveredInputs;
       this.previousOutputs = previousOutputs;
     }
 
@@ -1283,7 +1292,10 @@ public final class SkyframeActionExecutor {
 
             try (SilentCloseable innerLock =
                 rewoundActionSynchronizer.enterActionExecution(
-                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
+                    action,
+                    wasRewound,
+                    discoveredInputs,
+                    actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }

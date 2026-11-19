@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -499,10 +498,6 @@ public final class CcToolchainProvider {
   @Deprecated
   public String getLegacyCcFlagsMakeVariable() throws EvalException {
     return value.getValue("_legacy_cc_flags_make_variable", String.class);
-  }
-
-  public FdoContext getFdoContext() throws EvalException {
-    return new FdoContext(value.getValue("_fdo_context", StructImpl.class));
   }
 
   // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality

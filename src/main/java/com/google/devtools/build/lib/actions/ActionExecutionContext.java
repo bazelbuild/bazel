@@ -87,11 +87,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public String getWorkspaceName() {
-      return wrapped.getWorkspaceName();
-    }
-
-    @Override
     public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
       return wrapped.getArtifactsAtCanonicalLocationsForLogging();
     }

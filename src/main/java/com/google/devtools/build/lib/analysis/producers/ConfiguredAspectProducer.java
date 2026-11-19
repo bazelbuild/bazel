@@ -15,14 +15,17 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.devtools.build.lib.analysis.AspectCollection.buildAspectKey;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -56,6 +59,7 @@ final class ConfiguredAspectProducer
 
   // -------------------- Internal State --------------------
   private final HashMap<AspectDescriptor, AspectValue> aspectValues = new HashMap<>();
+  private final HashMap<AspectDescriptor, AspectKey> aspectKeys = new HashMap<>();
 
   ConfiguredAspectProducer(
       AspectCollection aspects,
@@ -73,10 +77,9 @@ final class ConfiguredAspectProducer
   @Override
   public StateMachine step(Tasks tasks) {
     var baseKey = ConfiguredTargetKey.fromConfiguredTarget(prerequisite.getConfiguredTarget());
-    var memoTable = new HashMap<AspectDescriptor, AspectKey>();
     for (AspectDeps deps : aspects.getUsedAspects()) {
       tasks.lookUp(
-          buildAspectKey(deps, memoTable, baseKey),
+          buildAspectKey(deps, aspectKeys, baseKey),
           AspectCreationException.class,
           (ValueOrExceptionSink<AspectCreationException>) this);
     }
@@ -101,25 +104,30 @@ final class ConfiguredAspectProducer
     }
 
     var configuredAspects = new ArrayList<ConfiguredAspect>(usedAspects.size());
+    var configuredAspectKeys = ImmutableList.<AspectKey>builderWithExpectedSize(usedAspects.size());
     for (AspectCollection.AspectDeps depAspect : usedAspects) {
       var value = aspectValues.get(depAspect.aspect());
       if (value == ConfiguredAspect.NonApplicableAspect.INSTANCE) {
         continue;
       }
       configuredAspects.add(value);
+      configuredAspectKeys.add(aspectKeys.get(depAspect.aspect()));
       if (transitiveState.storeTransitivePackages()) {
         transitiveState.updateTransitivePackages(
             value.getKeyForTransitivePackageTracking(), value.getTransitivePackages());
       }
     }
-    try {
-      sink.acceptConfiguredAspectMergedTarget(
-          outputIndex,
-          prerequisite.fromConfiguredTarget(
-              MergedConfiguredTarget.of(prerequisite.getConfiguredTarget(), configuredAspects)));
+    ConfiguredTarget mergedTarget;
+    // The merged sets are owned by the merged aspects, whose keys determine the merge's result.
+    try (var _ = NestedSetOwnerScope.enter(configuredAspectKeys.build())) {
+      mergedTarget =
+          MergedConfiguredTarget.of(prerequisite.getConfiguredTarget(), configuredAspects);
     } catch (MergingException e) {
       sink.acceptConfiguredAspectError(e);
+      return DONE;
     }
+    sink.acceptConfiguredAspectMergedTarget(
+        outputIndex, prerequisite.fromConfiguredTarget(mergedTarget));
     return DONE;
   }
 }

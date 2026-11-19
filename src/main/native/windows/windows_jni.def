@@ -1,0 +1,6 @@
+; Blake3MessageDigest calls these functions through java.lang.foreign, but
+; blake3.h only marks them as dllexport when building blake3 as a DLL.
+EXPORTS
+    blake3_hasher_init
+    blake3_hasher_update
+    blake3_hasher_finalize

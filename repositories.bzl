@@ -16,7 +16,7 @@
 """
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+load("@rules_java//toolchains:remote_java_repository.bzl", "remote_java_repository")
 
 ##################################################################################
 #
@@ -31,15 +31,10 @@ DIST_ARCHIVE_REPOS = [
     "bazel_lib+",
     "bazel_skylib+",
     "blake3+",
-    "c-ares+",
-    "envoy_api+",
     "googleapis+",
-    "googleapis-grpc-java+",
-    "googleapis-java+",
     "googleapis-rules-registry+",
     "grpc+",
     "grpc-java+",
-    "opencensus-cpp+",
     "package_metadata+",
     "platforms",
     "protobuf+",
@@ -48,7 +43,6 @@ DIST_ARCHIVE_REPOS = [
     "rules_android+",
     "rules_apple+",
     "rules_cc+",
-    "rules_fuzzing+",
     "rules_go+",
     "rules_graalvm+",
     "rules_java+",
@@ -63,19 +57,33 @@ DIST_ARCHIVE_REPOS = [
     "rules_swift+",
     "stardoc+",
     "tar.bzl+",
-    "toml.bzl+",
     "with_cfg.bzl+",
     "xds+",
     "zlib+",
     "zstd-jni+",
-] + [get_canonical_repo_name(repo) for repo in [
-    # Module extension repos
-    "async_profiler",
-    "async_profiler_linux_arm64",
-    "async_profiler_linux_x64",
-    "async_profiler_macos",
-    "bats_core",
-]]
+]
+
+_ASYNC_PROFILER_URL = "https://github.com/async-profiler/async-profiler/releases/download/v4.5/"
+
+# Maps the files downloaded from _ASYNC_PROFILER_URL to their integrity.
+_ASYNC_PROFILER_FILES = {
+    "async-profiler.jar": "sha256-gdbK6ZcdQa8UCxxif0DVERguAEtJEwfcPH3jsZnry7s=",
+    "async-profiler-4.5-linux-arm64.tar.gz": "sha256-ZMQdFGXWAJdDnFDX6SS0lG8fYrHL0hzlsDT60JwNaXk=",
+    "async-profiler-4.5-linux-x64.tar.gz": "sha256-iVRvu57g/FSWx+3UCZsHCUibx4sNgFfMu0uAH2sDK2I=",
+    "async-profiler-4.5-macos.zip": "sha256-RtBO+B9TKgZaCzh35IiqcGr6FKouoUQzsyPbnm/adtw=",
+}
+
+# Archives required while bootstrapping Bazel offline that are fetched by
+# reproducible module extensions, as a map from URL to integrity. They are
+# listed here rather than in DIST_ARCHIVE_REPOS because reproducible extensions
+# are not recorded in the lockfile.
+DIST_ARCHIVE_ARTIFACTS = {
+    # bats-core is fetched by @bazel_lib's bats toolchain extension.
+    "https://github.com/bats-core/bats-core/archive/v1.10.0.tar.gz": "sha256-oan3h1qktqlIDKOE1YZfHM8bCx+urWtHqkfXlwmlxf0=",
+} | {
+    _ASYNC_PROFILER_URL + file: integrity
+    for file, integrity in _ASYNC_PROFILER_FILES.items()
+}
 
 ##################################################################################
 #
@@ -83,38 +91,102 @@ DIST_ARCHIVE_REPOS = [
 #
 ##################################################################################
 
+# The JDK distributions embedded into Bazel. They are also registered as the Java runtimes
+# selected by --java_runtime_version=remotejdk_27 so that tests run on the embedded JDK version.
+_EMBEDDED_JDKS = {
+    "openjdk_linux_vanilla": struct(
+        downloaded_file_path = "zulu-linux-vanilla.tar.gz",
+        integrity = "sha256-xNe/TICiHpNRh+zcsRHksvFOH90YNkl0/n99pUsSvqA=",
+        remote_java_repository = "remotejdk27_linux",
+        strip_prefix = "zulu27.30.201-ca-jdk27.0.1.1-linux_x64",
+        target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-linux_x64.tar.gz",
+    ),
+    "openjdk_linux_aarch64_vanilla": struct(
+        downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
+        integrity = "sha256-GIdbkq0lNSMKExdfcYkz98wFk7Sv+i2rRCgV7CRdrLs=",
+        remote_java_repository = "remotejdk27_linux_aarch64",
+        strip_prefix = "zulu27.30.201-ca-jdk27.0.1.1-linux_aarch64",
+        target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-linux_aarch64.tar.gz",
+    ),
+    "openjdk_macos_x86_64_vanilla": struct(
+        downloaded_file_path = "zulu-macos-vanilla.tar.gz",
+        integrity = "sha256-Jx+NG7L2kr3JgXmejyURM8hUzFwe2vqAKYpGG7iQnew=",
+        remote_java_repository = "remotejdk27_macos",
+        strip_prefix = "zulu27.30.201-ca-jdk27.0.1.1-macosx_x64/Contents/Home",
+        target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-macosx_x64.tar.gz",
+    ),
+    "openjdk_macos_aarch64_vanilla": struct(
+        downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
+        integrity = "sha256-HShDChPSVySIVnkuATHYRcvjJBRZcd98lxbsKpKsD8o=",
+        remote_java_repository = "remotejdk27_macos_aarch64",
+        strip_prefix = "zulu27.30.201-ca-jdk27.0.1.1-macosx_aarch64/Contents/Home",
+        target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-macosx_aarch64.tar.gz",
+    ),
+    "openjdk_win_vanilla": struct(
+        downloaded_file_path = "zulu-win-vanilla.zip",
+        integrity = "sha256-9UJOo2+DKqKKBEGlf/sd/izT2QOALAo20iV2sazEMOw=",
+        remote_java_repository = "remotejdk27_win",
+        strip_prefix = "zulu27.30.201-ca-jdk27.0.1.1-win_x64",
+        target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+        url = "https://cdn.azul.com/zulu/bin/zulu27.30.201-ca-jdk27.0.1.1-win_x64.zip",
+    ),
+    "openjdk_linux_ppc64le_vanilla": struct(
+        downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
+        integrity = "sha256-SaNQ1uD+QffulP+vEB8JUfNQQuhsUu+op1Gjj8shJrs=",
+        remote_java_repository = "remotejdk27_linux_ppc64le",
+        strip_prefix = "jdk-27+35",
+        target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:ppc64le"],
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B35/OpenJDK27U-jdk_ppc64le_linux_hotspot_27_35.tar.gz",
+    ),
+    "openjdk_linux_riscv64_vanilla": struct(
+        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
+        integrity = "sha256-Jw1013Mq26p69OFTFUEmwUTmAAu3Nv0JhUIfdQdVVao=",
+        remote_java_repository = "remotejdk27_linux_riscv64",
+        strip_prefix = "jdk-27+35",
+        target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:riscv64"],
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B35/OpenJDK27U-jdk_riscv64_linux_hotspot_27_35.tar.gz",
+    ),
+    "openjdk_linux_s390x_vanilla": struct(
+        downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
+        integrity = "sha256-W8g6FFPCtoljIYcX8ThRLOENdVOmhDIILmVTrDH6gps=",
+        remote_java_repository = "remotejdk27_linux_s390x",
+        strip_prefix = "jdk-27+35",
+        target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:s390x"],
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B35/OpenJDK27U-jdk_s390x_linux_hotspot_27_35.tar.gz",
+    ),
+    "openjdk_win_arm64_vanilla": struct(
+        downloaded_file_path = "bellsoft-win-arm64.zip",
+        integrity = "sha256-P0Jz+ezqm6F849dGPLVcq0RG/xzqJeNXdXTMimRJ0kU=",
+        remote_java_repository = "remotejdk27_win_arm64",
+        strip_prefix = "jdk-27.0.1.1",
+        target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:arm64"],
+        # Use BellSoft Liberica for Windows ARM64 as it ships with jmods, which are
+        # required for cross-jlinking the minimized JDK.
+        url = "https://github.com/bell-sw/Liberica/releases/download/27.0.1.1%2B5/bellsoft-jdk27.0.1.1%2B5-windows-aarch64.zip",
+    ),
+}
+
 def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
-    http_file(
-        name = "openjdk_linux_vanilla",
-        integrity = "sha256-zLwVxO2+39zAPC0poqosba+eb/tM2n3V7OD8uzc1Amc=",
-        downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-linux_x64.tar.gz",
-    )
-    http_file(
-        name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-n6W/hleDxDhAEB/Nw6UiK2Da9P4R8mgGJHv4B8CKujg=",
-        downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-linux_aarch64.tar.gz",
-    )
-    http_file(
-        name = "openjdk_linux_ppc64le_vanilla",
-        integrity = "sha256-SaNQ1uD+QffulP+vEB8JUfNQQuhsUu+op1Gjj8shJrs=",
-        downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B35/OpenJDK27U-jdk_ppc64le_linux_hotspot_27_35.tar.gz",
-    )
-    http_file(
-        name = "openjdk_linux_riscv64_vanilla",
-        integrity = "sha256-Jw1013Mq26p69OFTFUEmwUTmAAu3Nv0JhUIfdQdVVao=",
-        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B35/OpenJDK27U-jdk_riscv64_linux_hotspot_27_35.tar.gz",
-    )
-    http_file(
-        name = "openjdk_linux_s390x_vanilla",
-        integrity = "sha256-W8g6FFPCtoljIYcX8ThRLOENdVOmhDIILmVTrDH6gps=",
-        downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B35/OpenJDK27U-jdk_s390x_linux_hotspot_27_35.tar.gz",
-    )
+    for name, jdk in _EMBEDDED_JDKS.items():
+        http_file(
+            name = name,
+            integrity = jdk.integrity,
+            downloaded_file_path = jdk.downloaded_file_path,
+            url = jdk.url,
+        )
+        remote_java_repository(
+            name = jdk.remote_java_repository,
+            integrity = jdk.integrity,
+            strip_prefix = jdk.strip_prefix,
+            target_compatible_with = jdk.target_compatible_with,
+            url = jdk.url,
+            version = "27",
+        )
 
     # Temurin ships its JMODs separately. Keep these at the same build as the
     # corresponding JDK archives above so jlink can create the embedded runtime.
@@ -137,33 +209,6 @@ def embedded_jdk_repositories():
         url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B35/OpenJDK27U-jmods_s390x_linux_hotspot_27_35.tar.gz",
     )
 
-    http_file(
-        name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-tdZDk6IorYaA5ZNssRQkMRjT9th7Zo8CgO+MFdZ0Q5w=",
-        downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-macosx_x64.tar.gz",
-    )
-    http_file(
-        name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-DY8dGRL6k469lUmeseiiqYdyX+QqoN2YSXu2BHSKjQc=",
-        downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-macosx_aarch64.tar.gz",
-    )
-    http_file(
-        name = "openjdk_win_vanilla",
-        integrity = "sha256-mTlbZAScJ1QAV0bE9LZv24DJjDyrqhTUslp/iBXJl7g=",
-        downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu27.28.101-ca-jdk27.0.0-win_x64.zip",
-    )
-    http_file(
-        name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-Jgx7T/C02teSQWdCYqVEX4eiOEnRkfgaoRjx2/eGZvw=",
-        downloaded_file_path = "bellsoft-win-arm64.zip",
-        # Use BellSoft Liberica for Windows ARM64 as it ships with jmods, which are
-        # required for cross-jlinking the minimized JDK.
-        url = "https://github.com/bell-sw/Liberica/releases/download/27%2B36/bellsoft-jdk27%2B36-windows-aarch64.zip",
-    )
-
     # The Windows arm64 runtime above is cross-jlinked on a Windows x64 host. Since
     # JDK 26, jlink requires the tool JDK and the target java.base to be the exact
     # same build (both vendor and build number are compared), so the jlink tool has
@@ -172,27 +217,17 @@ def embedded_jdk_repositories():
     # Windows x64 runtime itself is still Azul Zulu (openjdk_win_vanilla).
     http_file(
         name = "openjdk_win_arm64_jlink_tool",
-        integrity = "sha256-v69LLjE9ZcpZSXTDPB2XQh0A83qOosG0DIZDrRgvnAI=",
+        integrity = "sha256-hk5stmY5nqQFRHEAPDHUFDcI1xo4DQe53Zq2QMdOnek=",
         downloaded_file_path = "bellsoft-win-x64-jlink-tool.zip",
-        url = "https://github.com/bell-sw/Liberica/releases/download/27%2B36/bellsoft-jdk27%2B36-windows-amd64.zip",
-    )
-
-def bats_core_deps():
-    # These are a transitive dep of bazel_lib and marked `reproducible`, so
-    # not included in the module lockfile.
-    http_file(
-        name = "bats_core",
-        downloaded_file_path = "bats_core.tar.gz",
-        integrity = "sha256-oan3h1qktqlIDKOE1YZfHM8bCx+urWtHqkfXlwmlxf0=",
-        urls = ["https://github.com/bats-core/bats-core/archive/v1.10.0.tar.gz"],
+        url = "https://github.com/bell-sw/Liberica/releases/download/27.0.1.1%2B5/bellsoft-jdk27.0.1.1%2B5-windows-amd64.zip",
     )
 
 def _async_profiler_repos(ctx):
     http_file(
         name = "async_profiler",
         downloaded_file_path = "async-profiler.jar",
-        integrity = "sha256-gdbK6ZcdQa8UCxxif0DVERguAEtJEwfcPH3jsZnry7s=",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler.jar"],
+        integrity = _ASYNC_PROFILER_FILES["async-profiler.jar"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler.jar"],
     )
 
     _ASYNC_PROFILER_BUILD_TEMPLATE = """
@@ -212,9 +247,9 @@ copy_file(
             ext = "so",
             tag = "linux-arm64",
         ),
-        integrity = "sha256-ZMQdFGXWAJdDnFDX6SS0lG8fYrHL0hzlsDT60JwNaXk=",
+        integrity = _ASYNC_PROFILER_FILES["async-profiler-4.5-linux-arm64.tar.gz"],
         strip_prefix = "async-profiler-4.5-linux-arm64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-linux-arm64.tar.gz"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler-4.5-linux-arm64.tar.gz"],
     )
 
     http_archive(
@@ -223,9 +258,9 @@ copy_file(
             ext = "so",
             tag = "linux-x64",
         ),
-        integrity = "sha256-iVRvu57g/FSWx+3UCZsHCUibx4sNgFfMu0uAH2sDK2I=",
+        integrity = _ASYNC_PROFILER_FILES["async-profiler-4.5-linux-x64.tar.gz"],
         strip_prefix = "async-profiler-4.5-linux-x64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-linux-x64.tar.gz"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler-4.5-linux-x64.tar.gz"],
     )
 
     http_archive(
@@ -234,9 +269,9 @@ copy_file(
             ext = "dylib",
             tag = "macos",
         ),
-        integrity = "sha256-RtBO+B9TKgZaCzh35IiqcGr6FKouoUQzsyPbnm/adtw=",
+        integrity = _ASYNC_PROFILER_FILES["async-profiler-4.5-macos.zip"],
         strip_prefix = "async-profiler-4.5-macos/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.5/async-profiler-4.5-macos.zip"],
+        urls = [_ASYNC_PROFILER_URL + "async-profiler-4.5-macos.zip"],
     )
 
     # NOTE: This is reproducible but the distdir scripts want it in the lockfile
@@ -245,8 +280,3 @@ copy_file(
 # This is an extension (instead of use_repo_rule usages) only to create a
 # lockfile entry for the distribution repo module extension.
 async_profiler_repos = module_extension(_async_profiler_repos)
-
-def _dist_repos_impl(_ctx):
-    bats_core_deps()
-
-dist_repos = module_extension(_dist_repos_impl)

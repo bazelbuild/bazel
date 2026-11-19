@@ -190,7 +190,12 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .matches(
-            TestUtils.createMissingTargetAssertionString("missing.cc", "foo", "/workspace", ""));
+            TestUtils.createMissingTargetAssertionString(
+                "missing.cc",
+                "foo",
+                "/workspace",
+                " \\(available rules: \"foo1\" \\(cc_library\\), \"foo2\""
+                    + " \\(crule_without_srcs\\)\\)"));
 
     // Also, try a valid input file which has no dependent rules in its package.
     e = assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:baz/bang"));

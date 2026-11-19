@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.actions.ActionKeyContext.describeNestedSetFingerprint;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -96,7 +98,6 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
   private final NestedSet<Artifact> runfilesArtifacts;
   private final boolean hasRunfilesSymlinks;
   private final NestedSet<SymlinkEntry> runfilesRootSymlinks;
-  private final String workspaceName;
   private final boolean emitCompactRepoMapping;
 
   public RepoMappingManifestAction(
@@ -106,14 +107,12 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
       NestedSet<Artifact> runfilesArtifacts,
       NestedSet<SymlinkEntry> runfilesSymlinks,
       NestedSet<SymlinkEntry> runfilesRootSymlinks,
-      String workspaceName,
       boolean emitCompactRepoMapping) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
-    this.transitivePackages = transitivePackages;
+    this.transitivePackages = NestedSetBuilder.owned(checkNotNull(transitivePackages));
     this.runfilesArtifacts = runfilesArtifacts;
     this.hasRunfilesSymlinks = !runfilesSymlinks.isEmpty();
     this.runfilesRootSymlinks = runfilesRootSymlinks;
-    this.workspaceName = workspaceName;
     this.emitCompactRepoMapping = emitCompactRepoMapping;
   }
 
@@ -138,7 +137,6 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
     actionKeyContext.addNestedSetToFingerprint(OWNER_REPO_FN, fp, runfilesArtifacts);
     fp.addBoolean(hasRunfilesSymlinks);
     actionKeyContext.addNestedSetToFingerprint(FIRST_SEGMENT_FN, fp, runfilesRootSymlinks);
-    fp.addString(workspaceName);
     fp.addBoolean(emitCompactRepoMapping);
   }
 
@@ -150,7 +148,6 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
     runfilesArtifacts: %s
     hasRunfilesSymlinks: %s
     runfilesRootSymlinks: %s
-    workspaceName: %s
     emitCompactRepoMapping: %s\
     """
         .formatted(
@@ -159,7 +156,6 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
             describeNestedSetFingerprint(OWNER_REPO_FN, runfilesArtifacts),
             hasRunfilesSymlinks,
             describeNestedSetFingerprint(FIRST_SEGMENT_FN, runfilesRootSymlinks),
-            workspaceName,
             emitCompactRepoMapping);
   }
 
@@ -308,10 +304,11 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
       RepositoryName targetCanonicalName)
       throws IOException {
     // The canonical name of the main repo is the empty string, which is not a valid
-    // name for a directory, so the "workspace name" is used the name of the
-    // directory under the runfiles tree for it.
+    // name for a directory, so use the designated "main repo dir name" instead.
     String targetRepoDirectoryName =
-        targetCanonicalName.isMain() ? workspaceName : targetCanonicalName.getName();
+        targetCanonicalName.isMain()
+            ? LabelConstants.MAIN_REPO_DIR_NAME
+            : targetCanonicalName.getName();
     writer.write(StringUnsafe.getInternalStringBytes(source));
     writer.write(',');
     writer.write(StringUnsafe.getInternalStringBytes(targetApparentName));

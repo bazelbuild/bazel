@@ -267,27 +267,28 @@ Either remove one of these settings or ensure they match the same value.
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       AttributeMap attributes,
       BuildConfigurationValue configuration) {
-    // values
-    attributes
-        .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT)
-        .forEach(
-            (optionName, value) -> {
-              if (optionName.equals("define")) {
-                int equalsIndex = value.indexOf('=');
-                requiredFragments.addDefine(
-                    equalsIndex > 0 ? value.substring(0, equalsIndex) : value);
-              } else {
-                Class<? extends FragmentOptions> optionsClass =
-                    configuration.getBuildOptionDetails().getOptionClass(optionName);
-                if (optionsClass != null) {
-                  requiredFragments.addOptionsClass(optionsClass);
-                }
+    if (!requiredFragments.isStarlarkOnly()) {
+      // values
+      attributes
+          .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT)
+          .forEach((optionName, value) -> {
+            if (optionName.equals("define")) {
+              int equalsIndex = value.indexOf('=');
+              requiredFragments.addDefine(
+                  equalsIndex > 0 ? value.substring(0, equalsIndex) : value);
+            } else {
+              Class<? extends FragmentOptions> optionsClass =
+                  configuration.getBuildOptionDetails().getOptionClass(optionName);
+              if (optionsClass != null) {
+                requiredFragments.addOptionsClass(optionsClass);
               }
-            });
+            }
+          });
 
-    // define_values
-    requiredFragments.addDefines(
-        attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT).keySet());
+      // define_values
+      requiredFragments.addDefines(
+          attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT).keySet());
+    }
 
     // flag_values
     requiredFragments.addStarlarkOptions(

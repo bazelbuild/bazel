@@ -183,12 +183,37 @@ public abstract class CommonCommandOptions extends OptionsBase {
               + " be written to the <output_base>/server/thread_dumps/ directory.")
   public abstract boolean getEnableThreadDump();
 
+  /**
+   * Converter for {@code --experimental_thread_dump_interval} that requires zero or at least 1s
+   * (and fitting in {@code long} milliseconds).
+   */
+  public static final class ThreadDumpIntervalConverter extends DurationConverter {
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      Duration duration;
+      try {
+        duration = super.convert(input);
+      } catch (NumberFormatException | ArithmeticException e) {
+        throw new OptionsParsingException("Illegal duration '" + input + "'.", e);
+      }
+      if (!duration.isZero() && duration.compareTo(Duration.ofSeconds(1)) < 0) {
+        throw new OptionsParsingException("Duration '" + input + "' must be zero or at least 1s.");
+      }
+      try {
+        var _ = duration.toMillis();
+      } catch (ArithmeticException e) {
+        throw new OptionsParsingException("Duration '" + input + "' is too large.", e);
+      }
+      return duration;
+    }
+  }
+
   @Option(
       name = "experimental_thread_dump_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      converter = DurationConverter.class,
+      converter = ThreadDumpIntervalConverter.class,
       help =
           "How often to dump the threads periodically. If zero, no thread dumps are written"
               + " periodically.")
@@ -708,7 +733,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The maximum number parallel http downloads.")
+      help =
+          "The maximum number of parallel HTTP downloads per host. Bazel registry files are"
+              + " fetched with a separate per-host limit of at least 32.")
   public abstract int getHttpMaxParallelDownloads();
 
   /** The option converter to check that the user can only specify legal profiler tasks. */

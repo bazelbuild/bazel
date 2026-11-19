@@ -42,9 +42,6 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    */
   boolean hasHardCodedException(PackageIdentifier packageIdentifier);
 
-  /** The runfiles prefix. */
-  String getRunfilesPrefix();
-
   /**
    * Where the bundled builtins bzl files are located. These are the builtins files used if {@code
    * --experimental_builtins_bzl_path} is set to {@code %bundled%}. Note that this root lives in a

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -44,7 +45,6 @@ public final class SymlinkTreeHelper {
   private final Path inputManifest;
   private final Path outputManifest;
   private final Path symlinkTreeRoot;
-  private final String workspaceName;
 
   /**
    * Creates SymlinkTreeHelper instance. Can be used independently of SymlinkTreeAction.
@@ -52,10 +52,8 @@ public final class SymlinkTreeHelper {
    * @param inputManifest exec path to the input runfiles manifest
    * @param outputManifest path to the output runfiles manifest
    * @param symlinkTreeRoot the root of the symlink tree to be created
-   * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
-  public SymlinkTreeHelper(
-      Path inputManifest, Path outputManifest, Path symlinkTreeRoot, String workspaceName) {
+  public SymlinkTreeHelper(Path inputManifest, Path outputManifest, Path symlinkTreeRoot) {
     // Do not indirect paths through overlay filesystems (such as the action filesystem or a
     // snapshotting filesystem), for a few reasons:
     // (1) we always want to create the symlinks on disk, even if the overlay filesystem creates
@@ -70,7 +68,6 @@ public final class SymlinkTreeHelper {
     this.inputManifest = inputManifest.forHostFileSystem();
     this.outputManifest = outputManifest.forHostFileSystem();
     this.symlinkTreeRoot = symlinkTreeRoot.forHostFileSystem();
-    this.workspaceName = workspaceName;
   }
 
   interface TargetPathFunction<T> {
@@ -200,7 +197,7 @@ public final class SymlinkTreeHelper {
     // the test action creates the directory and then proceeds to execute the test spawn, this logic
     // would remove it. For the sake of consistency, always create the directory instead.
     try {
-      symlinkTreeRoot.getRelative(workspaceName).createDirectory();
+      symlinkTreeRoot.getRelative(LabelConstants.MAIN_REPO_DIR_NAME).createDirectory();
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
     }
@@ -210,11 +207,12 @@ public final class SymlinkTreeHelper {
    * Processes a list of fileset symlinks into a map that can be passed to {@link
    * com.google.devtools.build.lib.vfs.OutputService#createSymlinkTree}.
    *
-   * <p>By convention, all symlinks are placed under a directory with the given workspace name.
+   * <p>By convention, all symlinks are placed under a directory named {@link
+   * LabelConstants#MAIN_REPO_DIR_NAME}.
    */
   static ImmutableMap<PathFragment, PathFragment> processFilesetLinks(
-      ImmutableList<FilesetOutputSymlink> links, String workspaceName) {
-    PathFragment root = PathFragment.create(workspaceName);
+      ImmutableList<FilesetOutputSymlink> links) {
+    PathFragment root = PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME);
     var symlinks = ImmutableMap.<PathFragment, PathFragment>builderWithExpectedSize(links.size());
     for (FilesetOutputSymlink symlink : links) {
       symlinks.put(root.getRelative(symlink.name()), symlink.target().getPath().asFragment());

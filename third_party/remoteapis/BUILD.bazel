@@ -96,8 +96,5 @@ java_grpc_library(
 java_grpc_library(
     name = "build_bazel_remote_execution_v2_remote_execution_java_grpc",
     srcs = [":build_bazel_remote_execution_v2_remote_execution_proto"],
-    deps = [
-        ":build_bazel_remote_execution_v2_remote_execution_java_proto",
-        "@googleapis//google/longrunning:longrunning_java_proto",
-    ],
+    deps = [":build_bazel_remote_execution_v2_remote_execution_java_proto"],
 )

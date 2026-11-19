@@ -42,12 +42,6 @@ public abstract class FileOptions {
   public static final FileOptions DEFAULT = builder().build();
 
   /**
-   * During resolution, permit load statements to access private names such as {@code _x}. <br>
-   * (Required for continued support of Bazel "WORKSPACE.resolved" files.)
-   */
-  public abstract boolean allowLoadPrivateSymbols();
-
-  /**
    * During resolution, permit multiple assignments to a given top-level binding, whether file-local
    * or global. However, as usual, you may not create both a file-local and a global binding of the
    * same name (e.g. {@code load(..., x="x"); x=1}), so if you use this option, you probably want
@@ -104,7 +98,6 @@ public abstract class FileOptions {
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
-        .allowLoadPrivateSymbols(false)
         .allowToplevelRebinding(false)
         .loadBindsGlobally(false)
         .requireLoadStatementsFirst(true)
@@ -122,8 +115,6 @@ public abstract class FileOptions {
   @AutoValue.Builder
   public abstract static class Builder {
     // AutoValue why u make me say it 3 times?
-    public abstract Builder allowLoadPrivateSymbols(boolean value);
-
     public abstract Builder allowToplevelRebinding(boolean value);
 
     public abstract Builder loadBindsGlobally(boolean value);

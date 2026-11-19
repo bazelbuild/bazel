@@ -230,7 +230,7 @@ public final class SandboxModule extends BlazeModule {
       asyncTreeDeleter.setThreads(1);
     }
     try (SilentCloseable c = Profiler.instance().profile("SandboxStash.initialize")) {
-      SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options, treeDeleter);
+      SandboxStash.initialize(sandboxBase, options, treeDeleter);
     }
 
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during

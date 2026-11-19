@@ -287,15 +287,9 @@ class NodeEntryVisitor {
         instanceof MultiThreadPoolsQuiescingExecutor multiThreadPoolsQuiescingExecutor) {
       ThreadPoolType threadPoolType = selectThreadPoolType(multiThreadPoolsQuiescingExecutor, key);
       if (runnable instanceof QuiescingTask quiescingTask) {
-        multiThreadPoolsQuiescingExecutor.execute(
-            quiescingTask,
-            threadPoolType,
-            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
+        multiThreadPoolsQuiescingExecutor.execute(quiescingTask, threadPoolType);
       } else {
-        multiThreadPoolsQuiescingExecutor.execute(
-            runnable,
-            threadPoolType,
-            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
+        multiThreadPoolsQuiescingExecutor.execute(runnable, threadPoolType);
       }
     } else {
       if (runnable instanceof QuiescingTask quiescingTask) {

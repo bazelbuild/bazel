@@ -5006,7 +5006,6 @@ public class ParallelEvaluatorTest {
                 /* parallelism= */ 1, /* poolName= */ "DefaultExecution"),
             AbstractQueueVisitor.ExceptionHandlingMode.KEEP_GOING,
             ParallelEvaluatorErrorClassifier.instance());
-    skymeldVisitor.launchQueuedUpExecutionPhaseTasks();
 
     ParallelEvaluator evaluator = makeEvaluator(skymeldVisitor, /* keepGoing= */ false);
     evaluatorRef.set(evaluator);

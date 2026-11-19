@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.common.options.Options;
 import java.io.ByteArrayOutputStream;
@@ -142,7 +143,8 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
 
   private ImmutableList<String> getOutput(
       String queryExpression, List<String> outputGroups, String... aspects) throws Exception {
-    QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
+    QueryExpression expression =
+        QueryExpressionResolver.resolve(QueryParser.parse(queryExpression), getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     PostAnalysisQueryEnvironment<CqueryNode> env =

@@ -45,7 +45,9 @@ import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
+import com.google.devtools.build.lib.exec.local.AllowedLocalActions;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -102,6 +104,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
+  private final LocalExecutionOptions localExecutionOptions;
   private final WorkerParser workerParser;
   private final WorkerProcessMetricsCollector metricsCollector;
 
@@ -114,6 +117,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       ResourceManager resourceManager,
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
+      LocalExecutionOptions localExecutionOptions,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       Clock clock) {
     this.execRoot = execRoot;
@@ -122,6 +126,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.runfilesTreeUpdater = runfilesTreeUpdater;
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
+    this.localExecutionOptions = localExecutionOptions;
     this.resourceManager.setWorkerPool(workers);
     this.metricsCollector = workerProcessMetricsCollector;
     this.metricsCollector.setClock(clock);
@@ -157,6 +162,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
+    SpawnResult denied =
+        AllowedLocalActions.denyIfNotAllowed(
+            localExecutionOptions, this, spawn.getResourceOwner().getMnemonic(), context);
+    if (denied != null) {
+      return denied;
+    }
     context.report(
         SpawnSchedulingEvent.create(
             WorkerKey.makeWorkerTypeName(

@@ -731,7 +731,7 @@ public class ObjectCodecRegistry {
       if (isValueClass(type)) {
         return null;
       }
-      return new CodecDescriptor(WireType.CodecWireType.UNSTABLE, tag, new DynamicCodec(type));
+      return new CodecDescriptor(WireType.CodecWireType.UNSTABLE, tag, DynamicCodec.create(type));
     } catch (ReflectiveOperationException e) {
       logger.atWarning().withCause(e).log("Could not create codec for type: %s", className);
       return null;

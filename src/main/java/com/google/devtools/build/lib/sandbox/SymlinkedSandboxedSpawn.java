@@ -38,6 +38,9 @@ import javax.annotation.Nullable;
  */
 public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpawn {
 
+  /** The exec root that the inputs are symlinks to. */
+  private final Path execRoot;
+
   /** Mnemonic of the action running in this spawn. */
   private final String mnemonic;
 
@@ -48,6 +51,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   public SymlinkedSandboxedSpawn(
       Path sandboxPath,
       Path sandboxExecRoot,
+      Path execRoot,
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       SandboxInputs inputs,
@@ -71,6 +75,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         sandboxDebugPath,
         statisticsPath,
         mnemonic);
+    this.execRoot = execRoot;
     this.mnemonic = isNullOrEmpty(mnemonic) ? "_NoMnemonic_" : mnemonic;
     this.interactiveDebugArguments = interactiveDebugArguments;
     this.targetLabel = targetLabel;
@@ -105,6 +110,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
             dirsToCreate,
             sandboxExecRoot,
             treeDeleter,
+            execRoot,
             sandboxContents.get());
       } else {
         // No in-memory stashes enabled or there is a stash without recorded in-memory contents.
@@ -122,7 +128,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
     if (SandboxStash.useInMemoryStashes()) {
       SandboxStash.setPathContents(
-          sandboxPath, SandboxHelpers.createContentMap(sandboxExecRoot, inputs, outputs));
+          sandboxPath, SandboxHelpers.createContentMap(sandboxExecRoot, execRoot, inputs, outputs));
     }
   }
 

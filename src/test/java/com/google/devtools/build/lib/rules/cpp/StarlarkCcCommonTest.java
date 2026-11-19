@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
@@ -316,6 +315,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    cc_toolchain = toolchain,",
         "  )",
         "  return [MyInfo(",
+        "    feature_configuration = feature_configuration,",
         "    action_tool_path = cc_common.get_tool_for_action(",
         "        feature_configuration = feature_configuration,",
         "        action_name = 'c++-compile'))]",
@@ -329,16 +329,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    String actionToolPath = (String) getMyInfoFromTarget(r).getValue("action_tool_path");
-    RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
+    StructImpl myInfo = getMyInfoFromTarget(r);
+    String actionToolPath = (String) myInfo.getValue("action_tool_path");
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(),
-            ImmutableSet.of(),
-            Language.CPP,
-            toolchain,
-            ruleContext.getFragment(CppConfiguration.class));
+        ((FeatureConfigurationForStarlark) myInfo.getValue("feature_configuration"))
+            .getFeatureConfiguration();
     assertThat(actionToolPath)
         .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
   }
@@ -528,6 +523,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    cc_toolchain = toolchain,",
         "  )",
         "  return [MyInfo(",
+        "    feature_configuration = feature_configuration,",
         "    command_line = cc_common.get_memory_inefficient_command_line(",
         "        feature_configuration = feature_configuration,",
         "        action_name = 'c++-link-executable',",
@@ -542,18 +538,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
+    StructImpl myInfo = getMyInfoFromTarget(r);
     @SuppressWarnings("unchecked")
-    Sequence<String> commandLine =
-        (Sequence<String>) getMyInfoFromTarget(r).getValue("command_line");
-    RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
+    Sequence<String> commandLine = (Sequence<String>) myInfo.getValue("command_line");
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(),
-            ImmutableSet.of(),
-            Language.CPP,
-            toolchain,
-            ruleContext.getFragment(CppConfiguration.class));
+        ((FeatureConfigurationForStarlark) myInfo.getValue("feature_configuration"))
+            .getFeatureConfiguration();
     assertThat(commandLine)
         .containsExactlyElementsIn(
             featureConfiguration.getCommandLine(
@@ -587,6 +577,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    cc_toolchain = toolchain,",
         "  )",
         "  return [MyInfo(",
+        "    feature_configuration = feature_configuration,",
         "    environment_variables = cc_common.get_environment_variables(",
         "        feature_configuration = feature_configuration,",
         "        action_name = 'c++-compile',",
@@ -601,18 +592,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
+    StructImpl myInfo = getMyInfoFromTarget(r);
     @SuppressWarnings("unchecked")
     Map<String, String> environmentVariables =
-        (Map<String, String>) getMyInfoFromTarget(r).getValue("environment_variables");
-    RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
+        (Map<String, String>) myInfo.getValue("environment_variables");
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(),
-            ImmutableSet.of(),
-            Language.CPP,
-            toolchain,
-            ruleContext.getFragment(CppConfiguration.class));
+        ((FeatureConfigurationForStarlark) myInfo.getValue("feature_configuration"))
+            .getFeatureConfiguration();
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
@@ -7124,7 +7110,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "strip_opts()",
             "build_test_dwp()",
             "grte_top()",
-            "experimental_cc_implementation_deps()",
             "experimental_cpp_modules()",
             "share_native_deps()");
     scratch.file(

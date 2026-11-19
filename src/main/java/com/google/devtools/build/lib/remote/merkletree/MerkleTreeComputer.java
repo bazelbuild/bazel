@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -185,7 +186,6 @@ public final class MerkleTreeComputer {
   @Nullable private final MerkleTreeUploader merkleTreeUploader;
   private final String buildRequestId;
   private final String commandId;
-  private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
   private final TaskDeduplicator<InFlightCacheKey, InFlightAttributes, MerkleTree.RootOnly>
@@ -196,13 +196,11 @@ public final class MerkleTreeComputer {
       DigestUtil digestUtil,
       @Nullable MerkleTreeUploader remoteExecutionCache,
       String buildRequestId,
-      String commandId,
-      String workspaceName) {
+      String commandId) {
     this.digestUtil = digestUtil;
     this.merkleTreeUploader = remoteExecutionCache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.workspaceName = workspaceName;
     var emptyBlob = new byte[0];
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
@@ -385,7 +383,8 @@ public final class MerkleTreeComputer {
             spawnExecutionContext,
             metadata,
             CachePolicy.REMOTE_CACHE_ONLY,
-            CachePolicy.NO_CACHE);
+            // Inputs missing from the remote cache may be uploaded from the disk cache.
+            CachePolicy.DISK_CACHE_ONLY);
     try {
       return getFromFuture(
           build(
@@ -942,7 +941,7 @@ public final class MerkleTreeComputer {
             mappedExecPath);
     var fullPath =
         mappedExecPath
-            .getChild(workspaceName)
+            .getChild(LabelConstants.MAIN_REPO_DIR_NAME)
             .getRelative(artifactAtCanonicalLocation.getRunfilesPath());
     boolean isTool = isToolInput.test(fullPath);
     // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key -

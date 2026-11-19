@@ -30,15 +30,21 @@ public final class RemoteAnalysisCachingServerState {
 
   @Nullable private ClientId latestInvocationClientId;
 
+  @Nullable private String latestInvocationUntrimmedConfigurationChecksum;
+
   public RemoteAnalysisCachingServerState(
-      @Nullable FrontierNodeVersion version, @Nullable ClientId clientId) {
+      @Nullable FrontierNodeVersion version,
+      @Nullable ClientId clientId,
+      @Nullable String untrimmedConfigurationChecksum) {
     this.latestInvocationVersion = version;
     this.latestInvocationClientId = clientId;
+    this.latestInvocationUntrimmedConfigurationChecksum = untrimmedConfigurationChecksum;
   }
 
   /** Returns a {@link RemoteAnalysisCachingServerState} with empty/null fields. */
   public static RemoteAnalysisCachingServerState initializeEmpty() {
-    return new RemoteAnalysisCachingServerState(/* version= */ null, /* clientId= */ null);
+    return new RemoteAnalysisCachingServerState(
+        /* version= */ null, /* clientId= */ null, /* untrimmedConfigurationChecksum= */ null);
   }
 
   /** Returns {@link FrontierNodeVersion} of the latest (previous) invocation, if any. */
@@ -68,6 +74,20 @@ public final class RemoteAnalysisCachingServerState {
     this.latestInvocationClientId = clientId;
   }
 
+  /**
+   * Returns the checksum of the untrimmed top-level configuration of the latest (previous)
+   * invocation, if any.
+   */
+  @Nullable
+  public String untrimmedConfigurationChecksum() {
+    return latestInvocationUntrimmedConfigurationChecksum;
+  }
+
+  /** Sets the checksum of the untrimmed top-level configuration of the current invocation. */
+  public void setUntrimmedConfigurationChecksum(@Nullable String untrimmedConfigurationChecksum) {
+    this.latestInvocationUntrimmedConfigurationChecksum = untrimmedConfigurationChecksum;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -77,12 +97,18 @@ public final class RemoteAnalysisCachingServerState {
       return false;
     }
     return Objects.equals(latestInvocationVersion, that.latestInvocationVersion)
-        && Objects.equals(latestInvocationClientId, that.latestInvocationClientId);
+        && Objects.equals(latestInvocationClientId, that.latestInvocationClientId)
+        && Objects.equals(
+            latestInvocationUntrimmedConfigurationChecksum,
+            that.latestInvocationUntrimmedConfigurationChecksum);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(latestInvocationVersion, latestInvocationClientId);
+    return Objects.hash(
+        latestInvocationVersion,
+        latestInvocationClientId,
+        latestInvocationUntrimmedConfigurationChecksum);
   }
 
   @Override
@@ -90,6 +116,7 @@ public final class RemoteAnalysisCachingServerState {
     return MoreObjects.toStringHelper(this)
         .add("version", latestInvocationVersion)
         .add("clientId", latestInvocationClientId)
+        .add("untrimmedConfigurationChecksum", latestInvocationUntrimmedConfigurationChecksum)
         .toString();
   }
 }

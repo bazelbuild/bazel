@@ -62,15 +62,17 @@ cc_library(
 )
 
 cc_library(
+    name = "export",
+    hdrs = ["export.h"],
+    visibility = ["//src/main/native:__subpackages__"],
+)
+
+cc_library(
     name = "blake3_jni",
-    srcs = [
-        "blake3_jni.cc",
-        ":jni.h",
-        ":jni_md.h",
-    ],
-    includes = ["."],  # For jni headers.
+    srcs = ["blake3_jni.cc"],
     visibility = ["//src/main/native:__subpackages__"],
     deps = [
+        ":export",
         "@blake3",
     ],
     alwayslink = 1,
@@ -93,6 +95,13 @@ cc_binary(
         "//src/conditions:darwin": [
             "-Wl,-framework,CoreServices",
             "-Wl,-framework,IOKit",
+        ],
+        "//src/conditions:linux": [
+            # Do not export the symbols of a statically linked C++ runtime (the
+            # hermetic LLVM toolchains link libc++ statically). Java only needs
+            # the JNI functions and the BAZEL_EXPORT functions. Without this,
+            # the linker keeps most of the runtime in the library.
+            "-Wl,--exclude-libs,libc++.a:libc++abi.a:libunwind.a",
         ],
         "//conditions:default": [],
     }),

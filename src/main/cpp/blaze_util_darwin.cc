@@ -43,7 +43,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
-#include "src/main/cpp/util/strings.h"
+#include "absl/strings/match.h"
 
 namespace blaze {
 
@@ -195,7 +195,7 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
 }
 
 bool IsSharedLibrary(const string &filename) {
-  return blaze_util::ends_with(filename, ".dylib");
+  return absl::EndsWith(filename, ".dylib");
 }
 
 string GetSystemJavabase() {
@@ -211,7 +211,7 @@ string GetSystemJavabase() {
   }
 
   // java_home will print a warning if no JDK could be found
-  FILE *output = popen("/usr/libexec/java_home -v 1.8+ 2> /dev/null", "r");
+  FILE *output = popen("/usr/libexec/java_home -v 25+ 2> /dev/null", "r");
   if (output == nullptr) {
     return "";
   }

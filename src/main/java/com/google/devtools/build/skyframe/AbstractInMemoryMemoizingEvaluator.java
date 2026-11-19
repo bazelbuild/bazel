@@ -237,6 +237,18 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   public final void deleteDirty(long versionAgeLimit, boolean keepChangePrunableNodes) {
     checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+
+    // An unenqueued dirty node was last changed in an earlier evaluation or in
+    // the current graph version. With a zero window they are all eligible.
+    if (versionAgeLimit == 0 && !keepChangePrunableNodes) {
+      Set<SkyKey> dirtyKeys = progressReceiver.getAndClearUnenqueuedDirtyKeys();
+      if (!dirtyKeys.isEmpty()) {
+        dirtyKeys.addAll(valuesToDelete);
+        valuesToDelete = dirtyKeys;
+      }
+      return;
+    }
+
     var graph = getInMemoryGraph();
 
     var dirtyKeys = progressReceiver.getUnenqueuedDirtyKeys();

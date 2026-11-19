@@ -29,10 +29,11 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>We intern only the backing {@code Object[]} children arrays rather than the enclosing {@link
  * NestedSet} instances. {@link Depset} equality and hashing delegate directly to the underlying
- * {@link NestedSet} instance's identity. If {@link NestedSet} instances were interned in a bounded
- * cache, depset equality/hash comparisons in Starlark would become non-deterministic based on cache
- * hits versus evictions (b/544770151). Interning only the backing arrays achieves most of the
- * memory savings while maintaining deterministic instance identity.
+ * {@link NestedSet}, which uses identity unless the set has an owner (see {@link
+ * NestedSet#equals}). If {@link NestedSet} instances were interned in a bounded cache, depset
+ * equality/hash comparisons in Starlark would become non-deterministic based on cache hits versus
+ * evictions (b/544770151). Interning only the backing arrays achieves most of the memory savings
+ * while maintaining deterministic instance identity.
  */
 public final class NestedSetInterner {
   private final Cache<Equivalence.Wrapper<Object[]>, Object[]> cache;

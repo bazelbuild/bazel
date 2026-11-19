@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -128,6 +129,25 @@ public record StarlarkBuildSettingsDetailsValue(
         ImmutableMap.copyOf(buildSettingToScopeType),
         ImmutableMap.copyOf(buildSettingToOnLeaveScopeValue),
         ImmutableMap.copyOf(projectScopes));
+  }
+
+  /** Returns the details of the build settings of both this value and {@code other}. */
+  public StarlarkBuildSettingsDetailsValue union(StarlarkBuildSettingsDetailsValue other) {
+    return create(
+        Sets.union(buildSettings, other.buildSettings),
+        union(buildSettingToDefault, other.buildSettingToDefault),
+        union(buildSettingToType, other.buildSettingToType),
+        Sets.union(buildSettingIsAllowsMultiple, other.buildSettingIsAllowsMultiple),
+        union(aliasToActual, other.aliasToActual),
+        union(customExecScopeValues, other.customExecScopeValues),
+        union(buildSettingToScopeType, other.buildSettingToScopeType),
+        union(buildSettingToOnLeaveScopeValue, other.buildSettingToOnLeaveScopeValue),
+        union(projectScopes, other.projectScopes));
+  }
+
+  private static <K, V> ImmutableMap<K, V> union(ImmutableMap<K, V> a, ImmutableMap<K, V> b) {
+    // Both maps describe the same build setting definitions, so they agree on common keys.
+    return ImmutableMap.<K, V>builder().putAll(a).putAll(b).buildKeepingLast();
   }
 
   public static Key key(Set<Label> buildSettings, Set<Label> hostFlags) {

@@ -110,4 +110,33 @@ function test_bazelrc_after_devnull_ignored() {
   expect_not_log "--definitely_invalid_config"
 }
 
+function test_no_empty_startup_options_in_bep() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}" || fail "Couldn't create ${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF' || fail "Couldn't write BUILD"
+filegroup(name = "empty")
+EOF
+
+  local -r bep_file="${TEST_TMPDIR}/startup_options_bep.txt"
+  bazel --nobatch --max_idle_secs=60 build --nobuild \
+      --build_event_text_file="${bep_file}" "//${pkg}:empty" \
+      &> "${TEST_log}" || fail "Expected success"
+  local startup_section
+  startup_section="$(
+    awk '
+      /command_line_label: "original"/ { in_orig = 1 }
+      in_orig && /section_label: "startup options"/ { in_sec = 1; next }
+      in_sec && /^    }/ { exit }
+      in_sec { print }
+    ' "${bep_file}"
+  )"
+  [[ -n "${startup_section}" ]] \
+      || fail "Missing 'startup options' section in original command line BEP"
+  echo "${startup_section}" | grep -q 'combined_form: "--max_idle_secs=60"' \
+      || fail "Missing --max_idle_secs=60 in BEP: ${startup_section}"
+  if echo "${startup_section}" | tr '\n' ' ' | grep -qE 'option \{[[:space:]]*\}'; then
+    fail "Unexpected empty startup option in BEP: ${startup_section}"
+  fi
+}
+
 run_suite "${PRODUCT_NAME} startup options test"

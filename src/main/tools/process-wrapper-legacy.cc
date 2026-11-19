@@ -35,12 +35,6 @@
 #include "src/main/tools/process-wrapper.h"
 
 static bool child_subreaper_enabled = false;
-#if defined(__linux__)
-#if !defined(PR_SET_CHILD_SUBREAPER)
-// https://github.com/torvalds/linux/blob/v5.7/tools/include/uapi/linux/prctl.h#L158
-#define PR_SET_CHILD_SUBREAPER 36
-#endif
-#endif
 
 pid_t LegacyProcessWrapper::child_pid = 0;
 volatile sig_atomic_t LegacyProcessWrapper::last_signal = 0;

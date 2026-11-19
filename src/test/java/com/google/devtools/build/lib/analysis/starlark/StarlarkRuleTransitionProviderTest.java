@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -1042,6 +1044,72 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testAliasedBuildSetting_readsActualValue() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {"//test:fact": settings["//test:fact"] + "_and_puffins_mate_for_life"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:fact"],
+            outputs = ["//test:fact"],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests();
+
+    useConfiguration("--//test:cute-animal-fact=rats_are_ticklish");
+
+    ImmutableMap<Label, Object> starlarkOptions =
+        getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
+    assertThat(starlarkOptions)
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:cute-animal-fact"),
+            "rats_are_ticklish_and_puffins_mate_for_life");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_inputOnly() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:fact"],
+            outputs = [],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests();
+
+    useConfiguration("--//test:cute-animal-fact=rats_are_ticklish");
+
+    ImmutableMap<Label, Object> starlarkOptions =
+        getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
+    assertThat(starlarkOptions)
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:cute-animal-fact"), "rats_are_ticklish");
+  }
+
+  private void writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests()
+      throws Exception {
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'fact', actual = ':cute-animal-fact')",
+        "string_flag(",
+        "  name = 'cute-animal-fact',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
+  }
+
+  @Test
   public void testAliasedBuildSetting_chainedAliases() throws Exception {
     scratch.file(
         "test/transitions.bzl",
@@ -1926,6 +1994,77 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "'None' value not allowed for List-type option 'copt'. Please use '[]' instead if trying"
             + " to set option to empty value.");
+  }
+
+  @Test
+  public void successfulTypeConversionOfNativeImmutableListOption() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _impl(settings, attr):
+            return {"//command_line_option:allowed_cpu_values": ["k8", "arm", "k8"]}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:allowed_cpu_values"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//test:transitions.bzl", "my_transition")
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
+
+    ConfiguredTarget ct = getConfiguredTarget("//test");
+    assertNoEvents();
+    assertThat(getConfiguration(ct).getOptions().get(CoreOptions.class).getAllowedCpuValues())
+        .isEqualTo(ImmutableList.of("arm", "k8"));
+  }
+
+  @Test
+  public void failedTypeConversionOfNativeImmutableListOptionNone() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _impl(settings, attr):
+            return {"//command_line_option:allowed_cpu_values": None}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:allowed_cpu_values"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//test:transitions.bzl", "my_transition")
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "'None' value not allowed for List-type option 'allowed_cpu_values'. Please use '[]'"
+            + " instead if trying to set option to empty value.");
   }
 
   @Test

@@ -59,7 +59,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       documented = false,
       doc = "Returns the <code>DebugContext</code>",
       structField = true)
-  StarlarkInfo /* CcDebugInfoContextApi */ getCcDebugInfoContext() throws EvalException;
+  StarlarkInfo getCcDebugInfoContext() throws EvalException;
 
   @StarlarkMethod(
       name = "_legacy_transitive_native_libraries",
@@ -113,7 +113,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               named = true,
               defaultValue = "None",
               allowedTypes = {
-                @ParamType(type = StarlarkInfo.class), /* CcDebugInfoContextApi */
+                @ParamType(type = StarlarkInfo.class),
                 @ParamType(type = NoneType.class)
               }),
           @Param(

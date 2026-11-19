@@ -45,10 +45,15 @@ public class RegexUtilTest {
             "foo/coverage1data",
             "foo/test/a/coverage.dat",
             "foo/test/.*/coverage.dat",
+            "foo/test/coverage.dat\nbar",
+            "foo.",
+            "foo...",
+            "afoob",
             "]]\n",
             "()",
             "+",
             "|",
+            "foobar",
           })
           String haystack,
       @TestParameter({
@@ -60,6 +65,14 @@ public class RegexUtilTest {
             ".*/coverage.dat",
             ".*/coverage\\.dat",
             ".*/test/.*/coverage\\.dat",
+            ".*/test/.*",
+            ".*coverage\\.dat.*",
+            ".*/coverage.*",
+            ".*.*",
+            ".*foo\\.*",
+            ".*foo.*.*",
+            ".*foo.*?",
+            ".*(foo).*",
             "$|",
             "^",
             ".]",
@@ -74,6 +87,9 @@ public class RegexUtilTest {
             ".*|",
             ".*^",
             ".*+",
+            ".*(?x)foo #comment",
+            ".*(?ix)foo",
+            ".*(?x:foo)#bar",
           })
           String needle) {
     Pattern originalPattern = Pattern.compile(needle, Pattern.DOTALL);

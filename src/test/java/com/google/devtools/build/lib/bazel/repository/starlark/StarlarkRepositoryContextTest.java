@@ -363,6 +363,27 @@ public final class StarlarkRepositoryContextTest {
   }
 
   @Test
+  public void testDelete_withoutWorkspaceFile() throws Exception {
+    assertThat(root.getRelative("WORKSPACE").delete()).isTrue();
+    setUpRepo("test");
+
+    Path underWorkspace = root.getRelative("under_workspace");
+    EvalException expected =
+        assertThrows(EvalException.class, () -> context.delete(underWorkspace.toString(), thread));
+    assertThat(expected.getMessage()).startsWith("delete() can only be applied to external paths");
+
+    scratch.file(underWorkspace.getPathString(), "123");
+    setUpRepo(
+        ImmutableMap.of("name", "test"),
+        IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("under_workspace"))),
+        ImmutableMap.of("FOO", "BAR"),
+        ImmutableMap.of("FOO", "BAR"),
+        StarlarkSemantics.DEFAULT,
+        /* repoRemoteExecutor= */ null);
+    assertThat(context.delete(underWorkspace.toString(), thread)).isTrue();
+  }
+
+  @Test
   public void testRead() throws Exception {
     setUpRepo("test");
     context.createFile(context.getPath("foo/bar", thread), "foobar", true, true, thread);

@@ -143,14 +143,6 @@ java_library(
 )
 
 java_library(
-    name = "config_aware_aspect_builder",
-    srcs = ["ConfigAwareAspectBuilder.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
-)
-
-java_library(
     name = "config_matching_provider",
     srcs = ["ConfigMatchingProvider.java"],
     deps = [
@@ -275,6 +267,8 @@ java_library(
         ":core_options",
         ":fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
@@ -323,6 +317,8 @@ java_library(
         ":fragment",
         ":fragment_options",
         ":invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party/java/caffeine",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -424,6 +420,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -496,10 +493,12 @@ java_library(
     deps = [
         ":build_options",
         ":core_options",
+        ":execution_transition_factory",
         ":scope",
         ":starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:composing_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",

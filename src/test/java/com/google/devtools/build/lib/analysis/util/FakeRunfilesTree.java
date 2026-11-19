@@ -89,11 +89,6 @@ public final class FakeRunfilesTree implements RunfilesTree {
   }
 
   @Override
-  public String getWorkspaceName() {
-    return runfiles.getPrefix();
-  }
-
-  @Override
   public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
     return runfiles.getArtifacts();
   }

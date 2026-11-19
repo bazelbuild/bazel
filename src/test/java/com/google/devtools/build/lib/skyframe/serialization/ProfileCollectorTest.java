@@ -177,7 +177,7 @@ public final class ProfileCollectorTest {
     // Anonymous classes have no canonical name.
     assertThat(anon.getClass().getCanonicalName()).isNull();
 
-    var codec = new DynamicCodec(anon.getClass());
+    var codec = DynamicCodec.create(anon.getClass());
     String text = codec.getLocationText();
     assertThat(text)
         .isEqualTo(anon.getClass().getName() + "(" + DynamicCodec.class.getCanonicalName() + ")");

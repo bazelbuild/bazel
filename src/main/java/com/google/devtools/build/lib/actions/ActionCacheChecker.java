@@ -83,14 +83,14 @@ public class ActionCacheChecker {
     abstract boolean storeOutputMetadata();
 
     /**
-     * Optional target for which all actions are unconditionally executed, as requested by {@code
+     * Targets for which all actions are unconditionally executed, as requested by {@code
      * --bust_action_caches}.
      */
-    @Nullable
-    abstract Label bustActionCachesTarget();
+    abstract ImmutableSet<Label> bustActionCachesTargets();
 
     public static Builder builder() {
-      return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
+      return new AutoValue_ActionCacheChecker_CacheConfig.Builder()
+          .setBustActionCachesTargets(ImmutableSet.of());
     }
 
     /** Builder for ActionCacheChecker.CacheConfig. */
@@ -100,7 +100,7 @@ public class ActionCacheChecker {
 
       public abstract Builder setStoreOutputMetadata(boolean value);
 
-      public abstract Builder setBustActionCachesTarget(@Nullable Label value);
+      public abstract Builder setBustActionCachesTargets(ImmutableSet<Label> value);
 
       public abstract CacheConfig build();
     }
@@ -305,8 +305,7 @@ public class ActionCacheChecker {
       checkState(action.isVolatile());
       return true;
     }
-    Label target = cacheConfig.bustActionCachesTarget();
-    return target != null && target.equals(action.getOwner().getLabel());
+    return cacheConfig.bustActionCachesTargets().contains(action.getOwner().getLabel());
   }
 
   private static ImmutableMap<String, String> computeEffectiveEnvironment(

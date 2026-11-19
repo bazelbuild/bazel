@@ -1030,7 +1030,7 @@ TEST_F(OutputJarSimpleTest, ExcludeBuildData1) {
   const LH* lh;
   const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
-    string entry_name = lh->file_name_string();
+    [[maybe_unused]] string entry_name = lh->file_name_string();
     EXPECT_NE(kBuildDataFile, lh->file_name_string());
   }
   input_jar.Close();
@@ -1041,7 +1041,8 @@ TEST_F(OutputJarSimpleTest, ExcludeBuildData1) {
 TEST_F(OutputJarSimpleTest, ExcludeBuildData2) {
   string out_dir = OutputFilePath("");
   string testzip_path = OutputFilePath("testinput.zip");
-  string buildprop_path = CreateTextFile(kBuildDataFile, "build: foo");
+  [[maybe_unused]] string buildprop_path =
+      CreateTextFile(kBuildDataFile, "build: foo");
   unlink(testzip_path.c_str());
   ASSERT_EQ(0, RunCommand("cd ", out_dir.c_str(), CMD_SEPARATOR, "zip", "-m",
                           "testinput.zip", kBuildDataFile, nullptr));
