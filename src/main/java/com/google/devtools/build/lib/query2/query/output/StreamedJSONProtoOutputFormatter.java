@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -20,6 +21,7 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +47,15 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter
 
   /** Writes a snapshot row even if the target's transitive hash is unknown. */
   @Override
-  public void writeHashedTarget(
+  public void writeHashedTargets(
+      Iterable<Target> targets, LabelPrinter labelPrinter, Map<Label, String> hashes, OutputStream out)
+      throws IOException, InterruptedException {
+    for (Target target : targets) {
+      writeHashedTarget(target, labelPrinter, hashes.get(target.getLabel()), out);
+    }
+  }
+
+  private void writeHashedTarget(
       Target target, LabelPrinter labelPrinter, @Nullable String digest, OutputStream out)
       throws IOException, InterruptedException {
     // Hashes contain only hex digits. Target labels and attributes use the normal JSON printer.

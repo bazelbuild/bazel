@@ -288,13 +288,15 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       out = binary;
     }
     String lineTerminator = queryOptions.getLineTerminator();
-    for (Target target : targets) {
-      Label label = target.getLabel();
-      String hash = result.hashes().get(label);
-      if (catalog != null) {
-        catalog.writeHashedTarget(target, labelPrinter, hash, out);
-      } else if (hash != null) {
-        out.write((labelPrinter.toString(label) + " " + hash + lineTerminator).getBytes(UTF_8));
+    if (catalog != null) {
+      catalog.writeHashedTargets(targets, labelPrinter, result.hashes(), out);
+    } else {
+      for (Target target : targets) {
+        Label label = target.getLabel();
+        String hash = result.hashes().get(label);
+        if (hash != null) {
+          out.write((labelPrinter.toString(label) + " " + hash + lineTerminator).getBytes(UTF_8));
+        }
       }
     }
     result
