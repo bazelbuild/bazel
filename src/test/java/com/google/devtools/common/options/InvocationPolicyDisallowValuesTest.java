@@ -14,6 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -287,5 +288,49 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
     testOptions = getTestOptions();
     assertThat(testOptions.getTestStringNullByDefault()).isNull();
+  }
+
+  @Test
+  public void testDisallowValuesDisallowsNonAsciiValue() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .getDisallowValuesBuilder()
+        .addDisallowedValues("föo")
+        .addDisallowedValues("bär 🌱");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_string=" + unicodeToInternal("bär 🌱"));
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            unicodeToInternal(
+                "Flag value 'bär 🌱' for option '--test_string' is not allowed by invocation"
+                    + " policy and the policy does not specify a new value. Disallowed values are:"
+                    + " [föo, bär 🌱]"));
+  }
+
+  @Test
+  public void testDisallowValuesSetsNonAsciiNewValue() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .getDisallowValuesBuilder()
+        .addDisallowedValues("föo")
+        .setNewValue("bär 🌱");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_string=" + unicodeToInternal("föo"));
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    assertThat(getTestOptions().getTestString()).isEqualTo(unicodeToInternal("bär 🌱"));
   }
 }

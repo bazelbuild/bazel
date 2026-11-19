@@ -27,6 +27,7 @@ java_test(
         exclude = [
             "DependencySetWindowsTest.java",
             "DeterministicWriterTest.java",
+            "OptionsUtilsWindowsTest.java",
             "ResourceFileLoaderTest.java",
             "HeapOffsetHelperTest.java",
             "StringEncodingTest.java",
@@ -73,6 +74,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util:thread_dump_analyzer",
         "//src/main/java/com/google/devtools/build/lib/util:value_or_exception",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
@@ -155,11 +157,16 @@ java_test(
 # Tests windows specific path handling on Unix.
 java_library(
     name = "UtilWindowsTests_lib",
-    srcs = ["DependencySetWindowsTest.java"],
+    srcs = [
+        "DependencySetWindowsTest.java",
+        "OptionsUtilsWindowsTest.java",
+    ],
     resources = ["ResourceFileLoaderTest.message"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party/java/guava:collect",
