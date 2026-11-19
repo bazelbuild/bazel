@@ -896,6 +896,18 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_custom_args_test",
+    size = "small",
+    timeout = "long",
+    srcs = ["starlark_custom_args_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 8,
+)
+
+sh_test(
     name = "starlark_dependency_pruning_test",
     timeout = "long",
     srcs = ["starlark_dependency_pruning_test.sh"],
