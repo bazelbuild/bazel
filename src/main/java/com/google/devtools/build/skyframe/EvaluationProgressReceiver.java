@@ -125,6 +125,21 @@ public interface EvaluationProgressReceiver {
   default void stateEnding(SkyKey skyKey, NodeState nodeState) {}
 
   /**
+   * Notifies that the node for {@code skyKey} computed {@code value} and is about to be committed
+   * to the graph, before it is marked done.
+   *
+   * <p>Called for every committed node that has a value, before {@link #evaluated}, regardless of
+   * whether the value turns out to be unchanged. Since a parent can only finish after its
+   * dependencies are done, this is called for the dependencies of a node before it is called for
+   * the node itself.
+   *
+   * <p>May be called concurrently from multiple threads.
+   *
+   * @param directDeps the direct dependencies of {@code skyKey} requested in this evaluation
+   */
+  default void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {}
+
+  /**
    * Notifies that the node for {@code skyKey} has been evaluated.
    *
    * @param state the current state of the node for {@code skyKey}
