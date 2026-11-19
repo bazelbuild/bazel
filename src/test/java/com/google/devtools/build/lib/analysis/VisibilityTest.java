@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -25,6 +26,11 @@ import org.junit.runners.JUnit4;
 /** Test for visibility of targets. */
 @RunWith(JUnit4.class)
 public class VisibilityTest extends AnalysisTestCase {
+
+  @Override
+  protected boolean allowExternalRepositories() {
+    return true;
+  }
 
   void setupArgsScenario() throws Exception {
     scratch.file("tool/tool.sh", "#!/bin/sh", "echo Hello > $2", "cat $1 >> $2");
@@ -729,9 +735,11 @@ public class VisibilityTest extends AnalysisTestCase {
 
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
-        "in my_rule rule //foo:target_with_aspects: Visibility error:\n"
-            + "target '//tool:rule_tool' is not visible from\n"
-            + "target '//rule:lib.bzl'");
+        """
+        in my_rule rule //foo:target_with_aspects: Visibility error:
+        target '//tool:rule_tool' is not visible from
+        target '//rule:lib.bzl'\
+        """);
   }
 
   void setupFilesScenario(String wantRead) throws Exception {
@@ -1789,4 +1797,399 @@ public class VisibilityTest extends AnalysisTestCase {
         visibility using exports_files().\
         """);
   }
+
+  private void setupBzlmodTest() throws Exception {
+    scratch.overwriteFile("BUILD");
+    scratch.overwriteFile(
+        "rules.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+            },
+        )
+        """);
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/BUILD").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/rules.bzl").getPathString(),
+        """
+        def _impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+            },
+        )
+        """);
+  }
+
+  @Test
+  public void testVisibilityError_externalRepoApparentName() throws Exception {
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/pkg/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "hidden",
+            visibility = ["//visibility:private"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0", repo_name = "apparent_dep")
+        """);
+    scratch.overwriteFile(
+        "client/BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "client",
+            deps = ["@apparent_dep//pkg:hidden"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//client:client"));
+    assertContainsEvent(
+        "target '@apparent_dep//pkg:hidden' is not visible from\ntarget '//client:client'");
+  }
+
+  @Test
+  public void testVisibilityError_externalRepoAliasApparentName() throws Exception {
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/pkg/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "hidden",
+            visibility = ["//visibility:private"],
+        )
+        alias(
+            name = "alias_hidden",
+            actual = ":hidden",
+            visibility = ["//visibility:private"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0", repo_name = "apparent_dep")
+        """);
+    scratch.overwriteFile(
+        "client/BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "client",
+            deps = ["@apparent_dep//pkg:alias_hidden"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//client:client"));
+    assertContainsEvent(
+        "alias '@apparent_dep//pkg:alias_hidden' referring to target '@apparent_dep//pkg:hidden' is"
+            + " not visible from\ntarget '//client:client'");
+  }
+
+  @Test
+  public void testVerboseDiagnostics_externalRepoApparentName() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/pkg/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "hidden",
+            visibility = ["//visibility:private"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0", repo_name = "apparent_dep")
+        """);
+    scratch.overwriteFile(
+        "client/BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "client",
+            deps = ["@apparent_dep//pkg:hidden"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//client:client"));
+    assertContainsEvent("dependency on target @apparent_dep//pkg:hidden violates its visibility.");
+    assertContainsEvent(
+        "The location being checked is the package where the consuming target lives, //client.");
+  }
+
+  @Test
+  public void testTestonlyError_externalRepoApparentName() throws Exception {
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/pkg/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "test_tool",
+            testonly = True,
+            visibility = ["//visibility:public"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0", repo_name = "apparent_dep")
+        """);
+    scratch.overwriteFile(
+        "client/BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "client",
+            deps = ["@apparent_dep//pkg:test_tool"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//client:client"));
+    assertContainsEvent(
+        "non-test target '//client:client' depends on testonly target"
+            + " '@apparent_dep//pkg:test_tool' and doesn't have testonly attribute set");
+  }
+
+  @Test
+  public void testVisibilityError_externalConsumerRetainsRepo() throws Exception {
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/dep/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "hidden",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/consumer/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "lib",
+            deps = ["//dep:hidden"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0")
+        """);
+    scratch.overwriteFile(
+        "BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "root",
+            deps = ["@ext_dep//consumer:lib"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//:root"));
+    assertContainsEvent(
+        "target '@@ext_dep+//dep:hidden' is not visible from\ntarget '@@ext_dep+//consumer:lib'");
+  }
+
+  @Test
+  public void testTestonlyError_externalConsumerRetainsRepo() throws Exception {
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/pkg/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "test_tool",
+            testonly = True,
+            visibility = ["//visibility:public"],
+        )
+        my_rule(
+            name = "non_test",
+            deps = [":test_tool"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0")
+        """);
+    scratch.overwriteFile(
+        "BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "root",
+            deps = ["@ext_dep//pkg:non_test"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//:root"));
+    assertContainsEvent(
+        "non-test target '@@ext_dep+//pkg:non_test' depends on testonly target"
+            + " '@@ext_dep+//pkg:test_tool' and doesn't have testonly attribute set");
+  }
+
+  @Test
+  public void testVerboseDiagnostics_externalConsumerRetainsRepo() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/dep/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "hidden",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/consumer/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "lib",
+            deps = ["//dep:hidden"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0")
+        """);
+    scratch.overwriteFile(
+        "BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "root",
+            deps = ["@ext_dep//consumer:lib"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//:root"));
+    assertContainsEvent("dependency on target @@ext_dep+//dep:hidden violates its visibility.");
+    assertContainsEvent(
+        "The location being checked is the package where the consuming target lives,"
+            + " @@ext_dep+//consumer.");
+  }
+
+  @Test
+  public void testVisibilityError_externalConsumerRetainsRepo_withMainRepoApparentName()
+      throws Exception {
+    setupBzlmodTest();
+    registry.addModule(
+        createModuleKey("ext_dep", "1.0"), "module(name = 'ext_dep', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext_dep+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/dep/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "hidden",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext_dep+1.0/consumer/BUILD").getPathString(),
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "lib",
+            deps = ["//dep:hidden"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "main", version = "1.0")
+        bazel_dep(name = "ext_dep", version = "1.0", repo_name = "apparent_dep")
+        """);
+    scratch.overwriteFile(
+        "BUILD",
+        """
+        load("//:rules.bzl", "my_rule")
+        my_rule(
+            name = "root",
+            deps = ["@apparent_dep//consumer:lib"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//:root"));
+    assertContainsEvent(
+        "target '@@ext_dep+//dep:hidden' is not visible from\ntarget '@@ext_dep+//consumer:lib'");
+  }
 }
+
