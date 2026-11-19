@@ -7,6 +7,8 @@ Cherry picks:
 
    + caddbfc7e1da6df83072c9aa5c0b44e7ad8de077:
      Release 11.0.0-pre.20261114.1 (2026-11-19)
+   + bc2cfb77781fa1751df74d8dc07158d031ec0382:
+     Release 11.0.0-pre.20261114.1 (2026-11-19)
 ```
 
 Incompatible changes:
