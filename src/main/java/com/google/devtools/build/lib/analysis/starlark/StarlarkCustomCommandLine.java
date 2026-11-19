@@ -1569,6 +1569,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
+    public String getRlocationPathString() {
+      PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
+      return fileset.getRlocationPath().getRelative(relativePath).getPathString();
+    }
+
+    @Override
     public String getExecPathStringForStarlark(StarlarkSemantics semantics) {
       return execPath.getPathString();
     }
