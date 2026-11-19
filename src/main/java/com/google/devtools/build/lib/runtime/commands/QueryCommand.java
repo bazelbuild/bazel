@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -270,7 +270,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       LabelPrinter labelPrinter,
       @Nullable HashOutputFormatter catalog)
       throws IOException, InterruptedException {
-    ImmutableList<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableList());
+    ImmutableSet<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setParallelism(
