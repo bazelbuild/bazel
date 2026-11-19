@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
@@ -476,6 +477,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   @Override
   public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+    if (files.isEmpty()) {
+      return immediateFuture(PathConverter.NO_CONVERSION);
+    }
     return toListenableFuture(doUpload(files).subscribeOn(scheduler));
   }
 
