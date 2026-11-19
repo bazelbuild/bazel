@@ -101,7 +101,7 @@ public class IndexRegistry implements Registry {
    * refer to files in the registry through this URL so that they don't depend on the location of
    * the workspace.
    */
-  private final String url;
+  private final String rawUrl;
 
   /** The URI registry files are fetched from, with {@code %workspace%} expanded. */
   private final URI uri;
@@ -136,7 +136,7 @@ public class IndexRegistry implements Registry {
       }.nullSafe();
 
   public IndexRegistry(
-      String url,
+      String rawUrl,
       URI uri,
       Map<String, String> clientEnv,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
@@ -144,7 +144,7 @@ public class IndexRegistry implements Registry {
       ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
       Optional<Path> vendorDir,
       ImmutableSet<URI> moduleMirrors) {
-    this.url = url;
+    this.rawUrl = rawUrl;
     this.uri = uri;
     this.clientEnv = clientEnv;
     this.gson =
@@ -161,7 +161,11 @@ public class IndexRegistry implements Registry {
 
   @Override
   public String getUrl() {
-    return url;
+    return getRawUrl();
+  }
+
+  private String getRawUrl() {
+    return rawUrl;
   }
 
   private String getFetchUrl() {
@@ -400,7 +404,7 @@ public class IndexRegistry implements Registry {
     if (jsonString.isEmpty()) {
       throw new FileNotFoundException(
           String.format(
-              "Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, getUrl()));
+              "Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, getRawUrl()));
     }
     SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
     return switch (sourceJson.type) {
@@ -540,7 +544,7 @@ public class IndexRegistry implements Registry {
         var unused = HttpUtils.parseUri(mirror);
       } catch (URISyntaxException e) {
         throw new IOException(
-            "Malformed mirror URL specified in bazel_registry.json of " + getUrl(), e);
+            "Malformed mirror URL specified in bazel_registry.json of " + getRawUrl(), e);
       }
       String authority = sourceUrl.getRawAuthority();
       String path = sourceUrl.getRawPath();
@@ -570,7 +574,7 @@ public class IndexRegistry implements Registry {
         }
         remotePatches.put(
             constructUrl(
-                getUrl(),
+                getRawUrl(),
                 "modules",
                 key.name(),
                 key.version().toString(),
@@ -596,7 +600,7 @@ public class IndexRegistry implements Registry {
                 // URLs in the registry itself are not mirrored.
                 ImmutableList.of(
                     constructUrl(
-                        getUrl(),
+                        getRawUrl(),
                         "modules",
                         key.name(),
                         key.version().toString(),
@@ -614,7 +618,7 @@ public class IndexRegistry implements Registry {
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(),
-                ImmutableList.of(constructModuleFileUrl(getUrl(), key))))
+                ImmutableList.of(constructModuleFileUrl(getRawUrl(), key))))
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();
@@ -654,7 +658,7 @@ public class IndexRegistry implements Registry {
         }
         remotePatches.put(
             constructUrl(
-                getUrl(),
+                getRawUrl(),
                 "modules",
                 key.name(),
                 key.version().toString(),
@@ -676,7 +680,7 @@ public class IndexRegistry implements Registry {
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(),
-                ImmutableList.of(constructModuleFileUrl(getUrl(), key))))
+                ImmutableList.of(constructModuleFileUrl(getRawUrl(), key))))
         .setRemotePatches(remotePatches.buildKeepingLast())
         .setRemotePatchStrip(sourceJson.patchStrip)
         .build();
