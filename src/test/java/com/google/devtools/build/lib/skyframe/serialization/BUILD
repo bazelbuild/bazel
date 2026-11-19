@@ -9,6 +9,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/bytecode:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/strings:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
     ],
