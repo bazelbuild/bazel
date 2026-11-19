@@ -601,7 +601,7 @@ public final class InvocationPolicyEnforcer {
               redactValueForLogging(optionDefinition, valueDescription.getValue()),
               valueDescription.getSourceString(),
               optionDefinition,
-              redactValueForLogging(optionDefinition, setValue.getFlagValueList()));
+              redactValueForLogging(optionDefinition, toInternal(setValue.getFlagValueList())));
           // Nothing to do -- the value already has an override.
           return;
         }
