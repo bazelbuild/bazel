@@ -41,7 +41,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/vfs/util",  # For FileSystem modules
     ],
     deps = [
-        ":round-tripping",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -57,7 +56,6 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
-        "//third_party/java/junit",
         "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/truth",
     ],
