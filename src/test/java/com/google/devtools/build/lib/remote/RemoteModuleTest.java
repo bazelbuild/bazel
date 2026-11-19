@@ -1051,6 +1051,25 @@ public final class RemoteModuleTest {
   }
 
   @Test
+  public void openRpcLogFile_retry_keepsSpecialFileAtOriginalPath() throws Exception {
+    PathFragment logPath = PathFragment.create("/workspace/grpc.log");
+    Scratch scratch =
+        new Scratch(
+            new InMemoryFileSystem(DigestHashFunction.SHA256) {
+              @Override
+              public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
+                return path.equals(logPath);
+              }
+            });
+    Path log = scratch.file(logPath.getPathString());
+
+    RemoteModule.openRpcLogFile(log, /* attemptNumber= */ 2).close();
+
+    assertThat(log.exists()).isTrue();
+    assertThat(scratch.resolve("/workspace/grpc.log.1").exists()).isFalse();
+  }
+
+  @Test
   public void computeActionExecutionSalt_remoteEndpointOrInstanceChanges_doesNotChange()
       throws Exception {
     RemoteOptions baseOptions =
