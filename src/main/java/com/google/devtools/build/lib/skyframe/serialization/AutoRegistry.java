@@ -46,6 +46,10 @@ public class AutoRegistry {
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
+          // Concurrency infrastructure, never serialized. Some classes extend JDK classes (e.g.
+          // ForkJoinTask, AbstractQueuedSynchronizer) whose packages are not opened for reflective
+          // field access.
+          "com.google.devtools.build.lib.concurrent",
           "com.google.devtools.build.lib.skyframe.serialization",
           "com.google.devtools.build.lib.vfs",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
