@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.isDoneForBuild;
 import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.maybeMarkRebuilding;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -59,6 +60,11 @@ public class SimpleCycleDetector implements CycleDetector {
       throws InterruptedException {
     for (SkyKey root : badRoots) {
       ErrorInfo errorInfo = checkForCycles(root, evaluatorContext);
+      if (evaluatorContext.speculativeDeps().hasCut()) {
+        // Prototype: a cycle has been broken at a speculative dependency and the evaluation goes on
+        // in a new round, so there is no error to report.
+        return;
+      }
       if (errorInfo == null) {
         // This node just wasn't finished when evaluation aborted -- there were no cycles below
         // it.
@@ -206,6 +212,9 @@ public class SimpleCycleDetector implements CycleDetector {
         // INFO log.
         if (storeExactCycles) {
           logger.atInfo().log("Found cycle : %s from %s", cycle, graphPath);
+        }
+        if (evaluatorContext.speculativeDeps().cutEdgeOf(ImmutableList.copyOf(cycle))) {
+          return null;
         }
         // Put this node into a consistent state for building if it is dirty.
         if (entry.isDirty()) {

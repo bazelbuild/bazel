@@ -15,6 +15,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -68,6 +69,24 @@ class WorkerSkyFunctionEnvironment
     delegate = newDelegateSupplier.get();
     delegate.getValuesAndExceptions(depKeys);
     return this;
+  }
+
+  @Override
+  public SkyframeLookupResult getValuesAndExceptionsSpeculatively(
+      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
+    delegate.getValuesAndExceptionsSpeculatively(depKeys);
+    if (!delegate.valuesMissing()) {
+      return this;
+    }
+    delegate = null;
+    delegate = newDelegateSupplier.get();
+    delegate.getValuesAndExceptionsSpeculatively(depKeys);
+    return this;
+  }
+
+  @Override
+  public ImmutableSet<SkyKey> getCutSpeculativeDeps() {
+    return delegate.getCutSpeculativeDeps();
   }
 
   @Nullable

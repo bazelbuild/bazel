@@ -300,6 +300,27 @@ public interface SkyFunction {
         throws InterruptedException;
 
     /**
+     * Requests the given dependencies like {@link #getValuesAndExceptions}, except that a dependency
+     * through which this node would come to depend on itself is cut: the cycle detector removes the
+     * edge and reports the dependency through {@link #getCutSpeculativeDeps} when the node is
+     * evaluated again, so that the function can do without it.
+     *
+     * <p>Prototype: a cycle is only detected once the evaluation has otherwise come to a halt. The
+     * cut then ends the round of evaluation; the nodes that were in flight are deleted and evaluated
+     * again in a new round.
+     */
+    @CanIgnoreReturnValue
+    default SkyframeLookupResult getValuesAndExceptionsSpeculatively(
+        Iterable<? extends SkyKey> depKeys) throws InterruptedException {
+      return getValuesAndExceptions(depKeys);
+    }
+
+    /** Returns the speculative dependencies of this node that were cut to break a cycle. */
+    default ImmutableSet<SkyKey> getCutSpeculativeDeps() {
+      return ImmutableSet.of();
+    }
+
+    /**
      * Returns a lookup result containing previously requested dependencies.
      *
      * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
