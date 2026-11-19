@@ -90,13 +90,15 @@ public final class FrontierSerializer {
       LongVersionGetter versionGetter,
       Reporter reporter,
       EventBus eventBus,
-      boolean keepStateAfterBuild)
+      boolean keepStateAfterBuild,
+      boolean keepGoing)
       throws InterruptedException {
     InMemoryGraph graph = evaluator.getInMemoryGraph();
     var stopwatch = Stopwatch.createStarted();
 
     ImmutableSet<SkyKey> selectedKeys =
-        computeFullSelection(graph, serializationDependenciesProvider.getSkycacheAnalysisOnly());
+        computeFullSelection(
+            graph, serializationDependenciesProvider.getSkycacheAnalysisOnly(), keepGoing);
 
     reporter.handle(
         Event.info(String.format("Found %d selected keys in %s", selectedKeys.size(), stopwatch)));
@@ -155,7 +157,7 @@ public final class FrontierSerializer {
         // SelectedEntrySerializer.
         stopwatch.reset().start();
         // saves about 8% RAM b/418730298#comment26
-        long rdepsDeleted = deleteAllRdeps(graph);
+        long rdepsDeleted = deleteAllRdeps(graph, keepGoing);
         reporter.handle(
             Event.info(
                 String.format(
@@ -269,56 +271,62 @@ public final class FrontierSerializer {
    * incremental builds are not possible.
    */
   public static void computeSelectionAndMinimizeMemory(
-      InMemoryGraph graph, Collection<Label> topLevelTargets) {
+      InMemoryGraph graph, Collection<Label> topLevelTargets, boolean keepGoing) {
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
-    graph.parallelForEach(
-        node -> {
-          switch (node.getKey()) {
-            case BzlLoadValue.Key unused -> ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
-            case ActionLookupKey key -> {
-              if (!node.isDone() || key.getLabel() == null) {
-                break;
-              }
-              // An ActionLookupKey can point to ActionLookupValues or
-              // ConfiguredTargetValues. If it's a ConfiguredTargetValue, we record its
-              // package to prevent clearing the corresponding PackageValue later.
-              SkyValue value = node.getValue();
-              if (value instanceof ConfiguredTargetValue configuredTargetValue) {
-                Label label =
-                    (configuredTargetValue.getConfiguredTarget()
-                            instanceof AliasConfiguredTarget alias)
-                        ? alias.getLabel()
-                        : key.getLabel();
-                packageIdentifierSet.add(label.getPackageIdentifier());
-              }
-            }
-            default -> {}
+    graph.parallelForEach(node -> {
+      if (keepGoing && (!node.isDone() || node.getValue() == null || node.getErrorInfo() != null)) {
+        return;
+      }
+      switch (node.getKey()) {
+        case BzlLoadValue.Key _ -> ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
+        case ActionLookupKey key -> {
+          if (!node.isDone() || key.getLabel() == null) {
+            break;
           }
-        });
+          // An ActionLookupKey can point to ActionLookupValues or
+          // ConfiguredTargetValues. If it's a ConfiguredTargetValue, we record its
+          // package to prevent clearing the corresponding PackageValue later.
+          SkyValue value = node.getValue();
+          if (value instanceof ConfiguredTargetValue configuredTargetValue) {
+            Label label =
+                (configuredTargetValue.getConfiguredTarget() instanceof AliasConfiguredTarget alias)
+                    ? alias.getLabel()
+                    : key.getLabel();
+            packageIdentifierSet.add(label.getPackageIdentifier());
+          }
+        }
+        default -> {}
+      }
+    });
     packageIdentifierSet.addAll(
         topLevelTargets.stream()
             .map(Label::getPackageIdentifier)
             .collect(ImmutableSet.toImmutableSet()));
     // We can clear the values of PackageIdentifier nodes whose package we have not seen in any
     // done ConfiguredTargetValues or top-level targets.
-    graph.parallelForEach(
-        node -> {
-          if (!(node.getKey() instanceof PackageIdentifier key)) {
-            return;
-          }
+    graph.parallelForEach(node -> {
+      if (!(node.getKey() instanceof PackageIdentifier key)) {
+        return;
+      }
+      if (keepGoing && (!node.isDone() || node.getValue() == null)) {
+        return;
+      }
 
-          if (packageIdentifierSet.contains(key)) {
-            return;
-          }
+      if (packageIdentifierSet.contains(key)) {
+        return;
+      }
 
-          ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
-        });
+      ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
+    });
   }
 
   private static ImmutableSet<SkyKey> computeFullSelection(
-      InMemoryGraph graph, boolean skycacheAnalysisOnly) {
+      InMemoryGraph graph, boolean skycacheAnalysisOnly, boolean keepGoing) {
     Set<SkyKey> selection = Sets.newConcurrentHashSet();
     graph.parallelForEach(node -> {
+      if (keepGoing && (!node.isDone() || node.getValue() == null || node.getErrorInfo() != null)) {
+        return;
+      }
       switch (node.getKey()) {
         case ActionLookupKey key -> {
           if (key.getLabel() != null) {
@@ -339,6 +347,16 @@ public final class FrontierSerializer {
         case Artifact artifact when !skycacheAnalysisOnly -> {
           SkyKey artifactKey = selectArtifactKey(artifact);
           if (artifactKey != null) {
+            if (keepGoing) {
+              InMemoryNodeEntry artifactNode =
+                  artifactKey.equals(artifact) ? node : graph.getIfPresent(artifactKey);
+              if (artifactNode == null
+                  || !artifactNode.isDone()
+                  || artifactNode.getValue() == null
+                  || artifactNode.getErrorInfo() != null) {
+                break;
+              }
+            }
             selection.add(artifactKey);
           }
         }
@@ -420,16 +438,18 @@ public final class FrontierSerializer {
    *
    * @return the number of rdeps deleted.
    */
-  private static long deleteAllRdeps(InMemoryGraph graph) {
+  private static long deleteAllRdeps(InMemoryGraph graph, boolean keepGoing) {
     AtomicLong deletedRdeps = new AtomicLong();
     graph.parallelForEach(node -> {
       IncrementalInMemoryNodeEntry incrementalInMemoryNodeEntry =
           (IncrementalInMemoryNodeEntry) node;
-      for (SkyKey rdep : incrementalInMemoryNodeEntry.getReverseDepsForDoneEntry()) {
-        incrementalInMemoryNodeEntry.removeReverseDep(rdep);
-        deletedRdeps.incrementAndGet();
+      if (!keepGoing || incrementalInMemoryNodeEntry.isDone()) {
+        for (SkyKey rdep : incrementalInMemoryNodeEntry.getReverseDepsForDoneEntry()) {
+          incrementalInMemoryNodeEntry.removeReverseDep(rdep);
+          deletedRdeps.incrementAndGet();
+        }
+        incrementalInMemoryNodeEntry.consolidateReverseDeps();
       }
-      incrementalInMemoryNodeEntry.consolidateReverseDeps();
     });
     return deletedRdeps.get();
   }

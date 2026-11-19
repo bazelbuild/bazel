@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
@@ -259,6 +260,7 @@ public final class RemoteAnalysisCacheFactory {
             analysisCacheInvalidator,
             topLevelTargets,
             options.getSkycacheMinimizeMemory(),
+            env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing(),
             platformConfigurationProvider);
 
     // Bail out if needed

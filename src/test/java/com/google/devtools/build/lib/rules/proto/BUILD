@@ -131,3 +131,18 @@ java_test(
         "//third_party/java/junit",
     ],
 )
+
+java_test(
+    name = "ProtoCommonTest",
+    srcs = ["ProtoCommonTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)

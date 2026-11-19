@@ -79,6 +79,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -4393,6 +4394,109 @@ public class ParallelEvaluatorTest {
     } else {
       assertThat(evaluatedValues).hasSize(1); // errorKey
     }
+  }
+
+  @Test
+  public void committing_calledBeforeNodeIsDoneAndForDepsFirst() throws Exception {
+    List<SkyKey> committed = Collections.synchronizedList(new ArrayList<>());
+    List<String> problems = Collections.synchronizedList(new ArrayList<>());
+    InMemoryGraphImpl inMemoryGraph = new InMemoryGraphImpl();
+    graph = inMemoryGraph;
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+                NodeEntry entry = inMemoryGraph.getIfPresent(skyKey);
+                if (entry == null || entry.isDone()) {
+                  problems.add(skyKey + " is already done");
+                }
+                for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
+                  if (!committed.contains(dep)) {
+                    problems.add(dep + " not committed before " + skyKey);
+                  }
+                }
+                committed.add(skyKey);
+              }
+
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                if (state.succeeded() && !committed.contains(skyKey)) {
+                  problems.add(skyKey + " evaluated before committing");
+                }
+              }
+            });
+    SkyKey parentKey = skyKey("parent");
+    SkyKey leftKey = skyKey("left");
+    SkyKey rightKey = skyKey("right");
+    SkyKey leafKey = skyKey("leaf");
+    SkyKey errorKey = skyKey("error");
+    tester.set(leafKey, new StringValue("leaf"));
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(leftKey).addDependency(leafKey).setComputedValue(CONCATENATE);
+    tester.getOrCreate(rightKey).addDependency(leafKey).setComputedValue(CONCATENATE);
+    tester
+        .getOrCreate(parentKey)
+        .addDependency(leftKey)
+        .addDependency(rightKey)
+        .setComputedValue(CONCATENATE);
+
+    EvaluationResult<StringValue> result =
+        eval(/* keepGoing= */ true, ImmutableList.of(parentKey, errorKey));
+
+    assertThat(result.get(parentKey)).isEqualTo(new StringValue("leafleaf"));
+    assertThat(problems).isEmpty();
+    // Nodes without a value are not committed with one.
+    assertThat(committed).containsExactly(parentKey, leftKey, rightKey, leafKey);
+  }
+
+  @Test
+  public void committing_calledBeforeEvaluated() throws Exception {
+    List<String> events = Collections.synchronizedList(new ArrayList<>());
+    graph = new InMemoryGraphImpl();
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+                events.add("committing " + skyKey.argument());
+              }
+
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                events.add("evaluated " + skyKey.argument());
+              }
+            });
+    // A chain, so that the order of the events is deterministic.
+    SkyKey topKey = skyKey("top");
+    SkyKey midKey = skyKey("mid");
+    SkyKey leafKey = skyKey("leaf");
+    tester.set(leafKey, new StringValue("leaf"));
+    tester.getOrCreate(midKey).addDependency(leafKey).setComputedValue(CONCATENATE);
+    tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
+
+    EvaluationResult<StringValue> result = eval(/* keepGoing= */ false, ImmutableList.of(topKey));
+
+    assertThat(result.get(topKey)).isEqualTo(new StringValue("leaf"));
+    assertThat(events)
+        .containsExactly(
+            "committing leaf",
+            "evaluated leaf",
+            "committing mid",
+            "evaluated mid",
+            "committing top",
+            "evaluated top")
+        .inOrder();
   }
 
   @Test
