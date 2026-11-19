@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.MAIN_REPO_DIR_NAME;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -83,8 +82,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -675,8 +674,14 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
 
       // A spawn that also has the slow file as an input waits for the entry to be logged instead
       // of computing it again, so it can't complete yet.
-      Future<?> secondSlow = executor.submit(() -> logSpawn(context, secondSlowSpawn, blockingFs));
-      assertThrows(TimeoutException.class, () -> secondSlow.get(200, MILLISECONDS));
+      AtomicReference<Thread> secondSlowThread = new AtomicReference<>();
+      Future<?> secondSlow =
+          executor.submit(
+              () -> {
+                secondSlowThread.set(Thread.currentThread());
+                return logSpawn(context, secondSlowSpawn, blockingFs);
+              });
+      awaitWaiting(secondSlowThread, secondSlow);
 
       blockingFs.unblock();
       firstSlow.get();
@@ -736,9 +741,14 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
       blockingFs.awaitBlocked();
 
       // The second spawn waits for the entry that is being computed for the first spawn.
+      AtomicReference<Thread> succeedingThread = new AtomicReference<>();
       Future<?> succeeding =
-          executor.submit(() -> logSpawn(context, succeedingSpawn, blockingFs));
-      assertThrows(TimeoutException.class, () -> succeeding.get(200, MILLISECONDS));
+          executor.submit(
+              () -> {
+                succeedingThread.set(Thread.currentThread());
+                return logSpawn(context, succeedingSpawn, blockingFs);
+              });
+      awaitWaiting(succeedingThread, succeeding);
 
       blockingFs.unblock();
       ExecutionException e = assertThrows(ExecutionException.class, failing::get);
@@ -761,6 +771,20 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                 .addInputs(fileWithContents("failing_set_file"))
                 .addInputs(fileWithContents("succeeding_input"))
                 .build());
+  }
+
+  /**
+   * Waits until the thread that runs the given task is waiting, which a thread that logs a spawn
+   * only does for an entry that is being computed by another thread.
+   *
+   * <p>Fails if the task completes without having waited.
+   */
+  private static void awaitWaiting(AtomicReference<Thread> thread, Future<?> task)
+      throws InterruptedException {
+    while (thread.get() == null || thread.get().getState() != Thread.State.WAITING) {
+      assertWithMessage("task completed without waiting").that(task.isDone()).isFalse();
+      Thread.sleep(1);
+    }
   }
 
   /**

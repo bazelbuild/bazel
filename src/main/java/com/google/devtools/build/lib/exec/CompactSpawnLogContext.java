@@ -194,6 +194,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * for the duration of a single map operation.
    */
   private static final class EntryIdMap {
+    // The base-2 logarithm of the number of stripes.
+    // More stripes make it less likely that two threads need the same monitor at the same time,
+    // and shorten the time for which a monitor is held while a map is rehashed to grow it, as each
+    // map only holds a fraction of the entries. Their cost is a few hundred bytes for the two maps
+    // of each stripe, which is also paid by builds that log few entries.
+    // With 1024 stripes, that cost is around half a megabyte, a map holds thousands of entries in
+    // a build that logs millions, and no thread was observed waiting for a monitor in thread dumps
+    // of such a build with 500 jobs.
     private static final int STRIPE_BITS = 10;
 
     // The IDs of the entries that have been written to the log.
@@ -902,7 +910,10 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         // This can't deadlock: a thread only waits for entries referenced by the entry it is
         // computing, and an entry never transitively references itself.
         PendingEntry pending = (PendingEntry) existing;
-        pending.await();
+        try (SilentCloseable c2 =
+            Profiler.instance().profile(SPAWN_LOG, "logEntry/waitForPendingEntry")) {
+          pending.await();
+        }
         if (pending.id != 0) {
           return pending.id;
         }
