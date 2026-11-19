@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.hash;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -97,8 +95,12 @@ public final class TransitiveHashes {
     int level = 0;
     RegisteredToolchains registeredToolchains = new RegisteredToolchains(evaluator);
     while (!frontier.isEmpty()) {
-      ImmutableSet<SkyKey> keys =
-          frontier.stream().map(DirectTargetHashFunction::key).collect(toImmutableSet());
+      ImmutableSet.Builder<SkyKey> keyBuilder =
+          ImmutableSet.builderWithExpectedSize(frontier.size());
+      for (Label label : frontier) {
+        keyBuilder.add(DirectTargetHashFunction.key(label));
+      }
+      ImmutableSet<SkyKey> keys = keyBuilder.build();
       EvaluationResult<SkyValue> result = evaluator.evaluate(keys);
       List<Label> next = new ArrayList<>();
       for (SkyKey key : keys) {
