@@ -137,21 +137,6 @@ public abstract class CcModule
     return CcToolchainVariables.empty();
   }
 
-  /**
-   * Converts an object that can be the NoneType to the actual object if it is not or returns the
-   * default value if none.
-   *
-   * <p>This operation is wildly unsound. It performs no dymamic checks (casts), it simply lies
-   * about the type.
-   */
-  @SuppressWarnings("unchecked")
-  protected static <T> T convertFromNoneable(Object obj, @Nullable T defaultValue) {
-    if (Starlark.UNBOUND == obj || Starlark.isNullOrNone(obj)) {
-      return defaultValue;
-    }
-    return (T) obj; // totally unsafe
-  }
-
   @Override
   public boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
     isCalledFromStarlarkCcCommon(thread);

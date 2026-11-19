@@ -62,10 +62,11 @@ public class WorkRequestHandlerTest {
   public void testNormalWorkRequest() throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     WorkRequestHandler handler =
-        new WorkRequestHandler(
-            (args, err) -> 1,
-            new PrintStream(new ByteArrayOutputStream()),
-            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback((request, err) -> 1),
+                new PrintStream(new ByteArrayOutputStream()),
+                new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out))
+            .build();
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
@@ -82,10 +83,11 @@ public class WorkRequestHandlerTest {
   public void testMultiplexWorkRequest() throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     WorkRequestHandler handler =
-        new WorkRequestHandler(
-            (args, err) -> 0,
-            new PrintStream(new ByteArrayOutputStream()),
-            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback((request, err) -> 0),
+                new PrintStream(new ByteArrayOutputStream()),
+                new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out))
+            .build();
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).setRequestId(42).build();
@@ -117,22 +119,23 @@ public class WorkRequestHandlerTest {
             new ProtoWorkerMessageProcessor(
                 new PipedInputStream(src), new PipedOutputStream(dest)));
     WorkRequestHandler handler =
-        new WorkRequestHandler(
-            (args, err) -> {
-              // Each call to this runs in its own thread.
-              synchronized (workerThreads) {
-                workerThreads.add(Thread.currentThread());
-              }
-              started.release();
-              try {
-                eternity.acquire(); // This blocks until the thread is interrupted at shutdown.
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-              }
-              return 0;
-            },
-            new PrintStream(new ByteArrayOutputStream()),
-            messageProcessor);
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback((request, err) -> {
+                  // Each call to this runs in its own thread.
+                  synchronized (workerThreads) {
+                    workerThreads.add(Thread.currentThread());
+                  }
+                  started.release();
+                  try {
+                    eternity.acquire(); // This blocks until the thread is interrupted at shutdown.
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  return 0;
+                }),
+                new PrintStream(new ByteArrayOutputStream()),
+                messageProcessor)
+            .build();
 
     List<String> args = Arrays.asList("--sources", "A.java");
     Thread t =
@@ -182,31 +185,33 @@ public class WorkRequestHandlerTest {
             new ProtoWorkerMessageProcessor(
                 new PipedInputStream(src), new PipedOutputStream(dest)));
     WorkRequestHandler handler =
-        new WorkRequestHandler(
-            (args, err) -> {
-              // Each call to this runs in its own thread.
-              try {
-                synchronized (workerThreads) {
-                  workerThreads.add(Thread.currentThread());
-                }
-                started.release();
-                if (workerThreads.size() < 2) {
-                  eternity.acquire(); // This blocks forever.
-                } else {
-                  // This is triggered by the second WorkRequest. This causes the PipedInputStream
-                  // under the hood to throw an InterruptedIOException. This process helps us
-                  // simulate the situation when the infinite loop in the WorkRequestHandler catches
-                  // an IOException while calling messageProcess.readWorkRequest(). This exception
-                  // will then trigger the path we're testing to stop the worker.
-                  messageProcessor.interruptReader();
-                }
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-              }
-              return 0;
-            },
-            new PrintStream(new ByteArrayOutputStream()),
-            messageProcessor);
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback((request, err) -> {
+                  // Each call to this runs in its own thread.
+                  try {
+                    synchronized (workerThreads) {
+                      workerThreads.add(Thread.currentThread());
+                    }
+                    started.release();
+                    if (workerThreads.size() < 2) {
+                      eternity.acquire(); // This blocks forever.
+                    } else {
+                      // This is triggered by the second WorkRequest. This causes the
+                      // PipedInputStream under the hood to throw an InterruptedIOException.
+                      // This process helps us simulate the situation when the infinite loop in
+                      // the WorkRequestHandler catches an IOException while calling
+                      // messageProcess.readWorkRequest(). This exception will then trigger the
+                      // path we're testing to stop the worker.
+                      messageProcessor.interruptReader();
+                    }
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  return 0;
+                }),
+                new PrintStream(new ByteArrayOutputStream()),
+                messageProcessor)
+            .build();
 
     List<String> args = Arrays.asList("--sources", "A.java");
     Thread t =
@@ -240,13 +245,14 @@ public class WorkRequestHandlerTest {
   public void testOutput() throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     WorkRequestHandler handler =
-        new WorkRequestHandler(
-            (args, err) -> {
-              err.println("Failed!");
-              return 1;
-            },
-            new PrintStream(new ByteArrayOutputStream()),
-            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback((request, err) -> {
+                  err.println("Failed!");
+                  return 1;
+                }),
+                new PrintStream(new ByteArrayOutputStream()),
+                new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out))
+            .build();
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
@@ -263,12 +269,13 @@ public class WorkRequestHandlerTest {
   public void testException() throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     WorkRequestHandler handler =
-        new WorkRequestHandler(
-            (args, err) -> {
-              throw new RuntimeException("Exploded!");
-            },
-            new PrintStream(new ByteArrayOutputStream()),
-            new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out));
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback((request, err) -> {
+                  throw new RuntimeException("Exploded!");
+                }),
+                new PrintStream(new ByteArrayOutputStream()),
+                new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out))
+            .build();
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
@@ -297,17 +304,16 @@ public class WorkRequestHandlerTest {
                 new PipedInputStream(src), new PipedOutputStream(dest)));
     WorkRequestHandler handler =
         new WorkRequestHandlerBuilder(
-                (args, err) -> {
+                new WorkRequestCallback((request, err) -> {
                   handlerCalled[0] = true;
                   err.println("Such work! Much progress! Wow!");
                   return 1;
-                },
+                }),
                 new PrintStream(new ByteArrayOutputStream()),
                 messageProcessor)
-            .setCancelCallback(
-                (i, t) -> {
-                  cancelCalled[0] = true;
-                })
+            .setCancelCallback((i, t) -> {
+              cancelCalled[0] = true;
+            })
             .build();
 
     runRequestHandlerThread(done, handler, finish, failures);
@@ -355,7 +361,7 @@ public class WorkRequestHandlerTest {
     // to avoid flakiness.
     WorkRequestHandler handler =
         new WorkRequestHandlerBuilder(
-                (args, err) -> {
+                new WorkRequestCallback((request, err) -> {
                   // This handler waits until the main thread has sent a cancel request.
                   handlerCalled.release(2);
                   try {
@@ -366,13 +372,12 @@ public class WorkRequestHandlerTest {
                   }
                   requestDone.release();
                   return 0;
-                },
+                }),
                 new PrintStream(new ByteArrayOutputStream()),
                 messageProcessor)
-            .setCancelCallback(
-                (i, t) -> {
-                  cancelCalled.release();
-                })
+            .setCancelCallback((i, t) -> {
+              cancelCalled.release();
+            })
             .build();
 
     runRequestHandlerThread(done, handler, finish, failures);
@@ -423,7 +428,7 @@ public class WorkRequestHandlerTest {
                 new PipedInputStream(src), new PipedOutputStream(dest)));
     WorkRequestHandler handler =
         new WorkRequestHandlerBuilder(
-                (args, err) -> {
+                new WorkRequestCallback((request, err) -> {
                   try {
                     waitForCancel.acquire();
                   } catch (InterruptedException e) {
@@ -432,13 +437,12 @@ public class WorkRequestHandlerTest {
                   }
                   requestsDone.release();
                   return 0;
-                },
+                }),
                 new PrintStream(new ByteArrayOutputStream()),
                 messageProcessor)
-            .setCancelCallback(
-                (i, t) -> {
-                  cancelCalled.release();
-                })
+            .setCancelCallback((i, t) -> {
+              cancelCalled.release();
+            })
             .build();
 
     runRequestHandlerThread(done, handler, finish, failures);
@@ -484,11 +488,11 @@ public class WorkRequestHandlerTest {
                 new PipedInputStream(src), new PipedOutputStream(dest)));
     WorkRequestHandler handler =
         new WorkRequestHandlerBuilder(
-                (args, err) -> {
+                new WorkRequestCallback((request, err) -> {
                   handlerCalled.release();
                   err.println("Such work! Much progress! Wow!");
                   return 2;
-                },
+                }),
                 new PrintStream(new ByteArrayOutputStream()),
                 messageProcessor)
             .setCancelCallback((i, t) -> {})

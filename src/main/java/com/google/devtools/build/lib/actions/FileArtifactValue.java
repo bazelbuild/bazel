@@ -753,7 +753,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
       if (this == o) {
         return true;
       }
@@ -763,12 +763,14 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
 
       return Arrays.equals(digest, that.digest)
           && size == that.size
-          && locationIndex == that.locationIndex;
+          && locationIndex == that.locationIndex
+          && isInMemoryOutput() == that.isInMemoryOutput();
     }
 
     @Override
-    public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(digest), size, locationIndex);
+    public final int hashCode() {
+      return HashCodes.hashObjects(
+          Arrays.hashCode(digest), size, locationIndex, isInMemoryOutput());
     }
 
     @Override
@@ -904,25 +906,6 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public boolean isInMemoryOutput() {
       return inMemoryOutput;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof RemoteFileArtifactValueWithMaterializationData that)) {
-        return false;
-      }
-
-      return Arrays.equals(getDigest(), that.getDigest())
-          && getSize() == that.getSize()
-          && getLocationIndex() == that.getLocationIndex();
-    }
-
-    @Override
-    public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(getDigest()), getSize(), getLocationIndex());
     }
 
     @Override

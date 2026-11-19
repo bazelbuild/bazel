@@ -58,7 +58,10 @@ public final class SystemMemoryPressureMonitor {
       return logString;
     }
 
-    /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
+    /**
+     * These constants are mapped to enum in
+     * third_party/bazel/src/main/native/darwin/system_memory_pressure_jni.cc.
+     */
     static Level fromInt(int number) {
       return switch (number) {
         case 0 -> NORMAL;

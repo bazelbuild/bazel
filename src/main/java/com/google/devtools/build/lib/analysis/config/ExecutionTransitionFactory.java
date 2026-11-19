@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -123,21 +121,6 @@ public class ExecutionTransitionFactory
         (p) ->
             new ExecTransitionFinalizer(
                 data.executionPlatform(), starlarkExecTransitionProvider.create(data)));
-  }
-
-  /**
-   * Returns {@code transition} with {@code scopeDetails} added to the details of the Starlark flags
-   * in its input if it is the exec transition, see {@link
-   * StarlarkTransition#withAdditionalScopeDetails}.
-   */
-  static ConfigurationTransition withAdditionalScopeDetails(
-      ConfigurationTransition transition, StarlarkBuildSettingsDetailsValue scopeDetails) {
-    if (transition instanceof ExecTransitionFinalizer finalizer
-        && finalizer.mainTransition instanceof StarlarkTransition mainTransition) {
-      return new ExecTransitionFinalizer(
-          finalizer.executionPlatform, mainTransition.withAdditionalScopeDetails(scopeDetails));
-    }
-    return transition;
   }
 
   private final String execGroup;

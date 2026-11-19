@@ -94,16 +94,15 @@ public final class RequestBatching {
      * corresponding sink is completed exactly once by calling either {@link
      * ResponseSink#acceptResponse} on success or {@link ResponseSink#acceptFailure} on failure.
      *
-     * <p>The {@link RequestBatcher} internally monitors the completion of all sink operations for
-     * the batch.
+     * <p>The {@link EagerRequestBatcher} internally monitors the completion of all sink operations
+     * for the batch.
      *
-     * @return A non-null {@link Runnable} that the {@code RequestBatcher} will execute on behalf of
-     *     the client. The {@code RequestBatcher} guarantees it will run this callback after all
-     *     sinks for this specific batch have been completed, but <strong>before</strong> this
-     *     batch's concurrency slot is released. This provides a reliable mechanism for performing
-     *     batch-specific resource cleanup. For instance, if recycling identifiers used in the
-     *     requests, this guarantee ensures the identifiers are made available before a subsequent
-     *     batch could possibly use them. The callback should be lightweight.
+     * @return A non-null {@link Runnable} that the {@code EagerRequestBatcher} will execute on
+     *     behalf of the client. The {@code EagerRequestBatcher} guarantees it will run this
+     *     callback after all sinks for this specific batch have been completed, but
+     *     <strong>before</strong> decrementing the in-flight batch count. This provides a reliable
+     *     mechanism for performing batch-specific resource cleanup. The callback should be
+     *     lightweight.
      */
     Runnable execute(
         List<RequestT> requests, ImmutableList<? extends ResponseSink<RequestT, ResponseT>> sinks);
@@ -278,7 +277,7 @@ public final class RequestBatching {
               if (responses.size() != operations.size()) {
                 onFailure(
                     new AssertionError(
-                        "RequestBatcher expected operations.size()="
+                        "EagerRequestBatcher expected operations.size()="
                             + operations.size()
                             + " responses, but responses.size()="
                             + responses.size()));

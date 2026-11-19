@@ -415,8 +415,7 @@ public class BuildView {
                 /* shouldClearSyscallCache= */ !remoteAnalysisCachingDependenciesProvider
                     .mode()
                     .isSyncUpload(),
-                buildDriverKeyTestContext,
-                buildRequestOptions.getSkymeldAnalysisOverlapPercentage());
+                buildDriverKeyTestContext);
       } else {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
@@ -1059,8 +1058,7 @@ public class BuildView {
             allTargetsToTest,
             getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
-            CoverageReportValue.COVERAGE_REPORT_KEY,
-            ruleClassProvider.getRunfilesPrefix());
+            CoverageReportValue.COVERAGE_REPORT_KEY);
     if (actionsWrapper == null) {
       return ImmutableSet.of();
     }

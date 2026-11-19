@@ -210,7 +210,6 @@ java_test(
     size = "small",
     srcs = ["IntegerCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//third_party/java/junit",
     ],
@@ -232,7 +231,6 @@ java_test(
     size = "small",
     srcs = ["BooleanCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//third_party/java/junit",
     ],
@@ -482,7 +480,6 @@ java_library(
             "StarlarkSetCodecTest.java",
             "TupleCodecTest.java",
             "TransitiveTraversalValueCodecTest.java",
-            "WorkspaceNameValueCodecTest.java",
             "MemoizerTest.java",
             "FileSymlinkExceptionCodecTest.java",
             "DirectoryListingValueCodecTest.java",

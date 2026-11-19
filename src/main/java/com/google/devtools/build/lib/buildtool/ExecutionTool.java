@@ -186,8 +186,7 @@ public class ExecutionTool {
       }
     }
     actionContextRegistryBuilder.register(
-        SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(env.getOutputService(), env.getWorkspaceName()));
+        SymlinkTreeActionContext.class, new SymlinkTreeStrategy(env.getOutputService()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
@@ -346,6 +345,7 @@ public class ExecutionTool {
           skyframeBuilder.getActionOutputDirectoryHelper());
     }
 
+    env.getBuildResultListener().setExecutionTimer(executionTimer);
     env.getEventBus()
         .register(
             new ExecutionProgressReceiverSetup(
@@ -515,10 +515,7 @@ public class ExecutionTool {
     try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
       modifiedOutputFiles =
           outputService.startBuild(
-              buildId,
-              env.getWorkspaceName(),
-              env.getReporter(),
-              request.getBuildOptions().getFinalizeActions());
+              buildId, env.getReporter(), request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().getCheckOutputFiles()) {
@@ -808,7 +805,6 @@ public class ExecutionTool {
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
       return OutputDirectoryLinksUtils.createOutputDirectoryLinks(
           buildRequestOptions,
-          env.getWorkspaceName(),
           env.getWorkspace(),
           env.getDirectories(),
           getReporter(),

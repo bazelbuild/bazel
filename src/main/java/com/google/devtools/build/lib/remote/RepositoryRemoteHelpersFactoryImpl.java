@@ -28,7 +28,6 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final String buildRequestId;
   private final String commandId;
-  private final String workspaceName;
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
@@ -41,7 +40,6 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
       @Nullable RemoteExecutionClient remoteExecutor,
       String buildRequestId,
       String commandId,
-      String workspaceName,
       String remoteInstanceName,
       boolean acceptCached,
       boolean uploadLocalResults,
@@ -51,7 +49,6 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
     this.remoteExecutor = remoteExecutor;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.workspaceName = workspaceName;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
     this.uploadLocalResults = uploadLocalResults;
@@ -70,7 +67,6 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
         cache.digestUtil(),
         buildRequestId,
         commandId,
-        workspaceName,
         remoteInstanceName,
         acceptCached);
   }

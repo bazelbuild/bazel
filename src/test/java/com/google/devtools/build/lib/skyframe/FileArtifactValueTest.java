@@ -98,7 +98,11 @@ public final class FileArtifactValueTest {
             FileArtifactValue.createForDirectoryWithMtime(2),
             FileArtifactValue.createForDirectoryWithMtime(2))
         .addEqualityGroup(
-            // expireAtEpochMilli doesn't contribute to the equality
+            // expireAtEpochMilli doesn't contribute to the equality, and a plain
+            // RemoteFileArtifactValue is equal to a RemoteFileArtifactValueWithMaterializationData
+            // with the same (digest, size, locationIndex) and inMemoryOutput=false.
+            FileArtifactValue.createForRemoteFile(
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* size= */ 1, /* locationIndex= */ 1),
             FileArtifactValue.createForRemoteFileWithMaterializationData(
                 toBytes("00112233445566778899AABBCCDDEEFF"),
                 /* size= */ 1,
@@ -111,6 +115,19 @@ public final class FileArtifactValueTest {
                 /* locationIndex= */ 1,
                 /* expirationTime= */ Instant.ofEpochMilli(2),
                 /* inMemoryOutput= */ false))
+        .addEqualityGroup(
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(1),
+                /* inMemoryOutput= */ true),
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(2),
+                /* inMemoryOutput= */ true))
         .addEqualityGroup(
             // A ResolvedSymlinkArtifactValue is not equal to the FileArtifactValue it wraps.
             FileArtifactValue.createFromExistingWithResolvedPath(

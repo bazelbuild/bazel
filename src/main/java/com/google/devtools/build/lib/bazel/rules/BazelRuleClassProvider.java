@@ -246,7 +246,6 @@ public class BazelRuleClassProvider {
               BazelRuleClassProvider::getDefaultPathFromOptions, SHELL_EXECUTABLES);
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
-              .setRunfilesPrefix("_main")
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
               .addUniversalConfigurationFragment(ShellConfiguration.class)

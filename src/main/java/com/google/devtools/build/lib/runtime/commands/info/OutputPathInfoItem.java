@@ -36,6 +36,6 @@ public final class OutputPathInfoItem extends InfoItem {
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(env);
-    return print(env.getDirectories().getOutputPath(env.getWorkspaceName()));
+    return print(env.getDirectories().getOutputPath());
   }
 }

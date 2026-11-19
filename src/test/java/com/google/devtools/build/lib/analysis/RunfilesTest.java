@@ -153,26 +153,26 @@ public final class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testBuilderMergeConflictPolicyDefault() {
-    Runfiles r1 = new Runfiles.Builder("TESTING").build();
-    Runfiles r2 = new Runfiles.Builder("TESTING").merge(r1).build();
+    Runfiles r1 = new Runfiles.Builder().build();
+    Runfiles r2 = new Runfiles.Builder().merge(r1).build();
     assertThat(r2.getConflictPolicy()).isEqualTo(ConflictPolicy.WARN);
   }
 
   @Test
   public void testBuilderMergeConflictPolicyInherit() {
-    Runfiles r1 = new Runfiles.Builder("TESTING").build().setConflictPolicy(ConflictPolicy.WARN);
-    Runfiles r2 = new Runfiles.Builder("TESTING").merge(r1).build();
+    Runfiles r1 = new Runfiles.Builder().build().setConflictPolicy(ConflictPolicy.WARN);
+    Runfiles r2 = new Runfiles.Builder().merge(r1).build();
     assertThat(r2.getConflictPolicy()).isEqualTo(ConflictPolicy.WARN);
   }
 
   @Test
   public void testBuilderMergeConflictPolicyInheritStrictest() {
-    Runfiles r1 = new Runfiles.Builder("TESTING").build().setConflictPolicy(ConflictPolicy.WARN);
-    Runfiles r2 = new Runfiles.Builder("TESTING").build().setConflictPolicy(ConflictPolicy.ERROR);
-    Runfiles r3 = new Runfiles.Builder("TESTING").merge(r1).merge(r2).build();
+    Runfiles r1 = new Runfiles.Builder().build().setConflictPolicy(ConflictPolicy.WARN);
+    Runfiles r2 = new Runfiles.Builder().build().setConflictPolicy(ConflictPolicy.ERROR);
+    Runfiles r3 = new Runfiles.Builder().merge(r1).merge(r2).build();
     assertThat(r3.getConflictPolicy()).isEqualTo(ConflictPolicy.ERROR);
     // Swap ordering
-    Runfiles r4 = new Runfiles.Builder("TESTING").merge(r2).merge(r1).build();
+    Runfiles r4 = new Runfiles.Builder().merge(r2).merge(r1).build();
     assertThat(r4.getConflictPolicy()).isEqualTo(ConflictPolicy.ERROR);
   }
 
@@ -184,13 +184,16 @@ public final class RunfilesTest extends FoundationTestCase {
     PathFragment runfilesPathB = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(pathB);
     Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, legacyPathB);
 
-    Runfiles runfiles = new Runfiles.Builder("wsname").addSymlink(runfilesPathB, artifactB).build();
+    Runfiles runfiles = new Runfiles.Builder().addSymlink(runfilesPathB, artifactB).build();
 
     assertThat(
             runfiles.getRunfilesInputs(
                 warningPrefixConflictReceiver(), /* repoMappingManifest= */ null))
         .containsExactly(
-            PathFragment.create("wsname/.runfile"), null, PathFragment.create("repo/b"), artifactB);
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/.runfile"),
+            null,
+            PathFragment.create("repo/b"),
+            artifactB);
     assertNoEvents();
   }
 
@@ -200,21 +203,17 @@ public final class RunfilesTest extends FoundationTestCase {
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
     Runfiles runfilesA =
-        new Runfiles.Builder("TESTING")
-            .addSymlink(PathFragment.create("a/symlink"), artifactA)
-            .build();
+        new Runfiles.Builder().addSymlink(PathFragment.create("a/symlink"), artifactA).build();
     Runfiles runfilesB =
-        new Runfiles.Builder("TESTING")
-            .addSymlink(PathFragment.create("b/symlink"), artifactB)
-            .build();
+        new Runfiles.Builder().addSymlink(PathFragment.create("b/symlink"), artifactB).build();
     StarlarkThread thread = newStarlarkThread();
 
     Runfiles runfilesC = runfilesA.merge(runfilesB, thread);
     assertThat(runfilesC.getRunfilesInputs(/* repoMappingManifest= */ null))
         .containsExactly(
-            PathFragment.create("TESTING/a/symlink"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/a/symlink"),
             artifactA,
-            PathFragment.create("TESTING/b/symlink"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/b/symlink"),
             artifactB);
   }
 
@@ -225,28 +224,22 @@ public final class RunfilesTest extends FoundationTestCase {
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
     Artifact artifactC = ActionsTestUtil.createArtifact(root, "c/target");
     Runfiles runfilesA =
-        new Runfiles.Builder("TESTING")
-            .addSymlink(PathFragment.create("a/symlink"), artifactA)
-            .build();
+        new Runfiles.Builder().addSymlink(PathFragment.create("a/symlink"), artifactA).build();
     Runfiles runfilesB =
-        new Runfiles.Builder("TESTING")
-            .addSymlink(PathFragment.create("b/symlink"), artifactB)
-            .build();
+        new Runfiles.Builder().addSymlink(PathFragment.create("b/symlink"), artifactB).build();
     Runfiles runfilesC =
-        new Runfiles.Builder("TESTING")
-            .addSymlink(PathFragment.create("c/symlink"), artifactC)
-            .build();
+        new Runfiles.Builder().addSymlink(PathFragment.create("c/symlink"), artifactC).build();
     StarlarkThread thread = newStarlarkThread();
 
     Runfiles runfilesMerged =
         runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB, runfilesC), thread);
     assertThat(runfilesMerged.getRunfilesInputs(/* repoMappingManifest= */ null))
         .containsExactly(
-            PathFragment.create("TESTING/a/symlink"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/a/symlink"),
             artifactA,
-            PathFragment.create("TESTING/b/symlink"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/b/symlink"),
             artifactB,
-            PathFragment.create("TESTING/c/symlink"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/c/symlink"),
             artifactC);
   }
 
@@ -254,7 +247,7 @@ public final class RunfilesTest extends FoundationTestCase {
   public void testMergeEmptyWithNonEmpty() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
-    Runfiles runfilesB = new Runfiles.Builder("TESTING").addArtifact(artifactA).build();
+    Runfiles runfilesB = new Runfiles.Builder().addArtifact(artifactA).build();
     StarlarkThread thread = newStarlarkThread();
 
     assertThat(Runfiles.EMPTY.merge(runfilesB, thread)).isSameInstanceAs(runfilesB);
@@ -265,7 +258,7 @@ public final class RunfilesTest extends FoundationTestCase {
   public void mergeAll_emptyWithNonEmpty() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifact = ActionsTestUtil.createArtifact(root, "target");
-    Runfiles nonEmpty = new Runfiles.Builder("TESTING").addArtifact(artifact).build();
+    Runfiles nonEmpty = new Runfiles.Builder().addArtifact(artifact).build();
     StarlarkThread thread = newStarlarkThread();
 
     assertThat(Runfiles.EMPTY.mergeAll(StarlarkList.immutableOf(nonEmpty), thread))
@@ -296,9 +289,9 @@ public final class RunfilesTest extends FoundationTestCase {
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
     Artifact artifactC = ActionsTestUtil.createArtifact(root, "c/target");
-    Runfiles runfilesA = new Runfiles.Builder("TESTING").addArtifact(artifactA).build();
-    Runfiles runfilesB = new Runfiles.Builder("TESTING").addArtifact(artifactB).build();
-    Runfiles runfilesC = new Runfiles.Builder("TESTING").addArtifact(artifactC).build();
+    Runfiles runfilesA = new Runfiles.Builder().addArtifact(artifactA).build();
+    Runfiles runfilesB = new Runfiles.Builder().addArtifact(artifactB).build();
+    Runfiles runfilesC = new Runfiles.Builder().addArtifact(artifactC).build();
     StarlarkThread thread = newStarlarkThread("--nested_set_depth_limit=2");
 
     Runfiles mergeAB = runfilesA.merge(runfilesB, thread);
@@ -316,9 +309,9 @@ public final class RunfilesTest extends FoundationTestCase {
     PathFragment sympathA = PathFragment.create("a/symlink");
     PathFragment sympathB = PathFragment.create("b/symlink");
     PathFragment sympathC = PathFragment.create("c/symlink");
-    Runfiles runfilesA = new Runfiles.Builder("TESTING").addSymlink(sympathA, artifactA).build();
-    Runfiles runfilesB = new Runfiles.Builder("TESTING").addSymlink(sympathB, artifactB).build();
-    Runfiles runfilesC = new Runfiles.Builder("TESTING").addSymlink(sympathC, artifactC).build();
+    Runfiles runfilesA = new Runfiles.Builder().addSymlink(sympathA, artifactA).build();
+    Runfiles runfilesB = new Runfiles.Builder().addSymlink(sympathB, artifactB).build();
+    Runfiles runfilesC = new Runfiles.Builder().addSymlink(sympathC, artifactC).build();
     StarlarkThread thread = newStarlarkThread("--nested_set_depth_limit=2");
 
     Runfiles mergeAllAB = runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB), thread);
@@ -334,7 +327,7 @@ public final class RunfilesTest extends FoundationTestCase {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifact = ActionsTestUtil.createArtifact(root, "my-artifact");
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .addArtifact(artifact)
             .addSymlink(PathFragment.create("my-symlink"), artifact)
             .addRootSymlink(PathFragment.create("my-root-symlink"), artifact)
@@ -376,37 +369,43 @@ public final class RunfilesTest extends FoundationTestCase {
 
     // Case 1: The preferred artifact is added last in the builder
     Runfiles runfilesLast =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .addArtifact(otherConfigArtifact)
             .addArtifact(targetConfigArtifact)
             .build();
     assertThat(
             runfilesLast.getRunfilesInputs(
                 warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
-        .containsEntry(PathFragment.create("TESTING/artifact"), targetConfigArtifact);
+        .containsEntry(
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/artifact"),
+            targetConfigArtifact);
 
     // Case 2: The preferred artifact is added first in the builder
     Runfiles runfilesFirst =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .addArtifact(targetConfigArtifact)
             .addArtifact(otherConfigArtifact)
             .build();
     assertThat(
             runfilesFirst.getRunfilesInputs(
                 warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
-        .containsEntry(PathFragment.create("TESTING/artifact"), targetConfigArtifact);
+        .containsEntry(
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/artifact"),
+            targetConfigArtifact);
 
     // Case 3: Neither artifact has the same artifact root as the originating target, and the last
     // one should be kept
     Runfiles runfilesNeither =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .addArtifact(otherConfigArtifact)
             .addArtifact(anotherConfigArtifact)
             .build();
     assertThat(
             runfilesNeither.getRunfilesInputs(
                 warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
-        .containsEntry(PathFragment.create("TESTING/artifact"), anotherConfigArtifact);
+        .containsEntry(
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/artifact"),
+            anotherConfigArtifact);
   }
 
   @Test
@@ -422,7 +421,7 @@ public final class RunfilesTest extends FoundationTestCase {
     Artifact otherConfigArtifact = ActionsTestUtil.createArtifact(otherConfigRoot, "artifact");
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .addArtifact(targetConfigArtifact)
             .addArtifact(otherConfigArtifact)
             .build();

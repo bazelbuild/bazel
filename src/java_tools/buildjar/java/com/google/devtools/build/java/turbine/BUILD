@@ -78,8 +78,6 @@ native_image(
         "//conditions:default": "turbine_direct_graal",
     }),
     extra_args = [
-        # Opt into stricter behavior to squelch a warning on recent GraalVM versions.
-        "--strict-image-heap",
         # Workaround for https://github.com/oracle/graal/issues/4757.
         "-H:-UseContainerSupport",
         # A benchmark on Bazel itself shows a ~15% improvement in combined compile and header

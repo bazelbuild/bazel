@@ -49,11 +49,6 @@ public class TestConstants {
   public static final ImmutableList<String> EMBEDDED_SCRIPTS_PATHS = ImmutableList.of(
       "_main/src/main/tools");
 
-  /**
-   * Default workspace name.
-   */
-  public static final String WORKSPACE_NAME = "_main";
-
   public static final BzlLoadValue.Key OBJC_INFO_LOAD_KEY =
       keyForBuild(Label.parseCanonicalUnchecked("@rules_cc+//cc/private:objc_info.bzl"));
 

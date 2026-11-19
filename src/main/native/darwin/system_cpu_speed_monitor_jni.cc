@@ -15,6 +15,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <jni.h>
 #include <mach/mach_error.h>
 #include <notify.h>
 
@@ -26,35 +27,9 @@
 
 namespace blaze_jni {
 
-void portable_start_cpu_speed_monitoring() {
-  // We install a test notification as well that can be used for testing.
-  static dispatch_once_t once_token;
-  dispatch_once(&once_token, ^{
-    dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
-    int token;
-    int status = notify_register_dispatch(kIOPMCPUPowerNotificationKey, &token,
-                                          queue, ^(int state) {
-                                            int value = portable_cpu_speed();
-                                            cpu_speed_callback(value);
-                                          });
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+static jobject g_cpu_speed_callback = nullptr;
 
-    // This is registered solely so we can test the system from end-to-end.
-    // Using the Apple notification requires admin access.
-    status = notify_register_dispatch(
-        "com.google.bazel.test.cpuspeed", &token, queue, ^(int t) {
-          uint64_t state;
-          uint32_t status = notify_get_state(t, &state);
-          if (status != NOTIFY_STATUS_OK) {
-            BAZEL_LOG(FATAL) << "notify_get_state failed: " << status;
-          }
-          cpu_speed_callback(state);
-        });
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
-  });
-}
-
-int portable_cpu_speed() {
+static int GetCpuSpeed() {
   CFDictionaryRef cfCpuPowerStatus = NULL;
   IOReturn ret = IOPMCopyCPUPowerStatus(&cfCpuPowerStatus);
   if (ret == kIOReturnNotFound) {
@@ -81,6 +56,46 @@ int portable_cpu_speed() {
   BAZEL_LOG(USER) << "cpu speed anomaly: " << speed;
 
   return speed;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerCPUSpeedNative(
+    JNIEnv* env, jobject, jobject callback) {
+  if (!blaze_jni::RegisterIntConsumerCallback(
+          env, callback, &g_cpu_speed_callback, "cpu speed")) {
+    return;
+  }
+  // We install a test notification as well that can be used for testing.
+  static dispatch_once_t once_token;
+  dispatch_once(&once_token, ^{
+    dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
+    int token;
+    int status = notify_register_dispatch(
+        kIOPMCPUPowerNotificationKey, &token, queue, ^(int state) {
+          blaze_jni::PerformIntegerValueCallback(g_cpu_speed_callback,
+                                                 GetCpuSpeed());
+        });
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+
+    // This is registered solely so we can test the system from end-to-end.
+    // Using the Apple notification requires admin access.
+    status = notify_register_dispatch(
+        "com.google.bazel.test.cpuspeed", &token, queue, ^(int t) {
+          uint64_t state;
+          uint32_t status = notify_get_state(t, &state);
+          if (status != NOTIFY_STATUS_OK) {
+            BAZEL_LOG(FATAL) << "notify_get_state failed: " << status;
+          }
+          blaze_jni::PerformIntegerValueCallback(g_cpu_speed_callback, state);
+        });
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+  });
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_cpuSpeedNative(
+    JNIEnv*, jobject) {
+  return GetCpuSpeed();
 }
 
 }  // namespace blaze_jni

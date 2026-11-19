@@ -882,12 +882,12 @@ public class SandboxHelpersTest {
     Path sandboxBase1 = scratch.dir("/sandbox_stash_reinit_1");
     Path sandboxBase2 = scratch.dir("/sandbox_stash_reinit_2");
 
-    SandboxStash.initialize("ws1", sandboxBase1, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase1, options, new SynchronousTreeDeleter());
     SandboxStash stash1 = SandboxStash.getInstanceForTesting();
     assertThat(stash1).isNotNull();
 
-    // Re-initialize with a different workspace name
-    SandboxStash.initialize("ws2", sandboxBase2, options, new SynchronousTreeDeleter());
+    // Re-initialize with a different sandbox base
+    SandboxStash.initialize(sandboxBase2, options, new SynchronousTreeDeleter());
     SandboxStash stash2 = SandboxStash.getInstanceForTesting();
     assertThat(stash2).isNotNull();
     assertThat(stash2).isNotSameInstanceAs(stash1);
@@ -895,7 +895,7 @@ public class SandboxHelpersTest {
     // Disable reuse
     SandboxOptions optionsDisabled =
         Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions();
-    SandboxStash.initialize("ws2", sandboxBase2, optionsDisabled, null);
+    SandboxStash.initialize(sandboxBase2, optionsDisabled, null);
     assertThat(SandboxStash.getInstanceForTesting()).isNull();
   }
 
@@ -997,7 +997,7 @@ public class SandboxHelpersTest {
                 "--reuse_sandbox_directories",
                 "--experimental_inmemory_sandbox_stashes")
             .getOptions();
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       SandboxStash stash = SandboxStash.getInstanceForTesting();
       assertThat(stash).isNotNull();
@@ -1042,7 +1042,6 @@ public class SandboxHelpersTest {
       assertThat(execrootDeleteCount.get()).isEqualTo(0);
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1063,7 +1062,7 @@ public class SandboxHelpersTest {
     execroot1.createDirectoryAndParents();
     Path file1 = scratch.file("/sandbox_stash_immediate/1/execroot/file.txt", "content");
 
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       SandboxStash stash = SandboxStash.getInstanceForTesting();
       assertThat(stash).isNotNull();
@@ -1102,7 +1101,6 @@ public class SandboxHelpersTest {
       assertThat(sandbox2.getChild("execroot").getChild("file.txt").exists()).isTrue();
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1119,7 +1117,7 @@ public class SandboxHelpersTest {
                 "--experimental_inmemory_sandbox_stashes")
             .getOptions();
     Path sandboxBase = scratch.dir("/sandbox_stash_concurrent");
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       SandboxStash stash = SandboxStash.getInstanceForTesting();
       assertThat(stash).isNotNull();
@@ -1204,7 +1202,6 @@ public class SandboxHelpersTest {
       assertThat(stash.getReadyStashesForTesting().get("Mnemonic")).isEmpty();
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1241,7 +1238,7 @@ public class SandboxHelpersTest {
             ImmutableSet.of(PathFragment.create("test.log"), PathFragment.create("test.xml")),
             ImmutableSet.of());
 
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       SandboxStash stash = SandboxStash.getInstanceForTesting();
       assertThat(stash).isNotNull();
@@ -1281,7 +1278,6 @@ public class SandboxHelpersTest {
       assertThat(stash.getStashPathToRunfilesDirForTesting()).doesNotContainKey(stashedExecroot);
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1307,7 +1303,7 @@ public class SandboxHelpersTest {
             ImmutableSet.of(PathFragment.create("test.log"), PathFragment.create("test.xml")),
             ImmutableSet.of());
 
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       // The first access clears out any existing stashes, so trigger it before creating one.
       Path sandbox1 = scratch.dir("/sandbox_stash_unknown_runfiles/1");
@@ -1334,7 +1330,6 @@ public class SandboxHelpersTest {
       assertThat(sandbox2.getRelative("execroot/ws/" + secondRunfiles).exists()).isFalse();
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1352,7 +1347,7 @@ public class SandboxHelpersTest {
     Path sandboxBase = scratch.dir("/sandbox_stash_same_package");
     SandboxOutputs outputs = SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
 
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       for (String pkg : ImmutableList.of("a/b/c", "a/b/d", "a/x")) {
         Path sandbox = scratch.dir("/sandbox_stash_same_package/" + pkg);
@@ -1378,7 +1373,6 @@ public class SandboxHelpersTest {
       assertThat(sandbox.getRelative("execroot/a/b/c/marker").exists()).isTrue();
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1399,7 +1393,7 @@ public class SandboxHelpersTest {
     execroot.createDirectoryAndParents();
     Path file = scratch.file("/sandbox_stash_cache/1/execroot/file.txt", "content");
 
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       SandboxStash stash = SandboxStash.getInstanceForTesting();
       assertThat(stash).isNotNull();
@@ -1425,7 +1419,6 @@ public class SandboxHelpersTest {
       assertThat(cached.getBaseName()).isEqualTo("Mnemonic");
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1451,7 +1444,7 @@ public class SandboxHelpersTest {
       scratch.file(oldEntry.getChild("old_file.txt").asFragment().getPathString(), "old");
     }
 
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       int numThreads = 8;
       ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -1513,7 +1506,6 @@ public class SandboxHelpersTest {
       }
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1529,7 +1521,7 @@ public class SandboxHelpersTest {
                 "--experimental_inmemory_sandbox_stashes")
             .getOptions();
     Path sandboxBase = scratch.dir("/sandbox_stash_no_leak");
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       SandboxStash stash = SandboxStash.getInstanceForTesting();
       assertThat(stash).isNotNull();
@@ -1569,7 +1561,6 @@ public class SandboxHelpersTest {
       assertThat(stash.getReadyStashesForTesting().get("Mnemonic")).isNull();
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);
@@ -1630,7 +1621,7 @@ public class SandboxHelpersTest {
                 "--experimental_inmemory_sandbox_stashes")
             .getOptions();
 
-    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    SandboxStash.initialize(sandboxBase, options, new SynchronousTreeDeleter());
     try {
       SandboxStash stash = SandboxStash.getInstanceForTesting();
       assertThat(stash).isNotNull();
@@ -1675,7 +1666,6 @@ public class SandboxHelpersTest {
       assertThat(wsReaddirCount.get()).isEqualTo(1);
     } finally {
       SandboxStash.initialize(
-          "ws",
           sandboxBase,
           Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
           null);

@@ -28,6 +28,7 @@
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/strings/ascii.h"
 
 namespace blaze {
 
@@ -41,20 +42,20 @@ using std::wstring;
 // are case-insensitive on Windows).
 //
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_ENVVAR_UNSET(/* const char* */ key)                          \
-  {                                                                         \
-    ASSERT_EQ(::GetEnvironmentVariableA(key, nullptr, 0), (DWORD)0);        \
-    ASSERT_EQ(::GetEnvironmentVariableA(blaze_util::ToLower(key).c_str(),   \
-                                        nullptr, 0),                        \
-              (DWORD)0);                                                    \
-    ASSERT_EQ(::GetEnvironmentVariableW(                                    \
-                  blaze_util::CstringToWstring(key).c_str(), nullptr, 0),   \
-              (DWORD)0);                                                    \
-    ASSERT_EQ(                                                              \
-        ::GetEnvironmentVariableW(                                          \
-            blaze_util::CstringToWstring(blaze_util::ToLower(key)).c_str(), \
-            nullptr, 0),                                                    \
-        (DWORD)0);                                                          \
+#define ASSERT_ENVVAR_UNSET(/* const char* */ key)                            \
+  {                                                                           \
+    ASSERT_EQ(::GetEnvironmentVariableA(key, nullptr, 0), (DWORD)0);          \
+    ASSERT_EQ(::GetEnvironmentVariableA(absl::AsciiStrToLower(key).c_str(),   \
+                                        nullptr, 0),                          \
+              (DWORD)0);                                                      \
+    ASSERT_EQ(::GetEnvironmentVariableW(                                      \
+                  blaze_util::CstringToWstring(key).c_str(), nullptr, 0),     \
+              (DWORD)0);                                                      \
+    ASSERT_EQ(                                                                \
+        ::GetEnvironmentVariableW(                                            \
+            blaze_util::CstringToWstring(absl::AsciiStrToLower(key)).c_str(), \
+            nullptr, 0),                                                      \
+        (DWORD)0);                                                            \
   }
 
 // Asserts that the envvar named `key` is set to the `expected` value.
@@ -78,7 +79,7 @@ using std::wstring;
     ASSERT_EQ(string(buf.get()), expected);                               \
                                                                           \
     /* Assert that envvar keys are case-insensitive. */                   \
-    string lkey(blaze_util::ToLower(key));                                \
+    string lkey(absl::AsciiStrToLower(key));                              \
     ASSERT_EQ(::GetEnvironmentVariableA(lkey.c_str(), buf.get(), size),   \
               size - 1);                                                  \
     ASSERT_EQ(string(buf.get()), expected);                               \
@@ -174,7 +175,7 @@ class FindBashInPathTest : public ::testing::Test {
 
   // Lowercases `path` and uses backslashes as the only separator.
   static string Normalize(const string& path) {
-    string result = blaze_util::ToLower(path);
+    string result = absl::AsciiStrToLower(path);
     std::replace(result.begin(), result.end(), '/', '\\');
     return result;
   }

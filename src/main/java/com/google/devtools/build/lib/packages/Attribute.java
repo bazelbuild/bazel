@@ -167,9 +167,6 @@ public final class Attribute implements Comparable<Attribute> {
      */
     SKIP_CONSTRAINTS_OVERRIDE,
 
-    /** Whether we should use output_licenses to check the licences on this attribute. */
-    OUTPUT_LICENSES,
-
     /**
      * Has a Starlark-defined configuration transition. Transitions for analysis testing are tracked
      * separately: see {@link #HAS_ANALYSIS_TEST_TRANSITION}.
@@ -534,12 +531,6 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> orderIndependent() {
       Preconditions.checkNotNull(type.getListElementType(), "attribute '%s' must be a list", name);
       return setPropertyFlag(PropertyFlag.ORDER_INDEPENDENT);
-    }
-
-    /** Mark the built attribute as to use output_licenses for license checking. */
-    public Builder<TYPE> useOutputLicenses() {
-      Preconditions.checkState(BuildType.isLabelType(type), "must be a label type");
-      return setPropertyFlag(PropertyFlag.OUTPUT_LICENSES);
     }
 
     /**
@@ -2139,11 +2130,6 @@ public final class Attribute implements Comparable<Attribute> {
   /** Returns true if this parameter is order-independent. */
   public boolean isOrderIndependent() {
     return getPropertyFlag(PropertyFlag.ORDER_INDEPENDENT);
-  }
-
-  /** Returns true if output_licenses should be used for checking licensing. */
-  public boolean useOutputLicenses() {
-    return getPropertyFlag(PropertyFlag.OUTPUT_LICENSES);
   }
 
   /**

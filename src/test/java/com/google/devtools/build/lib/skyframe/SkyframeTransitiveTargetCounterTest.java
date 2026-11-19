@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.buildtool;
+package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
@@ -27,18 +27,15 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.buildtool.TransitiveTargetCounter.Counts;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyframeTransitiveTargetCounter.Counts;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -60,9 +57,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link TransitiveTargetCounter}. */
+/** Unit tests for {@link SkyframeTransitiveTargetCounter}. */
 @RunWith(JUnit4.class)
-public final class TransitiveTargetCounterTest {
+public final class SkyframeTransitiveTargetCounterTest {
 
   private static final BuildConfigurationKey CONFIG_KEY =
       BuildConfigurationKey.create(BuildOptions.builder().build());
@@ -78,8 +75,6 @@ public final class TransitiveTargetCounterTest {
   private static final SkyFunctionName OTHER_FUNCTION =
       SkyFunctionName.createHermetic("OTHER_TEST_FUNCTION");
 
-  private static final AspectClass TEST_ASPECT_CLASS = () -> "test_aspect";
-
   private InMemoryGraph graph;
 
   @Before
@@ -89,7 +84,7 @@ public final class TransitiveTargetCounterTest {
 
   @Test
   public void count_emptyRoots_returnsEmptyMap() throws Exception {
-    assertThat(TransitiveTargetCounter.count(graph, ImmutableSet.of())).isEmpty();
+    assertThat(SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of())).isEmpty();
   }
 
   @Test
@@ -98,7 +93,7 @@ public final class TransitiveTargetCounterTest {
     addDoneNode(graph, root, ruleValue(/* actionCount= */ 3));
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(graph, ImmutableSet.of(root));
+        SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of(root));
 
     assertThat(counts).containsExactly(root, new Counts(1, 3));
   }
@@ -127,7 +122,7 @@ public final class TransitiveTargetCounterTest {
         ImmutableList.of(ImmutableList.of(left, sourceFile), ImmutableList.of(right, otherKey)));
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(graph, ImmutableSet.of(root));
+        SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of(root));
 
     assertThat(counts).containsExactly(root, new Counts(4, 1 + 2 + 3 + 5));
   }
@@ -148,7 +143,7 @@ public final class TransitiveTargetCounterTest {
     addDoneNode(graph, r3, ruleValue(/* actionCount= */ 8), shared);
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(graph, ImmutableSet.of(r1, r2, r3));
+        SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of(r1, r2, r3));
 
     assertThat(counts)
         .containsExactly(
@@ -181,7 +176,7 @@ public final class TransitiveTargetCounterTest {
     addDoneNode(graph, nonRuleRoot, NON_RULE_VALUE, realDep);
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(graph, ImmutableSet.of(root, nonRuleRoot));
+        SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of(root, nonRuleRoot));
 
     // root reaches: root (1), realDep (2), aspectOnDep (3), aspectOnlyDep (4) -> 4 nodes, 10
     // actions (aliasLike is traversed through without incrementing targetCount).
@@ -225,7 +220,7 @@ public final class TransitiveTargetCounterTest {
         preTransitionKey);
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(
+        SkyframeTransitiveTargetCounter.count(
             graph, ImmutableSet.of(root, preTransitionKey, postTransitionKey));
 
     assertThat(counts)
@@ -249,11 +244,11 @@ public final class TransitiveTargetCounterTest {
                 .get(undoneRoot);
     undoneEntry.addReverseDepAndCheckIfDone(null);
 
-    assertThat(TransitiveTargetCounter.count(graph, ImmutableSet.of(unconfiguredRoot)))
+    assertThat(SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of(unconfiguredRoot)))
         .containsExactly(unconfiguredRoot, new Counts(0, 0));
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(
+        SkyframeTransitiveTargetCounter.count(
             graph, ImmutableSet.of(unconfiguredRoot, missingRoot, undoneRoot));
 
     assertThat(counts)
@@ -282,7 +277,7 @@ public final class TransitiveTargetCounterTest {
     addDoneNode(graph, validRoot, ruleValue(/* actionCount= */ 2), cycleA, validDep);
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(graph, ImmutableSet.of(validRoot, cycleA));
+        SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of(validRoot, cycleA));
 
     assertThat(counts)
         .containsExactly(
@@ -299,7 +294,7 @@ public final class TransitiveTargetCounterTest {
     addDoneNode(edgelessGraph, root, ruleValue(/* actionCount= */ 2), dep);
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(edgelessGraph, ImmutableSet.of(root));
+        SkyframeTransitiveTargetCounter.count(edgelessGraph, ImmutableSet.of(root));
 
     assertThat(counts).containsExactly(root, new Counts(1, 2));
   }
@@ -333,7 +328,8 @@ public final class TransitiveTargetCounterTest {
     }
 
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(graph, ImmutableSet.copyOf(roots), /* maxMaskBytes= */ 0);
+        SkyframeTransitiveTargetCounter.count(
+            graph, ImmutableSet.copyOf(roots), /* maxMaskBytes= */ 0);
 
     assertThat(counts).hasSize(numRoots);
     assertThat(counts.get(roots.get(0))).isEqualTo(new Counts(3, 2 + 5 + 3));
@@ -375,7 +371,7 @@ public final class TransitiveTargetCounterTest {
 
     long commonPoolStealsBefore = ForkJoinPool.commonPool().getStealCount();
     ImmutableMap<ConfiguredTargetKey, Counts> counts =
-        TransitiveTargetCounter.count(graph, ImmutableSet.of(prev));
+        SkyframeTransitiveTargetCounter.count(graph, ImmutableSet.of(prev));
     long commonPoolStealsAfter = ForkJoinPool.commonPool().getStealCount();
 
     assertThat(counts).containsExactly(prev, new Counts(chainLength, chainLength));
@@ -399,7 +395,7 @@ public final class TransitiveTargetCounterTest {
 
   private static AspectKey aspectKey(ConfiguredTargetKey baseKey) {
     return AspectKeyCreator.createAspectKey(
-        AspectDescriptor.of(TEST_ASPECT_CLASS, AspectParameters.EMPTY), baseKey);
+        AspectDescriptor.of(() -> "test_aspect", AspectParameters.EMPTY), baseKey);
   }
 
   private static RuleConfiguredObjectValue ruleValue(int actionCount) {

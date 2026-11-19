@@ -201,7 +201,6 @@ public final class CoverageReportActionBuilder {
       ArtifactFactory factory,
       ActionKeyContext actionKeyContext,
       ArtifactOwner artifactOwner,
-      String workspaceName,
       CoverageHelper coverageHelper,
       Artifact htmlReport)
       throws InterruptedException {
@@ -247,7 +246,7 @@ public final class CoverageReportActionBuilder {
         Artifact baselineLcovArtifact =
             factory.getDerivedArtifact(
                 TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
-                directories.getBuildDataDirectory(workspaceName),
+                directories.getBuildDataDirectory(),
                 artifactOwner);
         Action baselineLcovFileAction =
             generateLcovFileWriteAction(
@@ -261,7 +260,6 @@ public final class CoverageReportActionBuilder {
                     factory,
                     artifactOwner,
                     reportGenerator,
-                    workspaceName,
                     /* htmlReport= */ null,
                     actionOwner),
                 coverageHelper,
@@ -270,7 +268,7 @@ public final class CoverageReportActionBuilder {
         Artifact coverageLcovArtifact =
             factory.getDerivedArtifact(
                 TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
-                directories.getBuildDataDirectory(workspaceName),
+                directories.getBuildDataDirectory(),
                 artifactOwner);
         Action coverageLcovFileAction =
             generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
@@ -283,7 +281,6 @@ public final class CoverageReportActionBuilder {
                     factory,
                     artifactOwner,
                     reportGenerator,
-                    workspaceName,
                     htmlReport,
                     actionOwner),
                 coverageHelper,
@@ -344,7 +341,7 @@ public final class CoverageReportActionBuilder {
       CoverageHelper coverageHelper,
       Collection<ConfiguredTarget> configuredTargets,
       String basename) {
-    ArtifactRoot root = args.directories().getBuildDataDirectory(args.workspaceName());
+    ArtifactRoot root = args.directories().getBuildDataDirectory();
     Artifact lcovOutput =
         args.factory()
             .getDerivedArtifact(

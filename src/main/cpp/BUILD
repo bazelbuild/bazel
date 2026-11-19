@@ -145,6 +145,7 @@ cc_library(
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -268,9 +269,12 @@ cc_library(
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/strings",
-    ],
+        "@abseil-cpp//absl/strings:str_format",
+    ] + select({
+        "//src/conditions:windows": ["//src/main/cpp/util:strings"],
+        "//conditions:default": [],
+    }),
 )
 
 genrule(
@@ -307,6 +311,7 @@ cc_library(
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )

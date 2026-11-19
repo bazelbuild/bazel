@@ -235,7 +235,6 @@ def fail_impl(name, visibility, **kwargs):
             /* filename= */ RootedPath.toRootedPath(
                 Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
                 PathFragment.create(name + "/BUILD")),
-            "workspace",
             /* associatedModuleName= */ Optional.empty(),
             /* associatedModuleVersion= */ Optional.empty(),
             /* noImplicitFileExport= */ true,

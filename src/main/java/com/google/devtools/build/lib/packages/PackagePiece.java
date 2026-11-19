@@ -208,7 +208,6 @@ public abstract sealed class PackagePiece extends Packageoid
         PackageSettings packageSettings,
         PackagePieceIdentifier.ForBuildFile identifier,
         RootedPath filename,
-        String workspaceName,
         Optional<String> associatedModuleName,
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
@@ -229,7 +228,6 @@ public abstract sealed class PackagePiece extends Packageoid
           Metadata.builder()
               .packageIdentifier(identifier.getPackageIdentifier())
               .buildFilename(filename)
-              .workspaceName(workspaceName)
               .repositoryMapping(repositoryMapping)
               .associatedModuleName(associatedModuleName)
               .associatedModuleVersion(associatedModuleVersion)

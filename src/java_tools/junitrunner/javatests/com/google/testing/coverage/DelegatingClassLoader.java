@@ -1,4 +1,4 @@
-// Copyright 2023 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
 
-/** A common interface for SkyKeys whose evaluation can be deliberately stalled by Skyframe. */
-public interface StallableSkykey extends SkyKey {}
+package com.google.testing.coverage;
+
+/**
+ * A system class loader that JacocoCoverageRunner can't inspect, which forces it to fall back to
+ * java.class.path to determine the runtime classpath.
+ */
+public class DelegatingClassLoader extends ClassLoader {
+
+  public DelegatingClassLoader(ClassLoader parent) {
+    super(parent);
+  }
+}

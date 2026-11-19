@@ -40,6 +40,7 @@
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "absl/log/initialize.h"
+#include "absl/strings/match.h"
 
 namespace blaze {
 
@@ -135,8 +136,8 @@ bool SearchNullaryOption(const vector<string>& args, const string& flag_name,
 }
 
 bool IsArg(const string& arg) {
-  return blaze_util::starts_with(arg, "-") && (arg != "--help") &&
-         (arg != "-help") && (arg != "-h");
+  return absl::StartsWith(arg, "-") && (arg != "--help") && (arg != "-help") &&
+         (arg != "-h");
 }
 
 std::string AbsolutePathFromFlag(const std::string& value) {

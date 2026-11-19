@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.MAIN_REPO_DIR_NAME;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.millisToProto;
 import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
-import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 import static org.mockito.ArgumentMatchers.any;
@@ -146,15 +146,10 @@ public abstract class SpawnLogContextTestBase {
               public ImmutableSet<String> getReservedActionMnemonics() {
                 return ImmutableSet.of();
               }
-
-              @Override
-              public String getRunfilesPrefix() {
-                return WORKSPACE_NAME;
-              }
             },
             new FragmentFactory());
     outputDir = configuration.getBinDirectory();
-    execRoot = configuration.getDirectories().getExecRoot(WORKSPACE_NAME);
+    execRoot = configuration.getDirectories().getExecRoot();
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
 
     externalSourceRoot =
@@ -444,7 +439,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/data.txt")
                     .setDigest(getDigest("abc"))
                     .setIsTool(inputsMode.isTool()))
@@ -494,7 +489,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/data.txt")
                     .setDigest(getDigest("abc"))
                     .setIsTool(true))
@@ -546,7 +541,7 @@ public abstract class SpawnLogContextTestBase {
                             .setPath(
                                 PRODUCT_NAME
                                     + "-out/k8-fastbuild/bin/foo.runfiles/"
-                                    + WORKSPACE_NAME
+                                    + MAIN_REPO_DIR_NAME
                                     + "/dir/data.txt")
                             .setDigest(getDigest("abc"))
                             .setIsTool(inputsMode.isTool())
@@ -611,7 +606,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/sub/__init__.py")
                     .setIsTool(inputsMode.isTool()))
             .addInputs(
@@ -619,7 +614,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/sub/dir/__init__.py")
                     .setIsTool(inputsMode.isTool()))
             .addInputs(
@@ -627,7 +622,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/sub/dir/script.py")
                     .setDigest(getDigest("abc"))
                     .setIsTool(inputsMode.isTool()))
@@ -748,7 +743,7 @@ public abstract class SpawnLogContextTestBase {
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + WORKSPACE_NAME
+                        + MAIN_REPO_DIR_NAME
                         + "/other/pkg/gen.txt")
                 .setDigest(getDigest("gen")))
         .addInputs(
@@ -756,7 +751,7 @@ public abstract class SpawnLogContextTestBase {
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + WORKSPACE_NAME
+                        + MAIN_REPO_DIR_NAME
                         + "/other/symlink")
                 .setDigest(getDigest("symlink_gen")))
         .addInputs(
@@ -764,7 +759,7 @@ public abstract class SpawnLogContextTestBase {
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + WORKSPACE_NAME
+                        + MAIN_REPO_DIR_NAME
                         + "/pkg/source.txt")
                 .setDigest(getDigest("source")))
         .addInputs(
@@ -772,7 +767,7 @@ public abstract class SpawnLogContextTestBase {
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + WORKSPACE_NAME
+                        + MAIN_REPO_DIR_NAME
                         + "/some/symlink")
                 .setDigest(getDigest("symlink_source")))
         .addInputs(
@@ -831,7 +826,7 @@ public abstract class SpawnLogContextTestBase {
             runfilesRoot,
             ImmutableMap.of((symlinkUnderMain ? "" : "../some_repo/") + "symlink", symlinkTarget),
             ImmutableMap.of(
-                (rootSymlinkUnderMain ? WORKSPACE_NAME + "/" : "some_repo/") + "root_symlink",
+                (rootSymlinkUnderMain ? MAIN_REPO_DIR_NAME + "/" : "some_repo/") + "root_symlink",
                 rootSymlinkTarget),
             externalSourceArtifact,
             externalGenArtifact);
@@ -860,7 +855,7 @@ public abstract class SpawnLogContextTestBase {
             .setPath(
                 PRODUCT_NAME
                     + "-out/k8-fastbuild/bin/tools/foo.runfiles/%s/root_symlink"
-                        .formatted(rootSymlinkUnderMain ? WORKSPACE_NAME : "some_repo"))
+                        .formatted(rootSymlinkUnderMain ? MAIN_REPO_DIR_NAME : "some_repo"))
             .setDigest(getDigest("root_symlink_target"))
             .build());
     files.add(
@@ -868,7 +863,7 @@ public abstract class SpawnLogContextTestBase {
             .setPath(
                 PRODUCT_NAME
                     + "-out/k8-fastbuild/bin/tools/foo.runfiles/%s/symlink"
-                        .formatted(symlinkUnderMain ? WORKSPACE_NAME : "some_repo"))
+                        .formatted(symlinkUnderMain ? MAIN_REPO_DIR_NAME : "some_repo"))
             .setDigest(getDigest("symlink_target"))
             .build());
     files.add(
@@ -890,7 +885,7 @@ public abstract class SpawnLogContextTestBase {
               .setPath(
                   PRODUCT_NAME
                       + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                      + WORKSPACE_NAME
+                      + MAIN_REPO_DIR_NAME
                       + "/.runfile")
               .build());
     }
@@ -957,7 +952,7 @@ public abstract class SpawnLogContextTestBase {
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + WORKSPACE_NAME
+                        + MAIN_REPO_DIR_NAME
                         + "/pkg/file.txt")
                 .setDigest(getDigest("gen")))
         .addInputs(
@@ -1049,7 +1044,7 @@ public abstract class SpawnLogContextTestBase {
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + WORKSPACE_NAME
+                        + MAIN_REPO_DIR_NAME
                         + "/other/pkg/gen.txt")
                 .setDigest(getDigest("gen")))
         .addInputs(
@@ -1057,7 +1052,7 @@ public abstract class SpawnLogContextTestBase {
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + WORKSPACE_NAME
+                        + MAIN_REPO_DIR_NAME
                         + "/pkg/source.txt")
                 .setDigest(getDigest("source")))
         .addInputs(
@@ -1091,7 +1086,7 @@ public abstract class SpawnLogContextTestBase {
         createRunfilesTree(
             runfilesRoot,
             ImmutableMap.of(),
-            ImmutableMap.of(WORKSPACE_NAME + "/pkg/source.txt", symlinkSourceArtifact),
+            ImmutableMap.of(MAIN_REPO_DIR_NAME + "/pkg/source.txt", symlinkSourceArtifact),
             sourceArtifact);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesArtifact).build();
@@ -1115,7 +1110,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/pkg/source.txt")
                     .setDigest(getDigest("symlink_source")))
             .build());
@@ -1163,14 +1158,14 @@ public abstract class SpawnLogContextTestBase {
                         .setPath(
                             PRODUCT_NAME
                                 + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                                + WORKSPACE_NAME
+                                + MAIN_REPO_DIR_NAME
                                 + "/pkg/file.txt")
                         .setDigest(getDigest("file"))
                     : File.newBuilder()
                         .setPath(
                             PRODUCT_NAME
                                 + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                                + WORKSPACE_NAME
+                                + MAIN_REPO_DIR_NAME
                                 + "/pkg/file.txt")
                         .setSymlinkTargetPath("/some/path/other_file.txt"))
             .build());
@@ -1235,7 +1230,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/pkg/file.txt")
                     .setDigest(getDigest("gen")))
             .addInputs(
@@ -1243,7 +1238,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/pkg/other_file.txt")
                     .setDigest(getDigest("other_source")))
             .build());
@@ -1293,7 +1288,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/pkg/file.txt")
                     .setDigest(getDigest("gen")))
             .build());
@@ -1311,18 +1306,19 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME);
+    Runfiles.Builder runfiles = new Runfiles.Builder();
     if (rootSymlink) {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME)
-              .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), sourceFile)
-              .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), genFile)
+          new Runfiles.Builder()
+              .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), sourceFile)
+              .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), genFile)
               .build();
-      runfiles.addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), sourceFile);
+      runfiles.addRootSymlink(
+          PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), sourceFile);
       runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
     } else {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME)
+          new Runfiles.Builder()
               .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
               .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
               .build();
@@ -1352,7 +1348,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/pkg/file.txt")
                     .setDigest(getDigest("source")))
             .build());
@@ -1370,14 +1366,14 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME);
+    Runfiles.Builder runfiles = new Runfiles.Builder();
     // Arrange for (reference) equal SymlinkEntry instances to appear twice in the runfiles, both
     // first and last in compile order.
     if (rootSymlink) {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME)
-              .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), sourceFile)
-              .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), genFile)
+          new Runfiles.Builder()
+              .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), sourceFile)
+              .addRootSymlink(PathFragment.create(MAIN_REPO_DIR_NAME + "/pkg/file.txt"), genFile)
               .build();
       runfiles.addRootSymlinks(
           NestedSetBuilder.wrap(
@@ -1385,7 +1381,7 @@ public abstract class SpawnLogContextTestBase {
       runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
     } else {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME)
+          new Runfiles.Builder()
               .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
               .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
               .build();
@@ -1422,7 +1418,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/pkg/file.txt")
                     .setDigest(getDigest(expectedContent)))
             .build());
@@ -1462,10 +1458,10 @@ public abstract class SpawnLogContextTestBase {
                     "symlink", symlink),
             rootSymlinks
                 ? ImmutableMap.of(
-                    WORKSPACE_NAME + "/file", sourceFile,
-                    WORKSPACE_NAME + "/source_dir", sourceDir,
-                    WORKSPACE_NAME + "/gen_dir", genDir,
-                    WORKSPACE_NAME + "/symlink", symlink)
+                    MAIN_REPO_DIR_NAME + "/file", sourceFile,
+                    MAIN_REPO_DIR_NAME + "/source_dir", sourceDir,
+                    MAIN_REPO_DIR_NAME + "/gen_dir", genDir,
+                    MAIN_REPO_DIR_NAME + "/symlink", symlink)
                 : ImmutableMap.of());
 
     var spawnBuilder = defaultSpawnBuilder().withInput(runfilesArtifact);
@@ -1492,7 +1488,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/file")
                     .setDigest(getDigest("source"))
                     .setIsTool(inputsMode.isTool()))
@@ -1501,7 +1497,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/gen_dir/other_file")
                     .setDigest(getDigest("gen_dir_file"))
                     .setIsTool(inputsMode.isTool()))
@@ -1510,7 +1506,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/source_dir/some_file")
                     .setDigest(getDigest("source_dir_file"))
                     .setIsTool(inputsMode.isTool()))
@@ -1519,7 +1515,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/symlink")
                     .setSymlinkTargetPath("/some/path")
                     .setIsTool(inputsMode.isTool()))
@@ -1542,7 +1538,7 @@ public abstract class SpawnLogContextTestBase {
             runfilesRoot,
             rootSymlink ? ImmutableMap.of() : ImmutableMap.of("pkg/symlink", sourceFile),
             rootSymlink
-                ? ImmutableMap.of(WORKSPACE_NAME + "/pkg/symlink", sourceFile)
+                ? ImmutableMap.of(MAIN_REPO_DIR_NAME + "/pkg/symlink", sourceFile)
                 : ImmutableMap.of());
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesArtifact).build();
@@ -1565,7 +1561,7 @@ public abstract class SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/pkg/symlink/file")
                     .setDigest(getDigest("abc")))
             .build());
@@ -2142,7 +2138,7 @@ public abstract class SpawnLogContextTestBase {
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
       NestedSet<Artifact> artifacts) {
-    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME);
+    Runfiles.Builder runfiles = new Runfiles.Builder();
     runfiles.addTransitiveArtifacts(artifacts);
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
       runfiles.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());

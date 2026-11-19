@@ -14,7 +14,7 @@ module(
 # =========================================
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
-bazel_dep(name = "bazel_features", version = "1.50.0")
+bazel_dep(name = "bazel_features", version = "1.56.0")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
@@ -427,6 +427,15 @@ use_repo(
     "openjdk_win_arm64_jlink_tool",
     "openjdk_win_arm64_vanilla",
     "openjdk_win_vanilla",
+    "remotejdk27_linux_aarch64_toolchain_config_repo",
+    "remotejdk27_linux_ppc64le_toolchain_config_repo",
+    "remotejdk27_linux_riscv64_toolchain_config_repo",
+    "remotejdk27_linux_s390x_toolchain_config_repo",
+    "remotejdk27_linux_toolchain_config_repo",
+    "remotejdk27_macos_aarch64_toolchain_config_repo",
+    "remotejdk27_macos_toolchain_config_repo",
+    "remotejdk27_win_arm64_toolchain_config_repo",
+    "remotejdk27_win_toolchain_config_repo",
 )
 
 # `local_config_cc` is required only by
@@ -565,3 +574,15 @@ register_toolchains("@local_config_winsdk//:all")
 register_toolchains("//tools/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")
+
+register_toolchains(
+    "@remotejdk27_linux_aarch64_toolchain_config_repo//:all",
+    "@remotejdk27_linux_ppc64le_toolchain_config_repo//:all",
+    "@remotejdk27_linux_riscv64_toolchain_config_repo//:all",
+    "@remotejdk27_linux_s390x_toolchain_config_repo//:all",
+    "@remotejdk27_linux_toolchain_config_repo//:all",
+    "@remotejdk27_macos_aarch64_toolchain_config_repo//:all",
+    "@remotejdk27_macos_toolchain_config_repo//:all",
+    "@remotejdk27_win_arm64_toolchain_config_repo//:all",
+    "@remotejdk27_win_toolchain_config_repo//:all",
+)

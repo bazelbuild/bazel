@@ -686,10 +686,6 @@ public class CommandEnvironment {
     return directories.getWorkingDirectory();
   }
 
-  public String getWorkspaceName() {
-    return runtime.getRuleClassProvider().getRunfilesPrefix();
-  }
-
   /**
    * Returns the output base directory associated with this Blaze server process. This is the base
    * directory for shared Blaze state as well as tool and strategy specific subdirectories.
@@ -703,7 +699,7 @@ public class CommandEnvironment {
    * all input and output files visible to the actual build reside.
    */
   public Path getExecRoot() {
-    return directories.getExecRoot(getWorkspaceName());
+    return directories.getExecRoot();
   }
 
   /**

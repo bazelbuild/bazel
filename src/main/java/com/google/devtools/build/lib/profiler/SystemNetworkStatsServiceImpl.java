@@ -43,7 +43,8 @@ public class SystemNetworkStatsServiceImpl implements SystemNetworkStatsService 
     HashMap<String, NetIoCounter> countersMap = new HashMap<>();
     switch (OS.getCurrent()) {
       case LINUX -> SystemNetworkStatsServiceImpl.getNetIoCountersLinux(countersMap);
-      default -> SystemNetworkStatsServiceImpl.getNetIoCountersNative(countersMap);
+      case DARWIN -> SystemNetworkStatsServiceImpl.getNetIoCountersNative(countersMap);
+      default -> {}
     }
     return countersMap;
   }

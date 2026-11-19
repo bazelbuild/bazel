@@ -485,7 +485,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Allow filtering of aspect attributes. */
   protected boolean includeAspectAttribute(Attribute attr, Collection<Label> value) {
-    return true;
+    return ruleAttributePredicate.apply(attr.getName());
   }
 
   protected boolean includeRuleDefinitionEnvironment() {

@@ -90,8 +90,7 @@ public class BazelCoverageReportModule extends BlazeModule {
           Collection<ConfiguredTarget> targetsToTest,
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
-          ActionLookupKey actionLookupKey,
-          String workspaceName)
+          ActionLookupKey actionLookupKey)
           throws InterruptedException {
         if (options == null || options.getCombinedReport() == ReportType.NONE) {
           return null;
@@ -107,7 +106,6 @@ public class BazelCoverageReportModule extends BlazeModule {
                 artifactFactory,
                 actionKeyContext,
                 actionLookupKey,
-                workspaceName,
                 new BazelCoverageHelper(),
                 /* htmlReport= */ null);
         if (wrapper == null) {
