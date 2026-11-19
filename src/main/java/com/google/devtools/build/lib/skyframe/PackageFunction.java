@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -28,8 +29,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TrackedRepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -98,6 +101,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -121,6 +125,7 @@ import net.starlark.java.syntax.SyntaxError;
  * {@link PackagePieceValue.ForBuildFile} if given a {@link PackagePieceIdentifier.ForBuildFile}.
  */
 public abstract class PackageFunction implements SkyFunction {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected final PackageFactory packageFactory;
   protected final CachingPackageLocator packageLocator;
@@ -358,6 +363,7 @@ public abstract class PackageFunction implements SkyFunction {
   private static class State implements SkyKeyComputeState {
     @Nullable private CompiledBuildFile compiledBuildFile;
     @Nullable private LoadedPackage loadedPackage;
+    @Nullable private RepoMappingTracker repoMappingTracker;
   }
 
   /**
@@ -513,20 +519,44 @@ public abstract class PackageFunction implements SkyFunction {
     // .bzl dependencies change.
 
     State state = env.getState(State::new);
-    if (state.loadedPackage == null) {
-      state.loadedPackage =
-          loadPackage(
-              packageLookupValue,
-              packagePieceId,
-              packageId,
-              starlarkBuiltinsValue,
-              packageLookupValue.getRoot(),
-              env,
-              key,
-              state);
-      if (state.loadedPackage == null) {
-        return null;
+    if (RepoMappingLookups.ENABLED) {
+      if (state.repoMappingTracker == null) {
+        state.repoMappingTracker = new RepoMappingTracker(env);
       }
+      state.repoMappingTracker.setEnv(env);
+    }
+    while (true) {
+      if (state.loadedPackage == null) {
+        if (state.repoMappingTracker != null) {
+          state.repoMappingTracker.startAttempt();
+        }
+        try (var unused =
+            state.repoMappingTracker == null ? null : state.repoMappingTracker.enter()) {
+          state.loadedPackage =
+              loadPackage(
+                  packageLookupValue,
+                  packagePieceId,
+                  packageId,
+                  starlarkBuiltinsValue,
+                  packageLookupValue.getRoot(),
+                  env,
+                  key,
+                  state);
+        }
+        if (state.loadedPackage == null) {
+          return null;
+        }
+      }
+      if (state.repoMappingTracker == null) {
+        break;
+      }
+      Boolean consistent = state.repoMappingTracker.registerDepsAndCheck();
+      if (consistent == null || consistent) {
+        break;
+      }
+      // The guessed repo mapping was stale. Load again with the values now known from Skyframe.
+      logger.atInfo().log("Reloading %s due to a stale repo mapping", packageId);
+      state.loadedPackage = null;
     }
     PackageFunctionException pfeFromNonSkyframeGlobbing = null;
     Package.AbstractBuilder pkgBuilder = state.loadedPackage.builder;
@@ -989,6 +1019,53 @@ public abstract class PackageFunction implements SkyFunction {
         .build();
   }
 
+  private record RepoMappingInputs(
+      RepositoryMapping repositoryMapping,
+      RepositoryMapping mainRepositoryMapping,
+      Optional<String> associatedModuleName,
+      Optional<String> associatedModuleVersion) {}
+
+  /**
+   * Returns the repo mappings to load the package with. If possible, these record the lookups
+   * performed on them so that the package only depends on the {@link RepositoryMappingEntryValue}s
+   * it observed rather than on the full {@link RepositoryMappingValue}s.
+   */
+  @Nullable
+  private static RepoMappingInputs getRepoMappingInputs(
+      RepositoryName repo, Environment env, State state) throws InterruptedException {
+    if (state.repoMappingTracker != null) {
+      var moduleInfo =
+          (RepositoryMappingEntryValue.ModuleInfo)
+              env.getValue(RepositoryMappingEntryValue.moduleInfoKey(repo));
+      if (moduleInfo == null) {
+        return null;
+      }
+      // The latest mappings are up to date since the module info depends on them.
+      RepositoryMapping latest = RepoMappingLookups.getLatest(repo);
+      RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
+      if (moduleInfo.repoExists() && latest != null && latestMain != null) {
+        return new RepoMappingInputs(
+            new TrackedRepositoryMapping(latest),
+            new TrackedRepositoryMapping(latestMain),
+            moduleInfo.associatedModuleName(),
+            moduleInfo.associatedModuleVersion());
+      }
+      logger.atInfo().log("Falling back to full repo mapping deps for %s", repo);
+    }
+    var repositoryMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repo));
+    var mainRepositoryMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (repositoryMappingValue == null || mainRepositoryMappingValue == null) {
+      return null;
+    }
+    return new RepoMappingInputs(
+        repositoryMappingValue.repositoryMapping(),
+        mainRepositoryMappingValue.repositoryMapping(),
+        repositoryMappingValue.associatedModuleName(),
+        repositoryMappingValue.associatedModuleVersion());
+  }
+
   @ForOverride
   protected abstract Globber makeGlobber(
       NonSkyframeGlobber nonSkyframeGlobber,
@@ -1016,11 +1093,8 @@ public abstract class PackageFunction implements SkyFunction {
       SkyKey keyForMetrics,
       State state)
       throws InterruptedException, PackageFunctionException {
-    RepositoryMappingValue repositoryMappingValue =
-        (RepositoryMappingValue)
-            env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
-    RepositoryMappingValue mainRepositoryMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    RepoMappingInputs repoMappingInputs =
+        getRepoMappingInputs(packageId.getRepository(), env, state);
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
@@ -1049,8 +1123,8 @@ public abstract class PackageFunction implements SkyFunction {
       return null;
     }
 
-    RepositoryMapping repositoryMapping = repositoryMappingValue.repositoryMapping();
-    RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.repositoryMapping();
+    RepositoryMapping repositoryMapping = repoMappingInputs.repositoryMapping();
+    RepositoryMapping mainRepositoryMapping = repoMappingInputs.mainRepositoryMapping();
     Label preludeLabel = null;
 
     // Load (optional) prelude, which determines environment.
@@ -1186,8 +1260,8 @@ public abstract class PackageFunction implements SkyFunction {
               ? packageFactory.newPackageBuilder(
                   packageId,
                   buildFileRootedPath,
-                  repositoryMappingValue.associatedModuleName(),
-                  repositoryMappingValue.associatedModuleVersion(),
+                  repoMappingInputs.associatedModuleName(),
+                  repoMappingInputs.associatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
                   mainRepositoryMapping,
@@ -1198,8 +1272,8 @@ public abstract class PackageFunction implements SkyFunction {
               : packageFactory.newPackagePieceForBuildFileBuilder(
                   packagePieceId,
                   buildFileRootedPath,
-                  repositoryMappingValue.associatedModuleName(),
-                  repositoryMappingValue.associatedModuleVersion(),
+                  repoMappingInputs.associatedModuleName(),
+                  repoMappingInputs.associatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
                   mainRepositoryMapping,

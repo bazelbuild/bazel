@@ -227,7 +227,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
     invalidatePackages();
 
-    RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
+    String keyBeforeChange = computeKey(getRepoMappingManifestActionForTarget("//:aaa"));
 
     scratch.overwriteFile(
         "MODULE.bazel",
@@ -236,7 +236,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     invalidatePackages();
 
     RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
-    assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
+    assertThat(keyBeforeChange).isNotEqualTo(computeKey(actionAfterChange));
   }
 
   @Test
@@ -259,7 +259,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         moduleRoot.getRelative("bbb+1.0").getRelative("def.bzl").getPathString(), "BBB = '1'");
     invalidatePackages();
 
-    RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
+    String keyBeforeChange = computeKey(getRepoMappingManifestActionForTarget("//:aaa"));
 
     scratch.overwriteFile(
         "MODULE.bazel",
@@ -274,7 +274,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     invalidatePackages();
 
     RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
-    assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
+    assertThat(keyBeforeChange).isNotEqualTo(computeKey(actionAfterChange));
   }
 
   @Test

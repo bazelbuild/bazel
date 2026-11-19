@@ -127,6 +127,7 @@ import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -989,6 +990,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.SINGLE_TOOLCHAIN_RESOLUTION, new SingleToolchainResolutionFunction());
     map.put(SkyFunctions.TOOLCHAIN_RESOLUTION, new ToolchainResolutionFunction());
     map.put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction(ruleClassProvider));
+    map.put(SkyFunctions.REPOSITORY_MAPPING_ENTRY, new RepositoryMappingEntryFunction());
     map.put(SkyFunctions.PLATFORM, new PlatformFunction());
     map.put(
         SkyFunctions.PLATFORM_MAPPING,
@@ -1182,6 +1184,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final void init() {
     progressReceiver = newSkyframeProgressReceiver();
     memoizingEvaluator = createEvaluator(skyFunctions(), progressReceiver, emittedEventState);
+    if (RepoMappingLookups.ENABLED) {
+      MemoizingEvaluator evaluator = memoizingEvaluator;
+      RepoMappingLookups.setLatestMappings(
+          repo -> {
+            try {
+              var value =
+                  (RepositoryMappingValue)
+                      evaluator.getExistingValue(RepositoryMappingValue.key(repo));
+              return value == null ? null : value.repositoryMapping();
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              return null;
+            }
+          });
+    }
     skyframeExecutorConsumerOnInit.accept(this);
     isCleanBuild = true;
   }

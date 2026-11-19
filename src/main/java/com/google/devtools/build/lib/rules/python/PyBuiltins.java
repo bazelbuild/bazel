@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -211,6 +212,10 @@ public abstract class PyBuiltins implements StarlarkValue {
   public void repoMappingAction(
       StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact repoMappingManifest) {
     var ruleContext = starlarkCtx.getRuleContext();
+    if (ruleContext.getTransitivePackagesForRunfileRepoMappingManifest() != null) {
+      RunfilesSupport.requestRepoMappingsForManifest(
+          ruleContext, ruleContext.getTransitivePackagesForRunfileRepoMappingManifest());
+    }
     ruleContext
         .getAnalysisEnvironment()
         .registerAction(

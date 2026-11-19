@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
@@ -20,8 +22,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -31,8 +35,10 @@ import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TrackedRepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -77,6 +83,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -86,6 +94,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.NodeVisitor;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
@@ -777,29 +786,80 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
-    RepositoryMappingValue repoMappingValue = getRepositoryMappingValue(key, env);
-    if (repoMappingValue == null || repoMappingValue.repositoryMapping() == null) {
-      return null;
+    RepositoryMapping repoMapping = null;
+    RepositoryMapping mainRepoMapping = null;
+    String moduleRepoName = null;
+    RepoMappingTracker repoMappingTracker = null;
+    TrackedRepositoryMapping trackedRepoMapping = null;
+    ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
+    ImmutableSet<String> literalRepoNames = ImmutableSet.of();
+    if (RepoMappingLookups.ENABLED && key instanceof BzlLoadValue.KeyForBuild) {
+      var moduleInfo =
+          (RepositoryMappingEntryValue.ModuleInfo)
+              env.getValue(RepositoryMappingEntryValue.moduleInfoKey(label.getRepository()));
+      if (moduleInfo == null) {
+        return null;
+      }
+      // The latest mapping is up to date since the module info depends on it.
+      RepositoryMapping latest = RepoMappingLookups.getLatest(label.getRepository());
+      RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
+      if (moduleInfo.repoExists() && latest != null && latestMain != null) {
+        trackedRepoMapping = new TrackedRepositoryMapping(latest);
+        repoMapping = trackedRepoMapping;
+        mainRepoMapping = new TrackedRepositoryMapping(latestMain);
+        moduleRepoName = moduleInfo.moduleRepoName();
+        repoMappingTracker = new RepoMappingTracker(env);
+        // Labels in string literals are likely resolved during evaluation of this file or later
+        // through its repo mapping. Requesting them here avoids restarts and lets later lookups
+        // rely on this file's dependencies.
+        literalRepoNames = getApparentRepoNames(prog, programLoads);
+        var literalKeys =
+            literalRepoNames.stream()
+                .map(name -> RepositoryMappingEntryValue.forwardKey(label.getRepository(), name))
+                .collect(toImmutableList());
+        repoMappingTracker.addAuthoritative(env.getValuesAndExceptions(literalKeys), literalKeys);
+      }
     }
-    RepositoryMapping repoMapping = repoMappingValue.repositoryMapping();
-    RepositoryMapping mainRepoMapping = getMainRepositoryMapping(key, env);
-    if (mainRepoMapping == null) {
-      return null;
+    if (repoMappingTracker == null) {
+      RepositoryMappingValue repoMappingValue = getRepositoryMappingValue(key, env);
+      if (repoMappingValue == null || repoMappingValue.repositoryMapping() == null) {
+        return null;
+      }
+      repoMapping = repoMappingValue.repositoryMapping();
+      moduleRepoName = repoMappingValue.moduleRepoName();
+      RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
+      if (RepoMappingLookups.ENABLED
+          && key instanceof BzlLoadValue.KeyForBzlmod
+          && !label.getRepository().isMain()
+          && latestMain != null) {
+        // Repo rules and module extensions record their lookups through the repo mapping of their
+        // .bzl file only in marker files and the lockfile, so it remains a full dependency. The
+        // main repo mapping is only consulted during evaluation of this file.
+        mainRepoMapping = new TrackedRepositoryMapping(latestMain);
+        repoMappingTracker = new RepoMappingTracker(env);
+      } else {
+        mainRepoMapping = getMainRepositoryMapping(key, env);
+        if (mainRepoMapping == null) {
+          return null;
+        }
+      }
     }
     var repoMappingRecorder = new Label.SimpleRepoMappingRecorder();
-    ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
-    ImmutableList<Label> loadLabels =
-        getLoadLabels(
-            env.getListener(),
-            programLoads,
-            pkg,
-            ruleClassProvider::isPackageUnderExperimental,
-            ruleClassProvider::isPackageUnderPrototypes,
-            ruleClassProvider::hasHardCodedException,
-            builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
-            repoMapping,
-            key.isSclDialect(),
-            repoMappingRecorder);
+    ImmutableList<Label> loadLabels;
+    try (var unused = repoMappingTracker == null ? null : repoMappingTracker.enter()) {
+      loadLabels =
+          getLoadLabels(
+              env.getListener(),
+              programLoads,
+              pkg,
+              ruleClassProvider::isPackageUnderExperimental,
+              ruleClassProvider::isPackageUnderPrototypes,
+              ruleClassProvider::hasHardCodedException,
+              builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
+              repoMapping,
+              key.isSclDialect(),
+              repoMappingRecorder);
+    }
     if (loadLabels == null) {
       throw new BzlLoadFailedException(
           String.format(
@@ -821,7 +881,7 @@ public class BzlLoadFunction implements SkyFunction {
         inliningState == null
             ? computeBzlLoadsWithSkyframe(env, loadKeys, programLoads)
             : computeBzlLoadsWithInlining(env, loadKeys, programLoads, inliningState);
-    if (loadValues == null) {
+    if (loadValues == null || env.valuesMissing()) {
       return null; // Skyframe deps unavailable
     }
 
@@ -870,7 +930,7 @@ public class BzlLoadFunction implements SkyFunction {
         BazelModuleContext.create(
             key,
             repoMapping,
-            repoMappingValue.moduleRepoName(),
+            moduleRepoName,
             prog.getFilename(),
             ImmutableList.copyOf(loadMap.values()),
             transitiveDigest,
@@ -908,15 +968,27 @@ public class BzlLoadFunction implements SkyFunction {
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and
     // BzlInitThreadContext.
-    executeBzlFile(
-        prog,
-        key,
-        module,
-        loadMap,
-        context,
-        builtins.starlarkSemantics,
-        env.getListener(),
-        repoMappingRecorder);
+    try (var unused = repoMappingTracker == null ? null : repoMappingTracker.enter()) {
+      executeBzlFile(
+          prog,
+          key,
+          module,
+          loadMap,
+          context,
+          builtins.starlarkSemantics,
+          env.getListener(),
+          repoMappingRecorder);
+    }
+    if (repoMappingTracker != null) {
+      if (env.valuesMissing()) {
+        // Some lookups weren't computed yet and may have been answered incorrectly.
+        return null;
+      }
+      if (trackedRepoMapping != null) {
+        coverRepoMappingDeps(
+            trackedRepoMapping, repoMappingTracker, label.getRepository(), literalRepoNames);
+      }
+    }
 
     BzlVisibility bzlVisibility = context.getBzlVisibility();
     if (bzlVisibility == null) {
@@ -927,6 +999,61 @@ public class BzlLoadFunction implements SkyFunction {
     // alternative would mean mutating or overwriting the BazelModuleContext after evaluation.
     return new BzlLoadValue(
         module, transitiveDigest, bzlVisibility, repoMappingRecorder.recordedEntries());
+  }
+
+  private static final Pattern APPARENT_REPO_LABEL =
+      Pattern.compile("@([A-Za-z0-9_.~+-]*)(?://.*)?", Pattern.DOTALL);
+
+  /** Returns the apparent repo names of labels in string literals and load statements. */
+  private static ImmutableSet<String> getApparentRepoNames(
+      Program prog, ImmutableList<Pair<String, Location>> programLoads) {
+    var names = ImmutableSet.<String>builder();
+    Consumer<String> addIfLabel =
+        value -> {
+          Matcher matcher = APPARENT_REPO_LABEL.matcher(value);
+          if (matcher.matches()) {
+            names.add(matcher.group(1));
+          }
+        };
+    for (Pair<String, Location> load : programLoads) {
+      addIfLabel.accept(load.first);
+    }
+    new NodeVisitor() {
+      @Override
+      public void visit(StringLiteral node) {
+        addIfLabel.accept(node.getValue());
+      }
+    }.visitBlock(prog.getResolvedFunction().getBody());
+    return names.build();
+  }
+
+  /**
+   * Stops recording lookups through the module's repo mapping that this .bzl file depends on, so
+   * that evaluations calling into it don't have to record them.
+   */
+  private static void coverRepoMappingDeps(
+      TrackedRepositoryMapping repoMapping,
+      RepoMappingTracker tracker,
+      RepositoryName repo,
+      ImmutableSet<String> literalRepoNames) {
+    var covered = ImmutableSet.<String>builder();
+    var overrides = ImmutableMap.<String, RepositoryName>builder();
+    RepositoryMapping untracked = repoMapping.untracked();
+    for (String name :
+        Sets.union(literalRepoNames, tracker.recordedForwardNames(repo)).immutableCopy()) {
+      var answer =
+          (RepositoryName)
+              tracker.authoritativeAnswer(RepositoryMappingEntryValue.forwardKey(repo, name));
+      if (answer == null) {
+        continue;
+      }
+      covered.add(name);
+      if (!answer.equals(untracked.get(name))) {
+        overrides.put(name, answer);
+      }
+    }
+    var builtOverrides = overrides.buildKeepingLast();
+    repoMapping.cover(covered.build(), builtOverrides.isEmpty() ? null : builtOverrides);
   }
 
   @Nullable

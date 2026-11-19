@@ -14,7 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.cmdline.TrackedRepositoryMapping;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -31,8 +35,20 @@ public class BazelRuleAnalysisThreadContext extends StarlarkThreadContext {
    * @param ruleContext is the {@link RuleContext} of the rule for analysis of a rule or aspect
    */
   public BazelRuleAnalysisThreadContext(RuleContext ruleContext) {
-    super(ruleContext.getAnalysisEnvironment()::getMainRepoMapping);
+    super(() -> getMainRepoMapping(ruleContext));
     this.ruleContext = ruleContext;
+  }
+
+  private static RepositoryMapping getMainRepoMapping(RuleContext ruleContext)
+      throws InterruptedException {
+    if (RepoMappingLookups.ENABLED) {
+      // Lookups are recorded by the configured target or aspect.
+      RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
+      if (latestMain != null) {
+        return new TrackedRepositoryMapping(latestMain);
+      }
+    }
+    return ruleContext.getAnalysisEnvironment().getMainRepoMapping();
   }
 
   public RuleContext getRuleContext() {

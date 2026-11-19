@@ -2161,7 +2161,10 @@ java_library(
 
 java_library(
     name = "repository_mapping_function",
-    srcs = ["RepositoryMappingFunction.java"],
+    srcs = [
+        "RepositoryMappingEntryFunction.java",
+        "RepositoryMappingFunction.java",
+    ],
     deps = [
         ":precomputed_value",
         ":repository_mapping_value",
@@ -2181,15 +2184,21 @@ java_library(
 
 java_library(
     name = "repository_mapping_value",
-    srcs = ["RepositoryMappingValue.java"],
+    srcs = [
+        "RepoMappingTracker.java",
+        "RepositoryMappingEntryValue.java",
+        "RepositoryMappingValue.java",
+    ],
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/auto:auto_value",
         "//third_party/java/guava:collect",

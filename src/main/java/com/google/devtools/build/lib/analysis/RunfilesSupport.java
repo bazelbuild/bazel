@@ -40,16 +40,20 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
+import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.ref.WeakReference;
 import java.util.Collections;
@@ -704,6 +708,8 @@ public final class RunfilesSupport {
       return null;
     }
 
+    requestRepoMappingsForManifest(
+        ruleContext, ruleContext.getTransitivePackagesForRunfileRepoMappingManifest());
     PathFragment executablePath =
         (owningExecutable != null)
             ? owningExecutable.getOutputDirRelativePath()
@@ -728,6 +734,28 @@ public final class RunfilesSupport {
                     .get(CoreOptions.class)
                     .getCompactRepoMapping()));
     return repoMappingManifest;
+  }
+
+  /**
+   * Makes the current configured target depend on the repo mappings of all repos of the given
+   * packages, from which a repo mapping manifest is computed.
+   *
+   * <p>Missing values are left to the configured target to handle.
+   */
+  public static void requestRepoMappingsForManifest(
+      RuleContext ruleContext, NestedSet<Package.Metadata> transitivePackages) {
+    if (!RepoMappingLookups.ENABLED) {
+      return;
+    }
+    var keys = new LinkedHashSet<SkyKey>();
+    for (Package.Metadata pkgMetadata : transitivePackages.toList()) {
+      keys.add(RepositoryMappingValue.key(pkgMetadata.packageIdentifier().getRepository()));
+    }
+    try {
+      ruleContext.getAnalysisEnvironment().getSkyframeEnv().getValuesAndExceptions(keys);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   public RunfilesTree getRunfilesTree() {

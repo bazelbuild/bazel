@@ -26,6 +26,7 @@ java_library(
         "LabelParser.java",
         "LabelSyntaxException.java",
         "PackageIdentifier.java",
+        "RepoMappingLookups.java",
         "RepositoryMapping.java",
         "RepositoryName.java",
         "ResolvedTargets.java",
@@ -34,6 +35,7 @@ java_library(
         "TargetParsingException.java",
         "TargetPattern.java",
         "TargetPatternResolver.java",
+        "TrackedRepositoryMapping.java",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",

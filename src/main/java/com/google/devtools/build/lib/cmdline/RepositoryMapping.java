@@ -48,8 +48,15 @@ public class RepositoryMapping {
     this.hashCode = 31 * entriesHashCode + contextRepo.hashCode();
   }
 
+  /** Creates a mapping with the same entries and context repo as {@code other}. */
+  protected RepositoryMapping(RepositoryMapping other) {
+    this.entries = other.entries;
+    this.contextRepo = other.contextRepo;
+    this.hashCode = other.hashCode;
+  }
+
   /** Returns all the entries in this repo mapping. */
-  public final ImmutableMap<String, RepositoryName> entries() {
+  public ImmutableMap<String, RepositoryName> entries() {
     return entries;
   }
 

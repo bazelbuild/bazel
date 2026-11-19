@@ -537,8 +537,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         } else {
           // @-prefixed strings will be assumed to be params filenames and expanded,
           // so add an extra @ to escape it.
-          commandLine.addPrefixedLabel(
-              "@", targetLabel, ruleContext.getAnalysisEnvironment().getMainRepoMapping());
+          JavaCompileActionBuilder.addExternalTargetLabel(commandLine, targetLabel, ruleContext);
         }
       }
 
