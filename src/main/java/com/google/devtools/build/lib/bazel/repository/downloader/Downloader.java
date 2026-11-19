@@ -53,4 +53,23 @@ public interface Downloader {
       Optional<String> type,
       String context)
       throws IOException, InterruptedException;
+
+  /**
+   * Downloads the contents of the first of the given URLs that succeeds into memory.
+   *
+   * <p>If the file doesn't exist, a {@link java.io.FileNotFoundException} is thrown.
+   *
+   * @param urls list of mirror URLs with identical content
+   * @param credentials credentials to use when connecting to URLs
+   * @param checksum valid checksum which is checked, or absent to disable
+   * @throws IOException if download was attempted and ended up failing
+   * @throws InterruptedException if this thread is being cast into oblivion
+   */
+  byte[] downloadAndRead(
+      List<URI> urls,
+      Credentials credentials,
+      Optional<Checksum> checksum,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv)
+      throws IOException, InterruptedException;
 }

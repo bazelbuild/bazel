@@ -77,6 +77,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -454,6 +455,146 @@ public class GrpcRemoteDownloaderTest {
 
     assertThat(e).hasMessageThat().contains(contentDigest.getHash());
     assertThat(e).hasMessageThat().contains(DIGEST_UTIL.computeAsUtf8("wrong content").getHash());
+  }
+
+  @Test
+  public void testDownloadAndRead() throws Exception {
+    byte[] content = "example content".getBytes(UTF_8);
+    Digest contentDigest = DIGEST_UTIL.compute(content);
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            assertThat(request)
+                .isEqualTo(
+                    FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .addUris("http://example.com/MODULE.bazel")
+                        .addQualifiers(
+                            Qualifier.newBuilder()
+                                .setName("checksum.sri")
+                                .setValue("sha256-ot7ke6YmiSXal3UKt0K69n8C4vtUziPUmftmpbAiKQM="))
+                        .build());
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder().setBlobDigest(contentDigest).build());
+            responseObserver.onCompleted();
+          }
+        });
+    RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    GrpcRemoteDownloader downloader = newDownloader(cacheClient);
+    getFromFuture(
+        cacheClient.uploadBlob(
+            context, contentDigest, ByteString.copyFrom(content), /* force= */ false));
+
+    byte[] downloaded =
+        downloader.downloadAndRead(
+            ImmutableList.of(URI.create("http://example.com/MODULE.bazel")),
+            StaticCredentials.EMPTY,
+            Optional.of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash())),
+            eventHandler,
+            ImmutableMap.of());
+
+    assertThat(downloaded).isEqualTo(content);
+    assertThat(eventHandler.getPosts()).isEmpty();
+  }
+
+  @Test
+  public void testDownloadAndRead_rejectsChecksumMismatch() throws Exception {
+    Digest contentDigest = DIGEST_UTIL.compute("example content".getBytes(UTF_8));
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder().setBlobDigest(contentDigest).build());
+            responseObserver.onCompleted();
+          }
+        });
+    RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    GrpcRemoteDownloader downloader = newDownloader(cacheClient);
+    getFromFuture(
+        cacheClient.uploadBlob(
+            context, contentDigest, ByteString.copyFromUtf8("wrong content"), /* force= */ false));
+
+    IOException e =
+        assertThrows(
+            UnrecoverableHttpException.class,
+            () ->
+                downloader.downloadAndRead(
+                    ImmutableList.of(URI.create("http://example.com/MODULE.bazel")),
+                    StaticCredentials.EMPTY,
+                    Optional.of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash())),
+                    eventHandler,
+                    ImmutableMap.of()));
+
+    assertThat(e).hasMessageThat().contains(contentDigest.getHash());
+  }
+
+  @Test
+  public void testDownloadAndRead_notFound() throws Exception {
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder()
+                    .setStatus(
+                        Status.newBuilder()
+                            .setCode(Code.NOT_FOUND_VALUE)
+                            .setMessage("404 Not Found")
+                            .build())
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    GrpcRemoteDownloader downloader = newDownloader(new InMemoryCacheClient());
+
+    FileNotFoundException e =
+        assertThrows(
+            FileNotFoundException.class,
+            () ->
+                downloader.downloadAndRead(
+                    ImmutableList.of(URI.create("http://example.com/MODULE.bazel")),
+                    StaticCredentials.EMPTY,
+                    Optional.empty(),
+                    eventHandler,
+                    ImmutableMap.of()));
+
+    assertThat(e).hasMessageThat().contains("http://example.com/MODULE.bazel");
+    assertThat(e).hasMessageThat().contains("404 Not Found");
+  }
+
+  @Test
+  public void testDownloadAndReadFallback() throws Exception {
+    remoteOptions.setRemoteDownloaderLocalFallback(true);
+    byte[] content = "example content".getBytes(UTF_8);
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onError(new IOException("io error"));
+          }
+        });
+    Downloader fallbackDownloader = mock(Downloader.class);
+    URI url = URI.create("http://example.com/MODULE.bazel");
+    when(fallbackDownloader.downloadAndRead(eq(ImmutableList.of(url)), any(), any(), any(), any()))
+        .thenReturn(content);
+    GrpcRemoteDownloader downloader = newDownloader(new InMemoryCacheClient(), fallbackDownloader);
+
+    byte[] downloaded =
+        downloader.downloadAndRead(
+            ImmutableList.of(url),
+            StaticCredentials.EMPTY,
+            Optional.empty(),
+            eventHandler,
+            ImmutableMap.of());
+
+    assertThat(downloaded).isEqualTo(content);
+    assertThat(eventHandler.getPosts()).isEmpty();
   }
 
   @Test
