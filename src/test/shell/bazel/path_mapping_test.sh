@@ -1818,7 +1818,7 @@ EOF
     --experimental_output_paths=strip \
     --modify_execution_info=TestRunner=+supports-path-mapping \
     --strategy=TestRunner=local,sandboxed \
-    --nozip_undeclared_test_outputs \
+    --zip_undeclared_test_outputs \
     --test_output=all \
     //pkg:test &> $TEST_log || fail "test failed unexpectedly"
   expect_log 'TEST_SRCDIR=.*/bazel-out/cfg/bin/pkg/test.runfiles$'
@@ -1827,7 +1827,9 @@ EOF
   # The test and the generation of test.xml.
   expect_log '2 \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log 'disk cache hit'
-  assert_contains 'undeclared output' bazel-testlogs/pkg/test/test.outputs/out.txt
+  unzip -p bazel-testlogs/pkg/test/test.outputs/outputs.zip out.txt \
+    > "$TEST_TMPDIR/out.txt" || fail "out.txt not found in outputs.zip"
+  assert_contains 'undeclared output' "$TEST_TMPDIR/out.txt"
   assert_contains 'testcase name="pkg/test"' bazel-testlogs/pkg/test/test.xml
 
   bazel test -c opt \
@@ -1835,12 +1837,14 @@ EOF
     --experimental_output_paths=strip \
     --modify_execution_info=TestRunner=+supports-path-mapping \
     --strategy=TestRunner=sandboxed \
-    --nozip_undeclared_test_outputs \
+    --zip_undeclared_test_outputs \
     --test_output=all \
     //pkg:test &> $TEST_log || fail "test failed unexpectedly"
   expect_log 'Hello from data.txt'
   expect_log '[0-9] disk cache hit'
-  assert_contains 'undeclared output' bazel-testlogs/pkg/test/test.outputs/out.txt
+  unzip -p bazel-testlogs/pkg/test/test.outputs/outputs.zip out.txt \
+    > "$TEST_TMPDIR/out.txt" || fail "out.txt not found in outputs.zip"
+  assert_contains 'undeclared output' "$TEST_TMPDIR/out.txt"
   assert_contains 'testcase name="pkg/test"' bazel-testlogs/pkg/test/test.xml
 }
 
