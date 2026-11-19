@@ -641,6 +641,12 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
+    public boolean updateIteratorCount(int delta) {
+      // Not iterable.
+      return false;
+    }
+
+    @Override
     public ImmutableSet<Artifact> getDirectoryArtifacts() {
       for (NestedSet<?> collection : potentialDirectoryArtifacts) {
         for (Object object : collection.toList()) {

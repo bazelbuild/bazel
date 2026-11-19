@@ -38,6 +38,11 @@ public final class MutabilityTest {
     public Mutability mutability() {
       return mutability;
     }
+
+    @Override
+    public boolean updateIteratorCount(int delta) {
+      return false;
+    }
   }
 
   private static void assertCheckMutableFailsBecauseFrozen(DummyFreezable x) {
@@ -71,39 +76,6 @@ public final class MutabilityTest {
     DummyFreezable dummy = new DummyFreezable(mutability);
 
     Starlark.checkMutable(dummy);
-  }
-
-  @Test
-  public void temporarilyImmutableDuringIteration() throws Exception {
-    Mutability mutability = Mutability.create("test");
-    DummyFreezable x = new DummyFreezable(mutability);
-    x.updateIteratorCount(+1);
-    EvalException ex = assertThrows(EvalException.class, () -> Starlark.checkMutable(x));
-    assertThat(ex)
-        .hasMessageThat()
-        .contains("DummyFreezable value is temporarily immutable due to active for-loop iteration");
-
-    x.updateIteratorCount(+1);
-    x.updateIteratorCount(-1); // net +1 => still immutable
-    ex = assertThrows(EvalException.class, () -> Starlark.checkMutable(x));
-    assertThat(ex)
-        .hasMessageThat()
-        .contains("DummyFreezable value is temporarily immutable due to active for-loop iteration");
-
-    x.updateIteratorCount(-1); // net 0 => mutable
-    Starlark.checkMutable(x); // ok
-
-    assertThrows(IllegalStateException.class, () -> x.updateIteratorCount(-1)); // underflow
-  }
-
-  @Test
-  public void addIteratorAndThenFreeze() throws Exception {
-    Mutability mutability = Mutability.create("test");
-    DummyFreezable dummy = new DummyFreezable(mutability);
-    dummy.updateIteratorCount(+1);
-    mutability.freeze();
-    // Should fail with frozen error, not temporarily immutable error.
-    assertCheckMutableFailsBecauseFrozen(dummy);
   }
 
   @Test
