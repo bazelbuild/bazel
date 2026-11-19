@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
+import com.google.devtools.build.lib.cmdline.RepoMappingRecorder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
@@ -1001,7 +1002,10 @@ final class AspectFunction implements SkyFunction {
       // Nested sets created while analyzing the aspect, including building its RuleContext, are
       // owned by the aspect.
       try (var _ = NestedSetOwnerScope.enter(key);
-          var _ = RepoMappingLookups.ENABLED ? new RepoMappingTracker(env).enter() : null) {
+          var _ =
+              RepoMappingLookups.ENABLED
+                  ? RepoMappingRecorder.install(new RepoMappingTracker(env))
+                  : null) {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
         configuredAspect =
             view.getConfiguredTargetFactory()

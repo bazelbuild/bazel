@@ -507,23 +507,35 @@ public class LabelTest {
     PackageContext fooPackageContext =
         PackageContext.of(
             PackageIdentifier.create(foo, PathFragment.create("hah")),
-            RepositoryMapping.create(ImmutableMap.of("bar", quux, "quux", bar), foo));
+            RepositoryMapping.create(ImmutableMap.of("bar", quux, "quux", bar), foo)
+                .withRecordedLookups());
     PackageContext barPackageContext =
         PackageContext.of(
             PackageIdentifier.create(bar, PathFragment.EMPTY_FRAGMENT),
-            RepositoryMapping.create(ImmutableMap.of("foo", quux, "quux", foo), bar));
+            RepositoryMapping.create(ImmutableMap.of("foo", quux, "quux", foo), bar)
+                .withRecordedLookups());
+    PackageContext unrecordedPackageContext =
+        PackageContext.of(
+            PackageIdentifier.create(bar, PathFragment.EMPTY_FRAGMENT),
+            RepositoryMapping.create(ImmutableMap.of("bar", foo), bar));
 
-    var recorder = new Label.SimpleRepoMappingRecorder();
-    // Not recorded: no repo part
-    var unused = Label.parseWithPackageContext("//foo/bar", fooPackageContext, recorder);
-    // Recorded: <foo, bar, quux>
-    unused = Label.parseWithPackageContext("@bar//foo/bar", fooPackageContext, recorder);
-    // Recorded: <bar, quux, foo>
-    unused = Label.parseWithPackageContext("@quux//foo/bar", barPackageContext, recorder);
-    // Recorded: <bar, foo, quux>
-    unused = Label.parseWithPackageContext("@foo//foo/bar", barPackageContext, recorder);
-    // Not recorded: canonical repo name
-    unused = Label.parseWithPackageContext("@@quux//foo/bar", fooPackageContext, recorder);
+    var recorder = new SimpleRepoMappingRecorder();
+    // Not recorded: no recorder installed
+    var unused = Label.parseWithPackageContext("@quux//foo/bar", fooPackageContext);
+    try (var _ = RepoMappingRecorder.install(recorder)) {
+      // Not recorded: no repo part
+      unused = Label.parseWithPackageContext("//foo/bar", fooPackageContext);
+      // Recorded: <foo, bar, quux>
+      unused = Label.parseWithPackageContext("@bar//foo/bar", fooPackageContext);
+      // Recorded: <bar, quux, foo>
+      unused = Label.parseWithPackageContext("@quux//foo/bar", barPackageContext);
+      // Recorded: <bar, foo, quux>
+      unused = Label.parseWithPackageContext("@foo//foo/bar", barPackageContext);
+      // Not recorded: canonical repo name
+      unused = Label.parseWithPackageContext("@@quux//foo/bar", fooPackageContext);
+      // Not recorded: mapping doesn't record lookups
+      unused = Label.parseWithPackageContext("@bar//foo/bar", unrecordedPackageContext);
+    }
 
     // Recorded entries are sorted by row and then column
     assertThat(recorder.recordedEntries().cellSet())

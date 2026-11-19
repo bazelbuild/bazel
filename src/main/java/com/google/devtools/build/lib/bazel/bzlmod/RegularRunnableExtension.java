@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepoMappingRecorder;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.SimpleRepoMappingRecorder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -280,7 +282,8 @@ final class RegularRunnableExtension implements RunnableExtension {
     try (Mutability mu =
             Mutability.create("module extension", usagesValue.getExtensionUniqueName());
         ModuleExtensionContext moduleContext =
-            createContext(env, usagesValue, starlarkSemantics, extensionId, facts, bzlLoadValue)) {
+            createContext(env, usagesValue, starlarkSemantics, extensionId, facts, bzlLoadValue);
+        var unused = moduleContext.installRepoMappingRecorder()) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu,
@@ -289,7 +292,6 @@ final class RegularRunnableExtension implements RunnableExtension {
               SymbolGenerator.create(extensionId));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       threadContext.storeInThread(thread);
-      moduleContext.storeRepoMappingRecorderInThread(thread);
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
@@ -322,8 +324,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       }
       moduleContext.markSuccessful();
       env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
-      var repoSpecs =
-          threadContext.createRepos(thread.getThreadLocal(Label.RepoMappingRecorder.class));
+      var repoSpecs = threadContext.createRepos();
       return new RunModuleExtensionResult(
           moduleContext.getRecordedInputs(), repoSpecs, moduleExtensionMetadata);
     } catch (EvalException e) {
@@ -361,8 +362,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       Facts facts,
       BzlLoadValue bzlLoadValue)
       throws ExternalDepsException {
-    var staticRepoMappingRecorder = new Label.SimpleRepoMappingRecorder();
-    staticRepoMappingRecorder.record(bzlLoadValue.getRecordedRepoMappings());
+    var staticRepoMappingRecorder = new SimpleRepoMappingRecorder();
+    staticRepoMappingRecorder.recordAll(bzlLoadValue.getRecordedRepoMappings());
     Path workingDirectory =
         directories
             .getOutputBase()
@@ -370,17 +371,18 @@ final class RegularRunnableExtension implements RunnableExtension {
             .getRelative(usagesValue.getExtensionUniqueName());
     ArrayList<StarlarkBazelModule> modules = new ArrayList<>();
     ImmutableList<AbridgedModule> abridgedModules = usagesValue.getAbridgedModules();
-    for (int i = 0; i < abridgedModules.size(); i++) {
-      var abridgedModule = abridgedModules.get(i);
-      var moduleKey = abridgedModule.getKey();
-      modules.add(
-          StarlarkBazelModule.create(
-              abridgedModule,
-              extension,
-              usagesValue.getRepoMappings().get(moduleKey),
-              usagesValue.getExtensionUsages().get(moduleKey),
-              staticRepoMappingRecorder,
-              i));
+    try (var unused = RepoMappingRecorder.install(staticRepoMappingRecorder)) {
+      for (int i = 0; i < abridgedModules.size(); i++) {
+        var abridgedModule = abridgedModules.get(i);
+        var moduleKey = abridgedModule.getKey();
+        modules.add(
+            StarlarkBazelModule.create(
+                abridgedModule,
+                extension,
+                usagesValue.getRepoMappings().get(moduleKey).withRecordedLookups(),
+                usagesValue.getExtensionUsages().get(moduleKey),
+                i));
+      }
     }
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =

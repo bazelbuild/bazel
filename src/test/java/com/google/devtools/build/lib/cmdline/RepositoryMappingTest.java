@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Tables;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -58,6 +59,27 @@ public final class RepositoryMappingTest {
                 ImmutableMap.of("A", RepositoryName.create("A1")), RepositoryName.MAIN)
             .withAdditionalMappings(ImmutableMap.of("A", RepositoryName.create("A2")));
     assertThat(mapping.get("A")).isEqualTo(RepositoryName.create("A1"));
+  }
+
+  @Test
+  public void withOverrides_recordsLookupsOfOtherNames() throws Exception {
+    RepositoryName a = RepositoryName.create("a");
+    RepositoryName b = RepositoryName.create("b");
+    RepositoryName c = RepositoryName.create("c");
+    RepositoryMapping mapping =
+        RepositoryMapping.create(ImmutableMap.of("a", a, "b", b), RepositoryName.MAIN)
+            .withRecordedLookups()
+            .withOverrides(ImmutableMap.of("b", c, "c", c));
+
+    var recorder = new SimpleRepoMappingRecorder();
+    try (var _ = RepoMappingRecorder.install(recorder)) {
+      assertThat(mapping.get("a")).isEqualTo(a);
+      assertThat(mapping.get("b")).isEqualTo(c);
+      assertThat(mapping.get("c")).isEqualTo(c);
+    }
+
+    assertThat(recorder.recordedEntries().cellSet())
+        .containsExactly(Tables.immutableCell(RepositoryName.MAIN, "a", a));
   }
 
   @Test

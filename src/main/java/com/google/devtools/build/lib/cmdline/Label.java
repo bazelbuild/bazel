@@ -16,15 +16,11 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProcessTargetName;
 import static com.google.devtools.build.lib.cmdline.PackageIdentifier.packageIdentifierCodec;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
-import static java.util.Comparator.naturalOrder;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableTable;
-import com.google.common.collect.Table;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -51,7 +47,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import javax.annotation.Nullable;
@@ -218,18 +213,6 @@ public final class Label
     return parseWithPackageContextInternal(Parts.parse(raw), packageContext);
   }
 
-  public static Label parseWithPackageContext(
-      String raw, PackageContext packageContext, @Nullable RepoMappingRecorder repoMappingRecorder)
-      throws LabelSyntaxException {
-    Parts parts = Parts.parse(raw);
-    Label parsed = parseWithPackageContextInternal(parts, packageContext);
-    if (repoMappingRecorder != null && parts.repo() != null && !parts.repoIsCanonical()) {
-      repoMappingRecorder.record(
-          packageContext.currentRepo(), parts.repo(), parsed.getRepository());
-    }
-    return parsed;
-  }
-
   private static Label parseWithPackageContextInternal(Parts parts, PackageContext packageContext)
       throws LabelSyntaxException {
     parts.checkPkgDoesNotEndWithTripleDots();
@@ -241,43 +224,6 @@ public final class Label
     PathFragment pkgFragment =
         parts.pkgIsAbsolute() ? PathFragment.create(parts.pkg()) : packageContext.packageFragment();
     return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target());
-  }
-
-  /** Records repo mapping entries used by {@link #parseWithPackageContext}. */
-  public interface RepoMappingRecorder {
-    void record(RepositoryName fromRepo, String apparentRepoName, RepositoryName canonicalRepoName);
-
-    default void record(Table<RepositoryName, String, RepositoryName> entries) {
-      for (Table.Cell<RepositoryName, String, RepositoryName> cell : entries.cellSet()) {
-        record(cell.getRowKey(), cell.getColumnKey(), cell.getValue());
-      }
-    }
-
-    default void storeInThread(StarlarkThread thread) {
-      thread.setThreadLocal(RepoMappingRecorder.class, this);
-    }
-  }
-
-  /**
-   * A {@link RepoMappingRecorder} backed by a {@link Table} that is used for BUILD and .bzl load
-   * threads.
-   */
-  public static final class SimpleRepoMappingRecorder implements RepoMappingRecorder {
-    Table<RepositoryName, String, RepositoryName> entries = HashBasedTable.create();
-
-    @Override
-    public void record(
-        RepositoryName fromRepo, String apparentRepoName, RepositoryName canonicalRepoName) {
-      entries.put(fromRepo, apparentRepoName, canonicalRepoName);
-    }
-
-    public ImmutableTable<RepositoryName, String, RepositoryName> recordedEntries() {
-      return ImmutableTable.<RepositoryName, String, RepositoryName>builder()
-          .orderRowsBy(Comparator.comparing(RepositoryName::getName))
-          .orderColumnsBy(naturalOrder())
-          .putAll(entries)
-          .buildOrThrow();
-    }
   }
 
   /**

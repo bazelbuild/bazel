@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
+import com.google.devtools.build.lib.cmdline.RepoMappingRecorder;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TrackedRepositoryMapping;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingEntryValue.Forward;
@@ -28,15 +29,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
- * Records the repo mapping lookups of a Skyframe evaluation as dependencies on {@link
- * RepositoryMappingEntryValue}s.
+ * Records the lookups through {@link TrackedRepositoryMapping}s by a Skyframe evaluation as
+ * dependencies on {@link RepositoryMappingEntryValue}s.
  *
  * <p>Lookups whose value hasn't been computed yet are answered from the latest known mapping and
  * leave {@link Environment#valuesMissing()} set. Callers either redo the evaluation after a restart
  * or keep its result if {@link #registerDepsAndCheck} confirms all answers.
  */
-final class RepoMappingTracker implements RepoMappingLookups.Scope {
+final class RepoMappingTracker implements RepoMappingRecorder {
   private Environment env;
+  // Also receives all forward lookups, if set.
+  @Nullable private final RepoMappingRecorder delegate;
   // Answers taken from Skyframe, which take precedence in later attempts.
   private final ConcurrentHashMap<RepositoryMappingEntryValue.Key, Object> authoritative =
       new ConcurrentHashMap<>();
@@ -45,7 +48,12 @@ final class RepoMappingTracker implements RepoMappingLookups.Scope {
       new ConcurrentHashMap<>();
 
   RepoMappingTracker(Environment env) {
+    this(env, null);
+  }
+
+  RepoMappingTracker(Environment env, @Nullable RepoMappingRecorder delegate) {
     this.env = env;
+    this.delegate = delegate;
   }
 
   /** Sets the environment of the current Skyframe restart. */
@@ -56,10 +64,6 @@ final class RepoMappingTracker implements RepoMappingLookups.Scope {
   /** Forgets the answers given in a previous attempt. */
   void startAttempt() {
     recorded = new ConcurrentHashMap<>();
-  }
-
-  RepoMappingLookups.ScopeHandle enter() {
-    return RepoMappingLookups.enter(this);
   }
 
   /** Adds the values of the given keys that are done as authoritative answers. */
@@ -74,24 +78,40 @@ final class RepoMappingTracker implements RepoMappingLookups.Scope {
   }
 
   @Override
-  public RepositoryName get(TrackedRepositoryMapping mapping, String apparentName) {
-    var key = RepositoryMappingEntryValue.forwardKey(mapping.mappingSource(), apparentName);
+  public void record(RepositoryMapping mapping, String apparentName, RepositoryName canonicalName) {
+    if (delegate != null) {
+      delegate.record(mapping, apparentName, canonicalName);
+    }
+  }
+
+  @Override
+  public RepositoryName get(RepositoryMapping mapping, String apparentName) {
+    // The owners of other mappings depend on their full RepositoryMappingValue.
+    if (!(mapping instanceof TrackedRepositoryMapping trackedMapping)) {
+      return RepoMappingRecorder.super.get(mapping, apparentName);
+    }
+    var key = RepositoryMappingEntryValue.forwardKey(trackedMapping.mappingSource(), apparentName);
     Object payload = lookUp(key);
     if (payload == null) {
-      payload = Forward.payloadFor(mapping.untracked().entries(), apparentName);
+      payload = Forward.payloadFor(trackedMapping.untracked().entries(), apparentName);
     }
     recorded.putIfAbsent(key, payload);
-    return Forward.toRepositoryName(payload, apparentName, mapping.contextRepo());
+    RepositoryName canonicalName =
+        Forward.toRepositoryName(payload, apparentName, mapping.contextRepo());
+    record(mapping, apparentName, canonicalName);
+    return canonicalName;
   }
 
   @Override
   @SuppressWarnings("unchecked")
-  public Optional<String> getInverse(
-      TrackedRepositoryMapping mapping, RepositoryName canonicalName) {
-    var key = RepositoryMappingEntryValue.inverseKey(mapping.mappingSource(), canonicalName);
+  public Optional<String> getInverse(RepositoryMapping mapping, RepositoryName canonicalName) {
+    if (!(mapping instanceof TrackedRepositoryMapping trackedMapping)) {
+      return RepoMappingRecorder.super.getInverse(mapping, canonicalName);
+    }
+    var key = RepositoryMappingEntryValue.inverseKey(trackedMapping.mappingSource(), canonicalName);
     var result = (Optional<String>) lookUp(key);
     if (result == null) {
-      result = mapping.untracked().getInverse(canonicalName);
+      result = trackedMapping.untracked().getInverseUnrecorded(canonicalName);
     }
     recorded.putIfAbsent(key, result);
     return result;

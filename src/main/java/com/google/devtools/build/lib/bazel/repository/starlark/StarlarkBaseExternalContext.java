@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepoMappingRecorder;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -159,7 +160,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
   protected final String identifyingStringForLogging;
-  protected final Label.RepoMappingRecorder repoMappingRecorder;
+  private final RepoMappingRecorder repoMappingRecorder;
   private final LinkedHashMap<RepoRecordedInput, String> recordedInputs = new LinkedHashMap<>();
   private final Set<RepoRecordedInput> inputsChangedDuringEvaluation = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
@@ -201,13 +202,19 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             Thread.ofVirtual()
                 .name("downloads[" + identifyingStringForLogging + "]-", 0)
                 .factory());
-    // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
-    // apparent repo names to canonical repo names. See #20721 for why this is necessary.
+    // Records the resolution of apparent repo names to canonical repo names, for example by
+    // `Label()`. See #20721 for why this is necessary.
     this.repoMappingRecorder =
-        (fromRepo, apparentRepoName, canonicalRepoName) ->
-            recordInputWithValue(
-                new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
-                canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null);
+        (mapping, apparentName, canonicalName) ->
+            recordRepoMappingEntry(mapping.contextRepo(), apparentName, canonicalName);
+  }
+
+  /** Records that {@code apparentName} resolved to {@code canonicalName} from {@code fromRepo}. */
+  protected final void recordRepoMappingEntry(
+      RepositoryName fromRepo, String apparentName, RepositoryName canonicalName) {
+    recordInputWithValue(
+        new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentName),
+        canonicalName.isVisible() ? canonicalName.getName() : null);
   }
 
   /**
@@ -236,8 +243,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
   }
 
-  public void storeRepoMappingRecorderInThread(StarlarkThread thread) {
-    repoMappingRecorder.storeInThread(thread);
+  /**
+   * Records the repo mapping lookups on the current thread as inputs until the returned
+   * installation is closed.
+   */
+  public RepoMappingRecorder.Installation installRepoMappingRecorder() {
+    return RepoMappingRecorder.install(repoMappingRecorder);
   }
 
   /**

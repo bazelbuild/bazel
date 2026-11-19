@@ -671,7 +671,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
               "repository " + repoName.getDisplayForm(mainRepoMapping),
               SymbolGenerator.create("fetching " + repoName));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
-      starlarkRepositoryContext.storeRepoMappingRecorderInThread(thread);
 
       // We sort of want a starlark thread context here, but no extra info is needed. So we just
       // use an anonymous class.
@@ -691,7 +690,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
       // structure as it is.
       Object result;
       try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.STARLARK_REPOSITORY_FN, repoDefinition::name)) {
+              Profiler.instance()
+                  .profile(ProfilerTask.STARLARK_REPOSITORY_FN, repoDefinition::name);
+          var unused = starlarkRepositoryContext.installRepoMappingRecorder()) {
         result = Starlark.positionalOnlyCall(thread, function, starlarkRepositoryContext);
         starlarkRepositoryContext.markSuccessful();
       }

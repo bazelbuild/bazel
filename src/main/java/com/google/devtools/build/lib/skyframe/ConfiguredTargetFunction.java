@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
+import com.google.devtools.build.lib.cmdline.RepoMappingRecorder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -448,7 +449,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     ConfiguredTarget configuredTarget;
     // Lookups through repo mappings that aren't computed yet leave values missing, which discards
     // this configured target below.
-    try (var _ = RepoMappingLookups.ENABLED ? new RepoMappingTracker(env).enter() : null) {
+    try (var _ =
+        RepoMappingLookups.ENABLED
+            ? RepoMappingRecorder.install(new RepoMappingTracker(env))
+            : null) {
       configuredTarget =
           view.createConfiguredTarget(
               target,

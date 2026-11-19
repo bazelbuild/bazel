@@ -21,10 +21,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
- * A {@link RepositoryMapping} whose lookups are recorded by the {@link RepoMappingLookups.Scope} of
- * the current thread, if any.
+ * A {@link RepositoryMapping} that answers lookups from the latest mapping of its repo, so that
+ * values holding it don't have to depend on the full mapping. Lookups are reported to the current
+ * {@link RepoMappingRecorder}, which turns them into dependencies.
  *
- * <p>Lookups of covered names aren't recorded since the owner of this mapping already depends on
+ * <p>Lookups of covered names aren't reported since the owner of this mapping already depends on
  * them.
  */
 public final class TrackedRepositoryMapping extends RepositoryMapping {
@@ -68,7 +69,7 @@ public final class TrackedRepositoryMapping extends RepositoryMapping {
     return mappingSource;
   }
 
-  /** Returns the mapping that lookups which aren't recorded are answered from. */
+  /** Returns the mapping that lookups are answered from unless a recorder knows better. */
   public RepositoryMapping untracked() {
     RepositoryMapping latest = RepoMappingLookups.getLatest(contextRepo());
     return latest != null ? latest : snapshot;
@@ -91,6 +92,13 @@ public final class TrackedRepositoryMapping extends RepositoryMapping {
 
   @Override
   public RepositoryName get(String preMappingName) {
+    return covered.contains(preMappingName)
+        ? getUnrecorded(preMappingName)
+        : super.get(preMappingName);
+  }
+
+  @Override
+  public RepositoryName getUnrecorded(String preMappingName) {
     var overrides = this.overrides;
     if (overrides != null) {
       RepositoryName override = overrides.get(preMappingName);
@@ -98,21 +106,11 @@ public final class TrackedRepositoryMapping extends RepositoryMapping {
         return override;
       }
     }
-    if (!covered.contains(preMappingName)) {
-      var scope = RepoMappingLookups.currentScope();
-      if (scope != null) {
-        return scope.get(this, preMappingName);
-      }
-    }
-    return untracked().get(preMappingName);
+    return untracked().getUnrecorded(preMappingName);
   }
 
   @Override
-  public Optional<String> getInverse(RepositoryName postMappingName) {
-    var scope = RepoMappingLookups.currentScope();
-    if (scope != null) {
-      return scope.getInverse(this, postMappingName);
-    }
-    return untracked().getInverse(postMappingName);
+  public Optional<String> getInverseUnrecorded(RepositoryName postMappingName) {
+    return untracked().getInverseUnrecorded(postMappingName);
   }
 }

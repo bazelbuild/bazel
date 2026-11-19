@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
+import com.google.devtools.build.lib.cmdline.RepoMappingRecorder;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TrackedRepositoryMapping;
@@ -531,7 +532,9 @@ public abstract class PackageFunction implements SkyFunction {
           state.repoMappingTracker.startAttempt();
         }
         try (var unused =
-            state.repoMappingTracker == null ? null : state.repoMappingTracker.enter()) {
+            state.repoMappingTracker == null
+                ? null
+                : RepoMappingRecorder.install(state.repoMappingTracker)) {
           state.loadedPackage =
               loadPackage(
                   packageLookupValue,
