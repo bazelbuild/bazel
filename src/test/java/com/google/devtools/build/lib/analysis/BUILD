@@ -1049,6 +1049,20 @@ java_test(
 )
 
 java_test(
+    name = "TargetConfiguredEventTest",
+    srcs = ["TargetConfiguredEventTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:target_configured_event",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/rules:alias",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "TopLevelArtifactHelperTest",
     srcs = ["TopLevelArtifactHelperTest.java"],
     deps = [
