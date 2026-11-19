@@ -502,6 +502,17 @@ sh_test(
 )
 
 sh_test(
+    name = "incremental_analysis_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["incremental_analysis_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "info_test",
     srcs = ["info_test.sh"],
     data = [
