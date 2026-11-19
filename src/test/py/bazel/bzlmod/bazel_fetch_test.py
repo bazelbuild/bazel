@@ -378,6 +378,44 @@ class BazelFetchTest(test_base.TestBase):
     )
     self.assertIn('JUST FETCHED', ''.join(stderr))
 
+  def testForceFetchWithSameContentsDoesNotReloadPackages(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    print("JUST FETCHED")',
+            '    ctx.file("defs.bzl", "NAME = \'lala\'")',
+            '    ctx.file(',
+            '        "BUILD",',
+            '        "load(\':defs.bzl\', \'NAME\')\\nfilegroup(name = NAME)",',
+            '    )',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+    self.RunBazel(['build', '--nobuild', '@hello//:lala'])
+
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
+    self.assertIn('JUST FETCHED', ''.join(stderr))
+
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '@hello//:lala'])
+    self.assertIn(
+        'Analyzed target @@+ext+hello//:lala (0 packages loaded, 0 targets'
+        ' configured).',
+        '\n'.join(stderr),
+    )
+
   def testForceFetchWithRepoCache(self):
     # The test harness disables the repo contents cache, which this test is
     # about. Use a private one outside of the workspace.
