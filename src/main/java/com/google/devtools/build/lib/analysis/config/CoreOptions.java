@@ -584,6 +584,8 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           - `valgrind --quiet --num-callers=20`
           - `//package:target`
           - `//package:target --options`
+          Using --run_under= resets Bazel to its default behavior when --run_under has not
+          been supplied at all.
           """)
   public abstract RunUnder getRunUnder();
 
@@ -918,7 +920,9 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           RequiredConfigFragmentsProvider with the configuration fragments they directly
           require.
           If `transitive`, they do the same but also include the fragments their
-          transitive dependencies require. If `off`, the provider is omitted.
+          transitive dependencies require. If `transitive_starlark_only`, they only include the
+          Starlark options they and their transitive dependencies require (omitting native
+          options, fragments, and `--define`s). If `off`, the provider is omitted.
 
           Be careful using this feature: it adds memory to every configured target in the
           build.
@@ -1061,7 +1065,12 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
     /** Provide the fragments required <em>directly</em> by this rule. */
     DIRECT,
     /** Provide the fragments required by this rule and its transitive dependencies. */
-    TRANSITIVE
+    TRANSITIVE,
+    /**
+     * Provide only the Starlark options required by this rule and its transitive dependencies,
+     * omitting native options, fragments, and {@code --define}s.
+     */
+    TRANSITIVE_STARLARK_ONLY
   }
 
   /** Enum converter for --include_config_fragments_provider. */

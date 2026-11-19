@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksu
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -47,7 +48,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
     BuildConfigurationValue config = create("--cpu=piii");
     String outputDirPrefix =
-        outputBase + "/execroot/" + config.getWorkspaceName() + "/blaze-out/.*piii-fastbuild";
+        outputBase
+            + "/execroot/"
+            + LabelConstants.MAIN_REPO_DIR_NAME
+            + "/blaze-out/.*piii-fastbuild";
 
     assertThat(config.getOutputDirectory().getRoot().toString()).matches(outputDirPrefix);
     assertThat(config.getBinDirectory().getRoot().toString()).matches(outputDirPrefix + "/bin");
@@ -64,10 +68,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     BuildConfigurationValue config = create("--platform_suffix=test");
     assertThat(config.getOutputDirectory().getRoot().toString())
         .matches(
-            outputBase
-                + "/execroot/"
-                + config.getWorkspaceName()
-                + "/blaze-out/.*k8-fastbuild-test");
+            String.format(
+                "%s/execroot/%s/blaze-out/.*%s-fastbuild-test",
+                outputBase, LabelConstants.MAIN_REPO_DIR_NAME, config.getCpu()));
   }
 
   @Test

@@ -49,8 +49,10 @@ size_t TryDeflate(u1 *buf, size_t length) {
     return length;
   }
 
-  if (deflate(&stream, Z_FINISH) == Z_STREAM_END) {
-    // Compression successful and fits in outbuf, let's copy the result in buf.
+  // Only use the deflated bytes if they are strictly smaller than the input.
+  // Callers treat a returned length equal to the input length as "stored", so
+  // buf must be left untouched in that case.
+  if (deflate(&stream, Z_FINISH) == Z_STREAM_END && stream.total_out < length) {
     length = stream.total_out;
     memcpy(buf, outbuf, length);
   }

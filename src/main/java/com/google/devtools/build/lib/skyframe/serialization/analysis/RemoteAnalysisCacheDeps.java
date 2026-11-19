@@ -87,6 +87,7 @@ public class RemoteAnalysisCacheDeps
   private final LongVersionGetter versionGetter;
 
   private final AtomicBoolean bailedOut = new AtomicBoolean();
+  private final AtomicBoolean sawCacheHit = new AtomicBoolean();
   private final ExtendedEventHandler eventHandler;
 
   public static RemoteAnalysisCacheDeps createDisabled() {
@@ -360,7 +361,15 @@ public class RemoteAnalysisCacheDeps
       SkyKey key,
       ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     checkEnabled();
+    if (retrievalResult instanceof SkyValueRetriever.RetrievedValue) {
+      sawCacheHit.set(true);
+    }
     listener.recordRetrievalResult(retrievalResult, key, phaseDurationMicros);
+  }
+
+  @Override
+  public boolean sawCacheHit() {
+    return sawCacheHit.get();
   }
 
   @Override

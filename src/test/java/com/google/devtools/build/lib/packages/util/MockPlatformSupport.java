@@ -166,6 +166,14 @@ public class MockPlatformSupport {
         "constraint_value(",
         "    name = 'openbsd',",
         "    constraint_setting = ':os',",
+        ")",
+        "constraint_value(",
+        "    name = 'none',",
+        "    constraint_setting = ':os',",
+        ")",
+        "constraint_value(",
+        "    name = 'wasi',",
+        "    constraint_setting = ':os',",
         ")");
     mockToolsConfig.create(
         platformsPath + "/BUILD",

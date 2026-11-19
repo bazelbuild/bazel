@@ -14,7 +14,7 @@ module(
 # =========================================
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
-bazel_dep(name = "bazel_features", version = "1.50.0")
+bazel_dep(name = "bazel_features", version = "1.56.0")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
@@ -47,9 +47,8 @@ bazel_dep(name = "apple_support", version = "2.8.4")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 
 # Hermetic LLVM toolchains used to cross-compile Bazel to all supported
-# platforms from any host. They are not registered by default; see the `llvm`
-# config in .bazelrc.
-bazel_dep(name = "llvm", version = "0.8.21")
+# platforms from any host. Enabled by default in .bazelrc.
+bazel_dep(name = "llvm", version = "0.8.27")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -86,12 +85,17 @@ single_version_override(
     version = "1.76.0.bcr.1",
 )
 
-# bazel_dep overrides
+# Makes abseil link its Windows system libraries (dbghelp, bcrypt) with -l<lib>
+# when it is built with MinGW clang.
+# TODO: Remove once abseil is updated to a release that includes
+# https://github.com/abseil/abseil-cpp/commit/583556e932.
 single_version_override(
-    module_name = "c-ares",
-    version = "1.34.5.bcr.5",
+    module_name = "abseil-cpp",
+    patch_strip = 1,
+    patches = ["//third_party:abseil-cpp-mingw-clang.patch"],
 )
 
+# bazel_dep overrides
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
@@ -144,7 +148,12 @@ single_version_override(
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
-    patches = ["//third_party:protobuf.patch"],
+    patches = [
+        "//third_party:protobuf.patch",
+        # Fixes the build of a protobuf tool with MinGW clang.
+        # TODO: Remove once protobuf is updated to a version with this fix.
+        "//third_party:protobuf-mingw-setmode.patch",
+    ],
     version = "36.2",
 )
 
@@ -169,8 +178,6 @@ maven.install(
         "com.dylibso.chicory:wasm:1.7.5",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
-        "com.google.api-client:google-api-client:1.35.2",
-        "com.google.api-client:google-api-client-gson:1.35.2",
         "com.google.auth:google-auth-library-credentials:1.42.1",
         "com.google.auth:google-auth-library-oauth2-http:1.42.1",
         "com.google.auto:auto-common:1.2.2",
@@ -192,15 +199,15 @@ maven.install(
         "com.google.guava:guava:33.7.2-jre",
         "com.google.http-client:google-http-client:2.1.0",
         "com.google.http-client:google-http-client-gson:2.1.0",
-        "com.google.turbine:turbine:1.17.0",
-        "com.guardsquare:proguard-base:jar:7.8.2",
+        "com.google.turbine:turbine:1.18.0",
+        "com.guardsquare:proguard-base:7.8.2",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
         "com.squareup:javapoet:1.12.0",
         "commons-collections:commons-collections:3.2.2",
         "commons-lang:commons-lang:2.6",
-        "io.github.eisop:dataflow-errorprone:jar:3.49.3-eisop1",
+        "io.github.eisop:dataflow-errorprone:3.49.3-eisop1",
         "io.github.java-diff-utils:java-diff-utils:4.12",
         "io.grpc:grpc-api:1.84.0",
         "io.grpc:grpc-auth:1.84.0",
@@ -236,12 +243,9 @@ maven.install(
         "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.2.19.Final",
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "it.unimi.dsi:fastutil:7.2.1",
-        "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
-        "javax.inject:javax.inject:1",
         "org.apache.commons:commons-compress:1.26.1",
         "org.apache.commons:commons-lang3:3.14.0",
-        "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
         "org.brotli:dec:0.1.2",
         "org.checkerframework:checker-qual:3.49.3",
@@ -250,11 +254,9 @@ maven.install(
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
         "org.openjdk.jol:jol-core:0.17",
-        "org.pcollections:pcollections:4.0.1",
         "org.roaringbitmap:RoaringBitmap:1.6.22",
         "org.threeten:threeten-extra:1.8.0",
         "org.tukaani:xz:1.9",
-        "org.yaml:snakeyaml:2.0",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
         # and hamcrest is a dependency of junit.
@@ -270,8 +272,24 @@ maven.install(
         # Bazel uses the JDK's TLS implementation. grpc-java requests these.
         "io.netty:netty-tcnative-boringssl-static",
         "io.netty:netty-tcnative-classes",
+        # grpc-java requests these for optional features (xDS, ALTS/S2A, OkHttp,
+        # gRPC metrics) that Bazel does not use.
+        "com.google.re2j:re2j",
+        "com.google.s2a.proto.v2:s2a-proto",
+        "com.squareup.okhttp:okhttp",
+        "com.squareup.okio:okio",
+        "dev.cel:common",
+        "dev.cel:protobuf",
+        "dev.cel:runtime",
+        "io.opencensus:opencensus-contrib-grpc-metrics",
+        "org.jetbrains.kotlin:kotlin-stdlib-common",
     ],
     fail_if_repin_required = True,
+    known_contributing_modules = [
+        "bazel",
+        "grpc-java",
+        "protobuf",
+    ],
     lock_file = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
@@ -314,11 +332,9 @@ maven.override(
     )
     for group, artifact, version in [coord.split(":") for coord in [
         "com.google.guava:guava-testlib:33.2.1-jre",
-        "com.google.jimfs:jimfs:1.2",
         "com.google.testing.compile:compile-testing:0.18",
         "com.google.testparameterinjector:test-parameter-injector:1.16",
         "com.google.truth:truth:1.4.2",
-        "com.google.truth.extensions:truth-java8-extension:1.4.0",
         "com.google.truth.extensions:truth-liteproto-extension:1.4.0",
         "com.google.truth.extensions:truth-proto-extension:1.4.0",
         "org.mockito:mockito-core:5.20.0",
@@ -411,11 +427,24 @@ use_repo(
     "openjdk_win_arm64_jlink_tool",
     "openjdk_win_arm64_vanilla",
     "openjdk_win_vanilla",
+    "remotejdk27_linux_aarch64_toolchain_config_repo",
+    "remotejdk27_linux_ppc64le_toolchain_config_repo",
+    "remotejdk27_linux_riscv64_toolchain_config_repo",
+    "remotejdk27_linux_s390x_toolchain_config_repo",
+    "remotejdk27_linux_toolchain_config_repo",
+    "remotejdk27_macos_aarch64_toolchain_config_repo",
+    "remotejdk27_macos_toolchain_config_repo",
+    "remotejdk27_win_arm64_toolchain_config_repo",
+    "remotejdk27_win_toolchain_config_repo",
 )
 
-# Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
+# `local_config_cc` is required only by
+# `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc.
+# `local_config_cc_toolchains` is required only to build the Turbine native
+# image with MSVC on Windows, see
+# //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl.
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
-use_repo(cc_configure, "local_config_cc")
+use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
 
 # The hermetic macOS SDK used by the LLVM toolchains only ships a minimal set
 # of frameworks by default. Bazel's native code additionally needs CoreServices
@@ -481,6 +510,14 @@ http_file(
     urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-win64.exe"],
 )
 
+# Keep the version in sync with the blake3 module.
+http_file(
+    name = "blake3_test_vectors",
+    downloaded_file_path = "test_vectors.json",
+    integrity = "sha256-3LkeqKzMd+bW5jKvfNwamanzrnjPZI2llcfQZNsy9iQ=",
+    urls = ["https://github.com/BLAKE3-team/BLAKE3/raw/1.8.2/test_vectors/test_vectors.json"],
+)
+
 async_profiler_repos = use_extension("//:repositories.bzl", "async_profiler_repos")
 use_repo(
     async_profiler_repos,
@@ -490,22 +527,13 @@ use_repo(
     "async_profiler_macos",
 )
 
-# Needed during bootstrap compilation. The module extension here is explicitly
-# marked non-reproducible so that it gets included into the lock file and
-# therefore included into the distfile.
-dist_repos = use_extension("//:repositories.bzl", "dist_repos")
-use_repo(
-    dist_repos,
-    "bats_core",
-)
-
 # =========================================
 # Other Bazel testing dependencies
 # =========================================
 
 bazel_dep(name = "bazel_ci_rules", version = "2.1.2")
-bazel_dep(name = "rules_fuzzing", version = "0.6.0")
-bazel_dep(name = "wabt", version = "1.0.37")
+bazel_dep(name = "rules_fuzzing", version = "0.8.0")
+bazel_dep(name = "wabt", version = "1.0.37.bcr.1")
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(
@@ -546,3 +574,15 @@ register_toolchains("@local_config_winsdk//:all")
 register_toolchains("//tools/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")
+
+register_toolchains(
+    "@remotejdk27_linux_aarch64_toolchain_config_repo//:all",
+    "@remotejdk27_linux_ppc64le_toolchain_config_repo//:all",
+    "@remotejdk27_linux_riscv64_toolchain_config_repo//:all",
+    "@remotejdk27_linux_s390x_toolchain_config_repo//:all",
+    "@remotejdk27_linux_toolchain_config_repo//:all",
+    "@remotejdk27_macos_aarch64_toolchain_config_repo//:all",
+    "@remotejdk27_macos_toolchain_config_repo//:all",
+    "@remotejdk27_win_arm64_toolchain_config_repo//:all",
+    "@remotejdk27_win_toolchain_config_repo//:all",
+)

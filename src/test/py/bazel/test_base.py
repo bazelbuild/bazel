@@ -112,6 +112,10 @@ class TestBase(absltest.TestCase):
       # cache, which is shared with other tests and test attempts on CI. Tests
       # that exercise the repo contents cache opt in explicitly.
       f.write('common --repo_contents_cache=\n')
+
+      # Use BCR module mirror to avoid flaky network errors.
+      f.write('common --module_mirrors=https://bcr.cloudflaremirrors.com\n')
+
       if TestBase.IsDarwin() and _HasIpv6DefaultRoute():
         # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')

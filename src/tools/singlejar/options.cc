@@ -20,7 +20,6 @@
 
 void Options::ParseCommandLine(int argc, const char* const argv[]) {
   ArgTokenStream tokens(argc, argv);
-  std::string optarg;
   while (!tokens.AtEnd()) {
     if (ParseToken(&tokens)) {
       continue;

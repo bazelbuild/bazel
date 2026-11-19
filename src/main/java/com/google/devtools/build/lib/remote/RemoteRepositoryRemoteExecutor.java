@@ -58,7 +58,6 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
   private final DigestUtil digestUtil;
   private final String buildRequestId;
   private final String commandId;
-  private final String workspaceName;
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
@@ -69,7 +68,6 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       DigestUtil digestUtil,
       String buildRequestId,
       String commandId,
-      String workspaceName,
       String remoteInstanceName,
       boolean acceptCached) {
     this.remoteCache = remoteCache;
@@ -77,7 +75,6 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     this.digestUtil = digestUtil;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.workspaceName = workspaceName;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
   }
@@ -142,11 +139,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     Digest commandHash = digestUtil.compute(command);
     var merkleTree =
         new MerkleTreeComputer(
-                digestUtil,
-                /* remoteExecutionCache= */ null,
-                buildRequestId,
-                commandId,
-                workspaceName)
+                digestUtil, /* remoteExecutionCache= */ null, buildRequestId, commandId)
             .buildForFiles(inputFiles);
     Action action =
         buildAction(

@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -1926,6 +1928,77 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "'None' value not allowed for List-type option 'copt'. Please use '[]' instead if trying"
             + " to set option to empty value.");
+  }
+
+  @Test
+  public void successfulTypeConversionOfNativeImmutableListOption() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _impl(settings, attr):
+            return {"//command_line_option:allowed_cpu_values": ["k8", "arm", "k8"]}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:allowed_cpu_values"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//test:transitions.bzl", "my_transition")
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
+
+    ConfiguredTarget ct = getConfiguredTarget("//test");
+    assertNoEvents();
+    assertThat(getConfiguration(ct).getOptions().get(CoreOptions.class).getAllowedCpuValues())
+        .isEqualTo(ImmutableList.of("arm", "k8"));
+  }
+
+  @Test
+  public void failedTypeConversionOfNativeImmutableListOptionNone() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _impl(settings, attr):
+            return {"//command_line_option:allowed_cpu_values": None}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:allowed_cpu_values"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//test:transitions.bzl", "my_transition")
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "'None' value not allowed for List-type option 'allowed_cpu_values'. Please use '[]'"
+            + " instead if trying to set option to empty value.");
   }
 
   @Test

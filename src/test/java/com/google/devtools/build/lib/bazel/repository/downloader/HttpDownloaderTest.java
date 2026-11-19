@@ -34,6 +34,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -43,6 +44,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.ConnectException;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -56,10 +58,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Ignore;
@@ -864,7 +868,9 @@ public class HttpDownloaderTest {
                       Optional.of(
                           Checksum.fromString(
                               DownloadCache.KeyType.SHA256,
-                              Hashing.sha256().hashString("hello", UTF_8).toString())),
+                              Hashing.sha256()
+                                  .hashBytes(StringUnsafe.getInternalStringBytes("hello"))
+                                  .toString())),
                       eventHandler,
                       ImmutableMap.of()),
                   UTF_8))
@@ -1371,6 +1377,89 @@ public class HttpDownloaderTest {
       assertThat(server2Headers).doesNotContainKey("cookie2");
       assertThat(server2Headers).containsKey("custom-header");
       assertThat(server2Headers.get("custom-header")).containsExactly("custom-value");
+    }
+  }
+
+  @Test
+  public void download_limitAppliesPerHost() throws Exception {
+    HttpDownloader limitedDownloader = new HttpDownloader(0, Duration.ZERO, 1, .1f);
+    CountDownLatch blockedRequestReceived = new CountDownLatch(1);
+    CountDownLatch otherDownloadDone = new CountDownLatch(1);
+    try (ServerSocket blockedServer = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket otherServer = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(() -> {
+            try (Socket socket = blockedServer.accept()) {
+              readHttpRequest(socket.getInputStream());
+              blockedRequestReceived.countDown();
+              otherDownloadDone.await();
+              sendLines(
+                  socket,
+                  "HTTP/1.1 200 OK",
+                  "Connection: close",
+                  "Content-Length: 7",
+                  "",
+                  "blocked");
+            }
+            return null;
+          });
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          executor.submit(() -> {
+            try (Socket socket = otherServer.accept()) {
+              readHttpRequest(socket.getInputStream());
+              sendLines(
+                  socket, "HTTP/1.1 200 OK", "Connection: close", "Content-Length: 5", "", "other");
+            }
+            return null;
+          });
+
+      Path blockedDestination = fs.getPath(workingDir.newFile().getAbsolutePath());
+      FutureTask<Void> blockedDownload =
+          new FutureTask<>(() -> {
+            limitedDownloader.download(
+                ImmutableList.of(
+                    URI.create(
+                        String.format(
+                            "http://localhost:%d/blocked", blockedServer.getLocalPort()))),
+                ImmutableMap.of(),
+                StaticCredentials.EMPTY,
+                Optional.empty(),
+                "testCanonicalId",
+                blockedDestination,
+                eventHandler,
+                ImmutableMap.of(),
+                Optional.empty(),
+                "testRepo");
+            return null;
+          });
+      new Thread(blockedDownload).start();
+      blockedRequestReceived.await();
+
+      String otherHost =
+          otherServer.getInetAddress() instanceof Inet6Address ? "[::1]" : "127.0.0.1";
+      Path otherDestination = fs.getPath(workingDir.newFile().getAbsolutePath());
+      limitedDownloader.download(
+          ImmutableList.of(
+              URI.create(
+                  String.format("http://%s:%d/other", otherHost, otherServer.getLocalPort()))),
+          ImmutableMap.of(),
+          StaticCredentials.EMPTY,
+          Optional.empty(),
+          "testCanonicalId",
+          otherDestination,
+          eventHandler,
+          ImmutableMap.of(),
+          Optional.empty(),
+          "testRepo");
+      otherDownloadDone.countDown();
+      blockedDownload.get();
+
+      assertThat(new String(FileSystemUtils.readContent(otherDestination), UTF_8))
+          .isEqualTo("other");
+      assertThat(new String(FileSystemUtils.readContent(blockedDestination), UTF_8))
+          .isEqualTo("blocked");
     }
   }
 

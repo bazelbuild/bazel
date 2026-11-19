@@ -18,6 +18,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -35,10 +37,14 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.gson.JsonIOException;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSyntaxException;
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -54,6 +60,10 @@ public class BazelLockFileFunction implements SkyFunction {
 
   private static final Pattern LOCKFILE_VERSION_PATTERN =
       Pattern.compile("\"lockFileVersion\":\\s*(\\d+)");
+
+  // BazelLockFileValue_GsonTypeAdapter writes this first for both workspace and hidden lockfiles.
+  static final String CURRENT_VERSION_HEADER =
+      "{\n  \"lockFileVersion\": " + BazelLockFileValue.LOCK_FILE_VERSION + ",";
 
   private static final Pattern POSSIBLE_MERGE_CONFLICT_PATTERN =
       Pattern.compile("<<<<<<<|=======|" + Pattern.quote("|||||||") + "|>>>>>>>");
@@ -123,42 +133,68 @@ public class BazelLockFileFunction implements SkyFunction {
   public static BazelLockFileValue getLockfileValue(
       RootedPath lockfilePath, LockfileMode lockfileMode)
       throws IOException, BazelLockfileFunctionException {
-    try {
-      String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
-      Matcher matcher = LOCKFILE_VERSION_PATTERN.matcher(json);
-      int version = matcher.find() ? Integer.parseInt(matcher.group(1)) : -1;
-      if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
-        BazelLockFileValue lockFileValue =
-            GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
-        if (!isValidLockfile(lockFileValue)) {
-          if (lockfileMode == LockfileMode.ERROR) {
-            throw new BazelLockfileFunctionException(
-                ExternalDepsException.withMessage(
-                    Code.BAD_LOCKFILE,
-                    "The version of MODULE.bazel.lock is not supported by this version of Bazel."
-                        + " Please run `bazel mod deps --lockfile_mode=update` to update your"
-                        + " lockfile."),
-                Transience.PERSISTENT);
-          }
-          return BazelLockFileValue.EMPTY_LOCKFILE;
-        }
-        return lockFileValue;
-      } else {
-        // This is an old version, its information can't be used.
-        if (lockfileMode == LockfileMode.ERROR) {
-          throw new BazelLockfileFunctionException(
-              ExternalDepsException.withMessage(
-                  Code.BAD_LOCKFILE,
-                  "The version of MODULE.bazel.lock is not supported by this version of Bazel."
-                      + " Please run `bazel mod deps --lockfile_mode=update` to update your"
-                      + " lockfile."),
-              Transience.PERSISTENT);
-        }
-        return BazelLockFileValue.EMPTY_LOCKFILE;
+    try (BufferedReader reader =
+        FileSystemUtils.asByteSource(lockfilePath.asPath())
+            .asCharSource(UTF_8)
+            .openBufferedStream()) {
+      boolean hasCurrentVersion = hasCurrentVersionHeader(reader);
+      Reader jsonReader = reader;
+      if (!hasCurrentVersion) {
+        // Preserve behavior for edited or obsolete files. They may be reordered or may not even be
+        // parseable with the current schema.
+        String json = CharStreams.toString(reader);
+        Matcher matcher = LOCKFILE_VERSION_PATTERN.matcher(json);
+        hasCurrentVersion =
+            matcher.find()
+                && Integer.parseInt(matcher.group(1)) == BazelLockFileValue.LOCK_FILE_VERSION;
+        jsonReader = new StringReader(json);
       }
+      if (hasCurrentVersion) {
+        BazelLockFileValue lockFileValue =
+            GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(jsonReader, BazelLockFileValue.class);
+        if (isValidLockfile(lockFileValue)) {
+          return lockFileValue;
+        }
+      }
+      if (lockfileMode == LockfileMode.ERROR) {
+        throw new BazelLockfileFunctionException(
+            ExternalDepsException.withMessage(
+                Code.BAD_LOCKFILE,
+                "The version of MODULE.bazel.lock is not supported by this version of Bazel."
+                    + " Please run `bazel mod deps --lockfile_mode=update` to update your"
+                    + " lockfile."),
+            Transience.PERSISTENT);
+      }
+      return BazelLockFileValue.EMPTY_LOCKFILE;
     } catch (FileNotFoundException e) {
       return BazelLockFileValue.EMPTY_LOCKFILE;
+    } catch (JsonIOException e) {
+      // Gson can encounter file I/O during parsing or its full-document check.
+      if (e.getCause() instanceof IOException ioException) {
+        throw ioException;
+      }
+      throw e;
     }
+  }
+
+  @VisibleForTesting
+  static boolean hasCurrentVersionHeader(BufferedReader reader) throws IOException {
+    // A checkout with git autocrlf may have one extra character in the header.
+    reader.mark(CURRENT_VERSION_HEADER.length() + 1);
+    boolean matches = true;
+    for (int i = 0; i < CURRENT_VERSION_HEADER.length(); i++) {
+      char expected = CURRENT_VERSION_HEADER.charAt(i);
+      int next = reader.read();
+      if (expected == '\n' && next == '\r') {
+        next = reader.read();
+      }
+      if (next != expected) {
+        matches = false;
+        break;
+      }
+    }
+    reader.reset();
+    return matches;
   }
 
   private static boolean isValidLockfile(@Nullable BazelLockFileValue lockFileValue) {

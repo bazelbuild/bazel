@@ -292,6 +292,17 @@ sh_test(
 )
 
 sh_test(
+    name = "blaze_nouse_action_cache_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["blaze_nouse_action_cache_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "build_event_stream_test",
     size = "medium",
     timeout = "long",
@@ -357,6 +368,15 @@ sh_test(
     tags = [
         # Bazel test requires sandboxing
         "no_windows",
+    ],
+)
+
+sh_test(
+    name = "configured_attr_integ_test",
+    srcs = ["configured_attr_integ_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -490,6 +510,17 @@ sh_test(
         ":test-deps",
     ],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "incremental_analysis_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["incremental_analysis_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -957,6 +988,24 @@ sh_test(
     name = "thread_dump_test",
     srcs = ["thread_dump_test.sh"],
     data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+cc_binary(
+    name = "futimens",
+    testonly = 1,
+    srcs = ["futimens.cc"],
+)
+
+sh_test(
+    name = "timestamp_granularity_test",
+    timeout = "long",
+    srcs = ["timestamp_granularity_test.sh"],
+    data = [
+        ":futimens",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],

@@ -33,6 +33,7 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   public final Set<SkyKey> dirty = Sets.newConcurrentHashSet();
   public final Set<SkyKey> deleted = Sets.newConcurrentHashSet();
   public final Set<SkyKey> enqueued = Sets.newConcurrentHashSet();
+  public final Set<SkyKey> committed = Sets.newConcurrentHashSet();
   public final Set<SkyKey> evaluated = Sets.newConcurrentHashSet();
 
   public TrackingProgressReceiver(boolean checkEvaluationResults) {
@@ -66,6 +67,11 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   }
 
   @Override
+  public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+    committed.add(skyKey);
+  }
+
+  @Override
   public void evaluated(
       SkyKey skyKey,
       EvaluationState state,
@@ -85,6 +91,7 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
     dirty.clear();
     deleted.clear();
     enqueued.clear();
+    committed.clear();
     evaluated.clear();
   }
 

@@ -92,7 +92,6 @@ import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -357,7 +356,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
             "command-id",
-            TestConstants.WORKSPACE_NAME,
             DIGEST_UTIL,
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),

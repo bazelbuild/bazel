@@ -47,9 +47,6 @@ public interface RunfilesTree {
   /** Returns whether the runfile symlinks should be materialized during the build. */
   boolean isBuildRunfileLinks();
 
-  /** Returns the name of the workspace that the build is occurring in. */
-  String getWorkspaceName();
-
   /**
    * Returns artifacts the runfiles tree contain symlinks to at their canonical locations.
    *

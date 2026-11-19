@@ -383,7 +383,7 @@ public final class FlagSetFunction implements SkyFunction {
               .replaceFirst("--", "")
               // Don't strip out negative boolean flags, e.g --nostamp, even though they aren't
               // part of BuildOptions in the negative form.
-              .replaceFirst("no", "")
+              .replaceFirst("^no", "")
               .replace("'", "");
       // Remove options that aren't part of BuildOptions from the selected config, and options in
       // --incompatible_disable_transitions_on (these can reach here through --config expansion).

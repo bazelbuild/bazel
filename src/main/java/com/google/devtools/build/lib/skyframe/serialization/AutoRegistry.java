@@ -46,6 +46,11 @@ public class AutoRegistry {
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
+          // Concurrency infrastructure, never serialized. Some classes extend JDK classes (e.g.
+          // ForkJoinTask, AbstractQueuedSynchronizer) whose packages are not opened for reflective
+          // field access.
+          "com.google.devtools.build.lib.concurrent",
+          "com.google.devtools.build.lib.skyframe.serialization",
           "com.google.devtools.build.lib.vfs",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
@@ -58,12 +63,10 @@ public class AutoRegistry {
           "java.io.IOException",
           "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
-          "java.lang.ref.SoftReference",
           "java.time.Instant",
           "com.google.common.base.Predicates$InPredicate",
           // Implementation class for com.google.common.base.Optional.
           "com.google.common.base.Present",
-          "com.google.common.collect.ImmutableEntry",
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.

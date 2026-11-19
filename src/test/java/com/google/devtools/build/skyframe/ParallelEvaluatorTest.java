@@ -79,6 +79,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -4396,6 +4397,109 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void committing_calledBeforeNodeIsDoneAndForDepsFirst() throws Exception {
+    List<SkyKey> committed = Collections.synchronizedList(new ArrayList<>());
+    List<String> problems = Collections.synchronizedList(new ArrayList<>());
+    InMemoryGraphImpl inMemoryGraph = new InMemoryGraphImpl();
+    graph = inMemoryGraph;
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+                NodeEntry entry = inMemoryGraph.getIfPresent(skyKey);
+                if (entry == null || entry.isDone()) {
+                  problems.add(skyKey + " is already done");
+                }
+                for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
+                  if (!committed.contains(dep)) {
+                    problems.add(dep + " not committed before " + skyKey);
+                  }
+                }
+                committed.add(skyKey);
+              }
+
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                if (state.succeeded() && !committed.contains(skyKey)) {
+                  problems.add(skyKey + " evaluated before committing");
+                }
+              }
+            });
+    SkyKey parentKey = skyKey("parent");
+    SkyKey leftKey = skyKey("left");
+    SkyKey rightKey = skyKey("right");
+    SkyKey leafKey = skyKey("leaf");
+    SkyKey errorKey = skyKey("error");
+    tester.set(leafKey, new StringValue("leaf"));
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(leftKey).addDependency(leafKey).setComputedValue(CONCATENATE);
+    tester.getOrCreate(rightKey).addDependency(leafKey).setComputedValue(CONCATENATE);
+    tester
+        .getOrCreate(parentKey)
+        .addDependency(leftKey)
+        .addDependency(rightKey)
+        .setComputedValue(CONCATENATE);
+
+    EvaluationResult<StringValue> result =
+        eval(/* keepGoing= */ true, ImmutableList.of(parentKey, errorKey));
+
+    assertThat(result.get(parentKey)).isEqualTo(new StringValue("leafleaf"));
+    assertThat(problems).isEmpty();
+    // Nodes without a value are not committed with one.
+    assertThat(committed).containsExactly(parentKey, leftKey, rightKey, leafKey);
+  }
+
+  @Test
+  public void committing_calledBeforeEvaluated() throws Exception {
+    List<String> events = Collections.synchronizedList(new ArrayList<>());
+    graph = new InMemoryGraphImpl();
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+                events.add("committing " + skyKey.argument());
+              }
+
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                events.add("evaluated " + skyKey.argument());
+              }
+            });
+    // A chain, so that the order of the events is deterministic.
+    SkyKey topKey = skyKey("top");
+    SkyKey midKey = skyKey("mid");
+    SkyKey leafKey = skyKey("leaf");
+    tester.set(leafKey, new StringValue("leaf"));
+    tester.getOrCreate(midKey).addDependency(leafKey).setComputedValue(CONCATENATE);
+    tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
+
+    EvaluationResult<StringValue> result = eval(/* keepGoing= */ false, ImmutableList.of(topKey));
+
+    assertThat(result.get(topKey)).isEqualTo(new StringValue("leaf"));
+    assertThat(events)
+        .containsExactly(
+            "committing leaf",
+            "evaluated leaf",
+            "committing mid",
+            "evaluated mid",
+            "committing top",
+            "evaluated top")
+        .inOrder();
+  }
+
+  @Test
   public void customKeepGoingPredicate_differentPerKey() throws Exception {
     Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
     revalidationReceiver =
@@ -4935,6 +5039,21 @@ public class ParallelEvaluatorTest {
                 ImmutableList.of(root, branch), ImmutableList.of(cycleA, cycleB)));
   }
 
+  private static final class TestPostAnalysisPhaseKey extends AbstractSkyKey<String>
+      implements PostAnalysisPhaseSkyKey {
+    private static final SkyFunctionName FUNCTION_NAME =
+        SkyFunctionName.createHermetic("TEST_POST_ANALYSIS_PHASE");
+
+    private TestPostAnalysisPhaseKey(String arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return FUNCTION_NAME;
+    }
+  }
+
   private static final class TestExecutionPhaseKey extends AbstractSkyKey<String>
       implements ExecutionPhaseSkyKey {
     private static final SkyFunctionName FUNCTION_NAME =
@@ -4955,11 +5074,14 @@ public class ParallelEvaluatorTest {
     graph = new InMemoryGraphImpl();
     SkyKey rootDriver = skyKey("rootDriver");
     SkyKey analysisNode = skyKey("analysisNode");
+    TestPostAnalysisPhaseKey postAnalysisParent = new TestPostAnalysisPhaseKey("postParent");
+    TestPostAnalysisPhaseKey postAnalysisChild = new TestPostAnalysisPhaseKey("postChild");
     TestExecutionPhaseKey execParent = new TestExecutionPhaseKey("execParent");
     TestExecutionPhaseKey execChild = new TestExecutionPhaseKey("execChild");
 
     AtomicReference<ParallelEvaluator> evaluatorRef = new AtomicReference<>();
     AtomicInteger analysisDepthObserved = new AtomicInteger(-1);
+    AtomicInteger postAnalysisChildDepthObserved = new AtomicInteger(-1);
     AtomicInteger execChildDepthObserved = new AtomicInteger(-1);
 
     tester
@@ -4970,6 +5092,19 @@ public class ParallelEvaluatorTest {
                   evaluatorRef.get().evaluatorContext.getNodeDepth(analysisNode));
               return new StringValue("analyzed:");
             });
+    tester.putSkyFunction(
+        TestPostAnalysisPhaseKey.FUNCTION_NAME,
+        (key, env) -> {
+          if (key.equals(postAnalysisParent)) {
+            SkyValue childVal = env.getValue(postAnalysisChild);
+            return childVal == null
+                ? null
+                : new StringValue("post(" + ((StringValue) childVal).getValue() + "):");
+          }
+          postAnalysisChildDepthObserved.set(
+              evaluatorRef.get().evaluatorContext.getNodeDepth(postAnalysisChild));
+          return new StringValue("leaf");
+        });
     tester.putSkyFunction(
         TestExecutionPhaseKey.FUNCTION_NAME,
         (key, env) -> {
@@ -4984,17 +5119,18 @@ public class ParallelEvaluatorTest {
         });
     tester
         .getOrCreate(rootDriver)
-        .setBuilder(
-            (key, env) -> {
-              SkyframeLookupResult deps =
-                  env.getValuesAndExceptions(ImmutableList.of(analysisNode, execParent));
-              StringValue analyzed = (StringValue) deps.get(analysisNode);
-              StringValue executed = (StringValue) deps.get(execParent);
-              if (analyzed == null || executed == null) {
-                return null;
-              }
-              return new StringValue(analyzed.getValue() + executed.getValue());
-            });
+        .setBuilder((key, env) -> {
+          SkyframeLookupResult deps =
+              env.getValuesAndExceptions(
+                  ImmutableList.of(analysisNode, postAnalysisParent, execParent));
+          StringValue analyzed = (StringValue) deps.get(analysisNode);
+          StringValue post = (StringValue) deps.get(postAnalysisParent);
+          StringValue executed = (StringValue) deps.get(execParent);
+          if (analyzed == null || post == null || executed == null) {
+            return null;
+          }
+          return new StringValue(analyzed.getValue() + post.getValue() + executed.getValue());
+        });
 
     MultiExecutorQueueVisitor skymeldVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
@@ -5004,22 +5140,26 @@ public class ParallelEvaluatorTest {
                 /* parallelism= */ 1, /* poolName= */ "DfsCpuHeavy"),
             AbstractQueueVisitor.createExecutorService(
                 /* parallelism= */ 1, /* poolName= */ "DefaultExecution"),
+            AbstractQueueVisitor.createExecutorService(
+                /* parallelism= */ 1, /* poolName= */ "DefaultPostAnalysis"),
             AbstractQueueVisitor.ExceptionHandlingMode.KEEP_GOING,
             ParallelEvaluatorErrorClassifier.instance());
-    skymeldVisitor.launchQueuedUpExecutionPhaseTasks();
 
     ParallelEvaluator evaluator = makeEvaluator(skymeldVisitor, /* keepGoing= */ false);
     evaluatorRef.set(evaluator);
 
     assertThat(evaluator.evaluatorContext.isDfsScheduled(rootDriver)).isTrue();
     assertThat(evaluator.evaluatorContext.isDfsScheduled(analysisNode)).isTrue();
+    assertThat(evaluator.evaluatorContext.isDfsScheduled(postAnalysisParent)).isFalse();
+    assertThat(evaluator.evaluatorContext.isDfsScheduled(postAnalysisChild)).isFalse();
     assertThat(evaluator.evaluatorContext.isDfsScheduled(execParent)).isFalse();
     assertThat(evaluator.evaluatorContext.isDfsScheduled(execChild)).isFalse();
 
     EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(rootDriver));
     assertThat(result.hasError()).isFalse();
-    assertThat(result.get(rootDriver)).isEqualTo(new StringValue("analyzed:exec(leaf)"));
+    assertThat(result.get(rootDriver)).isEqualTo(new StringValue("analyzed:post(leaf):exec(leaf)"));
     assertThat(analysisDepthObserved.get()).isEqualTo(1);
+    assertThat(postAnalysisChildDepthObserved.get()).isEqualTo(0);
     assertThat(execChildDepthObserved.get()).isEqualTo(0);
   }
 

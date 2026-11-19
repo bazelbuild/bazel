@@ -999,6 +999,10 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       }
     }
 
+    if (value != null) {
+      evaluatorContext.getProgressReceiver().committing(skyKey, value, temporaryDirectDeps);
+    }
+
     // If this entry is dirty, setValue may not actually change it, if it determines that the data
     // being written now is the same as the data already present in the entry. We detect this case
     // by comparing versions before and after setting the value.

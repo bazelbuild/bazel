@@ -554,21 +554,8 @@ public abstract sealed class StarlarkInt implements StarlarkValue, Comparable<St
       long xl = x.toLongFast();
       long yl = y.toLongFast();
 
-      // Signed int128 multiplication, using Hacker's Delight 8-2
-      // (High-Order Half of 64-Bit Product) extended to 128 bits.
-      // TODO(adonovan): use Math.multiplyHigh when Java 9 becomes available.
-      long xlo = xl & 0xFFFFFFFFL;
-      long xhi = xl >> 32;
-      long ylo = yl & 0xFFFFFFFFL;
-      long yhi = yl >> 32;
-      long zlo = xlo * ylo;
-      long t = xhi * ylo + (zlo >>> 32);
-      long z1 = t & 0xFFFFFFFFL;
-      long z2 = t >> 32;
-      z1 += xlo * yhi;
-
-      // high and low arms of result
-      long z128hi = xhi * yhi + z2 + (z1 >> 32);
+      // High and low arms of the signed int128 product.
+      long z128hi = Math.multiplyHigh(xl, yl);
       long z128lo = xl * yl;
 
       // Check int128 result is within int64 range.

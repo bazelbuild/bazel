@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * A builder for nested sets.
@@ -46,6 +47,11 @@ public abstract sealed class NestedSetBuilder<E> {
   // - E: 1 element
   // - DirectElements<E>: 2+ elements
   private Object direct;
+  // Whether a non-empty transitive set without an owner has been added. In a NestedSetOwnerScope
+  // on a Skycache reader, that set could arrive as two distinct objects (not deduplicated by
+  // equals) where the writer had a single object (deduplicated to one set by equals), so build() in
+  // a scope must create a new set in both cases to consume the same number of indices.
+  private boolean hasUnownedTransitive = false;
 
   public static <E> NestedSetBuilder<E> newBuilder(Order order) {
     return switch (order) {
@@ -187,6 +193,9 @@ public abstract sealed class NestedSetBuilder<E> {
         subset.getOrder().getStarlarkName(),
         getOrder().getStarlarkName());
     if (!subset.isEmpty()) {
+      if (subset.getOwner() == null) {
+        hasUnownedTransitive = true;
+      }
       addTransitiveImpl(subset);
     }
     return this;
@@ -200,10 +209,33 @@ public abstract sealed class NestedSetBuilder<E> {
    *
    * <p>This method may be called multiple times with interleaved {@link #add}, {@link #addAll} and
    * {@link #addTransitive} calls.
+   *
+   * <p>Do not use this method for sets that are lazily memoized on shared objects or stored in
+   * {@code static} fields, as the set would be owned by whichever target's {@link
+   * NestedSetOwnerScope} happens to be active when it is first created and would shift that
+   * target's nested set indices. Use {@link #buildUnowned} instead (and if a caller stores that
+   * unowned set in a serialized field, wrap it via {@link #owned} inside the caller's scope).
    */
   public final NestedSet<E> build() {
     try {
-      return buildInternal(InterruptStrategy.CRASH);
+      return buildInternal(InterruptStrategy.CRASH, NestedSetOwnerScope.current());
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Cannot throw with InterruptStrategy.CRASH", e);
+    }
+  }
+
+  /**
+   * Builds the nested set without an owner and without taking an index in the active {@link
+   * NestedSetOwnerScope}, if any.
+   *
+   * <p>Use this for sets that are memoized on first access or stored in static fields. Otherwise
+   * the set would be owned by whichever target's analysis happens to trigger its creation, and
+   * whether that target's next index is used would depend on what was computed (or deserialized)
+   * before.
+   */
+  public final NestedSet<E> buildUnowned() {
+    try {
+      return buildInternal(InterruptStrategy.CRASH, /* scope= */ null);
     } catch (InterruptedException e) {
       throw new IllegalStateException("Cannot throw with InterruptStrategy.CRASH", e);
     }
@@ -214,11 +246,12 @@ public abstract sealed class NestedSetBuilder<E> {
    * interrupt is observed, {@link InterruptedException} is propagated.
    */
   public final NestedSet<E> buildInterruptibly() throws InterruptedException {
-    return buildInternal(InterruptStrategy.PROPAGATE);
+    return buildInternal(InterruptStrategy.PROPAGATE, NestedSetOwnerScope.current());
   }
 
   @SuppressWarnings("ReferenceEquality") // Interned array identity check
-  private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
+  private NestedSet<E> buildInternal(
+      InterruptStrategy interruptStrategy, @Nullable NestedSetOwnerScope scope)
       throws InterruptedException {
     if (isEmpty()) {
       return getOrder().emptySet();
@@ -226,7 +259,7 @@ public abstract sealed class NestedSetBuilder<E> {
 
     // Fast path: 1 direct element, 0 transitive sets -> singleton/flat
     if (direct != null && !(direct instanceof DirectElements<?>) && isTransitiveEmpty()) {
-      return NestedSet.create(getOrder(), 1, direct);
+      return NestedSet.create(getOrder(), 1, direct, scope);
     }
 
     // Fast path: 2 direct elements, 0 transitive sets -> flat 2-element set
@@ -234,11 +267,11 @@ public abstract sealed class NestedSetBuilder<E> {
         && elements.isTwoElements()
         && isTransitiveEmpty()) {
       return NestedSet.create(
-          getOrder(), 2, NestedSetInterner.intern(elements.toTwoElementArray(getOrder())));
+          getOrder(), 2, NestedSetInterner.intern(elements.toTwoElementArray(getOrder())), scope);
     }
 
     // Fast path: 0 direct elements, 1 transitive set with matching order -> reuse candidate
-    if (direct == null && isSingleTransitive()) {
+    if (direct == null && isSingleTransitive() && (scope == null || !hasUnownedTransitive)) {
       NestedSet<E> candidate = getSingleTransitive();
       if (candidate.getOrder() == getOrder()) {
         return candidate;
@@ -253,18 +286,23 @@ public abstract sealed class NestedSetBuilder<E> {
       Object c1 = s1.getChildrenInternal(interruptStrategy);
       if (c0 instanceof Object[] a0 && c1 instanceof Object[] a1) {
         if (a0 == a1) {
-          if (s0.getOrder() == getOrder()) {
-            return s0;
-          }
-          if (s1.getOrder() == getOrder()) {
-            return s1;
+          // Whether two distinct sets share an array depends on interning and deserialization,
+          // so inside a NestedSetOwnerScope always create a new set: reusing s0 or s1 would make
+          // whether the scope's next index is used depend on cache state.
+          if (scope == null) {
+            if (s0.getOrder() == getOrder()) {
+              return s0;
+            }
+            if (s1.getOrder() == getOrder()) {
+              return s1;
+            }
           }
           return NestedSet.create(
-              getOrder(), Math.max(s0.getApproxDepth(), s1.getApproxDepth()), a0);
+              getOrder(), Math.max(s0.getApproxDepth(), s1.getApproxDepth()), a0, scope);
         }
         int approxDepth = Math.max(1 + s0.getApproxDepth(), 1 + s1.getApproxDepth());
         Object[] children = new Object[] {a0, a1};
-        return NestedSet.create(getOrder(), approxDepth, NestedSetInterner.intern(children));
+        return NestedSet.create(getOrder(), approxDepth, NestedSetInterner.intern(children), scope);
       }
     }
 
@@ -274,17 +312,22 @@ public abstract sealed class NestedSetBuilder<E> {
     // When there is exactly one transitive set, we can reuse it if its order matches and either
     // there are no direct members, or the only direct member equals the transitive set's singleton.
     // Checking isSingleton() avoids blocking on deserialization futures for sets that cannot match.
-    if (transitive.size() == 1 && directSet.size() <= 1) {
+    // Inside a NestedSetOwnerScope, the latter is skipped: elements may use identity equality, so
+    // whether the scope's next index is used would depend on deserialization.
+    if (transitive.size() == 1
+        && directSet.size() <= 1
+        && (scope == null || !hasUnownedTransitive)) {
       NestedSet<E> candidate = getOnlyElement(transitive);
       if (candidate.getOrder() == getOrder()
           && (directSet.isEmpty()
-              || (candidate.isSingleton()
+              || (scope == null
+                  && candidate.isSingleton()
                   && getOnlyElement(directSet).equals(candidate.getSingleton())))) {
         return candidate;
       }
     }
 
-    return NestedSet.create(getOrder(), directSet, transitive, interruptStrategy);
+    return NestedSet.create(getOrder(), directSet, transitive, interruptStrategy, scope);
   }
 
   @SuppressWarnings(
@@ -390,14 +433,19 @@ public abstract sealed class NestedSetBuilder<E> {
       Caffeine.newBuilder()
           .initialCapacity(16)
           .weakKeys()
-          .build(list -> NestedSetBuilder.newBuilder(Order.STABLE_ORDER).addAll(list).build());
+          .build(
+              list -> NestedSetBuilder.newBuilder(Order.STABLE_ORDER).addAll(list).buildUnowned());
 
   /** Creates a nested set from a given list of items. */
   @SuppressWarnings("unchecked") // Cast from cache is safe because elements are of type E.
   public static <E> NestedSet<E> wrap(Order order, Iterable<? extends E> wrappedItems) {
     if (Iterables.isEmpty(wrappedItems)) {
       return order.emptySet();
-    } else if (order == Order.STABLE_ORDER && wrappedItems instanceof ImmutableList) {
+    } else if (order == Order.STABLE_ORDER
+        && wrappedItems instanceof ImmutableList
+        // Inside a NestedSetOwnerScope, a cached set would be owned by whichever scope first
+        // wrapped the list, and whether the scope's next index is used would depend on cache state.
+        && NestedSetOwnerScope.current() == null) {
       ImmutableList<E> wrappedList = (ImmutableList<E>) wrappedItems;
       if (wrappedList.size() > 1) {
         return (NestedSet<E>) stableOrderImmutableListCache.get(wrappedList);
@@ -441,6 +489,23 @@ public abstract sealed class NestedSetBuilder<E> {
   }
 
   /**
+   * Returns a nested set with the same elements and order as {@code set} that is owned by the
+   * active {@link NestedSetOwnerScope} (unless {@code set} is empty). If {@code set} already has an
+   * owner, it is returned unchanged.
+   *
+   * <p>Use this when an unowned set (see {@link #buildUnowned}) is passed to an action or provider
+   * that will be serialized.
+   *
+   * @throws IllegalStateException if no {@link NestedSetOwnerScope} is active on the current thread
+   */
+  public static <E> NestedSet<E> owned(NestedSet<E> set) {
+    Preconditions.checkState(
+        NestedSetOwnerScope.current() != null,
+        "Cannot create an owned NestedSet without an active NestedSetOwnerScope");
+    return fromNestedSet(set).build();
+  }
+
+  /**
    * Creates a Builder with the contents of 'sets'.
    *
    * <p>If 'sets' is empty, a stable-order empty NestedSet is returned.
@@ -457,8 +522,8 @@ public abstract sealed class NestedSetBuilder<E> {
 
   private static final class DefaultNestedSetBuilder<E> extends NestedSetBuilder<E> {
     /**
-     * Maximum number of transitive sets that are deduplicated by a linear scan (by identity) rather
-     * than by a hash set.
+     * Maximum number of transitive sets that are deduplicated by a linear scan rather than by a
+     * hash set.
      */
     private static final int MAX_LINEAR_SCAN_TRANSITIVE = 16;
 
@@ -484,17 +549,15 @@ public abstract sealed class NestedSetBuilder<E> {
         return;
       }
       if (transitive instanceof NestedSet<?> first) {
-        if (first != typedSubset) {
+        if (!first.equals(typedSubset)) {
           transitive = new NestedSet<?>[] {first, typedSubset};
           transitiveCount = 2;
         }
         return;
       }
       if (transitive instanceof NestedSet<?>[] arr) {
-        // NestedSet does not override equals, so deduplicating by identity is equivalent to
-        // deduplicating via a hash set.
         for (int i = 0; i < transitiveCount; i++) {
-          if (arr[i] == typedSubset) {
+          if (arr[i].equals(typedSubset)) {
             // Duplicate, ignore.
             return;
           }

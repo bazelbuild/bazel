@@ -128,7 +128,11 @@ function test_invalid_flag_error() {
 function test_info_outside_workspace() {
   outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
 
-  (cd "${outside_dir}" && bazel info) &> "$TEST_log" \
+  local extra_flags=""
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    extra_flags="--downloader_config=workspace-only.cfg"
+  fi
+  (cd "${outside_dir}" && bazel info $extra_flags) &> "$TEST_log" \
     || fail "Expected info to work outside a workspace"
 
   # Workspace-independent keys should be present.

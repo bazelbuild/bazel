@@ -125,7 +125,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "foo",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defaultFoo")
@@ -133,7 +132,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "bar",
-        category = "two",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "42")
@@ -141,7 +139,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "bing",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null",
@@ -150,7 +147,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "bang",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null",
@@ -171,7 +167,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "baz",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defaultBaz")
@@ -184,7 +179,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "baz_subclass",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defaultBazSubclass")
@@ -228,7 +222,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "foo",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "differentDefault")
@@ -236,7 +229,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "bar",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "differentDefault")
@@ -244,7 +236,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "ignored_with_value",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "differentDefault")
@@ -252,7 +243,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "ignored_without_value",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
@@ -315,7 +305,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "foo",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")
@@ -473,8 +462,8 @@ public final class OptionsParserTest {
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parser.parse(unknownOpts));
     assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
-      assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
+    assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
     assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
   }
 
@@ -486,7 +475,7 @@ public final class OptionsParserTest {
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parser.parse(internalOpts));
     assertThat(e.getInvalidArgument()).isEqualTo("--internal_boolean");
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_boolean");
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_boolean");
     assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
@@ -498,7 +487,7 @@ public final class OptionsParserTest {
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parser.parse(internalOpts));
     assertThat(e.getInvalidArgument()).isEqualTo("--nointernal_boolean");
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --nointernal_boolean");
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --nointernal_boolean");
     assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
@@ -513,7 +502,7 @@ public final class OptionsParserTest {
             OptionsParsingException.class,
             () -> parser.parse(internalOpts));
     assertThat(e.getInvalidArgument()).isEqualTo("--internal_string=any_value");
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string=any_value");
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string=any_value");
     assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
@@ -528,7 +517,7 @@ public final class OptionsParserTest {
             OptionsParsingException.class,
             () -> parser.parse(internalOpts));
     assertThat(e.getInvalidArgument()).isEqualTo("--internal_string");
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string");
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string");
     assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
   }
 
@@ -540,8 +529,8 @@ public final class OptionsParserTest {
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parser.parse(opts));
     assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
-      assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
+    assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
     assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
   }
 
@@ -568,7 +557,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "student_bank_account_number",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "987654321")
@@ -766,8 +754,7 @@ public final class OptionsParserTest {
   @Test
   public void describeOptionsWithInheritance() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(DerivedClass.class).build();
-    String usage =
-        parser.describeOptionsWithDeprecatedCategories(ImmutableMap.of(), HelpVerbosity.LONG);
+    String usage = parser.describeOptions(HelpVerbosity.LONG);
     assertThat(usage).contains("--base");
     assertThat(usage).contains("--derived");
 
@@ -804,7 +791,6 @@ public final class OptionsParserTest {
   public abstract static class CustomOptions extends OptionsBase {
     @Option(
         name = "simple",
-        category = "custom",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "simple default")
@@ -812,7 +798,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "multipart_name",
-        category = "custom",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "multipart default")
@@ -992,8 +977,7 @@ public final class OptionsParserTest {
   @Test
   public void describeOptionsWithExpansion() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExpansionOptions.class).build();
-    String usage =
-        parser.describeOptionsWithDeprecatedCategories(ImmutableMap.of(), HelpVerbosity.LONG);
+    String usage = parser.describeOptions(HelpVerbosity.LONG);
     assertThat(usage).contains("  --expands\n      Expands to: --underlying=from_expansion");
   }
 
@@ -1614,7 +1598,6 @@ public final class OptionsParserTest {
   public abstract static class IntrospectionExample extends OptionsBase {
     @Option(
         name = "alpha",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "alphaDefaultValue")
@@ -1622,7 +1605,6 @@ public final class OptionsParserTest {
 
     @Option(
         name = "beta",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "betaDefaultValue")
@@ -2620,7 +2602,6 @@ public final class OptionsParserTest {
   public abstract static class ExpandingOptions extends OptionsBase {
     @Option(
         name = "foo",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         expansion = {"--nobar"},
@@ -2632,7 +2613,6 @@ public final class OptionsParserTest {
   public abstract static class ExpandingOptionsFallback extends OptionsBase {
     @Option(
         name = "bar",
-        category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")

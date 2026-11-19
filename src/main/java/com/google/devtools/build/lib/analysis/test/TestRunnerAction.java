@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerS
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -146,7 +147,6 @@ public class TestRunnerAction extends AbstractAction
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
   private final int runNumber;
-  private final String workspaceName;
 
   /**
    * Cached test result status used to minimize disk accesses. This field is set when test status is
@@ -217,7 +217,6 @@ public class TestRunnerAction extends AbstractAction
       int shardNum,
       int runNumber,
       BuildConfigurationValue configuration,
-      String workspaceName,
       @Nullable PathFragment shExecutable,
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
@@ -274,7 +273,6 @@ public class TestRunnerAction extends AbstractAction
     this.undeclaredOutputsAnnotationsPbPath =
         undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS.pb");
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
-    this.workspaceName = workspaceName;
 
     this.coverageEnv = coverageEnv;
     this.extraTestEnv = extraTestEnv;
@@ -748,7 +746,7 @@ public class TestRunnerAction extends AbstractAction
     env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
     env.put("TEST_TIMEOUT", Long.toString(getTimeout().toSeconds()));
-    env.put("TEST_WORKSPACE", getRunfilesPrefix());
+    env.put("TEST_WORKSPACE", LabelConstants.MAIN_REPO_DIR_NAME);
     env.put(
         "TEST_BINARY",
         getExecutionSettings()
@@ -1019,11 +1017,6 @@ public class TestRunnerAction extends AbstractAction
   /** Returns run number. */
   public int getRunNumber() {
     return runNumber;
-  }
-
-  /** Returns the workspace name. */
-  public String getRunfilesPrefix() {
-    return workspaceName;
   }
 
   @Override

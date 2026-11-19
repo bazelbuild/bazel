@@ -460,4 +460,20 @@ public final class DepsetTest {
     ev.exec("s.add(depset(['a', 'b']))");
     assertThat(ev.eval("len(s)")).isEqualTo(StarlarkInt.of(3));
   }
+
+  @Test
+  public void testDepsetEqualityAcrossRuleAnalysisReplay() throws Exception {
+    Depset original;
+    try (var _ = NestedSetOwnerScope.enter("//pkg:target")) {
+      original = (Depset) ev.eval("depset(['a', 'b'])");
+    }
+
+    Depset replayed;
+    try (var _ = NestedSetOwnerScope.enter("//pkg:target")) {
+      replayed = (Depset) ev.eval("depset(['a', 'b'])");
+    }
+
+    assertThat(original).isEqualTo(replayed);
+    assertThat(original.hashCode()).isEqualTo(replayed.hashCode());
+  }
 }

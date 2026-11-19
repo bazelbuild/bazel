@@ -50,18 +50,14 @@ package com.google.devtools.build.lib.skyframe.serialization;
  * <p>If a class has a stable codec, it is still permitted to add new fields to that class as long
  * as the new fields are optional and are serialized after the old fields in the byte sequence.
  */
-sealed interface WireType
+public sealed interface WireType
     permits WireType.Backreference, WireType.CodecWireType, WireType.ConstantWireType {
 
-  /** Returns the wire type index from a combined tag number and wire type index. */
-  public static int getTagNumber(int typedTag) {
-    return typedTag >> 3;
-  }
+  /** Number of low-order bits used to store the wire type index in a typed tag. */
+  public static final int WIRE_TYPE_BITS = 3;
 
-  /** Returns the wire type index from a combined tag number and wire type index. */
-  public static int getWireTypeIndex(int typedTag) {
-    return typedTag & 0b111;
-  }
+  /** Bitmask extracting the wire type index from the low-order bits of a typed tag. */
+  public static final int WIRE_TYPE_MASK = (1 << WIRE_TYPE_BITS) - 1;
 
   public static final byte UNSTABLE_CODEC_VALUE = 0b000;
   public static final byte UNSTABLE_CONSTANT_VALUE = 0b001;
@@ -71,6 +67,29 @@ sealed interface WireType
   public static final byte STABLE_PRIVATE_CODEC_VALUE = 0b101;
   public static final byte STABLE_PRIVATE_CONSTANT_VALUE = 0b110;
 
+  /**
+   * Typed tag {@code 0}, representing {@code null} on the wire ({@link CodecWireType#UNSTABLE} with
+   * tag 0).
+   */
+  public static final int NULL_TYPED_TAG = (0 << WIRE_TYPE_BITS) | UNSTABLE_CODEC_VALUE;
+
+  /**
+   * Typed tag emitted by {@code LeafSerializationContext.serializeLeaf} to signal an immediate
+   * (non-null, non-constant, non-backreferenced) value ({@link CodecWireType#UNSTABLE} with tag 1).
+   */
+  public static final int LEAF_IMMEDIATE_TYPED_TAG = (1 << WIRE_TYPE_BITS) | UNSTABLE_CODEC_VALUE;
+
+  /** Returns the tag number from a combined tag number and wire type index. */
+  static int getTagNumber(int typedTag) {
+    return typedTag >> WIRE_TYPE_BITS;
+  }
+
+  /** Returns the wire type index from a combined tag number and wire type index. */
+  static int getWireTypeIndex(int typedTag) {
+    return typedTag & WIRE_TYPE_MASK;
+  }
+
+  /** Wire type for memoized backreferences. */
   public enum Backreference implements WireType {
     INSTANCE;
 
@@ -81,10 +100,16 @@ sealed interface WireType
 
     @Override
     public int getTypedTagNumber(int tag) {
-      return (tag << 3) | WireType.BACKREFERENCE_VALUE;
+      return (tag << WIRE_TYPE_BITS) | WireType.BACKREFERENCE_VALUE;
+    }
+
+    @Override
+    public boolean matches(int typedTag) {
+      return getWireTypeIndex(typedTag) == WireType.BACKREFERENCE_VALUE;
     }
   }
 
+  /** Wire types for unstable, public stable, and private stable codecs. */
   public enum CodecWireType implements WireType {
     UNSTABLE(WireType.UNSTABLE_CODEC_VALUE),
     STABLE_PUBLIC(WireType.STABLE_CODEC_VALUE),
@@ -103,10 +128,16 @@ sealed interface WireType
 
     @Override
     public int getTypedTagNumber(int tag) {
-      return (tag << 3) | value;
+      return (tag << WIRE_TYPE_BITS) | value;
+    }
+
+    @Override
+    public boolean matches(int typedTag) {
+      return getWireTypeIndex(typedTag) == value;
     }
   }
 
+  /** Wire types for unstable, public stable, and private stable reference constants. */
   public enum ConstantWireType implements WireType {
     UNSTABLE(WireType.UNSTABLE_CONSTANT_VALUE),
     STABLE_PUBLIC(WireType.STABLE_CONSTANT_VALUE),
@@ -125,13 +156,21 @@ sealed interface WireType
 
     @Override
     public int getTypedTagNumber(int tag) {
-      return (tag << 3) | value;
+      return (tag << WIRE_TYPE_BITS) | value;
+    }
+
+    @Override
+    public boolean matches(int typedTag) {
+      return getWireTypeIndex(typedTag) == value;
     }
   }
 
   byte getValue();
 
   int getTypedTagNumber(int tag);
+
+  /** Returns true if {@code typedTag} encodes this {@link WireType} in its wire-type bits. */
+  boolean matches(int typedTag);
 
   /** Returns the {@link WireType} associated with the given value. */
   public static WireType fromValue(int value) {

@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link EnumCodec}. */
 @RunWith(JUnit4.class)
-public class EnumCodecTest extends AbstractObjectCodecTest<EnumCodecTest.DummyEnum> {
+public class EnumCodecTest {
 
   /** Test enum (dummy comment for lint). */
   public enum DummyEnum {
@@ -28,7 +29,10 @@ public class EnumCodecTest extends AbstractObjectCodecTest<EnumCodecTest.DummyEn
     DUMB_TWO
   }
 
-  public EnumCodecTest() {
-    super(new EnumCodec<>(DummyEnum.class), DummyEnum.DUMB_ONE, DummyEnum.DUMB_TWO);
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(DummyEnum.DUMB_ONE, DummyEnum.DUMB_TWO)
+        .addCodec(new EnumCodec<>(DummyEnum.class))
+        .runTests();
   }
 }

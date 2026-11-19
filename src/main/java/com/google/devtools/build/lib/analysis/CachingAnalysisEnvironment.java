@@ -309,7 +309,10 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public ConstantMetadataArtifact getConstantMetadataArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
-    return artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, owner);
+    Preconditions.checkState(enabled);
+    return dedupAndTrackArtifactAndOrigin(
+        artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, owner),
+        extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override

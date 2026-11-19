@@ -19,12 +19,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -115,8 +117,11 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
 
     // Load the configured target for each, and get the declared toolchain providers.
+    ImmutableSetMultimap.Builder<Label, Label> toolchainResolutionFlags =
+        ImmutableSetMultimap.builder();
     ImmutableList<DeclaredToolchainInfo> registeredToolchains =
-        configureRegisteredToolchains(env, configuration, toolchainLabels);
+        configureRegisteredToolchains(
+            env, configuration, toolchainLabels, toolchainResolutionFlags);
     if (env.valuesMissing()) {
       return null;
     }
@@ -148,7 +153,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     return RegisteredToolchainsValue.create(
         validToolchains.build(),
-        rejectedToolchains != null ? ImmutableTable.copyOf(rejectedToolchains) : null);
+        rejectedToolchains != null ? ImmutableTable.copyOf(rejectedToolchains) : null,
+        toolchainResolutionFlags.build());
   }
 
   @Nullable
@@ -186,9 +192,19 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return env.valuesMissing() ? null : toolchains.build();
   }
 
+  /**
+   * Configures the {@code toolchain} targets in {@code labels} and returns their {@link
+   * DeclaredToolchainInfo}s.
+   *
+   * <p>Also adds to {@code toolchainResolutionFlags}, keyed by toolchain type, the Starlark flags
+   * each {@code toolchain} target requires. These are the flags its {@code target_settings} read.
+   */
   @Nullable
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
-      Environment env, BuildConfigurationValue configuration, Set<Label> labels)
+      Environment env,
+      BuildConfigurationValue configuration,
+      Set<Label> labels,
+      ImmutableSetMultimap.Builder<Label, Label> toolchainResolutionFlags)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     ImmutableSet<ActionLookupKey> keys =
         labels.stream()
@@ -219,6 +235,12 @@ public class RegisteredToolchainsFunction implements SkyFunction {
               new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
         }
         toolchains.add(toolchainInfo);
+        RequiredConfigFragmentsProvider requiredFragments =
+            target.getProvider(RequiredConfigFragmentsProvider.class);
+        if (requiredFragments != null) {
+          toolchainResolutionFlags.putAll(
+              toolchainInfo.toolchainType().typeLabel(), requiredFragments.starlarkOptions());
+        }
       } catch (ConfiguredValueCreationException e) {
         throw new RegisteredToolchainsFunctionException(
             new InvalidToolchainLabelException(toolchainLabel, e), Transience.PERSISTENT);

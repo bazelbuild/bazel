@@ -77,12 +77,12 @@ cc_library(
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/base:log_severity",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [
@@ -118,6 +118,36 @@ windows_resources(
     name = "resources",
     rc_files = ["resources.rc"],
     resources = ["bazel.ico"],
+)
+
+cc_library(
+    name = "server_launcher",
+    srcs = [
+        "server_launcher.cc",
+    ],
+    hdrs = [
+        "server_launcher.h",
+    ],
+    copts = select({
+        "//src/conditions:windows_msvc_like": ["/wd4018"],
+        "//conditions:default": ["-Wno-sign-compare"],
+    }),
+    deps = [
+        ":blaze_util",
+        ":option_processor",
+        ":startup_options",
+        ":workspace_layout",
+        "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:filesystem",
+        "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:port",
+        "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:string_view",
+        "@abseil-cpp//absl/time",
+    ],
 )
 
 cc_binary(
@@ -170,6 +200,7 @@ cc_binary(
         ":blaze_util",
         ":command_extension_adder",
         ":option_processor",
+        ":server_launcher",
         ":startup_interceptor",
         ":startup_options",
         ":workspace_layout",
@@ -178,12 +209,12 @@ cc_binary(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [":resources"],
@@ -238,9 +269,12 @@ cc_library(
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/strings",
-    ],
+        "@abseil-cpp//absl/strings:str_format",
+    ] + select({
+        "//src/conditions:windows": ["//src/main/cpp/util:strings"],
+        "//conditions:default": [],
+    }),
 )
 
 genrule(
@@ -275,8 +309,9 @@ cc_library(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )

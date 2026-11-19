@@ -74,14 +74,13 @@ public final class OutputDirectoryLinksUtils {
    */
   static SymlinkCreationResult createOutputDirectoryLinks(
       BuildRequestOptions buildRequestOptions,
-      String workspaceName,
       Path workspace,
       BlazeDirectories directories,
       EventHandler eventHandler,
       Set<BuildConfigurationValue> targetConfigs,
       String productName) {
-    Path execRoot = directories.getExecRoot(workspaceName);
-    Path outputPath = directories.getOutputPath(workspaceName);
+    Path execRoot = directories.getExecRoot();
+    Path outputPath = directories.getOutputPath();
     String symlinkPrefix = buildRequestOptions.getSymlinkPrefix(productName);
     ConvenienceSymlinksMode mode = buildRequestOptions.getExperimentalConvenienceSymlinks();
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {

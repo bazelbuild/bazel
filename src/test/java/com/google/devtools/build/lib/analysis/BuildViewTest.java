@@ -33,12 +33,12 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
@@ -51,7 +51,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.Ignore;
@@ -65,12 +64,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BuildViewTest extends BuildViewTestBase {
 
-  private static final Function<AnalysisFailureEvent, Pair<String, String>>
-      ANALYSIS_EVENT_TO_STRING_PAIR =
-          event ->
-              Pair.of(
-                  event.getFailedTarget().getLabel().toString(),
-                  event.getLegacyFailureReason().toString());
+  private static Pair<String, String> analysisEventToStringPair(AnalysisFailureEvent event) {
+    return Pair.of(
+        event.getFailedTarget().getLabel().toString(),
+        Iterables.getOnlyElement(event.getRootCauses().toList()).getLabel().toString());
+  }
 
   @Test
   public void directoryArtifactInRoot() throws Exception {
@@ -251,7 +249,8 @@ public class BuildViewTest extends BuildViewTestBase {
 
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getLegacyFailureReason().toString()).isEqualTo("//foo:bar");
+    assertThat(Iterables.getOnlyElement(event.getRootCauses().toList()).getLabel().toString())
+        .isEqualTo("//foo:bar");
     assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//foo:foo");
 
     assertThat(recorder.causes).hasSize(1);
@@ -291,7 +290,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getLegacyFailureReason().toString())
+    assertThat(Iterables.getOnlyElement(event.getRootCauses().toList()).getLabel().toString())
         .isEqualTo("//non/existent/package:target");
     assertThat(event.getFailedTarget().getLabel().toString())
         .isEqualTo("//java:library_invalid_dep");
@@ -329,7 +328,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getLegacyFailureReason().toString())
+    assertThat(Iterables.getOnlyElement(event.getRootCauses().toList()).getLabel().toString())
         .isEqualTo("//non/existent/package:target");
     assertThat(event.getFailedTarget().getLabel().toString())
         .isEqualTo("//java:library_invalid_dep");
@@ -369,7 +368,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getLegacyFailureReason().toString())
+    assertThat(Iterables.getOnlyElement(event.getRootCauses().toList()).getLabel().toString())
         .isEqualTo("//non/existent/package:othergroup");
     assertThat(event.getFailedTarget().getLabel().toString())
         .isEqualTo("//java:library_invalid_visibility");
@@ -404,7 +403,8 @@ public class BuildViewTest extends BuildViewTestBase {
 
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getLegacyFailureReason().toString()).isEqualTo("//foo:foo");
+    assertThat(Iterables.getOnlyElement(event.getRootCauses().toList()).getLabel().toString())
+        .isEqualTo("//foo:foo");
     assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//foo:foo");
 
     assertThat(recorder.causes).hasSize(1);
@@ -447,9 +447,7 @@ public class BuildViewTest extends BuildViewTestBase {
         """);
 
     reporter.removeHandler(failFastHandler);
-    LoadingFailureRecorder loadingRecorder = new LoadingFailureRecorder();
     AnalysisFailureRecorder analysisRecorder = new AnalysisFailureRecorder();
-    eventBus.register(loadingRecorder);
     eventBus.register(analysisRecorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//pkg:foo");
     assertThat(result.hasError()).isTrue();
@@ -458,21 +456,21 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisFailureEvent analysisFailureEvent = analysisRecorder.events.get(0);
     assertThat(analysisFailureEvent.getFailedTarget().getLabel().toString()).isEqualTo("//pkg:foo");
     ImmutableList<Cause> analysisFailureCauses = analysisFailureEvent.getRootCauses().toList();
-    Cause missingPackageCause =
-        analysisFailureCauses.get(0) instanceof AnalysisFailedCause
-            ? analysisFailureCauses.get(0)
-            : analysisFailureCauses.get(1);
-    assertThat(missingPackageCause.getLabel())
-        .isEqualTo(Label.parseCanonical("//nopackage:missing"));
+    assertThat(analysisFailureCauses).hasSize(2);
+    assertThat(
+            analysisFailureCauses.stream()
+                .filter(AnalysisFailedCause.class::isInstance)
+                .map(Cause::getLabel))
+        .containsExactly(Label.parseCanonical("//nopackage:missing"));
     assertContainsEvent("missing value for mandatory attribute 'outs'");
     assertContainsEvent("no such package 'nopackage'");
     // Skyframe correctly reports the other root cause as the genrule itself (since it is
     // missing attributes).
-    assertThat(loadingRecorder.events).hasSize(1);
-    assertThat(loadingRecorder.events)
-        .contains(
-            new LoadingFailureEvent(
-                Label.parseCanonical("//pkg:foo"), Label.parseCanonical("//pkg:foo")));
+    assertThat(
+            analysisFailureCauses.stream()
+                .filter(LoadingFailedCause.class::isInstance)
+                .map(Cause::getLabel))
+        .containsExactly(Label.parseCanonical("//pkg:foo"));
   }
 
   @Test
@@ -488,19 +486,15 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("c1/BUILD");
     scratch.file("c2/BUILD");
     reporter.removeHandler(failFastHandler);
-    LoadingFailureRecorder recorder = new LoadingFailureRecorder();
+    AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
-    assertThat(recorder.events).hasSize(2);
-    assertThat(recorder.events)
-        .contains(
-            new LoadingFailureEvent(
-                Label.parseCanonical("//gp"), Label.parseCanonical("//c1:not")));
-    assertThat(recorder.events)
-        .contains(
-            new LoadingFailureEvent(
-                Label.parseCanonical("//gp"), Label.parseCanonical("//c2:not")));
+    assertThat(recorder.events).hasSize(1);
+    AnalysisFailureEvent event = recorder.events.get(0);
+    assertThat(event.getFailedTarget().getLabel()).isEqualTo(Label.parseCanonical("//gp"));
+    assertThat(event.getRootCauses().toList().stream().map(Cause::getLabel))
+        .containsExactly(Label.parseCanonical("//c1:not"), Label.parseCanonical("//c2:not"));
   }
 
   /**
@@ -1237,9 +1231,7 @@ public class BuildViewTest extends BuildViewTestBase {
         cc_library(name = 'baz', srcs = ['baz.cc'])
         """);
     reporter.removeHandler(failFastHandler);
-    LoadingFailureRecorder loadingFailureRecorder = new LoadingFailureRecorder();
     AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
-    eventBus.register(loadingFailureRecorder);
     eventBus.register(analysisFailureRecorder);
     update(eventBus, defaultFlags().with(Flag.KEEP_GOING),
         "//cycle:foo", "//cycle:bat", "//cycle:baz");
@@ -1255,7 +1247,7 @@ public class BuildViewTest extends BuildViewTestBase {
     // test below.
     assertThat(
             Iterables.transform(
-                analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR::apply))
+                analysisFailureRecorder.events, BuildViewTest::analysisEventToStringPair))
         .containsExactly(
             Pair.of("//cycle:foo", "//cycle:foo"), Pair.of("//cycle:bat", "//cycle:bas"));
   }

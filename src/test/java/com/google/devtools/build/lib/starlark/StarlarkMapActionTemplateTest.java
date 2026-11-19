@@ -1577,7 +1577,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   private void assertTreeContainsFileWithContents(
       TreeArtifact tree, String relativeFilePath, String... expectedContents) throws Exception {
-    Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
+    Path execRoot = directories.getExecRoot();
     Path path = execRoot.getRelative(tree.getExecPath().getChild(relativeFilePath));
     assertThat(path.exists()).isTrue();
     String actualContents = FileSystemUtils.readContentAsLatin1(path);

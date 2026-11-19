@@ -336,7 +336,6 @@ public final class RemoteModule extends BlazeModule {
             actionContextProvider.getRemoteExecutionClient(),
             buildRequestId,
             invocationId,
-            env.getWorkspaceName(),
             remoteOptions.getRemoteInstanceName(),
             remoteOptions.getRemoteAcceptCached(),
             remoteOptions.getRemoteUploadLocalResults(),
@@ -371,13 +370,13 @@ public final class RemoteModule extends BlazeModule {
    * --experimental_remote_cache_eviction_retries}), {@code attemptNumber} is greater than 1 and the
    * log written by the previous attempt is still at {@code path}. Truncating it would discard the
    * log of the very attempt that hit the cache eviction, which is exactly the one worth debugging.
-   * Instead, rename the existing file to {@code <path>.<previous attempt number>} so every
-   * attempt's log is preserved. See https://github.com/bazelbuild/bazel/issues/18695.
+   * Rename regular logs to {@code <path>.<previous attempt number>} to preserve each attempt. Leave
+   * special files such as named pipes in place so their readers receive every attempt.
    */
   @VisibleForTesting
   static AsynchronousMessageOutputStream<LogEntry> openRpcLogFile(Path path, int attemptNumber)
       throws IOException {
-    if (attemptNumber > 1 && path.exists()) {
+    if (attemptNumber > 1 && path.exists() && !path.isSpecialFile()) {
       path.renameTo(
           path.getParentDirectory().getChild(path.getBaseName() + "." + (attemptNumber - 1)));
     }
@@ -674,7 +673,7 @@ public final class RemoteModule extends BlazeModule {
           new BazelOutputService(
               env.getOutputBase(),
               env::getExecRoot,
-              () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
+              () -> env.getDirectories().getOutputPath(),
               digestUtil,
               remoteOptions.getRemoteCache(),
               remoteOptions.getRemoteInstanceName(),

@@ -40,14 +40,6 @@ public interface ObjcConfigurationApi extends StarlarkValue {
   ImmutableList<String> getCoptsForCompilationMode();
 
   @StarlarkMethod(
-      name = "uses_device_debug_entitlements",
-      structField = true,
-      doc =
-          "Returns whether device debug entitlements should be included when signing an "
-              + "application.")
-  boolean useDeviceDebugEntitlements();
-
-  @StarlarkMethod(
       name = "disallow_sdk_frameworks_attributes",
       structField = true,
       doc = "Returns whether sdk_frameworks and weak_sdk_frameworks are disallowed attributes.")

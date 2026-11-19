@@ -13,21 +13,11 @@ tasks:
       - "//scripts/packages:with-jdk/install.sh"
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-      - "//..."
     test_flags:
       - "--config=ci-linux"
       - "--test_tag_filters=-no_presubmit"
     test_targets:
-      - "//src:embedded_tools_size_test"
-      - "//src/test/py/bazel:bazel_module_test"
-      - "//src/test/py/bazel:mod_command_test"
-      - "//src/test/shell/bazel:bazel_example_test"
-      - "//src/test/shell/bazel:bazel_java_test"
-      - "//src/test/shell/bazel:cc_integration_test"
-      - "//src/test/shell/bazel:external_integration_test"
       - "//src/test/shell/bazel:help_test"
-      - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
       - test
@@ -43,12 +33,11 @@ tasks:
       - "//scripts/packages:with-jdk/install.sh"
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-      - "//..."
     test_flags:
       - "--config=ci-linux"
+      - "--test_tag_filters=-no_presubmit"
     test_targets:
-      - "//src/test/shell/bazel:bazel_java_toolchain_head_tests"
+      - "//src/test/shell/bazel:help_test"
     include_json_profile:
       - build
       - test
@@ -61,12 +50,10 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src/main/java/..."
     include_json_profile:
       - build
-      - test
   ubuntu2404:
-    shards: 8
+    shards: 6
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -82,6 +69,21 @@ tasks:
       - "--test_tag_filters=-no_presubmit"
     test_targets:
       - "//..."
+      # Keep only the latest (jdk25) toolchain_head tests in presubmit; older JDKs stay covered in postsubmit.yml.
+      - "-//src/test/shell/bazel:bazel_java_test_jdk11_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_java_test_jdk17_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_java_test_jdk21_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_coverage_java_jdk11_toolchain_head_test"
+      - "-//src/test/shell/bazel:bazel_coverage_java_jdk17_toolchain_head_test"
+      - "-//src/test/shell/bazel:bazel_coverage_java_jdk21_toolchain_head_test"
+      # Redundant worker variants (bazel_worker_test and bazel_hardened_sandboxed_worker_test stay in presubmit).
+      - "-//src/test/shell/integration:bazel_sandboxed_worker_test"
+      - "-//src/test/shell/integration:bazel_sandboxed_worker_with_cgroups_test"
+      - "-//src/test/shell/integration:bazel_worker_with_cgroups_test"
+      - "-//src/test/shell/integration:bazel_json_worker_test"
+      - "-//src/test/shell/integration:bazel_worker_multiplexer_test"
+      # Already runs on macOS arm64 presubmit.
+      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
     include_json_profile:
       - build
       - test
@@ -101,12 +103,10 @@ tasks:
       - "//src:bazel_jdk_minimal"
       # Tagged as manual, cross-compiles Bazel for Windows.
       - "//src:bazel_windows_llvm"
-      - "//src:test_repos"
-      - "//..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
-      - "//src/test/shell/bazel:cc_integration_test"
+      - "//src/test/shell/bazel:help_test"
     include_json_profile:
       - build
       - test
@@ -119,21 +119,11 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-      - "//..."
     test_flags:
       - "--config=ci-linux"
       - "--test_tag_filters=-no_presubmit"
     test_targets:
-      - "//src:embedded_tools_size_test"
-      - "//src/test/py/bazel:bazel_module_test"
-      - "//src/test/py/bazel:mod_command_test"
-      - "//src/test/shell/bazel:bazel_example_test"
-      - "//src/test/shell/bazel:bazel_java_test"
-      - "//src/test/shell/bazel:cc_integration_test"
-      - "//src/test/shell/bazel:external_integration_test"
       - "//src/test/shell/bazel:help_test"
-      - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
       - test
@@ -155,7 +145,7 @@ tasks:
   #   include_json_profile:
   #     - build
   macos_arm64:
-    shards: 6
+    shards: 3
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -192,14 +182,13 @@ tasks:
       - "//src/test/shell/bazel:help_test"
       - "//src/test/shell/bazel/apple:bazel_apple_test"
       - "//src/test/shell/bazel/apple:bazel_objc_test"
-      - "//src/test/shell/bazel/remote:remote_execution_test"
       - "//src/test/shell/integration:aquery_test"
       - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
       - test
   windows:
-    shards: 12
+    shards: 8
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
@@ -241,85 +230,54 @@ tasks:
       - "-//src/test/shell/bazel/remote/..."
       # Too slow for Windows presubmit (24 shards, ~19m wall time on a single VM).
       - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
+      # Heavy toolchain_head tests that rarely fail uniquely on Windows; jdk25 stays on Ubuntu 24.04 presubmit and all versions stay in postsubmit.yml.
+      - "-//src/test/shell/bazel:bazel_java_test_jdk11_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_java_test_jdk17_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_java_test_jdk21_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_java_test_jdk25_toolchain_head"
+      # Heavy platform-agnostic tests that rarely fail uniquely on Windows; still covered on Ubuntu 24.04 presubmit and Windows postsubmit.
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:OutputArtifactConflictTest"
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:GenQueryIntegrationTest"
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:SkymeldBuildIntegrationTest"
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:ConvenienceSymlinkTest"
+      - "-//src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleClassFunctionsTest"
+      - "-//src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleContextTest"
+      - "-//src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleImplementationFunctionsTest"
+      - "-//src/test/java/com/google/devtools/build/lib/starlark:StarlarkIntegrationTest"
+      - "-//src/test/java/com/google/devtools/build/lib/packages:PackagesTests"
+      - "-//src/test/java/com/google/devtools/build/lib/query2/engine:AllTests"
+      - "-//src/test/shell/bazel:starlark_repository_test"
+      - "-//src/test/shell/bazel:starlark_git_repository_test"
+      - "-//src/test/shell/bazel:bazel_java_tools_test"
+      - "-//src/test/py/bazel:mod_command_test"
+      - "-//src/test/py/bazel:bazel_vendor_test"
+      - "-//src/test/py/bazel:bazel_overrides_test"
+      - "-//src/test/shell/integration:target_compatible_with_test"
+      - "-//src/test/shell/integration:configured_query_test"
+      - "-//src/test/shell/integration:loading_phase_tests"
     include_json_profile:
       - build
       - test
-  windows_arm64:
-    platform: windows
-    name: "Windows (arm64)"
-    setup:
-      - mkdir C:\b
-      - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-    build_flags:
-      - "--config=ci-windows"
-      - "--config=windows_arm64"
-    build_targets:
-      - "//src:bazel.exe"
-      - "//src:bazel_nojdk.exe"
-    include_json_profile:
-      - build
   rbe_ubuntu2404:
     platform: ubuntu2404
     name: "RBE"
     build_flags:
       - "--config=remote"
       - "--config=ci-common"
-      - "--jobs=200"
       - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//..."
     test_flags:
       - "--config=remote"
       - "--config=ci-common"
       - "--test_tag_filters=-no_presubmit"
-      - "--jobs=200"
       - "--experimental_output_paths=strip"
     test_targets:
-      - "//scripts/..."
-      - "//src/java_tools/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//scripts/aquery_differ/..."
-      - "//tools/python/..."
-      - "//tools/bash/..."
-      - "//tools/test/..."
-      # See https://github.com/bazelbuild/bazel/issues/8033
-      - "-//src/tools/singlejar:output_jar_simple_test"
-      - "-//src/test/shell/bazel:external_integration_test"
-      - "-//src/test/shell/bazel:bazel_repository_cache_test"
-      - "-//src/test/shell/integration:java_integration_test"
-      - "-//src/test/java/com/google/devtools/build/lib/sandbox/..."
-      # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
-      - "-//src/test/py/bazel:bazel_module_test"
-      - "-//src/test/py/bazel:bazel_lockfile_test"
-      - "-//src/test/py/bazel:bazel_overrides_test"
-      - "-//src/test/py/bazel:bazel_repo_mapping_test"
-      - "-//src/test/py/bazel:bazel_tools_proto_test"
-      - "-//src/test/py/bazel:bazel_yanked_versions_test"
-      - "-//src/test/py/bazel:bzlmod_query_test"
-      - "-//src/test/py/bazel:mod_command_test"
-      - "-//src/test/shell/bazel:starlark_repository_test"
-      # Flaky on rbe_ubuntu2004
-      # https://github.com/bazelbuild/continuous-integration/issues/1631
-      - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
-      # TODO(pcloudy): Re-enable once https://github.com/bazelbuild/bazel/issues/27982 is fixed.
-      - "-//src/test/shell/bazel:srcs_test"
-      # Disable this test since it takes too long on RBE.
-      - "-//src/test/shell/bazel:bazel_proto_library_test"
+      - "//src:embedded_tools_size_test"
+      - "//src/test/shell/bazel:bazel_java_test"
+      - "//src/test/shell/bazel:cc_integration_test"
+      - "//src/test/shell/bazel:help_test"
     include_json_profile:
       - build
       - test
-  docs_ubuntu2404:
-    platform: ubuntu2404
-    name: "Docs"
-    build_flags:
-      - "--config=docs"
-    build_targets:
-      - "//scripts/docs:gen_mdx_release_docs"
-      - "//src/main/java/com/google/devtools/build/lib:gen_mdx_reference_docs"

@@ -65,6 +65,13 @@ public class CompoundEvaluationProgressReceiverBase implements EvaluationProgres
   }
 
   @Override
+  public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+    for (EvaluationProgressReceiver receiver : receivers) {
+      receiver.committing(skyKey, value, directDeps);
+    }
+  }
+
+  @Override
   public void evaluated(
       SkyKey skyKey,
       EvaluationState state,

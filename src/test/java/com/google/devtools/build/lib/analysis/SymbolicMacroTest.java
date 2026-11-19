@@ -1059,6 +1059,27 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg", "missing value for mandatory attribute 'xyz' in 'my_macro' macro");
   }
 
+  // Regression test for b/585254807
+  @Test
+  public void noneAttrValue_doesNotSatisfyName() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, visibility):
+            pass
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name = None)
+        """);
+
+    assertGetPackageFailsWithEvent(
+        "pkg", "missing value for mandatory attribute 'name' in 'my_macro' macro");
+  }
+
   @Test
   public void noneAttrValue_disallowedWhenAttrDoesNotExist() throws Exception {
     scratch.file(

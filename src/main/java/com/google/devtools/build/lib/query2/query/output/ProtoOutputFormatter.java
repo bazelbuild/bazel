@@ -342,6 +342,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
         input.addPackageGroup(internalToUnicode(labelPrinter.toString(visibilityDependency)));
       }
+      Label transitiveVisibility = inputFile.getTransitiveVisibility();
+      if (transitiveVisibility != null) {
+        input.addPackageGroup(internalToUnicode(labelPrinter.toString(transitiveVisibility)));
+      }
 
       for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
         input.addVisibilityLabel(internalToUnicode(labelPrinter.toString(visibilityDeclaration)));
@@ -481,7 +485,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Allow filtering of aspect attributes. */
   protected boolean includeAspectAttribute(Attribute attr, Collection<Label> value) {
-    return true;
+    return ruleAttributePredicate.apply(attr.getName());
   }
 
   protected boolean includeRuleDefinitionEnvironment() {

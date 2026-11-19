@@ -41,4 +41,26 @@ EOF
   bazel build --experimental_enable_thread_dump --experimental_thread_dump_interval=1s //:gen &> "${TEST_log}" || fail "Expected build to succeed"
 }
 
+function test_sub_second_interval_fails_cleanly() {
+  cat > BUILD <<'EOF'
+genrule(
+  name = "gen",
+  outs = ["out"],
+  cmd = "touch $@",
+)
+EOF
+
+  local exit_code=0
+  bazel build --experimental_enable_thread_dump --experimental_thread_dump_interval=1ns //:gen &> "${TEST_log}" || exit_code=$?
+  assert_equals 2 "${exit_code}"
+  expect_log "ERROR: While parsing option --experimental_thread_dump_interval=1ns: Duration '1ns' must be zero or at least 1s."
+
+  exit_code=0
+  bazel build --experimental_enable_thread_dump --experimental_thread_dump_interval=500ms //:gen &> "${TEST_log}" || exit_code=$?
+  assert_equals 2 "${exit_code}"
+  expect_log "ERROR: While parsing option --experimental_thread_dump_interval=500ms: Duration '500ms' must be zero or at least 1s."
+
+  bazel build //:gen &> "${TEST_log}" || fail "Expected subsequent build to succeed"
+}
+
 run_suite "thread dump tests"

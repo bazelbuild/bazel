@@ -287,7 +287,6 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     scratch.file("tools/empty_prelude.bzl");
     ruleClassProvider =
         new ConfiguredRuleClassProvider.Builder()
-            .setRunfilesPrefix("workspace")
             .setPrelude("//tools:empty_prelude.bzl")
             .useDummyBuiltinsBzl()
             .setPrerequisiteValidator(new TestRuleClassProvider.MinimalPrerequisiteValidator())

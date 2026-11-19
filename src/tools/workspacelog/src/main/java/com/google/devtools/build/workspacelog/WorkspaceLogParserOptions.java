@@ -27,7 +27,6 @@ public abstract class WorkspaceLogParserOptions extends OptionsBase {
   @Option(
       name = "log_path",
       defaultValue = "null",
-      category = "logging",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Location of the workspace rules log file to parse.")
@@ -36,7 +35,6 @@ public abstract class WorkspaceLogParserOptions extends OptionsBase {
   @Option(
       name = "output_path",
       defaultValue = "null",
-      category = "logging",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Location where to put the output. If left empty, the log will be output to stdout.")
@@ -45,7 +43,6 @@ public abstract class WorkspaceLogParserOptions extends OptionsBase {
   @Option(
       name = "exclude_rule",
       defaultValue = "null",
-      category = "logging",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,

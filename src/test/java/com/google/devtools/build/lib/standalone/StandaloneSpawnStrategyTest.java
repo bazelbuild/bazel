@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -138,7 +137,7 @@ public class StandaloneSpawnStrategyTest {
     ResourceManager resourceManager = new ResourceManager();
     resourceManager.setAvailableResources(
         ResourceSet.create(/* memoryMb= */ 1, /* cpu= */ 1, /* localTestCount= */ 1));
-    Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
+    Path execRoot = directories.getExecRoot();
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
         new StandaloneSpawnStrategy(

@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 /** Creates and manages the contents of a working directory of a persistent worker. */
 final class WorkerExecRoot {
   private final Path workDir;
+  private final Path execRoot;
   private final List<PathFragment> extraDirs;
 
   private final boolean useInMemoryTracking;
@@ -42,11 +43,14 @@ final class WorkerExecRoot {
    * Creates a new WorkerExecRoot.
    *
    * @param workDir The directory (workspace dir) that the worker will be executing in.
+   * @param execRoot The exec root that the inputs are symlinks to.
    * @param extraDirs Directories that must survive sandbox cleanup, e.g. for things that are
    *     bind-mounted.
    */
-  public WorkerExecRoot(Path workDir, List<PathFragment> extraDirs, boolean useInMemoryTracking) {
+  public WorkerExecRoot(
+      Path workDir, Path execRoot, List<PathFragment> extraDirs, boolean useInMemoryTracking) {
     this.workDir = workDir;
+    this.execRoot = execRoot;
     this.extraDirs = extraDirs;
     this.useInMemoryTracking = useInMemoryTracking;
   }
@@ -90,6 +94,7 @@ final class WorkerExecRoot {
         dirsToCreate,
         workDir,
         treeDeleter,
+        execRoot,
         sandboxContents);
 
     // Finally, create anything that is still missing. This is non-strict only for historical
@@ -99,7 +104,7 @@ final class WorkerExecRoot {
 
     // Track the sandbox contents in memory. This makes the cleanup faster in subsequent runs.
     if (useInMemoryTracking) {
-      sandboxContents = SandboxHelpers.createContentMap(workDir, inputs, outputs);
+      sandboxContents = SandboxHelpers.createContentMap(workDir, execRoot, inputs, outputs);
       sandboxContentsTimestamp =
           SandboxHelpers.takeContentMapTimestamp(workDir.getParentDirectory());
     }

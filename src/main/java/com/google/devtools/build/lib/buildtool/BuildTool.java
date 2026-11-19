@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -379,36 +378,59 @@ public class BuildTool {
           RemoteAnalysisCacheFactory.create(
               env,
               targetPatternPhaseValue.getTargetLabels(),
-              BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
-                  buildOptions, env.getReporter()),
+              buildOptions,
               request.getUserOptions(),
               projectEvaluationResult.buildOptions());
       analysisCachingDeps = analysisDeps.deps();
       analysisCacheReaderDeps = analysisDeps.readerDeps();
       serializationDependenciesProvider = analysisDeps.serializationDeps();
 
-      if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
-        // a.k.a. Skymeld.
-        buildTargetsWithMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            buildOptions,
-            analysisCachingDeps,
-            analysisCacheReaderDeps);
-      } else {
-        buildTargetsWithoutMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            buildOptions,
-            analysisCachingDeps,
-            analysisCacheReaderDeps);
+      BuildFailedException delayedBuildFailedException = null;
+      try {
+        if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
+          // a.k.a. Skymeld.
+          buildTargetsWithMergedAnalysisExecution(
+              request,
+              result,
+              targetPatternPhaseValue,
+              buildOptions,
+              analysisCachingDeps,
+              analysisCacheReaderDeps);
+        } else {
+          buildTargetsWithoutMergedAnalysisExecution(
+              request,
+              result,
+              targetPatternPhaseValue,
+              buildOptions,
+              analysisCachingDeps,
+              analysisCacheReaderDeps);
+        }
+      } catch (BuildFailedException e) {
+        if (!request.getKeepGoing()
+            || !request.getBuildOptions().getPerformAnalysisPhase()
+            || !analysisCacheReaderDeps.mode().serializesValues()) {
+          throw e;
+        }
+        delayedBuildFailedException = e;
       }
 
       if (analysisCacheReaderDeps.mode().serializesValues()) {
         Preconditions.checkState(!analysisCachingDeps.bailedOut());
-        serializeValues(serializationDependenciesProvider);
+        try {
+          serializeValues(serializationDependenciesProvider);
+        } catch (Throwable t) {
+          if (delayedBuildFailedException != null) {
+            if (!delayedBuildFailedException.isErrorAlreadyShown()) {
+              reportExceptionError(delayedBuildFailedException);
+            }
+            t.addSuppressed(delayedBuildFailedException);
+          }
+          throw t;
+        }
+      }
+
+      if (delayedBuildFailedException != null) {
+        throw delayedBuildFailedException;
       }
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
@@ -1198,7 +1220,8 @@ public class BuildTool {
       env.getSkyframeExecutor()
           .syncRemoteAnalysisCachingState(
               env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
-              env.getRemoteAnalysisCachingEventListener().getClientId());
+              env.getRemoteAnalysisCachingEventListener().getClientId(),
+              env.getRemoteAnalysisCachingEventListener().getUntrimmedConfigurationChecksum());
     }
   }
 
@@ -1399,9 +1422,8 @@ public class BuildTool {
               env.getVersionGetter(),
               env.getReporter(),
               env.getEventBus(),
-              env.getOptions()
-                  .getOptions(KeepStateAfterBuildOption.class)
-                  .getKeepStateAfterBuild());
+              env.getOptions().getOptions(KeepStateAfterBuildOption.class).getKeepStateAfterBuild(),
+              env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing());
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }

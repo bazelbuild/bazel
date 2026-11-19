@@ -225,11 +225,11 @@ message ExecLogEntry {
     // The hash function used to compute digests.
     string hash_function_name = 1;
 
-    // The name of the subdirectory of the runfiles tree corresponding to the
-    // main repository (also known as the "workspace name").
+    // The name of the subdirectory of the runfiles and execroot trees
+    // corresponding to the main repository (previously known as the
+    // "workspace name").
     //
-    // With --enable_bzlmod, this is always "_main", but can vary when using
-    // WORKSPACE.
+    // In Bazel 9+ this is always "_main".
     string workspace_runfiles_directory = 2;
 
     // The ID of the invocation.

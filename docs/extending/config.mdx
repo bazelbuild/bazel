@@ -174,21 +174,34 @@ flavor(
 )
 ```
 
-#### Scope
+#### Scope {#scope}
 
-Build settings are by default only applied to the `target` [configuration]
-(/extending/rules#configurations), and won't be applied to the `exec`
-configuration. To have the build setting applied to both the `target` and `exec`
-configurations set the `scope` attribute to `"universal"`.
+By default, build settings apply only to `target`
+[configurations](/extending/rules#configurations) (`scope = "target"`) and do
+not propagate across `exec` transitions. You can set the `scope` attribute on a
+build setting to control where its value propagates:
+
+*   `"target"` (default in Skylib): Propagates to target dependencies, and
+    resets on `exec` transitions (or sets a fixed value via `on_leave_scope`).
+*   `"project"`: Restricts transitioned values to packages within the project's
+    `PROJECT.scl` directories (including in-project `exec` tools) and resets to
+    the baseline value outside the project.
+*   `"universal"`: Propagates everywhere, including across `exec` transitions.
+*   `"exec:--//pkg:host_flag"`: Inherits the target-configuration value of a
+    separate host flag when transitioning to an `exec` configuration.
 
 ```python
 # example/BUILD
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 bool_flag(
     name = "use_this_for_compiler_and_sources",
-    scope = "universal"
+    build_setting_default = False,
+    scope = "universal",
 )
 ```
+
+For full details on all scope types and `PROJECT.scl` boundary enforcement, see
+[Starlark flag scoping](/extending/flag-scoping).
 
 ### Predefined settings {#predefined-settings}
 

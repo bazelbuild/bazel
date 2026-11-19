@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
@@ -1323,6 +1325,103 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     getOutputPath("tree").deleteTree();
     getOutputPath("out").delete();
     buildTarget("//:gen");
+  }
+
+  @Test
+  public void remoteAction_inputsOnlyInDiskCache(@TestParameter boolean consumerMayBeCached)
+      throws Exception {
+    assumeTrue(useDiskCache);
+    write(
+        "a/defs.bzl",
+        """
+        def _tree_impl(ctx):
+            d = ctx.actions.declare_directory(ctx.label.name)
+            ctx.actions.run_shell(
+                outputs = [d],
+                command = "echo tree > $1/file",
+                arguments = [d.path],
+                execution_requirements = {"no-remote": ""},
+            )
+            return DefaultInfo(files = depset([d]))
+
+        tree = rule(_tree_impl)
+
+        def _tool_impl(ctx):
+            ctx.actions.write(ctx.outputs.executable, "", is_executable = True)
+            return DefaultInfo(
+                executable = ctx.outputs.executable,
+                runfiles = ctx.runfiles(files = [ctx.file.data]),
+            )
+
+        tool = rule(
+            _tool_impl,
+            attrs = {"data": attr.label(allow_single_file = True)},
+            executable = True,
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "tool", "tree")
+
+        genrule(
+            name = "input",
+            outs = ["input.out"],
+            cmd = "echo input > $@",
+            tags = ["no-remote"],
+        )
+
+        tree(name = "tree")
+
+        genrule(
+            name = "runfile",
+            outs = ["runfile.out"],
+            cmd = "echo runfile > $@",
+            tags = ["no-remote"],
+        )
+
+        tool(
+            name = "tool",
+            data = ":runfile",
+        )
+
+        # Builds the same inputs as :consumer, but runs locally.
+        genrule(
+            name = "local_consumer",
+            srcs = [":input", ":tree"],
+            outs = ["local_consumer.out"],
+            cmd = "touch $@",
+            tags = ["no-remote"],
+            tools = [":tool"],
+        )
+
+        genrule(
+            name = "consumer",
+            srcs = [":input", ":tree"],
+            outs = ["consumer.out"],
+            cmd = "cat $(execpath :input) $(execpath :tree)/file " +
+                  "$(execpath :tool).runfiles/%s/a/runfile.out > $@",
+            tags = %s,
+            tools = [":tool"],
+        )
+        """
+            .formatted(
+                LabelConstants.MAIN_REPO_DIR_NAME, consumerMayBeCached ? "[]" : "[\"no-cache\"]"));
+
+    // Populate the disk cache, but not the remote cache.
+    buildTarget("//a:local_consumer");
+
+    // Turn the inputs of :consumer into disk cache hits that aren't downloaded.
+    var populatedDiskCacheDir = diskCacheDir;
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions("--disk_cache=" + populatedDiskCacheDir.getPathString());
+    setDownloadToplevel();
+    disableActionRewinding();
+
+    buildTarget("//a:consumer");
+
+    assertValidOutputFile("a/consumer.out", "input\ntree\nrunfile\n");
   }
 
   @Test

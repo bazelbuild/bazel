@@ -583,7 +583,6 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_grpc_log",
       oldName = "experimental_remote_grpc_log",
       defaultValue = "null",
-      category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -627,7 +626,6 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_outputs",
       oldName = "experimental_remote_download_outputs",
       defaultValue = "toplevel",
-      category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = RemoteOutputsStrategyConverter.class,
@@ -653,7 +651,6 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
       expansion = {"--remote_download_outputs=minimal"},
-      category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -666,7 +663,6 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
       expansion = {"--remote_download_outputs=toplevel"},
-      category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -678,7 +674,6 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_all",
       defaultValue = "null",
       expansion = {"--remote_download_outputs=all"},
-      category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -739,7 +734,6 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_download_symlink_template",
       defaultValue = "",
-      category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -763,7 +757,6 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_print_execution_messages",
       defaultValue = "failure",
       converter = ExecutionMessagePrintMode.Converter.class,
-      category = "remote",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =

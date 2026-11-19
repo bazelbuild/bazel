@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.packages.License.LicenseType;
-import java.util.Arrays;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
@@ -32,18 +30,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class LicenseTest {
-
-  @Test
-  public void testLeastRestrictive() {
-    assertThat(License.leastRestrictive(Arrays.asList(LicenseType.RESTRICTED)))
-        .isEqualTo(LicenseType.RESTRICTED);
-    assertThat(
-            License.leastRestrictive(
-                Arrays.asList(LicenseType.RESTRICTED, LicenseType.BY_EXCEPTION_ONLY)))
-        .isEqualTo(LicenseType.RESTRICTED);
-    assertThat(License.leastRestrictive(Arrays.<LicenseType>asList()))
-        .isEqualTo(LicenseType.BY_EXCEPTION_ONLY);
-  }
 
   /** Evaluates a string as a Starlark expression returning a sequence of strings. */
   private static Sequence<String> evalAsSequence(String string) throws Exception {

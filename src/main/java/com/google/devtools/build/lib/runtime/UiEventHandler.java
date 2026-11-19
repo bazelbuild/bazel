@@ -183,8 +183,7 @@ public final class UiEventHandler implements EventHandler {
       Clock clock,
       EventBus eventBus,
       @Nullable PathFragment workspacePathFragment,
-      boolean skymeldMode,
-      boolean newStatsSummary) {
+      boolean skymeldMode) {
     this(
         outErr,
         options,
@@ -193,7 +192,6 @@ public final class UiEventHandler implements EventHandler {
         eventBus,
         workspacePathFragment,
         skymeldMode,
-        newStatsSummary,
         TerminalSizeMonitor.NOOP);
   }
 
@@ -205,7 +203,6 @@ public final class UiEventHandler implements EventHandler {
       EventBus eventBus,
       @Nullable PathFragment workspacePathFragment,
       boolean skymeldMode,
-      boolean newStatsSummary,
       TerminalSizeMonitor terminalSizeMonitor) {
     this.terminalWidth = normalizeTerminalWidth(options.getTerminalColumns());
     this.maxStdoutErrBytes = options.getMaxStdoutErrBytes();
@@ -243,7 +240,6 @@ public final class UiEventHandler implements EventHandler {
               : new UiStateTracker(clock);
     }
     this.stateTracker.setProgressSampleSize(options.getUiActionsShown());
-    this.stateTracker.setNewStatsSummary(newStatsSummary);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
       this.progressRateLimitMillis = Math.round(options.getShowProgressRateLimit() * 1000);

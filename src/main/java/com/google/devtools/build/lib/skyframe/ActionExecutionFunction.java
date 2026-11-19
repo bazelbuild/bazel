@@ -877,7 +877,7 @@ public class ActionExecutionFunction implements SkyFunction {
         actionLookupData,
         state.actionFileSystem,
         new ActionPostprocessingImpl(state),
-        state.discoveredInputs != null,
+        state.discoveredInputs,
         previousOutputs);
   }
 

@@ -62,7 +62,7 @@ public interface Target extends TargetData {
   default MacroInstance getDeclaringMacro() {
     Packageoid packageoid = getPackageoid();
     if (packageoid instanceof Package pkg) {
-      return pkg.getDeclaringMacroForTarget(getName());
+      return pkg.getDeclaringMacroForTarget(this);
       // TODO: #19922 - We might replace Package#getDeclaringMacroForTarget by storing a reference
       // to the declaring macro in implementations of this interface (sharing memory with the field
       // for the package).
@@ -91,7 +91,7 @@ public interface Target extends TargetData {
   default PackageIdentifier getDeclaringPackage() {
     Packageoid packageoid = getPackageoid();
     if (packageoid instanceof Package pkg) {
-      PackageIdentifier pkgId = pkg.getDeclaringPackageForTargetIfInMacro(getName());
+      PackageIdentifier pkgId = pkg.getDeclaringPackageForTargetIfInMacro(this);
       return pkgId != null ? pkgId : pkg.getPackageIdentifier();
     } else if (packageoid instanceof PackagePiece.ForMacro forMacro) {
       return forMacro.getDeclaringPackage();
@@ -109,7 +109,7 @@ public interface Target extends TargetData {
   default boolean isCreatedInSymbolicMacro() {
     Packageoid packageoid = getPackageoid();
     if (packageoid instanceof Package pkg) {
-      return pkg.getDeclaringPackageForTargetIfInMacro(getName()) != null;
+      return pkg.getDeclaringPackageForTargetIfInMacro(this) != null;
     } else if (packageoid instanceof PackagePiece.ForMacro) {
       return true;
     } else if (packageoid instanceof PackagePiece.ForBuildFile) {
@@ -193,6 +193,16 @@ public interface Target extends TargetData {
    */
   default Iterable<Label> getVisibilityDependencyLabels() {
     return getVisibility().getDependencyLabels();
+  }
+
+  /**
+   * Returns the package's {@link PackageArgs#transitiveVisibility} label if this target
+   * participates in transitive visibility (i.e., rules, input files, and output files), or {@code
+   * null} otherwise.
+   */
+  @Nullable
+  default Label getTransitiveVisibility() {
+    return null;
   }
 
   /**

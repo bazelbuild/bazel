@@ -225,7 +225,6 @@ cc_library(
         "java_tools/src/main/cpp/util/file.h",
         "java_tools/src/main/cpp/util/file_platform.h",
         "java_tools/src/main/cpp/util/md5.h",
-        "java_tools/src/main/cpp/util/numbers.h",
         "java_tools/src/main/cpp/util/path.h",
         "java_tools/src/main/cpp/util/path_platform.h",
         "java_tools/src/main/cpp/util/port.h",
@@ -237,7 +236,6 @@ cc_library(
         ":errors",
         ":filesystem",
         ":md5",
-        ":numbers",
         ":port",
         ":strings",
     ],
@@ -248,14 +246,6 @@ cc_library(
     srcs = ["java_tools/src/main/cpp/util/md5.cc"],
     hdrs = ["java_tools/src/main/cpp/util/md5.h"],
     strip_include_prefix = "java_tools",
-)
-
-cc_library(
-    name = "numbers",
-    srcs = ["java_tools/src/main/cpp/util/numbers.cc"],
-    hdrs = ["java_tools/src/main/cpp/util/numbers.h"],
-    strip_include_prefix = "java_tools",
-    deps = [":strings"],
 )
 
 cc_library(
@@ -602,6 +592,32 @@ java_binary(
     main_class = "proguard.ProGuard",
     visibility = ["//visibility:public"],
     runtime_deps = [":proguard_import"],
+)
+
+##################### proguard_allowlister
+
+# See comment for ":ijar_cc_binary_main".
+cc_library(
+    name = "proguard_allowlister_cc_bin_main",
+    srcs = ["java_tools/tools/jdk/proguard_allowlister.cc"],
+    copts = SUPRESSED_WARNINGS,
+    linkstatic = 1,  # provides main()
+    deps = [":proguard_allowlister_lib"],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "proguard_allowlister_cc_bin",
+    visibility = ["//visibility:public"],
+    deps = [":proguard_allowlister_cc_bin_main"],
+)
+
+cc_library(
+    name = "proguard_allowlister_lib",
+    srcs = ["java_tools/tools/jdk/proguard_allowlister_lib.cc"],
+    hdrs = ["java_tools/tools/jdk/proguard_allowlister_lib.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
 )
 
 ##################### one_version

@@ -287,15 +287,9 @@ class NodeEntryVisitor {
         instanceof MultiThreadPoolsQuiescingExecutor multiThreadPoolsQuiescingExecutor) {
       ThreadPoolType threadPoolType = selectThreadPoolType(multiThreadPoolsQuiescingExecutor, key);
       if (runnable instanceof QuiescingTask quiescingTask) {
-        multiThreadPoolsQuiescingExecutor.execute(
-            quiescingTask,
-            threadPoolType,
-            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
+        multiThreadPoolsQuiescingExecutor.execute(quiescingTask, threadPoolType);
       } else {
-        multiThreadPoolsQuiescingExecutor.execute(
-            runnable,
-            threadPoolType,
-            /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
+        multiThreadPoolsQuiescingExecutor.execute(runnable, threadPoolType);
       }
     } else {
       if (runnable instanceof QuiescingTask quiescingTask) {
@@ -314,6 +308,10 @@ class NodeEntryVisitor {
     if (executor.hasSeparatePoolForExecutionTasks() && key instanceof ExecutionPhaseSkyKey) {
       // Only possible with --experimental_merged_skyframe_analysis_execution.
       return ThreadPoolType.EXECUTION_PHASE;
+    }
+    if (executor.hasSeparatePoolForPostAnalysisTasks() && key instanceof PostAnalysisPhaseSkyKey) {
+      // Only possible with --experimental_merged_skyframe_analysis_execution.
+      return ThreadPoolType.POST_ANALYSIS;
     }
     return ThreadPoolType.REGULAR;
   }

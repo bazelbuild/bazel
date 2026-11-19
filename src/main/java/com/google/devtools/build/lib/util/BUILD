@@ -297,7 +297,6 @@ java_library(
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
-        "FileHandlerQuerier.java",
         "Fingerprint.java",
         "JavaSleeper.java",
         "LatestObjectMetricExporter.java",
@@ -437,7 +436,6 @@ java_library(
     deps = [
         ":os",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//third_party/java/guava:base",
     ],
 )
 

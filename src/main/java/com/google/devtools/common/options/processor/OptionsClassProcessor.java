@@ -15,7 +15,6 @@ package com.google.devtools.common.options.processor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -350,7 +349,6 @@ public final class OptionsClassProcessor extends AbstractProcessor {
     }
 
     checkOptionName(method);
-    checkOldCategoriesAreNotUsed(method);
     checkExpansionOptions(method);
     checkConverter(method);
     checkEffectTagRationality(method);
@@ -420,21 +418,6 @@ public final class OptionsClassProcessor extends AbstractProcessor {
               tag);
         }
       }
-    }
-  }
-
-  private static final ImmutableSet<String> DEPRECATED_CATEGORIES =
-      ImmutableSet.of("undocumented", "hidden", "internal");
-
-  private void checkOldCategoriesAreNotUsed(ExecutableElement method)
-      throws OptionProcessorException {
-    Option annotation = method.getAnnotation(Option.class);
-    if (DEPRECATED_CATEGORIES.contains(annotation.category())) {
-      throw new OptionProcessorException(
-          method,
-          "Documentation level is no longer read from the option category. Category \""
-              + annotation.category()
-              + "\" is disallowed, see OptionMetadataTags for the relevant tags.");
     }
   }
 

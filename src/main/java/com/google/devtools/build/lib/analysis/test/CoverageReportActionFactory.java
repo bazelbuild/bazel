@@ -100,7 +100,6 @@ public interface CoverageReportActionFactory {
       Collection<ConfiguredTarget> targetsToTest,
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
-      ActionLookupKey actionLookupKey,
-      String workspaceName)
+      ActionLookupKey actionLookupKey)
       throws InterruptedException;
 }

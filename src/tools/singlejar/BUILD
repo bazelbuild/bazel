@@ -88,6 +88,8 @@ cc_binary(
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
         "//src/conditions:openbsd": ["-lm"],
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     linkstatic = 1,
@@ -109,6 +111,8 @@ cc_binary(
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
         "//src/conditions:openbsd": ["-lm"],
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": ["-municode"],
         "//conditions:default": [],
     }),
     linkstatic = 1,
@@ -524,7 +528,7 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util:filesystem",
-        "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/strings",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@rules_cc//cc/runfiles",

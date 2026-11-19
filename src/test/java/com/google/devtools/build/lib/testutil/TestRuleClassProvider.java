@@ -110,7 +110,6 @@ public class TestRuleClassProvider {
     // for alternative/additional setup. Consider factoring that one to use this method.
     builder
         .setToolsRepository(RepositoryName.MAIN)
-        .setRunfilesPrefix("test")
         .setPrerequisiteValidator(new MinimalPrerequisiteValidator());
     CoreRules.INSTANCE.init(builder);
     builder.addConfigurationOptions(CoreOptions.class);

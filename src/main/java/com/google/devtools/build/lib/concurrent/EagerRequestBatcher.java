@@ -36,7 +36,9 @@ import javax.annotation.Nullable;
  *
  * <p>This class batches unary requests and executes them together. It eagerly dispatches batches as
  * soon as they reach {@code maxBatchSize} or when the number of active concurrent requests is below
- * {@code targetConcurrentRequests}.
+ * {@code targetConcurrentRequests}. {@code targetConcurrentRequests} is a target for eager
+ * partial-batch dispatch, not an upper bound on in-flight batches: once reached, subsequent
+ * requests buffer until a batch reaches {@code maxBatchSize} and then dispatch immediately.
  *
  * <p>Submissions do not block waiting for batch execution or queue capacity. It uses lock-free
  * constructs (via {@link VarHandle}) to ensure thread-safe queue access and is safe to use with

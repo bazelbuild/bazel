@@ -118,7 +118,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
     debugPrinter.finishDebugging();
 
-    return toolchainResolution;
+    return toolchainResolution.withToolchainResolutionFlags(
+        toolchains.toolchainResolutionFlags().get(key.toolchainType().toolchainType()));
   }
 
   /**

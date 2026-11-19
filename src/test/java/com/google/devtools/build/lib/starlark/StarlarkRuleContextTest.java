@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -2778,6 +2779,54 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setRuleContext(ruleContext);
     String filename = ev.eval("ruleContext.files.srcs[0].short_path").toString();
     assertThat(filename).isEqualTo("../foo+/bar.txt");
+  }
+
+  @Test
+  public void testRlocationPath() throws Exception {
+    scratch.file("/bar/MODULE.bazel", "module(name='foo')");
+    scratch.file("/bar/bar.txt");
+    scratch.file(
+        "/bar/BUILD",
+        """
+        exports_files(['bar.txt'])
+        genrule(name = 'gen', outs = ['gen.txt'], cmd = 'touch $@')
+        """);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "bazel_dep(name='foo')",
+        "local_path_override(module_name='foo', path='/bar')");
+    scratch.file("test/src.txt");
+    scratch.file(
+        "test/BUILD",
+        """
+        genrule(name = 'gen', outs = ['gen.txt'], cmd = 'touch $@')
+        genrule(
+            name = 'lib',
+            srcs = ['src.txt', ':gen', '@foo//:bar.txt', '@foo//:gen'],
+            cmd = 'touch $@',
+            outs = ['lib.out'],
+        )
+        """);
+    invalidatePackages();
+    setRuleContext(createRuleContext("//test:lib"));
+    var expected =
+        ImmutableList.of(
+            LabelConstants.MAIN_REPO_DIR_NAME + "/test/src.txt",
+            LabelConstants.MAIN_REPO_DIR_NAME + "/test/gen.txt",
+            "foo+/bar.txt",
+            "foo+/gen.txt");
+
+    assertThat((Sequence<?>) ev.eval("[f.rlocation_path for f in ruleContext.files.srcs]"))
+        .containsExactlyElementsIn(expected)
+        .inOrder();
+    var args =
+        (Args)
+            ev.eval(
+                "ruleContext.actions.args().add_all(ruleContext.files.srcs, allow_closure = True,"
+                    + " map_each = lambda f: f.rlocation_path)");
+    assertThat(args.build(() -> RepositoryMapping.EMPTY).arguments())
+        .containsExactlyElementsIn(expected)
+        .inOrder();
   }
 
   // Borrowed from Scratch.java.
