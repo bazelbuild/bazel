@@ -972,6 +972,24 @@ sh_test(
     tags = ["no_windows"],
 )
 
+cc_binary(
+    name = "futimens",
+    testonly = 1,
+    srcs = ["futimens.cc"],
+)
+
+sh_test(
+    name = "timestamp_granularity_test",
+    timeout = "long",
+    srcs = ["timestamp_granularity_test.sh"],
+    data = [
+        ":futimens",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
 sh_test(
     name = "toolchain_test",
     size = "large",
