@@ -59,6 +59,25 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
     // Does nothing by default.
   }
 
+  /**
+   * Overload of {@link #configure(OptionsProvider, RemoteAnalysisCacheMode, ClientId, String)} that
+   * also supplies the command's originating user, if available.
+   *
+   * <p>This is an overload rather than a change to the existing signature for ERW compatibility:
+   * the SC and LC may be built at different versions, so methods on this Skybridge interface must
+   * not be removed or changed. The 4-argument overload can be deleted once no supported SC or LC
+   * version still depends on it.
+   */
+  default void configure(
+      OptionsProvider optionsProvider,
+      RemoteAnalysisCacheMode mode,
+      @Nullable ClientId clientId,
+      String buildId,
+      @Nullable String originatingUser)
+      throws SerializedAbruptExitException {
+    configure(optionsProvider, mode, clientId, buildId);
+  }
+
   /** A specialized version of {@link #configure} for the dump command. */
   default void configureForDebugging(
       String remoteAnalysisDebugEntries,

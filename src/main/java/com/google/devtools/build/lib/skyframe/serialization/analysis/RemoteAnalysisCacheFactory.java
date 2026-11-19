@@ -182,7 +182,11 @@ public final class RemoteAnalysisCacheFactory {
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
     try {
       servicesSupplier.configure(
-          env.getOptions(), options.getMode(), clientId, env.getCommandId().toString());
+          env.getOptions(),
+          options.getMode(),
+          clientId,
+          env.getCommandId().toString(),
+          env.getOriginatingUser());
     } catch (SerializedAbruptExitException e) {
       throw AbruptExitException.fromSerialized(e);
     }
