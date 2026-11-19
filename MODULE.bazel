@@ -87,6 +87,8 @@ single_version_override(
 
 # Use GAS syntax assembly files under clang-cl, because hermetic-llvm's
 # clang-cl cannot assemble MASM .asm files.
+# TODO: Remove once llvm is updated to a version that includes
+# https://github.com/hermeticbuild/hermetic-llvm/pull/980.
 single_version_override(
     module_name = "blake3",
     patch_strip = 1,

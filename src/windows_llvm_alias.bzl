@@ -26,10 +26,5 @@ load("@with_cfg.bzl", "with_cfg")
 windows_llvm_alias, _windows_llvm_alias = (
     with_cfg(native.alias)
         .set("platforms", [Label("//:windows_x86_64")])
-        .extend("features", [
-            "-dynamic_link_msvcrt",
-            "static_link_msvcrt",
-            "-layering_check",
-        ])
         .build()
 )
