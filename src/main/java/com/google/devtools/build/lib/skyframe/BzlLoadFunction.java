@@ -804,9 +804,9 @@ public class BzlLoadFunction implements SkyFunction {
       RepositoryMapping latest = RepoMappingLookups.getLatest(label.getRepository());
       RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
       if (moduleInfo.repoExists() && latest != null && latestMain != null) {
-        trackedRepoMapping = new TrackedRepositoryMapping(latest);
+        trackedRepoMapping = new TrackedRepositoryMapping(latest, moduleInfo.mappingSource());
         repoMapping = trackedRepoMapping;
-        mainRepoMapping = new TrackedRepositoryMapping(latestMain);
+        mainRepoMapping = TrackedRepositoryMapping.shared(latestMain, RepositoryName.MAIN);
         moduleRepoName = moduleInfo.moduleRepoName();
         repoMappingTracker = new RepoMappingTracker(env);
         // Labels in string literals are likely resolved during evaluation of this file or later
@@ -815,7 +815,9 @@ public class BzlLoadFunction implements SkyFunction {
         literalRepoNames = getApparentRepoNames(prog, programLoads);
         var literalKeys =
             literalRepoNames.stream()
-                .map(name -> RepositoryMappingEntryValue.forwardKey(label.getRepository(), name))
+                .map(
+                    name ->
+                        RepositoryMappingEntryValue.forwardKey(moduleInfo.mappingSource(), name))
                 .collect(toImmutableList());
         repoMappingTracker.addAuthoritative(env.getValuesAndExceptions(literalKeys), literalKeys);
       }
@@ -835,7 +837,7 @@ public class BzlLoadFunction implements SkyFunction {
         // Repo rules and module extensions record their lookups through the repo mapping of their
         // .bzl file only in marker files and the lockfile, so it remains a full dependency. The
         // main repo mapping is only consulted during evaluation of this file.
-        mainRepoMapping = new TrackedRepositoryMapping(latestMain);
+        mainRepoMapping = TrackedRepositoryMapping.shared(latestMain, RepositoryName.MAIN);
         repoMappingTracker = new RepoMappingTracker(env);
       } else {
         mainRepoMapping = getMainRepositoryMapping(key, env);
@@ -985,8 +987,7 @@ public class BzlLoadFunction implements SkyFunction {
         return null;
       }
       if (trackedRepoMapping != null) {
-        coverRepoMappingDeps(
-            trackedRepoMapping, repoMappingTracker, label.getRepository(), literalRepoNames);
+        coverRepoMappingDeps(trackedRepoMapping, repoMappingTracker, literalRepoNames);
       }
     }
 
@@ -1034,19 +1035,21 @@ public class BzlLoadFunction implements SkyFunction {
   private static void coverRepoMappingDeps(
       TrackedRepositoryMapping repoMapping,
       RepoMappingTracker tracker,
-      RepositoryName repo,
       ImmutableSet<String> literalRepoNames) {
     var covered = ImmutableSet.<String>builder();
     var overrides = ImmutableMap.<String, RepositoryName>builder();
     RepositoryMapping untracked = repoMapping.untracked();
+    Object mappingSource = repoMapping.mappingSource();
     for (String name :
-        Sets.union(literalRepoNames, tracker.recordedForwardNames(repo)).immutableCopy()) {
-      var answer =
-          (RepositoryName)
-              tracker.authoritativeAnswer(RepositoryMappingEntryValue.forwardKey(repo, name));
-      if (answer == null) {
+        Sets.union(literalRepoNames, tracker.recordedForwardNames(mappingSource)).immutableCopy()) {
+      Object payload =
+          tracker.authoritativeAnswer(RepositoryMappingEntryValue.forwardKey(mappingSource, name));
+      if (payload == null) {
         continue;
       }
+      RepositoryName answer =
+          RepositoryMappingEntryValue.Forward.toRepositoryName(
+              payload, name, repoMapping.contextRepo());
       covered.add(name);
       if (!answer.equals(untracked.get(name))) {
         overrides.put(name, answer);

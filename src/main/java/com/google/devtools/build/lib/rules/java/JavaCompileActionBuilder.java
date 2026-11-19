@@ -443,7 +443,9 @@ public final class JavaCompileActionBuilder {
     RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
     if (RepoMappingLookups.ENABLED && latestMain != null) {
       commandLine.addDynamicString(
-          "@" + targetLabel.getDisplayForm(new TrackedRepositoryMapping(latestMain)));
+          "@"
+              + targetLabel.getDisplayForm(
+                  TrackedRepositoryMapping.shared(latestMain, RepositoryName.MAIN)));
     } else {
       commandLine.addPrefixedLabel(
           "@", targetLabel, ruleContext.getAnalysisEnvironment().getMainRepoMapping());

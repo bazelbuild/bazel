@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -27,13 +28,44 @@ import javax.annotation.Nullable;
  * them.
  */
 public final class TrackedRepositoryMapping extends RepositoryMapping {
+  private static final ConcurrentHashMap<RepositoryName, TrackedRepositoryMapping> sharedInstances =
+      new ConcurrentHashMap<>();
+
   private final RepositoryMapping snapshot;
+  private final Object mappingSource;
   private volatile ImmutableSet<String> covered = ImmutableSet.of();
   @Nullable private volatile ImmutableMap<String, RepositoryName> overrides;
 
-  public TrackedRepositoryMapping(RepositoryMapping snapshot) {
+  /**
+   * Creates a mapping that answers lookups not recorded by a scope from the latest mapping of its
+   * repo, or from {@code snapshot} if there is none.
+   *
+   * @param mappingSource identifies the entries of the mapping, which may be shared with other
+   *     repos
+   */
+  public TrackedRepositoryMapping(RepositoryMapping snapshot, Object mappingSource) {
     super(snapshot);
     this.snapshot = snapshot;
+    this.mappingSource = mappingSource;
+  }
+
+  /**
+   * Returns a mapping as created by the constructor that may be shared with other callers, so it
+   * must not be {@linkplain #cover covered}.
+   */
+  public static TrackedRepositoryMapping shared(RepositoryMapping snapshot, Object mappingSource) {
+    return sharedInstances.compute(
+        snapshot.contextRepo(),
+        (repo, existing) ->
+            existing != null
+                    && existing.snapshot == snapshot
+                    && existing.mappingSource.equals(mappingSource)
+                ? existing
+                : new TrackedRepositoryMapping(snapshot, mappingSource));
+  }
+
+  public Object mappingSource() {
+    return mappingSource;
   }
 
   /** Returns the mapping that lookups which aren't recorded are answered from. */

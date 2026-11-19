@@ -1045,8 +1045,8 @@ public abstract class PackageFunction implements SkyFunction {
       RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
       if (moduleInfo.repoExists() && latest != null && latestMain != null) {
         return new RepoMappingInputs(
-            new TrackedRepositoryMapping(latest),
-            new TrackedRepositoryMapping(latestMain),
+            TrackedRepositoryMapping.shared(latest, moduleInfo.mappingSource()),
+            TrackedRepositoryMapping.shared(latestMain, RepositoryName.MAIN),
             moduleInfo.associatedModuleName(),
             moduleInfo.associatedModuleVersion());
       }

@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesValue;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingEntryValue.Forward;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingEntryValue.ForwardKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingEntryValue.Inverse;
@@ -24,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingEntryValue.Module
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** {@link SkyFunction} for {@link RepositoryMappingEntryValue}s. */
@@ -33,29 +35,78 @@ public final class RepositoryMappingEntryFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    var key = (RepositoryMappingEntryValue.Key) skyKey;
-    var mappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(key.contextRepo()));
+    return switch ((RepositoryMappingEntryValue.Key) skyKey) {
+      case ForwardKey forwardKey -> {
+        var mapping = getMapping(forwardKey.mappingSource(), env);
+        if (env.valuesMissing()) {
+          yield null;
+        }
+        yield mapping == null
+            ? Forward.REPO_NOT_FOUND
+            : Forward.of(Forward.payloadFor(mapping.entries(), forwardKey.apparentName()));
+      }
+      case InverseKey inverseKey -> {
+        var mapping = getMapping(inverseKey.mappingSource(), env);
+        if (env.valuesMissing()) {
+          yield null;
+        }
+        yield mapping == null
+            ? Inverse.NONE
+            : Inverse.of(mapping.getInverse(inverseKey.canonicalName()));
+      }
+      case ModuleInfoKey moduleInfoKey -> computeModuleInfo(moduleInfoKey.repo(), env);
+    };
+  }
+
+  /**
+   * Returns a mapping with the entries of the given source, or null if the source doesn't exist or
+   * values are missing.
+   */
+  @Nullable
+  private static RepositoryMapping getMapping(Object mappingSource, Environment env)
+      throws InterruptedException {
+    if (mappingSource instanceof RepositoryName repo) {
+      var mappingValue = (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repo));
+      return mappingValue == null ? null : mappingValue.repositoryMapping();
+    }
+    var entriesValue =
+        (ModuleExtensionRepoMappingEntriesValue) env.getValue((SkyKey) mappingSource);
+    if (entriesValue == null) {
+      return null;
+    }
+    // Lookups don't depend on the context repo.
+    return RepositoryMapping.createWithKnownEntriesHashCode(
+        entriesValue.entries(), entriesValue.entriesHashCode(), RepositoryName.MAIN);
+  }
+
+  @Nullable
+  private static ModuleInfo computeModuleInfo(RepositoryName repo, Environment env)
+      throws InterruptedException {
+    var mappingValue = (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repo));
     if (mappingValue == null) {
       return null;
     }
-    RepositoryMapping mapping = mappingValue.repositoryMapping();
-    return switch (key) {
-      case ForwardKey forwardKey ->
-          mapping == null
-              ? Forward.REPO_NOT_FOUND
-              : Forward.of(mapping.get(forwardKey.apparentName()));
-      case InverseKey inverseKey ->
-          Inverse.of(
-              mapping == null ? Optional.empty() : mapping.getInverse(inverseKey.canonicalName()));
-      case ModuleInfoKey unused ->
-          mapping == null
-              ? ModuleInfo.REPO_NOT_FOUND
-              : new ModuleInfo(
-                  true,
-                  mappingValue.associatedModuleName(),
-                  mappingValue.associatedModuleVersion(),
-                  mappingValue.moduleRepoName());
-    };
+    if (mappingValue.repositoryMapping() == null) {
+      return ModuleInfo.REPO_NOT_FOUND;
+    }
+    Object mappingSource = repo;
+    if (!repo.isMain() && !StarlarkBuiltinsValue.isBuiltinsRepo(repo)) {
+      var depGraph = (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+      if (depGraph == null) {
+        return null;
+      }
+      if (!depGraph.getCanonicalRepoNameLookup().containsKey(repo)) {
+        var extensionId = RepositoryMappingFunction.maybeGetModuleExtensionForRepo(repo, depGraph);
+        if (extensionId.isPresent()) {
+          mappingSource = ModuleExtensionRepoMappingEntriesValue.key(extensionId.get());
+        }
+      }
+    }
+    return new ModuleInfo(
+        true,
+        mappingValue.associatedModuleName(),
+        mappingValue.associatedModuleVersion(),
+        mappingValue.moduleRepoName(),
+        mappingSource);
   }
 }

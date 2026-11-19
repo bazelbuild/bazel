@@ -2200,6 +2200,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party/java/auto:auto_value",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",

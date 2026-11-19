@@ -45,7 +45,7 @@ public class BazelRuleAnalysisThreadContext extends StarlarkThreadContext {
       // Lookups are recorded by the configured target or aspect.
       RepositoryMapping latestMain = RepoMappingLookups.getLatest(RepositoryName.MAIN);
       if (latestMain != null) {
-        return new TrackedRepositoryMapping(latestMain);
+        return TrackedRepositoryMapping.shared(latestMain, RepositoryName.MAIN);
       }
     }
     return ruleContext.getAnalysisEnvironment().getMainRepoMapping();

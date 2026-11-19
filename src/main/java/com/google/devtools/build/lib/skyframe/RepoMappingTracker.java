@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepoMappingLookups;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TrackedRepositoryMapping;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingEntryValue.Forward;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Objects;
@@ -74,20 +75,20 @@ final class RepoMappingTracker implements RepoMappingLookups.Scope {
 
   @Override
   public RepositoryName get(TrackedRepositoryMapping mapping, String apparentName) {
-    var key = RepositoryMappingEntryValue.forwardKey(mapping.contextRepo(), apparentName);
-    var result = (RepositoryName) lookUp(key);
-    if (result == null) {
-      result = mapping.untracked().get(apparentName);
+    var key = RepositoryMappingEntryValue.forwardKey(mapping.mappingSource(), apparentName);
+    Object payload = lookUp(key);
+    if (payload == null) {
+      payload = Forward.payloadFor(mapping.untracked().entries(), apparentName);
     }
-    recorded.putIfAbsent(key, result);
-    return result;
+    recorded.putIfAbsent(key, payload);
+    return Forward.toRepositoryName(payload, apparentName, mapping.contextRepo());
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public Optional<String> getInverse(
       TrackedRepositoryMapping mapping, RepositoryName canonicalName) {
-    var key = RepositoryMappingEntryValue.inverseKey(mapping.contextRepo(), canonicalName);
+    var key = RepositoryMappingEntryValue.inverseKey(mapping.mappingSource(), canonicalName);
     var result = (Optional<String>) lookUp(key);
     if (result == null) {
       result = mapping.untracked().getInverse(canonicalName);
@@ -117,12 +118,15 @@ final class RepoMappingTracker implements RepoMappingLookups.Scope {
     return value.payload();
   }
 
-  /** Returns the apparent names looked up in the given repo in the current attempt. */
-  ImmutableSet<String> recordedForwardNames(RepositoryName repo) {
+  /**
+   * Returns the apparent names looked up in the entries of the given mapping source in the current
+   * attempt.
+   */
+  ImmutableSet<String> recordedForwardNames(Object mappingSource) {
     var names = ImmutableSet.<String>builder();
     for (var key : recorded.keySet()) {
       if (key instanceof RepositoryMappingEntryValue.ForwardKey forwardKey
-          && forwardKey.contextRepo().equals(repo)) {
+          && forwardKey.mappingSource().equals(mappingSource)) {
         names.add(forwardKey.apparentName());
       }
     }
