@@ -1,3 +1,19 @@
+## Release 7.7.3 (2026-11-19)
+
+```
+
+Release Notes:
+
+General:
++ Release 7.7.2 (2026-10-23)
++ Update the embedded JDK to 21.0.13.1. (#32791)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Xùdōng Yáng.
+```
+
 ## Release 8.9.0 (2026-11-19)
 
 ```
