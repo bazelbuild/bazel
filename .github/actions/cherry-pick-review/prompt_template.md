@@ -35,8 +35,8 @@ Key fields in this context:
 - `existing_inline_comments`: Existing inline review comments on the PR (including prior Gemini inline comments and author replies).
 - `pr_commits`: Commits included in the PR.
 - `pr_comments`: Existing top-level comments on the PR (check whether the author posted a comment explaining merge conflict resolutions or CI adaptations).
-- `mainline_commits`: Verified commit(s) on `master` that this PR cherry-picks, including:
-  - `sha`, `subject`, `author`, `date`, `matched_by`, `is_on_master`, `reverted_by_on_master`
+- `mainline_commits`: Candidate commit(s) resolved for this PR (check `is_on_master == true` to verify each commit is on `master`), including:
+  - `sha`, `subject`, `author`, `date`, `matched_by`, `is_on_master`, `reverted_by_on_master`, `files_modified`, `message_preview`
   - `patch_file`: Absolute path to `git show --stat -p <sha>` (`gemini-artifacts/pr/mainline/<sha>.patch`)
   - `applied_cleanly_on_base`: Whether `git cherry-pick --no-commit <sha>` onto `base_sha` succeeded without git merge conflicts
   - `conflicted_files`: Files that had git merge conflicts when cherry-picking `<sha>` onto `base_sha`
@@ -70,7 +70,7 @@ Release branches (`release-X.Y.Z`) only accept safe, backwards-compatible backpo
    - Every change in the PR must originate from one or more commits already merged into `master` (typically referenced via `(cherry picked from commit <sha>)`, `Commit https://github.com/bazelbuild/bazel/commit/<sha>`, or `PiperOrigin-RevId: <id>`).
    - A cherry-pick PR may legitimately contain **multiple cherry-picked commits** from `master` (for example, a primary fix plus a follow-up regression fix, or multiple related fixes), as well as release-branch-specific lockfile updates or CI/conflict fixup commits.
    - As long as the mainline commit SHA(s) are mentioned somewhere in the PR description or commit messages, no nit is needed. If the commit SHA(s) were not mentioned anywhere in the PR description or commit messages and had to be inferred via commit subject or PR title, treat the missing commit SHA reference as a non-blocking `🟢` nit in the summary — do **not** downgrade `"APPROVE"` when the mainline commit on `master` is verified.
-   - Do **not** allow standalone changes that were never merged to `master` (except release-branch-specific lockfile regeneration or documented `.bazelci/presubmit.yml` target exclusions needed to unblock release CI).
+   - Do **not** allow standalone changes that were never merged to `master` (except release-branch-specific lockfile regeneration, documented `.bazelci/presubmit.yml` target exclusions needed to unblock release CI, or maintainer-authored release-branch metadata PRs such as `.bazelversion` / `MODULE.bazel` version bumps or reverts of release-branch-only commits, which should use `"decision": "COMMENT"` with `🟠` so a maintainer verifies them).
    - If `has_reverted_mainline == true` (`reverted_by_on_master` is non-null), check why the commit was reverted or rolled back on `master`; block (`🔴` `REQUEST_CHANGES`) cherry-picking a commit whose active revert on `master` indicates a broken or abandoned change without its fixed reland commit.
 
 2. **No Breaking Changes, and No Large Features/Refactorings on Patch Releases (`🔴` Critical: Block / `REQUEST_CHANGES`):**
@@ -185,7 +185,7 @@ End your response with a single fenced ` ```json ` block matching the schema bel
 ```markdown
 ## 📋 Gemini Cherry-Pick Review Summary
 
-**Verdict:** [e.g., "✅ Approved: Clean cherry-pick of `184d012436` from `master`." or "✅ Approved: Faithful cherry-pick of `daefb1601f` with minimal conflict resolution for `release-8.9.0`." or "❌ Changes Requested: Cherry-picks a backwards-incompatible change (`RELNOTES[INC]`) into `release-8.9.0`." or "❌ Changes Requested: Includes unrelated changes in `SolibSymlinkAction.java` not present in mainline commit `269b988091`."]
+**Verdict:** [e.g., "✅ Approved: Clean cherry-pick of `184d012436` from `master`." or "✅ Approved: Faithful cherry-pick of `daefb1601f` with minimal conflict resolution for `release-8.9.0`." or "⚠️ Needs Maintainer Review: Broad release-branch adaptation or release-branch metadata update." or "❌ Changes Requested: Cherry-picks a backwards-incompatible change (`RELNOTES[INC]`) into `release-8.9.0`." or "❌ Changes Requested: Includes unrelated changes in `SolibSymlinkAction.java` not present in mainline commit `269b988091`."]
 
 [Salient highlights (ONLY include if there are blockers `🔴`/`🟠`, conflict/release-branch adaptations, or a `🟢` nit; OMIT completely for a 100% clean cherry-pick so only the Verdict line appears above `<details>`):
 - For blockers (`REQUEST_CHANGES` / `COMMENT`): 1-3 concise bullets stating what is wrong and what to fix.

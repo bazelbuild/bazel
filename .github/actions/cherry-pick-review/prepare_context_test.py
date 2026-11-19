@@ -51,6 +51,7 @@ class PrepareContextTest(unittest.TestCase):
         self._git("init", "-b", "master")
         self._git("config", "user.name", "Test User")
         self._git("config", "user.email", "test@example.com")
+        self._git("config", "commit.gpgsign", "false")
         (self.root / "src").mkdir()
         (self.root / "src" / "Foo.java").write_text(
             "class Foo {\n  int a() { return 1; }\n  int b() { return 2; }\n}\n",
@@ -301,6 +302,7 @@ class PrepareContextTest(unittest.TestCase):
         reviews = [
             {
                 "id": 1,
+                "user": {"login": "bazel-io"},
                 "state": "CHANGES_REQUESTED",
                 "commit_id": rev1_sha,
                 "submitted_at": "2026-11-12T20:00:00Z",
@@ -1052,6 +1054,162 @@ class PrepareContextTest(unittest.TestCase):
                 pr_author="other-user",
             )
         )
+        # Deleted/ghost accounts (user=None) must be rejected by is_authentic_gemini_review
+        self.assertFalse(
+            prepare_context.is_authentic_gemini_review(
+                {
+                    "state": "COMMENTED",
+                    "user": None,
+                    "author_association": "NONE",
+                    "body": "## 📋 Gemini Cherry-Pick Review Summary",
+                },
+                pr_author="other-user",
+            )
+        )
+
+    def test_git_reconciliation_multi_commit_merge_tree_and_real_bazel_provenance_formats(self):
+        # Diverge BUILD on master so M1 conflicts on BUILD while M1 and M2 both cleanly edit src/Foo.java
+        (self.root / "src" / "BUILD").write_text("java_library(name = 'base')\n", encoding="utf-8")
+        self._git("add", "src/BUILD")
+        self._git("commit", "-m", "Add src/BUILD")
+        self._git("branch", "-f", "release-8.9.0", "HEAD")
+        self.base_sha = self._git_out("rev-parse", "release-8.9.0")
+
+        (self.root / "src" / "BUILD").write_text("java_library(name = 'master_only_refactor')\n", encoding="utf-8")
+        self._git("add", "src/BUILD")
+        self._git("commit", "-m", "Refactor src/BUILD on master")
+
+        # M1 conflicts on src/BUILD and updates Foo.a
+        (self.root / "src" / "BUILD").write_text("java_library(name = 'm1_target')\n", encoding="utf-8")
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 100; }\n  int b() { return 2; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", "src/BUILD", "src/Foo.java")
+        self._git("commit", "-m", "Primary fix M1 (#801)")
+        m1_sha = self._git_out("rev-parse", "HEAD")
+
+        # M2 builds directly on M1 in Foo.java
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 101; }\n  int b() { return 20; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", "src/Foo.java")
+        self._git("commit", "-m", "Follow-up fix M2 (#802)")
+        m2_sha = self._git_out("rev-parse", "HEAD")
+
+        # Rolling-release changelog commit mentioning M1 as an indented note must NOT mark M1 as reverted
+        (self.root / "CHANGELOG.md").write_text("notes\n", encoding="utf-8")
+        self._git("add", "CHANGELOG.md")
+        self._git(
+            "commit",
+            "-m",
+            f"Release 11.0.0-pre.1\n\nCherry picks:\n\n   + deadbeef:\n     Automated rollback of commit {m1_sha}.",
+        )
+        self.assertIsNone(prepare_context.find_revert_on_master(m1_sha, "master"))
+
+        # PR branch resolves src/BUILD conflict and cleanly includes M1 + M2 in src/Foo.java
+        self._git("checkout", "-b", "pr-multi-merge-tree", "release-8.9.0")
+        (self.root / "src" / "BUILD").write_text("java_library(name = 'm1_target_890')\n", encoding="utf-8")
+        (self.root / "src" / "Foo.java").write_text(
+            "class Foo {\n  int a() { return 101; }\n  int b() { return 20; }\n}\n",
+            encoding="utf-8",
+        )
+        self._git("add", "src/BUILD", "src/Foo.java")
+        self._git("commit", "-m", "[8.9.0] Multi-commit cherry-pick")
+        pr_head = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        # Bare 40-char SHAs in bullet list (#31974 format), @bazel-io Commit trailer, and Backport of #num
+        found_bullets = prepare_context.find_mainline_commits(
+            pr_title="[8.9.0] Cherry-pick fixes",
+            pr_body=f"Cherry-picks:\n- {m1_sha}\n- {m2_sha}\n",
+            pr_commits=[{"sha": pr_head, "commit": {"message": "[8.9.0] Cherry-pick fixes"}}],
+            pr_comments=[],
+            pr_author="wyv",
+            mainline_ref="master",
+            base_sha=self.base_sha,
+        )
+        self.assertEqual([s for s, _ in found_bullets], [m1_sha, m2_sha])
+
+        found_backport_prose = prepare_context.find_mainline_commits(
+            pr_title="[8.9.0] Follow-up",
+            pr_body="Backport of #802 to release-8.9.0.",
+            pr_commits=[{"sha": pr_head, "commit": {"message": "[8.9.0] Follow-up"}}],
+            pr_comments=[],
+            pr_author="wyv",
+            mainline_ref="master",
+            base_sha=self.base_sha,
+        )
+        self.assertEqual([s for s, _ in found_backport_prose], [m2_sha])
+
+        # Verify reconcile_pr_files_with_git catches an uncached file missing from api_pr_files and backfills omitted patches
+        reconciled, truncated = prepare_context.reconcile_pr_files_with_git(
+            self.base_sha,
+            pr_head,
+            [{"filename": "src/BUILD", "status": "modified", "additions": 0, "deletions": 0, "patch": ""}],
+        )
+        self.assertFalse(truncated)
+        rec_by_name = {f["filename"]: f for f in reconciled}
+        self.assertIn("src/Foo.java", rec_by_name)
+        self.assertIn("return 101;", rec_by_name["src/Foo.java"]["patch"])
+        self.assertIn("m1_target_890", rec_by_name["src/BUILD"]["patch"])
+
+        stage_dir = self.root / "stage_mt"
+        _, hr, br, _, patches = prepare_context.stage_pr_and_base_files(
+            repo="bazelbuild/bazel",
+            base_sha=self.base_sha,
+            head_sha=pr_head,
+            pr_files=reconciled,
+            stage_dir=stage_dir,
+        )
+        _, comps, overall, _ = prepare_context.analyze_mainline_and_compare(
+            candidates=[(m1_sha, "bullet"), (m2_sha, "bullet")],
+            mainline_ref="master",
+            base_sha=self.base_sha,
+            pr_files=reconciled,
+            pr_patches_by_file=patches,
+            head_root_path=hr,
+            base_root_path=br,
+            head_sha=pr_head,
+            stage_dir=stage_dir,
+        )
+        by_path = {fc["path"]: fc["classification"] for fc in comps}
+        self.assertEqual(by_path["src/Foo.java"], "identical")
+        self.assertEqual(by_path["src/BUILD"], "adapted_with_conflict")
+        self.assertEqual(overall, "CONFLICT_RESOLVED")
+
+        # Prior review delta must detect binary payload swaps between pushes (unchanged=False)
+        self._git("checkout", "-b", "pr-bin-delta", "release-8.9.0")
+        (self.root / "src" / "asset.bin").write_bytes(b"\x00\x01\x02")
+        self._git("add", "src/asset.bin")
+        self._git("commit", "-m", "bin v1")
+        bin_v1 = self._git_out("rev-parse", "HEAD")
+        (self.root / "src" / "asset.bin").write_bytes(b"\x00\x09\x09")
+        self._git("add", "src/asset.bin")
+        self._git("commit", "-m", "bin v2")
+        bin_v2 = self._git_out("rev-parse", "HEAD")
+        self._git("checkout", "master")
+
+        _, _, bin_unchanged, _, _ = prepare_context.analyze_prior_review_delta(
+            pr_reviews=[
+                {
+                    "id": 50,
+                    "user": {"login": "bazel-io"},
+                    "state": "APPROVED",
+                    "commit_id": bin_v1,
+                    "submitted_at": "2026-11-18T00:00:00Z",
+                    "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ✅ Approved",
+                }
+            ],
+            pr_inline_comments=[],
+            base_ref="release-8.9.0",
+            base_sha=self.base_sha,
+            head_sha=bin_v2,
+            pr_patches_by_file={},
+            stage_dir=self.root / "stage_bin_delta",
+        )
+        self.assertFalse(bin_unchanged)
 
 
 if __name__ == "__main__":

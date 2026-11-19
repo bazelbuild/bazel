@@ -571,6 +571,95 @@ class PostReviewTest(unittest.TestCase):
             self.assertEqual(len(posted[-1]["comments"]), 1)
             self.assertEqual(posted[-1]["comments"][0]["path"], long_at_path)
 
+    def test_diff_hunk_validation_unsafe_path_fallback_and_maintainer_no_mainline_comment_cap(self):
+        posted = []
+
+        def fake_post(endpoint, payload):
+            posted.append(payload)
+            res = MagicMock()
+            res.returncode = 0
+            res.stdout = json.dumps({"html_url": "https://github.com/bazelbuild/bazel/pull/42#pullrequestreview-11"})
+            res.stderr = ""
+            return res
+
+        # 1) Diff-hunk validation keeps in-hunk comments inline while folding out-of-hunk comments and
+        # unsafe_path PR file comments into fallback_comments (instead of failing the whole batch with 422).
+        diff_file = self.root / "gemini-artifacts" / "diff.patch"
+        diff_file.write_text(
+            "diff --git a/src/Foo.java b/src/Foo.java\n"
+            "status: modified (+1/-1)\n"
+            "--- a/src/Foo.java\n"
+            "+++ b/src/Foo.java\n"
+            "@@ -10,3 +10,3 @@\n"
+            " class Foo {\n"
+            "-  int a() { return 1; }\n"
+            "+  int a() { return 2; }\n"
+            " }\n",
+            encoding="utf-8",
+        )
+        self._write_context(
+            pr_diff_path=str(diff_file),
+            overall_cherry_pick_classification="MODIFIED_OR_EXTRA_CHANGES",
+            pr_author="wyv",
+            pr_author_association="MEMBER",
+            changed_files=[
+                {"path": "src/Foo.java", "status": "modified"},
+                {"path": "-sneaky.sh", "status": "added", "unsafe_path": True},
+            ],
+        )
+        mixed_comments = {
+            "decision": "REQUEST_CHANGES",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ❌ Changes Requested",
+            "comments": [
+                {"path": "src/Foo.java", "line": 11, "side": "RIGHT", "body": "🔴 In-hunk comment."},
+                {"path": "src/Foo.java", "line": 999, "side": "RIGHT", "body": "🟡 Out-of-hunk comment."},
+                {"path": "-sneaky.sh", "line": 1, "side": "RIGHT", "body": "🔴 Unsafe filename added."},
+                {"path": "../../etc/passwd", "line": 1, "side": "RIGHT", "body": "🟡 Unrelated traversal."},
+            ],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(mixed_comments)}),
+            encoding="utf-8",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+
+        self.assertEqual(len(posted[-1]["comments"]), 1)
+        self.assertEqual(posted[-1]["comments"][0]["line"], 11)
+        self.assertIn("Out-of-hunk comment.", posted[-1]["body"])
+        self.assertIn("`-sneaky.sh`", posted[-1]["body"])
+        self.assertNotIn("passwd", posted[-1]["body"])
+
+        # 2) Maintainer release-branch PR with NO_MAINLINE_COMMIT (e.g. .bazelversion bump) caps APPROVE -> COMMENT
+        # instead of forcing REQUEST_CHANGES, whereas an external CONTRIBUTOR PR with NO_MAINLINE_COMMIT forces REQUEST_CHANGES.
+        approve_version_bump = {
+            "decision": "APPROVE",
+            "body": "## 📋 Gemini Cherry-Pick Review Summary\n\n**Verdict:** ✅ Approved: `.bazelversion` update.",
+            "comments": [],
+        }
+        (self.root / "gemini-artifacts" / "stdout.log").write_text(
+            json.dumps({"response": json.dumps(approve_version_bump)}),
+            encoding="utf-8",
+        )
+        self._write_context(
+            overall_cherry_pick_classification="NO_MAINLINE_COMMIT",
+            pr_author="wyv",
+            pr_author_association="MEMBER",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(posted[-1]["event"], "COMMENT")
+        self.assertIn("no matching mainline commit", posted[-1]["body"])
+
+        self._write_context(
+            overall_cherry_pick_classification="NO_MAINLINE_COMMIT",
+            pr_author="external-dev",
+            pr_author_association="CONTRIBUTOR",
+        )
+        with patch.object(post_review, "gh_api_post", side_effect=fake_post):
+            self.assertEqual(post_review.main(), 0)
+        self.assertEqual(posted[-1]["event"], "REQUEST_CHANGES")
+
 
 if __name__ == "__main__":
     unittest.main()

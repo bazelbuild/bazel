@@ -21,13 +21,21 @@ import re
 import subprocess
 import sys
 
-REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+from review_common import (
+    AUTOMATED_DECISION_PREFIX,
+    GEMINI_REVIEW_MARKER,
+    GUARDRAIL_BANNER_PREFIX,
+    REPO_RE,
+    SELF_REVIEW_REASON_SNIPPET,
+    SHA_RE,
+    TRUSTED_AUTHOR_ASSOCIATIONS,
+    is_safe_repo_rel_path,
+    sanitize_untrusted_str,
+)
+
 MAX_INLINE_COMMENTS = 6
 MAX_EXTERNAL_PATCH_RELEASE_LINES = 300
 ALLOWED_EVENTS = frozenset({"APPROVE", "COMMENT", "REQUEST_CHANGES"})
-TRUSTED_AUTHOR_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
-GEMINI_REVIEW_MARKER = "Gemini Cherry-Pick Review Summary"
 FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
 MARKDOWN_CODE_SPAN_RE = re.compile(
     r"((?:^|\n)[ \t]*`{3,}.*?\n[ \t]*`{3,}|(?:^|\n)[ \t]*~{3,}.*?\n[ \t]*~{3,}|`+[^`]*`+)",
@@ -45,24 +53,12 @@ STRUCTURED_BLOCKER_RE = re.compile(
     r"|(?:^|\n)\s*\|[^|\n]+\|\s*[`*_]*❌"
     r")"
 )
+HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
 def has_structured_blocker_in_body(body):
-    """Returns True if body contains a structured ❌ verdict or a line-leading 🔴 blocker item."""
-    if not isinstance(body, str) or not body:
-        return False
-    return bool(STRUCTURED_BLOCKER_RE.search(body))
-
-
-def gh_api_get(endpoint, paginate=False, slurp=False):
-    cmd = ["gh", "api"]
-    if paginate:
-        cmd.append("--paginate")
-    if slurp:
-        cmd.append("--slurp")
-    cmd.append(endpoint)
-    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return json.loads(res.stdout)
+    """Returns True if body contains a structured ❌ verdict, table ❌, or line-leading 🔴 blocker item."""
+    return bool(isinstance(body, str) and body and STRUCTURED_BLOCKER_RE.search(body))
 
 
 def gh_api_post(endpoint, payload):
@@ -72,6 +68,8 @@ def gh_api_post(endpoint, payload):
         input=json.dumps(payload),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
 
@@ -177,9 +175,8 @@ def print_cli_debug_logs(envelope, response_text):
             log_text = log_path.read_text(encoding="utf-8", errors="replace").strip()
             if log_text:
                 lines = log_text.splitlines()
-                tail = "\n".join(lines[-100:])
                 print(f"::group::{title}")
-                print(tail)
+                print("\n".join(lines[-100:]))
                 print("::endgroup::")
 
 
@@ -346,8 +343,6 @@ def extract_review_json(text):
                 continue
         return None
 
-    # 1. Prefer fenced ```json ... ``` blocks from last to first, requiring the JSON object to span
-    # the entire fenced block so inner JSON snippets quoted inside `body` cannot hijack parsing.
     for match in reversed(list(FENCED_JSON_BLOCK_RE.finditer(text))):
         block = match.group(2).strip()
         if block.startswith("{"):
@@ -355,10 +350,6 @@ def extract_review_json(text):
             if parsed is not None:
                 return parsed
 
-    # 2. Fallback for unfenced JSON responses (or fenced JSON whose string values contain raw fences):
-    # first try strict end-anchored parsing without quote repair, then outer-to-inner (left-to-right)
-    # quote repair preferring line-leading `{` so inner `{` snippets inside `body` cannot fuse with
-    # trailing fields.
     trimmed = re.sub(r"\s*(?:`{3,}|~{3,})\s*$", "", text)
     brace_indices = [idx for idx, ch in enumerate(trimmed) if ch == "{"]
     for idx in brace_indices:
@@ -393,21 +384,58 @@ def normalize_comment_path(raw_path, workspace_root=""):
         if path.startswith(ws_prefix):
             path = path[len(ws_prefix) :]
     path = path.lstrip("/")
-    if (
-        not path
-        or len(path) > 1024
-        or "\\" in path
-        or "\x00" in path
-        or "\r" in path
-        or "\n" in path
-        or path.endswith("/")
-        or path.startswith(("-", ":"))
-    ):
-        return ""
-    parts = path.split("/")
-    if any(not p or p in (".", "..", ".git") for p in parts):
-        return ""
-    return path
+    return path if is_safe_repo_rel_path(path) else ""
+
+
+def parse_diff_hunk_lines(diff_path_str):
+    """Parses `pr_diff_path` into `{path: {(side, line_no): hunk_id}}`, or None if unavailable."""
+    if not diff_path_str:
+        return None
+    diff_path = pathlib.Path(diff_path_str)
+    if not diff_path.is_file():
+        return None
+    result = {}
+    current_file = None
+    in_hunk = False
+    hunk_id = 0
+    old_ln = 0
+    new_ln = 0
+    for line in diff_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("diff --git "):
+            current_file = None
+            in_hunk = False
+            continue
+        if not in_hunk and line.startswith("+++ b/"):
+            candidate = line[len("+++ b/") :]
+            if is_safe_repo_rel_path(candidate):
+                current_file = candidate
+                result.setdefault(current_file, {})
+            continue
+        m_hunk = HUNK_HEADER_RE.match(line)
+        if m_hunk and current_file is not None:
+            hunk_id += 1
+            old_ln = int(m_hunk.group(1))
+            new_ln = int(m_hunk.group(2))
+            in_hunk = True
+            continue
+        if in_hunk and current_file is not None:
+            f_map = result[current_file]
+            if line.startswith("+"):
+                f_map[("RIGHT", new_ln)] = hunk_id
+                new_ln += 1
+            elif line.startswith("-"):
+                f_map[("LEFT", old_ln)] = hunk_id
+                old_ln += 1
+            elif line.startswith(" "):
+                f_map[("LEFT", old_ln)] = hunk_id
+                f_map[("RIGHT", new_ln)] = hunk_id
+                old_ln += 1
+                new_ln += 1
+            elif line.startswith("\\"):
+                continue
+            else:
+                in_hunk = False
+    return result
 
 
 def coerce_positive_int(val):
@@ -421,7 +449,7 @@ def coerce_positive_int(val):
 
 
 def format_fallback_comment(comment):
-    path = normalize_comment_path(comment.get("path")) or "General"
+    path = comment.get("display_path") or normalize_comment_path(comment.get("path")) or "General"
     line = comment.get("line")
     start_line = comment.get("start_line")
     loc = f"`{path}`"
@@ -460,11 +488,11 @@ def effective_last_review_state(last_review):
     if state != "COMMENTED":
         return state
     body = str(last_review.get("body") or "").lstrip()
-    if body.startswith("> **Automated Review Decision: `REQUEST_CHANGES`**"):
+    if body.startswith(f"{AUTOMATED_DECISION_PREFIX} `REQUEST_CHANGES`**"):
         return "CHANGES_REQUESTED"
     if (
-        body.startswith("> **Automated Review Decision: `APPROVE`**")
-        and "reviewer token matches the PR author" in body[:250]
+        body.startswith(f"{AUTOMATED_DECISION_PREFIX} `APPROVE`**")
+        and SELF_REVIEW_REASON_SNIPPET in body[:250]
     ):
         return "APPROVED"
     return state
@@ -513,29 +541,98 @@ def main():
     body = neutralize_at_mentions(strip_runner_file_links(str(review_data.get("body") or "").strip()))
     raw_comments = review_data.get("comments") or []
 
+    changed_files_ctx = context.get("changed_files") or []
+    pr_filenames = {
+        item.get("path")
+        for item in changed_files_ctx
+        if isinstance(item, dict) and isinstance(item.get("path"), str) and not item.get("unsafe_path")
+    }
+    unsafe_pr_paths = {
+        item.get("path")
+        for item in list(changed_files_ctx) + list(context.get("file_comparisons") or [])
+        if isinstance(item, dict) and item.get("unsafe_path") and isinstance(item.get("path"), str)
+    }
+    diff_hunk_lines = parse_diff_hunk_lines(str(context.get("pr_diff_path") or "").strip())
+
+    valid_inline_comments = []
+    fallback_comments = []
     has_critical_comment = False
+
     if isinstance(raw_comments, list):
         for item in raw_comments:
             if not isinstance(item, dict):
                 continue
-            c_preview = str(item.get("body") or "").strip()
-            if c_preview.lstrip(" \t`*_").startswith("🔴"):
+            c_body = neutralize_at_mentions(strip_runner_file_links(str(item.get("body") or "").strip()))
+            if not c_body:
+                continue
+            if c_body.lstrip(" \t`*_").startswith("🔴"):
                 has_critical_comment = True
-                break
+
+            raw_path_str = str(item.get("path") or "").strip()
+            path = normalize_comment_path(raw_path_str, workspace_root=workspace_root)
+            line = coerce_positive_int(item.get("line"))
+            start_line = coerce_positive_int(item.get("start_line"))
+            side = str(item.get("side") or "RIGHT").strip().upper()
+            if side not in ("LEFT", "RIGHT"):
+                side = "RIGHT"
+            start_side = str(item.get("start_side") or side).strip().upper()
+            if start_side not in ("LEFT", "RIGHT"):
+                start_side = side
+
+            if raw_path_str and not path:
+                sanitized_unsafe = sanitize_untrusted_str(raw_path_str, max_len=200)
+                if sanitized_unsafe in unsafe_pr_paths or sanitize_untrusted_str(raw_path_str, max_len=1024) in unsafe_pr_paths:
+                    fallback_comments.append(
+                        {"display_path": sanitized_unsafe, "line": line, "start_line": None, "body": c_body}
+                    )
+                continue
+
+            valid_line = line is not None
+            valid_start = start_line is not None and valid_line and start_line < line
+            hunk_ok = True
+            if valid_line and diff_hunk_lines is not None:
+                f_hunks = diff_hunk_lines.get(path)
+                end_hunk = f_hunks.get((side, line)) if f_hunks is not None else None
+                if end_hunk is None:
+                    hunk_ok = False
+                elif valid_start and f_hunks.get((start_side, start_line)) != end_hunk:
+                    valid_start = False
+
+            if path and path in pr_filenames and valid_line and hunk_ok and len(valid_inline_comments) < MAX_INLINE_COMMENTS:
+                comment_obj = {
+                    "path": path,
+                    "line": line,
+                    "side": side,
+                    "body": c_body,
+                }
+                if valid_start:
+                    comment_obj["start_line"] = start_line
+                    comment_obj["start_side"] = start_side
+                valid_inline_comments.append(comment_obj)
+            else:
+                fallback_comments.append(
+                    {
+                        "path": path,
+                        "line": line if valid_line else None,
+                        "start_line": start_line if valid_start else None,
+                        "body": c_body,
+                    }
+                )
+
+    raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
+    author_assoc = str(context.get("pr_author_association") or "").strip().upper()
+    is_trusted_author = raw_author == "bazel-io" or author_assoc in TRUSTED_AUTHOR_ASSOCIATIONS
 
     no_mainline = context.get("overall_cherry_pick_classification") == "NO_MAINLINE_COMMIT"
+    force_no_mainline_block = no_mainline and not is_trusted_author
     body_has_blocker = has_structured_blocker_in_body(body)
-    would_request_changes = decision == "REQUEST_CHANGES" or no_mainline or has_critical_comment or body_has_blocker
+    would_request_changes = (
+        decision == "REQUEST_CHANGES" or force_no_mainline_block or has_critical_comment or body_has_blocker
+    )
 
-    has_lockfile_changes = bool(context.get("has_lockfile_changes")) or any(
-        isinstance(fc, dict) and fc.get("classification") == "lockfile_regenerated"
-        for fc in (context.get("file_comparisons") or [])
-    )
+    has_lockfile_changes = bool(context.get("has_lockfile_changes"))
     has_breaking_signals = bool(context.get("breaking_change_signals"))
-    has_reverted_mainline = bool(context.get("has_reverted_mainline")) or any(
-        isinstance(mc, dict) and bool(mc.get("reverted_by_on_master"))
-        for mc in (context.get("mainline_commits") or [])
-    )
+    has_reverted_mainline = bool(context.get("has_reverted_mainline"))
     oversized_patch_backport = (
         bool(context.get("is_patch_release"))
         and int(context.get("non_lockfile_line_changes") or 0) > MAX_EXTERNAL_PATCH_RELEASE_LINES
@@ -548,18 +645,16 @@ def main():
         and not has_reverted_mainline
         and not oversized_patch_backport
     )
-    raw_author = str(context.get("pr_author") or "").replace("\u200b", "").strip().lower()
-    author_assoc = str(context.get("pr_author_association") or "").strip().upper()
-    is_trusted_author = raw_author == "bazel-io" or author_assoc in TRUSTED_AUTHOR_ASSOCIATIONS
-    can_approve = is_clean_unflagged or is_trusted_author
+    can_approve = not no_mainline and (is_clean_unflagged or is_trusted_author)
 
-    # Guardrail: always post on initial or manual reviews, when a new blocker has not yet been posted as
-    # CHANGES_REQUESTED, or when a previously APPROVED PR had diff changes that no longer qualify for APPROVE.
     if not should_post:
-        stale_approval_after_diff_change = (
-            last_state == "APPROVED"
-            and not patch_unchanged
-            and (decision != "APPROVE" or would_request_changes or not can_approve)
+        had_active_approval = last_state == "APPROVED" or bool(context.get("has_prior_active_approval"))
+        had_approve_banner = str(last_review.get("body") or "").lstrip().startswith(
+            f"{AUTOMATED_DECISION_PREFIX} `APPROVE`**"
+        )
+        stale_approval_after_diff_change = not patch_unchanged and (
+            (had_active_approval and (decision != "APPROVE" or would_request_changes or not can_approve))
+            or (had_approve_banner and (decision != "APPROVE" or would_request_changes))
         )
         unposted_blocker = would_request_changes and last_state != "CHANGES_REQUESTED"
         if (
@@ -587,86 +682,16 @@ def main():
         )
         return 0
 
-    changed_files_ctx = context.get("changed_files")
-    if isinstance(changed_files_ctx, list):
-        pr_filenames = {
-            item.get("path")
-            for item in changed_files_ctx
-            if isinstance(item, dict) and isinstance(item.get("path"), str) and not item.get("unsafe_path")
-        }
-    else:
-        pages = gh_api_get(
-            f"repos/{repo}/pulls/{pr_number}/files?per_page=100",
-            paginate=True,
-            slurp=True,
-        )
-        pr_filenames = {
-            item.get("filename")
-            for page in pages
-            for item in page
-            if isinstance(item, dict) and isinstance(item.get("filename"), str)
-        }
-
-    valid_inline_comments = []
-    fallback_comments = []
-
-    if isinstance(raw_comments, list):
-        for item in raw_comments:
-            if not isinstance(item, dict):
-                continue
-            raw_path_str = str(item.get("path") or "").strip()
-            path = normalize_comment_path(raw_path_str, workspace_root=workspace_root)
-            c_body = neutralize_at_mentions(strip_runner_file_links(str(item.get("body") or "").strip()))
-            line = coerce_positive_int(item.get("line"))
-            start_line = coerce_positive_int(item.get("start_line"))
-            side = str(item.get("side") or "RIGHT").strip().upper()
-            if side not in ("LEFT", "RIGHT"):
-                side = "RIGHT"
-
-            if not c_body:
-                continue
-
-            if c_body.lstrip(" \t`*_").startswith("🔴"):
-                has_critical_comment = True
-
-            if raw_path_str and not path:
-                continue
-
-            valid_line = line is not None
-            valid_start = start_line is not None and valid_line and start_line < line
-
-            if path and path in pr_filenames and valid_line and len(valid_inline_comments) < MAX_INLINE_COMMENTS:
-                comment_obj = {
-                    "path": path,
-                    "line": line,
-                    "side": side,
-                    "body": c_body,
-                }
-                if valid_start:
-                    comment_obj["start_line"] = start_line
-                    start_side = str(item.get("start_side") or side).strip().upper()
-                    comment_obj["start_side"] = start_side if start_side in ("LEFT", "RIGHT") else side
-                valid_inline_comments.append(comment_obj)
-            else:
-                fallback_comments.append(
-                    {
-                        "path": path,
-                        "line": line if valid_line else None,
-                        "start_line": start_line if valid_start else None,
-                        "body": c_body,
-                    }
-                )
-
     if body and not (
         body.startswith(f"## 📋 {GEMINI_REVIEW_MARKER}") or body.startswith(f"## {GEMINI_REVIEW_MARKER}")
     ):
         body = f"## 📋 {GEMINI_REVIEW_MARKER}\n\n{body}"
 
-    # Deterministic safety guardrails: enforce REQUEST_CHANGES whenever no mainline commit was found
+    # Safety guardrail: enforce REQUEST_CHANGES when an external PR has no mainline commit on master
     # or when a structured critical finding (🔴 / ❌) was reported in inline comments or the summary body.
     if decision != "REQUEST_CHANGES":
-        if no_mainline or has_critical_comment or body_has_blocker:
-            if no_mainline:
+        if force_no_mainline_block or has_critical_comment or body_has_blocker:
+            if force_no_mainline_block:
                 reason = "no verified mainline commit on `master` was matched"
             elif has_critical_comment:
                 reason = "a critical (`🔴`) inline comment was included"
@@ -675,39 +700,43 @@ def main():
             print(f"Safety guardrail: overriding {decision} to REQUEST_CHANGES because {reason}.")
             decision = "REQUEST_CHANGES"
             body = re.sub(
-                r"\*\*Verdict:\*\*\s*[`*_]*(?:✅|💬)[^\n]*",
+                r"\*\*Verdict:\*\*\s*[`*_]*(?:✅|💬|⚠️)[^\n]*",
                 "**Verdict:** ❌ Changes Requested",
                 body,
             )
-            guardrail_note = (
-                f"> ⚠️ **Automated Guardrail:** Review decision set to `REQUEST_CHANGES` because {reason}."
-            )
+            guardrail_note = f"{GUARDRAIL_BANNER_PREFIX} Review decision set to `REQUEST_CHANGES` because {reason}."
             body = f"{body.rstrip()}\n\n{guardrail_note}" if body else guardrail_note
 
-    # Privilege guardrail: only allow formal GitHub APPROVE when the cherry-pick is deterministically
-    # CLEAN on master (with no non-identical lockfile edits, breaking-change signals, reverted mainline
-    # commits, or oversized patch-release diffs) or authored by @bazel-io / a maintainer or collaborator.
-    if decision == "APPROVE":
-        if not can_approve:
-            print(
-                "Privilege guardrail: capping APPROVE to COMMENT for external PR "
-                f"(classification={context.get('overall_cherry_pick_classification')!r}, "
-                f"has_lockfile_changes={has_lockfile_changes}, "
-                f"has_breaking_signals={has_breaking_signals}, "
-                f"has_reverted_mainline={has_reverted_mainline}, "
-                f"oversized_patch_backport={oversized_patch_backport}, "
-                f"author_association={author_assoc!r})."
-            )
-            decision = "COMMENT"
+    # Privilege / provenance guardrail: cap APPROVE to COMMENT when no mainline commit was matched
+    # (e.g. maintainer release-branch version bumps) or when an external PR is non-CLEAN / flagged.
+    if decision == "APPROVE" and not can_approve:
+        print(
+            "Privilege guardrail: capping APPROVE to COMMENT "
+            f"(classification={context.get('overall_cherry_pick_classification')!r}, "
+            f"no_mainline={no_mainline}, "
+            f"has_lockfile_changes={has_lockfile_changes}, "
+            f"has_breaking_signals={has_breaking_signals}, "
+            f"has_reverted_mainline={has_reverted_mainline}, "
+            f"oversized_patch_backport={oversized_patch_backport}, "
+            f"author_association={author_assoc!r})."
+        )
+        decision = "COMMENT"
+        if no_mainline:
             note = (
-                "> **Automated Review Decision: `APPROVE`** "
+                f"{AUTOMATED_DECISION_PREFIX} `APPROVE`** "
+                "*(posted as `COMMENT` because no matching mainline commit on `master` was found; "
+                "please verify this release-branch change before merging)*"
+            )
+        else:
+            note = (
+                f"{AUTOMATED_DECISION_PREFIX} `APPROVE`** "
                 "*(posted as `COMMENT` so a maintainer can verify any adaptations, lockfile updates, scope, or API changes before merging)*"
             )
-            body = f"{note}\n\n{body}" if body else note
+        body = f"{note}\n\n{body}" if body else note
 
     final_body = append_fallback_comments(body, fallback_comments)
     if not final_body:
-        final_body = f"## 📋 Gemini Cherry-Pick Review Summary\n\n**Decision:** `{decision}`"
+        final_body = f"## 📋 {GEMINI_REVIEW_MARKER}\n\n**Decision:** `{decision}`"
 
     payload = {
         "commit_id": head_sha,
@@ -738,8 +767,6 @@ def main():
     err_output = f"{res.stderr}\n{res.stdout}".strip()
     is_self_review_err = "own pull request" in err_output.lower()
 
-    # Fallback 1: If GitHub rejected inline comment line numbers (HTTP 422, not self-review),
-    # fold them into the top-level body.
     if valid_inline_comments and ("422" in err_output or "Unprocessable" in err_output) and not is_self_review_err:
         print(
             f"Warning: GitHub rejected inline comment position(s) ({err_output}); "
@@ -768,17 +795,14 @@ def main():
             return 0
         err_output = f"{res.stderr}\n{res.stdout}".strip()
 
-    # Fallback 2: If GitHub rejected APPROVE or REQUEST_CHANGES because the reviewer token
-    # belongs to the PR author (e.g. @bazel-io reviewing a PR authored by @bazel-io),
-    # directly fall back to event="COMMENT".
     if decision in ("APPROVE", "REQUEST_CHANGES") and ("422" in err_output or "Unprocessable" in err_output):
         print(
             f"Warning: GitHub rejected event={decision} ({err_output}); "
             "falling back directly to event=COMMENT."
         )
         comment_body = (
-            f"> **Automated Review Decision: `{decision}`** "
-            "*(posted as `COMMENT` because the reviewer token matches the PR author)*\n\n"
+            f"{AUTOMATED_DECISION_PREFIX} `{decision}`** "
+            f"*(posted as `COMMENT` because the {SELF_REVIEW_REASON_SNIPPET})*\n\n"
             f"{final_body}"
         )
         comment_payload = {
