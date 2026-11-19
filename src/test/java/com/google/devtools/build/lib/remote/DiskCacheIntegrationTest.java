@@ -579,7 +579,7 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     while (!dirs.isEmpty()) {
       Path dir = dirs.remove();
       for (Path child : dir.getDirectoryEntries()) {
-        child.setLastModifiedTime(0);
+        child.setLastModifiedTimeNanos(0);
         if (child.isDirectory()) {
           dirs.add(child);
         }
@@ -603,8 +603,8 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
         .that(path.exists())
         .isTrue();
     assertWithMessage("disk cache entry %s/%s is too old", store, digest.getHash())
-        .that(path.getLastModifiedTime())
-        .isGreaterThan(Instant.now().minusSeconds(60).toEpochMilli());
+        .that(Instant.ofEpochSecond(0, path.getLastModifiedTimeNanos()))
+        .isGreaterThan(Instant.now().minusSeconds(60));
   }
 
   private Path getDiskCacheEntryPath(Store store, Digest digest) throws IOException {
