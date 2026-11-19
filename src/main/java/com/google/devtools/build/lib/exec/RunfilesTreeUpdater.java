@@ -17,12 +17,15 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.HashingOutputStream;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
-import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -30,10 +33,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -111,7 +115,12 @@ public class RunfilesTreeUpdater {
         execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
     // Without an action that writes the input manifest, its path next to the runfiles directory is
     // not reserved, so the manifest is generated here and only written into the runfiles directory.
-    byte[] generatedManifest = tree.isBuildRunfileManifests() ? null : generateManifest(tree);
+    SortedMap<PathFragment, Artifact> generatedMapping =
+        tree.isBuildRunfileManifests() ? null : tree.getMapping();
+    DeterministicWriter generatedManifest =
+        generatedMapping == null
+            ? null
+            : out -> SourceManifestAction.writeSourceSymlinksManifest(out, generatedMapping);
     FileStatus inputManifestStat = null;
     if (generatedManifest == null) {
       inputManifestStat = inputManifest.statIfFound();
@@ -126,11 +135,12 @@ public class RunfilesTreeUpdater {
       // implying the symlinks exist and are already up to date. If the output manifest is a
       // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
       // an up-to-date check.
-      // On Windows, where symlinks may be silently replaced by copies, a previous run in SKIP mode
-      // could have resulted in an output manifest that is an identical copy of the input manifest,
-      // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
-      // runfiles directory all the time. Instead, check for the presence of the first runfile in
-      // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
+      // A previous run in SKIP mode can leave a regular file with the same content behind: a
+      // generated manifest is always written as one, and on Windows symlinks may be silently
+      // replaced by copies. We must not treat that as up to date, but we also don't want to
+      // unnecessarily rebuild the runfiles directory all the time. Instead, check for the presence
+      // of the first runfile. If it is present, we can be certain that the previous mode wasn't
+      // SKIP.
       if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
         // Not following symlinks means that the stat describes the output manifest itself, which is
         // only the file we digest below if it isn't a symbolic link - which is checked first.
@@ -141,16 +151,12 @@ public class RunfilesTreeUpdater {
                 DigestUtils.getDigestWithManualFallback(
                     outputManifest, xattrProvider, outputManifestStat),
                 generatedManifest != null
-                    ? outputManifest
-                        .getFileSystem()
-                        .getDigestFunction()
-                        .getHashFunction()
-                        .hashBytes(generatedManifest)
-                        .asBytes()
+                    ? digest(
+                        generatedManifest,
+                        outputManifest.getFileSystem().getDigestFunction().getHashFunction())
                     : DigestUtils.getDigestWithManualFallback(
                         inputManifest, xattrProvider, inputManifestStat))
-            && (OS.getCurrent() != OS.WINDOWS
-                || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
+            && isRunfilesDirectoryPopulated(runfilesDir, outputManifest, tree)) {
           return;
         }
       }
@@ -166,7 +172,10 @@ public class RunfilesTreeUpdater {
 
     switch (tree.getSymlinksMode()) {
       case CREATE -> {
-        helper.createRunfilesSymlinks(tree.getMapping());
+        // An interrupted sync must not leave behind a manifest that vouches for a half-updated tree.
+        helper.deleteOutputManifest();
+        helper.createRunfilesSymlinks(
+            generatedMapping != null ? generatedMapping : tree.getMapping());
         if (generatedManifest != null) {
           helper.writeManifest(generatedManifest);
         } else {
@@ -183,21 +192,32 @@ public class RunfilesTreeUpdater {
     }
   }
 
-  /** Returns the manifest a source manifest action would have written for {@code tree}. */
-  private static byte[] generateManifest(RunfilesTree tree) throws IOException {
-    ByteArrayOutputStream manifest = new ByteArrayOutputStream();
-    SourceManifestAction.writeSourceSymlinksManifest(manifest, tree.getMapping());
-    return manifest.toByteArray();
+  private static byte[] digest(DeterministicWriter manifest, HashFunction hashFunction)
+      throws IOException {
+    try (HashingOutputStream out =
+        new HashingOutputStream(hashFunction, OutputStream.nullOutputStream())) {
+      manifest.writeTo(out);
+      return out.hash().asBytes();
+    }
   }
 
-  private static boolean isRunfilesDirectoryPopulated(Path runfilesDir, Path outputManifest) {
-    String relativeRunfilePath;
+  private static boolean isRunfilesDirectoryPopulated(
+      Path runfilesDir, Path outputManifest, RunfilesTree tree) {
     try (BufferedReader reader =
         new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
-      // If it is created at all, the manifest always contains at least one line.
-      relativeRunfilePath = Splitter.on(' ').splitToList(reader.readLine()).get(0);
+      String firstLine = reader.readLine();
+      if (firstLine == null) {
+        // An empty tree looks the same in both modes.
+        return true;
+      }
+      // An escaped entry starts with a space. The manifest matched, so the mapping has the same
+      // first entry, unescaped.
+      PathFragment firstRunfile =
+          firstLine.startsWith(" ")
+              ? tree.getMapping().firstKey()
+              : PathFragment.create(Splitter.on(' ').splitToList(firstLine).get(0));
       // The runfile could be a dangling symlink.
-      return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
+      return runfilesDir.getRelative(firstRunfile).exists(Symlinks.NOFOLLOW);
     } catch (IOException e) {
       // Instead of failing outright, just assume the runfiles directory is not populated.
       return false;

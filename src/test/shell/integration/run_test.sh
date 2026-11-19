@@ -184,7 +184,6 @@ EOF
     || fail "${PRODUCT_NAME} run failed."
   assert_contains "Hello, kitty" output || fail "Output is not OK."
 
-  # The tree is materialized from a manifest written on demand, and kept up to date with it.
   rm cc/hello_kitty.txt
   cat > cc/pussycat.txt <<EOF
 A pussycat.
