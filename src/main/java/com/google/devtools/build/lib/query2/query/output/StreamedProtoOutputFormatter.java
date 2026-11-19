@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -22,17 +23,18 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
-import javax.annotation.Nullable;
 
 /**
  * An output formatter that outputs a protocol buffer representation of a query result and outputs
@@ -61,14 +63,22 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter
   }
 
   @Override
-  public void writeHashedTarget(
-      Target target, LabelPrinter labelPrinter, @Nullable String digest, OutputStream out)
+  public void writeHashedTargets(
+      Iterable<Target> targets, LabelPrinter labelPrinter, Map<Label, String> hashes, OutputStream out)
       throws IOException, InterruptedException {
-    Build.Target record = toTargetProtoBuffer(target, labelPrinter);
-    if (digest != null) {
-      record = record.toBuilder().setTransitiveHash(ByteString.fromHex(digest)).build();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(out);
+    for (Target target : targets) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Build.Target record = toTargetProtoBuffer(target, labelPrinter);
+      String digest = hashes.get(target.getLabel());
+      if (digest != null) {
+        record = record.toBuilder().setTransitiveHash(ByteString.fromHex(digest)).build();
+      }
+      codedOut.writeMessageNoTag(record);
     }
-    record.writeDelimitedTo(out);
+    codedOut.flush();
   }
 
   @Override
