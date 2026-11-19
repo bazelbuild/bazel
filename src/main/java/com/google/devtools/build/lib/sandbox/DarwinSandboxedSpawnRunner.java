@@ -187,8 +187,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // the normal execroot does.
     String workspaceName = execRoot.getBaseName();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
-    sandboxExecRoot.getParentDirectory().createDirectory();
-    sandboxExecRoot.createDirectory();
 
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
