@@ -1726,5 +1726,123 @@ EOF
   expect_not_log 'hello-from-stdout'
 }
 
+function test_path_stripping_test_remote() {
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    data = ["data.txt"],
+)
+EOF
+  echo "Hello from data.txt" > pkg/data.txt
+  cat > pkg/test.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "TEST_SRCDIR=$TEST_SRCDIR"
+echo "XML_OUTPUT_FILE=$XML_OUTPUT_FILE"
+echo "TEST_UNDECLARED_OUTPUTS_DIR=$TEST_UNDECLARED_OUTPUTS_DIR"
+cat "$TEST_SRCDIR/_main/pkg/data.txt"
+echo "undeclared output" > "$TEST_UNDECLARED_OUTPUTS_DIR/out.txt"
+echo '<?xml version="1.0" encoding="UTF-8"?><testsuites></testsuites>' > "$XML_OUTPUT_FILE"
+EOF
+  chmod +x pkg/test.sh
+
+  bazel test -c fastbuild \
+    --experimental_output_paths=strip \
+    --modify_execution_info=TestRunner=+supports-path-mapping \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --nozip_undeclared_test_outputs \
+    --test_output=all \
+    //pkg:test &> $TEST_log || fail "test failed unexpectedly"
+  expect_log 'TEST_SRCDIR=.*/bazel-out/cfg/bin/pkg/test.runfiles$'
+  expect_log 'XML_OUTPUT_FILE=.*/bazel-out/cfg/testlogs/pkg/test/test.xml$'
+  expect_log 'TEST_UNDECLARED_OUTPUTS_DIR=.*/bazel-out/cfg/testlogs/pkg/test/test.outputs$'
+  expect_log 'Hello from data.txt'
+  expect_log '1 remote'
+  expect_not_log 'remote cache hit'
+  assert_contains 'undeclared output' bazel-testlogs/pkg/test/test.outputs/out.txt
+  assert_contains '<testsuites>' bazel-testlogs/pkg/test/test.xml
+
+  bazel test -c opt \
+    --experimental_output_paths=strip \
+    --modify_execution_info=TestRunner=+supports-path-mapping \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --nozip_undeclared_test_outputs \
+    --test_output=all \
+    //pkg:test &> $TEST_log || fail "test failed unexpectedly"
+  expect_log 'Hello from data.txt'
+  expect_log '1 remote cache hit'
+  # Do not match "1 remote cache hit", which is expected.
+  expect_not_log '[0-9] remote[^ ]'
+  assert_contains 'undeclared output' bazel-testlogs/pkg/test/test.outputs/out.txt
+  assert_contains '<testsuites>' bazel-testlogs/pkg/test/test.xml
+}
+
+function test_path_stripping_test_sandboxed() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_test_sandboxed on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    data = ["data.txt"],
+)
+EOF
+  echo "Hello from data.txt" > pkg/data.txt
+  cat > pkg/test.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "TEST_SRCDIR=$TEST_SRCDIR"
+echo "XML_OUTPUT_FILE=$XML_OUTPUT_FILE"
+cat "$TEST_SRCDIR/_main/pkg/data.txt"
+touch "$TEST_TMPDIR/file"
+echo "undeclared output" > "$TEST_UNDECLARED_OUTPUTS_DIR/out.txt"
+EOF
+  chmod +x pkg/test.sh
+
+  cache_dir=$(mktemp -d)
+
+  # Validate that the sandboxed strategy is preferred over the local strategy
+  # with path mapping.
+  bazel test -c fastbuild \
+    --disk_cache=$cache_dir \
+    --experimental_output_paths=strip \
+    --modify_execution_info=TestRunner=+supports-path-mapping \
+    --strategy=TestRunner=local,sandboxed \
+    --nozip_undeclared_test_outputs \
+    --test_output=all \
+    //pkg:test &> $TEST_log || fail "test failed unexpectedly"
+  expect_log 'TEST_SRCDIR=.*/bazel-out/cfg/bin/pkg/test.runfiles$'
+  expect_log 'XML_OUTPUT_FILE=.*/bazel-out/cfg/testlogs/pkg/test/test.xml$'
+  expect_log 'Hello from data.txt'
+  # The test and the generation of test.xml.
+  expect_log '2 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log 'disk cache hit'
+  assert_contains 'undeclared output' bazel-testlogs/pkg/test/test.outputs/out.txt
+  assert_contains 'testcase name="pkg/test"' bazel-testlogs/pkg/test/test.xml
+
+  bazel test -c opt \
+    --disk_cache=$cache_dir \
+    --experimental_output_paths=strip \
+    --modify_execution_info=TestRunner=+supports-path-mapping \
+    --strategy=TestRunner=sandboxed \
+    --nozip_undeclared_test_outputs \
+    --test_output=all \
+    //pkg:test &> $TEST_log || fail "test failed unexpectedly"
+  expect_log 'Hello from data.txt'
+  expect_log '[0-9] disk cache hit'
+  assert_contains 'undeclared output' bazel-testlogs/pkg/test/test.outputs/out.txt
+  assert_contains 'testcase name="pkg/test"' bazel-testlogs/pkg/test/test.xml
+}
+
 
 run_suite "path mapping tests"

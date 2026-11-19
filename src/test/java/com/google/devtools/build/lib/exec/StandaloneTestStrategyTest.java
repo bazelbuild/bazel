@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -278,7 +279,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
 
-    String tmpDirName = TestStrategy.getTmpDirName(testRunnerAction);
+    String tmpDirName = TestStrategy.getTmpDirName(testRunnerAction, PathMapper.NOOP);
     // Make sure the length of tmpDirName doesn't change unexpectedy: it cannot be too long
     // because Windows and macOS have limitations on file path length.
     // Note: It's OK to update 32 to a smaller number if tmpDirName gets shorter.

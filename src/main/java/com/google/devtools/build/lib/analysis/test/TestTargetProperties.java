@@ -74,7 +74,8 @@ public class TestTargetProperties {
   TestTargetProperties(
       RuleContext ruleContext,
       ExecutionInfo executionRequirements,
-      ImmutableMap<String, String> testExecProperties) {
+      ImmutableMap<String, String> testExecProperties,
+      boolean collectCodeCoverage) {
     Rule rule = ruleContext.getRule();
 
     Preconditions.checkState(TargetUtils.isTestRule(rule));
@@ -119,6 +120,11 @@ public class TestTargetProperties {
       executionInfo.putAll(executionRequirements.getExecutionInfo());
     }
     ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, TestRunnerAction.MNEMONIC);
+    if (collectCodeCoverage) {
+      // Coverage manifests and helper files contain exec paths, which path mapping can't rewrite.
+      executionInfo.remove(ExecutionRequirements.SUPPORTS_PATH_MAPPING);
+      executionInfo.remove(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
+    }
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
 
     isRemotable =

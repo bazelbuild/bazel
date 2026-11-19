@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -802,7 +803,8 @@ public class RunCommand implements BlazeCommand {
             testAction,
             env.getClientEnv(),
             runfilesDir.relativeTo(execRoot),
-            maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
+            maybeRelativeTmpDir.getRelative(
+                TestStrategy.getTmpDirName(testAction, PathMapper.NOOP))));
 
     try {
       testAction.prepare(

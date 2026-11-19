@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -336,9 +337,9 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  public static String getTmpDirName(TestRunnerAction action) {
+  public static String getTmpDirName(TestRunnerAction action, PathMapper pathMapper) {
     Fingerprint digest = new Fingerprint();
-    digest.addPath(action.getExecutionSettings().getExecutable().getExecPath());
+    digest.addPath(pathMapper.map(action.getExecutionSettings().getExecutable().getExecPath()));
     digest.addInt(action.getShardNum());
     digest.addInt(action.getRunNumber());
     // Truncate the string to 32 character to avoid exceeding path length limit on Windows and macOS

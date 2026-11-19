@@ -452,6 +452,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:path_mappers",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:spawn_action",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",

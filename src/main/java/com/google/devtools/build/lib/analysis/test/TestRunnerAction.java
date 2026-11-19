@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -60,6 +61,8 @@ import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -543,6 +546,13 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(testConfiguration.getZipUndeclaredTestOutputs());
     fp.addStringMap(getExecutionInfo());
     fp.addNullableString(unrunnableReason);
+    PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        actionKeyContext,
+        PathMappers.getOutputPathsMode(configuration),
+        fp);
   }
 
   /**

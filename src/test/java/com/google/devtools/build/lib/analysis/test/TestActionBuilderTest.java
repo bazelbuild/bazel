@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -915,6 +916,52 @@ public class TestActionBuilderTest extends BuildViewTestCase {
       assertThat(collectCoverageScript).isNotNull();
     } else {
       assertThat(collectCoverageScript).isNull();
+    }
+  }
+
+  @Test
+  public void testPathMappingRequirementsDroppedWithCoverage(
+      @TestParameter boolean collectCodeCoverage) throws Exception {
+    useConfiguration(
+        "--modify_execution_info=TestRunner=+supports-heuristic-path-mapping",
+        collectCodeCoverage ? "--collect_code_coverage" : "--nocollect_code_coverage");
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [DefaultInfo(executable = script)]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(":some_test.bzl", "some_test")
+
+        some_test(
+            name = "some_test",
+            tags = ["supports-path-mapping"],
+        )
+        """);
+
+    TestRunnerAction testAction =
+        (TestRunnerAction) getGeneratingAction(getTestStatusArtifacts("//:some_test").get(0));
+    assertThat(testAction.isCoverageMode()).isEqualTo(collectCodeCoverage);
+    if (collectCodeCoverage) {
+      assertThat(testAction.getExecutionInfo())
+          .doesNotContainKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING);
+      assertThat(testAction.getExecutionInfo())
+          .doesNotContainKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
+    } else {
+      assertThat(testAction.getExecutionInfo())
+          .containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING);
+      assertThat(testAction.getExecutionInfo())
+          .containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
     }
   }
 
