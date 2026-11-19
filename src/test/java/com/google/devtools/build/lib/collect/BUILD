@@ -77,6 +77,16 @@ java_test(
 )
 
 java_test(
+    name = "ObjectToIntMapTest",
+    srcs = ["ObjectToIntMapTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect:object_to_int_map",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "SimpleTargetPatternMatcherTest",
     srcs = ["SimpleTargetPatternMatcherTest.java"],
     deps = [

@@ -81,6 +81,15 @@ java_library(
 )
 
 java_library(
+    name = "object_to_int_map",
+    srcs = ["ObjectToIntMap.java"],
+    deps = [
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
     name = "simple_target_pattern_matcher",
     srcs = ["SimpleTargetPatternMatcher.java"],
     deps = [
