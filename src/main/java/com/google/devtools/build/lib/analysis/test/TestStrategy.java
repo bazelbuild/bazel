@@ -187,13 +187,14 @@ public abstract class TestStrategy implements TestActionContext {
    * should be used in action execution.
    *
    * @param testAction The test action.
+   * @param pathMapper The path mapper of the test spawn.
    * @return the command line as string list.
    * @throws ExecException if {@link #expandedArgsFromAction} throws
    */
-  public static ImmutableList<String> getArgs(TestRunnerAction testAction)
+  public static ImmutableList<String> getArgs(TestRunnerAction testAction, PathMapper pathMapper)
       throws ExecException, InterruptedException {
     try {
-      return expandedArgsFromAction(testAction);
+      return expandedArgsFromAction(testAction, pathMapper);
     } catch (CommandLineExpansionException e) {
       throw new UserExecException(
           e,
@@ -209,16 +210,18 @@ public abstract class TestStrategy implements TestActionContext {
    * --run_under} settings.
    *
    * @param testAction The test action.
+   * @param pathMapper The path mapper of the test spawn.
    * @return the command line as string list.
    * @throws CommandLineExpansionException
    */
-  public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
+  public static ImmutableList<String> expandedArgsFromAction(
+      TestRunnerAction testAction, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     List<String> args = new ArrayList<>();
     OS executionOs = testAction.getExecutionSettings().getExecutionOs();
 
     Artifact testSetup = testAction.getTestSetupScript();
-    args.add(testSetup.getExecPath().getCallablePathStringForOs(executionOs));
+    args.add(pathMapper.map(testSetup.getExecPath()).getCallablePathStringForOs(executionOs));
 
     if (testAction.isCoverageMode()) {
       args.add(

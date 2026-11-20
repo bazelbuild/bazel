@@ -1138,7 +1138,7 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return TestStrategy.expandedArgsFromAction(this);
+    return TestStrategy.expandedArgsFromAction(this, PathMapper.NOOP);
   }
 
   @Override

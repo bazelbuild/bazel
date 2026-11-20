@@ -148,7 +148,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Spawn spawn =
         new SimpleSpawn(
             action,
-            getArgs(action),
+            getArgs(action, pathMapper),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
             SpawnInputs.of(action.getInputs()),
