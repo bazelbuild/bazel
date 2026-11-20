@@ -572,6 +572,38 @@ class BazelModuleTest(test_base.TestBase):
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => sss@1.3', stdout)
 
+  def testGitRepoModuleFilePatchedBySingleVersionOverride(self):
+    self.setUpProjectWithGitRegistryModule('sss', '1.3')
+    self.ScratchFile(
+        'sss.patch',
+        [
+            '--- a/MODULE.bazel',
+            '+++ b/MODULE.bazel',
+            '@@ -2,3 +2,4 @@',
+            '   name = "sss",',
+            '   version = "1.3",',
+            ' )',
+            '+# locally patched',
+        ],
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+            'single_version_override(',
+            '  module_name = "sss",',
+            '  patches = ["//:sss.patch"],',
+            '  patch_strip = 1,',
+            ')',
+        ],
+    )
+    self.RunBazel(['build', '@sss//:lib_sss'])
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    with open(
+        os.path.join(stdout[0].strip(), 'external', 'sss+', 'MODULE.bazel')
+    ) as f:
+      self.assertIn('# locally patched', f.read())
+
   def testNativePackageRelativeLabel(self):
     self.ScratchFile(
         'MODULE.bazel',
