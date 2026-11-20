@@ -35,9 +35,11 @@ commands to complete before it can continue.
 ### Notes about server mode {#server-mode}
 
 By default, Bazel uses a long-running [server process](/run/client-server) as an
-optimization. When running Bazel in a script, don't forget to call `shutdown`
-when you're finished with the server, or, specify `--max_idle_secs=5` so that
-idle servers shut themselves down promptly.
+optimization. When running multiple Bazel commands in a script, call `shutdown`
+when finished or specify `--max_idle_secs=5` so idle servers exit promptly
+after amortizing startup cost. For a single-shot invocation where no background
+server process may outlive the command (for example, inside a container), pass
+the [`--batch`](/docs/user-manual#batch) startup option instead.
 
 ### What exit code will I get? {#exit-codes}
 
