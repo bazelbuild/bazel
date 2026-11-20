@@ -70,7 +70,7 @@ public sealed interface ChunkingConfig permits FastCdcChunkingConfig, RepMaxCdcC
    * Returns the configuration for the given chunking function based on the parameters advertised by
    * the server, or {@code null} if the server does not support the function.
    *
-   * <p>Advertised parameters that are out of the expected range are replaced with defaults.
+   * <p>Advertised parameters are interpreted by the selected chunking implementation.
    */
   @Nullable
   static ChunkingConfig fromServerCapabilities(
