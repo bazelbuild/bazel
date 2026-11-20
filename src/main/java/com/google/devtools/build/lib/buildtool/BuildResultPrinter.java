@@ -301,6 +301,10 @@ class BuildResultPrinter {
       } else if (successfulTargets.contains(target)
           && !unsuccessfulValidationTargets.contains(targetKey)) {
         succeeded.add(target);
+        // A negative budget suppresses every successful result.
+        if (essentialBudget < 0) {
+          continue;
+        }
         ArrayList<Artifact> artifactsToPrint =
             getArtifactsToPrint(target, context, outputGroupsToHide);
         artifactsToPrintPerTarget.add(artifactsToPrint);
@@ -392,6 +396,9 @@ class BuildResultPrinter {
     for (AspectKey aspect : aspectsToPrint) {
       if (successfulAspects.contains(aspect)) {
         succeeded.add(aspect);
+        if (essentialBudget < 0) {
+          continue;
+        }
         ArrayList<Artifact> artifactsToPrint =
             getArtifactsToPrint(aspects.get(aspect), context, outputGroupsToHide);
         artifactsToPrintPerAspect.add(artifactsToPrint);
