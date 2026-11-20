@@ -56,6 +56,7 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
     RunfilesArtifactValue runfilesArtifactValue =
         new RunfilesArtifactValue(
             runfilesTree,
+            /* hasManifest= */ false,
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),

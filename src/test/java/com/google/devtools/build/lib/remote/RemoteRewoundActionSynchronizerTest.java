@@ -397,6 +397,7 @@ public final class RemoteRewoundActionSynchronizerTest {
     var runfilesValue =
         new RunfilesArtifactValue(
             runfilesTree,
+            /* hasManifest= */ false,
             ImmutableList.of(file),
             ImmutableList.of(FileArtifactValue.createForNormalFile(new byte[32], null, 0)),
             ImmutableList.of(),
@@ -796,6 +797,7 @@ public final class RemoteRewoundActionSynchronizerTest {
     var runfilesValue =
         new RunfilesArtifactValue(
             mock(RunfilesTree.class),
+            /* hasManifest= */ false,
             ImmutableList.of(file),
             ImmutableList.of(FileArtifactValue.createForNormalFile(new byte[32], null, 0)),
             ImmutableList.of(),

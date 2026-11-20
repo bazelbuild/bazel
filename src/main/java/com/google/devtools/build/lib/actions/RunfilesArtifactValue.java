@@ -45,6 +45,13 @@ public final class RunfilesArtifactValue implements RichArtifactData {
   private final FileArtifactValue metadata;
   private final RunfilesTree runfilesTree;
 
+  /**
+   * Whether {@link #files} contains the manifest of the runfiles tree, written from the same
+   * mapping as {@link RunfilesTree#getMapping}. Such a manifest lists every entry of the mapping
+   * together with the path of its artifact, so its digest stands in for the layout of the tree.
+   */
+  private final boolean hasManifest;
+
   // Parallel lists.
   private final ImmutableList<Artifact> files;
   private final ImmutableList<FileArtifactValue> fileValues;
@@ -59,6 +66,7 @@ public final class RunfilesArtifactValue implements RichArtifactData {
 
   public RunfilesArtifactValue(
       RunfilesTree runfilesTree,
+      boolean hasManifest,
       ImmutableList<Artifact> files,
       ImmutableList<FileArtifactValue> fileValues,
       ImmutableList<Artifact> trees,
@@ -66,6 +74,7 @@ public final class RunfilesArtifactValue implements RichArtifactData {
       ImmutableList<Artifact> filesets,
       ImmutableList<FilesetOutputTree> filesetValues) {
     this.runfilesTree = checkNotNull(runfilesTree);
+    this.hasManifest = hasManifest;
     this.files = checkNotNull(files);
     this.fileValues = checkNotNull(fileValues);
     this.trees = checkNotNull(trees);
@@ -87,16 +96,22 @@ public final class RunfilesArtifactValue implements RichArtifactData {
   private byte[] computeDigest() {
     Fingerprint result = new Fingerprint();
 
-    var mapping = runfilesTree.getMapping();
-    result.addInt(mapping.size());
-    mapping.forEach(
-        (path, artifact) -> {
-          result.addPath(path);
-          result.addBoolean(artifact != null);
-          if (artifact != null) {
-            result.addPath(artifact.getExecPath());
-          }
-        });
+    // The layout of the tree. Computing the mapping is expensive for a large tree (it flattens
+    // the runfiles and sorts them by path) and is not cached for a tree that only has a single
+    // user, so it's avoided if the manifest, whose digest is in fileValues, already describes it.
+    result.addBoolean(hasManifest);
+    if (!hasManifest) {
+      var mapping = runfilesTree.getMapping();
+      result.addInt(mapping.size());
+      mapping.forEach(
+          (path, artifact) -> {
+            result.addPath(path);
+            result.addBoolean(artifact != null);
+            if (artifact != null) {
+              result.addPath(artifact.getExecPath());
+            }
+          });
+    }
 
     result.addInt(files.size());
     for (int i = 0; i < files.size(); i++) {
@@ -121,7 +136,7 @@ public final class RunfilesArtifactValue implements RichArtifactData {
 
   public RunfilesArtifactValue withOverriddenRunfilesTree(RunfilesTree overrideTree) {
     return new RunfilesArtifactValue(
-        overrideTree, files, fileValues, trees, treeValues, filesets, filesetValues);
+        overrideTree, hasManifest, files, fileValues, trees, treeValues, filesets, filesetValues);
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
@@ -172,10 +187,10 @@ public final class RunfilesArtifactValue implements RichArtifactData {
   public boolean equals(Object o) {
     // This method, seemingly erroneously, does not check whether the runfilesTree of the two
     // objects are equivalent. This is because it's unnecessary because the layout of the runfiles
-    // tree is already factored into the equality decision in two ways:
-    // - Through "metadata", which takes the layout into account (see computeDigest())
-    // - Through the runfiles input manifest file, which is part of the runfiles tree, which
-    //   contains the exact mapping and whose digest is in "fileValues"
+    // tree is already factored into the equality decision:
+    // - If there is a runfiles manifest, it is part of the runfiles tree, contains the exact
+    //   mapping and its digest is in "fileValues" (and thus also in "metadata")
+    // - Otherwise, "metadata" takes the mapping into account directly (see computeDigest())
     if (this == o) {
       return true;
     }
@@ -201,6 +216,7 @@ public final class RunfilesArtifactValue implements RichArtifactData {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("metadata", metadata)
+        .add("hasManifest", hasManifest)
         .add("files", files)
         .add("fileValues", fileValues)
         .add("trees", trees)

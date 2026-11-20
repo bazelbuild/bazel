@@ -491,6 +491,7 @@ public final class RunfilesSupport {
         new RunfilesTreeAction(
             context.getActionOwner(),
             runfilesTree,
+            /* hasManifest= */ runfilesManifest != null,
             contents,
             ImmutableSet.of(runfilesTreeArtifact));
     context.registerAction(runfilesTreeAction);
