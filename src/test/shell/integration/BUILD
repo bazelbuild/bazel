@@ -550,6 +550,18 @@ sh_test(
 )
 
 sh_test(
+    name = "java_resources_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["java_resources_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 2,
+)
+
+sh_test(
     name = "java_sandboxing_test",
     size = "medium",
     srcs = ["java_sandboxing_test.sh"],
@@ -1081,6 +1093,18 @@ sh_test(
     ],
     shard_count = 2,
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "warnings_as_errors_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["warnings_as_errors_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 2,
 )
 
 sh_test(
