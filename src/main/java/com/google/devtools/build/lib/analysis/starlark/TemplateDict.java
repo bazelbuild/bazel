@@ -30,7 +30,6 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
@@ -66,21 +65,12 @@ public class TemplateDict implements TemplateDictApi {
       Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException {
-    if (mapEach instanceof StarlarkFunction sfn) {
-      if (!allowClosure && sfn.getModule().getGlobal(sfn.getName()) != sfn) {
-        throw Starlark.errorf(
-            "to avoid unintended retention of analysis data structures, "
-                + "the map_each function (declared at %s) must be declared "
-                + "by a top-level def statement",
-            sfn.getLocation());
-      }
-    }
     substitutions.add(
         new LazySubstitution(
             key,
             thread.getSemantics(),
             valuesSet,
-            mapEach,
+            Args.checkMapEach(mapEach, allowClosure),
             uniquify,
             joinWith,
             formatJoined != Starlark.NONE ? (String) formatJoined : null));
