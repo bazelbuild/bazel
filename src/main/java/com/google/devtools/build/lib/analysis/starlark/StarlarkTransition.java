@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -155,6 +155,10 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     // default values added to the fromOptions. They will be removed if set to ther default, but
     // should not be validated.
     ImmutableSet.Builder<Label> inputOnlySettingsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<Label> rawOutputSettingsBuilder = ImmutableSet.builder();
+    // Pairs of outputs of the same transition that refer to the same build setting.
+    ImmutableList.Builder<Entry<Label, Label>> outputsOfSameSettingBuilder =
+        ImmutableList.builder();
     root.visit(
         (StarlarkTransitionVisitor)
             transition -> {
@@ -164,6 +168,16 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
               ImmutableSet<Label> outputSettings =
                   getRelevantStarlarkSettingsFromTransition(
                       transition, flagsAliases, Settings.OUTPUTS);
+              Map<Label, Label> actualToOutputSetting = new HashMap<>();
+              for (Label setting : outputSettings) {
+                Label otherSetting =
+                    actualToOutputSetting.put(
+                        details.aliasToActual().getOrDefault(setting, setting), setting);
+                if (otherSetting != null) {
+                  outputsOfSameSettingBuilder.add(Map.entry(otherSetting, setting));
+                }
+              }
+              rawOutputSettingsBuilder.addAll(outputSettings);
               for (Label setting : inputAndOutputSettings) {
                 rawInputAndOutputSettingsBuilder.add(setting);
                 if (!outputSettings.contains(setting)) {
@@ -174,6 +188,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
     ImmutableSet<Label> rawInputAndOutputSettings = rawInputAndOutputSettingsBuilder.build();
     ImmutableSet<Label> inputOnlySettings = inputOnlySettingsBuilder.build();
+    ImmutableSet<Label> rawOutputSettings = rawOutputSettingsBuilder.build();
+    ImmutableList<Entry<Label, Label>> outputsOfSameSetting = outputsOfSameSettingBuilder.build();
 
     // Return early if the transition has neither inputs nor outputs (rare).
     if (rawInputAndOutputSettings.isEmpty()) {
@@ -186,10 +202,24 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     for (Entry<String, BuildOptions> entry : toOptions.entrySet()) {
       // Lazily initialized to optimize for the common case where we don't modify anything.
       BuildOptions.Builder cleanedOptions = null;
+      // A transition may set a build setting through both an alias and its actual label, e.g.
+      // while migrating from one to the other, but only to the same value.
+      for (Entry<Label, Label> outputs : outputsOfSameSetting) {
+        Label setting = details.aliasToActual().getOrDefault(outputs.getKey(), outputs.getKey());
+        Map<Label, Object> values = entry.getValue().getStarlarkOptions();
+        Object value = convert(details, values.get(outputs.getKey()), outputs.getKey(), setting);
+        Object otherValue =
+            convert(details, values.get(outputs.getValue()), outputs.getValue(), setting);
+        if (!value.equals(otherValue)) {
+          throw new TransitionException(
+              String.format(
+                  "transition sets '%s' and '%s', which refer to the same build setting, to"
+                      + " different values",
+                  outputs.getKey(), outputs.getValue()));
+        }
+      }
       // Clean up aliased values.
-      // TODO(blaze-configurability-team): This is actually a quagmire of undefined behavior
-      //   if a user asks for both an alias and the unaliased build setting.
-      BuildOptions options = unalias(entry.getValue(), details.aliasToActual());
+      BuildOptions options = unalias(entry.getValue(), details.aliasToActual(), rawOutputSettings);
       for (Label maybeAliasSetting : rawInputAndOutputSettings) {
         // Note that if the build setting may be referenced in the transition via an alias
         Label setting = details.aliasToActual().getOrDefault(maybeAliasSetting, maybeAliasSetting);
@@ -253,36 +283,46 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         inputAndOutputSettings,
         setting,
         options.getStarlarkOptions().keySet());
-    boolean allowsMultiple = details.buildSettingIsAllowsMultiple().contains(setting);
-    if (allowsMultiple) {
-      // if this setting allows multiple settings
-      if (!(newValue instanceof List<?> rawNewValueAsList)) {
+    Object convertedValue = convert(details, newValue, maybeAliasSetting, setting);
+    if (details.buildSettingIsAllowsMultiple().contains(setting)) {
+      return convertedValue.equals(ImmutableList.of(details.buildSettingToDefault().get(setting)));
+    } else {
+      return convertedValue.equals(details.buildSettingToDefault().get(setting));
+    }
+  }
+
+  /**
+   * Converts the value a transition returned for a build setting to the build setting's type.
+   *
+   * @param maybeAliasSetting the label used to refer to the build setting in the transition,
+   *     possibly an alias. This is only used for error messages.
+   * @throws TransitionException if the value has an invalid type.
+   */
+  private static Object convert(
+      StarlarkBuildSettingsDetailsValue details,
+      Object value,
+      Label maybeAliasSetting,
+      Label setting)
+      throws TransitionException {
+    Type<?> type = details.buildSettingToType().get(setting);
+    try {
+      if (!details.buildSettingIsAllowsMultiple().contains(setting)) {
+        return type.convert(value, maybeAliasSetting);
+      }
+      if (!(value instanceof List<?> rawValueAsList)) {
         throw new TransitionException(
             String.format(
                 "'%s' allows multiple values and must be set"
                     + " in transition using a starlark list instead of single value '%s'",
-                setting, newValue));
+                setting, value));
       }
       List<Object> convertedValue = new ArrayList<>();
-      Type<?> type = details.buildSettingToType().get(setting);
-      for (Object value : rawNewValueAsList) {
-        try {
-          convertedValue.add(type.convert(value, maybeAliasSetting));
-        } catch (ConversionException e) {
-          throw new TransitionException(e);
-        }
+      for (Object element : rawValueAsList) {
+        convertedValue.add(type.convert(element, maybeAliasSetting));
       }
-      return convertedValue.equals(ImmutableList.of(details.buildSettingToDefault().get(setting)));
-    } else {
-      // if this setting does not allow multiple settings
-      Object convertedValue;
-      try {
-        convertedValue =
-            details.buildSettingToType().get(setting).convert(newValue, maybeAliasSetting);
-      } catch (ConversionException e) {
-        throw new TransitionException(e);
-      }
-      return convertedValue.equals(details.buildSettingToDefault().get(setting));
+      return convertedValue;
+    } catch (ConversionException e) {
+      throw new TransitionException(e);
     }
   }
 
@@ -294,34 +334,26 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    *
    * <p><entry1>alias-label -> new-value <entry2>actual-label -> old-value
    *
-   * <p>we need to collapse this to the correct single entry: actual-label -> new-value. By the end
-   * of this method, the starlark options map in the returned {@link BuildOptions} contains only
-   * keys that are actual build settings, no aliases.
+   * <p>we need to collapse this to the correct single entry: actual-label -> new-value. If the
+   * alias is only an input of the transition, the actual build setting's entry is kept instead, if
+   * any. By the end of this method, the starlark options map in the returned {@link BuildOptions}
+   * contains only keys that are actual build settings, no aliases.
    */
   private static BuildOptions unalias(
-      BuildOptions options, ImmutableMap<Label, Label> aliasToActual) {
+      BuildOptions options, ImmutableMap<Label, Label> aliasToActual, Set<Label> outputSettings) {
     if (aliasToActual.isEmpty()) {
       return options;
     }
-    Collection<Label> aliases = aliasToActual.keySet();
-    Collection<Label> actuals = aliasToActual.values();
     BuildOptions.Builder toReturn = options.toBuilder();
     for (Entry<Label, Object> entry : options.getStarlarkOptions().entrySet()) {
-      Label setting = entry.getKey();
-      if (actuals.contains(setting)) {
-        // if entry is keyed by an actual (e.g. <entry2> in javadoc), don't care about its value
-        // it's stale
+      Label actual = aliasToActual.get(entry.getKey());
+      if (actual == null) {
         continue;
       }
-      if (aliases.contains(setting)) {
-        // if an entry is keyed by an alias (e.g. <entry1> in javadoc), newly key (overwrite) its
-        // actual to its alias' value and remove the alias-keyed entry
-        toReturn.addStarlarkOption(
-            aliasToActual.get(setting), options.getStarlarkOptions().get(setting));
-        toReturn.removeStarlarkOption(setting);
-      } else {
-        // else - just copy over
-        toReturn.addStarlarkOption(entry.getKey(), entry.getValue());
+      toReturn.removeStarlarkOption(entry.getKey());
+      if (outputSettings.contains(entry.getKey())
+          || !options.getStarlarkOptions().containsKey(actual)) {
+        toReturn.addStarlarkOption(actual, entry.getValue());
       }
     }
     return toReturn.build();
